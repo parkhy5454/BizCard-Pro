@@ -993,7 +993,7 @@ app.post('/api/scan-card', async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents: contents,
       config: {
         tools: [{ googleSearch: {} }]
@@ -1091,7 +1091,7 @@ app.post('/api/scan-receipt', async (req, res) => {
     });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents: contents
     });
 
@@ -1141,7 +1141,7 @@ app.post('/api/company/search-summary', async (req, res) => {
       `마크다운 백틱 이나 불필요한 서술 없이 최종 요약 문장 하나만 바로 반환해줘.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }]
@@ -1742,7 +1742,7 @@ ${text}
 `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents: prompt,
     });
 
