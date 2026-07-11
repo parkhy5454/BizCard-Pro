@@ -98,7 +98,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
         <div className="w-full md:w-1/2 bg-slate-950 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800">
@@ -185,7 +185,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
         </div>
 
         {/* 우측: 상세 인포메이션 & 히스토리 타임라인 탭 */}
-        <div className="w-full md:w-1/2 p-6 flex flex-col overflow-hidden">
+        <div className="w-full md:w-1/2 p-6 flex flex-col md:overflow-hidden">
           
           {/* 상단 헤더 & 닫기 */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-800">

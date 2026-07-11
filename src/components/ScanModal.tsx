@@ -123,10 +123,10 @@ export const ScanModal: React.FC<Props> = ({ groups, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh]">
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[92vh]">
         
         {/* 좌측: 앞면/뒷면 명함 스캔 업로딩 존 */}
-        <div className="w-full md:w-1/2 bg-slate-950 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 overflow-y-auto">
+        <div className="w-full md:w-1/2 bg-slate-950 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 md:overflow-y-auto">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -224,7 +224,7 @@ export const ScanModal: React.FC<Props> = ({ groups, onClose, onSave }) => {
         </div>
 
         {/* 우측: OCR 추출 결과 및 정보 확인 폼 */}
-        <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between overflow-y-auto">
+        <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between md:overflow-y-auto">
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
               <h3 className="font-bold text-lg text-white">스캔 정보 확인 및 입력</h3>
