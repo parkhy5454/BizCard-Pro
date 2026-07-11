@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser } from './src/types.js';
@@ -712,6 +713,16 @@ function assignCoords(address: string): { lat: number; lng: number } {
 
 // API Routes
 
+// 비밀번호 검증: bcrypt 해시면 정식 비교, 옛날 평문으로 저장된 계정이면 평문 비교 후
+// 성공 시 자동으로 안전한 해시로 업그레이드합니다 (기존 가입자 로그인이 끊기지 않도록).
+function verifyPassword(inputPassword: string, storedPassword?: string): boolean {
+  if (!storedPassword) return false;
+  if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$')) {
+    return bcrypt.compareSync(inputPassword, storedPassword);
+  }
+  return inputPassword === storedPassword; // 레거시 평문 비밀번호 호환
+}
+
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
   const { email, password, name, type, companyName, businessNumber } = req.body;
@@ -727,7 +738,7 @@ app.post('/api/auth/signup', async (req, res) => {
   const newUser: RegisteredUser = {
     id: `user-${Date.now()}`,
     email: email.toLowerCase(),
-    password, // 간단한 데모용 일반 텍스트 저장
+    password: bcrypt.hashSync(password, 10), // 안전하게 암호화하여 저장
     name,
     type,
     companyName,
@@ -754,15 +765,21 @@ app.post('/api/auth/signup', async (req, res) => {
   });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
   }
 
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-  if (!user) {
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user || !verifyPassword(password, user.password)) {
     return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
+  }
+
+  // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
+  if (!user.password?.startsWith('$2')) {
+    user.password = bcrypt.hashSync(password, 10);
+    await addUser(user);
   }
 
   res.json({
