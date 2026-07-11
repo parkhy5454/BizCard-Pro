@@ -1,0 +1,422 @@
+import React, { useState, useRef } from 'react';
+import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText } from 'lucide-react';
+
+interface Props {
+  expenseType: 'vehicle' | 'worklog';
+  onClose: () => void;
+  onScanComplete: (data: {
+    amount: number;
+    date: string;
+    merchantName: string;
+    memo: string;
+    category: string;
+    payMethod: string;
+    receiptImage: string;
+  }) => void;
+}
+
+export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScanComplete }) => {
+  const [receiptImg, setReceiptImg] = useState<string>('');
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [scanDone, setScanDone] = useState<boolean>(false);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 파싱 결과 상태
+  const [form, setForm] = useState({
+    amount: 0,
+    date: new Date().toISOString().split('T')[0],
+    merchantName: '',
+    memo: '',
+    category: '',
+    payMethod: ''
+  });
+
+  const handleFile = (file: File) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setReceiptImg(reader.result as string);
+      setScanDone(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleStartOCR = async () => {
+    if (!receiptImg) {
+      alert('스캔할 영수증 이미지를 업로드해주세요.');
+      return;
+    }
+
+    setIsScanning(true);
+    setScanDone(false);
+
+    try {
+      const res = await fetch('/api/scan-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: receiptImg })
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // 컨텍스트(차량비용 vs 업무일지비용)에 따른 카테고리 매핑
+      let mappedCategory = data.category || 'other';
+      if (expenseType === 'worklog') {
+        if (data.category === 'meal') {
+          mappedCategory = 'lunch'; // 기본값으로 점심식사 매핑
+        } else if (data.category === 'beverage') {
+          mappedCategory = 'drinks';
+        } else if (data.category === 'supplies') {
+          mappedCategory = 'purchase';
+        } else if (data.category === 'agency_drive') {
+          mappedCategory = 'proxy';
+        } else if (!['lunch', 'dinner', 'breakfast', 'drinks', 'fuel', 'parking', 'proxy', 'purchase', 'custom'].includes(data.category)) {
+          mappedCategory = 'custom';
+        }
+      } else {
+        // 차량 비용의 경우
+        if (data.category === 'breakfast' || data.category === 'lunch' || data.category === 'dinner') {
+          mappedCategory = 'meal';
+        } else if (data.category === 'drinks') {
+          mappedCategory = 'beverage';
+        } else if (data.category === 'purchase') {
+          mappedCategory = 'supplies';
+        } else if (data.category === 'proxy') {
+          mappedCategory = 'agency_drive';
+        } else if (!['fuel', 'toll', 'parking', 'maintenance', 'tax_insurance', 'other', 'agency_drive', 'beverage', 'meal', 'supplies', 'custom'].includes(data.category)) {
+          mappedCategory = 'other';
+        }
+      }
+
+      // 결제수단 매핑
+      let mappedPayMethod = data.payMethod || 'company_card';
+      if (expenseType === 'worklog') {
+        if (data.payMethod === 'company_card') mappedPayMethod = 'company_card';
+        else if (data.payMethod === 'personal_card') mappedPayMethod = 'personal_card';
+        else if (data.payMethod === 'cash') mappedPayMethod = 'cash_company'; // 기본값으로 법인현금 매핑
+      } else {
+        if (!['company_card', 'personal_card', 'cash'].includes(data.payMethod)) {
+          mappedPayMethod = 'company_card';
+        }
+      }
+
+      setForm({
+        amount: Number(data.amount) || 0,
+        date: data.date || new Date().toISOString().split('T')[0],
+        merchantName: data.merchantName || '',
+        memo: data.memo || '',
+        category: mappedCategory,
+        payMethod: mappedPayMethod
+      });
+
+      setScanDone(true);
+    } catch (err: any) {
+      alert(err.message || '스캔 중 오류 발생');
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.amount) {
+      alert('금액을 확인해주세요.');
+      return;
+    }
+
+    onScanComplete({
+      amount: form.amount,
+      date: form.date,
+      merchantName: form.merchantName,
+      memo: form.memo,
+      category: form.category,
+      payMethod: form.payMethod,
+      receiptImage: receiptImg
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh]">
+        
+        {/* 좌측: 영수증 업로드 및 스캔 버튼 */}
+        <div className="w-full md:w-1/2 bg-slate-950 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 overflow-y-auto">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ScanLine className="w-5 h-5 text-indigo-400 animate-pulse" />
+                <h3 className="font-bold text-base text-white">영수증 이미지 스캔</h3>
+              </div>
+              <span className="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded font-sans">Gemini Vision OCR</span>
+            </div>
+
+            {/* 드래그 앤 드롭 영역 */}
+            <div 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => !receiptImg && fileInputRef.current?.click()}
+              className={`aspect-[3/4] w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative overflow-hidden transition-all duration-200 group cursor-pointer ${
+                receiptImg 
+                  ? 'border-slate-800 bg-slate-900/40' 
+                  : isDragOver
+                  ? 'border-indigo-500 bg-indigo-500/10 scale-[0.98]'
+                  : 'border-slate-700 hover:border-indigo-500/60 bg-slate-900/60'
+              }`}
+            >
+              {receiptImg ? (
+                <>
+                  <img src={receiptImg} alt="영수증 미리보기" className="w-full h-full object-contain p-2" />
+                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition-all shadow-md"
+                    >
+                      변경
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReceiptImg('');
+                        setScanDone(false);
+                      }} 
+                      className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white transition-all shadow-md"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-6">
+                  <Upload className="w-10 h-10 text-slate-500 group-hover:text-indigo-400 transition-colors mb-3" />
+                  <span className="text-sm font-semibold text-slate-300">클릭하거나 영수증 이미지를 드래그하세요</span>
+                  <span className="text-xs text-slate-500 mt-1.5">카메라로 촬영한 영수증 파일 업로드 가능</span>
+                </div>
+              )}
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                accept="image/*" 
+                onChange={handleImageChange} 
+                className="hidden" 
+              />
+            </div>
+          </div>
+
+          <div className="pt-6">
+            <button
+              type="button"
+              disabled={isScanning || !receiptImg}
+              onClick={handleStartOCR}
+              className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition-all ${
+                isScanning
+                  ? 'bg-slate-800 text-slate-400 cursor-wait'
+                  : !receiptImg
+                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-500 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-600/20 active:scale-95'
+              }`}
+            >
+              {isScanning ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                  <span>AI가 영수증 정보를 판독하고 있습니다...</span>
+                </>
+              ) : scanDone ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  <span>스캔 완료! 다시 판독하기</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                  <span>AI 영수증 자동 인식 가동</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* 우측: 인식 결과 확인 및 편집 폼 */}
+        <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between overflow-y-auto">
+          <div>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+              <h3 className="font-bold text-lg text-white">지출 내역 자동 완성</h3>
+              <button type="button" onClick={onClose} className="text-slate-400 hover:text-white p-1 bg-slate-800 rounded-full">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm pr-1">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1 font-medium">지출 금액 (원) *</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">₩</span>
+                  <input 
+                    type="number" 
+                    required 
+                    placeholder="0" 
+                    value={form.amount || ''} 
+                    onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-indigo-500" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1 font-medium">지출 일자</label>
+                  <div className="relative">
+                    <input 
+                      type="date" 
+                      required
+                      value={form.date} 
+                      onChange={(e) => setForm({ ...form, date: e.target.value })} 
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1 font-medium">결제 수단</label>
+                  <select 
+                    value={form.payMethod} 
+                    onChange={(e) => setForm({ ...form, payMethod: e.target.value })} 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    {expenseType === 'worklog' ? (
+                      <>
+                        <option value="company_card">법인카드</option>
+                        <option value="personal_card">개인카드</option>
+                        <option value="cash_company">법인현금</option>
+                        <option value="cash_personal">개인현금</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="company_card">법인카드</option>
+                        <option value="personal_card">개인카드</option>
+                        <option value="cash">현금</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1 font-medium">상호명</label>
+                  <input 
+                    type="text" 
+                    placeholder="예: 스타벅스 강남점" 
+                    value={form.merchantName} 
+                    onChange={(e) => setForm({ ...form, merchantName: e.target.value })} 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1 font-medium">카테고리</label>
+                  <select 
+                    value={form.category} 
+                    onChange={(e) => setForm({ ...form, category: e.target.value })} 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    {expenseType === 'worklog' ? (
+                      <>
+                        <option value="lunch">점심식사</option>
+                        <option value="dinner">저녁식사</option>
+                        <option value="breakfast">아침식사</option>
+                        <option value="drinks">음료&커피</option>
+                        <option value="fuel">주유비</option>
+                        <option value="parking">주차비</option>
+                        <option value="proxy">대리운전비</option>
+                        <option value="purchase">물품구입</option>
+                        <option value="custom">직접입력</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="fuel">주유비</option>
+                        <option value="toll">통행료</option>
+                        <option value="parking">주차비</option>
+                        <option value="maintenance">차량 정비비</option>
+                        <option value="tax_insurance">세금/보험료</option>
+                        <option value="beverage">음료&커피</option>
+                        <option value="meal">식대</option>
+                        <option value="supplies">물품 구입비</option>
+                        <option value="agency_drive">대리운전비</option>
+                        <option value="other">기타</option>
+                        <option value="custom">직접입력</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1 font-medium">품목 / 메모</label>
+                <textarea 
+                  rows={3} 
+                  placeholder="예: 업무미팅 음료 및 식사 결제" 
+                  value={form.memo} 
+                  onChange={(e) => setForm({ ...form, memo: e.target.value })} 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500" 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-slate-800 flex gap-3">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm"
+            >
+              취소
+            </button>
+            <button 
+              type="submit" 
+              className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30"
+            >
+              내역 적용 및 등록
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  );
+};

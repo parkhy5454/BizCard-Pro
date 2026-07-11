@@ -1,0 +1,6 @@
+{
+  "name": "BizCard Pro AI",
+  "description": "AI 명함 스캔 OCR, 앞뒤 이미지 관리, 그룹 필터링, 주변 연락처 거리순 지도, VCF/Excel/CSV 입출력 및 통화 히스토리를 지원하는 스마트 명함 관리 솔루션",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
