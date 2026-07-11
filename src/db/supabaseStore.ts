@@ -85,6 +85,21 @@ export async function ensureScopeInitialized(scopeId: string, initialData: {
     if (metaError) throw metaError;
 
     if (!metaRow) {
+      // 이중 안전장치: '초기화 완료' 표시가 없어도, 이 스코프에 실제 데이터가
+      // 이미 하나라도 있으면 시딩을 건너뜁니다 (과거 버그로 표시가 누락된 경우
+      // 재시딩이 실제 사용자 데이터를 덮어쓰는 것을 방지).
+      const { count: existingCount, error: existingError } = await supabase
+        .from('scoped_items')
+        .select('doc_id', { count: 'exact', head: true })
+        .eq('scope_id', scopeId);
+      if (existingError) throw existingError;
+
+      if (existingCount && existingCount > 0) {
+        console.log(`Scope ${scopeId} already has data but no 'initialized' marker — backfilling marker without reseeding.`);
+        await supabase.from('scopes').insert({ scope_id: scopeId, initialized: true });
+        return;
+      }
+
       console.log(`Seeding initial data for scope: ${scopeId}`);
       const { error: insertMetaError } = await supabase
         .from('scopes')
@@ -107,7 +122,7 @@ export async function ensureScopeInitialized(scopeId: string, initialData: {
       if (bulk.length) {
         const { error: bulkError } = await supabase
           .from('scoped_items')
-          .upsert(bulk, { onConflict: 'scope_id,collection,doc_id' });
+          .upsert(bulk, { onConflict: 'scope_id,collection,doc_id', ignoreDuplicates: true });
         if (bulkError) throw bulkError;
       }
     }
