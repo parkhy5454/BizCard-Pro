@@ -326,7 +326,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                   <label className="flex flex-col items-center justify-center gap-1 border border-slate-700 rounded-lg h-24 cursor-pointer hover:border-blue-500 text-slate-500 transition-colors">
                     <Camera className="w-5 h-5" />
                     <span>사진 촬영 또는 업로드</span>
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScanImageUpload} />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleScanImageUpload} />
                   </label>
                 )}
                 <button
