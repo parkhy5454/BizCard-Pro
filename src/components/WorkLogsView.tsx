@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye } from 'lucide-react';
 import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense } from '../types.js';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
@@ -2177,11 +2178,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               <div className="space-y-1">
                                 <label className="text-[11px] font-semibold text-slate-400">금액 (원)</label>
                                 <input
-                                  type="number"
-                                  min={0}
+                                  type="text"
+                                  inputMode="numeric"
                                   placeholder="금액 입력"
-                                  value={expense.amount || ''}
-                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { amount: Number(e.target.value) || 0 })}
+                                  value={expense.amount ? formatCurrencyInput(expense.amount) : ''}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { amount: parseCurrencyInput(e.target.value) })}
                                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
                                 />
                               </div>
@@ -2589,27 +2590,30 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 <div className="space-y-1">
                   <label className="font-bold text-slate-400">일간 비용 (원)</label>
                   <input
-                    type="number"
-                    value={reportExpenseDaily}
-                    onChange={(e) => setReportExpenseDaily(Number(e.target.value) || 0)}
+                    type="text"
+                    inputMode="numeric"
+                    value={reportExpenseDaily ? formatCurrencyInput(reportExpenseDaily) : ''}
+                    onChange={(e) => setReportExpenseDaily(parseCurrencyInput(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="font-bold text-slate-400">주간 비용 (원)</label>
                   <input
-                    type="number"
-                    value={reportExpenseWeekly}
-                    onChange={(e) => setReportExpenseWeekly(Number(e.target.value) || 0)}
+                    type="text"
+                    inputMode="numeric"
+                    value={reportExpenseWeekly ? formatCurrencyInput(reportExpenseWeekly) : ''}
+                    onChange={(e) => setReportExpenseWeekly(parseCurrencyInput(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
                   />
                 </div>
                 <div className="space-y-1 col-span-2 sm:col-span-1">
                   <label className="font-bold text-slate-400">월간 비용 (원)</label>
                   <input
-                    type="number"
-                    value={reportExpenseMonthly}
-                    onChange={(e) => setReportExpenseMonthly(Number(e.target.value) || 0)}
+                    type="text"
+                    inputMode="numeric"
+                    value={reportExpenseMonthly ? formatCurrencyInput(reportExpenseMonthly) : ''}
+                    onChange={(e) => setReportExpenseMonthly(parseCurrencyInput(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
                   />
                 </div>

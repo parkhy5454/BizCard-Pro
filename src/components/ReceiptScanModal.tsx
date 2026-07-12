@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText } from 'lucide-react';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 interface Props {
   expenseType: 'vehicle' | 'worklog';
@@ -287,11 +288,12 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                 <div className="relative">
                   <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">₩</span>
                   <input 
-                    type="number" 
+                    type="text" 
+                    inputMode="numeric"
                     required 
                     placeholder="0" 
-                    value={form.amount || ''} 
-                    onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} 
+                    value={form.amount ? formatCurrencyInput(form.amount) : ''} 
+                    onChange={(e) => setForm({ ...form, amount: parseCurrencyInput(e.target.value) })} 
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-indigo-500" 
                   />
                 </div>

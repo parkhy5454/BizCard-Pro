@@ -6,6 +6,7 @@ import {
   Upload, X, Paperclip, RefreshCw
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 const MAINTENANCE_OPTIONS = [
   '엔진오일 교환',
@@ -1130,10 +1131,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <div className="space-y-1.5">
               <label className="text-xs text-slate-400">지출금액 (원) *</label>
               <input 
-                type="number" 
+                type="text" 
+                inputMode="numeric"
                 placeholder="지출 원화 금액"
-                value={newExpense.amount === 0 ? '' : newExpense.amount}
-                onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
+                value={newExpense.amount === 0 ? '' : formatCurrencyInput(newExpense.amount)}
+                onChange={e => setNewExpense({ ...newExpense, amount: parseCurrencyInput(e.target.value) })}
                 className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
               />
             </div>
@@ -1274,10 +1276,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <div className="space-y-1.5">
               <label className="text-xs text-slate-400">정비 비용 (원)</label>
               <input 
-                type="number" 
+                type="text" 
+                inputMode="numeric"
                 placeholder="정비 부품 및 공임 합산 금액"
-                value={newMaint.cost === 0 ? '' : newMaint.cost}
-                onChange={e => setNewMaint({ ...newMaint, cost: Number(e.target.value) })}
+                value={newMaint.cost === 0 ? '' : formatCurrencyInput(newMaint.cost)}
+                onChange={e => setNewMaint({ ...newMaint, cost: parseCurrencyInput(e.target.value) })}
                 className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
               />
             </div>
@@ -1887,10 +1890,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-400">월 임차료 (원화 금액)</label>
                       <input 
-                        type="number" 
-                        placeholder="예: 850000" 
-                        value={newVehicle.rentalFee === 0 ? '' : newVehicle.rentalFee}
-                        onChange={e => setNewVehicle({ ...newVehicle, rentalFee: Number(e.target.value) })}
+                        type="text" 
+                        inputMode="numeric"
+                        placeholder="예: 850,000" 
+                        value={newVehicle.rentalFee === 0 ? '' : formatCurrencyInput(newVehicle.rentalFee)}
+                        onChange={e => setNewVehicle({ ...newVehicle, rentalFee: parseCurrencyInput(e.target.value) })}
                         className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
@@ -2991,10 +2995,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-400">지출금액 (원) *</label>
                   <input 
-                    type="number" 
+                    type="text" 
+                    inputMode="numeric"
                     placeholder="지출 원화 금액 입력"
-                    value={newExpense.amount === 0 ? '' : newExpense.amount}
-                    onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
+                    value={newExpense.amount === 0 ? '' : formatCurrencyInput(newExpense.amount)}
+                    onChange={e => setNewExpense({ ...newExpense, amount: parseCurrencyInput(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
                     required
                   />
@@ -4441,10 +4446,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-400">월 임차 비용 (원화 금액)</label>
                     <input 
-                      type="number" 
-                      value={editingVehicle.rentalFee || ''}
-                      placeholder="예: 750000"
-                      onChange={e => setEditingVehicle({ ...editingVehicle, rentalFee: Number(e.target.value) })}
+                      type="text" 
+                      inputMode="numeric"
+                      value={editingVehicle.rentalFee ? formatCurrencyInput(editingVehicle.rentalFee) : ''}
+                      placeholder="예: 750,000"
+                      onChange={e => setEditingVehicle({ ...editingVehicle, rentalFee: parseCurrencyInput(e.target.value) })}
                       className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
@@ -5130,9 +5136,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-400">지출금액 (원) *</label>
                   <input 
-                    type="number" 
-                    value={editingExpense.amount}
-                    onChange={e => setEditingExpense({ ...editingExpense, amount: Number(e.target.value) })}
+                    type="text" 
+                    inputMode="numeric"
+                    value={editingExpense.amount === 0 ? '' : formatCurrencyInput(editingExpense.amount)}
+                    onChange={e => setEditingExpense({ ...editingExpense, amount: parseCurrencyInput(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
                     required
                   />
@@ -5290,9 +5297,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-400">정비 비용 (원) *</label>
                   <input 
-                    type="number" 
-                    value={editingMaint.cost}
-                    onChange={e => setEditingMaint({ ...editingMaint, cost: Number(e.target.value) })}
+                    type="text" 
+                    inputMode="numeric"
+                    value={editingMaint.cost === 0 ? '' : formatCurrencyInput(editingMaint.cost)}
+                    onChange={e => setEditingMaint({ ...editingMaint, cost: parseCurrencyInput(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
                     required
                   />
