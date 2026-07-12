@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord } from '../types.js';
-import { formatPhoneNumber } from '../utils/phoneFormat.js';
+import { formatPhoneNumber } from '../phoneFormat.js';
 
 interface Props {
   contact: BusinessCard | null;

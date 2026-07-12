@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X } from 'lucide-react';
-import { formatPhoneNumber } from '../utils/phoneFormat.js';
+import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
 
 interface Props {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2 } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
-import { formatPhoneNumber } from '../utils/phoneFormat.js';
+import { formatPhoneNumber } from '../phoneFormat.js';
 
 interface Props {
   groups: ContactGroup[];
