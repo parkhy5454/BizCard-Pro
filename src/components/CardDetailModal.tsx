@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord } from '../types.js';
+import { formatPhoneNumber } from '../utils/phoneFormat.js';
 
 interface Props {
   contact: BusinessCard | null;
@@ -612,22 +613,22 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
                 <div className="grid grid-cols-1 gap-2.5">
                   <div>
                     <label className="text-xs text-emerald-400 block mb-1">핸드폰 번호 (Mobile)</label>
-                    <input type="text" value={editForm.phoneMobile} onChange={e=>setEditForm({...editForm, phoneMobile:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500" />
+                    <input type="text" inputMode="numeric" value={editForm.phoneMobile} onChange={e=>setEditForm({...editForm, phoneMobile:formatPhoneNumber(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500" />
                   </div>
                   <div>
                     <label className="text-xs text-blue-400 block mb-1">사무실 유선전화 1 (Office 1)</label>
-                    <input type="text" value={editForm.phoneOffice} onChange={e=>setEditForm({...editForm, phoneOffice:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500" />
+                    <input type="text" inputMode="numeric" value={editForm.phoneOffice} onChange={e=>setEditForm({...editForm, phoneOffice:formatPhoneNumber(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
                     <label className="text-xs text-cyan-400 block mb-1 flex items-center gap-1.5">
                       <span>사무실 유선전화 2 / 직통번호 (Office 2)</span>
                       <span className="text-[9px] bg-cyan-500/10 text-cyan-400 px-1 py-0.2 rounded font-mono font-bold">스캔 분리</span>
                     </label>
-                    <input type="text" value={editForm.phoneOffice2 || ''} onChange={e=>setEditForm({...editForm, phoneOffice2:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-cyan-500" />
+                    <input type="text" inputMode="numeric" value={editForm.phoneOffice2 || ''} onChange={e=>setEditForm({...editForm, phoneOffice2:formatPhoneNumber(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-cyan-500" />
                   </div>
                   <div>
                     <label className="text-xs text-amber-400 block mb-1">팩스 번호 (Fax)</label>
-                    <input type="text" value={editForm.phoneFax} onChange={e=>setEditForm({...editForm, phoneFax:e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-amber-500" />
+                    <input type="text" inputMode="numeric" value={editForm.phoneFax} onChange={e=>setEditForm({...editForm, phoneFax:formatPhoneNumber(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-amber-500" />
                   </div>
                 </div>
               </div>

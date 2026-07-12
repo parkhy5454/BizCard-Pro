@@ -203,6 +203,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 </div>
                 <input
                   type="email"
+                  name="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
@@ -220,6 +222,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 </div>
                 <input
                   type="password"
+                  name="password"
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"

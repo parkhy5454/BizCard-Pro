@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2 } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
+import { formatPhoneNumber } from '../utils/phoneFormat.js';
 
 interface Props {
   groups: ContactGroup[];
@@ -268,14 +269,14 @@ export const ScanModal: React.FC<Props> = ({ groups, onClose, onSave }) => {
                 <div className="grid grid-cols-1 gap-2">
                   <div>
                     <label className="text-[11px] text-emerald-400 block mb-0.5 font-medium">핸드폰 번호 (Mobile)</label>
-                    <input type="text" placeholder="010-0000-0000" value={form.phoneMobile} onChange={(e) => setForm({ ...form, phoneMobile: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500" />
+                    <input type="text" inputMode="numeric" placeholder="010-0000-0000" value={form.phoneMobile} onChange={(e) => setForm({ ...form, phoneMobile: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500" />
                   </div>
 
                   <div>
                     <label className="text-[11px] text-blue-400 block mb-0.5 font-medium flex items-center justify-between">
                       <span>사무실 유선전화 1 (Office 1)</span>
                     </label>
-                    <input type="text" placeholder="02-000-0000" value={form.phoneOffice} onChange={(e) => setForm({ ...form, phoneOffice: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500" />
+                    <input type="text" inputMode="numeric" placeholder="02-000-0000" value={form.phoneOffice} onChange={(e) => setForm({ ...form, phoneOffice: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>
@@ -283,12 +284,12 @@ export const ScanModal: React.FC<Props> = ({ groups, onClose, onSave }) => {
                       <span>사무실 유선전화 2 / 직통번호 (Office 2)</span>
                       <span className="text-[9px] bg-cyan-500/10 text-cyan-400 px-1 py-0.2 rounded font-mono font-bold">스캔 분리</span>
                     </label>
-                    <input type="text" placeholder="지사번호, 직통번호 등이 표기된 경우 분리 인식됩니다." value={form.phoneOffice2 || ''} onChange={(e) => setForm({ ...form, phoneOffice2: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-500" />
+                    <input type="text" inputMode="numeric" placeholder="지사번호, 직통번호 등이 표기된 경우 분리 인식됩니다." value={form.phoneOffice2 || ''} onChange={(e) => setForm({ ...form, phoneOffice2: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-500" />
                   </div>
 
                   <div>
                     <label className="text-[11px] text-amber-400 block mb-0.5 font-medium">팩스 번호 (Fax)</label>
-                    <input type="text" placeholder="02-000-0001" value={form.phoneFax} onChange={(e) => setForm({ ...form, phoneFax: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500" />
+                    <input type="text" inputMode="numeric" placeholder="02-000-0001" value={form.phoneFax} onChange={(e) => setForm({ ...form, phoneFax: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500" />
                   </div>
                 </div>
               </div>

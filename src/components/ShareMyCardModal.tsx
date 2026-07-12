@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X } from 'lucide-react';
+import { formatPhoneNumber } from '../utils/phoneFormat.js';
 import { MyProfile } from '../types.js';
 
 interface Props {
@@ -372,7 +373,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1">핸드폰</label>
-                  <input type="text" value={profile.phoneMobile} onChange={(e) => setProfile({...profile, phoneMobile: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-medium focus:border-blue-500 outline-none" required />
+                  <input type="text" inputMode="numeric" value={profile.phoneMobile} onChange={(e) => setProfile({...profile, phoneMobile: formatPhoneNumber(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-medium focus:border-blue-500 outline-none" required />
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1">이메일</label>
