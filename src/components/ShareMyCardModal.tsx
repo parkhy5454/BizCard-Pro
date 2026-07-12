@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe } from 'lucide-react';
+import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X } from 'lucide-react';
 import { MyProfile } from '../types.js';
 
 interface Props {
@@ -11,6 +11,8 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'qr' | 'send' | 'edit'>('qr');
+  const [scanImg, setScanImg] = useState<string>('');
+  const [isScanning, setIsScanning] = useState<boolean>(false);
 
   useEffect(() => {
     fetch('/api/my-profile')
@@ -82,6 +84,49 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
     });
     setIsEditing(false);
     setActiveTab('qr');
+  };
+
+  // 내 명함 사진 업로드 (촬영 또는 갤러리 선택)
+  const handleScanImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setScanImg(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = ''; // 같은 파일 재선택도 가능하도록 초기화
+  };
+
+  // 업로드한 내 명함 사진을 AI로 인식해서 입력 폼에 자동 반영
+  const handleRunProfileScan = async () => {
+    if (!scanImg) return;
+    setIsScanning(true);
+    try {
+      const res = await fetch('/api/scan-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frontImage: scanImg, backImage: '' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '명함 인식에 실패했습니다.');
+
+      setProfile((prev) => prev ? {
+        ...prev,
+        name: data.name || prev.name,
+        company: data.company || prev.company,
+        department: data.department || prev.department,
+        title: data.title || prev.title,
+        phoneMobile: data.phoneMobile || prev.phoneMobile,
+        phoneOffice: data.phoneOffice || prev.phoneOffice,
+        phoneFax: data.phoneFax || prev.phoneFax,
+        email: data.email || prev.email,
+        address: data.address || prev.address,
+        memo: data.memo || prev.memo
+      } : prev);
+    } catch (err: any) {
+      alert(err.message || '명함 인식 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   return (
@@ -259,6 +304,49 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           {/* 탭 3: 내 정보 수정 */}
           {activeTab === 'edit' && (
             <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+
+              {/* 내 명함 사진으로 자동 채우기 */}
+              <div className="bg-slate-950 border border-dashed border-blue-500/40 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-blue-400 font-semibold">
+                  <Sparkles className="w-4 h-4" />
+                  <span>내 명함 사진으로 자동 채우기</span>
+                </div>
+                {scanImg ? (
+                  <div className="relative">
+                    <img src={scanImg} alt="스캔용 명함 미리보기" className="w-full h-32 object-cover rounded-lg" />
+                    <button
+                      type="button"
+                      onClick={() => setScanImg('')}
+                      className="absolute top-1.5 right-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-full p-1"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-1 border border-slate-700 rounded-lg h-24 cursor-pointer hover:border-blue-500 text-slate-500 transition-colors">
+                    <Camera className="w-5 h-5" />
+                    <span>사진 촬영 또는 업로드</span>
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScanImageUpload} />
+                  </label>
+                )}
+                <button
+                  type="button"
+                  disabled={!scanImg || isScanning}
+                  onClick={handleRunProfileScan}
+                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold flex items-center justify-center gap-2 transition-all"
+                >
+                  {isScanning ? (
+                    <span>인식 중...</span>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>AI로 정보 채우기</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-slate-500">사진을 올리고 인식하면, 아래 항목들이 자동으로 채워져요. 채워진 내용은 저장 전에 직접 수정할 수 있어요.</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1">성명</label>
