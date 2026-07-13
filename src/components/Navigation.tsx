@@ -168,10 +168,10 @@ export const Navigation: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 하단 탭 내비게이션 & 그룹 필터바 */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-2.5 gap-3 border-t border-slate-800/80 text-sm">
+        {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
+        <div className="flex flex-col items-start py-2.5 gap-3 border-t border-slate-800/80 text-sm">
           
-          <nav className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+          <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
             <button
               onClick={() => setActiveTab('cards')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -260,7 +260,7 @@ export const Navigation: React.FC<Props> = ({
 
           {/* 명함 목록 탭일 때 우측 그룹 칩 필터링 */}
           {activeTab === 'cards' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full">
               <span className="text-xs text-slate-400 mr-1 hidden lg:inline">그룹필터:</span>
               <button
                 onClick={() => setSelectedGroup('all')}
@@ -290,7 +290,7 @@ export const Navigation: React.FC<Props> = ({
 
           {/* 프로젝트 탭일 때 우측 상태 칩 필터링 */}
           {activeTab === 'projects' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full">
               <span className="text-xs text-slate-400 mr-1 hidden lg:inline font-medium">상태필터:</span>
               <button
                 onClick={() => setProjectFilterStatus('all')}
