@@ -462,6 +462,22 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // 팔로우업 노트 및 미팅 정보 추가
+  // 미팅자에 이름과 함께 연락처(핸드폰/사무실)를 붙여 표시하기 위한 포맷 함수
+  const formatAttendeeEntry = (c: BusinessCard): string => {
+    const parts: string[] = [];
+    if (c.phoneMobile) parts.push(`H.${c.phoneMobile}`);
+    if (c.phoneOffice) parts.push(`O.${c.phoneOffice}`);
+    return parts.length ? `${c.name}(${parts.join(', ')})` : c.name;
+  };
+
+  // 미팅자 문자열에서 특정 명함(이름+연락처 표시 포함)을 제거
+  const removeAttendeeEntry = (current: string, c: BusinessCard): string => {
+    return current
+      .replace(new RegExp(`${c.name}(\\([^)]*\\))?,?\\s*`, 'g'), '')
+      .replace(/,\s*$/, '')
+      .trim();
+  };
+
   const handleAddFollowup = async (projectId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!meetingContent.trim() && !voiceAttached) return;
@@ -891,9 +907,9 @@ export const ProjectsView: React.FC<Props> = ({
                                   key={c.id}
                                   onClick={() => {
                                     if (isAdded) {
-                                      setMeetingAttendee(prev => prev.replace(new RegExp(`\\b${c.name}\\b,? ?`, 'g'), '').replace(/, $/, '').trim());
+                                      setMeetingAttendee(prev => removeAttendeeEntry(prev, c));
                                     } else {
-                                      setMeetingAttendee(prev => prev ? `${prev}, ${c.name}` : c.name);
+                                      setMeetingAttendee(prev => prev ? `${prev}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c));
                                     }
                                   }}
                                   className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${isAdded ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-bold' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
@@ -913,14 +929,16 @@ export const ProjectsView: React.FC<Props> = ({
                             onChange={(e) => {
                               const c = contacts.find((x) => x.id === e.target.value);
                               if (c && !meetingAttendee.includes(c.name)) {
-                                setMeetingAttendee((prev) => (prev ? `${prev}, ${c.name}` : c.name));
+                                setMeetingAttendee((prev) => (prev ? `${prev}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c)));
                               }
                             }}
                             className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
                           >
                             <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
                             {contacts.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name} · {c.company}{c.department ? ` (${c.department})` : ''}</option>
+                              <option key={c.id} value={c.id}>
+                                {c.name} · {c.company}{c.department ? ` (${c.department})` : ''}{c.phoneMobile ? ` — H.${c.phoneMobile}` : ''}{c.phoneOffice ? ` O.${c.phoneOffice}` : ''}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -1548,8 +1566,8 @@ export const ProjectsView: React.FC<Props> = ({
                             onClick={() => {
                               const current = fu.attendee || '';
                               const next = isAdded
-                                ? current.replace(new RegExp(`\\b${c.name}\\b,? ?`, 'g'), '').replace(/, $/, '').trim()
-                                : (current ? `${current}, ${c.name}` : c.name);
+                                ? removeAttendeeEntry(current, c)
+                                : (current ? `${current}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c));
                               setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: next } });
                             }}
                             className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${isAdded ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-bold' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
@@ -1568,14 +1586,17 @@ export const ProjectsView: React.FC<Props> = ({
                       onChange={(e) => {
                         const c = contacts.find((x) => x.id === e.target.value);
                         if (c && !(fu.attendee || '').includes(c.name)) {
-                          setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: fu.attendee ? `${fu.attendee}, ${c.name}` : c.name } });
+                          const entry = formatAttendeeEntry(c);
+                          setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: fu.attendee ? `${fu.attendee}, ${entry}` : entry } });
                         }
                       }}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
                     >
                       <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
                       {contacts.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name} · {c.company}{c.department ? ` (${c.department})` : ''}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.name} · {c.company}{c.department ? ` (${c.department})` : ''}{c.phoneMobile ? ` — H.${c.phoneMobile}` : ''}{c.phoneOffice ? ` O.${c.phoneOffice}` : ''}
+                        </option>
                       ))}
                     </select>
                   </div>
