@@ -1242,6 +1242,7 @@ app.post('/api/projects/:id/followups', async (req, res) => {
     status: req.body.status || 'planned',
     meetingDegree: req.body.meetingDegree,
     attendee: req.body.attendee,
+    internalStaffName: req.body.internalStaffName,
     hasVoice: req.body.hasVoice,
     voiceUrl: req.body.voiceUrl,
     voiceDuration: req.body.voiceDuration,
