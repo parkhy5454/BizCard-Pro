@@ -465,29 +465,62 @@ export const ProjectsView: React.FC<Props> = ({
   // 미팅자 문자열은 이름만 콤마로 저장합니다 (전화번호는 표시할 때 명함에서 실시간으로 찾아 붙입니다)
   const formatAttendeeEntry = (c: BusinessCard): string => c.name;
 
-  // 미팅자 문자열에서 특정 명함 이름을 제거
-  const removeAttendeeEntry = (current: string, c: BusinessCard): string => {
-    return current
-      .replace(new RegExp(`\\b${c.name}\\b,?\\s*`, 'g'), '')
-      .replace(/,\s*$/, '')
-      .trim();
+  // 미팅자 문자열을 콤마로 나누되, "이름(전화번호)" 처럼 괄호 안의 콤마는 나누지 않습니다.
+  const splitAttendeeEntries = (attendee: string): string[] => {
+    const result: string[] = [];
+    let depth = 0;
+    let current = '';
+    for (const ch of attendee) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) {
+        if (current.trim()) result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    if (current.trim()) result.push(current.trim());
+    return result;
   };
 
-  // 읽기 전용 화면에 미팅자를 표시할 때, 콤마로 구분된 이름 하나하나를 명함에서 찾아
-  // 전화번호(핸드폰/사무실)를 같이 붙여서 보여줍니다. 명함에 없는 이름은 그대로 표시됩니다.
+  // "이름(전화번호)" 형식이면 이름과 직접입력 전화번호를 분리해서 반환
+  const parseAttendeeEntry = (entry: string): { name: string; manualPhone: string | null } => {
+    const match = entry.match(/^(.+?)\s*\(([^)]*)\)\s*$/);
+    if (match) return { name: match[1].trim(), manualPhone: match[2].trim() };
+    return { name: entry.trim(), manualPhone: null };
+  };
+
+  // 미팅자 문자열에서 특정 명함 이름의 항목을 제거 (괄호 안 전화번호 포함해서 통째로 제거)
+  const removeAttendeeEntry = (current: string, c: BusinessCard): string => {
+    const entries = splitAttendeeEntries(current);
+    return entries
+      .filter((entry) => parseAttendeeEntry(entry).name !== c.name)
+      .join(', ');
+  };
+
+  // 읽기 전용 화면에 미팅자를 표시할 때, 각 참여자마다:
+  // 1) "이름(전화번호)" 형식으로 직접 입력한 번호가 있으면 그대로 표시
+  // 2) 아니면 명함(주소록)에서 이름이 일치하는 연락처를 찾아 자동 표시
+  // 3) 둘 다 없으면 이름만 표시
   const renderAttendeeWithPhone = (attendee?: string) => {
     if (!attendee) return null;
-    const names = attendee.split(',').map((n) => n.trim()).filter(Boolean);
-    return names.map((name, idx) => {
-      const c = contacts.find((x) => x.name === name);
-      const phoneParts: string[] = [];
-      if (c?.phoneMobile) phoneParts.push(`H.${c.phoneMobile}`);
-      if (c?.phoneOffice) phoneParts.push(`O.${c.phoneOffice}`);
+    const entries = splitAttendeeEntries(attendee);
+    return entries.map((entry, idx) => {
+      const { name, manualPhone } = parseAttendeeEntry(entry);
+      let phoneDisplay = manualPhone || '';
+      if (!phoneDisplay) {
+        const c = contacts.find((x) => x.name === name);
+        const phoneParts: string[] = [];
+        if (c?.phoneMobile) phoneParts.push(`H.${c.phoneMobile}`);
+        if (c?.phoneOffice) phoneParts.push(`O.${c.phoneOffice}`);
+        phoneDisplay = phoneParts.join(', ');
+      }
       return (
         <span key={idx}>
           {idx > 0 && ', '}
           {name}
-          {phoneParts.length > 0 && <span className="text-slate-500"> ({phoneParts.join(', ')})</span>}
+          {phoneDisplay && <span className="text-slate-500"> ({phoneDisplay})</span>}
         </span>
       );
     });
@@ -904,7 +937,7 @@ export const ProjectsView: React.FC<Props> = ({
                               type="text"
                               value={meetingAttendee}
                               onChange={(e) => setMeetingAttendee(e.target.value)}
-                              placeholder="예: 홍길동 책임, 김대리"
+                              placeholder="예: 홍길동, 김대리(010-9999-8888) — 명함에 없는 분은 이름(전화번호)로 입력"
                               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium"
                             />
                           </div>
@@ -1565,7 +1598,7 @@ export const ProjectsView: React.FC<Props> = ({
                     type="text"
                     value={fu.attendee || ''}
                     onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: e.target.value } })}
-                    placeholder="예: 홍길동 책임, 김대리 (명함에 없는 분은 직접 입력하시면 됩니다)"
+                    placeholder="예: 홍길동, 김대리(010-9999-8888) — 명함에 없는 분은 이름(전화번호)로 입력"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium"
                   />
 
