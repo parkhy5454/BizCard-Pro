@@ -1244,7 +1244,8 @@ app.post('/api/projects/:id/followups', async (req, res) => {
     attendee: req.body.attendee,
     hasVoice: req.body.hasVoice,
     voiceUrl: req.body.voiceUrl,
-    voiceDuration: req.body.voiceDuration
+    voiceDuration: req.body.voiceDuration,
+    attachments: req.body.attachments || []
   };
   dbData.projects[idx].followUps.unshift(f);
   await setScopedDoc((req as any).scopeId, 'projects', dbData.projects[idx]);
