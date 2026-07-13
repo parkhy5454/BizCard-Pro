@@ -3,6 +3,7 @@ import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clo
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { formatPhoneNumber } from '../phoneFormat.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -63,6 +64,9 @@ export const ProjectsView: React.FC<Props> = ({
   // 미팅 기록 전용 상태 (최초 미팅, 2번째, 3번째 등 차수, 미팅자, 미팅일자, 미팅 내용 및 음성메모)
   const [meetingDegree, setMeetingDegree] = useState<number>(1);
   const [meetingAttendee, setMeetingAttendee] = useState<string>('');
+  const [attendeeNameInput, setAttendeeNameInput] = useState<string>('');
+  const [attendeeOfficeInput, setAttendeeOfficeInput] = useState<string>('');
+  const [attendeeMobileInput, setAttendeeMobileInput] = useState<string>('');
   const [meetingDate, setMeetingDate] = useState<string>('');
   const [meetingContent, setMeetingContent] = useState<string>('');
   
@@ -267,6 +271,9 @@ export const ProjectsView: React.FC<Props> = ({
 
   // 미팅 기록(팔로우업) 수정용 상태
   const [editingFollowup, setEditingFollowup] = useState<{ projectId: string; followup: ProjectFollowUp } | null>(null);
+  const [editAttendeeNameInput, setEditAttendeeNameInput] = useState<string>('');
+  const [editAttendeeOfficeInput, setEditAttendeeOfficeInput] = useState<string>('');
+  const [editAttendeeMobileInput, setEditAttendeeMobileInput] = useState<string>('');
 
   // 거래처 직접 입력 상태
   const [useDirectContact, setUseDirectContact] = useState<boolean>(false);
@@ -464,6 +471,14 @@ export const ProjectsView: React.FC<Props> = ({
   // 팔로우업 노트 및 미팅 정보 추가
   // 미팅자 문자열은 이름만 콤마로 저장합니다 (전화번호는 표시할 때 명함에서 실시간으로 찾아 붙입니다)
   const formatAttendeeEntry = (c: BusinessCard): string => c.name;
+
+  // 이름 + 사무실/핸드폰 번호를 직접 입력해서 미팅자 항목을 만듭니다 (예: "김대리(H.010-..., O.02-...)")
+  const buildAttendeeEntry = (name: string, office: string, mobile: string): string => {
+    const parts: string[] = [];
+    if (mobile) parts.push(`H.${mobile}`);
+    if (office) parts.push(`O.${office}`);
+    return parts.length ? `${name.trim()}(${parts.join(', ')})` : name.trim();
+  };
 
   // 미팅자 문자열을 콤마로 나누되, "이름(전화번호)" 처럼 괄호 안의 콤마는 나누지 않습니다.
   const splitAttendeeEntries = (attendee: string): string[] => {
@@ -943,6 +958,50 @@ export const ProjectsView: React.FC<Props> = ({
                           </div>
                         </div>
 
+                        {/* 미팅자 이름·연락처 직접 입력해서 추가 (명함 연동 없이도 바로 입력 가능) */}
+                        <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3 space-y-2">
+                          <span className="text-[10px] text-slate-400 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
+                          <div className="flex flex-col md:flex-row gap-2">
+                            <input
+                              type="text"
+                              value={attendeeNameInput}
+                              onChange={(e) => setAttendeeNameInput(e.target.value)}
+                              placeholder="이름 (필수)"
+                              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={attendeeOfficeInput}
+                              onChange={(e) => setAttendeeOfficeInput(formatPhoneNumber(e.target.value))}
+                              placeholder="사무실 전화"
+                              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={attendeeMobileInput}
+                              onChange={(e) => setAttendeeMobileInput(formatPhoneNumber(e.target.value))}
+                              placeholder="핸드폰"
+                              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!attendeeNameInput.trim()) return;
+                                const entry = buildAttendeeEntry(attendeeNameInput, attendeeOfficeInput, attendeeMobileInput);
+                                setMeetingAttendee((prev) => (prev ? `${prev}, ${entry}` : entry));
+                                setAttendeeNameInput('');
+                                setAttendeeOfficeInput('');
+                                setAttendeeMobileInput('');
+                              }}
+                              className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0 transition-colors"
+                            >
+                              + 추가
+                            </button>
+                          </div>
+                        </div>
+
                         {/* 연관 명함 클릭 추가 */}
                         {relatedContacts.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -1135,6 +1194,9 @@ export const ProjectsView: React.FC<Props> = ({
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setEditingFollowup({ projectId: proj.id, followup: { ...fu } });
+                                        setEditAttendeeNameInput('');
+                                        setEditAttendeeOfficeInput('');
+                                        setEditAttendeeMobileInput('');
                                       }}
                                       className="p-1.5 rounded bg-slate-950 hover:bg-indigo-500/20 text-slate-500 hover:text-indigo-400 border border-slate-800 hover:border-indigo-900/30 transition-all shadow"
                                       title="기록 수정"
@@ -1601,6 +1663,51 @@ export const ProjectsView: React.FC<Props> = ({
                     placeholder="예: 홍길동, 김대리(010-9999-8888) — 명함에 없는 분은 이름(전화번호)로 입력"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium"
                   />
+
+                  {/* 미팅자 이름·연락처 직접 입력해서 추가 */}
+                  <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3 space-y-2 mt-2">
+                    <span className="text-[10px] text-slate-400 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={editAttendeeNameInput}
+                        onChange={(e) => setEditAttendeeNameInput(e.target.value)}
+                        placeholder="이름 (필수)"
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editAttendeeOfficeInput}
+                        onChange={(e) => setEditAttendeeOfficeInput(formatPhoneNumber(e.target.value))}
+                        placeholder="사무실 전화"
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editAttendeeMobileInput}
+                        onChange={(e) => setEditAttendeeMobileInput(formatPhoneNumber(e.target.value))}
+                        placeholder="핸드폰"
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!editAttendeeNameInput.trim()) return;
+                          const entry = buildAttendeeEntry(editAttendeeNameInput, editAttendeeOfficeInput, editAttendeeMobileInput);
+                          const current = fu.attendee || '';
+                          setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: current ? `${current}, ${entry}` : entry } });
+                          setEditAttendeeNameInput('');
+                          setEditAttendeeOfficeInput('');
+                          setEditAttendeeMobileInput('');
+                        }}
+                        className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0 transition-colors"
+                      >
+                        + 추가
+                      </button>
+                    </div>
+                  </div>
 
                   {relatedContactsForEdit.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-2">
