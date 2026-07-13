@@ -14,10 +14,17 @@ interface Props {
 }
 
 export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects, currentUser }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly'>('daily');
+  const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
   const [weeklyLogs, setWeeklyLogs] = useState<WeeklyWorkLog[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  // 월간 달력 (같은 회사 직원 전체 업무 한눈에 보기) 상태
+  const [monthCursor, setMonthCursor] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d;
+  });
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState<boolean>(true);
   
   // 검색 및 필터 상태
@@ -57,6 +64,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const [formFriAchievements, setFormFriAchievements] = useState<string>('');
   const [formSatAchievements, setFormSatAchievements] = useState<string>('');
   const [formSunAchievements, setFormSunAchievements] = useState<string>('');
+
+  // 요일별 업무 수행 시간
+  const [formMonTime, setFormMonTime] = useState<string>('');
+  const [formTueTime, setFormTueTime] = useState<string>('');
+  const [formWedTime, setFormWedTime] = useState<string>('');
+  const [formThuTime, setFormThuTime] = useState<string>('');
+  const [formFriTime, setFormFriTime] = useState<string>('');
+  const [formSatTime, setFormSatTime] = useState<string>('');
+  const [formSunTime, setFormSunTime] = useState<string>('');
 
   // 주간 일지 모달 내 요일 탭 상태
   const [activeDayTab, setActiveDayTab] = useState<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'>('mon');
@@ -230,6 +246,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setFormSatAchievements('');
     setFormSunAchievements('');
 
+    // 일별 업무 수행 시간 초기화
+    setFormMonTime('');
+    setFormTueTime('');
+    setFormWedTime('');
+    setFormThuTime('');
+    setFormFriTime('');
+    setFormSatTime('');
+    setFormSunTime('');
+
     setFormPlansNextWeek('');
     setFormFeedbacks('');
     setFormProjectIds([]);
@@ -287,6 +312,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       setFormFriAchievements(wLog.achievementsByDay?.fri || '');
       setFormSatAchievements(wLog.achievementsByDay?.sat || '');
       setFormSunAchievements(wLog.achievementsByDay?.sun || '');
+
+      // 일별 업무 수행 시간 로드
+      setFormMonTime(wLog.achievementTimesByDay?.mon || '');
+      setFormTueTime(wLog.achievementTimesByDay?.tue || '');
+      setFormWedTime(wLog.achievementTimesByDay?.wed || '');
+      setFormThuTime(wLog.achievementTimesByDay?.thu || '');
+      setFormFriTime(wLog.achievementTimesByDay?.fri || '');
+      setFormSatTime(wLog.achievementTimesByDay?.sat || '');
+      setFormSunTime(wLog.achievementTimesByDay?.sun || '');
 
       setFormPlansNextWeek(wLog.plansNextWeek);
       setFormFeedbacks(wLog.feedbacks || '');
@@ -375,6 +409,55 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       custom: custom || '직접 입력'
     };
     return categoryLabels[cat] || cat;
+  };
+
+  // 특정 날짜(YYYY-MM-DD)에 해당하는 모든 업무 내용(일일 일지 + 주간 일지의 요일별 항목)을
+  // 같은 회사 직원 전체 기준으로 모아서 반환 (월간 달력에서 사용)
+  type CalendarEntry = { id: string; author: string; time?: string; title: string; content: string; source: 'daily' | 'weekly' };
+  const getEntriesForDate = (dateStr: string): CalendarEntry[] => {
+    const entries: CalendarEntry[] = [];
+
+    dailyLogs
+      .filter((l) => l.date === dateStr)
+      .forEach((l) => {
+        entries.push({
+          id: `d-${l.id}`,
+          author: l.author || '작성자 미지정',
+          title: l.title,
+          content: l.tasksToday,
+          source: 'daily'
+        });
+      });
+
+    const dayKeys: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    weeklyLogs.forEach((wl) => {
+      if (!wl.startDate || !wl.achievementsByDay) return;
+      const start = new Date(wl.startDate);
+      dayKeys.forEach((key, offset) => {
+        const content = wl.achievementsByDay?.[key];
+        if (!content || !content.trim()) return;
+        const d = new Date(start);
+        d.setDate(d.getDate() + offset);
+        const dStr = d.toISOString().split('T')[0];
+        if (dStr !== dateStr) return;
+        entries.push({
+          id: `w-${wl.id}-${key}`,
+          author: wl.author || '작성자 미지정',
+          time: wl.achievementTimesByDay?.[key],
+          title: wl.title,
+          content,
+          source: 'weekly'
+        });
+      });
+    });
+
+    // 시간이 있는 항목을 먼저, 그 안에서는 시간순으로 정렬
+    return entries.sort((a, b) => {
+      if (a.time && b.time) return a.time.localeCompare(b.time);
+      if (a.time) return -1;
+      if (b.time) return 1;
+      return 0;
+    });
   };
 
   const handleOpenReportModal = (log: WeeklyWorkLog) => {
@@ -871,6 +954,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             sat: formSatAchievements,
             sun: formSunAchievements
           },
+          achievementTimesByDay: {
+            mon: formMonTime,
+            tue: formTueTime,
+            wed: formWedTime,
+            thu: formThuTime,
+            fri: formFriTime,
+            sat: formSatTime,
+            sun: formSunTime
+          },
           plansNextWeek: formPlansNextWeek,
           feedbacks: formFeedbacks,
           projectIds: formProjectIds,
@@ -1225,6 +1317,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               {weeklyLogs.length}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveSubTab('monthly')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              activeSubTab === 'monthly'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>월간</span>
+          </button>
         </div>
 
         <div className="flex gap-2">
@@ -1289,6 +1393,116 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </div>
       </div>
 
+      {activeSubTab === 'monthly' ? (
+        <div className="space-y-4">
+          {/* 월 이동 헤더 */}
+          <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4">
+            <button
+              type="button"
+              onClick={() => setMonthCursor((prev) => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d; })}
+              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-sm font-bold"
+            >
+              ‹ 이전달
+            </button>
+            <div className="flex items-center gap-2 text-slate-100 font-bold text-base">
+              <Calendar className="w-4 h-4 text-emerald-400" />
+              {monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월
+              <span className="text-[10px] text-slate-500 font-normal ml-2">같은 회사 직원 전체 업무 (일일+주간)</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMonthCursor((prev) => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d; })}
+              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-sm font-bold"
+            >
+              다음달 ›
+            </button>
+          </div>
+
+          {/* 달력 그리드 */}
+          {(() => {
+            const year = monthCursor.getFullYear();
+            const month = monthCursor.getMonth();
+            const firstDay = new Date(year, month, 1);
+            const startOffset = firstDay.getDay(); // 0=일
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const cells: (string | null)[] = [];
+            for (let i = 0; i < startOffset; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) {
+              cells.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+            }
+            const todayStr = new Date().toISOString().split('T')[0];
+            const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+            return (
+              <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-3">
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {weekdayLabels.map((w, i) => (
+                    <div key={w} className={`text-center text-[11px] font-bold py-1 ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{w}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {cells.map((dateStr, idx) => {
+                    if (!dateStr) return <div key={`empty-${idx}`} />;
+                    const entries = getEntriesForDate(dateStr);
+                    const dayNum = Number(dateStr.split('-')[2]);
+                    const isToday = dateStr === todayStr;
+                    const isSelected = dateStr === selectedCalendarDate;
+                    return (
+                      <button
+                        type="button"
+                        key={dateStr}
+                        onClick={() => setSelectedCalendarDate(dateStr)}
+                        className={`text-left p-1.5 rounded-lg border min-h-[64px] transition-all ${
+                          isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-950/60 border-slate-800/60 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className={`text-[11px] font-bold mb-0.5 ${isToday ? 'text-indigo-300' : 'text-slate-400'}`}>{dayNum}</div>
+                        <div className="space-y-0.5">
+                          {entries.slice(0, 2).map((en) => (
+                            <div key={en.id} className="text-[9px] leading-tight truncate text-emerald-300 bg-emerald-950/30 rounded px-1 py-0.5">
+                              {en.time ? `${en.time} ` : ''}{en.author}
+                            </div>
+                          ))}
+                          {entries.length > 2 && (
+                            <div className="text-[9px] text-slate-500">+{entries.length - 2}건 더</div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 선택한 날짜 상세 목록 */}
+          <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4 space-y-2">
+            <div className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-emerald-400" />
+              {selectedCalendarDate} 업무 상세
+            </div>
+            {getEntriesForDate(selectedCalendarDate).length === 0 ? (
+              <div className="text-xs text-slate-500 py-4 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
+            ) : (
+              <div className="space-y-2">
+                {getEntriesForDate(selectedCalendarDate).map((en) => (
+                  <div key={en.id} className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <User className="w-3.5 h-3.5 text-indigo-400" />
+                      <span className="text-xs font-bold text-slate-200">{en.author}</span>
+                      {en.time && <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/30 px-1.5 py-0.5 rounded">{en.time}</span>}
+                      <span className="text-[10px] text-slate-500 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mb-1">{en.title}</div>
+                    <div className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{en.content}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+      <>
       {/* 3. 본문 목록 */}
       <div 
         onTouchStart={handleTouchStart}
@@ -1663,6 +1877,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </AnimatePresence>
       )}
       </div>
+      </>
+      )}
 
       {/* 4. 일지 작성 및 수정 Overlay 모달 */}
       <AnimatePresence>
@@ -1983,6 +2199,33 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                         {/* 선택된 요일의 입력창 */}
                         <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <label className="text-[10px] text-slate-500 font-semibold shrink-0">시간 (선택)</label>
+                            <input
+                              type="time"
+                              value={
+                                activeDayTab === 'mon' ? formMonTime :
+                                activeDayTab === 'tue' ? formTueTime :
+                                activeDayTab === 'wed' ? formWedTime :
+                                activeDayTab === 'thu' ? formThuTime :
+                                activeDayTab === 'fri' ? formFriTime :
+                                activeDayTab === 'sat' ? formSatTime :
+                                formSunTime
+                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (activeDayTab === 'mon') setFormMonTime(val);
+                                else if (activeDayTab === 'tue') setFormTueTime(val);
+                                else if (activeDayTab === 'wed') setFormWedTime(val);
+                                else if (activeDayTab === 'thu') setFormThuTime(val);
+                                else if (activeDayTab === 'fri') setFormFriTime(val);
+                                else if (activeDayTab === 'sat') setFormSatTime(val);
+                                else setFormSunTime(val);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-200 text-xs w-28"
+                            />
+                            <span className="text-[10px] text-slate-600">해당 요일에 업무를 시작한(또는 대표) 시간</span>
+                          </div>
                           <textarea
                             rows={4}
                             placeholder={`${
