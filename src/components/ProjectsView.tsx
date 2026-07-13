@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp } from '../types.js';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -702,7 +703,7 @@ export const ProjectsView: React.FC<Props> = ({
                       {proj.budget && (
                         <span className="flex items-center gap-1 text-emerald-300">
                           <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                          예산: {proj.budget}
+                          예산: {/^\d+$/.test(proj.budget) ? `${formatCurrencyInput(proj.budget)}원` : proj.budget}
                         </span>
                       )}
                       <span className="flex items-center gap-1 text-blue-300">
@@ -1229,8 +1230,8 @@ export const ProjectsView: React.FC<Props> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">예상 거래 규모 / 예산</label>
-                  <input type="text" value={newBudget} onChange={(e) => setNewBudget(e.target.value)} placeholder="예: 5,000만원" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-300 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
+                  <input type="text" inputMode="numeric" value={newBudget ? formatCurrencyInput(newBudget) : ''} onChange={(e) => setNewBudget(e.target.value.replace(/[^\d]/g, ''))} placeholder="예: 50,000,000" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
                 </div>
 
                 <div>
@@ -1439,8 +1440,8 @@ export const ProjectsView: React.FC<Props> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">예상 거래 규모 / 예산</label>
-                  <input type="text" value={editingProject.budget || ''} onChange={(e) => setEditingProject({ ...editingProject, budget: e.target.value })} placeholder="예: 5,000만원" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-300 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
+                  <input type="text" inputMode="numeric" value={editingProject.budget ? formatCurrencyInput(editingProject.budget) : ''} onChange={(e) => setEditingProject({ ...editingProject, budget: e.target.value.replace(/[^\d]/g, '') })} placeholder="예: 50,000,000" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
                 </div>
 
                 <div>
