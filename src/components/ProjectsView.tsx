@@ -462,20 +462,35 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // 팔로우업 노트 및 미팅 정보 추가
-  // 미팅자에 이름과 함께 연락처(핸드폰/사무실)를 붙여 표시하기 위한 포맷 함수
-  const formatAttendeeEntry = (c: BusinessCard): string => {
-    const parts: string[] = [];
-    if (c.phoneMobile) parts.push(`H.${c.phoneMobile}`);
-    if (c.phoneOffice) parts.push(`O.${c.phoneOffice}`);
-    return parts.length ? `${c.name}(${parts.join(', ')})` : c.name;
-  };
+  // 미팅자 문자열은 이름만 콤마로 저장합니다 (전화번호는 표시할 때 명함에서 실시간으로 찾아 붙입니다)
+  const formatAttendeeEntry = (c: BusinessCard): string => c.name;
 
-  // 미팅자 문자열에서 특정 명함(이름+연락처 표시 포함)을 제거
+  // 미팅자 문자열에서 특정 명함 이름을 제거
   const removeAttendeeEntry = (current: string, c: BusinessCard): string => {
     return current
-      .replace(new RegExp(`${c.name}(\\([^)]*\\))?,?\\s*`, 'g'), '')
+      .replace(new RegExp(`\\b${c.name}\\b,?\\s*`, 'g'), '')
       .replace(/,\s*$/, '')
       .trim();
+  };
+
+  // 읽기 전용 화면에 미팅자를 표시할 때, 콤마로 구분된 이름 하나하나를 명함에서 찾아
+  // 전화번호(핸드폰/사무실)를 같이 붙여서 보여줍니다. 명함에 없는 이름은 그대로 표시됩니다.
+  const renderAttendeeWithPhone = (attendee?: string) => {
+    if (!attendee) return null;
+    const names = attendee.split(',').map((n) => n.trim()).filter(Boolean);
+    return names.map((name, idx) => {
+      const c = contacts.find((x) => x.name === name);
+      const phoneParts: string[] = [];
+      if (c?.phoneMobile) phoneParts.push(`H.${c.phoneMobile}`);
+      if (c?.phoneOffice) phoneParts.push(`O.${c.phoneOffice}`);
+      return (
+        <span key={idx}>
+          {idx > 0 && ', '}
+          {name}
+          {phoneParts.length > 0 && <span className="text-slate-500"> ({phoneParts.join(', ')})</span>}
+        </span>
+      );
+    });
   };
 
   const handleAddFollowup = async (projectId: string, e: React.FormEvent) => {
@@ -1075,7 +1090,7 @@ export const ProjectsView: React.FC<Props> = ({
                                     {fu.attendee && (
                                       <span className="text-[11px] text-slate-300 flex items-center gap-1 font-medium bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">
                                         <User className="w-3 h-3 text-indigo-400 shrink-0" />
-                                        <span className="text-[10px] text-slate-400 mr-0.5">참석자:</span> {fu.attendee}
+                                        <span className="text-[10px] text-slate-400 mr-0.5">참석자:</span> {renderAttendeeWithPhone(fu.attendee)}
                                       </span>
                                     )}
                                   </div>
