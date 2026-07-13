@@ -264,6 +264,9 @@ export const ProjectsView: React.FC<Props> = ({
   // 프로젝트 정보 수정용 상태
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
+  // 미팅 기록(팔로우업) 수정용 상태
+  const [editingFollowup, setEditingFollowup] = useState<{ projectId: string; followup: ProjectFollowUp } | null>(null);
+
   // 거래처 직접 입력 상태
   const [useDirectContact, setUseDirectContact] = useState<boolean>(false);
   const [directContactName, setDirectContactName] = useState<string>('');
@@ -392,6 +395,37 @@ export const ProjectsView: React.FC<Props> = ({
       });
     } catch (err) {
       console.error('Failed to update project:', err);
+    }
+  };
+
+  // 미팅 기록(팔로우업) 수정 핸들러
+  const handleUpdateFollowup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFollowup) return;
+    const { projectId, followup } = editingFollowup;
+
+    setProjects(projects.map((p) => {
+      if (p.id !== projectId) return p;
+      return { ...p, followUps: p.followUps.map((f) => (f.id === followup.id ? followup : f)) };
+    }));
+    setEditingFollowup(null);
+
+    try {
+      await fetch(`/api/projects/${projectId}/followups/${followup.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify({
+          content: followup.content,
+          date: followup.date,
+          meetingDegree: followup.meetingDegree,
+          attendee: followup.attendee
+        })
+      });
+    } catch (err) {
+      console.error('Failed to update followup:', err);
     }
   };
 
@@ -1007,29 +1041,42 @@ export const ProjectsView: React.FC<Props> = ({
                                     )}
                                   </div>
 
-                                  {/* 삭제 액션 */}
-                                  <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      if (confirm('이 미팅 및 팔로우업 기록을 삭제하시겠습니까?')) {
-                                        try {
-                                          await fetch(`/api/projects/${proj.id}/followups/${fu.id}`, { method: 'DELETE' });
-                                        } finally {
-                                          setProjects(projects.map(p => {
-                                            if (p.id === proj.id) {
-                                              return { ...p, followUps: p.followUps.filter(f => f.id !== fu.id) };
-                                            }
-                                            return p;
-                                          }));
+                                  {/* 수정/삭제 액션 */}
+                                  <div className="flex items-center gap-1.5 opacity-0 group-hover/meeting:opacity-100 transition-all">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingFollowup({ projectId: proj.id, followup: { ...fu } });
+                                      }}
+                                      className="p-1.5 rounded bg-slate-950 hover:bg-indigo-500/20 text-slate-500 hover:text-indigo-400 border border-slate-800 hover:border-indigo-900/30 transition-all shadow"
+                                      title="기록 수정"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm('이 미팅 및 팔로우업 기록을 삭제하시겠습니까?')) {
+                                          try {
+                                            await fetch(`/api/projects/${proj.id}/followups/${fu.id}`, { method: 'DELETE' });
+                                          } finally {
+                                            setProjects(projects.map(p => {
+                                              if (p.id === proj.id) {
+                                                return { ...p, followUps: p.followUps.filter(f => f.id !== fu.id) };
+                                              }
+                                              return p;
+                                            }));
+                                          }
                                         }
-                                      }
-                                    }}
-                                    className="opacity-0 group-hover/meeting:opacity-100 p-1.5 rounded bg-slate-950 hover:bg-red-500/20 text-slate-500 hover:text-red-400 border border-slate-800 hover:border-red-900/30 transition-all shadow"
-                                    title="기록 삭제"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                      }}
+                                      className="p-1.5 rounded bg-slate-950 hover:bg-red-500/20 text-slate-500 hover:text-red-400 border border-slate-800 hover:border-red-900/30 transition-all shadow"
+                                      title="기록 삭제"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 {/* 미팅 메모 본문 */}
@@ -1414,6 +1461,106 @@ export const ProjectsView: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* 모달: 미팅 기록(팔로우업) 수정 */}
+      {editingFollowup && (() => {
+        const targetProject = projects.find((p) => p.id === editingFollowup.projectId);
+        const relatedContactsForEdit = targetProject ? contacts.filter((c) => (targetProject.contactIds || []).includes(c.id)) : [];
+        const fu = editingFollowup.followup;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <Edit2 className="w-5 h-5 text-indigo-400" /> 미팅 기록 수정
+                </h3>
+                <button onClick={() => setEditingFollowup(null)} className="text-slate-400 hover:text-white">✕</button>
+              </div>
+
+              <form onSubmit={handleUpdateFollowup} className="space-y-4 text-xs">
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="w-full md:w-1/3">
+                    <label className="block text-slate-300 font-semibold mb-1">미팅 차수</label>
+                    <select
+                      value={fu.meetingDegree || 1}
+                      onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, meetingDegree: Number(e.target.value) } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
+                    >
+                      {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
+                        <option key={num} value={num}>{num === 1 ? '최초 미팅 (1차)' : `${num}차 미팅`}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-full md:w-1/3">
+                    <label className="block text-slate-300 font-semibold mb-1">미팅일자</label>
+                    <input
+                      type="date"
+                      value={fu.date}
+                      onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, date: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1 flex items-center justify-between">
+                    <span>미팅 참여자 (미팅자)</span>
+                    {relatedContactsForEdit.length > 0 && <span className="text-[10px] text-indigo-400 font-normal">아래 명함 클릭 시 자동 추가/제거</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={fu.attendee || ''}
+                    onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: e.target.value } })}
+                    placeholder="예: 홍길동 책임, 김대리 (명함에 없는 분은 직접 입력하시면 됩니다)"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium"
+                  />
+
+                  {relatedContactsForEdit.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                      <span className="text-[10px] text-slate-500 mr-1">이 프로젝트의 연관 명함:</span>
+                      {relatedContactsForEdit.map((c) => {
+                        const isAdded = (fu.attendee || '').includes(c.name);
+                        return (
+                          <button
+                            type="button"
+                            key={c.id}
+                            onClick={() => {
+                              const current = fu.attendee || '';
+                              const next = isAdded
+                                ? current.replace(new RegExp(`\\b${c.name}\\b,? ?`, 'g'), '').replace(/, $/, '').trim()
+                                : (current ? `${current}, ${c.name}` : c.name);
+                              setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: next } });
+                            }}
+                            className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${isAdded ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-bold' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
+                          >
+                            + {c.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">미팅 내용</label>
+                  <textarea
+                    value={fu.content}
+                    onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, content: e.target.value } })}
+                    rows={5}
+                    placeholder="미팅 내용을 입력하세요"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
+                  <button type="button" onClick={() => setEditingFollowup(null)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
+                  <button type="submit" className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30">저장하기</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
