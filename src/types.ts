@@ -54,17 +54,25 @@ export interface ScanCardResult {
   companyInfo?: string; // 회사 요약 정보
 }
 
+export interface ProjectFollowUpAttachment {
+  id: string;
+  name: string;      // 파일명
+  dataUrl: string;   // base64 데이터 (제안서, 견적서 등 첨부파일)
+  size?: number;      // 바이트 단위 파일 크기 (표시용)
+}
+
 export interface ProjectFollowUp {
   id: string;
   projectId: string;
   content: string;
   date: string;
   status: 'planned' | 'in_progress' | 'done';
-  meetingDegree?: number;   // 1차 미팅, 2차 미팅 등 차수
+  meetingDegree?: number;   // 1차 미팅, 2차 미팅 등 차수 (제한 없음, 비워두면 '업무 기록'으로 표시)
   attendee?: string;       // 미팅 참여 담당자 (미팅자)
   hasVoice?: boolean;      // 음성 메모 녹음 여부
   voiceUrl?: string;       // 음성 재생용 (시뮬레이션 혹은 실제 녹음 데이터)
   voiceDuration?: string;  // 음성 녹음 분초 (예: "0:15")
+  attachments?: ProjectFollowUpAttachment[]; // 제안서/견적서/발송자료 등 첨부파일
 }
 
 export interface Project {
