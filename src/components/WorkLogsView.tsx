@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye } from 'lucide-react';
-import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense } from '../types.js';
+import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
@@ -56,23 +56,47 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 비용 지출 추가 상태
   const [formExpenses, setFormExpenses] = useState<WorkLogExpense[]>([]);
   
-  // 일별 금주 실시 상황 상태
-  const [formMonAchievements, setFormMonAchievements] = useState<string>('');
-  const [formTueAchievements, setFormTueAchievements] = useState<string>('');
-  const [formWedAchievements, setFormWedAchievements] = useState<string>('');
-  const [formThuAchievements, setFormThuAchievements] = useState<string>('');
-  const [formFriAchievements, setFormFriAchievements] = useState<string>('');
-  const [formSatAchievements, setFormSatAchievements] = useState<string>('');
-  const [formSunAchievements, setFormSunAchievements] = useState<string>('');
+  // 일별 업무 항목 상태 (하루에 여러 건, 각각 시작~종료 시간 지정 가능)
+  type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+  const emptyDayEntries: Record<DayKey, WorkLogDayEntry[]> = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+  const [dayEntries, setDayEntries] = useState<Record<DayKey, WorkLogDayEntry[]>>(emptyDayEntries);
 
-  // 요일별 업무 수행 시간
-  const [formMonTime, setFormMonTime] = useState<string>('');
-  const [formTueTime, setFormTueTime] = useState<string>('');
-  const [formWedTime, setFormWedTime] = useState<string>('');
-  const [formThuTime, setFormThuTime] = useState<string>('');
-  const [formFriTime, setFormFriTime] = useState<string>('');
-  const [formSatTime, setFormSatTime] = useState<string>('');
-  const [formSunTime, setFormSunTime] = useState<string>('');
+  // 하루(day)의 항목들을 "[시작~종료] 내용" 형식의 텍스트로 합쳐서 반환 (인쇄/엑셀/AI정제/일일가져오기 등 기존 기능과 호환용)
+  const getDayComposedText = (day: DayKey, source?: Record<DayKey, WorkLogDayEntry[]>): string => {
+    const list = (source || dayEntries)[day] || [];
+    return list
+      .map((e) => {
+        const timeLabel = e.startTime && e.endTime ? `[${e.startTime}~${e.endTime}] ` : e.startTime ? `[${e.startTime}~] ` : '';
+        return `${timeLabel}${e.content}`.trim();
+      })
+      .filter(Boolean)
+      .join('\n');
+  };
+  const dayHasContent = (day: DayKey) => (dayEntries[day] || []).some((e) => e.content.trim().length > 0);
+
+  const addDayEntry = (day: DayKey) => {
+    setDayEntries((prev) => ({
+      ...prev,
+      [day]: [...(prev[day] || []), { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: '' }]
+    }));
+  };
+  const updateDayEntry = (day: DayKey, entryId: string, patch: Partial<WorkLogDayEntry>) => {
+    setDayEntries((prev) => ({
+      ...prev,
+      [day]: (prev[day] || []).map((e) => (e.id === entryId ? { ...e, ...patch } : e))
+    }));
+  };
+  const removeDayEntry = (day: DayKey, entryId: string) => {
+    setDayEntries((prev) => ({
+      ...prev,
+      [day]: (prev[day] || []).filter((e) => e.id !== entryId)
+    }));
+  };
+  // 기존(레거시) 텍스트 하나만 있는 요일 데이터를 항목 1건으로 변환 (구버전 데이터 호환)
+  const legacyTextToEntries = (text?: string): WorkLogDayEntry[] => {
+    if (!text || !text.trim()) return [];
+    return [{ id: `legacy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, content: text }];
+  };
 
   // 주간 일지 모달 내 요일 탭 상태
   const [activeDayTab, setActiveDayTab] = useState<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'>('mon');
@@ -237,23 +261,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setFormIssues('');
     setFormAchievementsThisWeek('');
     
-    // 일별 금주 실시 상황 초기화
-    setFormMonAchievements('');
-    setFormTueAchievements('');
-    setFormWedAchievements('');
-    setFormThuAchievements('');
-    setFormFriAchievements('');
-    setFormSatAchievements('');
-    setFormSunAchievements('');
-
-    // 일별 업무 수행 시간 초기화
-    setFormMonTime('');
-    setFormTueTime('');
-    setFormWedTime('');
-    setFormThuTime('');
-    setFormFriTime('');
-    setFormSatTime('');
-    setFormSunTime('');
+    // 일별 업무 항목 초기화
+    setDayEntries(emptyDayEntries);
 
     setFormPlansNextWeek('');
     setFormFeedbacks('');
@@ -304,23 +313,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       setFormEndDate(wLog.endDate);
       setFormAchievementsThisWeek(wLog.achievementsThisWeek);
       
-      // 일별 금주 실시 상황 로드
-      setFormMonAchievements(wLog.achievementsByDay?.mon || '');
-      setFormTueAchievements(wLog.achievementsByDay?.tue || '');
-      setFormWedAchievements(wLog.achievementsByDay?.wed || '');
-      setFormThuAchievements(wLog.achievementsByDay?.thu || '');
-      setFormFriAchievements(wLog.achievementsByDay?.fri || '');
-      setFormSatAchievements(wLog.achievementsByDay?.sat || '');
-      setFormSunAchievements(wLog.achievementsByDay?.sun || '');
-
-      // 일별 업무 수행 시간 로드
-      setFormMonTime(wLog.achievementTimesByDay?.mon || '');
-      setFormTueTime(wLog.achievementTimesByDay?.tue || '');
-      setFormWedTime(wLog.achievementTimesByDay?.wed || '');
-      setFormThuTime(wLog.achievementTimesByDay?.thu || '');
-      setFormFriTime(wLog.achievementTimesByDay?.fri || '');
-      setFormSatTime(wLog.achievementTimesByDay?.sat || '');
-      setFormSunTime(wLog.achievementTimesByDay?.sun || '');
+      // 일별 업무 항목 로드 (신버전: achievementEntriesByDay / 구버전: achievementsByDay 텍스트를 항목 1건으로 변환)
+      setDayEntries({
+        mon: wLog.achievementEntriesByDay?.mon?.length ? wLog.achievementEntriesByDay.mon : legacyTextToEntries(wLog.achievementsByDay?.mon),
+        tue: wLog.achievementEntriesByDay?.tue?.length ? wLog.achievementEntriesByDay.tue : legacyTextToEntries(wLog.achievementsByDay?.tue),
+        wed: wLog.achievementEntriesByDay?.wed?.length ? wLog.achievementEntriesByDay.wed : legacyTextToEntries(wLog.achievementsByDay?.wed),
+        thu: wLog.achievementEntriesByDay?.thu?.length ? wLog.achievementEntriesByDay.thu : legacyTextToEntries(wLog.achievementsByDay?.thu),
+        fri: wLog.achievementEntriesByDay?.fri?.length ? wLog.achievementEntriesByDay.fri : legacyTextToEntries(wLog.achievementsByDay?.fri),
+        sat: wLog.achievementEntriesByDay?.sat?.length ? wLog.achievementEntriesByDay.sat : legacyTextToEntries(wLog.achievementsByDay?.sat),
+        sun: wLog.achievementEntriesByDay?.sun?.length ? wLog.achievementEntriesByDay.sun : legacyTextToEntries(wLog.achievementsByDay?.sun)
+      });
 
       setFormPlansNextWeek(wLog.plansNextWeek);
       setFormFeedbacks(wLog.feedbacks || '');
@@ -411,8 +413,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     return categoryLabels[cat] || cat;
   };
 
-  // 특정 날짜(YYYY-MM-DD)에 해당하는 모든 업무 내용(일일 일지 + 주간 일지의 요일별 항목)을
-  // 같은 회사 직원 전체 기준으로 모아서 반환 (월간 달력에서 사용)
+  // 특정 날짜(YYYY-MM-DD)에 해당하는 모든 업무 내용(일일 일지 + 주간 일지의 요일별 항목들)을
+  // 같은 회사 직원 전체 기준으로 모아서 반환 (월간 달력에서 사용). 하루에 여러 건이면 각각 별도 항목으로 표시됩니다.
   type CalendarEntry = { id: string; author: string; time?: string; title: string; content: string; source: 'daily' | 'weekly' };
   const getEntriesForDate = (dateStr: string): CalendarEntry[] => {
     const entries: CalendarEntry[] = [];
@@ -431,23 +433,41 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
     const dayKeys: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     weeklyLogs.forEach((wl) => {
-      if (!wl.startDate || !wl.achievementsByDay) return;
+      if (!wl.startDate) return;
       const start = new Date(wl.startDate);
       dayKeys.forEach((key, offset) => {
-        const content = wl.achievementsByDay?.[key];
-        if (!content || !content.trim()) return;
         const d = new Date(start);
         d.setDate(d.getDate() + offset);
         const dStr = d.toISOString().split('T')[0];
         if (dStr !== dateStr) return;
-        entries.push({
-          id: `w-${wl.id}-${key}`,
-          author: wl.author || '작성자 미지정',
-          time: wl.achievementTimesByDay?.[key],
-          title: wl.title,
-          content,
-          source: 'weekly'
-        });
+
+        const structuredEntries = wl.achievementEntriesByDay?.[key];
+        if (structuredEntries && structuredEntries.length > 0) {
+          // 신버전: 하루에 여러 업무 항목, 각각 시작~종료 시간 표시
+          structuredEntries.forEach((task) => {
+            if (!task.content || !task.content.trim()) return;
+            entries.push({
+              id: `w-${wl.id}-${key}-${task.id}`,
+              author: wl.author || '작성자 미지정',
+              time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
+              title: wl.title,
+              content: task.content,
+              source: 'weekly'
+            });
+          });
+        } else {
+          // 구버전 호환: 요일별 텍스트 하나만 있는 경우
+          const legacyContent = wl.achievementsByDay?.[key];
+          if (legacyContent && legacyContent.trim()) {
+            entries.push({
+              id: `w-${wl.id}-${key}`,
+              author: wl.author || '작성자 미지정',
+              title: wl.title,
+              content: legacyContent,
+              source: 'weekly'
+            });
+          }
+        }
       });
     });
 
@@ -764,14 +784,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     
     let pullCount = 0;
     matchedDaily.forEach(dl => {
-      const dayKey = getDayOfWeekKey(dl.date);
-      if (dayKey === 'mon') { setFormMonAchievements(dl.tasksToday); pullCount++; }
-      else if (dayKey === 'tue') { setFormTueAchievements(dl.tasksToday); pullCount++; }
-      else if (dayKey === 'wed') { setFormWedAchievements(dl.tasksToday); pullCount++; }
-      else if (dayKey === 'thu') { setFormThuAchievements(dl.tasksToday); pullCount++; }
-      else if (dayKey === 'fri') { setFormFriAchievements(dl.tasksToday); pullCount++; }
-      else if (dayKey === 'sat') { setFormSatAchievements(dl.tasksToday); pullCount++; }
-      else if (dayKey === 'sun') { setFormSunAchievements(dl.tasksToday); pullCount++; }
+      const dayKey = getDayOfWeekKey(dl.date) as DayKey;
+      if (dayKey) {
+        setDayEntries((prev) => ({
+          ...prev,
+          [dayKey]: [{ id: `pull-${dl.id}`, content: dl.tasksToday, startTime: '', endTime: '' }]
+        }));
+        pullCount++;
+      }
     });
     
     alert(`총 ${pullCount}일분의 일일 업무일지 내용을 요일별 실적으로 가져왔습니다.`);
@@ -925,14 +945,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           }
         }
       } else {
-        const dailyAchievementsList = [];
-        if (formMonAchievements.trim()) dailyAchievementsList.push(`[월요일]\n${formMonAchievements.trim()}`);
-        if (formTueAchievements.trim()) dailyAchievementsList.push(`[화요일]\n${formTueAchievements.trim()}`);
-        if (formWedAchievements.trim()) dailyAchievementsList.push(`[수요일]\n${formWedAchievements.trim()}`);
-        if (formThuAchievements.trim()) dailyAchievementsList.push(`[목요일]\n${formThuAchievements.trim()}`);
-        if (formFriAchievements.trim()) dailyAchievementsList.push(`[금요일]\n${formFriAchievements.trim()}`);
-        if (formSatAchievements.trim()) dailyAchievementsList.push(`[토요일]\n${formSatAchievements.trim()}`);
-        if (formSunAchievements.trim()) dailyAchievementsList.push(`[일요일]\n${formSunAchievements.trim()}`);
+        const dayLabels: Record<DayKey, string> = { mon: '월요일', tue: '화요일', wed: '수요일', thu: '목요일', fri: '금요일', sat: '토요일', sun: '일요일' };
+        const dayKeysOrdered: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+        const dailyAchievementsList: string[] = [];
+        dayKeysOrdered.forEach((day) => {
+          const text = getDayComposedText(day);
+          if (text.trim()) dailyAchievementsList.push(`[${dayLabels[day]}]\n${text.trim()}`);
+        });
 
         const combinedAchievements = dailyAchievementsList.length > 0 
           ? dailyAchievementsList.join('\n\n')
@@ -946,23 +965,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           endDate: formEndDate,
           achievementsThisWeek: combinedAchievements,
           achievementsByDay: {
-            mon: formMonAchievements,
-            tue: formTueAchievements,
-            wed: formWedAchievements,
-            thu: formThuAchievements,
-            fri: formFriAchievements,
-            sat: formSatAchievements,
-            sun: formSunAchievements
+            mon: getDayComposedText('mon'),
+            tue: getDayComposedText('tue'),
+            wed: getDayComposedText('wed'),
+            thu: getDayComposedText('thu'),
+            fri: getDayComposedText('fri'),
+            sat: getDayComposedText('sat'),
+            sun: getDayComposedText('sun')
           },
-          achievementTimesByDay: {
-            mon: formMonTime,
-            tue: formTueTime,
-            wed: formWedTime,
-            thu: formThuTime,
-            fri: formFriTime,
-            sat: formSatTime,
-            sun: formSunTime
-          },
+          achievementEntriesByDay: dayEntries,
           plansNextWeek: formPlansNextWeek,
           feedbacks: formFeedbacks,
           projectIds: formProjectIds,
@@ -2132,51 +2143,22 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               <Link2 className="w-3.5 h-3.5" />
                               <span>일일 일지 가져오기</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const currentDayText = 
-                                  activeDayTab === 'mon' ? formMonAchievements :
-                                  activeDayTab === 'tue' ? formTueAchievements :
-                                  activeDayTab === 'wed' ? formWedAchievements :
-                                  activeDayTab === 'thu' ? formThuAchievements :
-                                  activeDayTab === 'fri' ? formFriAchievements :
-                                  activeDayTab === 'sat' ? formSatAchievements :
-                                  formSunAchievements;
-
-                                const setter = 
-                                  activeDayTab === 'mon' ? setFormMonAchievements :
-                                  activeDayTab === 'tue' ? setFormTueAchievements :
-                                  activeDayTab === 'wed' ? setFormWedAchievements :
-                                  activeDayTab === 'thu' ? setFormThuAchievements :
-                                  activeDayTab === 'fri' ? setFormFriAchievements :
-                                  activeDayTab === 'sat' ? setFormSatAchievements :
-                                  setFormSunAchievements;
-
-                                handleAiPolish(`achievements_${activeDayTab}`, currentDayText, setter);
-                              }}
-                              disabled={aiPolishingField !== null}
-                              className="flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 rounded-xl transition-all"
-                            >
-                              <Sparkles className="w-3 h-3" />
-                              <span>{aiPolishingField?.startsWith('achievements_') ? '정제 중...' : '요일별 AI 정제'}</span>
-                            </button>
                           </div>
                         </div>
 
                         {/* 요일 탭 선택기 */}
                         <div className="grid grid-cols-7 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-850">
-                          {[
-                            { id: 'mon', label: '월', text: formMonAchievements },
-                            { id: 'tue', label: '화', text: formTueAchievements },
-                            { id: 'wed', label: '수', text: formWedAchievements },
-                            { id: 'thu', label: '목', text: formThuAchievements },
-                            { id: 'fri', label: '금', text: formFriAchievements },
-                            { id: 'sat', label: '토', text: formSatAchievements },
-                            { id: 'sun', label: '일', text: formSunAchievements },
-                          ].map(day => {
+                          {([
+                            { id: 'mon', label: '월' },
+                            { id: 'tue', label: '화' },
+                            { id: 'wed', label: '수' },
+                            { id: 'thu', label: '목' },
+                            { id: 'fri', label: '금' },
+                            { id: 'sat', label: '토' },
+                            { id: 'sun', label: '일' },
+                          ] as { id: DayKey; label: string }[]).map(day => {
                             const isSelected = activeDayTab === day.id;
-                            const hasContent = day.text.trim().length > 0;
+                            const hasContent = dayHasContent(day.id);
                             return (
                               <button
                                 key={day.id}
@@ -2197,67 +2179,64 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           })}
                         </div>
 
-                        {/* 선택된 요일의 입력창 */}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <label className="text-[10px] text-slate-500 font-semibold shrink-0">시간 (선택)</label>
-                            <input
-                              type="time"
-                              value={
-                                activeDayTab === 'mon' ? formMonTime :
-                                activeDayTab === 'tue' ? formTueTime :
-                                activeDayTab === 'wed' ? formWedTime :
-                                activeDayTab === 'thu' ? formThuTime :
-                                activeDayTab === 'fri' ? formFriTime :
-                                activeDayTab === 'sat' ? formSatTime :
-                                formSunTime
-                              }
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (activeDayTab === 'mon') setFormMonTime(val);
-                                else if (activeDayTab === 'tue') setFormTueTime(val);
-                                else if (activeDayTab === 'wed') setFormWedTime(val);
-                                else if (activeDayTab === 'thu') setFormThuTime(val);
-                                else if (activeDayTab === 'fri') setFormFriTime(val);
-                                else if (activeDayTab === 'sat') setFormSatTime(val);
-                                else setFormSunTime(val);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-200 text-xs w-28"
-                            />
-                            <span className="text-[10px] text-slate-600">해당 요일에 업무를 시작한(또는 대표) 시간</span>
-                          </div>
-                          <textarea
-                            rows={4}
-                            placeholder={`${
-                              activeDayTab === 'mon' ? '월요일' :
-                              activeDayTab === 'tue' ? '화요일' :
-                              activeDayTab === 'wed' ? '수요일' :
-                              activeDayTab === 'thu' ? '목요일' :
-                              activeDayTab === 'fri' ? '금요일' :
-                              activeDayTab === 'sat' ? '토요일' :
-                              '일요일'
-                            } 실시 사항을 작성하세요... (AI 정제 지원)`}
-                            value={
-                              activeDayTab === 'mon' ? formMonAchievements :
-                              activeDayTab === 'tue' ? formTueAchievements :
-                              activeDayTab === 'wed' ? formWedAchievements :
-                              activeDayTab === 'thu' ? formThuAchievements :
-                              activeDayTab === 'fri' ? formFriAchievements :
-                              activeDayTab === 'sat' ? formSatAchievements :
-                              formSunAchievements
-                            }
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (activeDayTab === 'mon') setFormMonAchievements(val);
-                              else if (activeDayTab === 'tue') setFormTueAchievements(val);
-                              else if (activeDayTab === 'wed') setFormWedAchievements(val);
-                              else if (activeDayTab === 'thu') setFormThuAchievements(val);
-                              else if (activeDayTab === 'fri') setFormFriAchievements(val);
-                              else if (activeDayTab === 'sat') setFormSatAchievements(val);
-                              else setFormSunAchievements(val);
-                            }}
-                            className="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 text-sm placeholder:text-slate-600 leading-relaxed font-sans"
-                          />
+                        {/* 선택된 요일의 업무 항목들 (하루에 여러 건, 각각 시작~종료 시간 지정 가능) */}
+                        <div className="space-y-2">
+                          {(dayEntries[activeDayTab] || []).length === 0 && (
+                            <div className="text-xs text-slate-500 text-center py-4 bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
+                              아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
+                            </div>
+                          )}
+                          {(dayEntries[activeDayTab] || []).map((entry) => (
+                            <div key={entry.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">시작</label>
+                                <input
+                                  type="time"
+                                  value={entry.startTime || ''}
+                                  onChange={(e) => updateDayEntry(activeDayTab, entry.id, { startTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">종료</label>
+                                <input
+                                  type="time"
+                                  value={entry.endTime || ''}
+                                  onChange={(e) => updateDayEntry(activeDayTab, entry.id, { endTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAiPolish(`achievements_${activeDayTab}_${entry.id}`, entry.content, (val) => updateDayEntry(activeDayTab, entry.id, { content: val }))}
+                                  disabled={aiPolishingField !== null}
+                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>{aiPolishingField === `achievements_${activeDayTab}_${entry.id}` ? '정제 중...' : 'AI 정제'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeDayEntry(activeDayTab, entry.id)}
+                                  className="text-rose-400 hover:text-rose-300 text-xs font-bold px-1.5"
+                                  title="이 항목 삭제"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              <textarea
+                                rows={2}
+                                placeholder="이 시간대에 한 업무 내용을 입력하세요..."
+                                value={entry.content}
+                                onChange={(e) => updateDayEntry(activeDayTab, entry.id, { content: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-200 text-xs placeholder:text-slate-600 leading-relaxed"
+                              />
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => addDayEntry(activeDayTab)}
+                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-400 hover:text-white hover:border-indigo-500 text-xs font-bold transition-all"
+                          >
+                            + 업무 항목 추가 (시간대별로 여러 건 가능)
+                          </button>
                         </div>
                       </div>
 
