@@ -2473,6 +2473,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         ))}
                       </div>
                     )}
+                    {/* 명함(주소록)에서 회사명 일치하는 곳 찾아 자동 채우기 */}
+                    {newDriving.startPlace.trim().length > 0 && (() => {
+                      const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(newDriving.startPlace.trim().toLowerCase())).slice(0, 3);
+                      return matches.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {matches.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setNewDriving({ ...newDriving, startPlace: c.company, startAddress: c.address })}
+                              className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                              title={c.address}
+                            >
+                              🏢 {c.company} 주소로 채우기
+                            </button>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
 
                   <div className="space-y-1.5">
@@ -2516,6 +2535,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         ))}
                       </div>
                     )}
+                    {/* 명함(주소록)에서 회사명 일치하는 곳 찾아 자동 채우기 */}
+                    {newDriving.endPlace.trim().length > 0 && (() => {
+                      const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(newDriving.endPlace.trim().toLowerCase())).slice(0, 3);
+                      return matches.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {matches.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setNewDriving({ ...newDriving, endPlace: c.company, endAddress: c.address })}
+                              className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                              title={c.address}
+                            >
+                              🏢 {c.company} 주소로 채우기
+                            </button>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
 
                   <div className="space-y-1.5">
@@ -4943,6 +4981,24 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     onChange={e => setEditingDriving({ ...editingDriving, startPlace: e.target.value })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
+                  {editingDriving.startPlace.trim().length > 0 && (() => {
+                    const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.startPlace.trim().toLowerCase())).slice(0, 3);
+                    return matches.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {matches.map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setEditingDriving({ ...editingDriving, startPlace: c.company, startAddress: c.address })}
+                            className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                            title={c.address}
+                          >
+                            🏢 {c.company} 주소로 채우기
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
 
                 <div className="space-y-1.5">
@@ -4964,6 +5020,24 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     required
                   />
+                  {editingDriving.endPlace.trim().length > 0 && (() => {
+                    const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.endPlace.trim().toLowerCase())).slice(0, 3);
+                    return matches.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {matches.map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setEditingDriving({ ...editingDriving, endPlace: c.company, endAddress: c.address })}
+                            className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                            title={c.address}
+                          >
+                            🏢 {c.company} 주소로 채우기
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
 
                 <div className="space-y-1.5">
