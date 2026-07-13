@@ -827,6 +827,18 @@ export const ProjectsView: React.FC<Props> = ({
             const isExpanded = expandedId === proj.id;
             const relatedContacts = contacts.filter((c) => (proj.contactIds || []).includes(c.id));
 
+            // 시행사/시공사/설계사 등 회사명과, 이 프로젝트에 연결된 명함의 회사명이 일치하면
+            // 그 담당자(이름/직급/연락처)를 같이 보여주기 위한 매칭 함수
+            const findContactsForCompany = (companyName?: string) => {
+              const target = (companyName || '').trim();
+              if (!target) return [];
+              return relatedContacts.filter((c) => {
+                const cCompany = (c.company || '').trim();
+                if (!cCompany) return false;
+                return cCompany.includes(target) || target.includes(cCompany);
+              });
+            };
+
             return (
               <div
                 key={proj.id}
@@ -961,37 +973,38 @@ export const ProjectsView: React.FC<Props> = ({
                         <Briefcase className="w-3.5 h-3.5 text-indigo-400" /> 프로젝트 관계사 / 참여사 정보
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
-                          <div className="text-[10px] text-slate-500 font-semibold mb-0.5">시행사(발주처)</div>
-                          <div className="text-slate-200 font-medium">{proj.developer || '-'}</div>
-                        </div>
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
-                          <div className="text-[10px] text-slate-500 font-semibold mb-0.5">시공사</div>
-                          <div className="text-slate-200 font-medium">{proj.contractor || '-'}</div>
-                        </div>
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
-                          <div className="text-[10px] text-slate-500 font-semibold mb-0.5">건축설계사</div>
-                          <div className="text-slate-200 font-medium">{proj.architect || '-'}</div>
-                        </div>
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
-                          <div className="text-[10px] text-slate-500 font-semibold mb-0.5">전기설계사</div>
-                          <div className="text-slate-200 font-medium">{proj.electricalDesigner || '-'}</div>
-                        </div>
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
-                          <div className="text-[10px] text-slate-500 font-semibold mb-0.5">기계설계사</div>
-                          <div className="text-slate-200 font-medium">{proj.mechanicalDesigner || '-'}</div>
-                        </div>
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
-                          <div className="text-[10px] text-slate-500 font-semibold mb-0.5">감리사</div>
-                          <div className="text-slate-200 font-medium">{proj.supervisor || '-'}</div>
-                        </div>
-                        <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40 col-span-2">
-                          <div className="text-[10px] text-slate-500 font-semibold mb-0.5">운영사</div>
-                          <div className="text-slate-200 font-medium">{proj.operator || '-'}</div>
-                        </div>
+                        {([
+                          ['시행사(발주처)', proj.developer],
+                          ['시공사', proj.contractor],
+                          ['건축설계사', proj.architect],
+                          ['전기설계사', proj.electricalDesigner],
+                          ['기계설계사', proj.mechanicalDesigner],
+                          ['감리사', proj.supervisor],
+                          ['운영사', proj.operator]
+                        ] as [string, string | undefined][]).map(([label, companyName], boxIdx) => {
+                          const matched = findContactsForCompany(companyName);
+                          return (
+                            <div key={label} className={`bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40 ${boxIdx === 6 ? 'col-span-2' : ''}`}>
+                              <div className="text-[10px] text-slate-500 font-semibold mb-0.5">{label}</div>
+                              <div className="text-slate-200 font-medium">{companyName || '-'}</div>
+                              {matched.length > 0 && (
+                                <div className="mt-1.5 pt-1.5 border-t border-slate-800/60 space-y-1">
+                                  {matched.map((c) => (
+                                    <div key={c.id} className="text-[10px] text-indigo-300 leading-relaxed">
+                                      <span className="font-bold text-indigo-200">{c.name}</span>
+                                      {c.title && <span className="text-slate-400"> · {c.title}</span>}
+                                      {c.phoneMobile && <div className="text-slate-400 font-mono">{c.phoneMobile}</div>}
+                                      {!c.phoneMobile && c.phoneOffice && <div className="text-slate-400 font-mono">{c.phoneOffice}</div>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    
+                                        
                     {/* 1. 연관된 거래처 명함 칩즈 */}
                     {relatedContacts.length > 0 && (
                       <div className="space-y-2">
