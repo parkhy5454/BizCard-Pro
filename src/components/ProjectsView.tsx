@@ -1459,7 +1459,7 @@ export const ProjectsView: React.FC<Props> = ({
       {/* 모달: 새 프로젝트 생성 */}
       {isNewOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-indigo-400" /> 신규 영업/제안 프로젝트 등록
