@@ -1288,7 +1288,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <label className="text-xs text-slate-400">정비 당시 주행거리 (km)</label>
               <input 
                 type="number" 
-                value={newMaint.mileage}
+                value={newMaint.mileage === 0 ? '' : newMaint.mileage}
                 onChange={e => setNewMaint({ ...newMaint, mileage: Number(e.target.value) })}
                 className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
               />
@@ -1820,7 +1820,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <label className="text-xs text-slate-400">최초 주행거리 (km) *</label>
                       <input 
                         type="number" 
-                        value={newVehicle.initialMileage}
+                        value={newVehicle.initialMileage === 0 ? '' : newVehicle.initialMileage}
                         onChange={e => setNewVehicle({ ...newVehicle, initialMileage: Number(e.target.value) })}
                         className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                         required
@@ -2427,7 +2427,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <label className="text-xs text-slate-400">출발 전 계기판 (km) *</label>
                     <input 
                       type="number" 
-                      value={newDriving.startMileage}
+                      value={newDriving.startMileage === 0 ? '' : newDriving.startMileage}
                       onChange={e => setNewDriving({ ...newDriving, startMileage: Number(e.target.value) })}
                       className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
@@ -2437,7 +2437,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <label className="text-xs text-slate-400">도착 후 계기판 (km) *</label>
                     <input 
                       type="number" 
-                      value={newDriving.endMileage}
+                      value={newDriving.endMileage === 0 ? '' : newDriving.endMileage}
                       onChange={e => setNewDriving({ ...newDriving, endMileage: Number(e.target.value) })}
                       className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
@@ -4917,7 +4917,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-400">출발 전 계기판 (km) *</label>
                   <input 
                     type="number" 
-                    value={editingDriving.startMileage}
+                    value={editingDriving.startMileage === 0 ? '' : editingDriving.startMileage}
                     onChange={e => setEditingDriving({ ...editingDriving, startMileage: Number(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     required
@@ -4928,7 +4928,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-400">도착 후 계기판 (km) *</label>
                   <input 
                     type="number" 
-                    value={editingDriving.endMileage}
+                    value={editingDriving.endMileage === 0 ? '' : editingDriving.endMileage}
                     onChange={e => setEditingDriving({ ...editingDriving, endMileage: Number(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     required
@@ -5310,7 +5310,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-400">정비 당시 주행거리 (km) *</label>
                   <input 
                     type="number" 
-                    value={editingMaint.mileage}
+                    value={editingMaint.mileage === 0 ? '' : editingMaint.mileage}
                     onChange={e => setEditingMaint({ ...editingMaint, mileage: Number(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     required
