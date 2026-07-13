@@ -243,6 +243,13 @@ export interface DailyWorkLog {
   createdAt: string;
 }
 
+export interface WorkLogDayEntry {
+  id: string;
+  startTime?: string;   // 시작 시간 (예: "09:00")
+  endTime?: string;     // 종료 시간 (예: "10:30")
+  content: string;      // 해당 시간대 업무 내용
+}
+
 export interface WeeklyWorkLog {
   id: string;
   startDate: string;     // 주간 시작일 (YYYY-MM-DD)
@@ -251,7 +258,7 @@ export interface WeeklyWorkLog {
   author?: string;       // 작성자
   department?: string;   // 부서
   achievementsThisWeek: string; // 금주 실시 사항
-  achievementsByDay?: {
+  achievementsByDay?: {   // 요일별 실시 사항 (achievementEntriesByDay를 합쳐서 만든 텍스트, 인쇄/엑셀/AI정제용)
     mon?: string;
     tue?: string;
     wed?: string;
@@ -260,14 +267,14 @@ export interface WeeklyWorkLog {
     sat?: string;
     sun?: string;
   };
-  achievementTimesByDay?: {   // 요일별 업무 수행 시간 (예: "09:30")
-    mon?: string;
-    tue?: string;
-    wed?: string;
-    thu?: string;
-    fri?: string;
-    sat?: string;
-    sun?: string;
+  achievementEntriesByDay?: {   // 요일별 업무 항목 목록 (하루에 여러 건, 각각 시작~종료 시간 지정 가능)
+    mon?: WorkLogDayEntry[];
+    tue?: WorkLogDayEntry[];
+    wed?: WorkLogDayEntry[];
+    thu?: WorkLogDayEntry[];
+    fri?: WorkLogDayEntry[];
+    sat?: WorkLogDayEntry[];
+    sun?: WorkLogDayEntry[];
   };
   plansNextWeek: string;        // 차주 예정 사항
   feedbacks?: string;           // 애로 및 건의 사항/피드백
