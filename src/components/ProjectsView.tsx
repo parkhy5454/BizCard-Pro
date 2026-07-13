@@ -905,6 +905,26 @@ export const ProjectsView: React.FC<Props> = ({
                           </div>
                         )}
 
+                        {/* 전체 명함(주소록)에서 검색해서 추가 */}
+                        <div className="w-full">
+                          <label className="block text-[10px] text-slate-500 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              const c = contacts.find((x) => x.id === e.target.value);
+                              if (c && !meetingAttendee.includes(c.name)) {
+                                setMeetingAttendee((prev) => (prev ? `${prev}, ${c.name}` : c.name));
+                              }
+                            }}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                          >
+                            <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
+                            {contacts.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name} · {c.company}{c.department ? ` (${c.department})` : ''}</option>
+                            ))}
+                          </select>
+                        </div>
+
                         {/* 미팅 메모 입력 영역 (음성 지원) */}
                         <div className="space-y-1.5">
                           <label className="block text-[10px] text-slate-400 font-bold">미팅 내용 (타이핑 또는 음성 메모 가능)</label>
@@ -1540,6 +1560,25 @@ export const ProjectsView: React.FC<Props> = ({
                       })}
                     </div>
                   )}
+
+                  <div className="pt-2">
+                    <label className="block text-[10px] text-slate-500 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const c = contacts.find((x) => x.id === e.target.value);
+                        if (c && !(fu.attendee || '').includes(c.name)) {
+                          setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: fu.attendee ? `${fu.attendee}, ${c.name}` : c.name } });
+                        }
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                    >
+                      <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
+                      {contacts.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name} · {c.company}{c.department ? ` (${c.department})` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
