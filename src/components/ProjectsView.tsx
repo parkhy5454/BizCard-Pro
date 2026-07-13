@@ -261,6 +261,9 @@ export const ProjectsView: React.FC<Props> = ({
   const [newBudget, setNewBudget] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
 
+  // 프로젝트 정보 수정용 상태
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
   // 거래처 직접 입력 상태
   const [useDirectContact, setUseDirectContact] = useState<boolean>(false);
   const [directContactName, setDirectContactName] = useState<string>('');
@@ -369,6 +372,27 @@ export const ProjectsView: React.FC<Props> = ({
     setDirectContactPhoneMobile('');
     setDirectContactEmail('');
     setIsNewOpen(false);
+  };
+
+  // 프로젝트 정보(예산 등) 수정 핸들러
+  const handleUpdateProjectDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject) return;
+    const updated = editingProject;
+    setProjects(projects.map((p) => (p.id === updated.id ? updated : p)));
+    setEditingProject(null);
+    try {
+      await fetch(`/api/projects/${updated.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify(updated)
+      });
+    } catch (err) {
+      console.error('Failed to update project:', err);
+    }
   };
 
   // 프로젝트 삭제 핸들러
@@ -683,6 +707,14 @@ export const ProjectsView: React.FC<Props> = ({
                       <option value="completed">✅ 완료</option>
                       <option value="failed">❌ 실패</option>
                     </select>
+
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingProject(proj); }}
+                      className="p-2.5 rounded-xl bg-slate-950 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 border border-slate-800 transition-colors"
+                      title="프로젝트 정보 수정"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
 
                     <button
                       onClick={(e) => handleDeleteProject(proj.id, e)}
@@ -1281,6 +1313,102 @@ export const ProjectsView: React.FC<Props> = ({
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
                 <button type="button" onClick={() => setIsNewOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
                 <button type="submit" className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30">프로젝트 생성</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 프로젝트 정보 수정 (예산 등 등록 내용 수정) */}
+      {editingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-400" /> 프로젝트 정보 수정
+              </h3>
+              <button onClick={() => setEditingProject(null)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateProjectDetails} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">프로젝트 타이틀 *</label>
+                <input type="text" value={editingProject.name} onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">시행사(발주처)</label>
+                  <input type="text" value={editingProject.developer || ''} onChange={(e) => setEditingProject({ ...editingProject, developer: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">시공사</label>
+                  <input type="text" value={editingProject.contractor || ''} onChange={(e) => setEditingProject({ ...editingProject, contractor: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">건축설계사</label>
+                  <input type="text" value={editingProject.architect || ''} onChange={(e) => setEditingProject({ ...editingProject, architect: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">전기설계사</label>
+                  <input type="text" value={editingProject.electricalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, electricalDesigner: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">기계설계사</label>
+                  <input type="text" value={editingProject.mechanicalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, mechanicalDesigner: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">감리사</label>
+                  <input type="text" value={editingProject.supervisor || ''} onChange={(e) => setEditingProject({ ...editingProject, supervisor: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">운영사</label>
+                  <input type="text" value={editingProject.operator || ''} onChange={(e) => setEditingProject({ ...editingProject, operator: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">진행 단계</label>
+                  <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500">
+                    <option value="opportunity">기회 (Opportunity)</option>
+                    <option value="progress">진행 (Progress)</option>
+                    <option value="completed">완료 (Completed)</option>
+                    <option value="failed">실패 (Failed)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">마감 기한</label>
+                  <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">예상 거래 규모 / 예산</label>
+                  <input type="text" value={editingProject.budget || ''} onChange={(e) => setEditingProject({ ...editingProject, budget: e.target.value })} placeholder="예: 5,000만원" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">중요도</label>
+                  <select value={editingProject.priority} onChange={(e) => setEditingProject({ ...editingProject, priority: e.target.value as any })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500">
+                    <option value="high">🔥 높음</option>
+                    <option value="medium">⚡ 보통</option>
+                    <option value="low">🌱 낮음</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
+                <button type="button" onClick={() => setEditingProject(null)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
+                <button type="submit" className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30">저장하기</button>
               </div>
             </form>
           </div>
