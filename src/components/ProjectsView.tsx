@@ -26,6 +26,28 @@ export const ProjectsView: React.FC<Props> = ({
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [companyStaff, setCompanyStaff] = useState<{ id: string; name: string }[]>([]);
+
+  // 같은 회사(사업자번호)로 가입한 다른 계정들을 "우리 회사 직원" 목록으로 불러옴
+  useEffect(() => {
+    if (!currentUser || currentUser.type !== 'company' || !currentUser.companyName || !currentUser.businessNumber) {
+      setCompanyStaff([]);
+      return;
+    }
+    fetch('/api/auth/users')
+      .then((res) => res.json())
+      .then((allUsers: import('../types.js').User[]) => {
+        const staff = allUsers.filter(
+          (u) =>
+            u.type === 'company' &&
+            (u.companyName || '').trim() === (currentUser.companyName || '').trim() &&
+            (u.businessNumber || '').trim() === (currentUser.businessNumber || '').trim()
+        );
+        setCompanyStaff(staff.map((u) => ({ id: u.id, name: u.name })));
+        if (!meetingStaffName && currentUser.name) setMeetingStaffName(currentUser.name);
+      })
+      .catch((err) => console.error('Failed to load company staff:', err));
+  }, [currentUser]);
 
   // 프로젝트 상태 필터 좌우 쓸어넘겨서 전환하기 위한 터치 제스처 상태 및 핸들러
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -64,6 +86,7 @@ export const ProjectsView: React.FC<Props> = ({
   // 미팅 기록 전용 상태 (최초 미팅, 2번째, 3번째 등 차수, 미팅자, 미팅일자, 미팅 내용 및 음성메모)
   const [meetingDegree, setMeetingDegree] = useState<number>(1);
   const [meetingAttendee, setMeetingAttendee] = useState<string>('');
+  const [meetingStaffName, setMeetingStaffName] = useState<string>('');
   const [attendeeNameInput, setAttendeeNameInput] = useState<string>('');
   const [attendeeOfficeInput, setAttendeeOfficeInput] = useState<string>('');
   const [attendeeMobileInput, setAttendeeMobileInput] = useState<string>('');
@@ -431,6 +454,7 @@ export const ProjectsView: React.FC<Props> = ({
           date: followup.date,
           meetingDegree: followup.meetingDegree,
           attendee: followup.attendee,
+          internalStaffName: followup.internalStaffName,
           attachments: followup.attachments || []
         })
       });
@@ -575,6 +599,7 @@ export const ProjectsView: React.FC<Props> = ({
       status: 'done' as const,
       meetingDegree: meetingDegree || undefined,
       attendee: meetingAttendee,
+      internalStaffName: meetingStaffName,
       hasVoice: voiceAttached,
       voiceUrl: voiceAttached ? attachedVoiceUrl : undefined,
       voiceDuration: voiceAttached ? attachedVoiceDuration : undefined,
@@ -603,6 +628,7 @@ export const ProjectsView: React.FC<Props> = ({
           status: 'done',
           meetingDegree: payload.meetingDegree,
           attendee: payload.attendee,
+          internalStaffName: payload.internalStaffName,
           hasVoice: payload.hasVoice,
           voiceUrl: payload.voiceUrl,
           voiceDuration: payload.voiceDuration,
@@ -941,7 +967,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                       {/* 미팅 입력 폼 */}
                       <form onSubmit={(e) => handleAddFollowup(proj.id, e)} className="bg-slate-900/50 border border-slate-800 p-4 rounded-2xl space-y-3.5">
-                        <span className="text-xs font-bold text-slate-300 block">📝 새로운 미팅 기록 추가</span>
+                        <span className="text-xs font-bold text-slate-300 block">📝 새로운 미팅/팔로우업 기록 추가</span>
                         
                         <div className="flex flex-col md:flex-row gap-3">
                           {/* 미팅 차수 (제한 없이 직접 입력, 비워두면 '업무 기록'으로 처리) */}
@@ -966,6 +992,31 @@ export const ProjectsView: React.FC<Props> = ({
                               onChange={(e) => setMeetingDate(e.target.value)}
                               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white font-medium outline-none focus:border-indigo-500"
                             />
+                          </div>
+
+                          {/* 우리 회사 담당 직원 */}
+                          <div className="w-full md:w-1/4">
+                            <label className="block text-[10px] text-slate-400 font-bold mb-1">담당 직원 (우리 회사)</label>
+                            {companyStaff.length > 0 ? (
+                              <select
+                                value={meetingStaffName}
+                                onChange={(e) => setMeetingStaffName(e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                              >
+                                <option value="">선택 안함</option>
+                                {companyStaff.map((s) => (
+                                  <option key={s.id} value={s.name}>{s.name}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={meetingStaffName}
+                                onChange={(e) => setMeetingStaffName(e.target.value)}
+                                placeholder="담당 직원명"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-600 font-medium outline-none focus:border-indigo-500"
+                              />
+                            )}
                           </div>
 
                           {/* 미팅자 */}
@@ -1243,6 +1294,14 @@ export const ProjectsView: React.FC<Props> = ({
                                     
                                     {/* 미팅 일자 */}
                                     <span className="text-[10px] font-mono text-slate-400 font-semibold">{fu.date}</span>
+
+                                    {/* 담당 직원 (우리 회사) */}
+                                    {fu.internalStaffName && (
+                                      <span className="text-[11px] text-emerald-300 flex items-center gap-1 font-medium bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">
+                                        <User className="w-3 h-3 text-emerald-400 shrink-0" />
+                                        <span className="text-[10px] text-emerald-400/80 mr-0.5">담당:</span> {fu.internalStaffName}
+                                      </span>
+                                    )}
 
                                     {/* 미팅자 */}
                                     {fu.attendee && (
@@ -1739,6 +1798,29 @@ export const ProjectsView: React.FC<Props> = ({
                       onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, date: e.target.value } })}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
                     />
+                  </div>
+                  <div className="w-full md:w-1/3">
+                    <label className="block text-slate-300 font-semibold mb-1">담당 직원 (우리 회사)</label>
+                    {companyStaff.length > 0 ? (
+                      <select
+                        value={fu.internalStaffName || ''}
+                        onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, internalStaffName: e.target.value } })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
+                      >
+                        <option value="">선택 안함</option>
+                        {companyStaff.map((s) => (
+                          <option key={s.id} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={fu.internalStaffName || ''}
+                        onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, internalStaffName: e.target.value } })}
+                        placeholder="담당 직원명"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 font-medium outline-none focus:border-indigo-500"
+                      />
+                    )}
                   </div>
                 </div>
 
