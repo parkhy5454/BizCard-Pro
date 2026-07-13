@@ -737,6 +737,75 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     window.print();
   };
 
+  // 주간 업무 보고서를 화면에 보이는 것과 똑같은 양식(4개 표)으로 엑셀 다운로드
+  const downloadReportToExcel = () => {
+    const wsData: any[] = [];
+    const merges: any[] = [];
+
+    // 제목
+    wsData.push([reportTitle]);
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+    wsData.push([]);
+
+    // 헤더: 보고 기간 / 부서 / 작성자 / 비용
+    const headerRowIdx = wsData.length;
+    wsData.push(['보고 기간', `${reportStartDate} ~ ${reportEndDate}`, '', '', '']);
+    merges.push({ s: { r: headerRowIdx, c: 1 }, e: { r: headerRowIdx, c: 4 } });
+    wsData.push(['소속 부서', reportDepartment, '작성자', reportAuthor, '']);
+    if (reportOption === 'B') {
+      wsData.push(['일간 비용', `${reportExpenseDaily.toLocaleString()}원`, '주간 비용', `${reportExpenseWeekly.toLocaleString()}원`, '']);
+      wsData.push(['월간 누적 비용', `${reportExpenseMonthly.toLocaleString()}원`, '정산 총계', `${(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원`, '']);
+    }
+    wsData.push([]);
+
+    // 공통: 표 하나(Week/Date/Description/진행율또는예상시간/Remark)를 wsData에 추가하는 헬퍼
+    const pushTable = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
+      wsData.push([heading]);
+      merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 4 } });
+      const tableHeaderIdx = wsData.length;
+      wsData.push(['Week', 'Date', 'Description', thirdColLabel, 'Remark']);
+      const firstRowIdx = wsData.length;
+      rows.forEach((row, idx) => {
+        wsData.push([
+          idx === 0 ? row.weekLabel : '',
+          row.dateLabel,
+          row.description,
+          row[thirdColField] || '',
+          row.remark || ''
+        ]);
+      });
+      if (rows.length > 1) {
+        merges.push({ s: { r: firstRowIdx, c: 0 }, e: { r: firstRowIdx + rows.length - 1, c: 0 } });
+      }
+      wsData.push([]);
+    };
+
+    pushTable('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress');
+    pushTable('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime');
+    pushTable('3. 차주 예정 사항', reportTable3, 'Estimated Time', 'estimatedTime');
+
+    // 4. 애로 및 요청 사항 / 피드백
+    wsData.push(['4. 애로 및 요청 사항 / 피드백']);
+    merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 4 } });
+    wsData.push(['No.', 'Description', '', '', 'Remark']);
+    merges.push({ s: { r: wsData.length - 1, c: 1 }, e: { r: wsData.length - 1, c: 3 } });
+    reportTable4.forEach((row, idx) => {
+      const rIdx = wsData.length;
+      wsData.push([idx + 1, row.description, '', '', row.remark || '']);
+      merges.push({ s: { r: rIdx, c: 1 }, e: { r: rIdx, c: 3 } });
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!merges'] = merges;
+    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 45 }, { wch: 14 }, { wch: 14 }];
+
+    XLSX.utils.book_append_sheet(wb, ws, '주간업무보고');
+
+    const sanitizedTitle = (reportTitle || '주간업무보고').replace(/[\/\\?%*:|"<>]/g, '_');
+    XLSX.writeFile(wb, `${sanitizedTitle}.xlsx`);
+  };
+
   // 비용 항목 추가/수정/삭제 헬퍼 함수
   const handleAddExpenseRow = () => {
     const newItem: WorkLogExpense = {
@@ -2827,6 +2896,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                 <div className="flex items-center gap-2 shrink-0">
                   <button
+                    onClick={downloadReportToExcel}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>엑셀 다운로드</span>
+                  </button>
+                  <button
                     onClick={handlePrintReport}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all cursor-pointer"
                   >
@@ -3227,6 +3303,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
                 >
                   닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadReportToExcel}
+                  className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>엑셀 다운로드</span>
                 </button>
                 <button
                   type="button"
