@@ -413,9 +413,52 @@ export const ProjectsView: React.FC<Props> = ({
   const handleUpdateProjectDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
-    const updated = editingProject;
+
+    let updated = editingProject;
+
+    // 새로운 담당자를 직접 입력했으면 먼저 명함으로 저장하고 프로젝트에 연결
+    if (useDirectContact && directContactName.trim()) {
+      const newCardData = {
+        name: directContactName.trim(),
+        company: directContactCompany.trim() || editingProject.name || '직접 입력',
+        department: directContactDept.trim(),
+        title: directContactTitle.trim(),
+        phoneOffice: directContactPhoneOffice.trim(),
+        phoneMobile: directContactPhoneMobile.trim(),
+        email: directContactEmail.trim(),
+        address: '',
+        groupId: 'all'
+      };
+      try {
+        const contactRes = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+          },
+          body: JSON.stringify(newCardData)
+        });
+        if (contactRes.ok) {
+          const savedContact = await contactRes.json();
+          setContacts((prev) => [savedContact, ...prev]);
+          updated = { ...updated, contactIds: [...(updated.contactIds || []), savedContact.id] };
+        }
+      } catch (err) {
+        console.error('Failed to save direct contact:', err);
+      }
+    }
+
     setProjects(projects.map((p) => (p.id === updated.id ? updated : p)));
     setEditingProject(null);
+    setUseDirectContact(false);
+    setDirectContactName('');
+    setDirectContactCompany('');
+    setDirectContactDept('');
+    setDirectContactTitle('');
+    setDirectContactPhoneOffice('');
+    setDirectContactPhoneMobile('');
+    setDirectContactEmail('');
+
     try {
       await fetch(`/api/projects/${updated.id}`, {
         method: 'PUT',
@@ -876,7 +919,18 @@ export const ProjectsView: React.FC<Props> = ({
                     </select>
 
                     <button
-                      onClick={(e) => { e.stopPropagation(); setEditingProject(proj); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingProject(proj);
+                        setUseDirectContact(false);
+                        setDirectContactName('');
+                        setDirectContactCompany('');
+                        setDirectContactDept('');
+                        setDirectContactTitle('');
+                        setDirectContactPhoneOffice('');
+                        setDirectContactPhoneMobile('');
+                        setDirectContactEmail('');
+                      }}
                       className="p-2.5 rounded-xl bg-slate-950 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 border border-slate-800 transition-colors"
                       title="프로젝트 정보 수정"
                     >
@@ -1627,8 +1681,9 @@ export const ProjectsView: React.FC<Props> = ({
                       <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(직장)</label>
                       <input
                         type="text"
+                        inputMode="numeric"
                         value={directContactPhoneOffice}
-                        onChange={(e) => setDirectContactPhoneOffice(e.target.value)}
+                        onChange={(e) => setDirectContactPhoneOffice(formatPhoneNumber(e.target.value))}
                         placeholder="예: 02-1234-5678"
                         className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
                       />
@@ -1637,8 +1692,9 @@ export const ProjectsView: React.FC<Props> = ({
                       <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
                       <input
                         type="text"
+                        inputMode="numeric"
                         value={directContactPhoneMobile}
-                        onChange={(e) => setDirectContactPhoneMobile(e.target.value)}
+                        onChange={(e) => setDirectContactPhoneMobile(formatPhoneNumber(e.target.value))}
                         placeholder="예: 010-1234-5678"
                         className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
                       />
@@ -1751,6 +1807,123 @@ export const ProjectsView: React.FC<Props> = ({
                     <option value="low">🌱 낮음</option>
                   </select>
                 </div>
+              </div>
+
+              {/* 연관 명함 체크 (등록 화면과 동일하게 수정 가능) */}
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
+                <div className="max-h-36 overflow-y-auto bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-1">
+                  {contacts.map((c) => {
+                    const checked = (editingProject.contactIds || []).includes(c.id);
+                    return (
+                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-indigo-600/20 text-white font-bold' : 'text-slate-400 hover:bg-slate-900'}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const current = editingProject.contactIds || [];
+                            const next = e.target.checked ? [...current, c.id] : current.filter((id) => id !== c.id);
+                            setEditingProject({ ...editingProject, contactIds: next });
+                          }}
+                          className="rounded border-slate-700 bg-slate-900 text-indigo-500"
+                        />
+                        <span>{c.name}</span>
+                        <span className="text-[10px] text-slate-500">{c.company} ({c.title})</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 거래처 인맥 직접 추가 */}
+              <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3.5 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={useDirectContact}
+                    onChange={(e) => setUseDirectContact(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                  />
+                  <span className="text-slate-300 font-semibold">새로운 담당자 직접 입력하여 연결</span>
+                </label>
+
+                {useDirectContact && (
+                  <div className="grid grid-cols-2 gap-3.5 pt-2 animate-fadeIn">
+                    <div>
+                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                      <input
+                        type="text"
+                        value={directContactName}
+                        onChange={(e) => setDirectContactName(e.target.value)}
+                        placeholder="예: 홍길동"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        required={useDirectContact}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">회사/기관명</label>
+                      <input
+                        type="text"
+                        value={directContactCompany}
+                        onChange={(e) => setDirectContactCompany(e.target.value)}
+                        placeholder="예: 현대건설"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">부서</label>
+                      <input
+                        type="text"
+                        value={directContactDept}
+                        onChange={(e) => setDirectContactDept(e.target.value)}
+                        placeholder="예: 구매팀"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">직책</label>
+                      <input
+                        type="text"
+                        value={directContactTitle}
+                        onChange={(e) => setDirectContactTitle(e.target.value)}
+                        placeholder="예: 과장"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(직장)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={directContactPhoneOffice}
+                        onChange={(e) => setDirectContactPhoneOffice(formatPhoneNumber(e.target.value))}
+                        placeholder="예: 02-1234-5678"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={directContactPhoneMobile}
+                        onChange={(e) => setDirectContactPhoneMobile(formatPhoneNumber(e.target.value))}
+                        placeholder="예: 010-1234-5678"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">이메일 주소</label>
+                      <input
+                        type="email"
+                        value={directContactEmail}
+                        onChange={(e) => setDirectContactEmail(e.target.value)}
+                        placeholder="예: buyer@company.com"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
