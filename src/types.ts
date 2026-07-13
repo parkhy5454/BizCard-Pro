@@ -234,7 +234,8 @@ export interface DailyWorkLog {
   title: string;         // 제목
   author?: string;       // 작성자
   department?: string;   // 부서
-  tasksToday: string;    // 금일 실시 사항
+  tasksToday: string;    // 금일 실시 사항 (taskEntriesToday를 합쳐서 만든 텍스트, 인쇄/엑셀/AI정제용)
+  taskEntriesToday?: WorkLogDayEntry[]; // 금일 실시 사항 항목 목록 (하루에 여러 건, 각각 시작~종료 시간 지정 가능)
   tasksTomorrow: string; // 명일 예정 사항
   issues?: string;       // 특이 사항/미결 사항
   contactIds?: string[];  // 연관 거래처/인맥 ID 목록 (명함 ID)
