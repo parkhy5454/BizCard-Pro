@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles } from 'lucide-react';
+import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Project, BusinessCard, ProjectFollowUp } from '../types.js';
+import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 
@@ -69,6 +69,7 @@ export const ProjectsView: React.FC<Props> = ({
   const [attendeeMobileInput, setAttendeeMobileInput] = useState<string>('');
   const [meetingDate, setMeetingDate] = useState<string>('');
   const [meetingContent, setMeetingContent] = useState<string>('');
+  const [meetingAttachments, setMeetingAttachments] = useState<ProjectFollowUpAttachment[]>([]);
   
   // 음성 메모 녹음 관련 상태
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -429,7 +430,8 @@ export const ProjectsView: React.FC<Props> = ({
           content: followup.content,
           date: followup.date,
           meetingDegree: followup.meetingDegree,
-          attendee: followup.attendee
+          attendee: followup.attendee,
+          attachments: followup.attachments || []
         })
       });
     } catch (err) {
@@ -471,6 +473,28 @@ export const ProjectsView: React.FC<Props> = ({
   // 팔로우업 노트 및 미팅 정보 추가
   // 미팅자 문자열은 이름만 콤마로 저장합니다 (전화번호는 표시할 때 명함에서 실시간으로 찾아 붙입니다)
   const formatAttendeeEntry = (c: BusinessCard): string => c.name;
+
+  // 파일을 base64로 읽어서 첨부파일 목록에 추가 (제안서, 견적서, 발송자료 등)
+  const readFilesAsAttachments = (files: FileList, onAdd: (att: ProjectFollowUpAttachment) => void) => {
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        onAdd({
+          id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          dataUrl: ev.target?.result as string,
+          size: file.size
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes) return '';
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
 
   // 이름 + 사무실/핸드폰 번호를 직접 입력해서 미팅자 항목을 만듭니다 (예: "김대리(H.010-..., O.02-...)")
   const buildAttendeeEntry = (name: string, office: string, mobile: string): string => {
@@ -543,17 +567,18 @@ export const ProjectsView: React.FC<Props> = ({
 
   const handleAddFollowup = async (projectId: string, e: React.FormEvent) => {
     e.preventDefault();
-    if (!meetingContent.trim() && !voiceAttached) return;
+    if (!meetingContent.trim() && !voiceAttached && meetingAttachments.length === 0) return;
 
     const payload = {
       content: meetingContent,
       date: meetingDate || new Date().toISOString().split('T')[0],
       status: 'done' as const,
-      meetingDegree: meetingDegree,
+      meetingDegree: meetingDegree || undefined,
       attendee: meetingAttendee,
       hasVoice: voiceAttached,
       voiceUrl: voiceAttached ? attachedVoiceUrl : undefined,
-      voiceDuration: voiceAttached ? attachedVoiceDuration : undefined
+      voiceDuration: voiceAttached ? attachedVoiceDuration : undefined,
+      attachments: meetingAttachments
     };
 
     try {
@@ -580,7 +605,8 @@ export const ProjectsView: React.FC<Props> = ({
           attendee: payload.attendee,
           hasVoice: payload.hasVoice,
           voiceUrl: payload.voiceUrl,
-          voiceDuration: payload.voiceDuration
+          voiceDuration: payload.voiceDuration,
+          attachments: payload.attachments
         };
         const updated = { ...target, followUps: [newF, ...target.followUps] };
         setProjects(projects.map((p) => (p.id === projectId ? updated : p)));
@@ -591,6 +617,7 @@ export const ProjectsView: React.FC<Props> = ({
     setVoiceAttached(false);
     setAttachedVoiceDuration('');
     setAttachedVoiceUrl('');
+    setMeetingAttachments([]);
     setMeetingDegree(prev => prev + 1);
   };
 
@@ -917,18 +944,17 @@ export const ProjectsView: React.FC<Props> = ({
                         <span className="text-xs font-bold text-slate-300 block">📝 새로운 미팅 기록 추가</span>
                         
                         <div className="flex flex-col md:flex-row gap-3">
-                          {/* 미팅 차수 */}
+                          {/* 미팅 차수 (제한 없이 직접 입력, 비워두면 '업무 기록'으로 처리) */}
                           <div className="w-full md:w-1/4">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-1">미팅 차수</label>
-                            <select
-                              value={meetingDegree}
-                              onChange={(e) => setMeetingDegree(Number(e.target.value))}
+                            <label className="block text-[10px] text-slate-400 font-bold mb-1">미팅 차수 (선택, 제한 없음)</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={meetingDegree || ''}
+                              onChange={(e) => setMeetingDegree(e.target.value ? Number(e.target.value) : 0)}
+                              placeholder="예: 47"
                               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
-                            >
-                              {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
-                                <option key={num} value={num}>{num === 1 ? '최초 미팅 (1차)' : `${num}차 미팅`}</option>
-                              ))}
-                            </select>
+                            />
                           </div>
 
                           {/* 미팅일자 */}
@@ -1142,6 +1168,46 @@ export const ProjectsView: React.FC<Props> = ({
                           </div>
                         </div>
 
+                        {/* 첨부파일 (제안서, 견적서, 발송자료 등) */}
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                            <Paperclip className="w-3 h-3" /> 첨부파일 (제안서, 견적서, 발송자료 등)
+                          </label>
+                          <label className="flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-indigo-500 text-slate-500 hover:text-indigo-400 text-[11px] font-semibold transition-colors">
+                            <Paperclip className="w-3.5 h-3.5" />
+                            <span>파일 선택 (여러 개 가능)</span>
+                            <input
+                              type="file"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files) readFilesAsAttachments(e.target.files, (att) => setMeetingAttachments((prev) => [...prev, att]));
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+                          {meetingAttachments.length > 0 && (
+                            <div className="space-y-1">
+                              {meetingAttachments.map((att) => (
+                                <div key={att.id} className="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px]">
+                                  <span className="flex items-center gap-1.5 text-slate-300 truncate">
+                                    <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                    <span className="truncate">{att.name}</span>
+                                    <span className="text-slate-500 shrink-0">({formatFileSize(att.size)})</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMeetingAttachments((prev) => prev.filter((x) => x.id !== att.id))}
+                                    className="text-rose-400 hover:text-rose-300 font-bold shrink-0"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         {/* 전송 버튼 */}
                         <div className="flex justify-end pt-1">
                           <button
@@ -1183,6 +1249,14 @@ export const ProjectsView: React.FC<Props> = ({
                                       <span className="text-[11px] text-slate-300 flex items-center gap-1 font-medium bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">
                                         <User className="w-3 h-3 text-indigo-400 shrink-0" />
                                         <span className="text-[10px] text-slate-400 mr-0.5">참석자:</span> {renderAttendeeWithPhone(fu.attendee)}
+                                      </span>
+                                    )}
+
+                                    {/* 첨부파일 개수 */}
+                                    {(fu.attachments || []).length > 0 && (
+                                      <span className="text-[10px] text-indigo-300 flex items-center gap-1 font-bold bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-500/20">
+                                        <Paperclip className="w-3 h-3" />
+                                        첨부 {(fu.attachments || []).length}개
                                       </span>
                                     )}
                                   </div>
@@ -1232,6 +1306,24 @@ export const ProjectsView: React.FC<Props> = ({
                                 <div className="text-xs text-slate-200 leading-relaxed font-medium whitespace-pre-line pl-1">
                                   {fu.content || <span className="text-slate-500 italic">내용 메모 없음</span>}
                                 </div>
+
+                                {/* 첨부파일 목록 (제안서, 견적서, 발송자료 등) */}
+                                {(fu.attachments || []).length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 pl-1" onClick={(e) => e.stopPropagation()}>
+                                    {(fu.attachments || []).map((att) => (
+                                      <a
+                                        key={att.id}
+                                        href={att.dataUrl}
+                                        download={att.name}
+                                        className="flex items-center gap-1.5 bg-slate-950 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 rounded-lg px-2.5 py-1 text-[11px] text-indigo-300 hover:text-indigo-200 font-semibold transition-colors"
+                                      >
+                                        <Paperclip className="w-3 h-3" />
+                                        <span className="max-w-[160px] truncate">{att.name}</span>
+                                        <Download className="w-3 h-3 opacity-60" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
 
                                 {/* 음성메모가 있을 경우 재생 플레이어 렌더링 */}
                                 {fu.hasVoice && (
@@ -1629,16 +1721,15 @@ export const ProjectsView: React.FC<Props> = ({
               <form onSubmit={handleUpdateFollowup} className="space-y-4 text-xs">
                 <div className="flex flex-col md:flex-row gap-3">
                   <div className="w-full md:w-1/3">
-                    <label className="block text-slate-300 font-semibold mb-1">미팅 차수</label>
-                    <select
-                      value={fu.meetingDegree || 1}
-                      onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, meetingDegree: Number(e.target.value) } })}
+                    <label className="block text-slate-300 font-semibold mb-1">미팅 차수 (선택, 제한 없음)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={fu.meetingDegree || ''}
+                      onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, meetingDegree: e.target.value ? Number(e.target.value) : undefined } })}
+                      placeholder="예: 47 (비워두면 업무 기록으로 표시)"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
-                    >
-                      {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
-                        <option key={num} value={num}>{num === 1 ? '최초 미팅 (1차)' : `${num}차 미팅`}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <div className="w-full md:w-1/3">
                     <label className="block text-slate-300 font-semibold mb-1">미팅일자</label>
@@ -1766,6 +1857,53 @@ export const ProjectsView: React.FC<Props> = ({
                     placeholder="미팅 내용을 입력하세요"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium resize-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1">
+                    <Paperclip className="w-3.5 h-3.5" /> 첨부파일 (제안서, 견적서, 발송자료 등)
+                  </label>
+                  <label className="flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-indigo-500 text-slate-500 hover:text-indigo-400 font-semibold transition-colors">
+                    <Paperclip className="w-3.5 h-3.5" />
+                    <span>파일 선택 (여러 개 가능)</span>
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          readFilesAsAttachments(e.target.files, (att) => {
+                            setEditingFollowup((prevEdit) => {
+                              if (!prevEdit) return prevEdit;
+                              const prevAttachments = prevEdit.followup.attachments || [];
+                              return { ...prevEdit, followup: { ...prevEdit.followup, attachments: [...prevAttachments, att] } };
+                            });
+                          });
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {(fu.attachments || []).length > 0 && (
+                    <div className="space-y-1 mt-2">
+                      {(fu.attachments || []).map((att) => (
+                        <div key={att.id} className="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
+                          <span className="flex items-center gap-1.5 text-slate-300 truncate">
+                            <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                            <span className="truncate">{att.name}</span>
+                            <span className="text-slate-500 shrink-0">({formatFileSize(att.size)})</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingFollowup({ ...editingFollowup, followup: { ...fu, attachments: (fu.attachments || []).filter((x) => x.id !== att.id) } })}
+                            className="text-rose-400 hover:text-rose-300 font-bold shrink-0"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
