@@ -48,7 +48,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const [formDepartment, setFormDepartment] = useState<string>('');
   
   const [myProfile, setMyProfile] = useState<any>(null);
-  const [formTasksToday, setFormTasksToday] = useState<string>('');
   const [formTasksTomorrow, setFormTasksTomorrow] = useState<string>('');
   const [formIssues, setFormIssues] = useState<string>('');
   const [formAchievementsThisWeek, setFormAchievementsThisWeek] = useState<string>('');
@@ -96,6 +95,27 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const legacyTextToEntries = (text?: string): WorkLogDayEntry[] => {
     if (!text || !text.trim()) return [];
     return [{ id: `legacy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, content: text }];
+  };
+
+  // 일일 업무일지 "금일 실시 사항" 항목 상태 (하루에 여러 건, 각각 시작~종료 시간 지정 가능)
+  const [todayEntries, setTodayEntries] = useState<WorkLogDayEntry[]>([]);
+  const getTodayComposedText = (source?: WorkLogDayEntry[]): string => {
+    return (source || todayEntries)
+      .map((e) => {
+        const timeLabel = e.startTime && e.endTime ? `[${e.startTime}~${e.endTime}] ` : e.startTime ? `[${e.startTime}~] ` : '';
+        return `${timeLabel}${e.content}`.trim();
+      })
+      .filter(Boolean)
+      .join('\n');
+  };
+  const addTodayEntry = () => {
+    setTodayEntries((prev) => [...prev, { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: '' }]);
+  };
+  const updateTodayEntry = (entryId: string, patch: Partial<WorkLogDayEntry>) => {
+    setTodayEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, ...patch } : e)));
+  };
+  const removeTodayEntry = (entryId: string) => {
+    setTodayEntries((prev) => prev.filter((e) => e.id !== entryId));
   };
 
   // 주간 일지 모달 내 요일 탭 상태
@@ -256,7 +276,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setFormAuthor(myProfile?.name || currentUser?.name || '');
     setFormDepartment(myProfile?.department || '');
     
-    setFormTasksToday('');
+    setTodayEntries([]);
     setFormTasksTomorrow('');
     setFormIssues('');
     setFormAchievementsThisWeek('');
@@ -304,7 +324,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     if (type === 'daily') {
       const dLog = log as DailyWorkLog;
       setFormDate(dLog.date);
-      setFormTasksToday(dLog.tasksToday);
+      setTodayEntries(dLog.taskEntriesToday?.length ? dLog.taskEntriesToday : legacyTextToEntries(dLog.tasksToday));
       setFormTasksTomorrow(dLog.tasksTomorrow);
       setFormIssues(dLog.issues || '');
     } else {
@@ -422,13 +442,27 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     dailyLogs
       .filter((l) => l.date === dateStr)
       .forEach((l) => {
-        entries.push({
-          id: `d-${l.id}`,
-          author: l.author || '작성자 미지정',
-          title: l.title,
-          content: l.tasksToday,
-          source: 'daily'
-        });
+        if (l.taskEntriesToday && l.taskEntriesToday.length > 0) {
+          l.taskEntriesToday.forEach((task) => {
+            if (!task.content || !task.content.trim()) return;
+            entries.push({
+              id: `d-${l.id}-${task.id}`,
+              author: l.author || '작성자 미지정',
+              time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
+              title: l.title,
+              content: task.content,
+              source: 'daily'
+            });
+          });
+        } else if (l.tasksToday && l.tasksToday.trim()) {
+          entries.push({
+            id: `d-${l.id}`,
+            author: l.author || '작성자 미지정',
+            title: l.title,
+            content: l.tasksToday,
+            source: 'daily'
+          });
+        }
       });
 
     const dayKeys: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -879,7 +913,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           author: formAuthor,
           department: formDepartment,
           date: formDate,
-          tasksToday: formTasksToday,
+          tasksToday: getTodayComposedText(),
+          taskEntriesToday: todayEntries,
           tasksTomorrow: formTasksTomorrow,
           issues: formIssues,
           projectIds: formProjectIds,
@@ -910,7 +945,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           if (dayKey) {
             const nextAchievementsByDay = {
               ...(matchedWeekly.achievementsByDay || {}),
-              [dayKey]: formTasksToday
+              [dayKey]: getTodayComposedText()
+            };
+            const nextAchievementEntriesByDay = {
+              ...(matchedWeekly.achievementEntriesByDay || {}),
+              [dayKey]: todayEntries
             };
 
             const dailyAchievementsList = [];
@@ -929,7 +968,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             const weeklyPayload = {
               ...matchedWeekly,
               achievementsThisWeek: combinedAchievements,
-              achievementsByDay: nextAchievementsByDay
+              achievementsByDay: nextAchievementsByDay,
+              achievementEntriesByDay: nextAchievementEntriesByDay
             };
 
             try {
@@ -2027,6 +2067,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         if (matchedWeekly && dayKey) {
                           const dayLabel = dayKey === 'mon' ? '월요일' : dayKey === 'tue' ? '화요일' : dayKey === 'wed' ? '수요일' : dayKey === 'thu' ? '목요일' : dayKey === 'fri' ? '금요일' : dayKey === 'sat' ? '토요일' : '일요일';
                           const weeklyText = matchedWeekly.achievementsByDay?.[dayKey] || '';
+                          const weeklyStructured = matchedWeekly.achievementEntriesByDay?.[dayKey];
                           
                           return (
                             <div className="bg-indigo-950/40 border border-indigo-900/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -2041,10 +2082,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                     : `해당 주간 보고의 [${dayLabel}] 실적이 비어 있습니다. 일지 저장 시 주간 보고에도 자동 반영됩니다.`}
                                 </p>
                               </div>
-                              {weeklyText && formTasksToday !== weeklyText && (
+                              {weeklyText && getTodayComposedText() !== weeklyText && (
                                 <button
                                   type="button"
-                                  onClick={() => setFormTasksToday(weeklyText)}
+                                  onClick={() => setTodayEntries(weeklyStructured?.length ? weeklyStructured : legacyTextToEntries(weeklyText))}
                                   className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-550 active:scale-95 text-white font-bold rounded-xl transition-all shrink-0 shadow-md shadow-indigo-600/10"
                                 >
                                   주간 실적 가져오기
@@ -2056,31 +2097,70 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         return null;
                       })()}
 
-                      {/* 금일 실시 사항 */}
+                      {/* 금일 실시 사항 (하루에 여러 건, 각각 시작~종료 시간 지정 가능) */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                            <CheckCircle className="w-3.5 h-3.5 text-blue-400" />
-                            <span>금일 실시 사항</span>
-                          </label>
+                        <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-blue-400" />
+                          <span>금일 실시 사항</span>
+                        </label>
+                        <div className="space-y-2">
+                          {todayEntries.length === 0 && (
+                            <div className="text-xs text-slate-500 text-center py-4 bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
+                              아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
+                            </div>
+                          )}
+                          {todayEntries.map((entry) => (
+                            <div key={entry.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">시작</label>
+                                <input
+                                  type="time"
+                                  value={entry.startTime || ''}
+                                  onChange={(e) => updateTodayEntry(entry.id, { startTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">종료</label>
+                                <input
+                                  type="time"
+                                  value={entry.endTime || ''}
+                                  onChange={(e) => updateTodayEntry(entry.id, { endTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAiPolish(`tasksToday_${entry.id}`, entry.content, (val) => updateTodayEntry(entry.id, { content: val }))}
+                                  disabled={aiPolishingField !== null}
+                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>{aiPolishingField === `tasksToday_${entry.id}` ? '정제 중...' : 'AI 정제'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeTodayEntry(entry.id)}
+                                  className="text-rose-400 hover:text-rose-300 text-xs font-bold px-1.5"
+                                  title="이 항목 삭제"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              <textarea
+                                rows={2}
+                                placeholder="이 시간대에 한 업무 내용을 입력하세요..."
+                                value={entry.content}
+                                onChange={(e) => updateTodayEntry(entry.id, { content: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-200 text-xs placeholder:text-slate-600 leading-relaxed"
+                              />
+                            </div>
+                          ))}
                           <button
                             type="button"
-                            onClick={() => handleAiPolish('tasksToday', formTasksToday, setFormTasksToday)}
-                            disabled={aiPolishingField !== null}
-                            className="flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
+                            onClick={addTodayEntry}
+                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-400 hover:text-white hover:border-blue-500 text-xs font-bold transition-all"
                           >
-                            <Sparkles className="w-3 h-3" />
-                            <span>{aiPolishingField === 'tasksToday' ? '정제 중...' : 'AI 업무정제'}</span>
+                            + 업무 항목 추가 (시간대별로 여러 건 가능)
                           </button>
                         </div>
-                        <textarea
-                          rows={4}
-                          placeholder="오늘 진행한 상세 업무 실적을 자유롭게 적어보세요. (AI 업무정제를 누르면 깔끔한 비즈니스 문서 톤으로 교정해 줍니다)"
-                          value={formTasksToday}
-                          onChange={(e) => setFormTasksToday(e.target.value)}
-                          className="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm placeholder:text-slate-600 leading-relaxed"
-                          required
-                        />
                       </div>
 
                       {/* 명일 예정 사항 */}
