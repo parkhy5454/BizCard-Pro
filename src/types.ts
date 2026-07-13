@@ -260,6 +260,15 @@ export interface WeeklyWorkLog {
     sat?: string;
     sun?: string;
   };
+  achievementTimesByDay?: {   // 요일별 업무 수행 시간 (예: "09:30")
+    mon?: string;
+    tue?: string;
+    wed?: string;
+    thu?: string;
+    fri?: string;
+    sat?: string;
+    sun?: string;
+  };
   plansNextWeek: string;        // 차주 예정 사항
   feedbacks?: string;           // 애로 및 건의 사항/피드백
   contactIds?: string[];  // 연관 거래처/인맥 ID 목록 (명함 ID)
