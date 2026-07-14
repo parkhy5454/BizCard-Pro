@@ -3,6 +3,21 @@
 @theme {
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
     Roboto, 'Helvetica Neue', 'Segoe UI', 'Malgun Gothic', sans-serif;
+
+  /* 기본 Tailwind indigo보다 살짝 더 깊고 풍부한 바이올렛 톤으로 다듬은 브랜드 포인트 색상
+     (앱 전체에서 bg-indigo-*, text-indigo-*, border-indigo-* 등으로 이미 쓰이고 있어
+     이 값만 바꿔도 버튼/활성탭/포커스 색상이 자동으로 톤이 바뀝니다) */
+  --color-indigo-50: #F1F0FE;
+  --color-indigo-100: #E4E2FD;
+  --color-indigo-200: #CBC6FB;
+  --color-indigo-300: #A79EF6;
+  --color-indigo-400: #8A7BF0;
+  --color-indigo-500: #7460EA;
+  --color-indigo-600: #6247DD;
+  --color-indigo-700: #5138BC;
+  --color-indigo-800: #422F97;
+  --color-indigo-900: #382A78;
+  --color-indigo-950: #221A4D;
 }
 
 html {
