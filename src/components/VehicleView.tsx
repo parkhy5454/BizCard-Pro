@@ -1489,11 +1489,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 1. 대시보드 (Dashboard) */}
       {activeSubTab === 'dashboard' && (
         <div className="space-y-6">
-          
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold text-slate-100">대시보드</h2>
-            <p className="text-xs text-slate-400">통합 차량 관리 현황을 확인하세요.</p>
-          </div>
 
           {(() => {
             const expiringVehicles = vehicles.filter(v => {
@@ -1720,30 +1715,23 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 2. 차량등록 (Vehicles Tab) */}
       {activeSubTab === 'vehicles' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-100">차량 대장 등록 관리</h2>
-              <p className="text-xs text-slate-400">회사에서 보유 또는 리스 중인 업무용 차량 자산 목록입니다.</p>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                <input 
-                  type="text" 
-                  placeholder="차량명, 번호 검색..." 
-                  value={vehicleSearch}
-                  onChange={e => setVehicleSearch(e.target.value)}
-                  className="bg-slate-900 text-xs text-slate-200 pl-9 pr-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
-                />
-              </div>
-              <button
-                onClick={() => setShowVehicleForm(!showVehicleForm)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>차량 추가</span>
-              </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowVehicleForm(!showVehicleForm)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>차량 추가</span>
+            </button>
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="차량명, 번호 검색..." 
+                value={vehicleSearch}
+                onChange={e => setVehicleSearch(e.target.value)}
+                className="w-full bg-slate-900 text-xs text-slate-200 pl-9 pr-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+              />
             </div>
           </div>
 
@@ -2212,12 +2200,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {activeSubTab === 'driving' && (
         <div className="space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-100">운행기록 일지 대장</h2>
-              <p className="text-xs text-slate-400">법인 세무 증빙 및 임직원 차량 사용을 위해 기록된 실시간 운행 대장입니다.</p>
-            </div>
-
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  if (vehicles.length === 0) {
+                    alert('차량을 먼저 등록하세요.');
+                    return;
+                  }
+                  setShowDrivingForm(!showDrivingForm);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>운행 일지 작성</span>
+              </button>
+
               {/* 기간 필터 버튼 */}
               <div className="flex flex-wrap items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
                 {(['all', 'today', 'week', 'month', 'year', 'custom'] as const).map(p => {
@@ -2266,20 +2263,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <option key={v.id} value={v.id}>{v.modelName} [{v.plateNumber}]</option>
                 ))}
               </select>
-
-              <button
-                onClick={() => {
-                  if (vehicles.length === 0) {
-                    alert('차량을 먼저 등록하세요.');
-                    return;
-                  }
-                  setShowDrivingForm(!showDrivingForm);
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>운행 일지 작성</span>
-              </button>
             </div>
           </div>
 
@@ -2817,12 +2800,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {activeSubTab === 'expenses' && (
         <div className="space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-100">차량 지출 비용 전산 대장</h2>
-              <p className="text-xs text-slate-400">주유비, 톨게이트, 정비, 주차비 등 업무 차량에서 소요된 지출 내역을 정산·조회합니다.</p>
-            </div>
-
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  if (vehicles.length === 0) {
+                    alert('비용을 기입하려면 차량을 먼저 대장에 등록해야 합니다.');
+                    return;
+                  }
+                  setShowExpenseForm(!showExpenseForm);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>비용 지출 등록</span>
+              </button>
+
               {/* 기간 필터 버튼 */}
               <div className="flex flex-wrap items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
                 {(['all', 'today', 'week', 'month', 'year', 'custom'] as const).map(p => {
@@ -2890,20 +2882,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <option value="custom">직접 입력 분류</option>
                 <option value="other">기타</option>
               </select>
-
-              <button
-                onClick={() => {
-                  if (vehicles.length === 0) {
-                    alert('비용을 기입하려면 차량을 먼저 대장에 등록해야 합니다.');
-                    return;
-                  }
-                  setShowExpenseForm(!showExpenseForm);
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>비용 지출 등록</span>
-              </button>
             </div>
           </div>
 
@@ -3313,12 +3291,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 5. 정비일지 (Maintenance Tab) */}
       {activeSubTab === 'maintenance' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-850 pb-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-100">차량 예방 정비 및 소모품 점검 일지</h2>
-              <p className="text-xs text-slate-400">교체 주기에 도달한 항목 및 예방 차원의 점검 수리 일지를 예약·관리합니다.</p>
-            </div>
-
+          <div className="flex items-center justify-end gap-3 border-b border-slate-850 pb-3">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -3858,9 +3831,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <FileText className="w-4 h-4 text-indigo-400" />
                     <span>국세청(NTS) 제출용 업무용승용차 운행기록부 서식</span>
                   </h2>
-                  <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
-                    소득세법 및 법인세법 법정 규정 서식과 동일한 형태로 실시간 전산 처리되어 즉시 인쇄(PDF 저장) 및 규격화된 엑셀(XLS) 파일로 다운로드 할 수 있습니다.
-                  </p>
                 </div>
                 
                 {/* 전체 다운로드 제어 기능 */}
@@ -4219,11 +4189,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 7. 지출·운행 분석 (Analysis Tab - SVG 기반 dynamic dashboard) */}
       {activeSubTab === 'analysis' && (
         <div className="space-y-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold text-slate-100">지출 및 운행 종합 통계 분석</h2>
-            <p className="text-xs text-slate-400">차량별 주행 거리 비중 및 비용 범주별 소요 현황을 도표와 그래프로 분석합니다.</p>
-          </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* 1. 차량별 지출 비중 (가로형 막대그래프) */}
