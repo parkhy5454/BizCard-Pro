@@ -204,7 +204,8 @@ export const Navigation: React.FC<Props> = ({
             </button>
           </nav>
 
-          {/* 명함 등록 / 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (전체 명함 탭과 그룹 필터 사이) */}
+          {/* 명함 등록 / 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (전체 명함 탭일 때만 노출) */}
+          {activeTab === 'cards' && (
           <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-none">
             <button
               onClick={onOpenScanModal}
@@ -258,6 +259,7 @@ export const Navigation: React.FC<Props> = ({
               <span>주변 레이더 지도</span>
             </button>
           </div>
+          )}
 
           {/* 명함 목록 탭일 때 우측 그룹 칩 필터링 */}
           {activeTab === 'cards' && (
