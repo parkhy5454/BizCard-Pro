@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 
 interface Props {
@@ -88,6 +88,58 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
 
   return (
     <div className="space-y-3">
+      {/* ⚠️ 5일 이상 연락 없는 거래처 알림 배너 */}
+      {(() => {
+        const now = Date.now();
+        const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+        const staleContacts = contacts.filter((c) => {
+          if (!c.callHistory || c.callHistory.length === 0) return false;
+          const lastCall = c.callHistory.reduce((latest, cur) => {
+            const t = new Date(cur.timestamp).getTime();
+            return t > latest ? t : latest;
+          }, 0);
+          if (!lastCall) return false;
+          return now - lastCall >= FIVE_DAYS_MS;
+        });
+
+        if (staleContacts.length === 0) return null;
+
+        return (
+          <div className="bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 shadow-xl flex items-start gap-4 animate-fadeIn max-w-3xl mx-auto">
+            <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 shrink-0">
+              <AlertTriangle className="w-5 h-5 animate-bounce" />
+            </div>
+            <div className="space-y-1.5 flex-1">
+              <h4 className="text-sm font-bold text-rose-300">
+                5일 이상 연락이 뜸한 거래처가 {staleContacts.length}개 있습니다!
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                안부 전화나 후속 연락을 진행해 보세요.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {staleContacts.map((c) => {
+                  const lastCall = (c.callHistory || []).reduce((latest, cur) => {
+                    const t = new Date(cur.timestamp).getTime();
+                    return t > latest ? t : latest;
+                  }, 0);
+                  const daysSince = Math.floor((now - lastCall) / (24 * 60 * 60 * 1000));
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => onSelectContact(c)}
+                      className="px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 bg-slate-950 hover:bg-slate-900 border-rose-500/20 hover:border-rose-500/40 text-rose-300"
+                    >
+                      <span className="font-bold">{c.name}</span>
+                      <span className="text-[10px] opacity-80 font-mono">({daysSince}일 경과)</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 명함 검색 영역 */}
       <div className="max-w-md mx-auto relative">
         <div className="relative">

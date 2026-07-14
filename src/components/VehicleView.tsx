@@ -196,7 +196,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     lastServiceMileage: 0,
     lastServiceDate: new Date().toISOString().split('T')[0],
     alertKmBefore: 500,
-    alertDaysBefore: 15
+    alertDaysBefore: 7
   });
 
   // 국세청 리포트용 차량 및 기간 선택
@@ -931,7 +931,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           lastServiceMileage: 0,
           lastServiceDate: new Date().toISOString().split('T')[0],
           alertKmBefore: 500,
-          alertDaysBefore: 15
+          alertDaysBefore: 7
         });
       }
     } catch (err) {
@@ -1231,6 +1231,64 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ⚠️ 정비/소모품 점검 임박 알림 배너 */}
+          {(() => {
+            const dueSoonItems = maintenanceIntervals.map((item) => {
+              const vehicle = vehicles.find(v => v.id === item.vehicleId);
+              const currentMileage = vehicle ? vehicle.currentMileage : 0;
+              const drivenKm = Math.max(0, currentMileage - item.lastServiceMileage);
+              const kmLeft = item.intervalKm - drivenKm;
+
+              let daysElapsed = 0;
+              try {
+                const lastDate = new Date(item.lastServiceDate);
+                daysElapsed = Math.max(0, Math.floor((new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
+              } catch (_) {}
+              const daysLeft = item.intervalDays - daysElapsed;
+
+              const isKmExceeded = drivenKm >= item.intervalKm;
+              const isDaysExceeded = daysElapsed >= item.intervalDays;
+              const isAlertKm = kmLeft <= item.alertKmBefore;
+              const isAlertDays = daysLeft <= item.alertDaysBefore;
+
+              return { item, vehicle, kmLeft, daysLeft, isOverdue: isKmExceeded || isDaysExceeded, hasWarning: isKmExceeded || isDaysExceeded || isAlertKm || isAlertDays };
+            }).filter((r) => r.hasWarning);
+
+            if (dueSoonItems.length === 0) return null;
+
+            return (
+              <div className="bg-amber-950/15 border border-amber-800/30 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-amber-400">
+                  <Wrench className="w-5 h-5 shrink-0" />
+                  <h3 className="text-sm font-bold">정비/소모품 점검 임박 알림</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {dueSoonItems.map(({ item, vehicle, kmLeft, daysLeft, isOverdue }) => (
+                    <div key={item.id} className="bg-slate-950/40 border border-slate-850 p-3 rounded-xl flex items-center justify-between text-xs">
+                      <div className="space-y-1">
+                        <p className="font-bold text-slate-200">{vehicle ? `${vehicle.modelName} (${vehicle.plateNumber})` : '차량 미지정'}</p>
+                        <p className="text-[11px] text-slate-400">
+                          {item.itemType} · 남은 거리: {Math.max(0, kmLeft).toLocaleString()}km · 남은 일수: {Math.max(0, daysLeft)}일
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {isOverdue ? (
+                          <span className="px-2 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded text-[11px] font-bold">
+                            교체 주기 초과
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[11px] font-bold">
+                            점검 임박
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -3362,7 +3420,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-400">알림 기준 (일 전 알림(일 입력))</label>
                   <input 
                     type="number" 
-                    placeholder="15"
+                    placeholder="7"
                     value={newInterval.alertDaysBefore || ''}
                     onChange={e => setNewInterval({ ...newInterval, alertDaysBefore: Number(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
@@ -5625,7 +5683,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-400">알림 기준 (일 전 알림(일 입력))</label>
                   <input 
                     type="number" 
-                    placeholder="15"
+                    placeholder="7"
                     value={editingInterval.alertDaysBefore || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, alertDaysBefore: Number(e.target.value) })}
                     className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"

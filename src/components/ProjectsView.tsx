@@ -947,7 +947,7 @@ export const ProjectsView: React.FC<Props> = ({
         const needyProjs = projects.filter(p => {
           if (p.status !== 'opportunity' && p.status !== 'progress') return false;
           const { days } = getDaysSinceLastActivity(p);
-          return days >= 7;
+          return days >= 5;
         });
 
         if (needyProjs.length > 0) {
@@ -961,7 +961,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <span>신속한 팔로우업이 필요한 활성 프로젝트가 {needyProjs.length}개 있습니다!</span>
                 </h4>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  마지막 미팅 또는 비즈니스 프로젝트 등록 후 <span className="text-rose-400 font-bold">1주일(7일) 이상</span> 경과하여 연락이 뜸해진 건들입니다. 신속하게 안부 연락이나 차기 미팅 조율을 진행해 보세요.
+                  마지막 미팅 또는 비즈니스 프로젝트 등록 후 <span className="text-rose-400 font-bold">5일 이상</span> 경과하여 연락이 뜸해진 건들입니다. 신속하게 안부 연락이나 차기 미팅 조율을 진행해 보세요.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1.5">
                   {needyProjs.map(p => {
@@ -1067,7 +1067,7 @@ export const ProjectsView: React.FC<Props> = ({
                       {(() => {
                         if (proj.status === 'opportunity' || proj.status === 'progress') {
                           const { days } = getDaysSinceLastActivity(proj);
-                          if (days >= 7) {
+                          if (days >= 5) {
                             return (
                               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-1 animate-pulse">
                                 <AlertTriangle className="w-3 h-3" />
@@ -1109,7 +1109,7 @@ export const ProjectsView: React.FC<Props> = ({
                       {(() => {
                         if (proj.status === 'opportunity' || proj.status === 'progress') {
                           const { days, reason } = getDaysSinceLastActivity(proj);
-                          const isOverdue = days >= 7;
+                          const isOverdue = days >= 5;
                           const iconColor = isOverdue ? 'text-rose-400' : 'text-amber-400';
                           const textColor = isOverdue ? 'text-rose-300 font-bold' : 'text-slate-400';
                           return (
