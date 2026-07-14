@@ -61,6 +61,16 @@ export interface ProjectFollowUpAttachment {
   size?: number;      // 바이트 단위 파일 크기 (표시용)
 }
 
+export interface MeetingExpenseItem {
+  id: string;
+  category: 'meal' | 'drinks' | 'purchase' | 'service_fee' | 'custom'; // 식대 / 음료(커피) / 물품 구입 / 식사 서비스 비용 / 직접 입력
+  categoryCustom?: string; // 직접 입력 시 카테고리명
+  amount: number;
+  payMethod: 'company_card' | 'personal_card' | 'cash'; // 법인(회사)카드 / 개인카드 / 현금
+  memo?: string; // 지출 상세 사유/메모
+  receiptImage?: string; // 스캔하거나 첨부한 영수증 사진 (base64)
+}
+
 export interface ProjectFollowUp {
   id: string;
   projectId: string;
@@ -74,6 +84,7 @@ export interface ProjectFollowUp {
   voiceUrl?: string;       // 음성 재생용 (시뮬레이션 혹은 실제 녹음 데이터)
   voiceDuration?: string;  // 음성 녹음 분초 (예: "0:15")
   attachments?: ProjectFollowUpAttachment[]; // 제안서/견적서/발송자료 등 첨부파일
+  expenses?: MeetingExpenseItem[]; // 미팅/팔로우업 관련 지출 비용 (영수증 스캔 포함)
 }
 
 export interface Project {
