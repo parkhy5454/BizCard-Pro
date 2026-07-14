@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search } from 'lucide-react';
+import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment } from '../types.js';
+import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 
@@ -95,6 +95,8 @@ export const ProjectsView: React.FC<Props> = ({
   const [meetingDate, setMeetingDate] = useState<string>('');
   const [meetingContent, setMeetingContent] = useState<string>('');
   const [meetingAttachments, setMeetingAttachments] = useState<ProjectFollowUpAttachment[]>([]);
+  const [meetingExpenses, setMeetingExpenses] = useState<MeetingExpenseItem[]>([]);
+  const [scanningExpenseId, setScanningExpenseId] = useState<string | null>(null);
   
   // 음성 메모 녹음 관련 상태
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -506,7 +508,8 @@ export const ProjectsView: React.FC<Props> = ({
           meetingDegree: followup.meetingDegree,
           attendee: followup.attendee,
           internalStaffName: followup.internalStaffName,
-          attachments: followup.attachments || []
+          attachments: followup.attachments || [],
+          expenses: followup.expenses || []
         })
       });
     } catch (err) {
@@ -569,6 +572,80 @@ export const ProjectsView: React.FC<Props> = ({
     if (!bytes) return '';
     if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
+  // 비용 카테고리 한글 라벨
+  const expenseCategoryLabel = (item: MeetingExpenseItem): string => {
+    const labels: Record<string, string> = {
+      meal: '식대',
+      drinks: '음료(커피)',
+      purchase: '물품 구입',
+      service_fee: '식사 서비스 비용',
+      custom: item.categoryCustom || '직접 입력'
+    };
+    return labels[item.category] || item.category;
+  };
+
+  // /api/scan-receipt가 반환하는 범용 카테고리를, 미팅 비용에서 쓰는 카테고리로 변환
+  const mapReceiptCategoryToMeeting = (cat: string): { category: MeetingExpenseItem['category']; categoryCustom?: string } => {
+    if (cat === 'meal') return { category: 'meal' };
+    if (cat === 'beverage') return { category: 'drinks' };
+    if (cat === 'supplies') return { category: 'purchase' };
+    const otherLabels: Record<string, string> = {
+      fuel: '주유비', parking: '주차비', toll: '통행료', maintenance: '차량 정비', agency_drive: '대리운전', other: '기타'
+    };
+    return { category: 'custom', categoryCustom: otherLabels[cat] || '기타' };
+  };
+
+  const addMeetingExpense = (setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>) => {
+    setter((prev) => [...prev, {
+      id: `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      category: 'meal',
+      amount: 0,
+      payMethod: 'company_card',
+      memo: ''
+    }]);
+  };
+  const updateMeetingExpense = (setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>, id: string, patch: Partial<MeetingExpenseItem>) => {
+    setter((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  };
+  const removeMeetingExpense = (setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>, id: string) => {
+    setter((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  // 영수증 사진을 스캔해서 비용 항목을 자동으로 채워 추가
+  const scanReceiptAndAddExpense = async (file: File, setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>) => {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const tempId = `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      setScanningExpenseId(tempId);
+      // 스캔 중에도 사진은 바로 붙여서 보여줌 (스캔 실패해도 사진은 남도록)
+      setter((prev) => [...prev, { id: tempId, category: 'custom', amount: 0, payMethod: 'company_card', memo: '', receiptImage: dataUrl }]);
+      try {
+        const res = await fetch('/api/scan-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const mapped = mapReceiptCategoryToMeeting(data.category);
+          updateMeetingExpense(setter, tempId, {
+            category: mapped.category,
+            categoryCustom: mapped.categoryCustom,
+            amount: data.amount || 0,
+            payMethod: data.payMethod === 'personal_card' ? 'personal_card' : data.payMethod === 'cash' ? 'cash' : 'company_card',
+            memo: [data.merchantName, data.memo].filter(Boolean).join(' · ')
+          });
+        }
+      } catch (err) {
+        console.error('영수증 스캔 실패:', err);
+      } finally {
+        setScanningExpenseId(null);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // 이름 + 사무실/핸드폰 번호를 직접 입력해서 미팅자 항목을 만듭니다 (예: "김대리(H.010-..., O.02-...)")
@@ -640,9 +717,127 @@ export const ProjectsView: React.FC<Props> = ({
     });
   };
 
+  // 미팅 비용 지출 UI 섹션 (등록/수정 화면 공용)
+  const renderExpenseSection = (expenses: MeetingExpenseItem[], setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>) => (
+    <div className="space-y-1.5">
+      <label className="block text-[10px] text-slate-400 font-bold flex items-center gap-1">
+        <Receipt className="w-3 h-3" /> 비용 지출 (영수증 스캔 가능)
+      </label>
+
+      <div className="flex gap-2">
+        <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-[11px] font-semibold transition-colors">
+          <Camera className="w-3.5 h-3.5" />
+          <span>영수증 스캔/업로드</span>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) scanReceiptAndAddExpense(file, setter);
+              e.target.value = '';
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => addMeetingExpense(setter)}
+          className="px-3 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:text-indigo-400 hover:border-indigo-500 text-[11px] font-semibold transition-colors shrink-0"
+        >
+          + 직접 입력
+        </button>
+      </div>
+
+      {expenses.length > 0 && (
+        <div className="space-y-2">
+          {expenses.map((exp) => (
+            <div key={exp.id} className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
+              <div className="flex items-start gap-2">
+                {exp.receiptImage && (
+                  <img src={exp.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                )}
+                <div className="flex-1 grid grid-cols-2 gap-1.5">
+                  <select
+                    value={exp.category}
+                    onChange={(e) => updateMeetingExpense(setter, exp.id, { category: e.target.value as MeetingExpenseItem['category'] })}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="meal">식대</option>
+                    <option value="drinks">음료(커피)</option>
+                    <option value="purchase">물품 구입</option>
+                    <option value="service_fee">식사 서비스 비용</option>
+                    <option value="custom">직접 입력</option>
+                  </select>
+                  <select
+                    value={exp.payMethod}
+                    onChange={(e) => updateMeetingExpense(setter, exp.id, { payMethod: e.target.value as MeetingExpenseItem['payMethod'] })}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="company_card">법인(회사)카드</option>
+                    <option value="personal_card">개인카드</option>
+                    <option value="cash">현금</option>
+                  </select>
+                  {exp.category === 'custom' && (
+                    <input
+                      type="text"
+                      value={exp.categoryCustom || ''}
+                      onChange={(e) => updateMeetingExpense(setter, exp.id, { categoryCustom: e.target.value })}
+                      placeholder="카테고리명 직접 입력"
+                      className="col-span-2 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                    />
+                  )}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={exp.amount ? formatCurrencyInput(exp.amount) : ''}
+                    onChange={(e) => updateMeetingExpense(setter, exp.id, { amount: parseCurrencyInput(e.target.value) })}
+                    placeholder="금액 (원)"
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white placeholder:text-slate-600 font-mono outline-none focus:border-indigo-500"
+                  />
+                  <input
+                    type="text"
+                    value={exp.memo || ''}
+                    onChange={(e) => updateMeetingExpense(setter, exp.id, { memo: e.target.value })}
+                    placeholder="지출 상세 사유/메모"
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeMeetingExpense(setter, exp.id)}
+                  className="text-rose-400 hover:text-rose-300 font-bold shrink-0 px-1"
+                >
+                  ✕
+                </button>
+              </div>
+              {scanningExpenseId === exp.id && (
+                <div className="text-[10px] text-indigo-400 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> 영수증 스캔 중...
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="text-right text-[11px] text-slate-400 font-bold">
+            합계: <span className="text-emerald-400 font-mono">{formatCurrencyInput(expenses.reduce((s, e) => s + e.amount, 0))}원</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // 수정 모달에서 editingFollowup.followup.expenses 를 다루기 위한 setState 어댑터
+  const editExpensesSetter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>> = (updater) => {
+    setEditingFollowup((prev) => {
+      if (!prev) return prev;
+      const current = prev.followup.expenses || [];
+      const next = typeof updater === 'function' ? (updater as (p: MeetingExpenseItem[]) => MeetingExpenseItem[])(current) : updater;
+      return { ...prev, followup: { ...prev.followup, expenses: next } };
+    });
+  };
+
   const handleAddFollowup = async (projectId: string, e: React.FormEvent) => {
     e.preventDefault();
-    if (!meetingContent.trim() && !voiceAttached && meetingAttachments.length === 0) return;
+    if (!meetingContent.trim() && !voiceAttached && meetingAttachments.length === 0 && meetingExpenses.length === 0) return;
 
     const payload = {
       content: meetingContent,
@@ -654,7 +849,8 @@ export const ProjectsView: React.FC<Props> = ({
       hasVoice: voiceAttached,
       voiceUrl: voiceAttached ? attachedVoiceUrl : undefined,
       voiceDuration: voiceAttached ? attachedVoiceDuration : undefined,
-      attachments: meetingAttachments
+      attachments: meetingAttachments,
+      expenses: meetingExpenses
     };
 
     try {
@@ -683,7 +879,8 @@ export const ProjectsView: React.FC<Props> = ({
           hasVoice: payload.hasVoice,
           voiceUrl: payload.voiceUrl,
           voiceDuration: payload.voiceDuration,
-          attachments: payload.attachments
+          attachments: payload.attachments,
+          expenses: payload.expenses
         };
         const updated = { ...target, followUps: [newF, ...target.followUps] };
         setProjects(projects.map((p) => (p.id === projectId ? updated : p)));
@@ -695,6 +892,7 @@ export const ProjectsView: React.FC<Props> = ({
     setAttachedVoiceDuration('');
     setAttachedVoiceUrl('');
     setMeetingAttachments([]);
+    setMeetingExpenses([]);
     setMeetingDegree(prev => prev + 1);
   };
 
@@ -1337,6 +1535,8 @@ export const ProjectsView: React.FC<Props> = ({
                           )}
                         </div>
 
+                        {renderExpenseSection(meetingExpenses, setMeetingExpenses)}
+
                         {/* 전송 버튼 */}
                         <div className="flex justify-end pt-1">
                           <button
@@ -1459,6 +1659,29 @@ export const ProjectsView: React.FC<Props> = ({
                                         <Download className="w-3 h-3 opacity-60" />
                                       </a>
                                     ))}
+                                  </div>
+                                )}
+
+                                {/* 비용 지출 내역 */}
+                                {(fu.expenses || []).length > 0 && (
+                                  <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-2.5 space-y-1" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold">
+                                      <Receipt className="w-3 h-3" />
+                                      <span>비용 지출 {(fu.expenses || []).length}건</span>
+                                      <span className="ml-auto font-mono">{formatCurrencyInput((fu.expenses || []).reduce((s, e) => s + e.amount, 0))}원</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {(fu.expenses || []).map((exp) => (
+                                        <span key={exp.id} className="text-[10px] text-slate-300 bg-slate-950/60 border border-slate-800 rounded-lg px-2 py-1 flex items-center gap-1">
+                                          {exp.receiptImage && <Camera className="w-3 h-3 text-emerald-400" />}
+                                          <span>{expenseCategoryLabel(exp)}</span>
+                                          <span className="font-mono text-slate-400">{formatCurrencyInput(exp.amount)}원</span>
+                                          <span className="text-slate-500">
+                                            ({exp.payMethod === 'company_card' ? '법인카드' : exp.payMethod === 'personal_card' ? '개인카드' : '현금'})
+                                          </span>
+                                        </span>
+                                      ))}
+                                    </div>
                                   </div>
                                 )}
 
@@ -2184,6 +2407,8 @@ export const ProjectsView: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
+
+                {renderExpenseSection(fu.expenses || [], editExpensesSetter)}
 
                 <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
                   <button type="button" onClick={() => setEditingFollowup(null)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
