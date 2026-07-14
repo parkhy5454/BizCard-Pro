@@ -559,6 +559,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       const matchedLogs = dailyLogs.filter(dl => dl.date === dateStr);
       
       const description = matchedLogs.flatMap(ml => [ml.tasksToday]).filter(Boolean).join('\n') || '';
+
+      // 연관 프로젝트명 (매칭된 일일 일지의 projectIds를 프로젝트명으로 변환)
+      const projectNames = Array.from(new Set(
+        matchedLogs.flatMap(ml => (ml.projectIds || []).map(pid => projects.find(p => p.id === pid)?.name).filter(Boolean) as string[])
+      ));
+
+      // 매칭된 일일 일지의 지출 비용 항목 (Description/Won 세부 표용)
+      const expenseItems = matchedLogs.flatMap(ml => (ml.expenses || []).map(exp => ({
+        id: exp.id,
+        description: getCategoryKo(exp.category, exp.categoryCustom),
+        amount: exp.amount
+      })));
       
       const defaultDesc = i === 0 
         ? "1. 주간 영업 실적 보고 회의 참석\n2. 주요 VIP 고객 메일 피드백 정리 및 금주 타겟 명단 선정"
@@ -575,9 +587,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         date: dateStr,
         dateLabel: formatMockupDateLabel(dateStr),
         weekLabel: `${annualWeek}주차`,
+        project: projectNames.join(', '),
         description: description || defaultDesc,
         progress: matchedLogs.length > 0 ? '100' : '',
-        remark: ''
+        remark: '',
+        expenseItems
       });
     }
     setReportTable1(t1Rows);
@@ -589,6 +603,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       const matchedLogs = dailyLogs.filter(dl => dl.date === dateStr);
       
       const description = matchedLogs.flatMap(ml => [ml.tasksToday]).filter(Boolean).join('\n') || '';
+
+      const projectNames = Array.from(new Set(
+        matchedLogs.flatMap(ml => (ml.projectIds || []).map(pid => projects.find(p => p.id === pid)?.name).filter(Boolean) as string[])
+      ));
+
+      const expenseItems = matchedLogs.flatMap(ml => (ml.expenses || []).map(exp => ({
+        id: exp.id,
+        description: getCategoryKo(exp.category, exp.categoryCustom),
+        amount: exp.amount
+      })));
       
       const defaultDesc = i === 0 
         ? "1. 주간 영업 실적 보고 회의 참석\n2. 주요 VIP 고객 메일 피드백 정리 및 금주 타겟 명단 선정"
@@ -605,9 +629,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         date: dateStr,
         dateLabel: formatMockupDateLabel(dateStr),
         weekLabel: `${annualWeek + 1}주차`,
+        project: projectNames.join(', '),
         description: description || defaultDesc,
         estimatedTime: '',
-        remark: ''
+        remark: '',
+        expenseItems
       });
     }
     setReportTable2(t2Rows);
@@ -620,6 +646,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       const matchedLogs = dailyLogs.filter(dl => dl.date === dateStr);
       
       const description = matchedLogs.flatMap(ml => [ml.tasksToday]).filter(Boolean).join('\n') || '';
+
+      const projectNames = Array.from(new Set(
+        matchedLogs.flatMap(ml => (ml.projectIds || []).map(pid => projects.find(p => p.id === pid)?.name).filter(Boolean) as string[])
+      ));
       
       const defaultDesc = i === 0 
         ? "1. 삼성전자 보안 요구 기술 미팅 진행 및 완전 온디바이스 옵션 아키텍처 제안서 작성\n2. 네이버 클라우드 파트너십 최종 계약 서명 조율"
@@ -636,6 +666,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         date: dateStr,
         dateLabel: formatMockupDateLabel(dateStr),
         weekLabel: `${annualWeek + 2}주차`,
+        project: projectNames.join(', '),
         description: description || defaultDesc,
         estimatedTime: '',
         remark: ''
@@ -744,61 +775,88 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
     // 제목
     wsData.push([reportTitle]);
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } });
     wsData.push([]);
 
     // 헤더: 보고 기간 / 부서 / 작성자 / 비용
     const headerRowIdx = wsData.length;
-    wsData.push(['보고 기간', `${reportStartDate} ~ ${reportEndDate}`, '', '', '']);
-    merges.push({ s: { r: headerRowIdx, c: 1 }, e: { r: headerRowIdx, c: 4 } });
-    wsData.push(['소속 부서', reportDepartment, '작성자', reportAuthor, '']);
+    wsData.push(['보고 기간', `${reportStartDate} ~ ${reportEndDate}`, '', '', '', '', '']);
+    merges.push({ s: { r: headerRowIdx, c: 1 }, e: { r: headerRowIdx, c: 6 } });
+    wsData.push(['소속 부서', reportDepartment, '작성자', reportAuthor, '', '', '']);
     if (reportOption === 'B') {
-      wsData.push(['일간 비용', `${reportExpenseDaily.toLocaleString()}원`, '주간 비용', `${reportExpenseWeekly.toLocaleString()}원`, '']);
-      wsData.push(['월간 누적 비용', `${reportExpenseMonthly.toLocaleString()}원`, '정산 총계', `${(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원`, '']);
+      wsData.push(['일간 비용', `${reportExpenseDaily.toLocaleString()}원`, '주간 비용', `${reportExpenseWeekly.toLocaleString()}원`, '', '', '']);
+      wsData.push(['월간 누적 비용', `${reportExpenseMonthly.toLocaleString()}원`, '정산 총계', `${(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원`, '', '', '']);
     }
     wsData.push([]);
 
-    // 공통: 표 하나(Week/Date/Description/진행율또는예상시간/Remark)를 wsData에 추가하는 헬퍼
-    const pushTable = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
+    // 표 1/2 (Week/Date/Project/Description/진행율또는예상시간/Expenses-Description/Expenses-Won) + 하단 합계행
+    const pushTableWithExpenses = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
       wsData.push([heading]);
-      merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 4 } });
-      const tableHeaderIdx = wsData.length;
-      wsData.push(['Week', 'Date', 'Description', thirdColLabel, 'Remark']);
+      merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 6 } });
+      wsData.push(['Week', 'Date', 'Project', 'Description', thirdColLabel, 'Expenses: Description', 'Expenses: Won']);
       const firstRowIdx = wsData.length;
+      let total = 0;
       rows.forEach((row, idx) => {
+        const items = row.expenseItems || [];
+        total += items.reduce((s: number, e: any) => s + e.amount, 0);
         wsData.push([
           idx === 0 ? row.weekLabel : '',
           row.dateLabel,
+          row.project || '',
           row.description,
           row[thirdColField] || '',
-          row.remark || ''
+          items.map((e: any) => e.description).join('\n') || '',
+          items.map((e: any) => e.amount.toLocaleString()).join('\n') || ''
         ]);
       });
       if (rows.length > 1) {
         merges.push({ s: { r: firstRowIdx, c: 0 }, e: { r: firstRowIdx + rows.length - 1, c: 0 } });
       }
+      const totalRowIdx = wsData.length;
+      wsData.push(['계', '', '', '', '', '', total.toLocaleString()]);
+      merges.push({ s: { r: totalRowIdx, c: 0 }, e: { r: totalRowIdx, c: 5 } });
       wsData.push([]);
     };
 
-    pushTable('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress');
-    pushTable('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime');
-    pushTable('3. 차주 예정 사항', reportTable3, 'Estimated Time', 'estimatedTime');
+    pushTableWithExpenses('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress');
+    pushTableWithExpenses('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime');
+
+    // 표 3 (차주 예정 사항): Week/Date/Project/Description/Estimated Time/Remark (비용 없음)
+    wsData.push(['3. 차주 예정 사항']);
+    merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 6 } });
+    wsData.push(['Week', 'Date', 'Project', 'Description', 'Estimated Time', 'Remark', '']);
+    const t3FirstRowIdx = wsData.length;
+    reportTable3.forEach((row: any, idx) => {
+      wsData.push([
+        idx === 0 ? row.weekLabel : '',
+        row.dateLabel,
+        row.project || '',
+        row.description,
+        row.estimatedTime || '',
+        row.remark || '',
+        ''
+      ]);
+    });
+    if (reportTable3.length > 1) {
+      merges.push({ s: { r: t3FirstRowIdx, c: 0 }, e: { r: t3FirstRowIdx + reportTable3.length - 1, c: 0 } });
+    }
+    wsData.push([]);
 
     // 4. 애로 및 요청 사항 / 피드백
     wsData.push(['4. 애로 및 요청 사항 / 피드백']);
-    merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 4 } });
-    wsData.push(['No.', 'Description', '', '', 'Remark']);
-    merges.push({ s: { r: wsData.length - 1, c: 1 }, e: { r: wsData.length - 1, c: 3 } });
+    merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 6 } });
+    wsData.push(['No.', 'Description', '', '', '', 'Remark', '']);
+    merges.push({ s: { r: wsData.length - 1, c: 1 }, e: { r: wsData.length - 1, c: 4 } });
     reportTable4.forEach((row, idx) => {
       const rIdx = wsData.length;
-      wsData.push([idx + 1, row.description, '', '', row.remark || '']);
-      merges.push({ s: { r: rIdx, c: 1 }, e: { r: rIdx, c: 3 } });
+      wsData.push([idx + 1, row.description, '', '', '', row.remark || '', '']);
+      merges.push({ s: { r: rIdx, c: 1 }, e: { r: rIdx, c: 4 } });
     });
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!merges'] = merges;
-    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 45 }, { wch: 14 }, { wch: 14 }];
+    ws['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 40 }, { wch: 12 }, { wch: 16 }, { wch: 10 }];
 
     XLSX.utils.book_append_sheet(wb, ws, '주간업무보고');
 
@@ -3080,11 +3138,17 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <table className="w-full border-collapse border-[1.5px] border-black text-xs text-black">
                       <thead>
                         <tr className="bg-yellow-100 text-black text-[10.5px]">
-                          <th className="border border-black p-2 font-extrabold w-[12%] text-center yellow-header">Week</th>
-                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header">Date</th>
-                          <th className="border border-black p-2 font-extrabold w-[53%] text-center yellow-header">Description</th>
-                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Progress (%)</th>
-                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Remark</th>
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Week</th>
+                          <th className="border border-black p-2 font-extrabold w-[9%] text-center yellow-header">Date</th>
+                          <th className="border border-black p-2 font-extrabold w-[13%] text-center yellow-header">Project</th>
+                          <th className="border border-black p-2 font-extrabold w-[35%] text-center yellow-header">Description</th>
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Progress (%)</th>
+                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header" colSpan={2}>Expenses (비용)</th>
+                        </tr>
+                        <tr className="bg-yellow-50 text-black text-[9.5px]">
+                          <th className="border border-black p-1 yellow-header" colSpan={5}></th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[10%]">Description</th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[5%]">Won</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3093,15 +3157,24 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             {index === 0 && (
                               <td
                                 rowSpan={reportTable1.length}
-                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[12%]"
+                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[8%]"
                               >
                                 {row.weekLabel}
                               </td>
                             )}
-                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[15%] align-middle">
+                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[9%] align-middle">
                               {row.dateLabel}
                             </td>
-                            <td className="border border-black p-1 text-left bg-white w-[53%] align-middle">
+                            <td className="border border-black p-1 text-center bg-white w-[13%] align-middle">
+                              <input
+                                type="text"
+                                value={row.project || ''}
+                                onChange={(e) => handleTable1Change(row.id, 'project', e.target.value)}
+                                placeholder="-"
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[35%] align-middle">
                               <textarea
                                 value={row.description}
                                 onChange={(e) => handleTable1Change(row.id, 'description', e.target.value)}
@@ -3109,7 +3182,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black leading-normal p-1 focus:ring-0 resize-y whitespace-pre-wrap"
                               />
                             </td>
-                            <td className="border border-black p-1 text-center bg-white w-[10%] align-middle">
+                            <td className="border border-black p-1 text-center bg-white w-[8%] align-middle">
                               <input
                                 type="text"
                                 value={row.progress}
@@ -3118,15 +3191,23 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               />
                             </td>
                             <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
-                              <input
-                                type="text"
-                                value={row.remark}
-                                onChange={(e) => handleTable1Change(row.id, 'remark', e.target.value)}
-                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black p-1 focus:ring-0"
-                              />
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
+                              )) : <span className="text-[10px] text-slate-400">-</span>}
+                            </td>
+                            <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
+                              )) : <span className="text-[10px] text-slate-400">-</span>}
                             </td>
                           </tr>
                         ))}
+                        <tr>
+                          <td colSpan={5} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px]">계</td>
+                          <td colSpan={2} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px] font-mono">
+                            {reportTable1.reduce((sum, r: any) => sum + (r.expenseItems || []).reduce((s: number, e: any) => s + e.amount, 0), 0).toLocaleString()}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -3139,11 +3220,17 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <table className="w-full border-collapse border-[1.5px] border-black text-xs text-black">
                       <thead>
                         <tr className="bg-yellow-100 text-black text-[10.5px]">
-                          <th className="border border-black p-2 font-extrabold w-[12%] text-center yellow-header">Week</th>
-                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header">Date</th>
-                          <th className="border border-black p-2 font-extrabold w-[53%] text-center yellow-header">Description</th>
-                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Estimated Time</th>
-                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Remark</th>
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Week</th>
+                          <th className="border border-black p-2 font-extrabold w-[9%] text-center yellow-header">Date</th>
+                          <th className="border border-black p-2 font-extrabold w-[13%] text-center yellow-header">Project</th>
+                          <th className="border border-black p-2 font-extrabold w-[35%] text-center yellow-header">Description</th>
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Estimated Time</th>
+                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header" colSpan={2}>Expenses (비용)</th>
+                        </tr>
+                        <tr className="bg-yellow-50 text-black text-[9.5px]">
+                          <th className="border border-black p-1 yellow-header" colSpan={5}></th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[10%]">Description</th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[5%]">Won</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3152,15 +3239,24 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             {index === 0 && (
                               <td
                                 rowSpan={reportTable2.length}
-                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[12%]"
+                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[8%]"
                               >
                                 {row.weekLabel}
                               </td>
                             )}
-                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[15%] align-middle">
+                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[9%] align-middle">
                               {row.dateLabel}
                             </td>
-                            <td className="border border-black p-1 text-left bg-white w-[53%] align-middle">
+                            <td className="border border-black p-1 text-center bg-white w-[13%] align-middle">
+                              <input
+                                type="text"
+                                value={row.project || ''}
+                                onChange={(e) => handleTable2Change(row.id, 'project', e.target.value)}
+                                placeholder="-"
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[35%] align-middle">
                               <textarea
                                 value={row.description}
                                 onChange={(e) => handleTable2Change(row.id, 'description', e.target.value)}
@@ -3168,7 +3264,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black leading-normal p-1 focus:ring-0 resize-y whitespace-pre-wrap"
                               />
                             </td>
-                            <td className="border border-black p-1 text-center bg-white w-[10%] align-middle">
+                            <td className="border border-black p-1 text-center bg-white w-[8%] align-middle">
                               <input
                                 type="text"
                                 value={row.estimatedTime}
@@ -3177,15 +3273,23 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               />
                             </td>
                             <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
-                              <input
-                                type="text"
-                                value={row.remark}
-                                onChange={(e) => handleTable2Change(row.id, 'remark', e.target.value)}
-                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black p-1 focus:ring-0"
-                              />
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
+                              )) : <span className="text-[10px] text-slate-400">-</span>}
+                            </td>
+                            <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
+                              )) : <span className="text-[10px] text-slate-400">-</span>}
                             </td>
                           </tr>
                         ))}
+                        <tr>
+                          <td colSpan={5} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px]">계</td>
+                          <td colSpan={2} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px] font-mono">
+                            {reportTable2.reduce((sum, r: any) => sum + (r.expenseItems || []).reduce((s: number, e: any) => s + e.amount, 0), 0).toLocaleString()}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -3198,9 +3302,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <table className="w-full border-collapse border-[1.5px] border-black text-xs text-black">
                       <thead>
                         <tr className="bg-yellow-100 text-black text-[10.5px]">
-                          <th className="border border-black p-2 font-extrabold w-[12%] text-center yellow-header">Week</th>
-                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header">Date</th>
-                          <th className="border border-black p-2 font-extrabold w-[53%] text-center yellow-header">Description</th>
+                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Week</th>
+                          <th className="border border-black p-2 font-extrabold w-[11%] text-center yellow-header">Date</th>
+                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header">Project</th>
+                          <th className="border border-black p-2 font-extrabold w-[44%] text-center yellow-header">Description</th>
                           <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Estimated Time</th>
                           <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Remark</th>
                         </tr>
@@ -3211,15 +3316,24 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             {index === 0 && (
                               <td
                                 rowSpan={reportTable3.length}
-                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[12%]"
+                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[10%]"
                               >
                                 {row.weekLabel}
                               </td>
                             )}
-                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[15%] align-middle">
+                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[11%] align-middle">
                               {row.dateLabel}
                             </td>
-                            <td className="border border-black p-1 text-left bg-white w-[53%] align-middle">
+                            <td className="border border-black p-1 text-center bg-white w-[15%] align-middle">
+                              <input
+                                type="text"
+                                value={(row as any).project || ''}
+                                onChange={(e) => handleTable3Change(row.id, 'project', e.target.value)}
+                                placeholder="-"
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[44%] align-middle">
                               <textarea
                                 value={row.description}
                                 onChange={(e) => handleTable3Change(row.id, 'description', e.target.value)}
