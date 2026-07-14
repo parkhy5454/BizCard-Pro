@@ -1241,6 +1241,7 @@ app.post('/api/projects/:id/followups', async (req, res) => {
     date: req.body.date || new Date().toISOString().split('T')[0],
     status: req.body.status || 'planned',
     meetingDegree: req.body.meetingDegree,
+    meetingType: req.body.meetingType,
     attendee: req.body.attendee,
     internalStaffName: req.body.internalStaffName,
     hasVoice: req.body.hasVoice,
