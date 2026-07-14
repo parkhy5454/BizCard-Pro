@@ -87,6 +87,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   // 미팅 기록 전용 상태 (최초 미팅, 2번째, 3번째 등 차수, 미팅자, 미팅일자, 미팅 내용 및 음성메모)
   const [meetingDegree, setMeetingDegree] = useState<number>(1);
+  const [meetingType, setMeetingType] = useState<'meeting' | 'followup'>('meeting');
   const [meetingAttendee, setMeetingAttendee] = useState<string>('');
   const [meetingStaffName, setMeetingStaffName] = useState<string>('');
   const [attendeeNameInput, setAttendeeNameInput] = useState<string>('');
@@ -506,6 +507,7 @@ export const ProjectsView: React.FC<Props> = ({
           content: followup.content,
           date: followup.date,
           meetingDegree: followup.meetingDegree,
+          meetingType: followup.meetingType,
           attendee: followup.attendee,
           internalStaffName: followup.internalStaffName,
           attachments: followup.attachments || [],
@@ -551,6 +553,53 @@ export const ProjectsView: React.FC<Props> = ({
   // 팔로우업 노트 및 미팅 정보 추가
   // 미팅자 문자열은 이름만 콤마로 저장합니다 (전화번호는 표시할 때 명함에서 실시간으로 찾아 붙입니다)
   const formatAttendeeEntry = (c: BusinessCard): string => c.name;
+
+  // 미팅/팔로우업 차수 시퀀스: 1차 미팅 → 1차 팔로우업 → 2차 미팅 → 2차 팔로우업 → ... 순서로 값을 만들고,
+  // 이미 기록된 차수/구분은 건너뛰어 "다음에 기록해야 할 차수"를 계산합니다.
+  const buildMeetingSequenceLabel = (degree: number, type: 'meeting' | 'followup'): string =>
+    `${degree}차 ${type === 'meeting' ? '미팅' : '팔로우업'}`;
+
+  const getNextMeetingSlot = (followUps: ProjectFollowUp[]): { degree: number; type: 'meeting' | 'followup' } => {
+    const used = new Set(
+      followUps
+        .filter((f) => f.meetingDegree)
+        .map((f) => `${f.meetingDegree}-${f.meetingType || 'meeting'}`)
+    );
+    for (let degree = 1; degree <= 500; degree++) {
+      if (!used.has(`${degree}-meeting`)) return { degree, type: 'meeting' };
+      if (!used.has(`${degree}-followup`)) return { degree, type: 'followup' };
+    }
+    return { degree: 1, type: 'meeting' };
+  };
+
+  // 드롭다운에 보여줄 차수 목록: 이미 쓰인 차수 + 앞으로 선택 가능한 여유분(10개)까지 생성
+  const buildMeetingSequenceOptions = (followUps: ProjectFollowUp[]): { degree: number; type: 'meeting' | 'followup'; label: string; used: boolean }[] => {
+    const used = new Set(
+      followUps
+        .filter((f) => f.meetingDegree)
+        .map((f) => `${f.meetingDegree}-${f.meetingType || 'meeting'}`)
+    );
+    const maxUsedDegree = followUps.reduce((max, f) => Math.max(max, f.meetingDegree || 0), 0);
+    const upperBound = Math.max(maxUsedDegree + 10, 10);
+    const options: { degree: number; type: 'meeting' | 'followup'; label: string; used: boolean }[] = [];
+    for (let degree = 1; degree <= upperBound; degree++) {
+      (['meeting', 'followup'] as const).forEach((type) => {
+        const key = `${degree}-${type}`;
+        options.push({ degree, type, label: buildMeetingSequenceLabel(degree, type), used: used.has(key) });
+      });
+    }
+    return options;
+  };
+
+  // 프로젝트를 펼치면(expandedId 변경), 그 프로젝트의 다음 기록 차수/구분을 자동으로 미리 선택해 둠
+  useEffect(() => {
+    if (!expandedId) return;
+    const proj = projects.find((p) => p.id === expandedId);
+    if (!proj) return;
+    const next = getNextMeetingSlot(proj.followUps || []);
+    setMeetingDegree(next.degree);
+    setMeetingType(next.type);
+  }, [expandedId]);
 
   // 파일을 base64로 읽어서 첨부파일 목록에 추가 (제안서, 견적서, 발송자료 등)
   const readFilesAsAttachments = (files: FileList, onAdd: (att: ProjectFollowUpAttachment) => void) => {
@@ -844,6 +893,7 @@ export const ProjectsView: React.FC<Props> = ({
       date: meetingDate || new Date().toISOString().split('T')[0],
       status: 'done' as const,
       meetingDegree: meetingDegree || undefined,
+      meetingType: meetingDegree ? meetingType : undefined,
       attendee: meetingAttendee,
       internalStaffName: meetingStaffName,
       hasVoice: voiceAttached,
@@ -874,6 +924,7 @@ export const ProjectsView: React.FC<Props> = ({
           date: payload.date,
           status: 'done',
           meetingDegree: payload.meetingDegree,
+          meetingType: payload.meetingType,
           attendee: payload.attendee,
           internalStaffName: payload.internalStaffName,
           hasVoice: payload.hasVoice,
@@ -893,7 +944,15 @@ export const ProjectsView: React.FC<Props> = ({
     setAttachedVoiceUrl('');
     setMeetingAttachments([]);
     setMeetingExpenses([]);
-    setMeetingDegree(prev => prev + 1);
+    // 다음 기록을 위해 차수/구분을 순서대로 한 단계 전진 (1차 미팅 → 1차 팔로우업 → 2차 미팅 → ...)
+    if (meetingDegree > 0) {
+      if (meetingType === 'meeting') {
+        setMeetingType('followup');
+      } else {
+        setMeetingDegree(meetingDegree + 1);
+        setMeetingType('meeting');
+      }
+    }
   };
 
   // 팔로우업 상태 토글 (완료/진행중)
@@ -1246,17 +1305,25 @@ export const ProjectsView: React.FC<Props> = ({
                         <span className="text-xs font-bold text-slate-300 block">📝 새로운 미팅/팔로우업 기록 추가</span>
                         
                         <div className="flex flex-col md:flex-row gap-3">
-                          {/* 미팅 차수 (제한 없이 직접 입력, 비워두면 '업무 기록'으로 처리) */}
+                          {/* 미팅/팔로우업 차수 (제한 없음, 이미 기록된 차수는 건너뛰고 다음 차수를 자동 선택) */}
                           <div className="w-full md:w-1/4">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-1">미팅 차수 (선택, 제한 없음)</label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={meetingDegree || ''}
-                              onChange={(e) => setMeetingDegree(e.target.value ? Number(e.target.value) : 0)}
-                              placeholder="예: 47"
+                            <label className="block text-[10px] text-slate-400 font-bold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
+                            <select
+                              value={`${meetingDegree}-${meetingType}`}
+                              onChange={(e) => {
+                                const [d, t] = e.target.value.split('-');
+                                setMeetingDegree(Number(d));
+                                setMeetingType(t as 'meeting' | 'followup');
+                              }}
                               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
-                            />
+                            >
+                              <option value="0-meeting">업무 기록 (차수 없음)</option>
+                              {buildMeetingSequenceOptions(proj.followUps || []).map((opt) => (
+                                <option key={`${opt.degree}-${opt.type}`} value={`${opt.degree}-${opt.type}`}>
+                                  {opt.label}{opt.used ? ' (기록됨)' : ''}
+                                </option>
+                              ))}
+                            </select>
                           </div>
 
                           {/* 미팅일자 */}
@@ -1553,10 +1620,13 @@ export const ProjectsView: React.FC<Props> = ({
                         {proj.followUps && proj.followUps.length > 0 ? (
                           [...proj.followUps]
                             .sort((a, b) => {
-                              // 차수 기준 오름차순 또는 내림차순 정렬 (기본 등록 내림차순)
+                              // 차수 기준 내림차순, 같은 차수면 팔로우업이 미팅보다 위로 오도록 정렬
                               const aVal = a.meetingDegree || 0;
                               const bVal = b.meetingDegree || 0;
-                              return bVal - aVal; // 최신 차수 미팅이 맨 위로 오도록 정렬
+                              if (bVal !== aVal) return bVal - aVal; // 최신 차수가 맨 위로
+                              const aType = a.meetingType === 'followup' ? 1 : 0;
+                              const bType = b.meetingType === 'followup' ? 1 : 0;
+                              return bType - aType;
                             })
                             .map((fu) => (
                               <div
@@ -1567,7 +1637,7 @@ export const ProjectsView: React.FC<Props> = ({
                                   <div className="flex items-center gap-2.5 flex-wrap">
                                     {/* 차수 뱃지 */}
                                     <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-bold text-[10px]">
-                                      {fu.meetingDegree ? `${fu.meetingDegree}차 미팅` : '업무 기록'}
+                                      {fu.meetingDegree ? buildMeetingSequenceLabel(fu.meetingDegree, fu.meetingType || 'meeting') : '업무 기록'}
                                     </span>
                                     
                                     {/* 미팅 일자 */}
@@ -2200,15 +2270,22 @@ export const ProjectsView: React.FC<Props> = ({
               <form onSubmit={handleUpdateFollowup} className="space-y-4 text-xs">
                 <div className="flex flex-col md:flex-row gap-3">
                   <div className="w-full md:w-1/3">
-                    <label className="block text-slate-300 font-semibold mb-1">미팅 차수 (선택, 제한 없음)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={fu.meetingDegree || ''}
-                      onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, meetingDegree: e.target.value ? Number(e.target.value) : undefined } })}
-                      placeholder="예: 47 (비워두면 업무 기록으로 표시)"
+                    <label className="block text-slate-300 font-semibold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
+                    <select
+                      value={`${fu.meetingDegree || 0}-${fu.meetingType || 'meeting'}`}
+                      onChange={(e) => {
+                        const [d, t] = e.target.value.split('-');
+                        setEditingFollowup({ ...editingFollowup, followup: { ...fu, meetingDegree: Number(d) || undefined, meetingType: t as 'meeting' | 'followup' } });
+                      }}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
-                    />
+                    >
+                      <option value="0-meeting">업무 기록 (차수 없음)</option>
+                      {buildMeetingSequenceOptions((targetProject?.followUps || []).filter((f) => f.id !== fu.id)).map((opt) => (
+                        <option key={`${opt.degree}-${opt.type}`} value={`${opt.degree}-${opt.type}`}>
+                          {opt.label}{opt.used ? ' (기록됨)' : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="w-full md:w-1/3">
                     <label className="block text-slate-300 font-semibold mb-1">미팅일자</label>
