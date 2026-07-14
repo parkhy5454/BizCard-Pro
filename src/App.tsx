@@ -42,6 +42,7 @@ export default function App() {
 
   // 모달 제어 상태
   const [isScanOpen, setIsScanOpen] = useState<boolean>(false);
+  const [triggerNewProject, setTriggerNewProject] = useState<number>(0);
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
@@ -252,6 +253,7 @@ export default function App() {
         onOpenScanModal={() => setIsScanOpen(true)}
         onOpenShareMyCardModal={() => setIsShareMyCardOpen(true)}
         onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
+        onOpenNewProject={() => setTriggerNewProject((n) => n + 1)}
         totalContactsCount={contacts.length}
         projectFilterStatus={projectFilterStatus}
         setProjectFilterStatus={setProjectFilterStatus}
@@ -331,6 +333,7 @@ export default function App() {
                 filterStatus={projectFilterStatus}
                 setFilterStatus={setProjectFilterStatus}
                 currentUser={currentUser}
+                triggerNewProject={triggerNewProject}
               />
             )}
 
