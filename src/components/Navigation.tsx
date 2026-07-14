@@ -146,24 +146,6 @@ export const Navigation: React.FC<Props> = ({
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
                 <span>가입 회원 확인</span>
               </button>
-
-              {/* 내 명함 전송/공유 버튼 */}
-              <button
-                onClick={onOpenShareMyCardModal}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-blue-300 font-semibold text-xs shadow transition-all active:scale-95"
-              >
-                <Share2 className="w-3.5 h-3.5 text-blue-400" />
-                <span className="hidden sm:inline">내 명함 공유</span>
-              </button>
-
-              {/* AI 명함 스캔 등록 버튼 */}
-              <button
-                onClick={onOpenScanModal}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transition-all active:scale-95"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>명함 등록</span>
-              </button>
             </div>
           </div>
         </div>
@@ -220,17 +202,16 @@ export const Navigation: React.FC<Props> = ({
               <ClipboardCheck className="w-4 h-4 text-indigo-400" />
               <span>업무일지</span>
             </button>
+          </nav>
 
+          {/* 명함 등록 / 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (전체 명함 탭과 그룹 필터 사이) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-none">
             <button
-              onClick={() => setActiveTab('nearby')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'nearby'
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
+              onClick={onOpenScanModal}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95"
             >
-              <MapPin className="w-4 h-4 text-rose-400 animate-bounce" />
-              <span>주변 레이더 지도</span>
+              <PlusCircle className="w-4 h-4" />
+              <span>명함 등록</span>
             </button>
 
             <button
@@ -256,7 +237,27 @@ export const Navigation: React.FC<Props> = ({
               <ArrowDownUp className="w-4 h-4 text-emerald-400" />
               <span>가져오기 / 내보내기</span>
             </button>
-          </nav>
+
+            <button
+              onClick={onOpenShareMyCardModal}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap bg-slate-800 hover:bg-slate-700 border border-slate-700 text-blue-300 transition-all active:scale-95"
+            >
+              <Share2 className="w-4 h-4 text-blue-400" />
+              <span>내 명함 공유</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('nearby')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                activeTab === 'nearby'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <MapPin className="w-4 h-4 text-rose-400 animate-bounce" />
+              <span>주변 레이더 지도</span>
+            </button>
+          </div>
 
           {/* 명함 목록 탭일 때 우측 그룹 칩 필터링 */}
           {activeTab === 'cards' && (
