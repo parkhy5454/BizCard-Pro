@@ -151,7 +151,7 @@ export const Navigation: React.FC<Props> = ({
         </div>
 
         {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
-        <div className="flex flex-col items-start py-2.5 gap-3 border-t border-slate-800/80 text-sm">
+        <div className="flex flex-col items-start py-2 gap-1.5 border-t border-slate-800/80 text-sm">
           
           <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
             <button
