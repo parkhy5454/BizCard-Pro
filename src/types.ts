@@ -78,6 +78,7 @@ export interface ProjectFollowUp {
   date: string;
   status: 'planned' | 'in_progress' | 'done';
   meetingDegree?: number;   // 1차 미팅, 2차 미팅 등 차수 (제한 없음, 비워두면 '업무 기록'으로 표시)
+  meetingType?: 'meeting' | 'followup'; // 같은 차수 안에서 "미팅"인지 "팔로우업"인지 구분
   attendee?: string;       // 미팅 참여 담당자 (미팅자, 거래처/고객 측)
   internalStaffName?: string; // 우리 회사 담당 직원 (같은 회사로 가입한 계정 중 선택)
   hasVoice?: boolean;      // 음성 메모 녹음 여부
