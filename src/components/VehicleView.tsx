@@ -968,7 +968,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     .slice(0, 5);
 
   return (
-    <div className="flex flex-col gap-6 animate-fade-in" id="vehicle-management-view">
+    <div className="flex flex-col gap-3 animate-fade-in" id="vehicle-management-view">
       
       {/* 탭 상단 타이틀 */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-slate-800 gap-4">

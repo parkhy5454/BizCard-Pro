@@ -1393,7 +1393,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       
       {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-4 border border-slate-800 rounded-3xl backdrop-blur-md">

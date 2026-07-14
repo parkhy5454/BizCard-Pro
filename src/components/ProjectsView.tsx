@@ -724,7 +724,7 @@ export const ProjectsView: React.FC<Props> = ({
   const filteredProjects = projects.filter((p) => filterStatus === 'all' || p.status === filterStatus);
 
   return (
-    <div className="space-y-6 animate-fadeIn max-w-6xl mx-auto">
+    <div className="space-y-3 animate-fadeIn max-w-6xl mx-auto">
       
       {/* 헤더 바 */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
