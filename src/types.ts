@@ -211,6 +211,7 @@ export interface VehicleMaintenance {
   status: 'scheduled' | 'completed'; // 예정됨, 정비완료
   memo?: string;         // 메모
   payMethod?: 'company_card' | 'personal_card' | 'cash'; // 결제 수단
+  receiptImage?: string; // 정비 영수증/청구서 이미지 (base64)
   createdAt: string;
 }
 
