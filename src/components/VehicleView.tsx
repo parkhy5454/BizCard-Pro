@@ -970,21 +970,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   return (
     <div className="flex flex-col gap-3 animate-fade-in" id="vehicle-management-view">
       
-      {/* 탭 상단 타이틀 */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-slate-800 gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-              <Car className="w-5.5 h-5.5 text-indigo-400" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-100">🚗 통합 차량 관리</h1>
-              <p className="text-xs text-slate-400">업무용 법인차량 등록, 운행 기록 작성, 경비 지출 내역 및 정비 스케줄러</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* 서브 탭 탐색 내비게이션 바 */}
       <div className="flex border-b border-slate-800/60 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex space-x-1 py-1 shrink-0">
