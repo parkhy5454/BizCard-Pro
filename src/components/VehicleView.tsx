@@ -3291,7 +3291,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 5. 정비일지 (Maintenance Tab) */}
       {activeSubTab === 'maintenance' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-end gap-3 border-b border-slate-850 pb-3">
+          <div className="flex items-center justify-start gap-3 border-b border-slate-850 pb-3">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
