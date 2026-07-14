@@ -1165,496 +1165,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
       {/* 운행일지 신규 작성 폼 제거됨 (driving 탭 내부로 이동) */}
 
-      {/* 3. 지출비용 신규 등록 폼 */}
-      {showExpenseForm && (
-        <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
-              <Receipt className="w-4 h-4 text-indigo-400" />
-              <span>차량 비용 지출 등록</span>
-            </h3>
-            <button onClick={() => setShowExpenseForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
-          </div>
-          <form onSubmit={handleAddExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">대상 차량 *</label>
-              <select 
-                value={newExpense.vehicleId}
-                onChange={e => setNewExpense({ ...newExpense, vehicleId: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="">선택하세요...</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.modelName} [{v.plateNumber}]</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">지출 일자</label>
-              <input 
-                type="date" 
-                value={newExpense.date}
-                onChange={e => setNewExpense({ ...newExpense, date: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">결제 수단 *</label>
-              <select 
-                value={newExpense.payMethod || 'company_card'}
-                onChange={e => setNewExpense({ ...newExpense, payMethod: e.target.value as any })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="company_card">법인(회사)카드</option>
-                <option value="personal_card">개인카드</option>
-                <option value="cash">현금</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">비용 카테고리 *</label>
-              <select 
-                value={newExpense.category}
-                onChange={e => setNewExpense({ ...newExpense, category: e.target.value as any })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="fuel">주유비 (유류대)</option>
-                <option value="toll">통행료 (하이패스)</option>
-                <option value="parking">주차비</option>
-                <option value="maintenance">수리 및 정비비</option>
-                <option value="tax_insurance">세금 및 자동차 보험</option>
-                <option value="designated_drive">대리운전비</option>
-                <option value="beverage">음료</option>
-                <option value="meal">식대</option>
-                <option value="supplies">물품 구입</option>
-                <option value="custom">직접 입력 (커스텀)</option>
-                <option value="other">기타 실비</option>
-              </select>
-            </div>
-
-            {newExpense.category === 'custom' && (
-              <div className="space-y-1.5">
-                <label className="text-xs text-indigo-400 font-semibold">비용 카테고리 직접 입력 *</label>
-                <input 
-                  type="text" 
-                  placeholder="예: 세차비, 과태료 등"
-                  value={newExpense.categoryCustom || ''}
-                  onChange={e => setNewExpense({ ...newExpense, categoryCustom: e.target.value })}
-                  className="w-full bg-slate-950 text-xs border border-indigo-900/45 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">상호명</label>
-              <input 
-                type="text" 
-                placeholder="예: 삼거리주유소, 강남메트로주차장"
-                value={newExpense.merchantName || ''}
-                onChange={e => setNewExpense({ ...newExpense, merchantName: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-
-            {newExpense.category === 'fuel' && (
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400">주유량 (L)</label>
-                <input 
-                  type="number" 
-                  placeholder="예: 45"
-                  value={newExpense.fuelVolume === 0 ? '' : newExpense.fuelVolume}
-                  onChange={e => setNewExpense({ ...newExpense, fuelVolume: Number(e.target.value) })}
-                  className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">지출금액 (원) *</label>
-              <input 
-                type="text" 
-                inputMode="numeric"
-                placeholder="지출 원화 금액"
-                value={newExpense.amount === 0 ? '' : formatCurrencyInput(newExpense.amount)}
-                onChange={e => setNewExpense({ ...newExpense, amount: parseCurrencyInput(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-semibold text-indigo-400">연동 프로젝트</label>
-              <select 
-                value={projects.some(p => p.name === newExpense.projectName) ? newExpense.projectName : (newExpense.projectName ? 'custom' : '')}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val === 'custom') {
-                    setNewExpense({ ...newExpense, projectName: '직접 입력' });
-                  } else {
-                    setNewExpense({ ...newExpense, projectName: val });
-                  }
-                }}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="">프로젝트 연동 안함 (없음)</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.name}>{p.name}</option>
-                ))}
-                <option value="custom">직접 입력 (커스텀)</option>
-              </select>
-            </div>
-
-            {(newExpense.projectName === '직접 입력' || (newExpense.projectName && !projects.some(p => p.name === newExpense.projectName))) ? (
-              <div className="space-y-1.5 animate-fade-in">
-                <label className="text-xs text-indigo-400 font-semibold">프로젝트명 직접 입력 *</label>
-                <input 
-                  type="text" 
-                  placeholder="예: 강남구 스마트시티 구축 프로젝트"
-                  value={newExpense.projectName === '직접 입력' ? '' : newExpense.projectName}
-                  onChange={e => setNewExpense({ ...newExpense, projectName: e.target.value })}
-                  className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-                  required
-                />
-              </div>
-            ) : null}
-
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-xs text-slate-400">지출 상세 사유 / 메모</label>
-              <input 
-                type="text" 
-                placeholder="예: 벤츠 고급유 완충, 강남역 삼원빌딩 업무 주차비"
-                value={newExpense.memo}
-                onChange={e => setNewExpense({ ...newExpense, memo: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-            <div className="flex items-end lg:col-span-4 justify-end gap-2 border-t border-slate-800/50 pt-3">
-              <button 
-                type="button"
-                onClick={() => setShowExpenseForm(false)}
-                className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
-              >
-                취소
-              </button>
-              <button 
-                type="submit"
-                className="bg-indigo-600 hover:bg-indigo-550 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
-              >
-                비용 전산 추가 완료
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* 4. 정비기록 신규 등록 폼 */}
-      {showMaintForm && (
-        <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
-              <Wrench className="w-4 h-4 text-indigo-400" />
-              <span>차량 정비 일지 기록</span>
-            </h3>
-            <button onClick={() => setShowMaintForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
-          </div>
-          <form onSubmit={handleAddMaint} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
-              <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
-                <Camera className="w-4 h-4" />
-                <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 스캔 (자동으로 아래 항목 채움)'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleScanMaintReceipt(file);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-              {newMaint.receiptImage && (
-                <img src={newMaint.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">대상 차량 *</label>
-              <select 
-                value={newMaint.vehicleId}
-                onChange={e => setNewMaint({ ...newMaint, vehicleId: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="">선택하세요...</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.modelName} [{v.plateNumber}]</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">정비 일자</label>
-              <input 
-                type="date" 
-                value={newMaint.date}
-                onChange={e => setNewMaint({ ...newMaint, date: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-semibold text-indigo-400">정비 항목 *</label>
-              <select 
-                value={MAINTENANCE_OPTIONS.includes(newMaint.title) ? newMaint.title : (newMaint.title ? 'custom' : '')}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val === 'custom') {
-                    setNewMaint({ ...newMaint, title: '직접 입력' });
-                  } else {
-                    setNewMaint({ ...newMaint, title: val });
-                  }
-                }}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="">선택하세요...</option>
-                {MAINTENANCE_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-                <option value="custom">직접 입력 (커스텀)</option>
-              </select>
-            </div>
-
-            {(newMaint.title === '직접 입력' || (newMaint.title && !MAINTENANCE_OPTIONS.includes(newMaint.title))) ? (
-              <div className="space-y-1.5 animate-fade-in">
-                <label className="text-xs text-indigo-400 font-semibold">정비 항목 직접 입력 *</label>
-                <input 
-                  type="text" 
-                  placeholder="예: 미션 벨트 교환"
-                  value={newMaint.title === '직접 입력' ? '' : newMaint.title}
-                  onChange={e => setNewMaint({ ...newMaint, title: e.target.value })}
-                  className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-                  required
-                />
-              </div>
-            ) : null}
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">정비 비용 (원)</label>
-              <input 
-                type="text" 
-                inputMode="numeric"
-                placeholder="정비 부품 및 공임 합산 금액"
-                value={newMaint.cost === 0 ? '' : formatCurrencyInput(newMaint.cost)}
-                onChange={e => setNewMaint({ ...newMaint, cost: parseCurrencyInput(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">정비 당시 주행거리 (km)</label>
-              <input 
-                type="number" 
-                value={newMaint.mileage === 0 ? '' : newMaint.mileage}
-                onChange={e => setNewMaint({ ...newMaint, mileage: Number(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">정비소/업체명</label>
-              <input 
-                type="text" 
-                placeholder="예: 블루핸즈 역삼점"
-                value={newMaint.shopName}
-                onChange={e => setNewMaint({ ...newMaint, shopName: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">정비소 연락처</label>
-              <input 
-                type="text" 
-                placeholder="예: 02-123-4567"
-                value={newMaint.shopContact || ''}
-                onChange={e => setNewMaint({ ...newMaint, shopContact: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">정비 상태</label>
-              <select 
-                value={newMaint.status}
-                onChange={e => setNewMaint({ ...newMaint, status: e.target.value as any })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="completed">정비 완료</option>
-                <option value="scheduled">예정 (스케줄러)</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">결제 수단 *</label>
-              <select 
-                value={newMaint.payMethod || 'company_card'}
-                onChange={e => setNewMaint({ ...newMaint, payMethod: e.target.value as any })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              >
-                <option value="company_card">법인(회사)카드</option>
-                <option value="personal_card">개인카드</option>
-                <option value="cash">현금</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button 
-                type="submit"
-                className="w-full bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-4 rounded-lg transition-all"
-              >
-                정비기록 추가
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* 5. 소모품 점검 주기 신규 등록 폼 */}
-      {showIntervalForm && (
-        <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 mb-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
-              <RefreshCw className="w-4 h-4 text-indigo-400" />
-              <span>소모품 정기 점검 주기 등록</span>
-            </h3>
-            <button onClick={() => setShowIntervalForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
-          </div>
-          <form onSubmit={handleAddInterval} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-semibold text-indigo-400">차량 선택 *</label>
-              <select 
-                value={newInterval.vehicleId}
-                onChange={e => setNewInterval({ ...newInterval, vehicleId: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-                required
-              >
-                <option value="">차량 선택...</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.modelName} [{v.plateNumber}]</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-semibold text-indigo-400">점검 항목 *</label>
-              <select
-                value={MAINTENANCE_OPTIONS.includes(newInterval.itemType) ? newInterval.itemType : (newInterval.itemType ? 'custom' : '')}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val === 'custom') {
-                    setNewInterval({ ...newInterval, itemType: '직접 입력' });
-                  } else {
-                    setNewInterval({ ...newInterval, itemType: val });
-                  }
-                }}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-                required
-              >
-                <option value="">선택하세요...</option>
-                {DISPLAY_MAINTENANCE_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-                <option value="custom">직접 입력</option>
-              </select>
-            </div>
-
-            {(newInterval.itemType === '직접 입력' || (newInterval.itemType && !MAINTENANCE_OPTIONS.includes(newInterval.itemType))) ? (
-              <div className="space-y-1.5 animate-fade-in">
-                <label className="text-xs text-indigo-400 font-semibold">점검 항목 직접 입력 *</label>
-                <input 
-                  type="text" 
-                  placeholder="예: 미션 벨트 교환"
-                  value={newInterval.itemType === '직접 입력' ? '' : newInterval.itemType}
-                  onChange={e => setNewInterval({ ...newInterval, itemType: e.target.value })}
-                  className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-                  required
-                />
-              </div>
-            ) : null}
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">km 주기 입력 (예 : 5,000 등 ) *</label>
-              <input 
-                type="number" 
-                placeholder="5,000"
-                value={newInterval.intervalKm || ''}
-                onChange={e => setNewInterval({ ...newInterval, intervalKm: Number(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">일 주기 입력(예 :180일 등) *</label>
-              <input 
-                type="number" 
-                placeholder="180"
-                value={newInterval.intervalDays || ''}
-                onChange={e => setNewInterval({ ...newInterval, intervalDays: Number(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">마지막 점검 주행 거리(km)</label>
-              <input 
-                type="number" 
-                placeholder="0"
-                value={newInterval.lastServiceMileage || ''}
-                onChange={e => setNewInterval({ ...newInterval, lastServiceMileage: Number(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">마지막 점검일 (mm/dd/yy 달력 선택)</label>
-              <input 
-                type="date" 
-                value={newInterval.lastServiceDate || ''}
-                onChange={e => setNewInterval({ ...newInterval, lastServiceDate: e.target.value })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">알림 기준 (km 전 알림(km 입력))</label>
-              <input 
-                type="number" 
-                placeholder="500"
-                value={newInterval.alertKmBefore || ''}
-                onChange={e => setNewInterval({ ...newInterval, alertKmBefore: Number(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400">알림 기준 (일 전 알림(일 입력))</label>
-              <input 
-                type="number" 
-                placeholder="15"
-                value={newInterval.alertDaysBefore || ''}
-                onChange={e => setNewInterval({ ...newInterval, alertDaysBefore: Number(e.target.value) })}
-                className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
-              />
-            </div>
-
-            <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-800/50 pt-3">
-              <button 
-                type="button"
-                onClick={() => setShowIntervalForm(false)}
-                className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
-              >
-                취소
-              </button>
-              <button 
-                type="submit"
-                className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
-              >
-                점검 주기 등록
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* ========================================== */}
       {/* 서브 탭 본문 렌더링 영역 */}
@@ -3566,6 +3076,317 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </button>
             </div>
           </div>
+
+          {/* 정비기록 신규 등록 폼 */}
+          {maintSubMode === 'history' && showMaintForm && (
+            <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                  <Wrench className="w-4 h-4 text-indigo-400" />
+                  <span>차량 정비 일지 기록</span>
+                </h3>
+                <button onClick={() => setShowMaintForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
+              </div>
+              <form onSubmit={handleAddMaint} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
+                  <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
+                    <Camera className="w-4 h-4" />
+                    <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 스캔 (자동으로 아래 항목 채움)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleScanMaintReceipt(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {newMaint.receiptImage && (
+                    <img src={newMaint.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">대상 차량 *</label>
+                  <select 
+                    value={newMaint.vehicleId}
+                    onChange={e => setNewMaint({ ...newMaint, vehicleId: e.target.value })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                  >
+                    <option value="">선택하세요...</option>
+                    {vehicles.map(v => (
+                      <option key={v.id} value={v.id}>{v.modelName} [{v.plateNumber}]</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">정비 일자</label>
+                  <input 
+                    type="date" 
+                    value={newMaint.date}
+                    onChange={e => setNewMaint({ ...newMaint, date: e.target.value })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">정비 항목 *</label>
+                  <select 
+                    value={MAINTENANCE_OPTIONS.includes(newMaint.title) ? newMaint.title : (newMaint.title ? 'custom' : '')}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === 'custom') {
+                        setNewMaint({ ...newMaint, title: '직접 입력' });
+                      } else {
+                        setNewMaint({ ...newMaint, title: val });
+                      }
+                    }}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                  >
+                    <option value="">선택하세요...</option>
+                    {MAINTENANCE_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                    <option value="custom">직접 입력 (커스텀)</option>
+                  </select>
+                </div>
+
+                {(newMaint.title === '직접 입력' || (newMaint.title && !MAINTENANCE_OPTIONS.includes(newMaint.title))) ? (
+                  <div className="space-y-1.5 animate-fade-in">
+                    <label className="text-xs text-indigo-400 font-semibold">정비 항목 직접 입력 *</label>
+                    <input 
+                      type="text" 
+                      placeholder="예: 미션 벨트 교환"
+                      value={newMaint.title === '직접 입력' ? '' : newMaint.title}
+                      onChange={e => setNewMaint({ ...newMaint, title: e.target.value })}
+                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      required
+                    />
+                  </div>
+                ) : null}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">정비 비용 (원)</label>
+                  <input 
+                    type="text" 
+                    inputMode="numeric"
+                    placeholder="정비 부품 및 공임 합산 금액"
+                    value={newMaint.cost === 0 ? '' : formatCurrencyInput(newMaint.cost)}
+                    onChange={e => setNewMaint({ ...newMaint, cost: parseCurrencyInput(e.target.value) })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">정비 당시 주행거리 (km)</label>
+                  <input 
+                    type="number" 
+                    value={newMaint.mileage === 0 ? '' : newMaint.mileage}
+                    onChange={e => setNewMaint({ ...newMaint, mileage: Number(e.target.value) })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">정비소/업체명</label>
+                  <input 
+                    type="text" 
+                    placeholder="예: 블루핸즈 역삼점"
+                    value={newMaint.shopName}
+                    onChange={e => setNewMaint({ ...newMaint, shopName: e.target.value })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">정비소 연락처</label>
+                  <input 
+                    type="text" 
+                    placeholder="예: 02-123-4567"
+                    value={newMaint.shopContact || ''}
+                    onChange={e => setNewMaint({ ...newMaint, shopContact: e.target.value })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">정비 상태</label>
+                  <select 
+                    value={newMaint.status}
+                    onChange={e => setNewMaint({ ...newMaint, status: e.target.value as any })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                  >
+                    <option value="completed">정비 완료</option>
+                    <option value="scheduled">예정 (스케줄러)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">결제 수단 *</label>
+                  <select 
+                    value={newMaint.payMethod || 'company_card'}
+                    onChange={e => setNewMaint({ ...newMaint, payMethod: e.target.value as any })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                  >
+                    <option value="company_card">법인(회사)카드</option>
+                    <option value="personal_card">개인카드</option>
+                    <option value="cash">현금</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button 
+                    type="submit"
+                    className="w-full bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  >
+                    정비기록 추가
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* 소모품 점검 주기 신규 등록 폼 */}
+          {maintSubMode === 'intervals' && showIntervalForm && (
+            <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                  <RefreshCw className="w-4 h-4 text-indigo-400" />
+                  <span>소모품 정기 점검 주기 등록</span>
+                </h3>
+                <button onClick={() => setShowIntervalForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
+              </div>
+              <form onSubmit={handleAddInterval} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">차량 선택 *</label>
+                  <select 
+                    value={newInterval.vehicleId}
+                    onChange={e => setNewInterval({ ...newInterval, vehicleId: e.target.value })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    required
+                  >
+                    <option value="">차량 선택...</option>
+                    {vehicles.map(v => (
+                      <option key={v.id} value={v.id}>{v.modelName} [{v.plateNumber}]</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">점검 항목 *</label>
+                  <select
+                    value={MAINTENANCE_OPTIONS.includes(newInterval.itemType) ? newInterval.itemType : (newInterval.itemType ? 'custom' : '')}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === 'custom') {
+                        setNewInterval({ ...newInterval, itemType: '직접 입력' });
+                      } else {
+                        setNewInterval({ ...newInterval, itemType: val });
+                      }
+                    }}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    required
+                  >
+                    <option value="">선택하세요...</option>
+                    {DISPLAY_MAINTENANCE_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                    <option value="custom">직접 입력</option>
+                  </select>
+                </div>
+
+                {(newInterval.itemType === '직접 입력' || (newInterval.itemType && !MAINTENANCE_OPTIONS.includes(newInterval.itemType))) ? (
+                  <div className="space-y-1.5 animate-fade-in">
+                    <label className="text-xs text-indigo-400 font-semibold">점검 항목 직접 입력 *</label>
+                    <input 
+                      type="text" 
+                      placeholder="예: 미션 벨트 교환"
+                      value={newInterval.itemType === '직접 입력' ? '' : newInterval.itemType}
+                      onChange={e => setNewInterval({ ...newInterval, itemType: e.target.value })}
+                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      required
+                    />
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">km 주기 입력 (예 : 5,000 등 ) *</label>
+                  <input 
+                    type="number" 
+                    placeholder="5,000"
+                    value={newInterval.intervalKm || ''}
+                    onChange={e => setNewInterval({ ...newInterval, intervalKm: Number(e.target.value) })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">일 주기 입력(예 :180일 등) *</label>
+                  <input 
+                    type="number" 
+                    placeholder="180"
+                    value={newInterval.intervalDays || ''}
+                    onChange={e => setNewInterval({ ...newInterval, intervalDays: Number(e.target.value) })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">마지막 점검 주행 거리(km)</label>
+                  <input 
+                    type="number" 
+                    placeholder="0"
+                    value={newInterval.lastServiceMileage || ''}
+                    onChange={e => setNewInterval({ ...newInterval, lastServiceMileage: Number(e.target.value) })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">마지막 점검일 (mm/dd/yy 달력 선택)</label>
+                  <input 
+                    type="date" 
+                    value={newInterval.lastServiceDate || ''}
+                    onChange={e => setNewInterval({ ...newInterval, lastServiceDate: e.target.value })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">알림 기준 (km 전 알림(km 입력))</label>
+                  <input 
+                    type="number" 
+                    placeholder="500"
+                    value={newInterval.alertKmBefore || ''}
+                    onChange={e => setNewInterval({ ...newInterval, alertKmBefore: Number(e.target.value) })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">알림 기준 (일 전 알림(일 입력))</label>
+                  <input 
+                    type="number" 
+                    placeholder="15"
+                    value={newInterval.alertDaysBefore || ''}
+                    onChange={e => setNewInterval({ ...newInterval, alertDaysBefore: Number(e.target.value) })}
+                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                  />
+                </div>
+
+                <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-800/50 pt-3">
+                  <button 
+                    type="button"
+                    onClick={() => setShowIntervalForm(false)}
+                    className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  >
+                    취소
+                  </button>
+                  <button 
+                    type="submit"
+                    className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  >
+                    점검 주기 등록
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {/* 서브 토글 탭 */}
           <div className="flex border-b border-slate-800 pb-px gap-1">
