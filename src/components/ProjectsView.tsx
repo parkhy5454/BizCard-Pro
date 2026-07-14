@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText } from 'lucide-react';
+import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -13,6 +13,7 @@ interface Props {
   filterStatus: 'all' | Project['status'];
   setFilterStatus: (status: 'all' | Project['status']) => void;
   currentUser?: import('../types.js').User | null;
+  triggerNewProject?: number;
 }
 
 export const ProjectsView: React.FC<Props> = ({ 
@@ -22,7 +23,8 @@ export const ProjectsView: React.FC<Props> = ({
   setProjects,
   filterStatus,
   setFilterStatus,
-  currentUser
+  currentUser,
+  triggerNewProject
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -276,6 +278,12 @@ export const ProjectsView: React.FC<Props> = ({
   
   // 새 프로젝트 생성 모달 상태
   const [isNewOpen, setIsNewOpen] = useState<boolean>(false);
+  const [projectSearchQuery, setProjectSearchQuery] = useState<string>('');
+
+  // 상단 메뉴의 '새 프로젝트 등록' 버튼에서 신호가 오면 등록 모달을 엽니다.
+  useEffect(() => {
+    if (triggerNewProject) setIsNewOpen(true);
+  }, [triggerNewProject]);
   const [newName, setNewName] = useState<string>('');
   const [newDeveloper, setNewDeveloper] = useState<string>('');
   const [newContractor, setNewContractor] = useState<string>('');
@@ -721,32 +729,21 @@ export const ProjectsView: React.FC<Props> = ({
     }
   };
 
-  const filteredProjects = projects.filter((p) => filterStatus === 'all' || p.status === filterStatus);
+  const filteredProjects = projects
+    .filter((p) => filterStatus === 'all' || p.status === filterStatus)
+    .filter((p) => {
+      const q = projectSearchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.developer || '').toLowerCase().includes(q) ||
+        (p.contractor || '').toLowerCase().includes(q)
+      );
+    });
 
   return (
     <div className="space-y-3 animate-fadeIn max-w-6xl mx-auto">
       
-      {/* 헤더 바 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20 shadow-inner">
-            <Briefcase className="w-7 h-7" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">비즈니스 프로젝트 관리</h2>
-            <p className="text-xs text-slate-400 mt-1">등록된 명함 거래처들과 연계하여 기회 발굴, 영업 진행 상태, 완료 및 실패 프로젝트를 체계적으로 트래킹하세요.</p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setIsNewOpen(true)}
-          className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>새 프로젝트 등록</span>
-        </button>
-      </div>
-
       {/* ⚠️ 팔로우업 알림 배너 */}
       {(() => {
         const needyProjs = projects.filter(p => {
@@ -797,10 +794,24 @@ export const ProjectsView: React.FC<Props> = ({
         onTouchEnd={handleTouchEnd}
         className="touch-pan-y space-y-4"
       >
-        {/* 가로 슬라이딩 가이드 팁 */}
-        <div className="flex items-center justify-center gap-2 text-xs text-slate-400 bg-slate-900/40 border border-slate-800/60 py-2.5 px-4 rounded-2xl max-w-sm mx-auto animate-pulse select-none">
-          <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-          <span>💡 화면을 좌우로 쓸어넘겨 프로젝트 필터 상태를 전환하세요</span>
+        {/* 프로젝트 검색 */}
+        <div className="max-w-md mx-auto relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="프로젝트명, 시행사, 시공사로 검색..."
+            value={projectSearchQuery}
+            onChange={(e) => setProjectSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 transition-all placeholder:text-slate-500 shadow-inner"
+          />
+          {projectSearchQuery && (
+            <button
+              onClick={() => setProjectSearchQuery('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-2 py-1 rounded-lg cursor-pointer"
+            >
+              지우기
+            </button>
+          )}
         </div>
 
         {loading ? (
