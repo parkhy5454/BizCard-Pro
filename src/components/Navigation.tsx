@@ -13,6 +13,7 @@ interface Props {
   onOpenScanModal: () => void;
   onOpenShareMyCardModal: () => void;
   onOpenUserDirectory: () => void;
+  onOpenNewProject?: () => void;
   totalContactsCount: number;
   projectFilterStatus?: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed';
   setProjectFilterStatus?: (status: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed') => void;
@@ -32,6 +33,7 @@ export const Navigation: React.FC<Props> = ({
   onOpenScanModal,
   onOpenShareMyCardModal,
   onOpenUserDirectory,
+  onOpenNewProject = () => {},
   totalContactsCount,
   projectFilterStatus = 'all',
   setProjectFilterStatus = (_st) => {},
@@ -288,6 +290,19 @@ export const Navigation: React.FC<Props> = ({
                   {g.name}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* 프로젝트 탭일 때: 새 프로젝트 등록 버튼 (상태필터 위) */}
+          {activeTab === 'projects' && (
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-none">
+              <button
+                onClick={onOpenNewProject}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95"
+              >
+                <Briefcase className="w-4 h-4" />
+                <span>새 프로젝트 등록</span>
+              </button>
             </div>
           )}
 
