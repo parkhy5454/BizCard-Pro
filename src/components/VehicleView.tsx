@@ -3,7 +3,7 @@ import {
   Car, Calendar, MapPin, Receipt, Wrench, FileText, BarChart3, 
   Plus, Trash2, Search, ArrowRight, TrendingUp, CheckCircle2, 
   AlertTriangle, DollarSign, Printer, Download, Clock, Landmark, Info, Pencil, Eye, FileSpreadsheet,
-  Upload, X, Paperclip, RefreshCw
+  Upload, X, Paperclip, RefreshCw, Camera, Sparkles
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -132,6 +132,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     memo: '',
     contactId: ''
   });
+  // 운행기록 작성 중 스캔한 영수증(통행료/주차비 등) - 저장 시 비용관리에 연동된 지출로 함께 등록됨
+  const [drivingReceiptExpense, setDrivingReceiptExpense] = useState<{
+    receiptImage: string;
+    category: VehicleExpense['category'];
+    categoryCustom: string;
+    amount: number;
+    merchantName: string;
+    memo: string;
+    payMethod: NonNullable<VehicleExpense['payMethod']>;
+  } | null>(null);
+  const [isScanningDrivingReceipt, setIsScanningDrivingReceipt] = useState<boolean>(false);
 
   // 3. 지출비용 폼
   const [newExpense, setNewExpense] = useState({
@@ -145,8 +156,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     merchantName: '',
     fuelVolume: 0,
     projectName: '',
-    contactId: ''
+    contactId: '',
+    receiptImage: ''
   });
+  const [isScanningExpenseReceipt, setIsScanningExpenseReceipt] = useState<boolean>(false);
 
   // 거래처 직접 입력 상태
   const [useDirectContact, setUseDirectContact] = useState<boolean>(false);
@@ -169,8 +182,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     shopContact: '',
     status: 'completed' as VehicleMaintenance['status'],
     memo: '',
-    payMethod: 'company_card' as VehicleMaintenance['payMethod']
+    payMethod: 'company_card' as VehicleMaintenance['payMethod'],
+    receiptImage: ''
   });
+  const [isScanningMaintReceipt, setIsScanningMaintReceipt] = useState<boolean>(false);
 
   // 5. 점검 주기 폼
   const [newInterval, setNewInterval] = useState({
@@ -339,6 +354,47 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   };
 
   // 운행일지 추가 액션
+  // 운행 중 발생한 영수증(통행료/주차비 등) 스캔 - 운행기록 저장 시 비용관리에 연동 등록됨
+  const handleScanDrivingReceipt = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setIsScanningDrivingReceipt(true);
+      setDrivingReceiptExpense({
+        receiptImage: dataUrl,
+        category: 'toll',
+        categoryCustom: '',
+        amount: 0,
+        merchantName: '',
+        memo: '',
+        payMethod: 'company_card'
+      });
+      try {
+        const res = await fetch('/api/scan-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setDrivingReceiptExpense((prev) => prev ? {
+            ...prev,
+            category: (data.category as VehicleExpense['category']) || prev.category,
+            amount: data.amount || prev.amount,
+            merchantName: data.merchantName || prev.merchantName,
+            memo: data.memo || prev.memo,
+            payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || prev.payMethod
+          } : prev);
+        }
+      } catch (err) {
+        console.error('영수증 스캔 실패:', err);
+      } finally {
+        setIsScanningDrivingReceipt(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleAddDriving = async (e: React.FormEvent) => {
     e.preventDefault();
     const startNum = Number(newDriving.startMileage);
@@ -414,6 +470,36 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           return v;
         }));
 
+        // 운행 중 스캔한 영수증이 있으면 비용관리에 연동된 지출로 함께 등록
+        if (drivingReceiptExpense) {
+          try {
+            const expRes = await fetch('/api/vehicles/expenses', {
+              method: 'POST',
+              headers: getHeaders(),
+              body: JSON.stringify({
+                vehicleId: newDriving.vehicleId,
+                date: newDriving.date,
+                category: drivingReceiptExpense.category,
+                categoryCustom: drivingReceiptExpense.categoryCustom,
+                amount: Number(drivingReceiptExpense.amount) || 0,
+                memo: drivingReceiptExpense.memo,
+                payMethod: drivingReceiptExpense.payMethod,
+                merchantName: drivingReceiptExpense.merchantName,
+                receiptImage: drivingReceiptExpense.receiptImage,
+                projectName: newDriving.projectName,
+                contactId: finalContactId
+              })
+            });
+            if (expRes.ok) {
+              const addedExpense = await expRes.json();
+              setExpenses((prev) => [addedExpense, ...prev]);
+            }
+          } catch (err) {
+            console.error('운행 연동 지출 등록 실패:', err);
+          }
+          setDrivingReceiptExpense(null);
+        }
+
         setShowDrivingForm(false);
         setNewDriving({
           vehicleId: '',
@@ -461,6 +547,40 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // 영수증 스캔: /api/scan-receipt 결과를 지출 폼에 자동으로 채움 (카테고리 체계가 동일해서 그대로 매핑)
+  const handleScanExpenseReceipt = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
+      setIsScanningExpenseReceipt(true);
+      try {
+        const res = await fetch('/api/scan-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setNewExpense((prev) => ({
+            ...prev,
+            category: (data.category as VehicleExpense['category']) || prev.category,
+            amount: data.amount || prev.amount,
+            date: data.date || prev.date,
+            merchantName: data.merchantName || prev.merchantName,
+            memo: data.memo || prev.memo,
+            payMethod: (data.payMethod as VehicleExpense['payMethod']) || prev.payMethod
+          }));
+        }
+      } catch (err) {
+        console.error('영수증 스캔 실패:', err);
+      } finally {
+        setIsScanningExpenseReceipt(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // 지출비용 추가 액션
@@ -535,7 +655,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           merchantName: '',
           fuelVolume: 0,
           projectName: '',
-          contactId: ''
+          contactId: '',
+          receiptImage: ''
         });
 
         // Reset direct contact fields
@@ -567,6 +688,39 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // 정비 영수증/청구서 스캔: 금액/상호명(정비소명)/결제수단/메모를 자동으로 채움
+  const handleScanMaintReceipt = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setNewMaint((prev) => ({ ...prev, receiptImage: dataUrl }));
+      setIsScanningMaintReceipt(true);
+      try {
+        const res = await fetch('/api/scan-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setNewMaint((prev) => ({
+            ...prev,
+            cost: data.amount || prev.cost,
+            date: data.date || prev.date,
+            shopName: data.merchantName || prev.shopName,
+            memo: data.memo || prev.memo,
+            payMethod: (data.payMethod as VehicleMaintenance['payMethod']) || prev.payMethod
+          }));
+        }
+      } catch (err) {
+        console.error('영수증 스캔 실패:', err);
+      } finally {
+        setIsScanningMaintReceipt(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // 정비기록 추가 액션
@@ -605,7 +759,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           shopContact: '',
           status: 'completed',
           memo: '',
-          payMethod: 'company_card'
+          payMethod: 'company_card',
+          receiptImage: ''
         });
       }
     } catch (err) {
@@ -1201,6 +1356,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <button onClick={() => setShowMaintForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
           </div>
           <form onSubmit={handleAddMaint} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
+              <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
+                <Camera className="w-4 h-4" />
+                <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 스캔 (자동으로 아래 항목 채움)'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleScanMaintReceipt(file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {newMaint.receiptImage && (
+                <img src={newMaint.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+              )}
+            </div>
             <div className="space-y-1.5">
               <label className="text-xs text-slate-400">대상 차량 *</label>
               <select 
@@ -2282,6 +2456,67 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <button onClick={() => setShowDrivingForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
                 </div>
                 <form onSubmit={handleAddDriving} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-4 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
+                        <Camera className="w-4 h-4" />
+                        <span>{isScanningDrivingReceipt ? '영수증 스캔 중...' : '통행료/주차비 등 영수증 스캔 (비용관리에 자동 연동 등록)'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleScanDrivingReceipt(file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {drivingReceiptExpense && (
+                        <img src={drivingReceiptExpense.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                      )}
+                    </div>
+                    {drivingReceiptExpense && (
+                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <select
+                          value={drivingReceiptExpense.category}
+                          onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, category: e.target.value as VehicleExpense['category'] })}
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white"
+                        >
+                          <option value="toll">통행료</option>
+                          <option value="parking">주차비</option>
+                          <option value="fuel">주유비</option>
+                          <option value="meal">식대</option>
+                          <option value="beverage">음료</option>
+                          <option value="custom">직접 입력</option>
+                        </select>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={drivingReceiptExpense.amount ? formatCurrencyInput(drivingReceiptExpense.amount) : ''}
+                          onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, amount: parseCurrencyInput(e.target.value) })}
+                          placeholder="금액 (원)"
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white placeholder:text-slate-600 font-mono"
+                        />
+                        <select
+                          value={drivingReceiptExpense.payMethod}
+                          onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, payMethod: e.target.value as NonNullable<VehicleExpense['payMethod']> })}
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white"
+                        >
+                          <option value="company_card">법인카드</option>
+                          <option value="personal_card">개인카드</option>
+                          <option value="cash">현금</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setDrivingReceiptExpense(null)}
+                          className="text-rose-400 hover:text-rose-300 text-xs font-bold border border-slate-800 rounded-lg"
+                        >
+                          영수증 제거
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-400">대상 차량 *</label>
                     <select 
@@ -2895,6 +3130,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <button onClick={() => setShowExpenseForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
               </div>
               <form onSubmit={handleAddExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
+                  <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
+                    <Camera className="w-4 h-4" />
+                    <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 스캔/업로드 (자동으로 아래 항목 채움)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleScanExpenseReceipt(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {newExpense.receiptImage && (
+                    <img src={newExpense.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                  )}
+                </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-400">대상 차량 *</label>
                   <select 
