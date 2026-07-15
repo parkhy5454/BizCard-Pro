@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects, currentUser }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly' | 'report'>('daily');
   const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
   const [weeklyLogs, setWeeklyLogs] = useState<WeeklyWorkLog[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -1507,6 +1507,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             <Calendar className="w-4 h-4" />
             <span>월간</span>
           </button>
+
+          <button
+            onClick={() => setActiveSubTab('report')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              activeSubTab === 'report'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Printer className="w-4 h-4" />
+            <span>리포트 출력</span>
+          </button>
         </div>
 
         <div className="flex gap-2">
@@ -1679,6 +1691,34 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             )}
           </div>
         </div>
+      ) : activeSubTab === 'report' ? (
+        <div className="space-y-4">
+          {/* 리포트 대상 주간 업무 선택 (차량관리의 '인쇄 대상 차량 선택'과 동일한 패턴) */}
+          <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4">
+            <label className="text-xs text-slate-400 font-semibold block mb-1.5">리포트 대상 주간 업무 선택</label>
+            <select
+              value={selectedReportLog?.id || ''}
+              onChange={(e) => {
+                const log = weeklyLogs.find((l) => l.id === e.target.value);
+                if (log) handleOpenReportModal(log);
+              }}
+              className="w-full sm:w-96 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-indigo-500"
+            >
+              <option value="">주간 업무 보고를 선택하세요...</option>
+              {weeklyLogs.map((log) => (
+                <option key={log.id} value={log.id}>
+                  {log.title || `${log.startDate} ~ ${log.endDate}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!selectedReportLog && (
+            <div className="bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl py-16 text-center text-slate-500 text-sm">
+              위에서 주간 업무 보고를 선택하면 리포트가 아래에 표시됩니다.
+            </div>
+          )}
+        </div>
       ) : (
       <>
       {/* 3. 본문 목록 */}
@@ -1778,6 +1818,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenReportModal(log);
+                            setActiveSubTab('report');
                           }}
                           className="p-2 rounded-xl bg-slate-800 hover:bg-indigo-950 text-slate-400 hover:text-indigo-400 border border-slate-700 hover:border-indigo-900 transition-all cursor-pointer"
                           title="주간업무보고서 출력/인쇄"
@@ -2867,10 +2908,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         )}
       </AnimatePresence>
 
-      {/* 4. 주간 업무보고서 출력/프리뷰/편집 모달 */}
+      {/* 4. 주간 업무보고서 출력 (리포트 출력 탭 안에 임베드되어 표시됨, 차량관리 리포트 출력과 동일한 방식) */}
       <AnimatePresence>
-        {isReportModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-0 sm:p-4 md:p-6 select-none">
+        {activeSubTab === 'report' && selectedReportLog && (
+          <div className="w-full select-none">
             {/* 인쇄 스타일 인젝션 */}
             <style>{`
               @media print {
@@ -2934,7 +2975,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 30 }}
-              className="relative w-full max-w-[215mm] bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden"
+              className="relative w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden"
             >
               {/* 비인쇄 상단 바 (no-print) */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
@@ -2968,7 +3009,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <span>인쇄 / PDF 저장</span>
                   </button>
                   <button
-                    onClick={() => setIsReportModalOpen(false)}
+                    onClick={() => setSelectedReportLog(null)}
                     className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
@@ -3413,7 +3454,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               <div className="no-print p-4 sm:p-5 border-t border-slate-800 bg-slate-900/90 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsReportModalOpen(false)}
+                  onClick={() => setSelectedReportLog(null)}
                   className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
                 >
                   닫기
