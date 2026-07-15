@@ -206,7 +206,6 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">연락처 가져오기 / 내보내기 (Import & Export)</h2>
-            <p className="text-xs text-slate-400 mt-1">전체, 특정 그룹, 혹은 개인별 연락처를 VCF, Excel, CSV 형식으로 백업하고 호환하세요.</p>
           </div>
         </div>
 
@@ -309,10 +308,6 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
                 <Upload className="w-4 h-4 text-emerald-400" />
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed">
-                스마트폰 주소록이나 아웃룩에서 내보낸 **VCF(.vcf)** 또는 **CSV(.csv)** 파일을 업로드하면 내 명함 DB에 즉시 병합 등록됩니다.
-              </p>
-
               <div className="aspect-[2/1] w-full rounded-2xl border-2 border-dashed border-slate-800 hover:border-emerald-500/60 bg-slate-900/40 flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
                 <Upload className="w-8 h-8 text-slate-500 group-hover:text-emerald-400 transition-colors mb-2" />
                 <span className="text-xs font-bold text-slate-200">여기를 클릭하여 파일 선택</span>
@@ -329,11 +324,6 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
             )}
           </div>
 
-        </div>
-
-        <div className="flex items-center gap-2.5 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-slate-400">
-          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
-          <span>VCF(vCard 3.0) 포맷은 아이폰/안드로이드 연락처 앱과 100% 호환되며, Excel 내보내기 시 한글 깨짐을 방지하는 UTF-8 BOM 인코딩이 적용됩니다.</span>
         </div>
 
       </div>
