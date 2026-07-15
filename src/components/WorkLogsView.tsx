@@ -770,98 +770,183 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
   // 주간 업무 보고서를 화면에 보이는 것과 똑같은 양식(4개 표)으로 엑셀 다운로드
   const downloadReportToExcel = () => {
-    const wsData: any[] = [];
-    const merges: any[] = [];
+    const esc = (str: any): string => (str === null || str === undefined ? '' : String(str))
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br/>');
 
-    // 제목
-    wsData.push([reportTitle]);
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } });
-    wsData.push([]);
+    const cellBorder = 'border: 0.5pt solid #000000;';
+    const yellowBg = 'background-color: #FFFF00;';
+    const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
 
-    // 헤더: 보고 기간 / 부서 / 작성자 / 비용
-    const headerRowIdx = wsData.length;
-    wsData.push(['보고 기간', `${reportStartDate} ~ ${reportEndDate}`, '', '', '', '', '']);
-    merges.push({ s: { r: headerRowIdx, c: 1 }, e: { r: headerRowIdx, c: 6 } });
-    wsData.push(['소속 부서', reportDepartment, '작성자', reportAuthor, '', '', '']);
-    if (reportOption === 'B') {
-      wsData.push(['일간 비용', `${reportExpenseDaily.toLocaleString()}원`, '주간 비용', `${reportExpenseWeekly.toLocaleString()}원`, '', '', '']);
-      wsData.push(['월간 누적 비용', `${reportExpenseMonthly.toLocaleString()}원`, '정산 총계', `${(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원`, '', '', '']);
-    }
-    wsData.push([]);
-
-    // 표 1/2 (Week/Date/Project/Description/진행율또는예상시간/Expenses-Description/Expenses-Won) + 하단 합계행
-    const pushTableWithExpenses = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
-      wsData.push([heading]);
-      merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 6 } });
-      wsData.push(['Week', 'Date', 'Project', 'Description', thirdColLabel, 'Expenses: Description', 'Expenses: Won']);
-      const firstRowIdx = wsData.length;
+    // 표 1/2 용: Week(rowspan)/Date/Project/Description/진행율또는예상시간/Expenses(Description,Won)
+    const buildMainTableHtml = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
       let total = 0;
-      rows.forEach((row, idx) => {
+      const bodyRows = rows.map((row, idx) => {
         const items = row.expenseItems || [];
         total += items.reduce((s: number, e: any) => s + e.amount, 0);
-        wsData.push([
-          idx === 0 ? row.weekLabel : '',
-          row.dateLabel,
-          row.project || '',
-          row.description,
-          row[thirdColField] || '',
-          items.map((e: any) => e.description).join('\n') || '',
-          items.map((e: any) => e.amount.toLocaleString()).join('\n') || ''
-        ]);
-      });
-      if (rows.length > 1) {
-        merges.push({ s: { r: firstRowIdx, c: 0 }, e: { r: firstRowIdx + rows.length - 1, c: 0 } });
-      }
-      const totalRowIdx = wsData.length;
-      wsData.push(['계', '', '', '', '', '', total.toLocaleString()]);
-      merges.push({ s: { r: totalRowIdx, c: 0 }, e: { r: totalRowIdx, c: 5 } });
-      wsData.push([]);
+        const expDesc = items.map((e: any) => esc(e.description)).join('<br/>') || '-';
+        const expWon = items.map((e: any) => e.amount.toLocaleString()).join('<br/>') || '-';
+        return `
+          <tr>
+            ${idx === 0 ? `<td rowspan="${rows.length}" style="${cellBorder} text-align:center; vertical-align:middle; font-weight:bold; ${baseFont}">${esc(row.weekLabel)}</td>` : ''}
+            <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.dateLabel)}</td>
+            <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.project) || '-'}</td>
+            <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.description)}</td>
+            <td style="${cellBorder} text-align:center; font-weight:bold; ${baseFont}">${esc(row[thirdColField]) || ''}</td>
+            <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${expDesc}</td>
+            <td style="${cellBorder} text-align:right; padding-right:5px; ${baseFont}">${expWon}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <p style="font-weight:bold; font-size:12pt; margin: 14px 0 4px 0;">${esc(heading)}</p>
+        <table style="border-collapse: collapse; width: 100%; border: 1.5pt solid #000000; ${baseFont}">
+          <tr style="${yellowBg}">
+            <th style="${cellBorder} ${yellowBg} width:8%;">Week</th>
+            <th style="${cellBorder} ${yellowBg} width:9%;">Date</th>
+            <th style="${cellBorder} ${yellowBg} width:13%;">Project</th>
+            <th style="${cellBorder} ${yellowBg} width:35%;">Description</th>
+            <th style="${cellBorder} ${yellowBg} width:8%;">${esc(thirdColLabel)}</th>
+            <th colspan="2" style="${cellBorder} ${yellowBg} width:15%;">Expenses (비용)</th>
+          </tr>
+          <tr style="${yellowBg}">
+            <th colspan="5" style="${cellBorder} ${yellowBg}"></th>
+            <th style="${cellBorder} ${yellowBg}">Description</th>
+            <th style="${cellBorder} ${yellowBg}">Won</th>
+          </tr>
+          ${bodyRows}
+          <tr style="background-color:#FEF9C3; font-weight:bold;">
+            <td colspan="5" style="${cellBorder} text-align:right; padding-right:8px;">계</td>
+            <td colspan="2" style="${cellBorder} text-align:right; padding-right:5px;">${total.toLocaleString()}</td>
+          </tr>
+        </table>`;
     };
 
-    pushTableWithExpenses('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress');
-    pushTableWithExpenses('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime');
+    // 표 3: Week(rowspan)/Date/Project/Description/Estimated Time/Remark (비용 없음)
+    const buildPlanTableHtml = () => {
+      const rows = reportTable3 as any[];
+      const bodyRows = rows.map((row, idx) => `
+        <tr>
+          ${idx === 0 ? `<td rowspan="${rows.length}" style="${cellBorder} text-align:center; vertical-align:middle; font-weight:bold; ${baseFont}">${esc(row.weekLabel)}</td>` : ''}
+          <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.dateLabel)}</td>
+          <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.project) || '-'}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.description)}</td>
+          <td style="${cellBorder} text-align:center; font-weight:bold; ${baseFont}">${esc(row.estimatedTime) || ''}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.remark) || ''}</td>
+        </tr>`).join('');
 
-    // 표 3 (차주 예정 사항): Week/Date/Project/Description/Estimated Time/Remark (비용 없음)
-    wsData.push(['3. 차주 예정 사항']);
-    merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 6 } });
-    wsData.push(['Week', 'Date', 'Project', 'Description', 'Estimated Time', 'Remark', '']);
-    const t3FirstRowIdx = wsData.length;
-    reportTable3.forEach((row: any, idx) => {
-      wsData.push([
-        idx === 0 ? row.weekLabel : '',
-        row.dateLabel,
-        row.project || '',
-        row.description,
-        row.estimatedTime || '',
-        row.remark || '',
-        ''
-      ]);
-    });
-    if (reportTable3.length > 1) {
-      merges.push({ s: { r: t3FirstRowIdx, c: 0 }, e: { r: t3FirstRowIdx + reportTable3.length - 1, c: 0 } });
-    }
-    wsData.push([]);
+      return `
+        <p style="font-weight:bold; font-size:12pt; margin: 14px 0 4px 0;">3. 차주 예정 사항</p>
+        <table style="border-collapse: collapse; width: 100%; border: 1.5pt solid #000000; ${baseFont}">
+          <tr style="${yellowBg}">
+            <th style="${cellBorder} ${yellowBg} width:10%;">Week</th>
+            <th style="${cellBorder} ${yellowBg} width:11%;">Date</th>
+            <th style="${cellBorder} ${yellowBg} width:15%;">Project</th>
+            <th style="${cellBorder} ${yellowBg} width:44%;">Description</th>
+            <th style="${cellBorder} ${yellowBg} width:10%;">Estimated Time</th>
+            <th style="${cellBorder} ${yellowBg} width:10%;">Remark</th>
+          </tr>
+          ${bodyRows}
+        </table>`;
+    };
 
-    // 4. 애로 및 요청 사항 / 피드백
-    wsData.push(['4. 애로 및 요청 사항 / 피드백']);
-    merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 6 } });
-    wsData.push(['No.', 'Description', '', '', '', 'Remark', '']);
-    merges.push({ s: { r: wsData.length - 1, c: 1 }, e: { r: wsData.length - 1, c: 4 } });
-    reportTable4.forEach((row, idx) => {
-      const rIdx = wsData.length;
-      wsData.push([idx + 1, row.description, '', '', '', row.remark || '', '']);
-      merges.push({ s: { r: rIdx, c: 1 }, e: { r: rIdx, c: 4 } });
-    });
+    // 표 4: No./Description/Remark
+    const buildFeedbackTableHtml = () => {
+      const bodyRows = reportTable4.map((row, idx) => `
+        <tr>
+          <td style="${cellBorder} text-align:center; ${baseFont}">${idx + 1}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.description)}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.remark) || ''}</td>
+        </tr>`).join('');
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!merges'] = merges;
-    ws['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 40 }, { wch: 12 }, { wch: 16 }, { wch: 10 }];
+      return `
+        <p style="font-weight:bold; font-size:12pt; margin: 14px 0 4px 0;">4. 애로 및 요청 사항 / 피드백</p>
+        <table style="border-collapse: collapse; width: 100%; border: 1.5pt solid #000000; ${baseFont}">
+          <tr style="${yellowBg}">
+            <th style="${cellBorder} ${yellowBg} width:8%;">No.</th>
+            <th style="${cellBorder} ${yellowBg} width:72%;">Description</th>
+            <th style="${cellBorder} ${yellowBg} width:20%;">Remark</th>
+          </tr>
+          ${bodyRows}
+        </table>`;
+    };
 
-    XLSX.utils.book_append_sheet(wb, ws, '주간업무보고');
+    // 상단 헤더 정보 표 (보고 기간 / 부서 / 작성자 / 비용)
+    const headerInfoRows = `
+      <tr>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:14%;">보고 기간</td>
+        <td colspan="5" style="${cellBorder} text-align:center; font-weight:bold;">${esc(reportStartDate)} ~ ${esc(reportEndDate)}</td>
+      </tr>
+      <tr>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">소속 부서</td>
+        <td colspan="2" style="${cellBorder} text-align:center;">${esc(reportDepartment)}</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">작성자</td>
+        <td colspan="2" style="${cellBorder} text-align:center;">${esc(reportAuthor)}</td>
+      </tr>
+      ${reportOption === 'B' ? `
+      <tr>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">일간 비용</td>
+        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseDaily.toLocaleString()}원</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">주간 비용</td>
+        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseWeekly.toLocaleString()}원</td>
+      </tr>
+      <tr>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">월간 누적 비용</td>
+        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseMonthly.toLocaleString()}원</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">정산 총계</td>
+        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원</td>
+      </tr>` : ''}
+    `;
 
+    const fullHtml = `
+      <div style="text-align:center; margin-bottom:16px;">
+        <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">${esc(reportTitle)}</span>
+      </div>
+      <table style="border-collapse: collapse; width:100%; border: 1.5pt solid #000000; ${baseFont} margin-bottom: 10px;">
+        ${headerInfoRows}
+      </table>
+      ${buildMainTableHtml('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress')}
+      ${buildMainTableHtml('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime')}
+      ${buildPlanTableHtml()}
+      ${buildFeedbackTableHtml()}
+    `;
+
+    const excelContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+      <meta charset="utf-8">
+      <!--[if gte mso 9]>
+      <xml>
+      <x:ExcelWorkbook>
+      <x:ExcelWorksheets>
+      <x:ExcelWorksheet>
+      <x:Name>주간업무보고</x:Name>
+      <x:WorksheetOptions>
+      <x:DisplayGridlines/>
+      </x:WorksheetOptions>
+      </x:ExcelWorksheet>
+      </x:ExcelWorksheets>
+      </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+      </head>
+      <body>
+      ${fullHtml}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
     const sanitizedTitle = (reportTitle || '주간업무보고').replace(/[\/\\?%*:|"<>]/g, '_');
-    XLSX.writeFile(wb, `${sanitizedTitle}.xlsx`);
+    link.setAttribute('download', `${sanitizedTitle}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // 비용 항목 추가/수정/삭제 헬퍼 함수
