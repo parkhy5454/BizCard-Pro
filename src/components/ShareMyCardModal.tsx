@@ -201,7 +201,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
               <div className="text-center space-y-1">
                 <p className="text-sm font-bold text-white">상대방 스마트폰 기본 카메라로 스캔하세요</p>
-                <p className="text-xs text-slate-400">스캔 시 스마트폰 주소록에 내 이름, 회사, 전화번호, 이메일이 자동 입력됩니다.</p>
               </div>
 
               <div className="w-full pt-2 flex gap-3">

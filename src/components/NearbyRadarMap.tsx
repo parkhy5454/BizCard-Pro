@@ -72,7 +72,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           </div>
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">주변 사람 레이더 (가까운 거리순 지도 정렬)</h2>
-            <p className="text-xs text-slate-400 mt-0.5">내 현재 위치 좌표 기준으로 주변의 비즈니스 인맥을 가까운 순으로 탐색합니다.</p>
           </div>
         </div>
 

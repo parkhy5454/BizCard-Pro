@@ -58,7 +58,6 @@ export const GroupModal: React.FC<Props> = ({ groups, contacts, onCreateGroup, o
             </div>
             <div>
               <h2 className="text-2xl font-bold text-white tracking-tight">명함 그룹 생성·수정·삭제 관리</h2>
-              <p className="text-xs text-slate-400 mt-1">거래처, 지인, VIP 등 목적에 따라 그룹을 나누어 스마트하게 필터링하세요.</p>
             </div>
           </div>
           <span className="text-xs font-mono bg-slate-800 text-slate-300 px-3 py-1 rounded-full">총 {groups.length}개 그룹</span>
