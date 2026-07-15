@@ -3012,6 +3012,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                    중첩된 위치에 있는 인쇄 대상(#printable-report-wrapper)이 나오지 않는 문제가 생김 */
                 body * {
                   visibility: hidden !important;
+                  transform: none !important;
                 }
                 #printable-report-wrapper,
                 #printable-report-wrapper * {
@@ -3019,11 +3020,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 }
                 #printable-report-wrapper {
                   display: block !important;
-                  position: absolute !important;
+                  position: fixed !important;
                   left: 0 !important;
                   top: 0 !important;
                   width: 210mm !important;
                   height: auto !important;
+                  max-height: none !important;
+                  overflow: visible !important;
                   margin: 0 !important;
                   padding: 12mm !important;
                   background: white !important;
