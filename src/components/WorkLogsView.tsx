@@ -2996,7 +2996,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       {/* 4. 주간 업무보고서 출력 (리포트 출력 탭 안에 임베드되어 표시됨, 차량관리 리포트 출력과 동일한 방식) */}
       <AnimatePresence>
         {activeSubTab === 'report' && selectedReportLog && (
-          <div className="w-full select-none">
+          <div className="w-full select-none print-collapse-ancestor">
             {/* 인쇄 스타일 인젝션 */}
             <style>{`
               @media print {
@@ -3018,16 +3018,29 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 #printable-report-wrapper * {
                   visibility: visible !important;
                 }
+                /* 인쇄 대상까지 가는 부모 상자들은 크기를 0으로 접어서 여러 페이지로 자연스럽게
+                   이어지는 인쇄 흐름(문서 흐름)을 방해하지 않게 함 (position:fixed는 한 페이지에
+                   고정되어 버려서 여러 페이지 인쇄가 안 되므로 여기서는 사용하지 않음) */
+                .print-collapse-ancestor {
+                  display: block !important;
+                  position: static !important;
+                  width: auto !important;
+                  height: 0 !important;
+                  min-height: 0 !important;
+                  max-height: none !important;
+                  overflow: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  border: none !important;
+                }
                 #printable-report-wrapper {
                   display: block !important;
-                  position: fixed !important;
-                  left: 0 !important;
-                  top: 0 !important;
+                  position: static !important;
                   width: 210mm !important;
                   height: auto !important;
                   max-height: none !important;
                   overflow: visible !important;
-                  margin: 0 !important;
+                  margin: 0 auto !important;
                   padding: 12mm !important;
                   background: white !important;
                   box-shadow: none !important;
@@ -3068,7 +3081,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 30 }}
-              className="relative w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden"
+              className="relative w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden print-collapse-ancestor"
             >
               {/* 비인쇄 상단 바 (no-print) */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
@@ -3187,7 +3200,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               </div>
 
               {/* 주간업무보고 인쇄 프리뷰 종이 영역 (A4 사이즈 모방) */}
-              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center">
+              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center print-collapse-ancestor">
                 <div
                   id="printable-report-wrapper"
                   className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans select-text leading-tight"
