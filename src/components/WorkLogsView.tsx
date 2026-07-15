@@ -3072,9 +3072,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">
                       주간 업무 보고서 리포트 생성기
                     </h2>
-                    <p className="text-xs text-slate-400">
-                      일일 업무일지와 실시간 연동되어 보고서가 자동 생성되었습니다. 상세 내용을 자유롭게 편집한 뒤 인쇄하거나 PDF로 저장하세요.
-                    </p>
                   </div>
                 </div>
 
