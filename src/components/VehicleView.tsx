@@ -358,10 +358,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const handleScanDrivingReceipt = (file: File) => {
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
+      const rawDataUrl = ev.target?.result as string;
       setIsScanningDrivingReceipt(true);
       setDrivingReceiptExpense({
-        receiptImage: dataUrl,
+        receiptImage: rawDataUrl,
         category: 'toll',
         categoryCustom: '',
         amount: 0,
@@ -370,6 +370,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         payMethod: 'company_card'
       });
       try {
+        const dataUrl = await autoCropReceiptImage(rawDataUrl);
+        setDrivingReceiptExpense((prev) => prev ? { ...prev, receiptImage: dataUrl } : prev);
         const res = await fetch('/api/scan-receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -393,6 +395,112 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // OpenCV.js를 이용한 영수증/전표 자동 모서리 인식 및 반듯하게 자르기 (명함 스캔과 동일한 방식, 감지 실패 시 원본 사용)
+  const loadOpenCv = (): Promise<void> => {
+    const w = window as any;
+    if (w.cv && w.cv.Mat) return Promise.resolve();
+    if (w.__openCvLoadingPromise) return w.__openCvLoadingPromise;
+    w.__openCvLoadingPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://docs.opencv.org/4.10.0/opencv.js';
+      script.async = true;
+      script.onload = () => {
+        const check = () => { if (w.cv && w.cv.Mat) resolve(); else setTimeout(check, 50); };
+        check();
+      };
+      script.onerror = () => reject(new Error('OpenCV.js 로드 실패'));
+      document.body.appendChild(script);
+    });
+    return w.__openCvLoadingPromise;
+  };
+
+  const autoCropReceiptImage = async (dataUrl: string): Promise<string> => {
+    try { await loadOpenCv(); } catch { return dataUrl; }
+    const cv = (window as any).cv;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox: any = null;
+        let srcTri, dstTri, M, dst;
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0);
+
+          src = cv.imread(canvas);
+          gray = new cv.Mat();
+          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+          blurred = new cv.Mat();
+          cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+          edged = new cv.Mat();
+          cv.Canny(blurred, edged, 50, 150);
+          dilated = new cv.Mat();
+          kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+          cv.dilate(edged, dilated, kernel);
+
+          contours = new cv.MatVector();
+          hierarchy = new cv.Mat();
+          cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+          let maxArea = 0;
+          const minArea = img.width * img.height * 0.15;
+          for (let i = 0; i < contours.size(); i++) {
+            const cnt = contours.get(i);
+            const peri = cv.arcLength(cnt, true);
+            const approx = new cv.Mat();
+            cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+            const area = cv.contourArea(approx);
+            if (approx.rows === 4 && area > maxArea && area > minArea) {
+              maxArea = area;
+              if (bestApprox) bestApprox.delete();
+              bestApprox = approx;
+            } else {
+              approx.delete();
+            }
+            cnt.delete();
+          }
+
+          if (!bestApprox) { resolve(dataUrl); return; }
+
+          const pts: { x: number; y: number }[] = [];
+          for (let i = 0; i < 4; i++) pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
+          const sums = pts.map((p) => p.x + p.y);
+          const diffs = pts.map((p) => p.x - p.y);
+          const tl = pts[sums.indexOf(Math.min(...sums))];
+          const br = pts[sums.indexOf(Math.max(...sums))];
+          const tr = pts[diffs.indexOf(Math.max(...diffs))];
+          const bl = pts[diffs.indexOf(Math.min(...diffs))];
+
+          const maxWidth = Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y));
+          const maxHeight = Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y));
+
+          srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+          dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, maxWidth, maxHeight, 0, maxHeight]);
+          M = cv.getPerspectiveTransform(srcTri, dstTri);
+          dst = new cv.Mat();
+          cv.warpPerspective(src, dst, M, new cv.Size(maxWidth, maxHeight));
+
+          const outCanvas = document.createElement('canvas');
+          outCanvas.width = maxWidth;
+          outCanvas.height = maxHeight;
+          cv.imshow(outCanvas, dst);
+          resolve(outCanvas.toDataURL('image/jpeg', 0.92));
+        } catch (err) {
+          console.error('영수증 자동 크롭 실패, 원본 사용:', err);
+          resolve(dataUrl);
+        } finally {
+          [src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox, srcTri, dstTri, M, dst].forEach((m) => {
+            try { m && m.delete && m.delete(); } catch {}
+          });
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
   };
 
   const handleAddDriving = async (e: React.FormEvent) => {
@@ -553,10 +661,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const handleScanExpenseReceipt = (file: File) => {
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
+      const rawDataUrl = ev.target?.result as string;
+      setNewExpense((prev) => ({ ...prev, receiptImage: rawDataUrl }));
       setIsScanningExpenseReceipt(true);
       try {
+        const dataUrl = await autoCropReceiptImage(rawDataUrl);
+        setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
         const res = await fetch('/api/scan-receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -694,10 +804,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const handleScanMaintReceipt = (file: File) => {
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setNewMaint((prev) => ({ ...prev, receiptImage: dataUrl }));
+      const rawDataUrl = ev.target?.result as string;
+      setNewMaint((prev) => ({ ...prev, receiptImage: rawDataUrl }));
       setIsScanningMaintReceipt(true);
       try {
+        const dataUrl = await autoCropReceiptImage(rawDataUrl);
+        setNewMaint((prev) => ({ ...prev, receiptImage: dataUrl }));
         const res = await fetch('/api/scan-receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
