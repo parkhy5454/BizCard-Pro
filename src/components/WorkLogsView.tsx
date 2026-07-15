@@ -3007,9 +3007,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   margin: 0 !important;
                   padding: 0 !important;
                 }
-                /* 모달 컨테이너 및 기타 모든 UI 숨김 */
-                body > * {
-                  display: none !important;
+                /* 화면의 나머지 UI는 안 보이게 하되(visibility), display:none은 쓰지 않음 
+                   → display:none으로 숨기면 그 안의 자식 요소는 아무리 다시 보이게 해도 렌더링이 안 되기 때문에,
+                   중첩된 위치에 있는 인쇄 대상(#printable-report-wrapper)이 나오지 않는 문제가 생김 */
+                body * {
+                  visibility: hidden !important;
+                }
+                #printable-report-wrapper,
+                #printable-report-wrapper * {
+                  visibility: visible !important;
                 }
                 #printable-report-wrapper {
                   display: block !important;
@@ -3027,7 +3033,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   print-color-adjust: exact !important;
                 }
                 #printable-report-wrapper * {
-                  visibility: visible !important;
                   color: black !important;
                   border-color: black !important;
                 }
