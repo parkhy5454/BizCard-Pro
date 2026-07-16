@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye } from 'lucide-react';
 import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -766,6 +767,160 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   };
   const handlePrintReport = () => {
     window.print();
+  };
+
+  // 인쇄 전용 정적(읽기 전용) 리포트 렌더러 - 화면의 편집 가능한 버전과 별개로,
+  // #print-root 포털에 렌더링되어 앱의 다른 화면 요소와 완전히 분리된 상태로 인쇄됩니다.
+  const renderPrintableReport = () => {
+    if (!selectedReportLog) return null;
+    const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '4px 6px', verticalAlign: 'middle' };
+    const yellowStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#FFFF00', fontWeight: 700, textAlign: 'center' };
+
+    const renderMainTable = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
+      let total = 0;
+      return (
+        <div key={heading} style={{ marginTop: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 4px 0' }}>{heading}</p>
+          <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...yellowStyle, width: '8%' }}>Week</th>
+                <th style={{ ...yellowStyle, width: '9%' }}>Date</th>
+                <th style={{ ...yellowStyle, width: '13%' }}>Project</th>
+                <th style={{ ...yellowStyle, width: '35%' }}>Description</th>
+                <th style={{ ...yellowStyle, width: '8%' }}>{thirdColLabel}</th>
+                <th style={{ ...yellowStyle, width: '15%' }} colSpan={2}>Expenses (비용)</th>
+              </tr>
+              <tr>
+                <th style={yellowStyle} colSpan={5}></th>
+                <th style={yellowStyle}>Description</th>
+                <th style={yellowStyle}>Won</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => {
+                const items = row.expenseItems || [];
+                total += items.reduce((s: number, e: any) => s + e.amount, 0);
+                return (
+                  <tr key={row.id}>
+                    {idx === 0 && (
+                      <td rowSpan={rows.length} style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row.weekLabel}</td>
+                    )}
+                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row.dateLabel}</td>
+                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row.project || '-'}</td>
+                    <td style={{ ...cellStyle, textAlign: 'left', whiteSpace: 'pre-line' }}>{row.description}</td>
+                    <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row[thirdColField] || ''}</td>
+                    <td style={{ ...cellStyle, textAlign: 'left' }}>
+                      {items.length > 0 ? items.map((e: any) => <div key={e.id}>{e.description}</div>) : '-'}
+                    </td>
+                    <td style={{ ...cellStyle, textAlign: 'right' }}>
+                      {items.length > 0 ? items.map((e: any) => <div key={e.id}>{e.amount.toLocaleString()}</div>) : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, backgroundColor: '#FEF9C3' }} colSpan={5}>계</td>
+                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, backgroundColor: '#FEF9C3' }} colSpan={2}>{total.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      );
+    };
+
+    return (
+      <div id="printable-report-wrapper" style={{ width: '210mm', margin: '0 auto', padding: '12mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11 }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <span style={{ fontSize: 20, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>{reportTitle}</span>
+        </div>
+        <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11, marginBottom: 10 }}>
+          <tbody>
+            <tr>
+              <td style={yellowStyle}>보고 기간</td>
+              <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }} colSpan={5}>{reportStartDate} ~ {reportEndDate}</td>
+            </tr>
+            <tr>
+              <td style={yellowStyle}>소속 부서</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{reportDepartment}</td>
+              <td style={yellowStyle}>작성자</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{reportAuthor}</td>
+            </tr>
+            {reportOption === 'B' && (
+              <>
+                <tr>
+                  <td style={yellowStyle}>일간 비용</td>
+                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{reportExpenseDaily.toLocaleString()}원</td>
+                  <td style={yellowStyle}>주간 비용</td>
+                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{reportExpenseWeekly.toLocaleString()}원</td>
+                </tr>
+                <tr>
+                  <td style={yellowStyle}>월간 누적 비용</td>
+                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{reportExpenseMonthly.toLocaleString()}원</td>
+                  <td style={yellowStyle}>정산 총계</td>
+                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원</td>
+                </tr>
+              </>
+            )}
+          </tbody>
+        </table>
+
+        {renderMainTable('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress')}
+        {renderMainTable('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime')}
+
+        <div style={{ marginTop: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 4px 0' }}>3. 차주 예정 사항</p>
+          <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...yellowStyle, width: '10%' }}>Week</th>
+                <th style={{ ...yellowStyle, width: '11%' }}>Date</th>
+                <th style={{ ...yellowStyle, width: '15%' }}>Project</th>
+                <th style={{ ...yellowStyle, width: '44%' }}>Description</th>
+                <th style={{ ...yellowStyle, width: '10%' }}>Estimated Time</th>
+                <th style={{ ...yellowStyle, width: '10%' }}>Remark</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(reportTable3 as any[]).map((row, idx) => (
+                <tr key={row.id}>
+                  {idx === 0 && (
+                    <td rowSpan={reportTable3.length} style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row.weekLabel}</td>
+                  )}
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row.dateLabel}</td>
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row.project || '-'}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left', whiteSpace: 'pre-line' }}>{row.description}</td>
+                  <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row.estimatedTime || ''}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left' }}>{row.remark || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 4px 0' }}>4. 애로 및 요청 사항 / 피드백</p>
+          <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...yellowStyle, width: '8%' }}>No.</th>
+                <th style={{ ...yellowStyle, width: '72%' }}>Description</th>
+                <th style={{ ...yellowStyle, width: '20%' }}>Remark</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportTable4.map((row, idx) => (
+                <tr key={row.id}>
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>{idx + 1}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left' }}>{row.description}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left' }}>{row.remark || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   };
 
   // 주간 업무 보고서를 화면에 보이는 것과 똑같은 양식(4개 표)으로 엑셀 다운로드
@@ -2996,92 +3151,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       {/* 4. 주간 업무보고서 출력 (리포트 출력 탭 안에 임베드되어 표시됨, 차량관리 리포트 출력과 동일한 방식) */}
       <AnimatePresence>
         {activeSubTab === 'report' && selectedReportLog && (
-          <div className="w-full select-none print-collapse-ancestor">
-            {/* 인쇄 스타일 인젝션 */}
-            <style>{`
-              @media print {
-                /* 전체 페이지 여백 제거 및 배경 흰색 강제 */
-                body {
-                  background: white !important;
-                  color: black !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-                /* 화면의 나머지 UI는 안 보이게 하되(visibility), display:none은 쓰지 않음 
-                   → display:none으로 숨기면 그 안의 자식 요소는 아무리 다시 보이게 해도 렌더링이 안 되기 때문에,
-                   중첩된 위치에 있는 인쇄 대상(#printable-report-wrapper)이 나오지 않는 문제가 생김 */
-                body * {
-                  visibility: hidden !important;
-                  transform: none !important;
-                }
-                #printable-report-wrapper,
-                #printable-report-wrapper * {
-                  visibility: visible !important;
-                }
-                /* 인쇄 대상까지 가는 부모 상자들은 크기를 0으로 접어서 여러 페이지로 자연스럽게
-                   이어지는 인쇄 흐름(문서 흐름)을 방해하지 않게 함 (position:fixed는 한 페이지에
-                   고정되어 버려서 여러 페이지 인쇄가 안 되므로 여기서는 사용하지 않음) */
-                .print-collapse-ancestor {
-                  display: block !important;
-                  position: static !important;
-                  width: auto !important;
-                  height: 0 !important;
-                  min-height: 0 !important;
-                  max-height: none !important;
-                  overflow: visible !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  border: none !important;
-                }
-                #printable-report-wrapper {
-                  display: block !important;
-                  position: static !important;
-                  width: 210mm !important;
-                  height: auto !important;
-                  max-height: none !important;
-                  overflow: visible !important;
-                  margin: 0 auto !important;
-                  padding: 12mm !important;
-                  background: white !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-                #printable-report-wrapper * {
-                  color: black !important;
-                  border-color: black !important;
-                }
-                #printable-report-wrapper .yellow-header {
-                  background-color: #FFFF00 !important;
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-                /* 스크롤바나 불필요한 UI 숨김 */
-                .no-print {
-                  display: none !important;
-                }
-                /* 인쇄시 입력창 테두리 완전 제거 및 투명화 */
-                input, textarea, select {
-                  border: none !important;
-                  box-shadow: none !important;
-                  outline: none !important;
-                  background: transparent !important;
-                  appearance: none !important;
-                  resize: none !important;
-                }
-                @page {
-                  size: A4 portrait;
-                  margin: 0;
-                }
-              }
-            `}</style>
-
+          <div className="w-full select-none">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 30 }}
-              className="relative w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden print-collapse-ancestor"
+              className="relative w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden"
             >
               {/* 비인쇄 상단 바 (no-print) */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
@@ -3200,9 +3275,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               </div>
 
               {/* 주간업무보고 인쇄 프리뷰 종이 영역 (A4 사이즈 모방) */}
-              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center print-collapse-ancestor">
+              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center">
                 <div
-                  id="printable-report-wrapper"
+                  id="report-editor-view"
                   className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans select-text leading-tight"
                 >
                   {/* 보고서 내부 제목 */}
@@ -3619,6 +3694,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           </div>
         )}
       </AnimatePresence>
+
+      {/* 인쇄 전용 정적 리포트: 앱 트리 밖의 별도 포털(#print-root)에 렌더링되어
+          다른 화면 요소(메뉴, 탭, 여백 등)의 영향을 전혀 받지 않고 깔끔하게 인쇄됩니다. */}
+      {typeof document !== 'undefined' && document.getElementById('print-root') &&
+        createPortal(renderPrintableReport(), document.getElementById('print-root')!)}
     </div>
   );
 };
