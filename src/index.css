@@ -56,3 +56,27 @@ html {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* 인쇄용 포털(#print-root): 평소엔 화면에 안 보이고,
+   인쇄할 때만 앱 전체(#root)를 감추고 이 안의 내용만 단독으로 인쇄됩니다.
+   앱 트리 밖의 완전히 독립된 영역이라 다른 화면 요소의 여백/숨김 문제에 영향을 받지 않습니다. */
+#print-root {
+  display: none;
+}
+@media print {
+  #root {
+    display: none !important;
+  }
+  #print-root {
+    display: block !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+}
