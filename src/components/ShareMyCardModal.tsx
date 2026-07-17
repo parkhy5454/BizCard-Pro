@@ -3,6 +3,7 @@ import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartpho
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
+import { LiveCameraCapture } from './LiveCameraCapture.js';
 
 interface Props {
   onClose: () => void;
@@ -16,6 +17,8 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [scanImg, setScanImg] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [cropRawImage, setCropRawImage] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState<boolean>(false);
+  const galleryFileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch('/api/my-profile')
@@ -336,11 +339,20 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                     </button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center gap-1 border border-slate-700 rounded-lg h-24 cursor-pointer hover:border-blue-500 text-slate-500 transition-colors">
-                    <Camera className="w-5 h-5" />
-                    <span>사진 촬영 또는 업로드</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleScanImageUpload} />
-                  </label>
+                  <div className="flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-lg h-24 text-slate-500">
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      카메라로 촬영
+                    </button>
+                    <label className="text-[11px] text-slate-500 hover:text-slate-300 cursor-pointer underline underline-offset-2">
+                      갤러리에서 선택
+                      <input ref={galleryFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleScanImageUpload} />
+                    </label>
+                  </div>
                 )}
                 <button
                   type="button"
@@ -432,6 +444,22 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
             setCropRawImage(null);
           }}
           onCancel={() => setCropRawImage(null)}
+        />
+      )}
+
+      {isCameraOpen && (
+        <LiveCameraCapture
+          title="명함 촬영"
+          guideAspectRatio={1.586}
+          onCapture={(dataUrl) => {
+            setScanImg(dataUrl);
+            setIsCameraOpen(false);
+          }}
+          onCancel={() => setIsCameraOpen(false)}
+          onFallbackToFile={() => {
+            setIsCameraOpen(false);
+            galleryFileInputRef.current?.click();
+          }}
         />
       )}
     </div>
