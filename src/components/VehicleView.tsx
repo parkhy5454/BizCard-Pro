@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
+import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 const MAINTENANCE_OPTIONS = [
@@ -358,6 +359,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 운행 중 발생한 영수증(통행료/주차비 등) 스캔 - 운행기록 저장 시 비용관리에 연동 등록됨
   // 영수증 크롭 조정 모달 대상: 어느 화면(운행/비용/정비)에서 스캔 중인지 + 원본 이미지
   const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'expense' | 'maint'; rawImage: string } | null>(null);
+  const [receiptCameraTarget, setReceiptCameraTarget] = useState<'driving' | 'expense' | 'maint' | null>(null);
+  const receiptFallbackFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleScanDrivingReceipt = (file: File) => {
     const reader = new FileReader();
@@ -2026,20 +2029,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <form onSubmit={handleAddDriving} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="col-span-1 sm:col-span-2 lg:col-span-4 space-y-2">
                     <div className="flex items-center gap-3">
-                      <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => setReceiptCameraTarget('driving')}
+                        className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors"
+                      >
                         <Camera className="w-4 h-4" />
-                        <span>{isScanningDrivingReceipt ? '영수증 스캔 중...' : '통행료/주차비 등 영수증 스캔 (비용관리에 자동 연동 등록)'}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleScanDrivingReceipt(file);
-                            e.target.value = '';
-                          }}
-                        />
-                      </label>
+                        <span>{isScanningDrivingReceipt ? '영수증 스캔 중...' : '통행료/주차비 등 영수증 촬영 (비용관리에 자동 연동 등록)'}</span>
+                      </button>
                       {drivingReceiptExpense && (
                         <img src={drivingReceiptExpense.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
                       )}
@@ -2699,20 +2696,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
               <form onSubmit={handleAddExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
-                  <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setReceiptCameraTarget('expense')}
+                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors"
+                  >
                     <Camera className="w-4 h-4" />
-                    <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 스캔/업로드 (자동으로 아래 항목 채움)'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleScanExpenseReceipt(file);
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
+                    <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 촬영 (자동으로 아래 항목 채움)'}</span>
+                  </button>
                   {newExpense.receiptImage && (
                     <img src={newExpense.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
                   )}
@@ -3147,20 +3138,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
               <form onSubmit={handleAddMaint} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
-                  <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setReceiptCameraTarget('maint')}
+                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors"
+                  >
                     <Camera className="w-4 h-4" />
-                    <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 스캔 (자동으로 아래 항목 채움)'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleScanMaintReceipt(file);
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
+                    <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 촬영 (자동으로 아래 항목 채움)'}</span>
+                  </button>
                   {newMaint.receiptImage && (
                     <img src={newMaint.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
                   )}
@@ -5722,6 +5707,38 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           onCancel={() => setReceiptCropTarget(null)}
         />
       )}
+
+      {receiptCameraTarget && (
+        <LiveCameraCapture
+          title="영수증 촬영"
+          guideAspectRatio={0.62}
+          onCapture={(dataUrl) => {
+            runReceiptOcr(receiptCameraTarget, dataUrl);
+            setReceiptCameraTarget(null);
+          }}
+          onCancel={() => setReceiptCameraTarget(null)}
+          onFallbackToFile={() => receiptFallbackFileInputRef.current?.click()}
+        />
+      )}
+      <input
+        ref={receiptFallbackFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const context = receiptCameraTarget;
+          if (file && context) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              setReceiptCropTarget({ context, rawImage: ev.target?.result as string });
+            };
+            reader.readAsDataURL(file);
+          }
+          e.target.value = '';
+          setReceiptCameraTarget(null);
+        }}
+      />
     </div>
   );
 };

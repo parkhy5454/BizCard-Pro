@@ -3,6 +3,7 @@ import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clo
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
+import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 
@@ -669,6 +670,12 @@ export const ProjectsView: React.FC<Props> = ({
     rawImage: string;
     setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>;
   } | null>(null);
+  const [receiptCameraTarget, setReceiptCameraTarget] = useState<{
+    setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>;
+  } | null>(null);
+
+  const meetingReceiptFallbackInputRef = React.useRef<HTMLInputElement>(null);
+  const meetingReceiptFallbackRef = React.useRef<React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>> | null>(null);
 
   // 영수증 사진을 선택하면 우선 항목으로 추가해두고, 크롭 조정 모달을 띄움
   const scanReceiptAndAddExpense = (file: File, setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>) => {
@@ -789,20 +796,14 @@ export const ProjectsView: React.FC<Props> = ({
       </label>
 
       <div className="flex gap-2">
-        <label className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-[11px] font-semibold transition-colors">
+        <button
+          type="button"
+          onClick={() => setReceiptCameraTarget({ setter })}
+          className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-[11px] font-semibold transition-colors"
+        >
           <Camera className="w-3.5 h-3.5" />
-          <span>영수증 스캔/업로드</span>
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) scanReceiptAndAddExpense(file, setter);
-              e.target.value = '';
-            }}
-          />
-        </label>
+          <span>영수증 촬영</span>
+        </button>
         <button
           type="button"
           onClick={() => addMeetingExpense(setter)}
@@ -2523,6 +2524,39 @@ export const ProjectsView: React.FC<Props> = ({
           onCancel={() => setReceiptCropTarget(null)}
         />
       )}
+
+      {receiptCameraTarget && (
+        <LiveCameraCapture
+          title="영수증 촬영"
+          guideAspectRatio={0.62}
+          onCapture={(dataUrl) => {
+            const { setter } = receiptCameraTarget;
+            const tempId = `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            setter((prev) => [...prev, { id: tempId, category: 'custom', amount: 0, payMethod: 'company_card', memo: '', receiptImage: dataUrl }]);
+            runMeetingReceiptOcr({ tempId, rawImage: dataUrl, setter }, dataUrl);
+            setReceiptCameraTarget(null);
+          }}
+          onCancel={() => setReceiptCameraTarget(null)}
+          onFallbackToFile={() => {
+            const setter = receiptCameraTarget.setter;
+            setReceiptCameraTarget(null);
+            meetingReceiptFallbackRef.current = setter;
+            meetingReceiptFallbackInputRef.current?.click();
+          }}
+        />
+      )}
+      <input
+        ref={meetingReceiptFallbackInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const setter = meetingReceiptFallbackRef.current;
+          if (file && setter) scanReceiptAndAddExpense(file, setter);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 };
