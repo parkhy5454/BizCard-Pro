@@ -37,7 +37,16 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       });
   }, []);
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-slate-700 border-t-blue-400 rounded-full animate-spin" />
+          <span className="text-xs text-slate-400">내 명함 정보를 불러오는 중...</span>
+        </div>
+      </div>
+    );
+  }
 
   // vCard 생성 문자열
   const generateVCardText = () => {
