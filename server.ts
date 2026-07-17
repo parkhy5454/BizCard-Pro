@@ -572,8 +572,24 @@ const db: { [scopeId: string]: {
   weeklyLogs: WeeklyWorkLog[];
 } } = {};
 
+// 동시에 여러 요청이 같은 스코프를 불러오려고 하면(예: 페이지 로딩 시 여러 화면이 동시에 호출),
+// 각자 따로 전체 재조회를 시작하지 않고 "이미 진행 중인 로딩"에 함께 올라타도록 합니다.
+// (안 그러면 응답이 늦어질수록 중복 재시도가 계속 쌓여 Supabase 연결 부담이 눈덩이처럼 커집니다.)
+const inFlightScopeLoads: { [scopeId: string]: Promise<typeof db[string]> } = {};
+
 // Supabase로부터 특정 스코프 로드 (스코프당 1회만 로드하여 메모리에 캐시)
 async function loadScopeFromSupabase(scopeId: string) {
+  if (db[scopeId]) return db[scopeId];
+  if (inFlightScopeLoads[scopeId]) return inFlightScopeLoads[scopeId];
+
+  const loadPromise = loadScopeFromSupabaseInner(scopeId).finally(() => {
+    delete inFlightScopeLoads[scopeId];
+  });
+  inFlightScopeLoads[scopeId] = loadPromise;
+  return loadPromise;
+}
+
+async function loadScopeFromSupabaseInner(scopeId: string) {
   if (db[scopeId]) return db[scopeId];
 
   // 컬렉션 하나가 느려지거나(DB 타임아웃 등) 응답이 없어도, 다른 화면(예: 내 명함 공유)이
