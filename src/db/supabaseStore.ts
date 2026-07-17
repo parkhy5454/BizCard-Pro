@@ -18,6 +18,7 @@ import {
 // 절대 프론트엔드 번들에 노출되면 안 됩니다 (server.ts에서만 import).
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.warn(
@@ -27,8 +28,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 export const supabase: SupabaseClient = createClient(
-  SUPABASE_URL || '',
-  SUPABASE_SERVICE_ROLE_KEY || ''
+  SUPABASE_URL || 'http://127.0.0.1:54321',
+  SUPABASE_SERVICE_ROLE_KEY || 'local-development-placeholder-key'
 );
 
 // ------------------------------------------------------------------
@@ -45,6 +46,7 @@ function must<T>(value: T | null | undefined, message: string): T {
 
 // Firestore users 컬렉션 시딩 여부 확인 후 없으면 시딩
 export async function ensureUsersSeeded(initialUsers: RegisteredUser[]) {
+  if (!isSupabaseConfigured) return;
   try {
     const { count, error: countError } = await supabase
       .from('app_users')
@@ -76,6 +78,7 @@ export async function ensureScopeInitialized(scopeId: string, initialData: {
   dailyLogs: DailyWorkLog[];
   weeklyLogs: WeeklyWorkLog[];
 }) {
+  if (!isSupabaseConfigured) return;
   try {
     const { data: metaRow, error: metaError } = await supabase
       .from('scopes')
@@ -133,6 +136,7 @@ export async function ensureScopeInitialized(scopeId: string, initialData: {
 
 // 특정 스코프의 컬렉션 전체 조회
 export async function getScopedCollection<T>(scopeId: string, collectionName: string): Promise<T[]> {
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from('scoped_items')
     .select('data')
@@ -146,6 +150,7 @@ export async function getScopedCollection<T>(scopeId: string, collectionName: st
 }
 
 export async function getScopedDoc<T>(scopeId: string, collectionName: string, docId: string): Promise<T | null> {
+  if (!isSupabaseConfigured) return null;
   const { data, error } = await supabase
     .from('scoped_items')
     .select('data')
@@ -162,6 +167,7 @@ export async function getScopedDoc<T>(scopeId: string, collectionName: string, d
 
 // 단일 문서 생성/전체 덮어쓰기 (Firestore setDoc과 동일하게 upsert)
 export async function setScopedDoc<T extends { id: string }>(scopeId: string, collectionName: string, item: T): Promise<void> {
+  if (!isSupabaseConfigured) return;
   const { error } = await supabase
     .from('scoped_items')
     .upsert(
@@ -173,6 +179,7 @@ export async function setScopedDoc<T extends { id: string }>(scopeId: string, co
 
 // 여러 문서를 한 번에 upsert (대량 가져오기 등에서 사용)
 export async function setScopedDocs<T extends { id: string }>(scopeId: string, collectionName: string, items: T[]): Promise<void> {
+  if (!isSupabaseConfigured) return;
   if (!items.length) return;
   const rows = items.map(item => ({
     scope_id: scopeId,
@@ -186,6 +193,7 @@ export async function setScopedDocs<T extends { id: string }>(scopeId: string, c
 }
 
 export async function setScopedProfile(scopeId: string, profile: MyProfile): Promise<void> {
+  if (!isSupabaseConfigured) return;
   const { error } = await supabase
     .from('scoped_items')
     .upsert(
@@ -196,6 +204,7 @@ export async function setScopedProfile(scopeId: string, profile: MyProfile): Pro
 }
 
 export async function updateScopedDoc<T>(scopeId: string, collectionName: string, docId: string, updates: Partial<T>): Promise<void> {
+  if (!isSupabaseConfigured) return;
   // Postgres jsonb 부분 병합: 기존 데이터를 읽어 merge 후 다시 저장 (Firestore updateDoc과 동일한 동작)
   const existing = await getScopedDoc<any>(scopeId, collectionName, docId);
   const merged = { ...(existing || {}), ...updates, id: docId };
@@ -209,6 +218,7 @@ export async function updateScopedDoc<T>(scopeId: string, collectionName: string
 }
 
 export async function deleteScopedDoc(scopeId: string, collectionName: string, docId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
   const { error } = await supabase
     .from('scoped_items')
     .delete()
@@ -220,6 +230,7 @@ export async function deleteScopedDoc(scopeId: string, collectionName: string, d
 
 // 컬렉션 전체를 통째로 교체 (필터/일괄재계산 후 한 번에 반영할 때 사용: 예) 업무일지-차량비용 동기화)
 export async function replaceScopedCollection<T extends { id: string }>(scopeId: string, collectionName: string, items: T[]): Promise<void> {
+  if (!isSupabaseConfigured) return;
   const { error: deleteError } = await supabase
     .from('scoped_items')
     .delete()
@@ -246,6 +257,7 @@ export async function replaceScopedCollection<T extends { id: string }>(scopeId:
 // 사용자(로그인 계정) 관리 — 별도 app_users 테이블 사용
 // ------------------------------------------------------------------
 export async function getUsers(): Promise<RegisteredUser[]> {
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase.from('app_users').select('data');
   if (error) {
     console.error('getUsers error:', error);
@@ -255,6 +267,7 @@ export async function getUsers(): Promise<RegisteredUser[]> {
 }
 
 export async function addUser(user: RegisteredUser): Promise<void> {
+  if (!isSupabaseConfigured) return;
   const { error } = await supabase
     .from('app_users')
     .upsert({ id: user.id, data: user }, { onConflict: 'id' });
