@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText } from 'lucide-react';
+import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText, Camera } from 'lucide-react';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
 
 interface Props {
@@ -22,8 +23,9 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanDone, setScanDone] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
-  const [cropSource, setCropSource] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState<boolean>(false);
+  const [cropRawImage, setCropRawImage] = useState<string | null>(null);
 
   // 파싱 결과 상태
   const [form, setForm] = useState({
@@ -43,7 +45,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
 
     const reader = new FileReader();
     reader.onload = () => {
-      setCropSource(reader.result as string);
+      setCropRawImage(reader.result as string);
     };
     reader.readAsDataURL(file);
   };
@@ -51,8 +53,6 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
-    // Allow selecting the same photo again after a failed or repeated scan.
-    e.target.value = '';
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -71,8 +71,9 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
     if (file) handleFile(file);
   };
 
-  const handleStartOCR = async () => {
-    if (!receiptImg) {
+  const handleStartOCR = async (imageOverride?: string) => {
+    const targetImage = imageOverride || receiptImg;
+    if (!targetImage) {
       alert('스캔할 영수증 이미지를 업로드해주세요.');
       return;
     }
@@ -84,7 +85,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       const res = await fetch('/api/scan-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: receiptImg })
+        body: JSON.stringify({ image: targetImage })
       });
       const data = await res.json();
 
@@ -189,13 +190,12 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => !receiptImg && fileInputRef.current?.click()}
-              className={`aspect-[3/4] w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative overflow-hidden transition-all duration-200 group cursor-pointer ${
+              className={`aspect-[3/4] w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative overflow-hidden transition-all duration-200 group ${
                 receiptImg 
                   ? 'border-slate-800 bg-slate-900/40' 
                   : isDragOver
                   ? 'border-indigo-500 bg-indigo-500/10 scale-[0.98]'
-                  : 'border-slate-700 hover:border-indigo-500/60 bg-slate-900/60'
+                  : 'border-slate-700 bg-slate-900/60'
               }`}
             >
               {receiptImg ? (
@@ -226,10 +226,23 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center text-center p-6">
-                  <Upload className="w-10 h-10 text-slate-500 group-hover:text-indigo-400 transition-colors mb-3" />
-                  <span className="text-sm font-semibold text-slate-300">클릭하거나 영수증 이미지를 드래그하세요</span>
-                  <span className="text-xs text-slate-500 mt-1.5">카메라로 촬영한 영수증 파일 업로드 가능</span>
+                <div className="flex flex-col items-center justify-center text-center p-6 gap-3">
+                  <Upload className="w-10 h-10 text-slate-500 mb-1" />
+                  <button
+                    type="button"
+                    onClick={() => setIsCameraOpen(true)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/25 transition-all"
+                  >
+                    <Camera className="w-4 h-4" />
+                    카메라로 촬영 (가이드 자동맞춤)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2"
+                  >
+                    갤러리에서 사진 선택 / 드래그
+                  </button>
                 </div>
               )}
               <input 
@@ -423,16 +436,33 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
 
       </div>
 
-      {cropSource && (
+      {isCameraOpen && (
+        <LiveCameraCapture
+          title="영수증 촬영"
+          guideAspectRatio={0.62}
+          onCapture={(dataUrl) => {
+            setReceiptImg(dataUrl);
+            setIsCameraOpen(false);
+            handleStartOCR(dataUrl);
+          }}
+          onCancel={() => setIsCameraOpen(false)}
+          onFallbackToFile={() => {
+            setIsCameraOpen(false);
+            fileInputRef.current?.click();
+          }}
+        />
+      )}
+
+      {cropRawImage && (
         <CropAdjustModal
-          imageDataUrl={cropSource}
-          title="영수증 테두리 조정"
+          imageDataUrl={cropRawImage}
+          title="영수증 테두리 확인"
           onConfirm={(cropped) => {
             setReceiptImg(cropped);
             setScanDone(false);
-            setCropSource(null);
+            setCropRawImage(null);
           }}
-          onCancel={() => setCropSource(null)}
+          onCancel={() => setCropRawImage(null)}
         />
       )}
     </div>
