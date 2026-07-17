@@ -774,7 +774,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const renderPrintableReport = () => {
     if (!selectedReportLog) return null;
     const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '4px 6px', verticalAlign: 'middle' };
-    const yellowStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#FFFF00', fontWeight: 700, textAlign: 'center' };
+    const yellowStyle: React.CSSProperties = {
+      ...cellStyle,
+      backgroundColor: '#FFFF00',
+      fontWeight: 700,
+      textAlign: 'center',
+      WebkitPrintColorAdjust: 'exact',
+      printColorAdjust: 'exact'
+    } as React.CSSProperties;
 
     const renderMainTable = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
       let total = 0;
@@ -837,31 +844,24 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11, marginBottom: 10 }}>
           <tbody>
             <tr>
-              <td style={yellowStyle}>보고 기간</td>
-              <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }} colSpan={5}>{reportStartDate} ~ {reportEndDate}</td>
+              <td style={{ ...yellowStyle, width: '10%' }}>보고 기간</td>
+              <td style={{ ...cellStyle, textAlign: 'left', paddingLeft: 8 }} colSpan={3}>{reportStartDate} ~ {reportEndDate}</td>
+              <td style={{ ...yellowStyle, width: '8%' }} rowSpan={3}>비용<br />(원)</td>
+              <td style={{ ...yellowStyle, width: '10%' }}>일간</td>
+              <td style={{ ...cellStyle, textAlign: 'right', paddingRight: 10 }}>{reportExpenseDaily.toLocaleString()}</td>
             </tr>
             <tr>
-              <td style={yellowStyle}>소속 부서</td>
-              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{reportDepartment}</td>
-              <td style={yellowStyle}>작성자</td>
-              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{reportAuthor}</td>
+              <td style={yellowStyle}>부 서</td>
+              <td style={{ ...cellStyle, textAlign: 'left', paddingLeft: 8 }} colSpan={3}>{reportDepartment}</td>
+              <td style={yellowStyle}>주간</td>
+              <td style={{ ...cellStyle, textAlign: 'right', paddingRight: 10 }}>{reportExpenseWeekly.toLocaleString()}</td>
             </tr>
-            {reportOption === 'B' && (
-              <>
-                <tr>
-                  <td style={yellowStyle}>일간 비용</td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{reportExpenseDaily.toLocaleString()}원</td>
-                  <td style={yellowStyle}>주간 비용</td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{reportExpenseWeekly.toLocaleString()}원</td>
-                </tr>
-                <tr>
-                  <td style={yellowStyle}>월간 누적 비용</td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{reportExpenseMonthly.toLocaleString()}원</td>
-                  <td style={yellowStyle}>정산 총계</td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }} colSpan={2}>{(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원</td>
-                </tr>
-              </>
-            )}
+            <tr>
+              <td style={yellowStyle}>작성자</td>
+              <td style={{ ...cellStyle, textAlign: 'left', paddingLeft: 8 }} colSpan={3}>{reportAuthor}</td>
+              <td style={yellowStyle}>월간</td>
+              <td style={{ ...cellStyle, textAlign: 'right', paddingRight: 10 }}>{reportExpenseMonthly.toLocaleString()}</td>
+            </tr>
           </tbody>
         </table>
 
@@ -1028,31 +1028,27 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </table>`;
     };
 
-    // 상단 헤더 정보 표 (보고 기간 / 부서 / 작성자 / 비용)
+    // 상단 헤더 정보 표 (보고 기간 / 부서 / 작성자 + 비용(원) - 오른쪽 세로 병합 박스, 아래 표들과 동일하게 7열 기준)
     const headerInfoRows = `
       <tr>
-        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:14%;">보고 기간</td>
-        <td colspan="5" style="${cellBorder} text-align:center; font-weight:bold;">${esc(reportStartDate)} ~ ${esc(reportEndDate)}</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:10%;">보고 기간</td>
+        <td colspan="3" style="${cellBorder} text-align:left; padding-left:8px; font-weight:bold; width:47%;">${esc(reportStartDate)} ~ ${esc(reportEndDate)}</td>
+        <td rowspan="3" style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:8%;">비용<br/>(원)</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:10%;">일간</td>
+        <td style="${cellBorder} text-align:right; padding-right:8px; width:25%;">${reportExpenseDaily.toLocaleString()}</td>
       </tr>
       <tr>
-        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">소속 부서</td>
-        <td colspan="2" style="${cellBorder} text-align:center;">${esc(reportDepartment)}</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">부 서</td>
+        <td colspan="3" style="${cellBorder} text-align:left; padding-left:8px;">${esc(reportDepartment)}</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">주간</td>
+        <td style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseWeekly.toLocaleString()}</td>
+      </tr>
+      <tr>
         <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">작성자</td>
-        <td colspan="2" style="${cellBorder} text-align:center;">${esc(reportAuthor)}</td>
+        <td colspan="3" style="${cellBorder} text-align:left; padding-left:8px;">${esc(reportAuthor)}</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">월간</td>
+        <td style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseMonthly.toLocaleString()}</td>
       </tr>
-      ${reportOption === 'B' ? `
-      <tr>
-        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">일간 비용</td>
-        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseDaily.toLocaleString()}원</td>
-        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">주간 비용</td>
-        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseWeekly.toLocaleString()}원</td>
-      </tr>
-      <tr>
-        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">월간 누적 비용</td>
-        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseMonthly.toLocaleString()}원</td>
-        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">정산 총계</td>
-        <td colspan="2" style="${cellBorder} text-align:right; padding-right:8px;">${(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원</td>
-      </tr>` : ''}
     `;
 
     const fullHtml = `
@@ -3292,61 +3288,42 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     </div>
                   </div>
 
-                  {/* 1단계: 보고 기간 / 부서 / 작성자 헤더 테이블 */}
+                  {/* 1단계: 보고 기간 / 부서 / 작성자 + 비용(원) 헤더 테이블 (원래 요청 양식과 동일하게 오른쪽에 비용 박스) */}
                   <table className="w-full border-collapse border-[1.5px] border-black text-xs text-center font-sans mb-6">
                     <tbody>
                       <tr>
-                        <td className="border border-black font-extrabold yellow-header p-2 w-[15%] text-black">보고 기간</td>
-                        <td className="border border-black p-2 text-left pl-4 w-[85%] text-black font-semibold" colSpan={3}>
+                        <td className="border border-black font-extrabold yellow-header p-2 w-[10%] text-black">보고 기간</td>
+                        <td className="border border-black p-2 text-left pl-4 w-[47%] text-black font-semibold" colSpan={3}>
                           {reportStartDate} ~ {reportEndDate}
+                        </td>
+                        <td className="border border-black font-extrabold yellow-header p-2 w-[8%] text-black" rowSpan={3}>비용<br />(원)</td>
+                        <td className="border border-black font-extrabold yellow-header p-2 w-[10%] text-black">일간</td>
+                        <td className="border border-black p-2 text-right pr-3 w-[25%] text-black font-mono font-semibold">
+                          {reportExpenseDaily.toLocaleString()}
                         </td>
                       </tr>
                       <tr>
-                        <td className="border border-black font-extrabold yellow-header p-2 w-[15%] text-black">소속 부서</td>
-                        <td className="border border-black p-2 text-left pl-4 w-[35%] text-black font-semibold">
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">부 서</td>
+                        <td className="border border-black p-2 text-left pl-4 text-black font-semibold" colSpan={3}>
                           {reportDepartment}
                         </td>
-                        <td className="border border-black font-extrabold yellow-header p-2 w-[15%] text-black">작성자</td>
-                        <td className="border border-black p-2 text-left pl-4 w-[35%] text-black font-semibold">
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">주간</td>
+                        <td className="border border-black p-2 text-right pr-3 text-black font-mono font-semibold">
+                          {reportExpenseWeekly.toLocaleString()}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">작성자</td>
+                        <td className="border border-black p-2 text-left pl-4 text-black font-semibold" colSpan={3}>
                           {reportAuthor}
+                        </td>
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">월간</td>
+                        <td className="border border-black p-2 text-right pr-3 text-black font-mono font-semibold">
+                          {reportExpenseMonthly.toLocaleString()}
                         </td>
                       </tr>
                     </tbody>
                   </table>
-
-                  {/* 옵션 B인 경우 비용 정산 요약 테이블 추가 노출 */}
-                  {reportOption === 'B' && (
-                    <div className="mb-6 animate-fadeIn">
-                      <h3 className="text-left font-extrabold text-[12px] text-black mb-2 flex items-center gap-1.5">
-                        <span>비용 정산 요약 및 연동 현황</span>
-                        <span className="no-print text-[10px] text-emerald-600 font-normal">(옵션 B 선택 시 노출)</span>
-                      </h3>
-                      <table className="w-full border-collapse border-[1.5px] border-black text-xs text-center font-sans">
-                        <tbody>
-                          <tr className="bg-yellow-50">
-                            <td className="border border-black font-extrabold yellow-header p-2 w-[25%] text-black">일간 비용 합계</td>
-                            <td className="border border-black font-extrabold yellow-header p-2 w-[25%] text-black">주간 비용 합계</td>
-                            <td className="border border-black font-extrabold yellow-header p-2 w-[25%] text-black">월간 누적 비용</td>
-                            <td className="border border-black font-extrabold yellow-header p-2 w-[25%] text-black">정산 총계 (주간+월간)</td>
-                          </tr>
-                          <tr>
-                            <td className="border border-black p-2 font-mono font-bold text-slate-900">
-                              {reportExpenseDaily.toLocaleString()}원
-                            </td>
-                            <td className="border border-black p-2 font-mono font-bold text-indigo-700">
-                              {reportExpenseWeekly.toLocaleString()}원
-                            </td>
-                            <td className="border border-black p-2 font-mono font-bold text-emerald-700">
-                              {reportExpenseMonthly.toLocaleString()}원
-                            </td>
-                            <td className="border border-black p-2 font-mono font-extrabold text-rose-600">
-                              {(reportExpenseWeekly + reportExpenseMonthly).toLocaleString()}원
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
 
                   {/* Section 1: 지난주 요일별 상세 실시 사항 */}
                   <div className="mb-6">
