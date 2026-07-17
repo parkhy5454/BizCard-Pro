@@ -34,6 +34,22 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
   const [currentIndex, setCurrentIndex] = useState(0);
   const [expandedCallsId, setExpandedCallsId] = useState<string | null>(null);
   const [expandedNavId, setExpandedNavId] = useState<string | null>(null);
+  const [cardImageSide, setCardImageSide] = useState<Record<string, 'front' | 'back'>>({});
+  const swipeStartX = useRef<number>(0);
+
+  const handleImageSwipeStart = (e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+  };
+
+  const handleImageSwipeEnd = (contactId: string, hasBack: boolean) => (e: React.TouchEvent) => {
+    if (!hasBack) return;
+    const deltaX = e.changedTouches[0].clientX - swipeStartX.current;
+    if (Math.abs(deltaX) < 40) return; // 스와이프로 인정할 최소 이동거리
+    setCardImageSide((prev) => ({
+      ...prev,
+      [contactId]: (prev[contactId] || 'front') === 'front' ? 'back' : 'front'
+    }));
+  };
 
   const checkScroll = () => {
     if (scrollRef.current) {
@@ -217,22 +233,39 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
                 onClick={() => onSelectContact(contact)}
                 className="group relative bg-gradient-to-b from-slate-800/90 to-slate-900/90 rounded-2xl border border-slate-700/80 hover:border-blue-500/50 shadow-xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10 flex flex-col justify-between w-[85vw] sm:w-[380px] shrink-0 snap-center md:snap-start"
               >
-                {/* 카드 상단 배너 & 사진 프리뷰 배경 */}
-                <div className="h-28 relative overflow-hidden bg-slate-950 border-b border-slate-800">
-                  {contact.frontImage ? (
-                    <img
-                      src={contact.frontImage}
-                      alt={contact.name}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover opacity-60 group-hover:scale-105 group-hover:opacity-80 transition-all duration-500"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
-                      <span className="text-4xl font-extrabold text-white/10 tracking-widest">{contact.company || 'BIZCARD'}</span>
+                {/* 카드 상단 배너 & 사진 프리뷰 배경 (명함 비율에 맞춰 전체가 보이도록, 뒷면 있으면 좌우로 밀어서 전환) */}
+                <div
+                  className="aspect-[1.586/1] relative overflow-hidden bg-slate-950 border-b border-slate-800 touch-pan-y"
+                  onTouchStart={handleImageSwipeStart}
+                  onTouchEnd={handleImageSwipeEnd(contact.id, !!contact.backImage)}
+                >
+                  {(() => {
+                    const side = cardImageSide[contact.id] || 'front';
+                    const shownImage = side === 'back' && contact.backImage ? contact.backImage : contact.frontImage;
+                    return shownImage ? (
+                      <img
+                        src={shownImage}
+                        alt={contact.name}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-contain group-hover:scale-105 transition-all duration-500 select-none"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
+                        <span className="text-4xl font-extrabold text-white/10 tracking-widest">{contact.company || 'BIZCARD'}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 앞/뒤 전환 점 표시기 (뒷면 있을 때만) */}
+                  {contact.backImage && (
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+                      <span className={`w-1.5 h-1.5 rounded-full transition-all ${(cardImageSide[contact.id] || 'front') === 'front' ? 'bg-white' : 'bg-white/40'}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full transition-all ${(cardImageSide[contact.id] || 'front') === 'back' ? 'bg-white' : 'bg-white/40'}`} />
                     </div>
                   )}
                   
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent pointer-events-none" />
 
                   {/* 그룹 뱃지 */}
                   {group && (

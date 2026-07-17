@@ -22,6 +22,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
   const [rescanCameraTarget, setRescanCameraTarget] = useState<'front' | 'back' | null>(null);
   const [rescanCropTarget, setRescanCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const rescanFileInputRef = React.useRef<HTMLInputElement>(null);
+  const cardSwipeStartX = React.useRef<number>(0);
 
   // 통화기록 추가 폼 상태
   const [callType, setCallType] = useState<'incoming' | 'outgoing' | 'missed'>('incoming');
@@ -154,11 +155,20 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
               )}
             </div>
 
-            {/* 카드 액자 */}
-            <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl relative group/img flex items-center justify-center">
+            {/* 카드 액자 (명함 비율에 맞춰 전체가 잘리지 않게 표시, 뒷면 있으면 좌우로 밀어도 전환됨) */}
+            <div
+              className="aspect-[1.586/1] w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl relative group/img flex items-center justify-center touch-pan-y"
+              onTouchStart={(e) => { cardSwipeStartX.current = e.touches[0].clientX; }}
+              onTouchEnd={(e) => {
+                if (!contact.backImage) return;
+                const deltaX = e.changedTouches[0].clientX - cardSwipeStartX.current;
+                if (Math.abs(deltaX) < 40) return;
+                setCardSide((prev) => (prev === 'front' ? 'back' : 'front'));
+              }}
+            >
               {cardSide === 'front' ? (
                 contact.frontImage ? (
-                  <img src={contact.frontImage} alt="명함 앞면" className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105" />
+                  <img src={contact.frontImage} alt="명함 앞면" className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-105 select-none" draggable={false} />
                 ) : (
                   <div className="text-center p-6 text-slate-600">
                     <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -167,13 +177,21 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
                 )
               ) : (
                 contact.backImage ? (
-                  <img src={contact.backImage} alt="명함 뒷면" className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105" />
+                  <img src={contact.backImage} alt="명함 뒷면" className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-105 select-none" draggable={false} />
                 ) : (
                   <div className="text-center p-6 text-slate-600">
                     <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">뒷면 스캔 이미지가 없습니다</p>
                   </div>
                 )
+              )}
+
+              {/* 앞/뒤 점 표시기 (뒷면 있을 때만) */}
+              {contact.backImage && (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+                  <span className={`w-1.5 h-1.5 rounded-full transition-all ${cardSide === 'front' ? 'bg-white' : 'bg-white/40'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full transition-all ${cardSide === 'back' ? 'bg-white' : 'bg-white/40'}`} />
+                </div>
               )}
             </div>
 
