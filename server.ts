@@ -16,7 +16,8 @@ import {
   setScopedProfile,
   updateScopedDoc,
   deleteScopedDoc,
-  replaceScopedCollection
+  replaceScopedCollection,
+  isSupabaseConfigured
 } from './src/db/supabaseStore.js';
 
 const app = express();
@@ -576,6 +577,23 @@ const db: { [scopeId: string]: {
 async function loadScopeFromSupabase(scopeId: string) {
   if (db[scopeId]) return db[scopeId];
 
+  if (!isSupabaseConfigured) {
+    db[scopeId] = {
+      contacts: JSON.parse(JSON.stringify(initialContacts)),
+      projects: JSON.parse(JSON.stringify(initialProjects)),
+      groups: JSON.parse(JSON.stringify(initialGroups)),
+      myProfile: JSON.parse(JSON.stringify(initialMyProfile)),
+      vehicles: JSON.parse(JSON.stringify(initialVehicles)),
+      drivingLogs: JSON.parse(JSON.stringify(initialDrivingLogs)),
+      expenses: JSON.parse(JSON.stringify(initialExpenses)),
+      maintenances: JSON.parse(JSON.stringify(initialMaintenances)),
+      maintenanceIntervals: [],
+      dailyLogs: JSON.parse(JSON.stringify(initialDailyLogs)),
+      weeklyLogs: JSON.parse(JSON.stringify(initialWeeklyLogs))
+    };
+    return db[scopeId];
+  }
+
   await ensureScopeInitialized(scopeId, {
     contacts: JSON.parse(JSON.stringify(initialContacts)),
     projects: JSON.parse(JSON.stringify(initialProjects)),
@@ -637,6 +655,10 @@ async function loadScopeFromSupabase(scopeId: string) {
 
 // 서버 시작 시 1회: 로그인 계정 시딩 및 로컬 캐시 적재
 async function bootstrapUsers() {
+  if (!isSupabaseConfigured) {
+    users = JSON.parse(JSON.stringify(initialUsers));
+    return;
+  }
   users = await getUsers();
   if (users.length === 0) {
     await ensureUsersSeeded(initialUsers);
