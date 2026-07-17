@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText } from 'lucide-react';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { CropAdjustModal } from './CropAdjustModal.js';
 
 interface Props {
   expenseType: 'vehicle' | 'worklog';
@@ -21,6 +22,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanDone, setScanDone] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [cropSource, setCropSource] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 파싱 결과 상태
@@ -41,8 +43,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
 
     const reader = new FileReader();
     reader.onload = () => {
-      setReceiptImg(reader.result as string);
-      setScanDone(false);
+      setCropSource(reader.result as string);
     };
     reader.readAsDataURL(file);
   };
@@ -50,6 +51,8 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
+    // Allow selecting the same photo again after a failed or repeated scan.
+    e.target.value = '';
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -419,6 +422,19 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         </form>
 
       </div>
+
+      {cropSource && (
+        <CropAdjustModal
+          imageDataUrl={cropSource}
+          title="영수증 테두리 조정"
+          onConfirm={(cropped) => {
+            setReceiptImg(cropped);
+            setScanDone(false);
+            setCropSource(null);
+          }}
+          onCancel={() => setCropSource(null)}
+        />
+      )}
     </div>
   );
 };

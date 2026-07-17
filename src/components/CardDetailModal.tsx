@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
+import { CropAdjustModal } from './CropAdjustModal.js';
 
 interface Props {
   contact: BusinessCard | null;
@@ -29,6 +30,9 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
 
   // 수정 폼 상태
   const [editForm, setEditForm] = useState<BusinessCard>({ ...contact });
+  const [rescanTarget, setRescanTarget] = useState<'front' | 'back' | null>(null);
+  const [rescanSource, setRescanSource] = useState<string | null>(null);
+  const rescanInputRef = React.useRef<HTMLInputElement>(null);
 
   // 연락처 변경 시 상태 동기화
   React.useEffect(() => {
@@ -68,6 +72,21 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
     e.preventDefault();
     onUpdateContact(editForm);
     setActiveTab('info');
+  };
+
+  const handleRescanFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !rescanTarget) return;
+    const reader = new FileReader();
+    reader.onload = () => setRescanSource(reader.result as string);
+    reader.readAsDataURL(file);
+    // Selecting the same image must also open the cropper.
+    e.target.value = '';
+  };
+
+  const startRescan = (side: 'front' | 'back') => {
+    setRescanTarget(side);
+    rescanInputRef.current?.click();
   };
 
   const handleSaveCallRecord = (e: React.FormEvent) => {
@@ -150,6 +169,13 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
                 )
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => startRescan(cardSide)}
+              className="w-full py-2.5 rounded-xl border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-xs font-bold transition-colors"
+            >
+              {cardSide === 'front' ? '앞면' : '뒷면'} 재스캔 및 테두리 조정
+            </button>
           </div>
 
           {/* 빠른 전화/문자 발신 바 */}
@@ -672,6 +698,35 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
         </div>
 
       </div>
+
+      <input
+        ref={rescanInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleRescanFile}
+      />
+      {rescanSource && rescanTarget && (
+        <CropAdjustModal
+          imageDataUrl={rescanSource}
+          title={rescanTarget === 'front' ? '명함 앞면 테두리 조정' : '명함 뒷면 테두리 조정'}
+          onConfirm={(cropped) => {
+            const updated = {
+              ...editForm,
+              [rescanTarget === 'front' ? 'frontImage' : 'backImage']: cropped
+            };
+            setEditForm(updated);
+            setCardSide(rescanTarget);
+            onUpdateContact(updated);
+            setRescanSource(null);
+            setRescanTarget(null);
+          }}
+          onCancel={() => {
+            setRescanSource(null);
+            setRescanTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 };
