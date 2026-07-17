@@ -70,6 +70,11 @@ html {
   #print-root {
     display: block !important;
   }
+  #print-root, #print-root * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
   @page {
     size: A4 portrait;
     margin: 0;
