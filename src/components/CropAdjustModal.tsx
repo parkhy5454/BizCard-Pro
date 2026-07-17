@@ -1,0 +1,371 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Check, RotateCcw, X } from 'lucide-react';
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Props {
+  imageDataUrl: string;
+  title?: string;
+  onConfirm: (croppedDataUrl: string) => void;
+  onCancel: () => void;
+}
+
+// OpenCV.js를 최초 1회만 지연 로딩 (여러 화면에서 공유)
+const loadOpenCv = (): Promise<void> => {
+  const w = window as any;
+  if (w.cv && w.cv.Mat) return Promise.resolve();
+  if (w.__openCvLoadingPromise) return w.__openCvLoadingPromise;
+  w.__openCvLoadingPromise = new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://docs.opencv.org/4.10.0/opencv.js';
+    script.async = true;
+    script.onload = () => {
+      const check = () => { if (w.cv && w.cv.Mat) resolve(); else setTimeout(check, 50); };
+      check();
+    };
+    script.onerror = () => reject(new Error('OpenCV.js 로드 실패'));
+    document.body.appendChild(script);
+  });
+  return w.__openCvLoadingPromise;
+};
+
+// 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
+const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => {
+  try {
+    await loadOpenCv();
+  } catch {
+    return null;
+  }
+  const cv = (window as any).cv;
+  let src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox: any = null;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+
+    src = cv.imread(canvas);
+    gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    blurred = new cv.Mat();
+    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+    edged = new cv.Mat();
+    cv.Canny(blurred, edged, 50, 150);
+    dilated = new cv.Mat();
+    kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+    cv.dilate(edged, dilated, kernel);
+
+    contours = new cv.MatVector();
+    hierarchy = new cv.Mat();
+    cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    const imgArea = img.naturalWidth * img.naturalHeight;
+    let bestScore = -1;
+
+    for (let i = 0; i < contours.size(); i++) {
+      const cnt = contours.get(i);
+      const peri = cv.arcLength(cnt, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+      const area = cv.contourArea(approx);
+      const areaRatio = area / imgArea;
+
+      // 명함/영수증다운 후보만: 화면의 15%~95% 사이 면적, 볼록(convex)한 4각형
+      if (approx.rows === 4 && areaRatio > 0.15 && areaRatio < 0.95 && cv.isContourConvex(approx)) {
+        // 면적이 클수록 우선하되, 이미지 전체 테두리(거의 100%에 가까운 사각형)는 배제됨(위 0.95 조건)
+        if (areaRatio > bestScore) {
+          bestScore = areaRatio;
+          if (bestApprox) bestApprox.delete();
+          bestApprox = approx;
+        } else {
+          approx.delete();
+        }
+      } else {
+        approx.delete();
+      }
+      cnt.delete();
+    }
+
+    if (!bestApprox) return null;
+
+    const pts: Point[] = [];
+    for (let i = 0; i < 4; i++) {
+      pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
+    }
+    // 좌상 → 우상 → 우하 → 좌하 순서로 정렬
+    const sums = pts.map((p) => p.x + p.y);
+    const diffs = pts.map((p) => p.x - p.y);
+    const tl = pts[sums.indexOf(Math.min(...sums))];
+    const br = pts[sums.indexOf(Math.max(...sums))];
+    const tr = pts[diffs.indexOf(Math.max(...diffs))];
+    const bl = pts[diffs.indexOf(Math.min(...diffs))];
+    return [tl, tr, br, bl];
+  } catch (err) {
+    console.error('모서리 자동 감지 실패:', err);
+    return null;
+  } finally {
+    [src, gray, blurred, edged, dilated, kernel, contours, hierarchy].forEach((m) => {
+      try { m && m.delete && m.delete(); } catch {}
+    });
+  }
+};
+
+// 4개 점(원본 이미지 좌표)을 기준으로 원근 보정하여 반듯하게 자름
+const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Promise<string> => {
+  await loadOpenCv();
+  const cv = (window as any).cv;
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const src = cv.imread(canvas);
+
+  const [tl, tr, br, bl] = corners;
+  const maxWidth = Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y));
+  const maxHeight = Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y));
+
+  const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+  const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, maxWidth, maxHeight, 0, maxHeight]);
+  const M = cv.getPerspectiveTransform(srcTri, dstTri);
+  const dst = new cv.Mat();
+  cv.warpPerspective(src, dst, M, new cv.Size(maxWidth, maxHeight));
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = maxWidth;
+  outCanvas.height = maxHeight;
+  cv.imshow(outCanvas, dst);
+  const result = outCanvas.toDataURL('image/jpeg', 0.92);
+
+  [src, srcTri, dstTri, M, dst].forEach((m) => { try { m.delete(); } catch {} });
+  return result;
+};
+
+export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel }) => {
+  const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
+  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+  const [corners, setCorners] = useState<Point[] | null>(null); // 표시 좌표계 기준
+  const [isDetecting, setIsDetecting] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgNaturalRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+
+  // 이미지 로드 + 자동 모서리 감지
+  useEffect(() => {
+    const img = new Image();
+    img.onload = async () => {
+      setImgEl(img);
+      imgNaturalRef.current = { width: img.naturalWidth, height: img.naturalHeight };
+      const detected = await detectCorners(img);
+      // 표시 크기 계산은 아래 별도 effect(리사이즈 감지)에서 처리되므로,
+      // 여기서는 우선 감지 결과를 "자연 좌표계" 기준으로 저장해두고 표시 시점에 스케일 변환
+      setIsDetecting(false);
+      if (detected) {
+        (img as any).__detectedCorners = detected;
+      }
+    };
+    img.src = imageDataUrl;
+  }, [imageDataUrl]);
+
+  // 컨테이너 크기에 맞춰 이미지 표시 크기 계산 및 모서리 좌표를 표시 좌표계로 변환
+  useEffect(() => {
+    if (!imgEl || !containerRef.current) return;
+    const updateSize = () => {
+      const containerWidth = containerRef.current!.clientWidth;
+      const maxHeight = window.innerHeight * 0.55;
+      const ratio = imgEl.naturalWidth / imgEl.naturalHeight;
+      let w = containerWidth;
+      let h = w / ratio;
+      if (h > maxHeight) {
+        h = maxHeight;
+        w = h * ratio;
+      }
+      setDisplaySize({ width: w, height: h });
+
+      const scaleX = w / imgEl.naturalWidth;
+      const scaleY = h / imgEl.naturalHeight;
+      const detected = (imgEl as any).__detectedCorners as Point[] | undefined;
+      if (detected) {
+        setCorners(detected.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
+      } else {
+        // 감지 실패 시 이미지 안쪽 8% 여백을 둔 기본 사각형 제시 (사용자가 직접 맞추도록)
+        const margin = 0.08;
+        setCorners([
+          { x: w * margin, y: h * margin },
+          { x: w * (1 - margin), y: h * margin },
+          { x: w * (1 - margin), y: h * (1 - margin) },
+          { x: w * margin, y: h * (1 - margin) }
+        ]);
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, [imgEl]);
+
+  const handlePointerDown = (idx: number) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    setDragIndex(idx);
+  };
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragIndex === null || !containerRef.current || !corners) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const offsetX = (rect.width - displaySize.width) / 2;
+    const offsetY = (rect.height - displaySize.height) / 2;
+    let x = e.clientX - rect.left - offsetX;
+    let y = e.clientY - rect.top - offsetY;
+    x = Math.max(0, Math.min(displaySize.width, x));
+    y = Math.max(0, Math.min(displaySize.height, y));
+    setCorners((prev) => {
+      if (!prev) return prev;
+      const next = [...prev];
+      next[dragIndex] = { x, y };
+      return next;
+    });
+  }, [dragIndex, corners, displaySize]);
+
+  const handlePointerUp = () => setDragIndex(null);
+
+  const handleConfirm = async () => {
+    if (!imgEl || !corners) {
+      onConfirm(imageDataUrl);
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const scaleX = imgNaturalRef.current.width / displaySize.width;
+      const scaleY = imgNaturalRef.current.height / displaySize.height;
+      const naturalCorners = corners.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+      const cropped = await warpToCorners(imgEl, naturalCorners);
+      onConfirm(cropped);
+    } catch (err) {
+      console.error('크롭 처리 실패, 원본 사용:', err);
+      onConfirm(imageDataUrl);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (!imgEl) return;
+    const detected = (imgEl as any).__detectedCorners as Point[] | undefined;
+    const scaleX = displaySize.width / imgEl.naturalWidth;
+    const scaleY = displaySize.height / imgEl.naturalHeight;
+    if (detected) {
+      setCorners(detected.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
+    } else {
+      const margin = 0.08;
+      setCorners([
+        { x: displaySize.width * margin, y: displaySize.height * margin },
+        { x: displaySize.width * (1 - margin), y: displaySize.height * margin },
+        { x: displaySize.width * (1 - margin), y: displaySize.height * (1 - margin) },
+        { x: displaySize.width * margin, y: displaySize.height * (1 - margin) }
+      ]);
+    }
+  };
+
+  const polygonPoints = corners ? corners.map((p) => `${p.x},${p.y}`).join(' ') : '';
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+          <div>
+            <h3 className="text-sm font-bold text-slate-100">{title || '테두리 확인 및 조정'}</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">모서리 점을 드래그해서 실제 가장자리에 맞춰주세요</p>
+          </div>
+          <button onClick={onCancel} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div
+          ref={containerRef}
+          className="relative bg-slate-950 flex items-center justify-center select-none touch-none"
+          style={{ minHeight: 240 }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        >
+          {isDetecting ? (
+            <div className="py-16 flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-2 border-slate-700 border-t-blue-400 rounded-full animate-spin" />
+              <span className="text-xs text-slate-400">가장자리 인식 중...</span>
+            </div>
+          ) : (
+            <div className="relative" style={{ width: displaySize.width, height: displaySize.height }}>
+              <img src={imageDataUrl} alt="크롭 대상" className="w-full h-full object-contain select-none pointer-events-none" draggable={false} />
+              {corners && (
+                <svg
+                  className="absolute inset-0 w-full h-full"
+                  viewBox={`0 0 ${displaySize.width} ${displaySize.height}`}
+                >
+                  <polygon
+                    points={polygonPoints}
+                    fill="rgba(99,102,241,0.18)"
+                    stroke="#818cf8"
+                    strokeWidth={2}
+                  />
+                  {corners.map((p, idx) => (
+                    <circle
+                      key={idx}
+                      cx={p.x}
+                      cy={p.y}
+                      r={12}
+                      fill="#4f46e5"
+                      stroke="white"
+                      strokeWidth={2}
+                      style={{ cursor: 'grab', touchAction: 'none', pointerEvents: 'all' }}
+                      onPointerDown={handlePointerDown(idx)}
+                    />
+                  ))}
+                </svg>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 flex items-center gap-2 border-t border-slate-800">
+          <button
+            onClick={handleReset}
+            disabled={isDetecting}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-40"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            다시 맞추기
+          </button>
+          <button
+            onClick={() => onConfirm(imageDataUrl)}
+            disabled={isDetecting}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-40"
+          >
+            원본 그대로 사용
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={isDetecting || isProcessing}
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-600/25 transition-all disabled:opacity-50"
+          >
+            {isProcessing ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                자르는 중...
+              </>
+            ) : (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                이대로 자르기
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

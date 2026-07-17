@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
+import { CropAdjustModal } from './CropAdjustModal.js';
 
 interface Props {
   onClose: () => void;
@@ -13,7 +14,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [copied, setCopied] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'qr' | 'send' | 'edit'>('qr');
   const [scanImg, setScanImg] = useState<string>('');
-  const [isCroppingCard, setIsCroppingCard] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
 
   useEffect(() => {
@@ -88,127 +88,16 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
     setActiveTab('qr');
   };
 
-  // 명함 4개 모서리를 자동으로 감지해서 그 부분만 반듯하게(원근보정) 잘라냅니다 (감지 실패 시 원본 사용)
-  const loadOpenCv = (): Promise<void> => {
-    const w = window as any;
-    if (w.cv && w.cv.Mat) return Promise.resolve();
-    if (w.__openCvLoadingPromise) return w.__openCvLoadingPromise;
-    w.__openCvLoadingPromise = new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://docs.opencv.org/4.10.0/opencv.js';
-      script.async = true;
-      script.onload = () => {
-        const check = () => { if (w.cv && w.cv.Mat) resolve(); else setTimeout(check, 50); };
-        check();
-      };
-      script.onerror = () => reject(new Error('OpenCV.js 로드 실패'));
-      document.body.appendChild(script);
-    });
-    return w.__openCvLoadingPromise;
-  };
-
-  const autoCropCardImage = async (dataUrl: string): Promise<string> => {
-    try { await loadOpenCv(); } catch { return dataUrl; }
-    const cv = (window as any).cv;
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        let src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox: any = null;
-        let srcTri, dstTri, M, dst;
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0);
-
-          src = cv.imread(canvas);
-          gray = new cv.Mat();
-          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-          blurred = new cv.Mat();
-          cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-          edged = new cv.Mat();
-          cv.Canny(blurred, edged, 50, 150);
-          dilated = new cv.Mat();
-          kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-          cv.dilate(edged, dilated, kernel);
-
-          contours = new cv.MatVector();
-          hierarchy = new cv.Mat();
-          cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-          let maxArea = 0;
-          const minArea = img.width * img.height * 0.15;
-          for (let i = 0; i < contours.size(); i++) {
-            const cnt = contours.get(i);
-            const peri = cv.arcLength(cnt, true);
-            const approx = new cv.Mat();
-            cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-            const area = cv.contourArea(approx);
-            if (approx.rows === 4 && area > maxArea && area > minArea) {
-              maxArea = area;
-              if (bestApprox) bestApprox.delete();
-              bestApprox = approx;
-            } else {
-              approx.delete();
-            }
-            cnt.delete();
-          }
-
-          if (!bestApprox) { resolve(dataUrl); return; }
-
-          const pts: { x: number; y: number }[] = [];
-          for (let i = 0; i < 4; i++) pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
-          const sums = pts.map((p) => p.x + p.y);
-          const diffs = pts.map((p) => p.x - p.y);
-          const tl = pts[sums.indexOf(Math.min(...sums))];
-          const br = pts[sums.indexOf(Math.max(...sums))];
-          const tr = pts[diffs.indexOf(Math.max(...diffs))];
-          const bl = pts[diffs.indexOf(Math.min(...diffs))];
-
-          const maxWidth = Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y));
-          const maxHeight = Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y));
-
-          srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-          dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, maxWidth, maxHeight, 0, maxHeight]);
-          M = cv.getPerspectiveTransform(srcTri, dstTri);
-          dst = new cv.Mat();
-          cv.warpPerspective(src, dst, M, new cv.Size(maxWidth, maxHeight));
-
-          const outCanvas = document.createElement('canvas');
-          outCanvas.width = maxWidth;
-          outCanvas.height = maxHeight;
-          cv.imshow(outCanvas, dst);
-          resolve(outCanvas.toDataURL('image/jpeg', 0.92));
-        } catch (err) {
-          console.error('명함 자동 크롭 실패, 원본 사용:', err);
-          resolve(dataUrl);
-        } finally {
-          [src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox, srcTri, dstTri, M, dst].forEach((m) => {
-            try { m && m.delete && m.delete(); } catch {}
-          });
-        }
-      };
-      img.onerror = () => resolve(dataUrl);
-      img.src = dataUrl;
-    });
-  };
+  // 크롭 조정 모달 상태
+  const [cropRawImage, setCropRawImage] = useState<string | null>(null);
 
   // 내 명함 사진 업로드 (촬영 또는 갤러리 선택)
   const handleScanImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const raw = ev.target?.result as string;
-      setScanImg(raw);
-      setIsCroppingCard(true);
-      try {
-        const cropped = await autoCropCardImage(raw);
-        setScanImg(cropped);
-      } finally {
-        setIsCroppingCard(false);
-      }
+    reader.onload = (ev) => {
+      setCropRawImage(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // 같은 파일 재선택도 가능하도록 초기화
@@ -431,12 +320,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                 {scanImg ? (
                   <div className="relative">
                     <img src={scanImg} alt="스캔용 명함 미리보기" className="w-full h-32 object-cover rounded-lg" />
-                    {isCroppingCard && (
-                      <div className="absolute inset-0 bg-slate-950/70 rounded-lg flex flex-col items-center justify-center gap-1">
-                        <div className="w-5 h-5 border-2 border-slate-600 border-t-blue-400 rounded-full animate-spin" />
-                        <span className="text-[10px] text-slate-300 font-semibold">명함 모서리 인식 중...</span>
-                      </div>
-                    )}
                     <button
                       type="button"
                       onClick={() => setScanImg('')}
@@ -454,7 +337,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                 )}
                 <button
                   type="button"
-                  disabled={!scanImg || isScanning || isCroppingCard}
+                  disabled={!scanImg || isScanning}
                   onClick={handleRunProfileScan}
                   className="w-full py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold flex items-center justify-center gap-2 transition-all"
                 >
@@ -532,6 +415,18 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
       </div>
+
+      {cropRawImage && (
+        <CropAdjustModal
+          imageDataUrl={cropRawImage}
+          title="명함 테두리 확인"
+          onConfirm={(cropped) => {
+            setScanImg(cropped);
+            setCropRawImage(null);
+          }}
+          onCancel={() => setCropRawImage(null)}
+        />
+      )}
     </div>
   );
 };

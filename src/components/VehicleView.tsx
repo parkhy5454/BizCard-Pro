@@ -6,6 +6,7 @@ import {
   Upload, X, Paperclip, RefreshCw, Camera, Sparkles
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
+import { CropAdjustModal } from './CropAdjustModal.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 const MAINTENANCE_OPTIONS = [
@@ -355,11 +356,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
   // 운행일지 추가 액션
   // 운행 중 발생한 영수증(통행료/주차비 등) 스캔 - 운행기록 저장 시 비용관리에 연동 등록됨
+  // 영수증 크롭 조정 모달 대상: 어느 화면(운행/비용/정비)에서 스캔 중인지 + 원본 이미지
+  const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'expense' | 'maint'; rawImage: string } | null>(null);
+
   const handleScanDrivingReceipt = (file: File) => {
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    reader.onload = (ev) => {
       const rawDataUrl = ev.target?.result as string;
-      setIsScanningDrivingReceipt(true);
       setDrivingReceiptExpense({
         receiptImage: rawDataUrl,
         category: 'toll',
@@ -369,16 +372,34 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         memo: '',
         payMethod: 'company_card'
       });
-      try {
-        const dataUrl = await autoCropReceiptImage(rawDataUrl);
-        setDrivingReceiptExpense((prev) => prev ? { ...prev, receiptImage: dataUrl } : prev);
-        const res = await fetch('/api/scan-receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataUrl })
-        });
-        const data = await res.json();
-        if (res.ok) {
+      setReceiptCropTarget({ context: 'driving', rawImage: rawDataUrl });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 크롭이 확정된 영수증 이미지를 AI로 인식해서 해당 화면(운행/비용/정비)의 폼에 반영
+  const runReceiptOcr = async (context: 'driving' | 'expense' | 'maint', dataUrl: string) => {
+    if (context === 'driving') {
+      setDrivingReceiptExpense((prev) => prev ? { ...prev, receiptImage: dataUrl } : prev);
+    } else if (context === 'expense') {
+      setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
+    } else {
+      setNewMaint((prev) => ({ ...prev, receiptImage: dataUrl }));
+    }
+
+    if (context === 'driving') setIsScanningDrivingReceipt(true);
+    else if (context === 'expense') setIsScanningExpenseReceipt(true);
+    else setIsScanningMaintReceipt(true);
+
+    try {
+      const res = await fetch('/api/scan-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (context === 'driving') {
           setDrivingReceiptExpense((prev) => prev ? {
             ...prev,
             category: (data.category as VehicleExpense['category']) || prev.category,
@@ -387,121 +408,37 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             memo: data.memo || prev.memo,
             payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || prev.payMethod
           } : prev);
+        } else if (context === 'expense') {
+          setNewExpense((prev) => ({
+            ...prev,
+            category: (data.category as VehicleExpense['category']) || prev.category,
+            amount: data.amount || prev.amount,
+            date: data.date || prev.date,
+            merchantName: data.merchantName || prev.merchantName,
+            memo: data.memo || prev.memo,
+            payMethod: (data.payMethod as VehicleExpense['payMethod']) || prev.payMethod
+          }));
+        } else {
+          setNewMaint((prev) => ({
+            ...prev,
+            cost: data.amount || prev.cost,
+            date: data.date || prev.date,
+            shopName: data.merchantName || prev.shopName,
+            memo: data.memo || prev.memo,
+            payMethod: (data.payMethod as VehicleMaintenance['payMethod']) || prev.payMethod
+          }));
         }
-      } catch (err) {
-        console.error('영수증 스캔 실패:', err);
-      } finally {
-        setIsScanningDrivingReceipt(false);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('영수증 스캔 실패:', err);
+    } finally {
+      if (context === 'driving') setIsScanningDrivingReceipt(false);
+      else if (context === 'expense') setIsScanningExpenseReceipt(false);
+      else setIsScanningMaintReceipt(false);
+    }
   };
 
-  // OpenCV.js를 이용한 영수증/전표 자동 모서리 인식 및 반듯하게 자르기 (명함 스캔과 동일한 방식, 감지 실패 시 원본 사용)
-  const loadOpenCv = (): Promise<void> => {
-    const w = window as any;
-    if (w.cv && w.cv.Mat) return Promise.resolve();
-    if (w.__openCvLoadingPromise) return w.__openCvLoadingPromise;
-    w.__openCvLoadingPromise = new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://docs.opencv.org/4.10.0/opencv.js';
-      script.async = true;
-      script.onload = () => {
-        const check = () => { if (w.cv && w.cv.Mat) resolve(); else setTimeout(check, 50); };
-        check();
-      };
-      script.onerror = () => reject(new Error('OpenCV.js 로드 실패'));
-      document.body.appendChild(script);
-    });
-    return w.__openCvLoadingPromise;
-  };
 
-  const autoCropReceiptImage = async (dataUrl: string): Promise<string> => {
-    try { await loadOpenCv(); } catch { return dataUrl; }
-    const cv = (window as any).cv;
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        let src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox: any = null;
-        let srcTri, dstTri, M, dst;
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0);
-
-          src = cv.imread(canvas);
-          gray = new cv.Mat();
-          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-          blurred = new cv.Mat();
-          cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-          edged = new cv.Mat();
-          cv.Canny(blurred, edged, 50, 150);
-          dilated = new cv.Mat();
-          kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-          cv.dilate(edged, dilated, kernel);
-
-          contours = new cv.MatVector();
-          hierarchy = new cv.Mat();
-          cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-          let maxArea = 0;
-          const minArea = img.width * img.height * 0.15;
-          for (let i = 0; i < contours.size(); i++) {
-            const cnt = contours.get(i);
-            const peri = cv.arcLength(cnt, true);
-            const approx = new cv.Mat();
-            cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-            const area = cv.contourArea(approx);
-            if (approx.rows === 4 && area > maxArea && area > minArea) {
-              maxArea = area;
-              if (bestApprox) bestApprox.delete();
-              bestApprox = approx;
-            } else {
-              approx.delete();
-            }
-            cnt.delete();
-          }
-
-          if (!bestApprox) { resolve(dataUrl); return; }
-
-          const pts: { x: number; y: number }[] = [];
-          for (let i = 0; i < 4; i++) pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
-          const sums = pts.map((p) => p.x + p.y);
-          const diffs = pts.map((p) => p.x - p.y);
-          const tl = pts[sums.indexOf(Math.min(...sums))];
-          const br = pts[sums.indexOf(Math.max(...sums))];
-          const tr = pts[diffs.indexOf(Math.max(...diffs))];
-          const bl = pts[diffs.indexOf(Math.min(...diffs))];
-
-          const maxWidth = Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y));
-          const maxHeight = Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y));
-
-          srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-          dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, maxWidth, maxHeight, 0, maxHeight]);
-          M = cv.getPerspectiveTransform(srcTri, dstTri);
-          dst = new cv.Mat();
-          cv.warpPerspective(src, dst, M, new cv.Size(maxWidth, maxHeight));
-
-          const outCanvas = document.createElement('canvas');
-          outCanvas.width = maxWidth;
-          outCanvas.height = maxHeight;
-          cv.imshow(outCanvas, dst);
-          resolve(outCanvas.toDataURL('image/jpeg', 0.92));
-        } catch (err) {
-          console.error('영수증 자동 크롭 실패, 원본 사용:', err);
-          resolve(dataUrl);
-        } finally {
-          [src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox, srcTri, dstTri, M, dst].forEach((m) => {
-            try { m && m.delete && m.delete(); } catch {}
-          });
-        }
-      };
-      img.onerror = () => resolve(dataUrl);
-      img.src = dataUrl;
-    });
-  };
 
   const handleAddDriving = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -660,35 +597,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 영수증 스캔: /api/scan-receipt 결과를 지출 폼에 자동으로 채움 (카테고리 체계가 동일해서 그대로 매핑)
   const handleScanExpenseReceipt = (file: File) => {
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    reader.onload = (ev) => {
       const rawDataUrl = ev.target?.result as string;
       setNewExpense((prev) => ({ ...prev, receiptImage: rawDataUrl }));
-      setIsScanningExpenseReceipt(true);
-      try {
-        const dataUrl = await autoCropReceiptImage(rawDataUrl);
-        setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
-        const res = await fetch('/api/scan-receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataUrl })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setNewExpense((prev) => ({
-            ...prev,
-            category: (data.category as VehicleExpense['category']) || prev.category,
-            amount: data.amount || prev.amount,
-            date: data.date || prev.date,
-            merchantName: data.merchantName || prev.merchantName,
-            memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as VehicleExpense['payMethod']) || prev.payMethod
-          }));
-        }
-      } catch (err) {
-        console.error('영수증 스캔 실패:', err);
-      } finally {
-        setIsScanningExpenseReceipt(false);
-      }
+      setReceiptCropTarget({ context: 'expense', rawImage: rawDataUrl });
     };
     reader.readAsDataURL(file);
   };
@@ -803,34 +715,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 정비 영수증/청구서 스캔: 금액/상호명(정비소명)/결제수단/메모를 자동으로 채움
   const handleScanMaintReceipt = (file: File) => {
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    reader.onload = (ev) => {
       const rawDataUrl = ev.target?.result as string;
       setNewMaint((prev) => ({ ...prev, receiptImage: rawDataUrl }));
-      setIsScanningMaintReceipt(true);
-      try {
-        const dataUrl = await autoCropReceiptImage(rawDataUrl);
-        setNewMaint((prev) => ({ ...prev, receiptImage: dataUrl }));
-        const res = await fetch('/api/scan-receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataUrl })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setNewMaint((prev) => ({
-            ...prev,
-            cost: data.amount || prev.cost,
-            date: data.date || prev.date,
-            shopName: data.merchantName || prev.shopName,
-            memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as VehicleMaintenance['payMethod']) || prev.payMethod
-          }));
-        }
-      } catch (err) {
-        console.error('영수증 스캔 실패:', err);
-      } finally {
-        setIsScanningMaintReceipt(false);
-      }
+      setReceiptCropTarget({ context: 'maint', rawImage: rawDataUrl });
     };
     reader.readAsDataURL(file);
   };
@@ -5823,6 +5711,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         </div>
       )}
 
+      {receiptCropTarget && (
+        <CropAdjustModal
+          imageDataUrl={receiptCropTarget.rawImage}
+          title="영수증 테두리 확인"
+          onConfirm={(cropped) => {
+            runReceiptOcr(receiptCropTarget.context, cropped);
+            setReceiptCropTarget(null);
+          }}
+          onCancel={() => setReceiptCropTarget(null)}
+        />
+      )}
     </div>
   );
 };
