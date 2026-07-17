@@ -135,12 +135,17 @@ export const LiveCameraCapture: React.FC<Props> = ({
     const sw = guide.w * scale;
     const sh = guide.h * scale;
 
+    // 저장 용량을 줄이기 위해 긴 변을 최대 1400px로 제한 (DB 저장/조회 속도에 영향을 주므로 필수)
+    const MAX_DIM = 1400;
+    const longSide = Math.max(sw, sh);
+    const outScale = longSide > MAX_DIM ? MAX_DIM / longSide : 1;
+
     const canvas = document.createElement('canvas');
-    canvas.width = sw;
-    canvas.height = sh;
+    canvas.width = Math.round(sw * outScale);
+    canvas.height = Math.round(sh * outScale);
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
     stopStream();
     onCapture(dataUrl);
   };

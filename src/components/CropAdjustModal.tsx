@@ -13,6 +13,29 @@ interface Props {
   onCancel: () => void;
 }
 
+// 저장 용량을 줄이기 위해 이미지의 긴 변을 최대 크기로 축소 (DB 조회 속도에 큰 영향을 주므로 모든 최종 출력에 적용)
+const resizeDataUrl = (dataUrl: string, maxDim = 1400, quality = 0.82): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const longSide = Math.max(img.naturalWidth, img.naturalHeight);
+      if (longSide <= maxDim) {
+        resolve(dataUrl);
+        return;
+      }
+      const scale = maxDim / longSide;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
 // OpenCV.js를 최초 1회만 지연 로딩 (여러 화면에서 공유)
 const loadOpenCv = (): Promise<void> => {
   const w = window as any;
@@ -139,7 +162,21 @@ const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Promise<s
   outCanvas.width = maxWidth;
   outCanvas.height = maxHeight;
   cv.imshow(outCanvas, dst);
-  const result = outCanvas.toDataURL('image/jpeg', 0.92);
+
+  // 저장 용량을 줄이기 위해 긴 변을 최대 1400px로 축소 (DB 저장/조회 속도에 큰 영향을 주므로 필수)
+  const MAX_DIM = 1400;
+  const longSide = Math.max(maxWidth, maxHeight);
+  let finalCanvas = outCanvas;
+  if (longSide > MAX_DIM) {
+    const scale = MAX_DIM / longSide;
+    const resized = document.createElement('canvas');
+    resized.width = Math.round(maxWidth * scale);
+    resized.height = Math.round(maxHeight * scale);
+    const rctx = resized.getContext('2d')!;
+    rctx.drawImage(outCanvas, 0, 0, resized.width, resized.height);
+    finalCanvas = resized;
+  }
+  const result = finalCanvas.toDataURL('image/jpeg', 0.82);
 
   [src, srcTri, dstTri, M, dst].forEach((m) => { try { m.delete(); } catch {} });
   return result;
@@ -235,7 +272,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
 
   const handleConfirm = async () => {
     if (!imgEl || !corners) {
-      onConfirm(imageDataUrl);
+      onConfirm(await resizeDataUrl(imageDataUrl));
       return;
     }
     setIsProcessing(true);
@@ -247,7 +284,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       onConfirm(cropped);
     } catch (err) {
       console.error('크롭 처리 실패, 원본 사용:', err);
-      onConfirm(imageDataUrl);
+      onConfirm(await resizeDataUrl(imageDataUrl));
     } finally {
       setIsProcessing(false);
     }
@@ -341,7 +378,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
             다시 맞추기
           </button>
           <button
-            onClick={() => onConfirm(imageDataUrl)}
+            onClick={async () => onConfirm(await resizeDataUrl(imageDataUrl))}
             disabled={isDetecting}
             className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-40"
           >
