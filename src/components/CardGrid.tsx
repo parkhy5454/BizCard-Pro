@@ -299,7 +299,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
                 </div>
 
                 {/* 카드 본문 내용 */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-5 flex-1 flex flex-col justify-start space-y-4">
                   
                   {/* 이름 & 소속 */}
                   <div className="flex items-start justify-between gap-2">
