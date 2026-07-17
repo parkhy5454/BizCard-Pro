@@ -15,10 +15,12 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [copied, setCopied] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'qr' | 'send' | 'edit'>('qr');
   const [scanImg, setScanImg] = useState<string>('');
+  const [scanImgBack, setScanImgBack] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [cropRawImage, setCropRawImage] = useState<string | null>(null);
-  const [isCameraOpen, setIsCameraOpen] = useState<boolean>(false);
+  const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | null>(null);
+  const [cropTarget, setCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const galleryFileInputRef = React.useRef<HTMLInputElement>(null);
+  const galleryFileInputBackRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch('/api/my-profile')
@@ -102,26 +104,26 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   // 내 명함 사진 업로드 (촬영 또는 갤러리 선택)
-  const handleScanImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScanImageUpload = (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setCropRawImage(ev.target?.result as string);
+      setCropTarget({ side, rawImage: ev.target?.result as string });
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // 같은 파일 재선택도 가능하도록 초기화
   };
 
-  // 업로드한 내 명함 사진을 AI로 인식해서 입력 폼에 자동 반영
+  // 업로드한 내 명함 사진(앞/뒤)을 AI로 인식해서 입력 폼에 자동 반영
   const handleRunProfileScan = async () => {
-    if (!scanImg) return;
+    if (!scanImg && !scanImgBack) return;
     setIsScanning(true);
     try {
       const res = await fetch('/api/scan-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frontImage: scanImg, backImage: '' })
+        body: JSON.stringify({ frontImage: scanImg, backImage: scanImgBack })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '명함 인식에 실패했습니다.');
@@ -321,42 +323,82 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           {activeTab === 'edit' && (
             <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
 
-              {/* 내 명함 사진으로 자동 채우기 */}
+              {/* 내 명함 사진으로 자동 채우기 (앞면/뒷면) */}
               <div className="bg-slate-950 border border-dashed border-blue-500/40 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-blue-400 font-semibold">
                   <Sparkles className="w-4 h-4" />
                   <span>내 명함 사진으로 자동 채우기</span>
                 </div>
-                {scanImg ? (
-                  <div className="relative">
-                    <img src={scanImg} alt="스캔용 명함 미리보기" className="w-full h-32 object-cover rounded-lg" />
-                    <button
-                      type="button"
-                      onClick={() => setScanImg('')}
-                      className="absolute top-1.5 right-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-full p-1"
-                    >
-                      <X className="w-4 h-4 text-white" />
-                    </button>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* 앞면 */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] text-slate-500 font-semibold">앞면</span>
+                    {scanImg ? (
+                      <div className="relative">
+                        <img src={scanImg} alt="앞면 미리보기" className="w-full h-24 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setScanImg('')}
+                          className="absolute top-1.5 right-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-full p-1"
+                        >
+                          <X className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-lg h-24 text-slate-500 p-2">
+                        <button
+                          type="button"
+                          onClick={() => setCameraTarget('front')}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors"
+                        >
+                          <Camera className="w-3 h-3" />
+                          촬영
+                        </button>
+                        <label className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer underline underline-offset-2">
+                          갤러리
+                          <input ref={galleryFileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleScanImageUpload(e, 'front')} />
+                        </label>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-lg h-24 text-slate-500">
-                    <button
-                      type="button"
-                      onClick={() => setIsCameraOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      카메라로 촬영
-                    </button>
-                    <label className="text-[11px] text-slate-500 hover:text-slate-300 cursor-pointer underline underline-offset-2">
-                      갤러리에서 선택
-                      <input ref={galleryFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleScanImageUpload} />
-                    </label>
+
+                  {/* 뒷면 (선택) */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] text-slate-500 font-semibold">뒷면 (선택)</span>
+                    {scanImgBack ? (
+                      <div className="relative">
+                        <img src={scanImgBack} alt="뒷면 미리보기" className="w-full h-24 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setScanImgBack('')}
+                          className="absolute top-1.5 right-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-full p-1"
+                        >
+                          <X className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-lg h-24 text-slate-500 p-2">
+                        <button
+                          type="button"
+                          onClick={() => setCameraTarget('back')}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors"
+                        >
+                          <Camera className="w-3 h-3" />
+                          촬영
+                        </button>
+                        <label className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer underline underline-offset-2">
+                          갤러리
+                          <input ref={galleryFileInputBackRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleScanImageUpload(e, 'back')} />
+                        </label>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+
                 <button
                   type="button"
-                  disabled={!scanImg || isScanning}
+                  disabled={(!scanImg && !scanImgBack) || isScanning}
                   onClick={handleRunProfileScan}
                   className="w-full py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold flex items-center justify-center gap-2 transition-all"
                 >
@@ -435,30 +477,34 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
       </div>
 
-      {cropRawImage && (
+      {cropTarget && (
         <CropAdjustModal
-          imageDataUrl={cropRawImage}
-          title="명함 테두리 확인"
+          imageDataUrl={cropTarget.rawImage}
+          title={cropTarget.side === 'front' ? '명함 앞면 테두리 확인' : '명함 뒷면 테두리 확인'}
           onConfirm={(cropped) => {
-            setScanImg(cropped);
-            setCropRawImage(null);
+            if (cropTarget.side === 'front') setScanImg(cropped);
+            else setScanImgBack(cropped);
+            setCropTarget(null);
           }}
-          onCancel={() => setCropRawImage(null)}
+          onCancel={() => setCropTarget(null)}
         />
       )}
 
-      {isCameraOpen && (
+      {cameraTarget && (
         <LiveCameraCapture
-          title="명함 촬영"
+          title={cameraTarget === 'front' ? '명함 앞면 촬영' : '명함 뒷면 촬영'}
           guideAspectRatio={1.586}
           onCapture={(dataUrl) => {
-            setScanImg(dataUrl);
-            setIsCameraOpen(false);
+            if (cameraTarget === 'front') setScanImg(dataUrl);
+            else setScanImgBack(dataUrl);
+            setCameraTarget(null);
           }}
-          onCancel={() => setIsCameraOpen(false)}
+          onCancel={() => setCameraTarget(null)}
           onFallbackToFile={() => {
-            setIsCameraOpen(false);
-            galleryFileInputRef.current?.click();
+            const side = cameraTarget;
+            setCameraTarget(null);
+            if (side === 'front') galleryFileInputRef.current?.click();
+            else galleryFileInputBackRef.current?.click();
           }}
         />
       )}
