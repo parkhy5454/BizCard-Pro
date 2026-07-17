@@ -526,32 +526,32 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setReportAuthor(log.author || currentUser?.name || '김태균');
     setReportDepartment(log.department || '비즈니스전략팀');
     
-    // 비용 계산 (일간, 주간, 월간)
-    const reportingDailyLogs = dailyLogs.filter(dl => dl.date >= log.startDate && dl.date <= log.endDate);
-    const dailyExpensesSum = reportingDailyLogs.reduce((sum, dl) => {
-      return sum + (dl.expenses || []).reduce((s, e) => s + (e.amount || 0), 0);
-    }, 0);
-    setReportExpenseDaily(dailyExpensesSum || 70500);
-    
+    // 비용 계산 (오늘 날짜 기준 실시간 계산)
+    // - 일간: 오늘 하루치 지출 합계
+    // - 주간: 이번 주 월요일부터 오늘까지 누적 합계
+    // - 월간: 이번 달 1일부터 오늘까지 누적 합계
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    const sumExpenses = (logs: DailyWorkLog[]) =>
+      logs.reduce((sum, dl) => sum + (dl.expenses || []).reduce((s, e) => s + (e.amount || 0), 0), 0);
+
+    const dailyExpensesSum = sumExpenses(dailyLogs.filter(dl => dl.date === todayStr));
+    setReportExpenseDaily(dailyExpensesSum);
+
+    const dayOfWeek = today.getDay(); // 0=일 1=월 ... 6=토
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const mondayOfThisWeek = new Date(today);
+    mondayOfThisWeek.setDate(today.getDate() - daysSinceMonday);
+    const mondayStr = mondayOfThisWeek.toISOString().split('T')[0];
+    const weeklyExpensesSum = sumExpenses(dailyLogs.filter(dl => dl.date >= mondayStr && dl.date <= todayStr));
+    setReportExpenseWeekly(weeklyExpensesSum);
+
+    const firstOfMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    const monthlyExpensesSum = sumExpenses(dailyLogs.filter(dl => dl.date >= firstOfMonthStr && dl.date <= todayStr));
+    setReportExpenseMonthly(monthlyExpensesSum);
+
     const t2StartDate = getOffsetDateString(log.startDate, 7);
-    const t2EndDate = getOffsetDateString(log.startDate, 11);
-    const currentWeekDailyLogs = dailyLogs.filter(dl => dl.date >= t2StartDate && dl.date <= t2EndDate);
-    const currentWeekExpensesSum = currentWeekDailyLogs.reduce((sum, dl) => {
-      return sum + (dl.expenses || []).reduce((s, e) => s + (e.amount || 0), 0);
-    }, 0);
-    const weeklyOwnExpensesSum = (log.expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);
-    setReportExpenseWeekly(currentWeekExpensesSum || weeklyOwnExpensesSum || 86000);
-    
-    const logMonth = new Date(log.startDate).getMonth();
-    const logYear = new Date(log.startDate).getFullYear();
-    const monthlyDailyLogs = dailyLogs.filter(dl => {
-      const d = new Date(dl.date);
-      return d.getMonth() === logMonth && d.getFullYear() === logYear;
-    });
-    const monthlyDailySum = monthlyDailyLogs.reduce((sum, dl) => {
-      return sum + (dl.expenses || []).reduce((s, e) => s + (e.amount || 0), 0);
-    }, 0);
-    setReportExpenseMonthly(monthlyDailySum || 139500);
     
     // 테이블 1 (지난주 요일별 상세 실시 사항): 해당 주간의 실제 일일 업무일지와 연동! (0 ~ 4일 오프셋)
     const t1Rows = [];
