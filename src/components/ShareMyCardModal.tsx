@@ -15,6 +15,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<'qr' | 'send' | 'edit'>('qr');
   const [scanImg, setScanImg] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [cropRawImage, setCropRawImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/my-profile')
@@ -96,9 +97,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
     setIsEditing(false);
     setActiveTab('qr');
   };
-
-  // 크롭 조정 모달 상태
-  const [cropRawImage, setCropRawImage] = useState<string | null>(null);
 
   // 내 명함 사진 업로드 (촬영 또는 갤러리 선택)
   const handleScanImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

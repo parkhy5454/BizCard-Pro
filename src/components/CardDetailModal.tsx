@@ -15,13 +15,35 @@ interface Props {
 }
 
 export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
-  if (!contact) return null;
-
+  // Hooks(useState/useRef/useEffect)는 반드시 조건 없이 매 렌더링마다 동일한 순서로 호출되어야 하므로,
+  // "contact가 없으면 그리지 않는다" 처리보다 먼저 선언합니다 (React Hooks 규칙).
   const [activeTab, setActiveTab] = useState<'info' | 'history' | 'edit'>(initialTab);
   const [cardSide, setCardSide] = useState<'front' | 'back'>('front');
   const [rescanCameraTarget, setRescanCameraTarget] = useState<'front' | 'back' | null>(null);
   const [rescanCropTarget, setRescanCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const rescanFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // 통화기록 추가 폼 상태
+  const [callType, setCallType] = useState<'incoming' | 'outgoing' | 'missed'>('incoming');
+  const [callDuration, setCallDuration] = useState('');
+  const [callNote, setCallNote] = useState('');
+  const [isAddingCall, setIsAddingCall] = useState(false);
+
+  // AI 회사 요약 검색 상태
+  const [isSearchingCompany, setIsSearchingCompany] = useState(false);
+
+  // 수정 폼 상태
+  const [editForm, setEditForm] = useState<BusinessCard>({ ...contact } as BusinessCard);
+
+  // 연락처 변경 시 상태 동기화
+  React.useEffect(() => {
+    if (contact) {
+      setActiveTab(initialTab);
+      setEditForm({ ...contact });
+    }
+  }, [contact?.id, initialTab]);
+
+  if (!contact) return null;
 
   // 재스캔한(또는 조정 완료한) 이미지를 해당 면에 저장
   const applyRescannedImage = (side: 'front' | 'back', dataUrl: string) => {
@@ -41,26 +63,6 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
     e.target.value = '';
     setRescanCameraTarget(null);
   };
-
-  // 통화기록 추가 폼 상태
-  const [callType, setCallType] = useState<'incoming' | 'outgoing' | 'missed'>('incoming');
-  const [callDuration, setCallDuration] = useState('');
-  const [callNote, setCallNote] = useState('');
-  const [isAddingCall, setIsAddingCall] = useState(false);
-
-  // AI 회사 요약 검색 상태
-  const [isSearchingCompany, setIsSearchingCompany] = useState(false);
-
-  // 수정 폼 상태
-  const [editForm, setEditForm] = useState<BusinessCard>({ ...contact });
-
-  // 연락처 변경 시 상태 동기화
-  React.useEffect(() => {
-    if (contact) {
-      setActiveTab(initialTab);
-      setEditForm({ ...contact });
-    }
-  }, [contact?.id, initialTab]);
 
   const group = groups.find((g) => g.id === contact.groupId);
 
