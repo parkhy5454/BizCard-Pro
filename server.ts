@@ -607,31 +607,20 @@ async function loadScopeFromSupabase(scopeId: string) {
     weeklyLogs: JSON.parse(JSON.stringify(initialWeeklyLogs))
   });
 
-  const [
-    contacts,
-    projects,
-    groups,
-    vehicles,
-    drivingLogs,
-    expenses,
-    maintenances,
-    maintenanceIntervals,
-    dailyLogs,
-    weeklyLogs,
-    profileList
-  ] = await Promise.all([
-    withTimeout(getScopedCollection<BusinessCard>(scopeId, 'contacts'), 'contacts'),
-    withTimeout(getScopedCollection<Project>(scopeId, 'projects'), 'projects'),
-    withTimeout(getScopedCollection<ContactGroup>(scopeId, 'groups'), 'groups'),
-    withTimeout(getScopedCollection<Vehicle>(scopeId, 'vehicles'), 'vehicles'),
-    withTimeout(getScopedCollection<DrivingLog>(scopeId, 'drivingLogs'), 'drivingLogs'),
-    withTimeout(getScopedCollection<VehicleExpense>(scopeId, 'expenses'), 'expenses'),
-    withTimeout(getScopedCollection<VehicleMaintenance>(scopeId, 'maintenances'), 'maintenances'),
-    withTimeout(getScopedCollection<MaintenanceInterval>(scopeId, 'maintenanceIntervals'), 'maintenanceIntervals'),
-    withTimeout(getScopedCollection<DailyWorkLog>(scopeId, 'dailyLogs'), 'dailyLogs'),
-    withTimeout(getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs'), 'weeklyLogs'),
-    withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile')
-  ]);
+  // 11개 컬렉션을 한꺼번에(Promise.all) 동시 요청하면 Supabase(PostgREST)의 커넥션 풀을
+  // 순간적으로 다 소모해서, 정작 쿼리 자체는 1ms도 안 걸리는데도 "연결을 못 잡아" 타임아웃이
+  // 나는 현상이 있었습니다. 순차적으로 하나씩 조회해 커넥션 풀 부담을 줄입니다.
+  const contacts = await withTimeout(getScopedCollection<BusinessCard>(scopeId, 'contacts'), 'contacts');
+  const projects = await withTimeout(getScopedCollection<Project>(scopeId, 'projects'), 'projects');
+  const groups = await withTimeout(getScopedCollection<ContactGroup>(scopeId, 'groups'), 'groups');
+  const vehicles = await withTimeout(getScopedCollection<Vehicle>(scopeId, 'vehicles'), 'vehicles');
+  const drivingLogs = await withTimeout(getScopedCollection<DrivingLog>(scopeId, 'drivingLogs'), 'drivingLogs');
+  const expenses = await withTimeout(getScopedCollection<VehicleExpense>(scopeId, 'expenses'), 'expenses');
+  const maintenances = await withTimeout(getScopedCollection<VehicleMaintenance>(scopeId, 'maintenances'), 'maintenances');
+  const maintenanceIntervals = await withTimeout(getScopedCollection<MaintenanceInterval>(scopeId, 'maintenanceIntervals'), 'maintenanceIntervals');
+  const dailyLogs = await withTimeout(getScopedCollection<DailyWorkLog>(scopeId, 'dailyLogs'), 'dailyLogs');
+  const weeklyLogs = await withTimeout(getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs'), 'weeklyLogs');
+  const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
   const myProfile = profileList.find(p => p.email === 'parkyl5454@gmail.com') || profileList[0] || initialMyProfile;
 
