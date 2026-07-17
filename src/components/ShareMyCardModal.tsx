@@ -84,6 +84,61 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   // 공유 메시지 텍스트
   const shareMessage = `[디지털 명함 전달]\n${profile.company} ${profile.department} ${profile.name} ${profile.title}\n📞 핸드폰: ${profile.phoneMobile}\n📧 이메일: ${profile.email}\n🏢 주소: ${profile.address}\n🌐 웹사이트: ${profile.website || ''}`;
 
+  // 카카오톡 공유: 카카오 JS SDK를 최초 1회만 지연 로딩 후 초기화
+  const KAKAO_JS_KEY = 'cb1b045b76bfb5a7d4deaf6985b50a2a';
+  const loadKakaoSdk = (): Promise<void> => {
+    const w = window as any;
+    if (w.Kakao && w.Kakao.isInitialized && w.Kakao.isInitialized()) return Promise.resolve();
+    if (w.__kakaoSdkLoadingPromise) return w.__kakaoSdkLoadingPromise;
+    w.__kakaoSdkLoadingPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
+      script.crossOrigin = 'anonymous';
+      script.onload = () => {
+        try {
+          if (!w.Kakao.isInitialized()) w.Kakao.init(KAKAO_JS_KEY);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      };
+      script.onerror = () => reject(new Error('카카오 SDK 로드 실패'));
+      document.body.appendChild(script);
+    });
+    return w.__kakaoSdkLoadingPromise;
+  };
+
+  const handleKakaoShare = async () => {
+    try {
+      await loadKakaoSdk();
+      const w = window as any;
+      w.Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: `${profile.name} · ${profile.company}`,
+          description: `${profile.title} | ${profile.department}\n📞 ${profile.phoneMobile}\n📧 ${profile.email}`,
+          imageUrl: profile.website ? `${profile.website}/kakao-share-thumb.png` : 'https://bizcard-pro.onrender.com/kakao-share-thumb.png',
+          link: {
+            mobileWebUrl: profile.website || 'https://bizcard-pro.onrender.com',
+            webUrl: profile.website || 'https://bizcard-pro.onrender.com'
+          }
+        },
+        buttons: [
+          {
+            title: '명함 정보 보기',
+            link: {
+              mobileWebUrl: profile.website || 'https://bizcard-pro.onrender.com',
+              webUrl: profile.website || 'https://bizcard-pro.onrender.com'
+            }
+          }
+        ]
+      });
+    } catch (err) {
+      console.error('카카오톡 공유 실패:', err);
+      alert('카카오톡 공유를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
   // 링크 복사
   const handleCopyText = () => {
     navigator.clipboard.writeText(shareMessage);
@@ -160,7 +215,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white tracking-tight">내 명함 공유 및 전송</h3>
-              <p className="text-xs text-slate-300">QR 스캔, 문자, 이메일, SNS로 내 명함을 즉시 전달하세요</p>
+              <p className="text-xs text-slate-300">QR 스캔, 카카오톡, 문자, 이메일, SNS로 내 명함을 즉시 전달하세요</p>
             </div>
           </div>
           <button
@@ -203,7 +258,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
             className={`flex-1 py-3 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'send' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             <Send className="w-4 h-4" />
-            <span>문자 / 이메일 / SNS 전송</span>
+            <span>카카오톡 / 문자 / 이메일 / SNS</span>
           </button>
         </div>
 
@@ -248,6 +303,22 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
               {/* 1. 기본 앱 전송 */}
               <div className="space-y-3">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">🚀 다이렉트 전송</span>
+
+                {/* 카카오톡 공유 (가장 많이 쓰는 채널이라 상단에 강조 배치) */}
+                <button
+                  type="button"
+                  onClick={handleKakaoShare}
+                  className="w-full p-4 rounded-2xl bg-[#FEE500] hover:brightness-95 flex items-center gap-3 transition-all group"
+                >
+                  <div className="p-2.5 rounded-xl bg-black/10 text-black group-hover:scale-110 transition-transform">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-black">카카오톡 공유</div>
+                    <div className="text-[11px] text-black/60">카카오톡으로 명함 카드 전달</div>
+                  </div>
+                </button>
+
                 <div className="grid grid-cols-2 gap-3">
                   <a
                     href={`sms:?body=${encodeURIComponent(shareMessage)}`}
