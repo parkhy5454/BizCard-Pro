@@ -32,20 +32,52 @@ export const LiveCameraCapture: React.FC<Props> = ({
     setError(null);
     setIsReady(false);
     stopStream();
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('이 브라우저에서는 카메라를 직접 지원하지 않아요. 아래 "갤러리"를 눌러 사진을 선택해주세요.');
+      return;
+    }
+
+    const tryGetStream = async (constraints: MediaStreamConstraints) => {
+      return navigator.mediaDevices.getUserMedia(constraints);
+    };
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false
-      });
+      let stream: MediaStream;
+      try {
+        // 1차 시도: 선호 카메라(후면/전면) 지정 (iOS는 'exact'보다 'ideal'이 더 안정적으로 동작함)
+        stream = await tryGetStream({
+          video: { facingMode: { ideal: mode } },
+          audio: false
+        });
+      } catch (firstErr) {
+        console.warn('1차 카메라 요청 실패, 기본 카메라로 재시도:', firstErr);
+        // 2차 시도: 세부 제약 없이 카메라만 요청 (일부 iOS 버전 호환성 이슈 대응)
+        stream = await tryGetStream({ video: true, audio: false });
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn('비디오 재생 대기 중:', playErr);
+        }
         setIsReady(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('카메라 접근 실패:', err);
-      setError('카메라를 사용할 수 없습니다. 갤러리에서 사진을 선택해주세요.');
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setError('카메라 권한이 거부되어 있어요. 아이폰의 "설정 → Safari → 카메라"에서 허용으로 바꾼 뒤 다시 시도하시거나, 아래 "갤러리"로 사진을 선택해주세요.');
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setError('사용 가능한 카메라를 찾지 못했어요. 아래 "갤러리"에서 사진을 선택해주세요.');
+      } else if (name === 'NotReadableError') {
+        setError('다른 앱이 카메라를 사용 중이라 열 수 없어요. 다른 카메라 앱을 종료한 뒤 다시 시도하시거나 "갤러리"를 이용해주세요.');
+      } else {
+        setError(`카메라를 열 수 없어요 (${name || '알 수 없는 오류'}). 아래 "갤러리"에서 사진을 선택해주세요.`);
+      }
     }
   }, [stopStream]);
 
