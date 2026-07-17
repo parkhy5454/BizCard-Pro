@@ -596,7 +596,7 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   // 같이 멈추지 않도록 각 컬렉션 조회에 개별 타임아웃을 둡니다. 타임아웃난 컬렉션이 있으면
   // 이번 요청은 빈 목록으로 우선 응답하되, 전체 결과는 캐싱하지 않아 다음 요청에서 다시 시도합니다.
   let hadTimeout = false;
-  const withTimeout = <T>(promise: Promise<T[]>, label: string, ms = 6000): Promise<T[]> => {
+  const withTimeout = <T>(promise: Promise<T[]>, label: string, ms = 15000): Promise<T[]> => {
     return Promise.race([
       promise,
       new Promise<T[]>((resolve) => {
