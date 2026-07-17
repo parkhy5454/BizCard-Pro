@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation } from 'lucide-react';
+import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
+import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
 
 interface Props {
@@ -18,6 +19,28 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
 
   const [activeTab, setActiveTab] = useState<'info' | 'history' | 'edit'>(initialTab);
   const [cardSide, setCardSide] = useState<'front' | 'back'>('front');
+  const [rescanCameraTarget, setRescanCameraTarget] = useState<'front' | 'back' | null>(null);
+  const [rescanCropTarget, setRescanCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
+  const rescanFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // 재스캔한(또는 조정 완료한) 이미지를 해당 면에 저장
+  const applyRescannedImage = (side: 'front' | 'back', dataUrl: string) => {
+    if (!contact) return;
+    onUpdateContact({ ...contact, [side === 'front' ? 'frontImage' : 'backImage']: dataUrl });
+  };
+
+  const handleRescanFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const side = rescanCameraTarget;
+    if (!file || !side) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setRescanCropTarget({ side, rawImage: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+    setRescanCameraTarget(null);
+  };
 
   // 통화기록 추가 폼 상태
   const [callType, setCallType] = useState<'incoming' | 'outgoing' | 'missed'>('incoming');
@@ -30,9 +53,6 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
 
   // 수정 폼 상태
   const [editForm, setEditForm] = useState<BusinessCard>({ ...contact });
-  const [rescanTarget, setRescanTarget] = useState<'front' | 'back' | null>(null);
-  const [rescanSource, setRescanSource] = useState<string | null>(null);
-  const rescanInputRef = React.useRef<HTMLInputElement>(null);
 
   // 연락처 변경 시 상태 동기화
   React.useEffect(() => {
@@ -72,21 +92,6 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
     e.preventDefault();
     onUpdateContact(editForm);
     setActiveTab('info');
-  };
-
-  const handleRescanFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !rescanTarget) return;
-    const reader = new FileReader();
-    reader.onload = () => setRescanSource(reader.result as string);
-    reader.readAsDataURL(file);
-    // Selecting the same image must also open the cropper.
-    e.target.value = '';
-  };
-
-  const startRescan = (side: 'front' | 'back') => {
-    setRescanTarget(side);
-    rescanInputRef.current?.click();
   };
 
   const handleSaveCallRecord = (e: React.FormEvent) => {
@@ -169,12 +174,15 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
                 )
               )}
             </div>
+
+            {/* 현재 보고 있는 면(앞/뒤)을 카메라 가이드로 다시 스캔 */}
             <button
               type="button"
-              onClick={() => startRescan(cardSide)}
-              className="w-full py-2.5 rounded-xl border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-xs font-bold transition-colors"
+              onClick={() => setRescanCameraTarget(cardSide)}
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-950/50 hover:bg-indigo-950/80 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 text-xs font-bold transition-colors"
             >
-              {cardSide === 'front' ? '앞면' : '뒷면'} 재스캔 및 테두리 조정
+              <Camera className="w-3.5 h-3.5" />
+              {cardSide === 'front' ? '앞면 재스캔 및 테두리 조정' : '뒷면 재스캔 및 테두리 조정'}
             </button>
           </div>
 
@@ -699,34 +707,38 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
 
       </div>
 
+      {rescanCameraTarget && (
+        <LiveCameraCapture
+          title={rescanCameraTarget === 'front' ? '명함 앞면 재촬영' : '명함 뒷면 재촬영'}
+          guideAspectRatio={1.586}
+          onCapture={(dataUrl) => {
+            applyRescannedImage(rescanCameraTarget, dataUrl);
+            setRescanCameraTarget(null);
+          }}
+          onCancel={() => setRescanCameraTarget(null)}
+          onFallbackToFile={() => rescanFileInputRef.current?.click()}
+        />
+      )}
+
+      {rescanCropTarget && (
+        <CropAdjustModal
+          imageDataUrl={rescanCropTarget.rawImage}
+          title={rescanCropTarget.side === 'front' ? '명함 앞면 테두리 확인' : '명함 뒷면 테두리 확인'}
+          onConfirm={(cropped) => {
+            applyRescannedImage(rescanCropTarget.side, cropped);
+            setRescanCropTarget(null);
+          }}
+          onCancel={() => setRescanCropTarget(null)}
+        />
+      )}
+
       <input
-        ref={rescanInputRef}
+        ref={rescanFileInputRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={handleRescanFile}
+        onChange={handleRescanFileChange}
       />
-      {rescanSource && rescanTarget && (
-        <CropAdjustModal
-          imageDataUrl={rescanSource}
-          title={rescanTarget === 'front' ? '명함 앞면 테두리 조정' : '명함 뒷면 테두리 조정'}
-          onConfirm={(cropped) => {
-            const updated = {
-              ...editForm,
-              [rescanTarget === 'front' ? 'frontImage' : 'backImage']: cropped
-            };
-            setEditForm(updated);
-            setCardSide(rescanTarget);
-            onUpdateContact(updated);
-            setRescanSource(null);
-            setRescanTarget(null);
-          }}
-          onCancel={() => {
-            setRescanSource(null);
-            setRescanTarget(null);
-          }}
-        />
-      )}
     </div>
   );
 };
