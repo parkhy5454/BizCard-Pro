@@ -16,8 +16,7 @@ import {
   setScopedProfile,
   updateScopedDoc,
   deleteScopedDoc,
-  replaceScopedCollection,
-  isSupabaseConfigured
+  replaceScopedCollection
 } from './src/db/supabaseStore.js';
 
 const app = express();
@@ -577,22 +576,22 @@ const db: { [scopeId: string]: {
 async function loadScopeFromSupabase(scopeId: string) {
   if (db[scopeId]) return db[scopeId];
 
-  if (!isSupabaseConfigured) {
-    db[scopeId] = {
-      contacts: JSON.parse(JSON.stringify(initialContacts)),
-      projects: JSON.parse(JSON.stringify(initialProjects)),
-      groups: JSON.parse(JSON.stringify(initialGroups)),
-      myProfile: JSON.parse(JSON.stringify(initialMyProfile)),
-      vehicles: JSON.parse(JSON.stringify(initialVehicles)),
-      drivingLogs: JSON.parse(JSON.stringify(initialDrivingLogs)),
-      expenses: JSON.parse(JSON.stringify(initialExpenses)),
-      maintenances: JSON.parse(JSON.stringify(initialMaintenances)),
-      maintenanceIntervals: [],
-      dailyLogs: JSON.parse(JSON.stringify(initialDailyLogs)),
-      weeklyLogs: JSON.parse(JSON.stringify(initialWeeklyLogs))
-    };
-    return db[scopeId];
-  }
+  // 컬렉션 하나가 느려지거나(DB 타임아웃 등) 응답이 없어도, 다른 화면(예: 내 명함 공유)이
+  // 같이 멈추지 않도록 각 컬렉션 조회에 개별 타임아웃을 둡니다. 타임아웃난 컬렉션이 있으면
+  // 이번 요청은 빈 목록으로 우선 응답하되, 전체 결과는 캐싱하지 않아 다음 요청에서 다시 시도합니다.
+  let hadTimeout = false;
+  const withTimeout = <T>(promise: Promise<T[]>, label: string, ms = 6000): Promise<T[]> => {
+    return Promise.race([
+      promise,
+      new Promise<T[]>((resolve) => {
+        setTimeout(() => {
+          hadTimeout = true;
+          console.error(`getScopedCollection(${scopeId}, ${label}) 타임아웃 - 이번 요청은 빈 목록으로 처리합니다.`);
+          resolve([]);
+        }, ms);
+      })
+    ]);
+  };
 
   await ensureScopeInitialized(scopeId, {
     contacts: JSON.parse(JSON.stringify(initialContacts)),
@@ -621,22 +620,22 @@ async function loadScopeFromSupabase(scopeId: string) {
     weeklyLogs,
     profileList
   ] = await Promise.all([
-    getScopedCollection<BusinessCard>(scopeId, 'contacts'),
-    getScopedCollection<Project>(scopeId, 'projects'),
-    getScopedCollection<ContactGroup>(scopeId, 'groups'),
-    getScopedCollection<Vehicle>(scopeId, 'vehicles'),
-    getScopedCollection<DrivingLog>(scopeId, 'drivingLogs'),
-    getScopedCollection<VehicleExpense>(scopeId, 'expenses'),
-    getScopedCollection<VehicleMaintenance>(scopeId, 'maintenances'),
-    getScopedCollection<MaintenanceInterval>(scopeId, 'maintenanceIntervals'),
-    getScopedCollection<DailyWorkLog>(scopeId, 'dailyLogs'),
-    getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs'),
-    getScopedCollection<MyProfile>(scopeId, 'myProfile')
+    withTimeout(getScopedCollection<BusinessCard>(scopeId, 'contacts'), 'contacts'),
+    withTimeout(getScopedCollection<Project>(scopeId, 'projects'), 'projects'),
+    withTimeout(getScopedCollection<ContactGroup>(scopeId, 'groups'), 'groups'),
+    withTimeout(getScopedCollection<Vehicle>(scopeId, 'vehicles'), 'vehicles'),
+    withTimeout(getScopedCollection<DrivingLog>(scopeId, 'drivingLogs'), 'drivingLogs'),
+    withTimeout(getScopedCollection<VehicleExpense>(scopeId, 'expenses'), 'expenses'),
+    withTimeout(getScopedCollection<VehicleMaintenance>(scopeId, 'maintenances'), 'maintenances'),
+    withTimeout(getScopedCollection<MaintenanceInterval>(scopeId, 'maintenanceIntervals'), 'maintenanceIntervals'),
+    withTimeout(getScopedCollection<DailyWorkLog>(scopeId, 'dailyLogs'), 'dailyLogs'),
+    withTimeout(getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs'), 'weeklyLogs'),
+    withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile')
   ]);
 
   const myProfile = profileList.find(p => p.email === 'parkyl5454@gmail.com') || profileList[0] || initialMyProfile;
 
-  db[scopeId] = {
+  const loadedData = {
     contacts,
     projects,
     groups,
@@ -650,15 +649,17 @@ async function loadScopeFromSupabase(scopeId: string) {
     weeklyLogs
   };
 
+  if (hadTimeout) {
+    // 캐싱하지 않음: 다음 요청에서 다시 정상적으로 조회를 시도하도록 함
+    return loadedData;
+  }
+
+  db[scopeId] = loadedData;
   return db[scopeId];
 }
 
 // 서버 시작 시 1회: 로그인 계정 시딩 및 로컬 캐시 적재
 async function bootstrapUsers() {
-  if (!isSupabaseConfigured) {
-    users = JSON.parse(JSON.stringify(initialUsers));
-    return;
-  }
   users = await getUsers();
   if (users.length === 0) {
     await ensureUsersSeeded(initialUsers);
