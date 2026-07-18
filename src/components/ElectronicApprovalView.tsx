@@ -173,7 +173,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
         ref={yRef} type="text" inputMode="numeric" placeholder="YYYY" maxLength={4} value={y}
         // 포커스가 들어오면 일단 비워서, 커서 위치나 브라우저별 select() 동작에 상관없이
         // 항상 빈 칸에 새로 입력하는 것처럼 동작하게 한다 (기존 "0"이 남아있던 문제의 근본 원인).
-        onFocus={() => { yPrev.current = y; setY(''); }}
+        onFocus={(e) => { yPrev.current = y; e.currentTarget.value = ''; setY(''); }}
         onBlur={() => { if (y === '') setY(yPrev.current); }}
         onChange={(e) => {
           const v = e.target.value.replace(/\D/g, '').slice(0, 4);
@@ -186,7 +186,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
       <span className="text-slate-500 text-xs">년</span>
       <input
         ref={mRef} type="text" inputMode="numeric" placeholder="MM" maxLength={2} value={m}
-        onFocus={() => { mPrev.current = m; setM(''); }}
+        onFocus={(e) => { mPrev.current = m; e.currentTarget.value = ''; setM(''); }}
         onBlur={() => { if (m === '') setM(mPrev.current); }}
         onKeyDown={(e) => { if (e.key === 'Backspace' && m === '') yRef.current?.focus(); }}
         onChange={(e) => {
@@ -201,7 +201,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
       <span className="text-slate-500 text-xs">월</span>
       <input
         ref={dRef} type="text" inputMode="numeric" placeholder="DD" maxLength={2} value={d}
-        onFocus={() => { dPrev.current = d; setD(''); }}
+        onFocus={(e) => { dPrev.current = d; e.currentTarget.value = ''; setD(''); }}
         onBlur={() => { if (d === '') setD(dPrev.current); }}
         onKeyDown={(e) => { if (e.key === 'Backspace' && d === '') mRef.current?.focus(); }}
         onChange={(e) => {
