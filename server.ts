@@ -3,7 +3,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -570,6 +570,8 @@ const db: { [scopeId: string]: {
   maintenanceIntervals: MaintenanceInterval[];
   dailyLogs: DailyWorkLog[];
   weeklyLogs: WeeklyWorkLog[];
+  advancePayments: AdvancePaymentSettlement[];
+  leaveRequests: LeaveRequest[];
 } } = {};
 
 // 동시에 여러 요청이 같은 스코프를 불러오려고 하면(예: 페이지 로딩 시 여러 화면이 동시에 호출),
@@ -636,6 +638,8 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   const maintenanceIntervals = await withTimeout(getScopedCollection<MaintenanceInterval>(scopeId, 'maintenanceIntervals'), 'maintenanceIntervals');
   const dailyLogs = await withTimeout(getScopedCollection<DailyWorkLog>(scopeId, 'dailyLogs'), 'dailyLogs');
   const weeklyLogs = await withTimeout(getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs'), 'weeklyLogs');
+  const advancePayments = await withTimeout(getScopedCollection<AdvancePaymentSettlement>(scopeId, 'advancePayments'), 'advancePayments');
+  const leaveRequests = await withTimeout(getScopedCollection<LeaveRequest>(scopeId, 'leaveRequests'), 'leaveRequests');
   const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
   const myProfile = profileList.find(p => p.email === 'parkyl5454@gmail.com') || profileList[0] || initialMyProfile;
@@ -651,7 +655,9 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
     maintenances,
     maintenanceIntervals,
     dailyLogs,
-    weeklyLogs
+    weeklyLogs,
+    advancePayments,
+    leaveRequests
   };
 
   if (hadTimeout) {
@@ -707,7 +713,9 @@ function getScopedData(req: express.Request): any {
     maintenances: [],
     maintenanceIntervals: [],
     dailyLogs: [],
-    weeklyLogs: []
+    weeklyLogs: [],
+    advancePayments: [],
+    leaveRequests: []
   };
 }
 
@@ -1726,6 +1734,91 @@ app.delete('/api/worklogs/weekly/:id', async (req, res) => {
     deleteScopedDoc(scopeId, 'weeklyLogs', req.params.id),
     replaceScopedCollection(scopeId, 'expenses', dbData.expenses)
   ]);
+  res.json({ success: true });
+});
+
+// 전자결재: 가지급금 정산서 CRUD
+app.get('/api/approvals/advance', (req, res) => {
+  const dbData = getScopedData(req);
+  res.json(dbData.advancePayments || []);
+});
+
+app.post('/api/approvals/advance', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  const doc: AdvancePaymentSettlement = req.body;
+  if (!doc.id) doc.id = `ap-${Date.now()}`;
+  if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+  if (!doc.items) doc.items = [];
+  if (!doc.status) doc.status = 'pending';
+
+  dbData.advancePayments = dbData.advancePayments || [];
+  dbData.advancePayments.unshift(doc);
+  await setScopedDoc(scopeId, 'advancePayments', doc);
+  res.status(201).json(doc);
+});
+
+app.put('/api/approvals/advance/:id', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.advancePayments = dbData.advancePayments || [];
+  const idx = dbData.advancePayments.findIndex((d: AdvancePaymentSettlement) => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Advance payment settlement not found' });
+
+  const updated = { ...dbData.advancePayments[idx], ...req.body };
+  dbData.advancePayments[idx] = updated;
+  await setScopedDoc(scopeId, 'advancePayments', updated);
+  res.json(updated);
+});
+
+app.delete('/api/approvals/advance/:id', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.advancePayments = dbData.advancePayments || [];
+  dbData.advancePayments = dbData.advancePayments.filter((d: AdvancePaymentSettlement) => d.id !== req.params.id);
+  await deleteScopedDoc(scopeId, 'advancePayments', req.params.id);
+  res.json({ success: true });
+});
+
+// 전자결재: 휴가 신청서 CRUD
+app.get('/api/approvals/leave', (req, res) => {
+  const dbData = getScopedData(req);
+  res.json(dbData.leaveRequests || []);
+});
+
+app.post('/api/approvals/leave', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  const doc: LeaveRequest = req.body;
+  if (!doc.id) doc.id = `lv-${Date.now()}`;
+  if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+  if (!doc.status) doc.status = 'pending';
+
+  dbData.leaveRequests = dbData.leaveRequests || [];
+  dbData.leaveRequests.unshift(doc);
+  await setScopedDoc(scopeId, 'leaveRequests', doc);
+  res.status(201).json(doc);
+});
+
+app.put('/api/approvals/leave/:id', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.leaveRequests = dbData.leaveRequests || [];
+  const idx = dbData.leaveRequests.findIndex((d: LeaveRequest) => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Leave request not found' });
+
+  const updated = { ...dbData.leaveRequests[idx], ...req.body };
+  dbData.leaveRequests[idx] = updated;
+  await setScopedDoc(scopeId, 'leaveRequests', updated);
+  res.json(updated);
+});
+
+app.delete('/api/approvals/leave/:id', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.leaveRequests = dbData.leaveRequests || [];
+  dbData.leaveRequests = dbData.leaveRequests.filter((d: LeaveRequest) => d.id !== req.params.id);
+  await deleteScopedDoc(scopeId, 'leaveRequests', req.params.id);
   res.json({ success: true });
 });
 
