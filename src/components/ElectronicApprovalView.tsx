@@ -930,7 +930,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         </div>
       ) : activeApprovalTab === 'advance' ? (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-start">
             <button onClick={openNewAdvance} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95">
               <Plus className="w-4 h-4" /><span>가지급금 정산서 작성</span>
             </button>
@@ -999,7 +999,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-start">
             <button onClick={openNewLeave} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95">
               <Plus className="w-4 h-4" /><span>휴가 신청서 작성</span>
             </button>
