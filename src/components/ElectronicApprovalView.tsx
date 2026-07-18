@@ -169,7 +169,8 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
         ref={yRef} type="text" inputMode="numeric" placeholder="YYYY" maxLength={4} value={y}
         onFocus={(e) => e.target.select()}
         onChange={(e) => {
-          const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+          const digits = e.target.value.replace(/\D/g, '');
+          const v = digits.length > 4 ? digits.slice(-4) : digits;
           setY(v);
           if (v.length === 4) mRef.current?.focus();
           emit(v, m, d);
@@ -182,7 +183,8 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
         onFocus={(e) => e.target.select()}
         onKeyDown={(e) => { if (e.key === 'Backspace' && m === '') yRef.current?.focus(); }}
         onChange={(e) => {
-          let v = e.target.value.replace(/\D/g, '').slice(0, 2);
+          const digits = e.target.value.replace(/\D/g, '');
+          let v = digits.length > 2 ? digits.slice(-2) : digits;
           if (v.length === 2 && Number(v) > 12) v = '12';
           setM(v);
           if (v.length === 2) dRef.current?.focus();
@@ -196,7 +198,8 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
         onFocus={(e) => e.target.select()}
         onKeyDown={(e) => { if (e.key === 'Backspace' && d === '') mRef.current?.focus(); }}
         onChange={(e) => {
-          let v = e.target.value.replace(/\D/g, '').slice(0, 2);
+          const digits = e.target.value.replace(/\D/g, '');
+          let v = digits.length > 2 ? digits.slice(-2) : digits;
           if (v.length === 2 && Number(v) > 31) v = '31';
           setD(v);
           emit(y, m, v);
@@ -242,14 +245,40 @@ function formatPhoneNumber(value: string): string {
 }
 
 // 반차(4시간)/반반차(2시간) 선택 시, 시작 시간을 입력하면 종료 시간을 자동으로 계산하기 위한 유틸
+// 반차(4시간)/반반차(2시간) 선택 시, 시작 시간을 입력하면 종료 시간을 자동으로 계산하기 위한 유틸.
+// 점심시간(12:00~13:00)은 근무 시간에서 제외하고, 순수 업무 시간(09:00~12:00, 13:00~18:00)만 적산한다.
+const LUNCH_START_MIN = 12 * 60;   // 12:00
+const LUNCH_END_MIN = 13 * 60;     // 13:00
+
 function addHoursToTime(time: string, hours: number): string {
   if (!time) return '';
   const [h, m] = time.split(':').map(Number);
   if (Number.isNaN(h) || Number.isNaN(m)) return '';
-  let totalMinutes = h * 60 + m + hours * 60;
-  totalMinutes = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
-  const hh = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
-  const mm = String(totalMinutes % 60).padStart(2, '0');
+
+  let current = h * 60 + m;
+  let remaining = Math.round(hours * 60);
+
+  // 시작 시각이 점심시간 한복판이면 점심이 끝난 시각부터 적산 시작
+  if (current >= LUNCH_START_MIN && current < LUNCH_END_MIN) {
+    current = LUNCH_END_MIN;
+  }
+
+  // 점심시간 전이라면, 점심 전까지 쓸 수 있는 시간만큼 먼저 채우고 모자라면 점심을 건너뛴다
+  if (current < LUNCH_START_MIN) {
+    const availableBeforeLunch = LUNCH_START_MIN - current;
+    if (remaining <= availableBeforeLunch) {
+      current += remaining;
+      remaining = 0;
+    } else {
+      remaining -= availableBeforeLunch;
+      current = LUNCH_END_MIN;
+    }
+  }
+
+  current += remaining;
+  current = ((current % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hh = String(Math.floor(current / 60)).padStart(2, '0');
+  const mm = String(current % 60).padStart(2, '0');
   return `${hh}:${mm}`;
 }
 
@@ -1591,7 +1620,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     ) : c === 'annual' ? (
                       <div key={c} className="relative">
                         <button type="button"
-                          onClick={() => { setLvCategory('annual'); setLvAnnualDropdownOpen(v => !v); }}
+                          onClick={() => {
+                            setLvCategory('annual');
+                            setLvAnnualDropdownOpen(v => !v);
+                            if (lvAnnualType === 'full') { setLvStartTime('09:00'); setLvEndTime('18:00'); }
+                          }}
                           className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'annual' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
                           <span>
                             연차{lvCategory === 'annual' ? ` · ${ANNUAL_TYPE_LABEL[lvAnnualType]}` : ''}
@@ -1607,7 +1640,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                                   onClick={() => {
                                     setLvAnnualType(t);
                                     setLvAnnualDropdownOpen(false);
-                                    if (lvStartTime && (t === 'half' || t === 'quarter')) {
+                                    if (t === 'full') {
+                                      setLvStartTime('09:00');
+                                      setLvEndTime('18:00');
+                                    } else if (lvStartTime) {
                                       setLvEndTime(addHoursToTime(lvStartTime, ANNUAL_TYPE_HOURS[t]));
                                     }
                                   }}
@@ -1646,11 +1682,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">시작일</label>
-                  <YMDInput value={lvStartDate} onChange={setLvStartDate} />
+                  <YMDInput value={lvStartDate} onChange={(v) => {
+                    setLvStartDate(v);
+                    if (lvCategory === 'annual' && lvAnnualType === 'full') { setLvStartTime('09:00'); setLvEndTime('18:00'); }
+                  }} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">종료일</label>
-                  <YMDInput value={lvEndDate} onChange={setLvEndDate} />
+                  <YMDInput value={lvEndDate} onChange={(v) => {
+                    setLvEndDate(v);
+                    if (lvCategory === 'annual' && lvAnnualType === 'full') { setLvStartTime('09:00'); setLvEndTime('18:00'); }
+                  }} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">시작 시간 (반차 등, 선택)</label>
