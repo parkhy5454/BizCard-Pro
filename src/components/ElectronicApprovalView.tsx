@@ -60,6 +60,7 @@ interface ImportableExpenseRow {
   account: string;       // 계정과목(카테고리) 라벨
   companyName: string;    // 상호
   remark: string;
+  payMethodLabel: string; // 결제수단 라벨(개인카드/현금 등)
 }
 
 const WORKLOG_EXPENSE_LABEL: Record<string, string> = {
@@ -70,6 +71,77 @@ const VEHICLE_EXPENSE_LABEL: Record<string, string> = {
   fuel: '주유비', toll: '통행료', parking: '주차비', maintenance: '정비비',
   tax_insurance: '세금/보험', other: '기타', agency_drive: '대리운전비',
   beverage: '음료', meal: '식대', supplies: '물품구입', custom: '기타'
+};
+
+// 년/월/일을 각각 따로 입력하고, 자리수가 채워지면 자동으로 다음 칸(월→일)으로 커서가 넘어가는 날짜 입력.
+// 데이터 형태는 기존과 동일하게 'YYYY-MM-DD' 문자열을 그대로 주고받는다.
+const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; className?: string }> = ({ value, onChange, className }) => {
+  const initial = value ? value.split('-') : ['', '', ''];
+  const [y, setY] = useState(initial[0] || '');
+  const [m, setM] = useState(initial[1] || '');
+  const [d, setD] = useState(initial[2] || '');
+  const yRef = React.useRef<HTMLInputElement>(null);
+  const mRef = React.useRef<HTMLInputElement>(null);
+  const dRef = React.useRef<HTMLInputElement>(null);
+
+  // 부모가 값을 외부에서 바꿔 넣을 때(예: 수정 모달을 열 때)만 내부 표시값을 새로 맞춘다.
+  useEffect(() => {
+    const p = value ? value.split('-') : ['', '', ''];
+    setY(p[0] || ''); setM(p[1] || ''); setD(p[2] || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const emit = (ny: string, nm: string, nd: string) => {
+    if (ny.length === 4 && nm.length > 0 && nd.length > 0) {
+      onChange(`${ny}-${nm.padStart(2, '0')}-${nd.padStart(2, '0')}`);
+    }
+  };
+
+  const inputCls = "px-1.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  return (
+    <div className={`flex items-center gap-1 ${className || ''}`}>
+      <input
+        ref={yRef} type="text" inputMode="numeric" placeholder="YYYY" maxLength={4} value={y}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+          setY(v);
+          if (v.length === 4) mRef.current?.focus();
+          emit(v, m, d);
+        }}
+        className={`${inputCls} w-14`}
+      />
+      <span className="text-slate-500 text-xs">년</span>
+      <input
+        ref={mRef} type="text" inputMode="numeric" placeholder="MM" maxLength={2} value={m}
+        onFocus={(e) => e.target.select()}
+        onKeyDown={(e) => { if (e.key === 'Backspace' && m === '') yRef.current?.focus(); }}
+        onChange={(e) => {
+          let v = e.target.value.replace(/\D/g, '').slice(0, 2);
+          if (v.length === 2 && Number(v) > 12) v = '12';
+          setM(v);
+          if (v.length === 2) dRef.current?.focus();
+          emit(y, v, d);
+        }}
+        className={`${inputCls} w-10`}
+      />
+      <span className="text-slate-500 text-xs">월</span>
+      <input
+        ref={dRef} type="text" inputMode="numeric" placeholder="DD" maxLength={2} value={d}
+        onFocus={(e) => e.target.select()}
+        onKeyDown={(e) => { if (e.key === 'Backspace' && d === '') mRef.current?.focus(); }}
+        onChange={(e) => {
+          let v = e.target.value.replace(/\D/g, '').slice(0, 2);
+          if (v.length === 2 && Number(v) > 31) v = '31';
+          setD(v);
+          emit(y, m, v);
+        }}
+        className={`${inputCls} w-10`}
+      />
+      <span className="text-slate-500 text-xs">일</span>
+    </div>
+  );
 };
 
 function todayStr(): string {
@@ -235,6 +307,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [importVehicleRows, setImportVehicleRows] = useState<ImportableExpenseRow[]>([]);
   const [importSelectedIds, setImportSelectedIds] = useState<Set<string>>(new Set());
   const [importLoading, setImportLoading] = useState(false);
+  const [importProjectFilter, setImportProjectFilter] = useState<string>('all');
 
   // 가지급금 정산서 화면 출력(미리보기) - 주간업무일지/차량운행일지와 동일하게 화면에 그대로 보여준 뒤 엑셀/PDF로 출력
   const [previewAdvanceId, setPreviewAdvanceId] = useState<string | null>(null);
@@ -373,6 +446,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const openImportModal = async () => {
     setIsImportModalOpen(true);
     setImportSelectedIds(new Set());
+    setImportProjectFilter('all');
     if (!currentUser) return;
     setImportLoading(true);
     try {
@@ -392,35 +466,41 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       if (Array.isArray(dailyLogs)) {
         dailyLogs.forEach((log: any) => {
           const projectLabel = (log.projectIds || []).map((pid: string) => projectNameById[pid]).filter(Boolean).join(', ');
-          (log.expenses || []).forEach((exp: any) => {
-            worklogRows.push({
-              id: `wl-${exp.id}`,
-              date: log.date,
-              project: projectLabel,
-              description: exp.memo || WORKLOG_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
-              amount: exp.amount || 0,
-              account: exp.categoryCustom || WORKLOG_EXPENSE_LABEL[exp.category] || '',
-              companyName: '',
-              remark: '업무일지'
+          (log.expenses || [])
+            .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash_personal')
+            .forEach((exp: any) => {
+              worklogRows.push({
+                id: `wl-${exp.id}`,
+                date: log.date,
+                project: projectLabel,
+                description: exp.memo || WORKLOG_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
+                amount: exp.amount || 0,
+                account: exp.categoryCustom || WORKLOG_EXPENSE_LABEL[exp.category] || '',
+                companyName: '',
+                remark: '업무일지',
+                payMethodLabel: exp.payMethod === 'cash_personal' ? '개인현금' : '개인카드'
+              });
             });
-          });
         });
       }
 
       const vehicleRows: ImportableExpenseRow[] = [];
       if (Array.isArray(vehicleExpenses)) {
-        vehicleExpenses.forEach((exp: any) => {
-          vehicleRows.push({
-            id: `veh-${exp.id}`,
-            date: exp.date,
-            project: exp.projectName || '',
-            description: exp.memo || VEHICLE_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
-            amount: exp.amount || 0,
-            account: exp.categoryCustom || VEHICLE_EXPENSE_LABEL[exp.category] || '',
-            companyName: exp.merchantName || '',
-            remark: '차량운행일지'
+        vehicleExpenses
+          .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash')
+          .forEach((exp: any) => {
+            vehicleRows.push({
+              id: `veh-${exp.id}`,
+              date: exp.date,
+              project: exp.projectName || '',
+              description: exp.memo || VEHICLE_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
+              amount: exp.amount || 0,
+              account: exp.categoryCustom || VEHICLE_EXPENSE_LABEL[exp.category] || '',
+              companyName: exp.merchantName || '',
+              remark: '차량운행일지',
+              payMethodLabel: exp.payMethod === 'cash' ? '현금' : '개인카드'
+            });
           });
-        });
       }
 
       worklogRows.sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -937,8 +1017,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">기안일</label>
-                  <input type="date" value={apDraftDate} onChange={(e) => setApDraftDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                  <YMDInput value={apDraftDate} onChange={setApDraftDate} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">부서</label>
@@ -952,13 +1031,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">기간 시작</label>
-                  <input type="date" value={apPeriodStart} onChange={(e) => setApPeriodStart(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                  <YMDInput value={apPeriodStart} onChange={setApPeriodStart} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">기간 종료</label>
-                  <input type="date" value={apPeriodEnd} onChange={(e) => setApPeriodEnd(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                  <YMDInput value={apPeriodEnd} onChange={setApPeriodEnd} />
                 </div>
               </div>
 
@@ -988,9 +1065,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 <div className="space-y-2">
                   {apItems.map(item => (
                     <div key={item.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <input type="date" value={item.date} onChange={(e) => updateApItem(item.id, { date: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-bold shrink-0">날짜</span>
+                        <YMDInput value={item.date} onChange={(v) => updateApItem(item.id, { date: v })} />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <input type="text" placeholder="프로젝트명" value={item.project} onChange={(e) => updateApItem(item.id, { project: e.target.value })}
                           className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" placeholder="계정과목" value={item.account} onChange={(e) => updateApItem(item.id, { account: e.target.value })}
@@ -1042,16 +1121,31 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div className="px-6 pt-4">
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-                <button onClick={() => setImportTab('worklog')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
-                  <ClipboardList className="w-3.5 h-3.5" /> 업무일지 비용 ({importWorklogRows.length})
-                </button>
-                <button onClick={() => setImportTab('vehicle')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
-                  <Car className="w-3.5 h-3.5" /> 차량운행 비용 ({importVehicleRows.length})
-                </button>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setImportTab('worklog'); setImportProjectFilter('all'); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                    <ClipboardList className="w-3.5 h-3.5" /> 업무일지 비용 ({importWorklogRows.length})
+                  </button>
+                  <button onClick={() => { setImportTab('vehicle'); setImportProjectFilter('all'); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                    <Car className="w-3.5 h-3.5" /> 차량운행 비용 ({importVehicleRows.length})
+                  </button>
+                </div>
+                {(() => {
+                  const rows = importTab === 'worklog' ? importWorklogRows : importVehicleRows;
+                  const projectNames = Array.from(new Set(rows.map(r => r.project).filter(Boolean)));
+                  if (projectNames.length === 0) return null;
+                  return (
+                    <select value={importProjectFilter} onChange={(e) => setImportProjectFilter(e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="all">전체 프로젝트</option>
+                      {projectNames.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  );
+                })()}
               </div>
+              <p className="text-[11px] text-slate-500 mt-2">개인카드/현금으로 결제한 항목만 표시됩니다 (법인카드 결제분은 이미 별도 정산되므로 제외).</p>
             </div>
 
             <div className="p-6 pt-4 space-y-2">
@@ -1060,26 +1154,29 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                   <p className="text-xs text-slate-400">비용 내역을 불러오는 중입니다...</p>
                 </div>
-              ) : (
-                (importTab === 'worklog' ? importWorklogRows : importVehicleRows).length === 0 ? (
+              ) : (() => {
+                const rows = (importTab === 'worklog' ? importWorklogRows : importVehicleRows)
+                  .filter(r => importProjectFilter === 'all' || r.project === importProjectFilter);
+                return rows.length === 0 ? (
                   <div className="py-16 text-center text-slate-500 bg-slate-950/40 border border-dashed border-slate-800 rounded-2xl text-xs">
                     가져올 수 있는 비용 내역이 없습니다.
                   </div>
                 ) : (
-                  (importTab === 'worklog' ? importWorklogRows : importVehicleRows).map(row => (
+                  rows.map(row => (
                     <label key={row.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${importSelectedIds.has(row.id) ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-950/50 border-slate-800 hover:bg-slate-800/40'}`}>
                       <input type="checkbox" checked={importSelectedIds.has(row.id)} onChange={() => toggleImportSelect(row.id)}
                         className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0" />
-                      <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+                      <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs items-center">
                         <span className="text-slate-400">{row.date}</span>
-                        <span className="text-slate-300 truncate">{row.project || '-'}</span>
+                        <span className="text-blue-300 font-semibold truncate">{row.project || '-'}</span>
                         <span className="text-slate-300 truncate col-span-2 sm:col-span-1">{row.description}</span>
                         <span className="text-slate-100 font-bold text-right sm:text-left">{formatCurrencyInput(row.amount)}원</span>
+                        <span className="justify-self-start sm:justify-self-end px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">{row.payMethodLabel}</span>
                       </div>
                     </label>
                   ))
-                )
-              )}
+                );
+              })()}
             </div>
 
             <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex items-center justify-between gap-2">
@@ -1152,13 +1249,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">시작일</label>
-                  <input type="date" value={lvStartDate} onChange={(e) => setLvStartDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                  <YMDInput value={lvStartDate} onChange={setLvStartDate} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">종료일</label>
-                  <input type="date" value={lvEndDate} onChange={(e) => setLvEndDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                  <YMDInput value={lvEndDate} onChange={setLvEndDate} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">시작 시간 (반차 등, 선택)</label>
@@ -1203,8 +1298,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">신청일</label>
-                  <input type="date" value={lvSubmittedDate} onChange={(e) => setLvSubmittedDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                  <YMDInput value={lvSubmittedDate} onChange={setLvSubmittedDate} />
                 </div>
               </div>
             </div>
