@@ -57,6 +57,7 @@ const ANNUAL_TYPE_LABEL: Record<LeaveAnnualType, string> = {
 };
 const ANNUAL_TYPE_ORDER: LeaveAnnualType[] = ['full', 'half', 'quarter'];
 const ANNUAL_TYPE_MULTIPLIER: Record<LeaveAnnualType, number> = { full: 1, half: 0.5, quarter: 0.25 };
+const ANNUAL_TYPE_HOURS: Record<LeaveAnnualType, number> = { full: 0, half: 4, quarter: 2 };
 
 // 목록/뱃지 등에 보여줄 휴가구분 표시 텍스트 (특별휴가는 세부종류까지 함께 표기)
 function leaveCategoryDisplay(doc: LeaveRequest): string {
@@ -238,6 +239,18 @@ function formatPhoneNumber(value: string): string {
   if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, digits.length - 4)}-${digits.slice(-4)}`;
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+}
+
+// 반차(4시간)/반반차(2시간) 선택 시, 시작 시간을 입력하면 종료 시간을 자동으로 계산하기 위한 유틸
+function addHoursToTime(time: string, hours: number): string {
+  if (!time) return '';
+  const [h, m] = time.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return '';
+  let totalMinutes = h * 60 + m + hours * 60;
+  totalMinutes = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hh = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+  const mm = String(totalMinutes % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 function calcLeaveDays(startDate: string, endDate: string, multiplier: number = 1): number {
@@ -821,10 +834,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
           ${markCell('annual', annualExtra)}
           ${markCell('official')}
           ${markCell('sick')}
-          <td style="${cellBorder} text-align:center; ${markSpecial('birth')}">출산</td>
-          <td style="${cellBorder} text-align:center; ${markSpecial('summer')}">하기</td>
-          <td style="${cellBorder} text-align:center; ${markSpecial('family')}">경조</td>
-          <td style="${cellBorder} text-align:center; ${markSpecial('disaster')}">재해</td>
+          <td style="${cellBorder} text-align:center; ${markSpecial('birth')}">${doc.leaveCategory === 'special' && doc.specialType === 'birth' ? '출산' : ''}</td>
+          <td style="${cellBorder} text-align:center; ${markSpecial('summer')}">${doc.leaveCategory === 'special' && doc.specialType === 'summer' ? '하기' : ''}</td>
+          <td style="${cellBorder} text-align:center; ${markSpecial('family')}">${doc.leaveCategory === 'special' && doc.specialType === 'family' ? '경조' : ''}</td>
+          <td style="${cellBorder} text-align:center; ${markSpecial('disaster')}">${doc.leaveCategory === 'special' && doc.specialType === 'disaster' ? '재해' : ''}</td>
           ${markCell('health')}
           ${markCell('other', otherExtra)}
         </tr>
@@ -937,10 +950,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               {markCell('annual', doc.annualType && doc.annualType !== 'full' ? ANNUAL_TYPE_LABEL[doc.annualType] : undefined)}
               {markCell('official')}
               {markCell('sick')}
-              <td style={doc.leaveCategory === 'special' && doc.specialType === 'birth' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>출산</td>
-              <td style={doc.leaveCategory === 'special' && doc.specialType === 'summer' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>하기</td>
-              <td style={doc.leaveCategory === 'special' && doc.specialType === 'family' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>경조</td>
-              <td style={doc.leaveCategory === 'special' && doc.specialType === 'disaster' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>재해</td>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'birth' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>{doc.leaveCategory === 'special' && doc.specialType === 'birth' ? '출산' : ''}</td>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'summer' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>{doc.leaveCategory === 'special' && doc.specialType === 'summer' ? '하기' : ''}</td>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'family' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>{doc.leaveCategory === 'special' && doc.specialType === 'family' ? '경조' : ''}</td>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'disaster' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>{doc.leaveCategory === 'special' && doc.specialType === 'disaster' ? '재해' : ''}</td>
               {markCell('health')}
               {markCell('other', doc.leaveCategory === 'other' ? doc.leaveCategoryCustom : undefined)}
             </tr>
@@ -1591,7 +1604,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                             <div className="absolute z-30 mt-1 left-0 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
                               {ANNUAL_TYPE_ORDER.map(t => (
                                 <button key={t} type="button"
-                                  onClick={() => { setLvAnnualType(t); setLvAnnualDropdownOpen(false); }}
+                                  onClick={() => {
+                                    setLvAnnualType(t);
+                                    setLvAnnualDropdownOpen(false);
+                                    if (lvStartTime && (t === 'half' || t === 'quarter')) {
+                                      setLvEndTime(addHoursToTime(lvStartTime, ANNUAL_TYPE_HOURS[t]));
+                                    }
+                                  }}
                                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvAnnualType === t ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-300 hover:bg-slate-800'}`}>
                                   {ANNUAL_TYPE_LABEL[t]}
                                 </button>
@@ -1635,7 +1654,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">시작 시간 (반차 등, 선택)</label>
-                  <input type="time" value={lvStartTime} onChange={(e) => setLvStartTime(e.target.value)}
+                  <input type="time" value={lvStartTime} onChange={(e) => {
+                    const v = e.target.value;
+                    setLvStartTime(v);
+                    if (lvCategory === 'annual' && (lvAnnualType === 'half' || lvAnnualType === 'quarter')) {
+                      setLvEndTime(addHoursToTime(v, ANNUAL_TYPE_HOURS[lvAnnualType]));
+                    }
+                  }}
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
                 </div>
                 <div className="space-y-1.5">
@@ -1896,10 +1921,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'sick' ? 'bg-yellow-200' : ''}`}>
                           {previewLeave.leaveCategory === 'sick' && '●'}
                         </td>
-                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'birth' ? 'bg-yellow-200 font-bold' : ''}`}>출산</td>
-                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'summer' ? 'bg-yellow-200 font-bold' : ''}`}>하기</td>
-                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'family' ? 'bg-yellow-200 font-bold' : ''}`}>경조</td>
-                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'disaster' ? 'bg-yellow-200 font-bold' : ''}`}>재해</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'birth' ? 'bg-yellow-200 font-bold' : ''}`}>{previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'birth' ? '출산' : ''}</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'summer' ? 'bg-yellow-200 font-bold' : ''}`}>{previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'summer' ? '하기' : ''}</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'family' ? 'bg-yellow-200 font-bold' : ''}`}>{previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'family' ? '경조' : ''}</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'disaster' ? 'bg-yellow-200 font-bold' : ''}`}>{previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'disaster' ? '재해' : ''}</td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'health' ? 'bg-yellow-200' : ''}`}>
                           {previewLeave.leaveCategory === 'health' && '●'}
                         </td>
