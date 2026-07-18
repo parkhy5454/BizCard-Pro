@@ -1278,7 +1278,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {advanceList.map(doc => {
+              {[...advanceList].sort((a, b) => {
+                const byDate = (b.periodStart || '').localeCompare(a.periodStart || '');
+                if (byDate !== 0) return byDate;
+                return (b.createdAt || '').localeCompare(a.createdAt || '');
+              }).map(doc => {
                 const total = (doc.items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
                 return (
                   <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5">
@@ -1347,7 +1351,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {leaveList.map(doc => (
+              {[...leaveList].sort((a, b) => {
+                const byDate = (b.startDate || '').localeCompare(a.startDate || '');
+                if (byDate !== 0) return byDate;
+                return (b.createdAt || '').localeCompare(a.createdAt || '');
+              }).map(doc => (
                 <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
