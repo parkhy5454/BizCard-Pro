@@ -309,6 +309,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [importLoading, setImportLoading] = useState(false);
   const [importProjectFilter, setImportProjectFilter] = useState<string>('all');
 
+  // 항목별 "프로젝트명" 칸을 클릭하면 개인카드/현금 사용 내역 중에서 골라 그 줄을 채울 수 있게 하는 선택기
+  const [itemPickerForId, setItemPickerForId] = useState<string | null>(null);
+  const [itemPickerRows, setItemPickerRows] = useState<ImportableExpenseRow[]>([]);
+  const [itemPickerLoading, setItemPickerLoading] = useState(false);
+
   // 가지급금 정산서 화면 출력(미리보기) - 주간업무일지/차량운행일지와 동일하게 화면에 그대로 보여준 뒤 엑셀/PDF로 출력
   const [previewAdvanceId, setPreviewAdvanceId] = useState<string | null>(null);
 
@@ -371,6 +376,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setApItems([]);
     setApApprovalLine(defaultAdvanceApprovalLine());
     setEditingAdvanceId(null);
+    setItemPickerForId(null);
   };
 
   const resetLeaveForm = () => {
@@ -443,68 +449,73 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const apTotal = apItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
 
   // 업무일지(일일) / 차량운행 비용 목록을 불러와 가져오기 후보로 준비
+  // 업무일지/차량운행일지에서 개인카드·현금으로 결제한 항목을 불러온다 (가져오기 모달, 항목별 프로젝트명 선택 두 곳에서 공용으로 사용)
+  const fetchImportableRows = async (): Promise<{ worklogRows: ImportableExpenseRow[]; vehicleRows: ImportableExpenseRow[] }> => {
+    const headers = currentUser ? { 'x-user-id': currentUser.id } : undefined;
+    const [dailyLogs, projects, vehicleExpenses] = await Promise.all([
+      fetch('/api/worklogs/daily', { headers }).then(r => r.json()).catch(() => []),
+      fetch('/api/projects', { headers }).then(r => r.json()).catch(() => []),
+      fetch('/api/vehicles/expenses', { headers }).then(r => r.json()).catch(() => [])
+    ]);
+
+    const projectNameById: Record<string, string> = {};
+    if (Array.isArray(projects)) {
+      projects.forEach((p: any) => { projectNameById[p.id] = p.name || p.title || ''; });
+    }
+
+    const worklogRows: ImportableExpenseRow[] = [];
+    if (Array.isArray(dailyLogs)) {
+      dailyLogs.forEach((log: any) => {
+        const projectLabel = (log.projectIds || []).map((pid: string) => projectNameById[pid]).filter(Boolean).join(', ');
+        (log.expenses || [])
+          .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash_personal')
+          .forEach((exp: any) => {
+            worklogRows.push({
+              id: `wl-${exp.id}`,
+              date: log.date,
+              project: projectLabel,
+              description: exp.memo || WORKLOG_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
+              amount: exp.amount || 0,
+              account: exp.categoryCustom || WORKLOG_EXPENSE_LABEL[exp.category] || '',
+              companyName: '',
+              remark: '업무일지',
+              payMethodLabel: exp.payMethod === 'cash_personal' ? '개인현금' : '개인카드'
+            });
+          });
+      });
+    }
+
+    const vehicleRows: ImportableExpenseRow[] = [];
+    if (Array.isArray(vehicleExpenses)) {
+      vehicleExpenses
+        .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash')
+        .forEach((exp: any) => {
+          vehicleRows.push({
+            id: `veh-${exp.id}`,
+            date: exp.date,
+            project: exp.projectName || '',
+            description: exp.memo || VEHICLE_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
+            amount: exp.amount || 0,
+            account: exp.categoryCustom || VEHICLE_EXPENSE_LABEL[exp.category] || '',
+            companyName: exp.merchantName || '',
+            remark: '차량운행일지',
+            payMethodLabel: exp.payMethod === 'cash' ? '현금' : '개인카드'
+          });
+        });
+    }
+
+    worklogRows.sort((a, b) => (a.date < b.date ? 1 : -1));
+    vehicleRows.sort((a, b) => (a.date < b.date ? 1 : -1));
+    return { worklogRows, vehicleRows };
+  };
+
   const openImportModal = async () => {
     setIsImportModalOpen(true);
     setImportSelectedIds(new Set());
     setImportProjectFilter('all');
-    if (!currentUser) return;
     setImportLoading(true);
     try {
-      const headers = { 'x-user-id': currentUser.id };
-      const [dailyLogs, projects, vehicleExpenses] = await Promise.all([
-        fetch('/api/worklogs/daily', { headers }).then(r => r.json()).catch(() => []),
-        fetch('/api/projects', { headers }).then(r => r.json()).catch(() => []),
-        fetch('/api/vehicles/expenses', { headers }).then(r => r.json()).catch(() => [])
-      ]);
-
-      const projectNameById: Record<string, string> = {};
-      if (Array.isArray(projects)) {
-        projects.forEach((p: any) => { projectNameById[p.id] = p.name || p.title || ''; });
-      }
-
-      const worklogRows: ImportableExpenseRow[] = [];
-      if (Array.isArray(dailyLogs)) {
-        dailyLogs.forEach((log: any) => {
-          const projectLabel = (log.projectIds || []).map((pid: string) => projectNameById[pid]).filter(Boolean).join(', ');
-          (log.expenses || [])
-            .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash_personal')
-            .forEach((exp: any) => {
-              worklogRows.push({
-                id: `wl-${exp.id}`,
-                date: log.date,
-                project: projectLabel,
-                description: exp.memo || WORKLOG_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
-                amount: exp.amount || 0,
-                account: exp.categoryCustom || WORKLOG_EXPENSE_LABEL[exp.category] || '',
-                companyName: '',
-                remark: '업무일지',
-                payMethodLabel: exp.payMethod === 'cash_personal' ? '개인현금' : '개인카드'
-              });
-            });
-        });
-      }
-
-      const vehicleRows: ImportableExpenseRow[] = [];
-      if (Array.isArray(vehicleExpenses)) {
-        vehicleExpenses
-          .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash')
-          .forEach((exp: any) => {
-            vehicleRows.push({
-              id: `veh-${exp.id}`,
-              date: exp.date,
-              project: exp.projectName || '',
-              description: exp.memo || VEHICLE_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
-              amount: exp.amount || 0,
-              account: exp.categoryCustom || VEHICLE_EXPENSE_LABEL[exp.category] || '',
-              companyName: exp.merchantName || '',
-              remark: '차량운행일지',
-              payMethodLabel: exp.payMethod === 'cash' ? '현금' : '개인카드'
-            });
-          });
-      }
-
-      worklogRows.sort((a, b) => (a.date < b.date ? 1 : -1));
-      vehicleRows.sort((a, b) => (a.date < b.date ? 1 : -1));
+      const { worklogRows, vehicleRows } = await fetchImportableRows();
       setImportWorklogRows(worklogRows);
       setImportVehicleRows(vehicleRows);
     } catch (err) {
@@ -512,6 +523,30 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     } finally {
       setImportLoading(false);
     }
+  };
+
+  // 항목의 "프로젝트명" 칸을 클릭했을 때 개인카드/현금 사용 내역 선택기를 연다
+  const openItemPicker = async (itemId: string) => {
+    setItemPickerForId(itemId);
+    if (itemPickerRows.length === 0) {
+      setItemPickerLoading(true);
+      try {
+        const { worklogRows, vehicleRows } = await fetchImportableRows();
+        setItemPickerRows([...worklogRows, ...vehicleRows]);
+      } catch (err) {
+        console.error('Item picker fetch error:', err);
+      } finally {
+        setItemPickerLoading(false);
+      }
+    }
+  };
+
+  const applyItemPicker = (itemId: string, row: ImportableExpenseRow) => {
+    updateApItem(itemId, {
+      date: row.date, project: row.project, description: row.description,
+      amount: row.amount, account: row.account, companyName: row.companyName, remark: row.remark
+    });
+    setItemPickerForId(null);
   };
 
   const toggleImportSelect = (id: string) => {
@@ -1070,8 +1105,45 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <YMDInput value={item.date} onChange={(v) => updateApItem(item.id, { date: v })} />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <input type="text" placeholder="프로젝트명" value={item.project} onChange={(e) => updateApItem(item.id, { project: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <div className="relative">
+                          <input type="text" placeholder="프로젝트명 (클릭하면 개인카드/현금 사용내역에서 선택)" value={item.project}
+                            onChange={(e) => updateApItem(item.id, { project: e.target.value })}
+                            onFocus={() => openItemPicker(item.id)}
+                            onBlur={() => { setTimeout(() => { setItemPickerForId(prev => prev === item.id ? null : prev); }, 150); }}
+                            className="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          {itemPickerForId === item.id && (
+                            <div className="absolute z-30 mt-1 w-full sm:w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                              {itemPickerLoading ? (
+                                <div className="p-3 text-xs text-slate-400">불러오는 중...</div>
+                              ) : (() => {
+                                const q = item.project.trim().toLowerCase();
+                                const filtered = itemPickerRows.filter(r =>
+                                  !q || r.project.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
+                                if (filtered.length === 0) {
+                                  return <div className="p-3 text-xs text-slate-500">일치하는 개인카드/현금 사용 내역이 없습니다.</div>;
+                                }
+                                return filtered.map(r => (
+                                  <button key={r.id} type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => applyItemPicker(item.id, r)}
+                                    className="w-full text-left px-3 py-2 hover:bg-slate-800 border-b border-slate-800 last:border-0 transition-colors">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-xs font-semibold text-blue-300 truncate">{r.project || '(프로젝트 없음)'}</span>
+                                      <span className="text-[10px] text-slate-500 shrink-0">{r.date}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                                      <span className="text-[11px] text-slate-400 truncate">{r.description}</span>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{r.payMethodLabel}</span>
+                                        <span className="text-xs font-bold text-slate-200">{formatCurrencyInput(r.amount)}원</span>
+                                      </div>
+                                    </div>
+                                  </button>
+                                ));
+                              })()}
+                            </div>
+                          )}
+                        </div>
                         <input type="text" placeholder="계정과목" value={item.account} onChange={(e) => updateApItem(item.id, { account: e.target.value })}
                           className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" placeholder="상호" value={item.companyName} onChange={(e) => updateApItem(item.id, { companyName: e.target.value })}
