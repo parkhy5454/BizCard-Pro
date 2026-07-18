@@ -300,6 +300,7 @@ export interface LeaveRequest {
   specialType?: LeaveSpecialType;   // 특별휴가 선택시 세부 종류
   specialTypeCustom?: string;       // 특별휴가 세부 종류가 직접입력일 때의 텍스트
   annualType?: LeaveAnnualType;     // 연차 선택시 사용 단위 (년차/반차/반반차)
+  totalAnnualDays?: number;         // 연차 선택시, 그 해 전체 부여된 연차 일수 (누적 표기 계산용)
   reason: string;                // 사유
   startDate: string;             // 시작일 YYYY-MM-DD
   endDate: string;               // 종료일 YYYY-MM-DD
