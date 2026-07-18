@@ -1601,7 +1601,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     c === 'special' ? (
                       <div key={c} className="relative">
                         <button type="button"
-                          onClick={() => { setLvCategory('special'); setLvSpecialDropdownOpen(v => !v); }}
+                          onClick={() => { setLvCategory('special'); setLvSpecialDropdownOpen(v => !v); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
                           className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'special' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
                           <span>
                             특별휴가{lvCategory === 'special' ? ` · ${lvSpecialType === 'custom' ? (lvSpecialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[lvSpecialType]}` : ''}
@@ -1614,7 +1614,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                             <div className="absolute z-30 mt-1 left-0 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
                               {SPECIAL_TYPE_ORDER.map(t => (
                                 <button key={t} type="button"
-                                  onClick={() => { setLvSpecialType(t); if (t !== 'custom') setLvSpecialDropdownOpen(false); }}
+                                  onClick={() => { setLvSpecialType(t); if (t !== 'custom') setLvSpecialDropdownOpen(false); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
                                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvSpecialType === t ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-300 hover:bg-slate-800'}`}>
                                   {SPECIAL_TYPE_LABEL[t]}
                                 </button>
@@ -1662,7 +1662,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         )}
                       </div>
                     ) : (
-                      <button key={c} type="button" onClick={() => setLvCategory(c)}
+                      <button key={c} type="button" onClick={() => { setLvCategory(c); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === c ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
                         {LEAVE_CATEGORY_LABEL[c]}
                       </button>
@@ -1690,14 +1690,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <label className="text-xs font-bold text-slate-300">시작일</label>
                   <YMDInput value={lvStartDate} onChange={(v) => {
                     setLvStartDate(v);
-                    if (lvCategory === 'annual' && lvAnnualType === 'full') { setLvStartTime('09:00'); setLvEndTime('18:00'); }
+                    const isHalfOrQuarter = lvCategory === 'annual' && (lvAnnualType === 'half' || lvAnnualType === 'quarter');
+                    if (!isHalfOrQuarter) { setLvStartTime('09:00'); setLvEndTime('18:00'); }
                   }} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">종료일</label>
                   <YMDInput value={lvEndDate} onChange={(v) => {
                     setLvEndDate(v);
-                    if (lvCategory === 'annual' && lvAnnualType === 'full') { setLvStartTime('09:00'); setLvEndTime('18:00'); }
+                    const isHalfOrQuarter = lvCategory === 'annual' && (lvAnnualType === 'half' || lvAnnualType === 'quarter');
+                    if (!isHalfOrQuarter) { setLvStartTime('09:00'); setLvEndTime('18:00'); }
                   }} />
                 </div>
                 <div className="space-y-1.5">
