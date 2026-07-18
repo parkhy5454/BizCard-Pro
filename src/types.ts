@@ -286,6 +286,9 @@ export type LeaveCategory =
 
 export type LeaveSpecialType = 'birth' | 'summer' | 'family' | 'disaster' | 'custom';
 
+// 연차 사용 단위: 년차(하루 종일, 1일) / 반차(4시간, 0.5일) / 반반차(2시간, 0.25일)
+export type LeaveAnnualType = 'full' | 'half' | 'quarter';
+
 // 휴가 신청서
 export interface LeaveRequest {
   id: string;
@@ -296,6 +299,7 @@ export interface LeaveRequest {
   leaveCategoryCustom?: string;  // 기타 선택시 직접 입력
   specialType?: LeaveSpecialType;   // 특별휴가 선택시 세부 종류
   specialTypeCustom?: string;       // 특별휴가 세부 종류가 직접입력일 때의 텍스트
+  annualType?: LeaveAnnualType;     // 연차 선택시 사용 단위 (년차/반차/반반차)
   reason: string;                // 사유
   startDate: string;             // 시작일 YYYY-MM-DD
   endDate: string;               // 종료일 YYYY-MM-DD
