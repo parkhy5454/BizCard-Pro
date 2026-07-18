@@ -776,7 +776,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       </table>`;
 
     const fullHtml = `
-      <div style="border: 2px solid #000000; box-sizing: border-box; width: 190mm; min-height: 277mm; padding: 10mm;">
+      <div style="border: 2px solid #000000; box-sizing: border-box; width: 190mm; padding: 10mm;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">가지급금 정산서</span>
       </div>
@@ -816,7 +816,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
     const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
     return (
-      <div style={{ width: '210mm', height: '277mm', boxSizing: 'border-box', margin: '0 auto', padding: '10mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000', overflow: 'hidden' }}>
+      <div style={{ width: '210mm', boxSizing: 'border-box', margin: '0 auto', padding: '10mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000' }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>가지급금 정산서</span>
         </div>
@@ -962,7 +962,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       </table>`;
 
     const fullHtml = `
-      <div style="border: 2px solid #000000; box-sizing: border-box; width: 190mm; min-height: 277mm; padding: 10mm;">
+      <div style="border: 2px solid #000000; box-sizing: border-box; width: 190mm; padding: 10mm;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
@@ -1010,7 +1010,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       );
     };
     return (
-      <div style={{ width: '210mm', height: '277mm', boxSizing: 'border-box', margin: '0 auto', padding: '10mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000', overflow: 'hidden' }}>
+      <div style={{ width: '210mm', boxSizing: 'border-box', margin: '0 auto', padding: '10mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000' }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>휴가 신청서</span>
         </div>
@@ -1891,7 +1891,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 (전체 페이지가 잘리지 않고 한 화면에 맞춰 보이도록 축소) */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-hidden">
                 <FitPage>
-                <div className="w-[210mm] h-[297mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-2 border-black text-xs font-sans leading-tight overflow-hidden">
+                <div className="w-[210mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-2 border-black text-xs font-sans leading-tight">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">가지급금 정산서</span>
                   </div>
@@ -1995,7 +1995,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 (전체 페이지가 잘리지 않고 한 화면에 맞춰 보이도록 축소) */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-hidden">
                 <FitPage>
-                <div className="w-[210mm] h-[297mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-2 border-black text-xs font-sans leading-tight overflow-hidden">
+                <div className="w-[210mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-2 border-black text-xs font-sans leading-tight">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
                   </div>
