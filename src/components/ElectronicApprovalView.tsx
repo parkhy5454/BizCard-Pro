@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
   Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
-  Download, ClipboardList, Car, Wrench
+  Download, ClipboardList, Car, Wrench, ChevronDown
 } from 'lucide-react';
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -87,6 +87,43 @@ const VEHICLE_EXPENSE_LABEL: Record<string, string> = {
 
 // 년/월/일을 각각 따로 입력하고, 자리수가 채워지면 자동으로 다음 칸(월→일)으로 커서가 넘어가는 날짜 입력.
 // 데이터 형태는 기존과 동일하게 'YYYY-MM-DD' 문자열을 그대로 주고받는다.
+// A4 용지 미리보기를 화면에 꽉 차게 축소해서, 스크롤 없이 전체 페이지가 한 번에 보이도록 하는 래퍼.
+// (내용 크기와 컨테이너 크기를 재서 비율에 맞게 transform: scale을 적용한다)
+const FitPage: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const pageRef = React.useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [pageSize, setPageSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    const compute = () => {
+      if (!containerRef.current || !pageRef.current) return;
+      const cw = containerRef.current.clientWidth;
+      const ch = containerRef.current.clientHeight;
+      const pw = pageRef.current.scrollWidth;
+      const ph = pageRef.current.scrollHeight;
+      if (!pw || !ph || !cw || !ch) return;
+      setPageSize({ w: pw, h: ph });
+      setScale(Math.min(cw / pw, ch / ph, 1));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    if (containerRef.current) ro.observe(containerRef.current);
+    if (pageRef.current) ro.observe(pageRef.current);
+    return () => ro.disconnect();
+  }, [children]);
+
+  return (
+    <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+      <div style={{ width: pageSize.w ? pageSize.w * scale : undefined, height: pageSize.h ? pageSize.h * scale : undefined }}>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          <div ref={pageRef} style={{ display: 'inline-block' }}>{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; className?: string }> = ({ value, onChange, className }) => {
   const initial = value ? value.split('-') : ['', '', ''];
   const [y, setY] = useState(initial[0] || '');
@@ -246,6 +283,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [lvCategoryCustom, setLvCategoryCustom] = useState('');
   const [lvSpecialType, setLvSpecialType] = useState<LeaveSpecialType>('birth');
   const [lvSpecialTypeCustom, setLvSpecialTypeCustom] = useState('');
+  const [lvSpecialDropdownOpen, setLvSpecialDropdownOpen] = useState(false);
   const [lvReason, setLvReason] = useState('');
   const [lvStartDate, setLvStartDate] = useState(todayStr());
   const [lvEndDate, setLvEndDate] = useState(todayStr());
@@ -310,6 +348,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setLvCategoryCustom('');
     setLvSpecialType('birth');
     setLvSpecialTypeCustom('');
+    setLvSpecialDropdownOpen(false);
     setLvReason('');
     setLvStartDate(todayStr());
     setLvEndDate(todayStr());
@@ -1446,32 +1485,46 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 <label className="text-xs font-bold text-slate-300">휴가 구분</label>
                 <div className="flex flex-wrap gap-2">
                   {LEAVE_CATEGORY_ORDER.map(c => (
-                    <button key={c} type="button" onClick={() => setLvCategory(c)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === c ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
-                      {LEAVE_CATEGORY_LABEL[c]}
-                    </button>
+                    c === 'special' ? (
+                      <div key={c} className="relative">
+                        <button type="button"
+                          onClick={() => { setLvCategory('special'); setLvSpecialDropdownOpen(v => !v); }}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'special' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
+                          <span>
+                            특별휴가{lvCategory === 'special' ? ` · ${lvSpecialType === 'custom' ? (lvSpecialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[lvSpecialType]}` : ''}
+                          </span>
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                        {lvSpecialDropdownOpen && (
+                          <>
+                            <div className="fixed inset-0 z-20" onClick={() => setLvSpecialDropdownOpen(false)} />
+                            <div className="absolute z-30 mt-1 left-0 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                              {SPECIAL_TYPE_ORDER.map(t => (
+                                <button key={t} type="button"
+                                  onClick={() => { setLvSpecialType(t); if (t !== 'custom') setLvSpecialDropdownOpen(false); }}
+                                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvSpecialType === t ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-300 hover:bg-slate-800'}`}>
+                                  {SPECIAL_TYPE_LABEL[t]}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <button key={c} type="button" onClick={() => setLvCategory(c)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === c ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
+                        {LEAVE_CATEGORY_LABEL[c]}
+                      </button>
+                    )
                   ))}
                 </div>
                 {lvCategory === 'other' && (
                   <input type="text" placeholder="휴가 구분 직접 입력" value={lvCategoryCustom} onChange={(e) => setLvCategoryCustom(e.target.value)}
                     className="w-full mt-2 px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
                 )}
-                {lvCategory === 'special' && (
-                  <div className="mt-2 space-y-2 p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
-                    <p className="text-[11px] font-bold text-slate-400">특별휴가 세부 종류</p>
-                    <div className="flex flex-wrap gap-2">
-                      {SPECIAL_TYPE_ORDER.map(t => (
-                        <button key={t} type="button" onClick={() => setLvSpecialType(t)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvSpecialType === t ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
-                          {SPECIAL_TYPE_LABEL[t]}
-                        </button>
-                      ))}
-                    </div>
-                    {lvSpecialType === 'custom' && (
-                      <input type="text" placeholder="특별휴가 종류 직접 입력" value={lvSpecialTypeCustom} onChange={(e) => setLvSpecialTypeCustom(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
-                    )}
-                  </div>
+                {lvCategory === 'special' && lvSpecialType === 'custom' && (
+                  <input type="text" placeholder="특별휴가 종류 직접 입력" value={lvSpecialTypeCustom} onChange={(e) => setLvSpecialTypeCustom(e.target.value)}
+                    className="w-full mt-2 px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
                 )}
               </div>
 
@@ -1554,8 +1607,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         const previewApprovalLine = previewDoc.approvalLine || [];
         const total = previewItems.reduce((s, it) => s + (Number(it.amount) || 0), 0);
         return (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4">
-            <div className="w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden">
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
                 <div className="flex items-center gap-2">
@@ -1577,9 +1630,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
               </div>
 
-              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
-              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center">
-                <div className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans leading-tight">
+              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 (전체 페이지가 잘리지 않고 한 화면에 맞춰 보이도록 축소) */}
+              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-hidden">
+                <FitPage>
+                <div className="w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans leading-tight">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">가지급금 정산서</span>
                   </div>
@@ -1643,6 +1697,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     </tbody>
                   </table>
                 </div>
+                </FitPage>
               </div>
             </div>
           </div>
@@ -1656,8 +1711,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         const previewLeaveApprovalLine = previewLeave.approvalLine || [];
         const catLabel = previewLeave.leaveCategory === 'other' ? (previewLeave.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[previewLeave.leaveCategory];
         return (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4">
-            <div className="w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden">
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
                 <div className="flex items-center gap-2">
@@ -1679,9 +1734,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
               </div>
 
-              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
-              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center">
-                <div className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans leading-tight">
+              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 (전체 페이지가 잘리지 않고 한 화면에 맞춰 보이도록 축소) */}
+              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-hidden">
+                <FitPage>
+                <div className="w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans leading-tight">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
                   </div>
@@ -1765,6 +1821,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <p className="text-center mt-10">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
                   <p className="text-center mt-8">{previewLeave.submittedDate.replace(/-/g, '. ')}</p>
                 </div>
+                </FitPage>
               </div>
             </div>
           </div>
