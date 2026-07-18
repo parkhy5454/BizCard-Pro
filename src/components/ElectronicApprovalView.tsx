@@ -183,100 +183,6 @@ function makeDraftNumber(existing: string[]): string {
   return `${prefix}-${String(seq).padStart(2, '0')}`;
 }
 
-// 인쇄용 팝업 창을 열어 문서 형태로 출력
-function openPrintWindow(title: string, bodyHtml: string) {
-  const win = window.open('', '_blank', 'width=850,height=1000');
-  if (!win) { alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 팝업 차단을 해제해 주세요.'); return; }
-  win.document.write(`
-    <!DOCTYPE html><html><head><meta charset="utf-8" />
-    <title>${title}</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; padding: 24px; color: #111; }
-      table { border-collapse: collapse; width: 100%; }
-      td, th { border: 1px solid #111; padding: 8px 10px; font-size: 13px; vertical-align: middle; }
-      h1 { text-align: center; font-size: 26px; text-decoration: underline; margin-bottom: 28px; }
-      .approval-wrap { display: flex; justify-content: flex-end; margin-bottom: 10px; }
-      .approval-table { width: auto; }
-      .approval-table td, .approval-table th { text-align: center; min-width: 90px; }
-      .label-cell { background: #f3f4f6; font-weight: bold; white-space: nowrap; width: 110px; }
-      .center { text-align: center; }
-      .right { text-align: right; }
-      .footer-text { text-align: center; margin-top: 40px; font-size: 14px; }
-      .footer-date { text-align: center; margin-top: 30px; font-size: 14px; }
-      @media print { body { padding: 0; } }
-    </style>
-    </head><body>${bodyHtml}
-    <script>window.onload = () => { window.print(); };</script>
-    </body></html>
-  `);
-  win.document.close();
-}
-
-function approvalLineHtml(line: ApprovalStep[]): string {
-  return `
-    <div class="approval-wrap">
-      <table class="approval-table">
-        <tr>
-          <td rowspan="2" class="label-cell">결&nbsp;&nbsp;재</td>
-          ${line.map(s => `<th>${s.role}</th>`).join('')}
-        </tr>
-        <tr>
-          ${line.map(s => `<td style="height:50px;">${s.date ? s.date + (s.name ? '<br/>' + s.name : '') : ''}</td>`).join('')}
-        </tr>
-      </table>
-    </div>
-  `;
-}
-
-function buildLeavePrintHtml(doc: LeaveRequest): string {
-  const catLabel = doc.leaveCategory === 'other' ? (doc.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[doc.leaveCategory];
-  return `
-    <h1>휴가 신청서</h1>
-    ${approvalLineHtml(doc.approvalLine || [])}
-    <p>기안번호 : ${doc.draftNumber}</p>
-    <table>
-      <tr><td class="label-cell">소속</td><td colspan="3">${doc.department}</td><td class="label-cell">휴가자</td><td colspan="2">${doc.author}</td></tr>
-      <tr><td class="label-cell">휴가구분</td><td colspan="6">${catLabel}</td></tr>
-      <tr><td class="label-cell">사유</td><td colspan="6">${doc.reason || ''}</td></tr>
-      <tr><td class="label-cell">기간</td><td colspan="6">${doc.startDate} ~ ${doc.endDate}${doc.startTime ? `　${doc.startTime} ~ ${doc.endTime || ''}` : ''}　${doc.annualLeaveNote ? `(${doc.annualLeaveNote})` : `(${doc.days}일)`}</td></tr>
-      <tr><td class="label-cell">연락처</td><td colspan="2">집: ${doc.homeContact || ''}<br/>휴대폰: ${doc.mobileContact || ''}</td><td class="label-cell">직무대행자</td><td colspan="3">${doc.actingPerson || ''}</td></tr>
-    </table>
-    <p class="footer-text">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
-    <p class="footer-date">${doc.submittedDate.replace(/-/g, '. ')}</p>
-  `;
-}
-
-function buildAdvancePrintHtml(doc: AdvancePaymentSettlement): string {
-  const items = doc.items || [];
-  const approvalLine = doc.approvalLine || [];
-  const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-  return `
-    <h1>가지급금 정산서</h1>
-    ${approvalLineHtml(approvalLine)}
-    <table style="margin-bottom:16px;">
-      <tr><td class="label-cell">회사명</td><td colspan="3">${doc.companyName}</td></tr>
-      <tr><td class="label-cell">기간</td><td colspan="3">${formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</td></tr>
-      <tr><td class="label-cell">부서</td><td colspan="3">${doc.department}</td></tr>
-      <tr><td class="label-cell">작성자</td><td colspan="3">${doc.author}</td></tr>
-      <tr><td class="label-cell">기안일</td><td colspan="3">${doc.draftDate}</td></tr>
-    </table>
-    <table>
-      <tr>
-        <th>Date(날짜)</th><th>Project(프로젝트명)</th><th>Description(내용)</th>
-        <th>Expenses(금액/원)</th><th>Account(계정과목)</th><th>Company name(상호)</th><th>Remark(비고)</th>
-      </tr>
-      ${items.map(it => `
-        <tr>
-          <td class="center">${it.date}</td><td>${it.project || ''}</td><td>${it.description}</td>
-          <td class="right">${it.amount.toLocaleString('ko-KR')}</td><td class="center">${it.account || ''}</td><td class="center">${it.companyName || ''}</td><td>${it.remark || ''}</td>
-        </tr>
-      `).join('')}
-      <tr><td colspan="3" class="center label-cell">총 합계</td><td class="right label-cell">${total.toLocaleString('ko-KR')}</td><td colspan="3"></td></tr>
-    </table>
-  `;
-}
-
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave'>('advance');
 
@@ -317,6 +223,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
   // 가지급금 정산서 화면 출력(미리보기) - 주간업무일지/차량운행일지와 동일하게 화면에 그대로 보여준 뒤 엑셀/PDF로 출력
   const [previewAdvanceId, setPreviewAdvanceId] = useState<string | null>(null);
+  // 휴가 신청서 화면 출력(미리보기)
+  const [previewLeaveId, setPreviewLeaveId] = useState<string | null>(null);
 
   // 휴가 신청서 폼 상태
   const [lvDraftNumber, setLvDraftNumber] = useState('');
@@ -748,6 +656,110 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     );
   };
 
+  const handlePrintLeave = () => { window.print(); };
+
+  // 화면에 보이는 휴가 신청서 양식 그대로 엑셀(.xls)로 다운로드
+  const downloadLeaveToExcel = (doc: LeaveRequest) => {
+    const esc = (str: any): string => (str === null || str === undefined ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+    const cellBorder = 'border: 0.5pt solid #000000;';
+    const grayBg = 'background-color: #f3f4f6;';
+    const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
+    const approvalLine = doc.approvalLine || [];
+    const catLabel = doc.leaveCategory === 'other' ? (doc.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[doc.leaveCategory];
+
+    const approvalHtml = `
+      <table style="border-collapse: collapse; ${baseFont}">
+        <tr>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:90px;">${esc(s.role)}</th>`).join('')}
+        </tr>
+        <tr>
+          ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
+        </tr>
+      </table>`;
+
+    const bodyHtml = `
+      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px;">
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; width:15%;">소속</td><td style="${cellBorder}" colspan="2">${esc(doc.department)}</td><td style="${cellBorder} ${grayBg} font-weight:bold; width:12%;">휴가자</td><td style="${cellBorder}" colspan="2">${esc(doc.author)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">휴가구분</td><td style="${cellBorder}" colspan="5">${esc(catLabel)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">사유</td><td style="${cellBorder}" colspan="5">${esc(doc.reason || '')}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td><td style="${cellBorder}" colspan="5">${esc(doc.startDate)} ~ ${esc(doc.endDate)}${doc.startTime ? ` ${esc(doc.startTime)} ~ ${esc(doc.endTime || '')}` : ''} (${doc.annualLeaveNote ? esc(doc.annualLeaveNote) : `${doc.days}일`})</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">연락처</td><td style="${cellBorder}" colspan="2">집: ${esc(doc.homeContact || '')} / 휴대폰: ${esc(doc.mobileContact || '')}</td><td style="${cellBorder} ${grayBg} font-weight:bold;">직무대행자</td><td style="${cellBorder}" colspan="2">${esc(doc.actingPerson || '')}</td></tr>
+      </table>`;
+
+    const fullHtml = `
+      <div style="text-align:center; margin-bottom:16px;">
+        <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
+      </div>
+      <div style="display:flex; justify-content:flex-end;">${approvalHtml}</div>
+      <p style="${baseFont}">기안번호 : ${esc(doc.draftNumber)}</p>
+      ${bodyHtml}
+      <p style="text-align:center; margin-top:30px; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
+      <p style="text-align:center; margin-top:20px; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</p>
+    `;
+
+    const excelContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="utf-8">
+      <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+      <x:Name>휴가신청서</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+      </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      </head><body>${fullHtml}</body></html>
+    `;
+
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `휴가신청서_${doc.draftNumber || todayStr()}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // 인쇄 전용 정적 렌더러: #print-root 포털에 렌더링되어 화면 미리보기와 별개로 단독 인쇄됨
+  const renderPrintableLeave = (doc: LeaveRequest | undefined) => {
+    if (!doc) return null;
+    const approvalLine = doc.approvalLine || [];
+    const catLabel = doc.leaveCategory === 'other' ? (doc.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[doc.leaveCategory];
+    const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
+    const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
+    return (
+      <div style={{ width: '210mm', margin: '0 auto', padding: '12mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11 }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>휴가 신청서</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <table style={{ borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 60 }}>결&nbsp;&nbsp;재</td>
+                {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 90 }}>{s.role}</th>)}
+              </tr>
+              <tr>
+                {approvalLine.map((s, i) => <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 40 }}>{s.date || ''}</td>)}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style={{ fontSize: 11 }}>기안번호 : {doc.draftNumber}</p>
+        <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', marginTop: 10 }}>
+          <tbody>
+            <tr><td style={{ ...grayStyle, width: '15%' }}>소속</td><td style={cellStyle} colSpan={2}>{doc.department}</td><td style={{ ...grayStyle, width: '12%' }}>휴가자</td><td style={cellStyle} colSpan={2}>{doc.author}</td></tr>
+            <tr><td style={grayStyle}>휴가구분</td><td style={cellStyle} colSpan={5}>{catLabel}</td></tr>
+            <tr><td style={grayStyle}>사유</td><td style={cellStyle} colSpan={5}>{doc.reason || ''}</td></tr>
+            <tr><td style={grayStyle}>기간</td><td style={cellStyle} colSpan={5}>{doc.startDate} ~ {doc.endDate}{doc.startTime ? ` ${doc.startTime} ~ ${doc.endTime || ''}` : ''} ({doc.annualLeaveNote || `${doc.days}일`})</td></tr>
+            <tr><td style={grayStyle}>연락처</td><td style={cellStyle} colSpan={2}>집: {doc.homeContact || ''} / 휴대폰: {doc.mobileContact || ''}</td><td style={grayStyle}>직무대행자</td><td style={cellStyle} colSpan={2}>{doc.actingPerson || ''}</td></tr>
+          </tbody>
+        </table>
+        <p style={{ textAlign: 'center', marginTop: 40 }}>위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
+        <p style={{ textAlign: 'center', marginTop: 30 }}>{doc.submittedDate.replace(/-/g, '. ')}</p>
+      </div>
+    );
+  };
+
   const saveAdvance = async () => {
     if (!apCompanyName.trim()) { alert('회사명을 입력해 주세요.'); return; }
     if (!currentUser) return;
@@ -1020,8 +1032,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       <ApprovalLineMini line={doc.approvalLine || []} />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => openPrintWindow('휴가 신청서', buildLeavePrintHtml(doc))} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="인쇄">
-                        <Printer className="w-4 h-4" />
+                      <button onClick={() => setPreviewLeaveId(doc.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="출력 미리보기">
+                        <Eye className="w-4 h-4" />
                       </button>
                       <button onClick={() => openEditLeave(doc)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors">
                         <Edit2 className="w-4 h-4" />
@@ -1514,9 +1526,110 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         );
       })()}
 
+      {/* 휴가 신청서 출력 미리보기 (업무일지/차량관리와 동일한 방식: 화면에 그대로 보여준 뒤 엑셀/PDF로 출력) */}
+      {previewLeaveId && (() => {
+        const previewLeave = leaveList.find(d => d.id === previewLeaveId);
+        if (!previewLeave) return null;
+        const previewLeaveApprovalLine = previewLeave.approvalLine || [];
+        const catLabel = previewLeave.leaveCategory === 'other' ? (previewLeave.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[previewLeave.leaveCategory];
+        return (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4">
+            <div className="w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden">
+              {/* 비인쇄 상단 바 */}
+              <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                    <Eye className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">휴가 신청서 출력 미리보기</h2>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => downloadLeaveToExcel(previewLeave)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
+                    <FileSpreadsheet className="w-3.5 h-3.5" /><span>엑셀 다운로드</span>
+                  </button>
+                  <button onClick={handlePrintLeave} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
+                    <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
+                  </button>
+                  <button onClick={() => setPreviewLeaveId(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
+              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center">
+                <div className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans leading-tight">
+                  <div className="text-center mb-6">
+                    <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
+                  </div>
+
+                  <div className="flex justify-end mb-3">
+                    <table className="border-collapse text-center text-xs">
+                      <tbody>
+                        <tr>
+                          <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 align-middle">결&nbsp;&nbsp;재</td>
+                          {previewLeaveApprovalLine.map((s, i) => (
+                            <th key={i} className="border border-black bg-gray-100 font-bold px-4 py-1.5 min-w-[80px]">{s.role}</th>
+                          ))}
+                        </tr>
+                        <tr>
+                          {previewLeaveApprovalLine.map((s, i) => (
+                            <td key={i} className="border border-black px-3 py-2.5 h-10">{s.date || ''}</td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <p className="mb-2">기안번호 : {previewLeave.draftNumber}</p>
+
+                  <table className="w-full border-collapse border-[1.5px] border-black text-xs">
+                    <tbody>
+                      <tr>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 w-[15%]">소속</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={2}>{previewLeave.department}</td>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 w-[12%]">휴가자</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={2}>{previewLeave.author}</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">휴가구분</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={5}>{catLabel}</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">사유</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={5}>{previewLeave.reason || ''}</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기간</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={5}>
+                          {previewLeave.startDate} ~ {previewLeave.endDate}
+                          {previewLeave.startTime ? ` ${previewLeave.startTime} ~ ${previewLeave.endTime || ''}` : ''}
+                          {' '}({previewLeave.annualLeaveNote || `${previewLeave.days}일`})
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">연락처</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={2}>집: {previewLeave.homeContact || ''} / 휴대폰: {previewLeave.mobileContact || ''}</td>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">직무대행자</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={2}>{previewLeave.actingPerson || ''}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <p className="text-center mt-10">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
+                  <p className="text-center mt-8">{previewLeave.submittedDate.replace(/-/g, '. ')}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 인쇄 전용 정적 리포트: 앱 트리 밖의 별도 포털(#print-root)에 렌더링되어 인쇄 시 단독으로 출력됨 */}
       {previewAdvanceId && typeof document !== 'undefined' && document.getElementById('print-root') &&
         createPortal(renderPrintableAdvance(advanceList.find(d => d.id === previewAdvanceId)), document.getElementById('print-root')!)}
+      {previewLeaveId && typeof document !== 'undefined' && document.getElementById('print-root') &&
+        createPortal(renderPrintableLeave(leaveList.find(d => d.id === previewLeaveId)), document.getElementById('print-root')!)}
     </div>
   );
 };
