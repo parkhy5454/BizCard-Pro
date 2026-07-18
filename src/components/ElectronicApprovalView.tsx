@@ -80,12 +80,19 @@ function computeAnnualLeaveLabel(doc: LeaveRequest, allLeave: LeaveRequest[]): s
   }
   const year = (doc.startDate || '').slice(0, 4);
   const normalizedAuthor = (doc.author || '').trim().toLowerCase();
+  // 같은 해에 이 사람이 신청한 휴가 중, 이 문서와 같은 날짜이거나 그보다 이전인 것까지만 누적한다
+  // (전체 합계가 아니라, 그 시점까지의 누적 사용량을 보여주기 위함). 날짜가 같으면 작성 시각으로 순서를 정한다.
   const cumulative = allLeave
-    .filter(d =>
-      (d.author || '').trim().toLowerCase() === normalizedAuthor &&
-      (d.startDate || '').slice(0, 4) === year &&
-      d.status !== 'rejected'
-    )
+    .filter(d => {
+      if ((d.author || '').trim().toLowerCase() !== normalizedAuthor) return false;
+      if ((d.startDate || '').slice(0, 4) !== year) return false;
+      if (d.status === 'rejected') return false;
+      const dDate = d.startDate || '';
+      const docDate = doc.startDate || '';
+      if (dDate !== docDate) return dDate < docDate;
+      // 같은 날짜에 시작하는 건들은 작성 시각(먼저 만든 것부터) 순서로 판단
+      return (d.createdAt || '') <= (doc.createdAt || '');
+    })
     .reduce((sum, d) => sum + (d.days || 0), 0);
   const rounded = Math.round(cumulative * 100) / 100;
   const remaining = Math.round((doc.totalAnnualDays - rounded) * 100) / 100;
@@ -437,7 +444,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         d.id !== editingLeaveId &&
         (d.author || '').trim().toLowerCase() === normalizedAuthor &&
         (d.startDate || '').slice(0, 4) === year &&
-        d.status !== 'rejected'
+        d.status !== 'rejected' &&
+        (d.startDate || '') <= (lvStartDate || '')
       )
       .reduce((sum, d) => sum + (d.days || 0), 0);
     const cumulative = Math.round((priorUsed + currentDays) * 100) / 100;
