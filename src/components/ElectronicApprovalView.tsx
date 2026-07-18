@@ -161,7 +161,7 @@ function buildLeavePrintHtml(doc: LeaveRequest): string {
   const catLabel = doc.leaveCategory === 'other' ? (doc.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[doc.leaveCategory];
   return `
     <h1>휴가 신청서</h1>
-    ${approvalLineHtml(doc.approvalLine)}
+    ${approvalLineHtml(doc.approvalLine || [])}
     <p>기안번호 : ${doc.draftNumber}</p>
     <table>
       <tr><td class="label-cell">소속</td><td colspan="3">${doc.department}</td><td class="label-cell">휴가자</td><td colspan="2">${doc.author}</td></tr>
@@ -176,10 +176,12 @@ function buildLeavePrintHtml(doc: LeaveRequest): string {
 }
 
 function buildAdvancePrintHtml(doc: AdvancePaymentSettlement): string {
-  const total = doc.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+  const items = doc.items || [];
+  const approvalLine = doc.approvalLine || [];
+  const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
   return `
     <h1>가지급금 정산서</h1>
-    ${approvalLineHtml(doc.approvalLine)}
+    ${approvalLineHtml(approvalLine)}
     <table style="margin-bottom:16px;">
       <tr><td class="label-cell">회사명</td><td colspan="3">${doc.companyName}</td></tr>
       <tr><td class="label-cell">기간</td><td colspan="3">${formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</td></tr>
@@ -192,7 +194,7 @@ function buildAdvancePrintHtml(doc: AdvancePaymentSettlement): string {
         <th>Date(날짜)</th><th>Project(프로젝트명)</th><th>Description(내용)</th>
         <th>Expenses(금액/원)</th><th>Account(계정과목)</th><th>Company name(상호)</th><th>Remark(비고)</th>
       </tr>
-      ${doc.items.map(it => `
+      ${items.map(it => `
         <tr>
           <td class="center">${it.date}</td><td>${it.project || ''}</td><td>${it.description}</td>
           <td class="right">${it.amount.toLocaleString('ko-KR')}</td><td class="center">${it.account || ''}</td><td class="center">${it.companyName || ''}</td><td>${it.remark || ''}</td>
@@ -270,10 +272,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   };
 
   const fetchAll = async () => {
-    if (!currentUser) return;
     setLoading(true);
     try {
-      const headers = { 'x-user-id': currentUser.id };
+      const headers = currentUser ? { 'x-user-id': currentUser.id } : undefined;
       const [advRes, lvRes] = await Promise.all([
         fetch('/api/approvals/advance', { headers }).then(r => r.json()),
         fetch('/api/approvals/leave', { headers }).then(r => r.json())
@@ -460,16 +461,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const cellBorder = 'border: 0.5pt solid #000000;';
     const grayBg = 'background-color: #f3f4f6;';
     const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
-    const total = doc.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    const items = doc.items || [];
+    const approvalLine = doc.approvalLine || [];
+    const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
 
     const approvalHtml = `
       <table style="border-collapse: collapse; ${baseFont}">
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
-          ${doc.approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:90px;">${esc(s.role)}</th>`).join('')}
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:90px;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
-          ${doc.approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
+          ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
         </tr>
       </table>`;
 
@@ -482,7 +485,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기안일</td><td style="${cellBorder}" colspan="3">${esc(formatKoreanDate(doc.draftDate))}</td></tr>
       </table>`;
 
-    const itemRows = doc.items.map(it => `
+    const itemRows = items.map(it => `
       <tr>
         <td style="${cellBorder} text-align:center; ${baseFont}">${esc(it.date)}</td>
         <td style="${cellBorder} text-align:center; ${baseFont}">${esc(it.project)}</td>
@@ -543,7 +546,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   // 인쇄 전용 정적 렌더러: #print-root 포털에 렌더링되어 화면 미리보기와 별개로 단독 인쇄됨
   const renderPrintableAdvance = (doc: AdvancePaymentSettlement | undefined) => {
     if (!doc) return null;
-    const total = doc.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    const items = doc.items || [];
+    const approvalLine = doc.approvalLine || [];
+    const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
     const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
     const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
     return (
@@ -556,10 +561,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             <tbody>
               <tr>
                 <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 60 }}>결&nbsp;&nbsp;재</td>
-                {doc.approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 90 }}>{s.role}</th>)}
+                {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 90 }}>{s.role}</th>)}
               </tr>
               <tr>
-                {doc.approvalLine.map((s, i) => <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 40 }}>{s.date || ''}</td>)}
+                {approvalLine.map((s, i) => <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 40 }}>{s.date || ''}</td>)}
               </tr>
             </tbody>
           </table>
@@ -583,7 +588,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </tr>
           </thead>
           <tbody>
-            {doc.items.map(it => (
+            {items.map(it => (
               <tr key={it.id}>
                 <td style={{ ...cellStyle, textAlign: 'center' }}>{it.date}</td>
                 <td style={{ ...cellStyle, textAlign: 'center' }}>{it.project}</td>
@@ -803,7 +808,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                           <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{doc.department}</span>
                           <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</span>
                         </div>
-                        <ApprovalLineMini line={doc.approvalLine} />
+                        <ApprovalLineMini line={doc.approvalLine || []} />
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => setPreviewAdvanceId(doc.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="출력 미리보기">
@@ -819,7 +824,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     </div>
 
                     <div className="text-xs bg-slate-950/50 rounded-xl p-3 flex items-center justify-between">
-                      <span className="text-slate-500">정산 항목 {doc.items.length}건</span>
+                      <span className="text-slate-500">정산 항목 {(doc.items || []).length}건</span>
                       <span className="font-bold text-slate-200">총 합계 {formatCurrencyInput(total)}원</span>
                     </div>
 
@@ -874,7 +879,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{doc.startDate} ~ {doc.endDate}{doc.startTime ? ` (${doc.startTime}~${doc.endTime || ''})` : ''} · {doc.days}일</span>
                       </div>
                       {doc.reason && <p className="text-xs text-slate-500">{doc.reason}</p>}
-                      <ApprovalLineMini line={doc.approvalLine} />
+                      <ApprovalLineMini line={doc.approvalLine || []} />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openPrintWindow('휴가 신청서', buildLeavePrintHtml(doc))} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="인쇄">
@@ -1216,7 +1221,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       {previewAdvanceId && (() => {
         const previewDoc = advanceList.find(d => d.id === previewAdvanceId);
         if (!previewDoc) return null;
-        const total = previewDoc.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+        const previewItems = previewDoc.items || [];
+        const previewApprovalLine = previewDoc.approvalLine || [];
+        const total = previewItems.reduce((s, it) => s + (Number(it.amount) || 0), 0);
         return (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4">
             <div className="w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden">
@@ -1253,12 +1260,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       <tbody>
                         <tr>
                           <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 align-middle">결&nbsp;&nbsp;재</td>
-                          {previewDoc.approvalLine.map((s, i) => (
+                          {previewApprovalLine.map((s, i) => (
                             <th key={i} className="border border-black bg-gray-100 font-bold px-4 py-1.5 min-w-[80px]">{s.role}</th>
                           ))}
                         </tr>
                         <tr>
-                          {previewDoc.approvalLine.map((s, i) => (
+                          {previewApprovalLine.map((s, i) => (
                             <td key={i} className="border border-black px-3 py-2.5 h-10">{s.date || ''}</td>
                           ))}
                         </tr>
@@ -1289,7 +1296,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {previewDoc.items.map(it => (
+                      {previewItems.map(it => (
                         <tr key={it.id}>
                           <td className="border border-black px-2 py-1.5 text-center">{it.date}</td>
                           <td className="border border-black px-2 py-1.5 text-center">{it.project}</td>
