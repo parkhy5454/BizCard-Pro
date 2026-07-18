@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
   Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
-  Download, ClipboardList, Car
+  Download, ClipboardList, Car, Wrench
 } from 'lucide-react';
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -302,9 +302,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
   // 업무일지/차량운행일지 비용 가져오기
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importTab, setImportTab] = useState<'worklog' | 'vehicle'>('worklog');
+  const [importTab, setImportTab] = useState<'worklog' | 'vehicle' | 'maintenance'>('worklog');
   const [importWorklogRows, setImportWorklogRows] = useState<ImportableExpenseRow[]>([]);
   const [importVehicleRows, setImportVehicleRows] = useState<ImportableExpenseRow[]>([]);
+  const [importMaintenanceRows, setImportMaintenanceRows] = useState<ImportableExpenseRow[]>([]);
   const [importSelectedIds, setImportSelectedIds] = useState<Set<string>>(new Set());
   const [importLoading, setImportLoading] = useState(false);
   const [importProjectFilter, setImportProjectFilter] = useState<string>('all');
@@ -450,12 +451,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
   // 업무일지(일일) / 차량운행 비용 목록을 불러와 가져오기 후보로 준비
   // 업무일지/차량운행일지에서 개인카드·현금으로 결제한 항목을 불러온다 (가져오기 모달, 항목별 프로젝트명 선택 두 곳에서 공용으로 사용)
-  const fetchImportableRows = async (): Promise<{ worklogRows: ImportableExpenseRow[]; vehicleRows: ImportableExpenseRow[] }> => {
+  const fetchImportableRows = async (): Promise<{ worklogRows: ImportableExpenseRow[]; vehicleRows: ImportableExpenseRow[]; maintenanceRows: ImportableExpenseRow[] }> => {
     const headers = currentUser ? { 'x-user-id': currentUser.id } : undefined;
-    const [dailyLogs, projects, vehicleExpenses] = await Promise.all([
+    const [dailyLogs, projects, vehicleExpenses, maintenances] = await Promise.all([
       fetch('/api/worklogs/daily', { headers }).then(r => r.json()).catch(() => []),
       fetch('/api/projects', { headers }).then(r => r.json()).catch(() => []),
-      fetch('/api/vehicles/expenses', { headers }).then(r => r.json()).catch(() => [])
+      fetch('/api/vehicles/expenses', { headers }).then(r => r.json()).catch(() => []),
+      fetch('/api/vehicles/maintenances', { headers }).then(r => r.json()).catch(() => [])
     ]);
 
     const projectNameById: Record<string, string> = {};
@@ -498,15 +500,35 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             amount: exp.amount || 0,
             account: exp.categoryCustom || VEHICLE_EXPENSE_LABEL[exp.category] || '',
             companyName: exp.merchantName || '',
-            remark: '차량운행일지',
+            remark: '차량 비용관리',
             payMethodLabel: exp.payMethod === 'cash' ? '현금' : '개인카드'
+          });
+        });
+    }
+
+    const maintenanceRows: ImportableExpenseRow[] = [];
+    if (Array.isArray(maintenances)) {
+      maintenances
+        .filter((m: any) => m.payMethod === 'personal_card' || m.payMethod === 'cash')
+        .forEach((m: any) => {
+          maintenanceRows.push({
+            id: `maint-${m.id}`,
+            date: m.date,
+            project: '',
+            description: m.title || '정비',
+            amount: m.cost || 0,
+            account: '정비비',
+            companyName: m.shopName || '',
+            remark: '정비일지',
+            payMethodLabel: m.payMethod === 'cash' ? '현금' : '개인카드'
           });
         });
     }
 
     worklogRows.sort((a, b) => (a.date < b.date ? 1 : -1));
     vehicleRows.sort((a, b) => (a.date < b.date ? 1 : -1));
-    return { worklogRows, vehicleRows };
+    maintenanceRows.sort((a, b) => (a.date < b.date ? 1 : -1));
+    return { worklogRows, vehicleRows, maintenanceRows };
   };
 
   const openImportModal = async () => {
@@ -515,9 +537,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setImportProjectFilter('all');
     setImportLoading(true);
     try {
-      const { worklogRows, vehicleRows } = await fetchImportableRows();
+      const { worklogRows, vehicleRows, maintenanceRows } = await fetchImportableRows();
       setImportWorklogRows(worklogRows);
       setImportVehicleRows(vehicleRows);
+      setImportMaintenanceRows(maintenanceRows);
     } catch (err) {
       console.error('Import fetch error:', err);
     } finally {
@@ -531,8 +554,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     if (itemPickerRows.length === 0) {
       setItemPickerLoading(true);
       try {
-        const { worklogRows, vehicleRows } = await fetchImportableRows();
-        setItemPickerRows([...worklogRows, ...vehicleRows]);
+        const { worklogRows, vehicleRows, maintenanceRows } = await fetchImportableRows();
+        setItemPickerRows([...worklogRows, ...vehicleRows, ...maintenanceRows]);
       } catch (err) {
         console.error('Item picker fetch error:', err);
       } finally {
@@ -558,7 +581,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   };
 
   const applyImportedItems = () => {
-    const all = [...importWorklogRows, ...importVehicleRows];
+    const all = [...importWorklogRows, ...importVehicleRows, ...importMaintenanceRows];
     const picked = all.filter(r => importSelectedIds.has(r.id));
     const newItems: AdvancePaymentItem[] = picked.map(r => ({
       id: `api-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1194,18 +1217,22 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
             <div className="px-6 pt-4">
               <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3 flex-wrap">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => { setImportTab('worklog'); setImportProjectFilter('all'); }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
                     <ClipboardList className="w-3.5 h-3.5" /> 업무일지 비용 ({importWorklogRows.length})
                   </button>
                   <button onClick={() => { setImportTab('vehicle'); setImportProjectFilter('all'); }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
-                    <Car className="w-3.5 h-3.5" /> 차량운행 비용 ({importVehicleRows.length})
+                    <Car className="w-3.5 h-3.5" /> 차량 비용관리 ({importVehicleRows.length})
+                  </button>
+                  <button onClick={() => { setImportTab('maintenance'); setImportProjectFilter('all'); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'maintenance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                    <Wrench className="w-3.5 h-3.5" /> 정비일지 비용 ({importMaintenanceRows.length})
                   </button>
                 </div>
                 {(() => {
-                  const rows = importTab === 'worklog' ? importWorklogRows : importVehicleRows;
+                  const rows = importTab === 'worklog' ? importWorklogRows : importTab === 'vehicle' ? importVehicleRows : importMaintenanceRows;
                   const projectNames = Array.from(new Set(rows.map(r => r.project).filter(Boolean)));
                   if (projectNames.length === 0) return null;
                   return (
@@ -1227,8 +1254,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <p className="text-xs text-slate-400">비용 내역을 불러오는 중입니다...</p>
                 </div>
               ) : (() => {
-                const rows = (importTab === 'worklog' ? importWorklogRows : importVehicleRows)
-                  .filter(r => importProjectFilter === 'all' || r.project === importProjectFilter);
+                const sourceRows = importTab === 'worklog' ? importWorklogRows : importTab === 'vehicle' ? importVehicleRows : importMaintenanceRows;
+                const rows = sourceRows.filter(r => importProjectFilter === 'all' || r.project === importProjectFilter);
                 return rows.length === 0 ? (
                   <div className="py-16 text-center text-slate-500 bg-slate-950/40 border border-dashed border-slate-800 rounded-2xl text-xs">
                     가져올 수 있는 비용 내역이 없습니다.
