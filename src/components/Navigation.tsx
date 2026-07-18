@@ -1,10 +1,10 @@
 import React from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature } from 'lucide-react';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
-  activeTab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs';
-  setActiveTab: (tab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs') => void;
+  activeTab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals';
+  setActiveTab: (tab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals') => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedGroup: string;
@@ -203,6 +203,18 @@ export const Navigation: React.FC<Props> = ({
             >
               <ClipboardCheck className="w-4 h-4 text-indigo-400" />
               <span>업무일지</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                activeTab === 'approvals'
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <FileSignature className="w-4 h-4 text-indigo-400" />
+              <span>전자결재</span>
             </button>
           </nav>
 
