@@ -147,6 +147,10 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
   const yRef = React.useRef<HTMLInputElement>(null);
   const mRef = React.useRef<HTMLInputElement>(null);
   const dRef = React.useRef<HTMLInputElement>(null);
+  // 포커스가 들어오기 직전 값을 기억해뒀다가, 아무것도 입력하지 않고 포커스가 빠져나가면 원래 값으로 되돌린다
+  const yPrev = React.useRef('');
+  const mPrev = React.useRef('');
+  const dPrev = React.useRef('');
 
   // 부모가 값을 외부에서 바꿔 넣을 때(예: 수정 모달을 열 때)만 내부 표시값을 새로 맞춘다.
   useEffect(() => {
@@ -167,10 +171,12 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
     <div className={`flex items-center gap-1 ${className || ''}`}>
       <input
         ref={yRef} type="text" inputMode="numeric" placeholder="YYYY" maxLength={4} value={y}
-        onFocus={(e) => e.target.select()}
+        // 포커스가 들어오면 일단 비워서, 커서 위치나 브라우저별 select() 동작에 상관없이
+        // 항상 빈 칸에 새로 입력하는 것처럼 동작하게 한다 (기존 "0"이 남아있던 문제의 근본 원인).
+        onFocus={() => { yPrev.current = y; setY(''); }}
+        onBlur={() => { if (y === '') setY(yPrev.current); }}
         onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, '');
-          const v = digits.length > 4 ? digits.slice(-4) : digits;
+          const v = e.target.value.replace(/\D/g, '').slice(0, 4);
           setY(v);
           if (v.length === 4) mRef.current?.focus();
           emit(v, m, d);
@@ -180,11 +186,11 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
       <span className="text-slate-500 text-xs">년</span>
       <input
         ref={mRef} type="text" inputMode="numeric" placeholder="MM" maxLength={2} value={m}
-        onFocus={(e) => e.target.select()}
+        onFocus={() => { mPrev.current = m; setM(''); }}
+        onBlur={() => { if (m === '') setM(mPrev.current); }}
         onKeyDown={(e) => { if (e.key === 'Backspace' && m === '') yRef.current?.focus(); }}
         onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, '');
-          let v = digits.length > 2 ? digits.slice(-2) : digits;
+          let v = e.target.value.replace(/\D/g, '').slice(0, 2);
           if (v.length === 2 && Number(v) > 12) v = '12';
           setM(v);
           if (v.length === 2) dRef.current?.focus();
@@ -195,11 +201,11 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
       <span className="text-slate-500 text-xs">월</span>
       <input
         ref={dRef} type="text" inputMode="numeric" placeholder="DD" maxLength={2} value={d}
-        onFocus={(e) => e.target.select()}
+        onFocus={() => { dPrev.current = d; setD(''); }}
+        onBlur={() => { if (d === '') setD(dPrev.current); }}
         onKeyDown={(e) => { if (e.key === 'Backspace' && d === '') mRef.current?.focus(); }}
         onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, '');
-          let v = digits.length > 2 ? digits.slice(-2) : digits;
+          let v = e.target.value.replace(/\D/g, '').slice(0, 2);
           if (v.length === 2 && Number(v) > 31) v = '31';
           setD(v);
           emit(y, m, v);
