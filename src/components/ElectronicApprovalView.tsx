@@ -88,7 +88,8 @@ function computeAnnualLeaveLabel(doc: LeaveRequest, allLeave: LeaveRequest[]): s
     )
     .reduce((sum, d) => sum + (d.days || 0), 0);
   const rounded = Math.round(cumulative * 100) / 100;
-  return `${rounded}/${doc.totalAnnualDays}일`;
+  const remaining = Math.round((doc.totalAnnualDays - rounded) * 100) / 100;
+  return `${rounded}일/총${doc.totalAnnualDays}일, 잔여 ${remaining}일`;
 }
 
 // 업무일지/차량운행일지에서 가져올 수 있는 비용 한 건을 표현하는 공통 형태
@@ -440,7 +441,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       )
       .reduce((sum, d) => sum + (d.days || 0), 0);
     const cumulative = Math.round((priorUsed + currentDays) * 100) / 100;
-    setLvAnnualNote(`${cumulative}/${totalDays}일`);
+    const remaining = Math.round((totalDays - cumulative) * 100) / 100;
+    setLvAnnualNote(`${cumulative}일/총${totalDays}일, 잔여 ${remaining}일`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lvCategory, lvStartDate, lvEndDate, lvAnnualType, lvTotalAnnualDays, lvAuthor, leaveList, editingLeaveId]);
 
@@ -1817,7 +1819,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300">누적 휴가 표기 (총 연차 일수 기준 자동 계산, 필요시 직접 수정)</label>
-                <input type="text" placeholder="5일/20일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
+                <input type="text" placeholder="5일/총20일, 잔여 15일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
               </div>
 
