@@ -5,7 +5,7 @@ import {
   Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
   Download, ClipboardList, Car, Wrench, ChevronDown
 } from 'lucide-react';
-import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, ApprovalStatus, ApprovalStep, User } from '../types.js';
+import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 interface Props {
@@ -52,11 +52,20 @@ const SPECIAL_TYPE_LABEL: Record<LeaveSpecialType, string> = {
 };
 const SPECIAL_TYPE_ORDER: LeaveSpecialType[] = ['birth', 'summer', 'family', 'disaster', 'custom'];
 
+const ANNUAL_TYPE_LABEL: Record<LeaveAnnualType, string> = {
+  full: '년차(1일)', half: '반차(4시간)', quarter: '반반차(2시간)'
+};
+const ANNUAL_TYPE_ORDER: LeaveAnnualType[] = ['full', 'half', 'quarter'];
+const ANNUAL_TYPE_MULTIPLIER: Record<LeaveAnnualType, number> = { full: 1, half: 0.5, quarter: 0.25 };
+
 // 목록/뱃지 등에 보여줄 휴가구분 표시 텍스트 (특별휴가는 세부종류까지 함께 표기)
 function leaveCategoryDisplay(doc: LeaveRequest): string {
   if (doc.leaveCategory === 'special') {
     const sub = doc.specialType === 'custom' ? (doc.specialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[doc.specialType || 'birth'];
     return `특별휴가(${sub})`;
+  }
+  if (doc.leaveCategory === 'annual' && doc.annualType && doc.annualType !== 'full') {
+    return `연차(${ANNUAL_TYPE_LABEL[doc.annualType]})`;
   }
   if (doc.leaveCategory === 'other') return doc.leaveCategoryCustom || '기타';
   return LEAVE_CATEGORY_LABEL[doc.leaveCategory];
@@ -211,12 +220,14 @@ function formatKoreanPeriod(start: string, end: string): string {
   return `${formatKoreanDate(start)} ~ ${formatKoreanDate(end)}`;
 }
 
-function calcLeaveDays(startDate: string, endDate: string): number {
+function calcLeaveDays(startDate: string, endDate: string, multiplier: number = 1): number {
   if (!startDate || !endDate) return 0;
   const s = new Date(startDate);
   const e = new Date(endDate);
-  const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  return diff > 0 ? diff : 0;
+  const calendarDays = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  if (calendarDays <= 0) return 0;
+  // 반차/반반차처럼 소수 단위가 되는 경우 부동소수점 오차를 피하기 위해 반올림
+  return Math.round(calendarDays * multiplier * 100) / 100;
 }
 
 const defaultLeaveApprovalLine = (): ApprovalStep[] => [
@@ -284,6 +295,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [lvSpecialType, setLvSpecialType] = useState<LeaveSpecialType>('birth');
   const [lvSpecialTypeCustom, setLvSpecialTypeCustom] = useState('');
   const [lvSpecialDropdownOpen, setLvSpecialDropdownOpen] = useState(false);
+  const [lvAnnualType, setLvAnnualType] = useState<LeaveAnnualType>('full');
+  const [lvAnnualDropdownOpen, setLvAnnualDropdownOpen] = useState(false);
   const [lvReason, setLvReason] = useState('');
   const [lvStartDate, setLvStartDate] = useState(todayStr());
   const [lvEndDate, setLvEndDate] = useState(todayStr());
@@ -349,6 +362,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setLvSpecialType('birth');
     setLvSpecialTypeCustom('');
     setLvSpecialDropdownOpen(false);
+    setLvAnnualType('full');
+    setLvAnnualDropdownOpen(false);
     setLvReason('');
     setLvStartDate(todayStr());
     setLvEndDate(todayStr());
@@ -389,6 +404,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setLvCategoryCustom(doc.leaveCategoryCustom || '');
     setLvSpecialType(doc.specialType || 'birth');
     setLvSpecialTypeCustom(doc.specialTypeCustom || '');
+    setLvAnnualType(doc.annualType || 'full');
     setLvReason(doc.reason || '');
     setLvStartDate(doc.startDate);
     setLvEndDate(doc.endDate);
@@ -764,7 +780,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가구분</td>
           <td style="${cellBorder} text-align:center; ${mark('monthly')}">월차</td>
-          <td style="${cellBorder} text-align:center; ${mark('annual')}">연차</td>
+          <td style="${cellBorder} text-align:center; ${mark('annual')}">연차${doc.leaveCategory === 'annual' && doc.annualType && doc.annualType !== 'full' ? `<br/><span style="font-weight:normal;font-size:8pt;">(${esc(ANNUAL_TYPE_LABEL[doc.annualType])})</span>` : ''}</td>
           <td style="${cellBorder} text-align:center; ${mark('official')}">공가</td>
           <td style="${cellBorder} text-align:center; ${mark('sick')}">병가</td>
           <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; ${doc.leaveCategory === 'special' && doc.specialType === 'custom' ? 'background-color:#fde68a;' : ''}" colspan="4">특별 휴가${doc.leaveCategory === 'special' && doc.specialType === 'custom' ? `<br/><span style="font-weight:normal;font-size:8pt;">(${esc(doc.specialTypeCustom || '직접입력')})</span>` : ''}</td>
@@ -861,7 +877,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             <tr>
               <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>휴가<br />구분</td>
               <td style={markStyle('monthly')}>월차</td>
-              <td style={markStyle('annual')}>연차</td>
+              <td style={markStyle('annual')}>
+                연차
+                {doc.leaveCategory === 'annual' && doc.annualType && doc.annualType !== 'full' && <><br /><span style={{ fontWeight: 400, fontSize: 9 }}>({ANNUAL_TYPE_LABEL[doc.annualType]})</span></>}
+              </td>
               <td style={markStyle('official')}>공가</td>
               <td style={markStyle('sick')}>병가</td>
               <td style={doc.leaveCategory === 'special' && doc.specialType === 'custom' ? { ...grayStyle, textAlign: 'center', backgroundColor: '#fde68a' } : { ...grayStyle, textAlign: 'center' }} colSpan={4}>
@@ -936,12 +955,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     if (!lvStartDate || !lvEndDate) { alert('휴가 기간을 입력해 주세요.'); return; }
     if (!currentUser) return;
     const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
-    const days = calcLeaveDays(lvStartDate, lvEndDate);
+    const days = calcLeaveDays(lvStartDate, lvEndDate, lvCategory === 'annual' ? ANNUAL_TYPE_MULTIPLIER[lvAnnualType] : 1);
     const payload: Partial<LeaveRequest> = {
       draftNumber: lvDraftNumber, department: lvDepartment, author: lvAuthor,
       leaveCategory: lvCategory, leaveCategoryCustom: lvCategory === 'other' ? lvCategoryCustom : undefined,
       specialType: lvCategory === 'special' ? lvSpecialType : undefined,
       specialTypeCustom: lvCategory === 'special' && lvSpecialType === 'custom' ? lvSpecialTypeCustom : undefined,
+      annualType: lvCategory === 'annual' ? lvAnnualType : undefined,
       reason: lvReason, startDate: lvStartDate, endDate: lvEndDate,
       startTime: lvStartTime || undefined, endTime: lvEndTime || undefined,
       days, annualLeaveNote: lvAnnualNote || undefined,
@@ -1510,6 +1530,31 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                           </>
                         )}
                       </div>
+                    ) : c === 'annual' ? (
+                      <div key={c} className="relative">
+                        <button type="button"
+                          onClick={() => { setLvCategory('annual'); setLvAnnualDropdownOpen(v => !v); }}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'annual' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
+                          <span>
+                            연차{lvCategory === 'annual' ? ` · ${ANNUAL_TYPE_LABEL[lvAnnualType]}` : ''}
+                          </span>
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                        {lvAnnualDropdownOpen && (
+                          <>
+                            <div className="fixed inset-0 z-20" onClick={() => setLvAnnualDropdownOpen(false)} />
+                            <div className="absolute z-30 mt-1 left-0 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                              {ANNUAL_TYPE_ORDER.map(t => (
+                                <button key={t} type="button"
+                                  onClick={() => { setLvAnnualType(t); setLvAnnualDropdownOpen(false); }}
+                                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvAnnualType === t ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-300 hover:bg-slate-800'}`}>
+                                  {ANNUAL_TYPE_LABEL[t]}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     ) : (
                       <button key={c} type="button" onClick={() => setLvCategory(c)}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === c ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
@@ -1556,7 +1601,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               </div>
 
               <div className="text-xs text-slate-400 bg-slate-950/50 rounded-xl px-4 py-2.5">
-                산정된 휴가 일수: <span className="font-bold text-slate-200">{calcLeaveDays(lvStartDate, lvEndDate)}일</span>
+                산정된 휴가 일수: <span className="font-bold text-slate-200">{calcLeaveDays(lvStartDate, lvEndDate, lvCategory === 'annual' ? ANNUAL_TYPE_MULTIPLIER[lvAnnualType] : 1)}일</span>
+                {lvCategory === 'annual' && <span className="text-slate-500"> ({ANNUAL_TYPE_LABEL[lvAnnualType]} 기준)</span>}
               </div>
 
               <div className="space-y-1.5">
@@ -1773,7 +1819,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       <tr>
                         <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">휴가<br />구분</td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'monthly' ? 'bg-yellow-200' : 'bg-gray-100'}`}>월차</td>
-                        <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'annual' ? 'bg-yellow-200' : 'bg-gray-100'}`}>연차</td>
+                        <td className={`border border-black px-1 py-1.5 text-center font-bold leading-tight ${previewLeave.leaveCategory === 'annual' ? 'bg-yellow-200' : 'bg-gray-100'}`}>
+                          연차
+                          {previewLeave.leaveCategory === 'annual' && previewLeave.annualType && previewLeave.annualType !== 'full' && (
+                            <div className="font-normal text-[10px]">({ANNUAL_TYPE_LABEL[previewLeave.annualType]})</div>
+                          )}
+                        </td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'official' ? 'bg-yellow-200' : 'bg-gray-100'}`}>공가</td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'sick' ? 'bg-yellow-200' : 'bg-gray-100'}`}>병가</td>
                         <td className={`border border-black px-1 py-1 text-center font-bold leading-tight ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'custom' ? 'bg-yellow-200' : 'bg-gray-100'}`} colSpan={4}>
