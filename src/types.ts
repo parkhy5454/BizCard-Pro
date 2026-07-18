@@ -268,43 +268,74 @@ export interface WorkLogDayEntry {
 
 export type ApprovalStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 
-export interface AdvancePaymentItem {
-  id: string;
-  date: string;        // 사용 일자 (YYYY-MM-DD)
-  description: string; // 사용 내역
-  amount: number;       // 사용 금액 (원)
+// 결재선 한 단계 (예: 기안자 / 경영지원실장 / 기술이사 / 대표이사)
+export interface ApprovalStep {
+  role: string;   // 직책/직위 라벨
+  name?: string;   // 결재자 이름
+  date?: string;   // 결재(승인) 일자 YYYY-MM-DD, 비어있으면 미결
 }
 
-// 가지급금 정산서: 미리 지급받은 가지급금을 실제 사용 내역과 대조하여 정산
-export interface AdvancePaymentSettlement {
-  id: string;
-  title: string;          // 제목
-  author?: string;         // 작성자
-  department?: string;     // 부서
-  requestDate: string;     // 정산 신청일 (YYYY-MM-DD)
-  advanceAmount: number;   // 가지급받은 금액
-  items: AdvancePaymentItem[]; // 사용 내역 목록
-  memo?: string;            // 비고
-  status: ApprovalStatus;   // 결재 상태
-  approverMemo?: string;    // 결재자 반려/승인 메모
-  createdAt: string;
-}
+export type LeaveCategory =
+  | 'monthly'         // 월차
+  | 'annual'          // 연차
+  | 'official'        // 공가
+  | 'sick'            // 병가
+  | 'special_birth'   // 특별휴가 - 출산
+  | 'special_summer'  // 특별휴가 - 하기
+  | 'special_family'  // 특별휴가 - 경조
+  | 'special_disaster'// 특별휴가 - 재해
+  | 'health'          // 보건
+  | 'other';          // 기타
 
 // 휴가 신청서
 export interface LeaveRequest {
   id: string;
-  title: string;              // 제목
-  author?: string;             // 작성자
-  department?: string;         // 부서
-  leaveType: 'annual' | 'half_am' | 'half_pm' | 'sick' | 'special' | 'other'; // 휴가 종류
-  leaveTypeCustom?: string;    // 기타 선택시 직접 입력
-  startDate: string;           // 시작일 (YYYY-MM-DD)
-  endDate: string;             // 종료일 (YYYY-MM-DD)
-  days: number;                 // 휴가 일수
-  reason?: string;              // 사유
-  contactDuring?: string;       // 휴가중 비상 연락처
-  status: ApprovalStatus;       // 결재 상태
-  approverMemo?: string;        // 결재자 반려/승인 메모
+  draftNumber: string;         // 기안번호 (예: 20260708-01)
+  department: string;           // 소속
+  author: string;                // 휴가자
+  leaveCategory: LeaveCategory;  // 휴가 구분
+  leaveCategoryCustom?: string;  // 기타 선택시 직접 입력
+  reason: string;                // 사유
+  startDate: string;             // 시작일 YYYY-MM-DD
+  endDate: string;               // 종료일 YYYY-MM-DD
+  startTime?: string;            // 시작 시간 (반차 등)
+  endTime?: string;              // 종료 시간
+  days: number;                   // 산정된 휴가 일수
+  annualLeaveNote?: string;      // 연차 사용/잔여 표기 (예: "5일/20일")
+  homeContact?: string;          // 자택 연락처
+  mobileContact?: string;        // 휴대폰
+  actingPerson?: string;         // 직무 대행자
+  submittedDate: string;         // 신청일 (문서 하단 날짜)
+  approvalLine: ApprovalStep[];  // 결재선
+  status: ApprovalStatus;
+  approverMemo?: string;
+  createdAt: string;
+}
+
+export interface AdvancePaymentItem {
+  id: string;
+  date: string;          // 날짜
+  project?: string;       // 프로젝트명
+  description: string;    // 내용
+  amount: number;          // 금액(원)
+  account?: string;        // 계정과목
+  companyName?: string;    // 상호
+  remark?: string;         // 비고
+}
+
+// 가지급금 정산서
+export interface AdvancePaymentSettlement {
+  id: string;
+  companyName: string;     // 회사명
+  periodStart: string;      // 기간 시작
+  periodEnd: string;        // 기간 종료
+  department: string;       // 부서
+  author: string;            // 작성자
+  draftDate: string;        // 기안일
+  items: AdvancePaymentItem[]; // 정산 내역
+  approvalLine: ApprovalStep[]; // 결재선
+  status: ApprovalStatus;
+  approverMemo?: string;
   createdAt: string;
 }
 
