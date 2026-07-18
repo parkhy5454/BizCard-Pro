@@ -18,6 +18,7 @@ import { AuthView } from './components/AuthView.js';
 import { UserDirectoryModal } from './components/UserDirectoryModal.js';
 import { VehicleView } from './components/VehicleView.js';
 import { WorkLogsView } from './components/WorkLogsView.js';
+import { ElectronicApprovalView } from './components/ElectronicApprovalView.js';
 
 export default function App() {
   // 회원 세션 상태
@@ -27,7 +28,7 @@ export default function App() {
   });
 
   // 메인 내비게이션 탭 상태
-  const [activeTab, setActiveTab] = useState<'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs'>('cards');
+  const [activeTab, setActiveTab] = useState<'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -352,6 +353,13 @@ export default function App() {
                 contacts={contacts}
                 setContacts={setContacts}
                 projects={projects}
+                currentUser={currentUser}
+              />
+            )}
+
+            {/* 탭 8: 전자결재 (가지급금 정산서 / 휴가 신청서) 뷰 */}
+            {activeTab === 'approvals' && (
+              <ElectronicApprovalView 
                 currentUser={currentUser}
               />
             )}
