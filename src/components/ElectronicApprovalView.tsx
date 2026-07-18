@@ -72,6 +72,26 @@ function leaveCategoryDisplay(doc: LeaveRequest): string {
   return LEAVE_CATEGORY_LABEL[doc.leaveCategory];
 }
 
+// "기간" 칸에 표시할 연차 누적 문구를 저장된 문자열에 의존하지 않고, 볼 때마다 전체 휴가 목록에서
+// 새로 계산한다 (저장 당시 스냅샷이 아니라 항상 최신 값을 보여주기 위함).
+function computeAnnualLeaveLabel(doc: LeaveRequest, allLeave: LeaveRequest[]): string {
+  if (doc.leaveCategory !== 'annual' || !doc.totalAnnualDays) {
+    return doc.annualLeaveNote || `${doc.days}일`;
+  }
+  const year = (doc.startDate || '').slice(0, 4);
+  const normalizedAuthor = (doc.author || '').trim().toLowerCase();
+  const cumulative = allLeave
+    .filter(d =>
+      d.leaveCategory === 'annual' &&
+      (d.author || '').trim().toLowerCase() === normalizedAuthor &&
+      (d.startDate || '').slice(0, 4) === year &&
+      d.status !== 'rejected'
+    )
+    .reduce((sum, d) => sum + (d.days || 0), 0);
+  const rounded = Math.round(cumulative * 100) / 100;
+  return `${rounded}/${doc.totalAnnualDays}일`;
+}
+
 // 업무일지/차량운행일지에서 가져올 수 있는 비용 한 건을 표현하는 공통 형태
 interface ImportableExpenseRow {
   id: string;           // 원본 항목 고유 ID (선택 상태 추적용)
@@ -928,7 +948,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
           <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">기간</td>
           <td style="${cellBorder} text-align:center;" colspan="5">${esc(doc.startDate)} ~ ${esc(doc.endDate)}</td>
           <td style="${cellBorder} text-align:center;" colspan="3">${doc.startTime ? `${esc(doc.startTime)} ~ ${esc(doc.endTime || '')}` : ''}</td>
-          <td style="${cellBorder} text-align:center;" colspan="2">${doc.annualLeaveNote ? esc(doc.annualLeaveNote) : `${doc.days}일`}</td>
+          <td style="${cellBorder} text-align:center;" colspan="2">${esc(computeAnnualLeaveLabel(doc, leaveList))}</td>
         </tr>
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">연락처</td>
@@ -1044,7 +1064,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               <td style={{ ...grayStyle, textAlign: 'center' }}>기간</td>
               <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={5}>{doc.startDate} ~ {doc.endDate}</td>
               <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={3}>{doc.startTime ? `${doc.startTime} ~ ${doc.endTime || ''}` : ''}</td>
-              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{doc.annualLeaveNote || `${doc.days}일`}</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{computeAnnualLeaveLabel(doc, leaveList)}</td>
             </tr>
             <tr>
               <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>연락처</td>
@@ -1329,11 +1349,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                           {leaveCategoryDisplay(doc)}
                         </span>
-                        {doc.leaveCategory === 'annual' && doc.annualLeaveNote && (
+                        {doc.leaveCategory === 'annual' && doc.totalAnnualDays ? (
                           <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                            누적 {doc.annualLeaveNote}
+                            누적 {computeAnnualLeaveLabel(doc, leaveList)}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                         <span className="flex items-center gap-1"><Hash className="w-3 h-3" />{doc.draftNumber}</span>
@@ -2077,7 +2097,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">기간</td>
                         <td className="border border-black px-3 py-1.5 text-center" colSpan={5}>{previewLeave.startDate}&nbsp;&nbsp;~&nbsp;&nbsp;{previewLeave.endDate}</td>
                         <td className="border border-black px-3 py-1.5 text-center" colSpan={3}>{previewLeave.startTime ? `${previewLeave.startTime}  ~  ${previewLeave.endTime || ''}` : ''}</td>
-                        <td className="border border-black px-2 py-1.5 text-center" colSpan={2}>{previewLeave.annualLeaveNote || `${previewLeave.days}일`}</td>
+                        <td className="border border-black px-2 py-1.5 text-center" colSpan={2}>{computeAnnualLeaveLabel(previewLeave, leaveList)}</td>
                       </tr>
                       <tr>
                         <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">연락처</td>
