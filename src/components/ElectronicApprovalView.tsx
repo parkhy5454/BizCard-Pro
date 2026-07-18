@@ -523,13 +523,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       </table>`;
 
     const headerHtml = `
-      <table style="border-collapse: collapse; width:60%; ${baseFont} margin-top:10px;">
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; width:20%;">회사명</td><td style="${cellBorder}" colspan="3">${esc(doc.companyName)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td><td style="${cellBorder}" colspan="3">${esc(formatKoreanPeriod(doc.periodStart, doc.periodEnd))}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">부서</td><td style="${cellBorder}" colspan="3">${esc(doc.department)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">작성자</td><td style="${cellBorder}" colspan="3">${esc(doc.author)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기안일</td><td style="${cellBorder}" colspan="3">${esc(formatKoreanDate(doc.draftDate))}</td></tr>
+      <table style="border-collapse: collapse; width:20%;">
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; width:40%;">회사명</td><td style="${cellBorder}">${esc(doc.companyName)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td><td style="${cellBorder}">${esc(formatKoreanPeriod(doc.periodStart, doc.periodEnd))}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">부서</td><td style="${cellBorder}">${esc(doc.department)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">작성자</td><td style="${cellBorder}">${esc(doc.author)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기안일</td><td style="${cellBorder}">${esc(formatKoreanDate(doc.draftDate))}</td></tr>
       </table>`;
+
+    // 엑셀은 flexbox를 지원하지 않으므로 바깥 테이블 한 줄에 정보표/결재표를 각각 셀로 넣어 나란히 배치한다
+    const topRowHtml = `
+      <table style="border-collapse: collapse; width:100%; ${baseFont} margin-top:10px;"><tr>
+        <td style="border:none; vertical-align:top; width:55%;">${headerHtml}</td>
+        <td style="border:none; vertical-align:top;">${approvalHtml}</td>
+      </tr></table>`;
 
     const itemRows = items.map(it => `
       <tr>
@@ -562,8 +569,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">가지급금 정산서</span>
       </div>
-      <div style="display:flex; justify-content:flex-end;">${approvalHtml}</div>
-      ${headerHtml}
+      ${topRowHtml}
       ${itemsTableHtml}
     `;
 
@@ -602,8 +608,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>가지급금 정산서</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-          <table style={{ borderCollapse: 'collapse' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 14 }}>
+          <table style={{ borderCollapse: 'collapse', width: '55%' }}>
+            <tbody>
+              <tr><td style={{ ...grayStyle, width: '28%' }}>회사명</td><td style={cellStyle}>{doc.companyName}</td></tr>
+              <tr><td style={grayStyle}>기간</td><td style={cellStyle}>{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</td></tr>
+              <tr><td style={grayStyle}>부서</td><td style={cellStyle}>{doc.department}</td></tr>
+              <tr><td style={grayStyle}>작성자</td><td style={cellStyle}>{doc.author}</td></tr>
+              <tr><td style={grayStyle}>기안일</td><td style={cellStyle}>{formatKoreanDate(doc.draftDate)}</td></tr>
+            </tbody>
+          </table>
+          <table style={{ borderCollapse: 'collapse', flexShrink: 0 }}>
             <tbody>
               <tr>
                 <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 60 }}>결&nbsp;&nbsp;재</td>
@@ -615,15 +630,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </tbody>
           </table>
         </div>
-        <table style={{ borderCollapse: 'collapse', width: '60%', marginBottom: 14 }}>
-          <tbody>
-            <tr><td style={{ ...grayStyle, width: '20%' }}>회사명</td><td style={cellStyle} colSpan={3}>{doc.companyName}</td></tr>
-            <tr><td style={grayStyle}>기간</td><td style={cellStyle} colSpan={3}>{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</td></tr>
-            <tr><td style={grayStyle}>부서</td><td style={cellStyle} colSpan={3}>{doc.department}</td></tr>
-            <tr><td style={grayStyle}>작성자</td><td style={cellStyle} colSpan={3}>{doc.author}</td></tr>
-            <tr><td style={grayStyle}>기안일</td><td style={cellStyle} colSpan={3}>{formatKoreanDate(doc.draftDate)}</td></tr>
-          </tbody>
-        </table>
         <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000' }}>
           <thead>
             <tr>
@@ -666,7 +672,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const grayBg = 'background-color: #f3f4f6;';
     const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
     const approvalLine = doc.approvalLine || [];
-    const catLabel = doc.leaveCategory === 'other' ? (doc.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[doc.leaveCategory];
 
     const approvalHtml = `
       <table style="border-collapse: collapse; ${baseFont}">
@@ -679,20 +684,60 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         </tr>
       </table>`;
 
+    // 엑셀은 flexbox를 지원하지 않으므로 바깥 테이블로 감싸 결재표를 오른쪽 정렬한다
+    const approvalRowHtml = `
+      <table style="border-collapse: collapse; width:100%;"><tr>
+        <td style="border:none;"></td>
+        <td style="border:none; vertical-align:top;">${approvalHtml}</td>
+      </tr></table>`;
+
+    const mark = (cat: string) => doc.leaveCategory === cat ? `${grayBg.replace('background-color: #f3f4f6', 'background-color: #fde68a')} font-weight:bold;` : '';
+
     const bodyHtml = `
-      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px;">
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; width:15%;">소속</td><td style="${cellBorder}" colspan="2">${esc(doc.department)}</td><td style="${cellBorder} ${grayBg} font-weight:bold; width:12%;">휴가자</td><td style="${cellBorder}" colspan="2">${esc(doc.author)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">휴가구분</td><td style="${cellBorder}" colspan="5">${esc(catLabel)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">사유</td><td style="${cellBorder}" colspan="5">${esc(doc.reason || '')}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td><td style="${cellBorder}" colspan="5">${esc(doc.startDate)} ~ ${esc(doc.endDate)}${doc.startTime ? ` ${esc(doc.startTime)} ~ ${esc(doc.endTime || '')}` : ''} (${doc.annualLeaveNote ? esc(doc.annualLeaveNote) : `${doc.days}일`})</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">연락처</td><td style="${cellBorder}" colspan="2">집: ${esc(doc.homeContact || '')} / 휴대폰: ${esc(doc.mobileContact || '')}</td><td style="${cellBorder} ${grayBg} font-weight:bold;">직무대행자</td><td style="${cellBorder}" colspan="2">${esc(doc.actingPerson || '')}</td></tr>
+      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px;" cellpadding="4">
+        <tr>
+          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">소속</td><td style="${cellBorder} text-align:center;" colspan="4">${esc(doc.department)}</td>
+          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가자</td><td style="${cellBorder} text-align:center;" colspan="5">${esc(doc.author)}</td>
+        </tr>
+        <tr>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가구분</td>
+          <td style="${cellBorder} text-align:center; ${mark('monthly')}">월차</td>
+          <td style="${cellBorder} text-align:center; ${mark('annual')}">연차</td>
+          <td style="${cellBorder} text-align:center; ${mark('official')}">공가</td>
+          <td style="${cellBorder} text-align:center; ${mark('sick')}">병가</td>
+          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;" colspan="4">특별 휴가</td>
+          <td style="${cellBorder} text-align:center; ${mark('health')}">보건</td>
+          <td style="${cellBorder} text-align:center; ${mark('other')}">기타</td>
+        </tr>
+        <tr>
+          <td style="${cellBorder} text-align:center; ${mark('special_birth')}">출산</td>
+          <td style="${cellBorder} text-align:center; ${mark('special_summer')}">하기</td>
+          <td style="${cellBorder} text-align:center; ${mark('special_family')}">경조</td>
+          <td style="${cellBorder} text-align:center; ${mark('special_disaster')}">재해</td>
+        </tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">사유</td><td style="${cellBorder}" colspan="10">${esc(doc.reason || '')}</td></tr>
+        <tr>
+          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">기간</td>
+          <td style="${cellBorder} text-align:center;" colspan="5">${esc(doc.startDate)} ~ ${esc(doc.endDate)}</td>
+          <td style="${cellBorder} text-align:center;" colspan="3">${doc.startTime ? `${esc(doc.startTime)} ~ ${esc(doc.endTime || '')}` : ''}</td>
+          <td style="${cellBorder} text-align:center;" colspan="2">${doc.annualLeaveNote ? esc(doc.annualLeaveNote) : `${doc.days}일`}</td>
+        </tr>
+        <tr>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">연락처</td>
+          <td style="${cellBorder}" colspan="4">집  ${esc(doc.homeContact || '')}</td>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">직무 대행자</td>
+          <td rowspan="2" style="${cellBorder} text-align:center;" colspan="5">${esc(doc.actingPerson || '')}</td>
+        </tr>
+        <tr>
+          <td style="${cellBorder}" colspan="4">휴대폰  ${esc(doc.mobileContact || '')}</td>
+        </tr>
       </table>`;
 
     const fullHtml = `
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
-      <div style="display:flex; justify-content:flex-end;">${approvalHtml}</div>
+      ${approvalRowHtml}
       <p style="${baseFont}">기안번호 : ${esc(doc.draftNumber)}</p>
       ${bodyHtml}
       <p style="text-align:center; margin-top:30px; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
@@ -723,9 +768,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const renderPrintableLeave = (doc: LeaveRequest | undefined) => {
     if (!doc) return null;
     const approvalLine = doc.approvalLine || [];
-    const catLabel = doc.leaveCategory === 'other' ? (doc.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[doc.leaveCategory];
     const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
     const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
+    const markStyle = (cat: string): React.CSSProperties => doc.leaveCategory === cat ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' };
     return (
       <div style={{ width: '210mm', margin: '0 auto', padding: '12mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11 }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
@@ -745,13 +790,44 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
           </table>
         </div>
         <p style={{ fontSize: 11 }}>기안번호 : {doc.draftNumber}</p>
-        <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', marginTop: 10 }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', marginTop: 10, tableLayout: 'fixed' }}>
           <tbody>
-            <tr><td style={{ ...grayStyle, width: '15%' }}>소속</td><td style={cellStyle} colSpan={2}>{doc.department}</td><td style={{ ...grayStyle, width: '12%' }}>휴가자</td><td style={cellStyle} colSpan={2}>{doc.author}</td></tr>
-            <tr><td style={grayStyle}>휴가구분</td><td style={cellStyle} colSpan={5}>{catLabel}</td></tr>
-            <tr><td style={grayStyle}>사유</td><td style={cellStyle} colSpan={5}>{doc.reason || ''}</td></tr>
-            <tr><td style={grayStyle}>기간</td><td style={cellStyle} colSpan={5}>{doc.startDate} ~ {doc.endDate}{doc.startTime ? ` ${doc.startTime} ~ ${doc.endTime || ''}` : ''} ({doc.annualLeaveNote || `${doc.days}일`})</td></tr>
-            <tr><td style={grayStyle}>연락처</td><td style={cellStyle} colSpan={2}>집: {doc.homeContact || ''} / 휴대폰: {doc.mobileContact || ''}</td><td style={grayStyle}>직무대행자</td><td style={cellStyle} colSpan={2}>{doc.actingPerson || ''}</td></tr>
+            <tr>
+              <td style={{ ...grayStyle, textAlign: 'center' }}>소속</td><td style={{ ...cellStyle, textAlign: 'center' }} colSpan={4}>{doc.department}</td>
+              <td style={{ ...grayStyle, textAlign: 'center' }}>휴가자</td><td style={{ ...cellStyle, textAlign: 'center' }} colSpan={5}>{doc.author}</td>
+            </tr>
+            <tr>
+              <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>휴가<br />구분</td>
+              <td style={markStyle('monthly')}>월차</td>
+              <td style={markStyle('annual')}>연차</td>
+              <td style={markStyle('official')}>공가</td>
+              <td style={markStyle('sick')}>병가</td>
+              <td style={{ ...grayStyle, textAlign: 'center' }} colSpan={4}>특별 휴가</td>
+              <td style={markStyle('health')}>보건</td>
+              <td style={markStyle('other')}>기타</td>
+            </tr>
+            <tr>
+              <td style={markStyle('special_birth')}>출산</td>
+              <td style={markStyle('special_summer')}>하기</td>
+              <td style={markStyle('special_family')}>경조</td>
+              <td style={markStyle('special_disaster')}>재해</td>
+            </tr>
+            <tr><td style={grayStyle}>사유</td><td style={cellStyle} colSpan={10}>{doc.reason || ''}</td></tr>
+            <tr>
+              <td style={{ ...grayStyle, textAlign: 'center' }}>기간</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={5}>{doc.startDate} ~ {doc.endDate}</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={3}>{doc.startTime ? `${doc.startTime} ~ ${doc.endTime || ''}` : ''}</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{doc.annualLeaveNote || `${doc.days}일`}</td>
+            </tr>
+            <tr>
+              <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>연락처</td>
+              <td style={cellStyle} colSpan={4}>집&nbsp;&nbsp;{doc.homeContact || ''}</td>
+              <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>직무 대행자</td>
+              <td rowSpan={2} style={{ ...cellStyle, textAlign: 'center' }} colSpan={5}>{doc.actingPerson || ''}</td>
+            </tr>
+            <tr>
+              <td style={cellStyle} colSpan={4}>휴대폰&nbsp;&nbsp;{doc.mobileContact || ''}</td>
+            </tr>
           </tbody>
         </table>
         <p style={{ textAlign: 'center', marginTop: 40 }}>위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
@@ -1460,8 +1536,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">가지급금 정산서</span>
                   </div>
 
-                  <div className="flex justify-end mb-3">
-                    <table className="border-collapse text-center text-xs">
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <table className="border-collapse text-xs w-[55%]">
+                      <tbody>
+                        <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5 w-[28%]">회사명</td><td className="border border-black px-3 py-1.5">{previewDoc.companyName}</td></tr>
+                        <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기간</td><td className="border border-black px-3 py-1.5">{formatKoreanPeriod(previewDoc.periodStart, previewDoc.periodEnd)}</td></tr>
+                        <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">부서</td><td className="border border-black px-3 py-1.5">{previewDoc.department}</td></tr>
+                        <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">작성자</td><td className="border border-black px-3 py-1.5">{previewDoc.author}</td></tr>
+                        <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기안일</td><td className="border border-black px-3 py-1.5">{formatKoreanDate(previewDoc.draftDate)}</td></tr>
+                      </tbody>
+                    </table>
+
+                    <table className="border-collapse text-center text-xs shrink-0">
                       <tbody>
                         <tr>
                           <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 align-middle">결&nbsp;&nbsp;재</td>
@@ -1477,16 +1563,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       </tbody>
                     </table>
                   </div>
-
-                  <table className="border-collapse text-xs mb-5 w-[60%]">
-                    <tbody>
-                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5 w-[22%]">회사명</td><td className="border border-black px-3 py-1.5">{previewDoc.companyName}</td></tr>
-                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기간</td><td className="border border-black px-3 py-1.5">{formatKoreanPeriod(previewDoc.periodStart, previewDoc.periodEnd)}</td></tr>
-                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">부서</td><td className="border border-black px-3 py-1.5">{previewDoc.department}</td></tr>
-                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">작성자</td><td className="border border-black px-3 py-1.5">{previewDoc.author}</td></tr>
-                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기안일</td><td className="border border-black px-3 py-1.5">{formatKoreanDate(previewDoc.draftDate)}</td></tr>
-                    </tbody>
-                  </table>
 
                   <table className="w-full border-collapse border-[1.5px] border-black text-xs">
                     <thead>
@@ -1583,35 +1659,48 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
                   <p className="mb-2">기안번호 : {previewLeave.draftNumber}</p>
 
-                  <table className="w-full border-collapse border-[1.5px] border-black text-xs">
+                  <table className="w-full border-collapse border-[1.5px] border-black text-xs table-fixed">
                     <tbody>
                       <tr>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 w-[15%]">소속</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={2}>{previewLeave.department}</td>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 w-[12%]">휴가자</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={2}>{previewLeave.author}</td>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">소속</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={4}>{previewLeave.department}</td>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">휴가자</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={5}>{previewLeave.author}</td>
                       </tr>
                       <tr>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">휴가구분</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={5}>{catLabel}</td>
+                        <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">휴가<br />구분</td>
+                        <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'monthly' ? 'bg-yellow-200' : 'bg-gray-100'}`}>월차</td>
+                        <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'annual' ? 'bg-yellow-200' : 'bg-gray-100'}`}>연차</td>
+                        <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'official' ? 'bg-yellow-200' : 'bg-gray-100'}`}>공가</td>
+                        <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'sick' ? 'bg-yellow-200' : 'bg-gray-100'}`}>병가</td>
+                        <td className="border border-black px-1 py-1 text-center font-bold bg-gray-100" colSpan={4}>특별 휴가</td>
+                        <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'health' ? 'bg-yellow-200' : 'bg-gray-100'}`}>보건</td>
+                        <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'other' ? 'bg-yellow-200' : 'bg-gray-100'}`}>기타</td>
                       </tr>
                       <tr>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">사유</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={5}>{previewLeave.reason || ''}</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special_birth' ? 'bg-yellow-200 font-bold' : ''}`}>출산</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special_summer' ? 'bg-yellow-200 font-bold' : ''}`}>하기</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special_family' ? 'bg-yellow-200 font-bold' : ''}`}>경조</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special_disaster' ? 'bg-yellow-200 font-bold' : ''}`}>재해</td>
                       </tr>
                       <tr>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기간</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={5}>
-                          {previewLeave.startDate} ~ {previewLeave.endDate}
-                          {previewLeave.startTime ? ` ${previewLeave.startTime} ~ ${previewLeave.endTime || ''}` : ''}
-                          {' '}({previewLeave.annualLeaveNote || `${previewLeave.days}일`})
-                        </td>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">사유</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={10}>{previewLeave.reason || ''}</td>
                       </tr>
                       <tr>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">연락처</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={2}>집: {previewLeave.homeContact || ''} / 휴대폰: {previewLeave.mobileContact || ''}</td>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5">직무대행자</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={2}>{previewLeave.actingPerson || ''}</td>
+                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">기간</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={5}>{previewLeave.startDate}&nbsp;&nbsp;~&nbsp;&nbsp;{previewLeave.endDate}</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={3}>{previewLeave.startTime ? `${previewLeave.startTime}  ~  ${previewLeave.endTime || ''}` : ''}</td>
+                        <td className="border border-black px-2 py-1.5 text-center" colSpan={2}>{previewLeave.annualLeaveNote || `${previewLeave.days}일`}</td>
+                      </tr>
+                      <tr>
+                        <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">연락처</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={4}>집&nbsp;&nbsp;{previewLeave.homeContact || ''}</td>
+                        <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">직무 대행자</td>
+                        <td rowSpan={2} className="border border-black px-3 py-1.5 text-center align-middle" colSpan={5}>{previewLeave.actingPerson || ''}</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black px-3 py-1.5" colSpan={4}>휴대폰&nbsp;&nbsp;{previewLeave.mobileContact || ''}</td>
                       </tr>
                     </tbody>
                   </table>
