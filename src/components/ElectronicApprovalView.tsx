@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
-  Printer, Calendar, User as UserIcon, Briefcase, Hash
+  Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
+  Download, ClipboardList, Car
 } from 'lucide-react';
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -48,8 +50,44 @@ const LEAVE_CATEGORY_LABEL: Record<LeaveCategory, string> = {
 
 const LEAVE_CATEGORY_ORDER: LeaveCategory[] = ['monthly', 'annual', 'official', 'sick', 'special_birth', 'special_summer', 'special_family', 'special_disaster', 'health', 'other'];
 
+// 업무일지/차량운행일지에서 가져올 수 있는 비용 한 건을 표현하는 공통 형태
+interface ImportableExpenseRow {
+  id: string;           // 원본 항목 고유 ID (선택 상태 추적용)
+  date: string;
+  project: string;
+  description: string;
+  amount: number;
+  account: string;       // 계정과목(카테고리) 라벨
+  companyName: string;    // 상호
+  remark: string;
+}
+
+const WORKLOG_EXPENSE_LABEL: Record<string, string> = {
+  breakfast: '조식', lunch: '중식', dinner: '석식', drinks: '음료',
+  fuel: '주유비', parking: '주차비', proxy: '대리운전비', purchase: '물품구입', custom: '기타'
+};
+const VEHICLE_EXPENSE_LABEL: Record<string, string> = {
+  fuel: '주유비', toll: '통행료', parking: '주차비', maintenance: '정비비',
+  tax_insurance: '세금/보험', other: '기타', agency_drive: '대리운전비',
+  beverage: '음료', meal: '식대', supplies: '물품구입', custom: '기타'
+};
+
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+// 'YYYY-MM-DD' -> 'YYYY년 MM월 DD일'
+function formatKoreanDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  return `${y}년 ${m}월 ${d}일`;
+}
+
+function formatKoreanPeriod(start: string, end: string): string {
+  if (!start && !end) return '';
+  return `${formatKoreanDate(start)} ~ ${formatKoreanDate(end)}`;
 }
 
 function calcLeaveDays(startDate: string, endDate: string): number {
@@ -144,7 +182,7 @@ function buildAdvancePrintHtml(doc: AdvancePaymentSettlement): string {
     ${approvalLineHtml(doc.approvalLine)}
     <table style="margin-bottom:16px;">
       <tr><td class="label-cell">회사명</td><td colspan="3">${doc.companyName}</td></tr>
-      <tr><td class="label-cell">기간</td><td colspan="3">${doc.periodStart} ~ ${doc.periodEnd}</td></tr>
+      <tr><td class="label-cell">기간</td><td colspan="3">${formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</td></tr>
       <tr><td class="label-cell">부서</td><td colspan="3">${doc.department}</td></tr>
       <tr><td class="label-cell">작성자</td><td colspan="3">${doc.author}</td></tr>
       <tr><td class="label-cell">기안일</td><td colspan="3">${doc.draftDate}</td></tr>
@@ -187,6 +225,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [apDraftDate, setApDraftDate] = useState(todayStr());
   const [apItems, setApItems] = useState<AdvancePaymentItem[]>([]);
   const [apApprovalLine, setApApprovalLine] = useState<ApprovalStep[]>(defaultAdvanceApprovalLine());
+
+  // 업무일지/차량운행일지 비용 가져오기
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importTab, setImportTab] = useState<'worklog' | 'vehicle'>('worklog');
+  const [importWorklogRows, setImportWorklogRows] = useState<ImportableExpenseRow[]>([]);
+  const [importVehicleRows, setImportVehicleRows] = useState<ImportableExpenseRow[]>([]);
+  const [importSelectedIds, setImportSelectedIds] = useState<Set<string>>(new Set());
+  const [importLoading, setImportLoading] = useState(false);
+
+  // 가지급금 정산서 화면 출력(미리보기) - 주간업무일지/차량운행일지와 동일하게 화면에 그대로 보여준 뒤 엑셀/PDF로 출력
+  const [previewAdvanceId, setPreviewAdvanceId] = useState<string | null>(null);
 
   // 휴가 신청서 폼 상태
   const [lvDraftNumber, setLvDraftNumber] = useState('');
@@ -318,6 +367,243 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setApItems(prev => prev.filter(it => it.id !== id));
   };
   const apTotal = apItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+
+  // 업무일지(일일) / 차량운행 비용 목록을 불러와 가져오기 후보로 준비
+  const openImportModal = async () => {
+    setIsImportModalOpen(true);
+    setImportSelectedIds(new Set());
+    if (!currentUser) return;
+    setImportLoading(true);
+    try {
+      const headers = { 'x-user-id': currentUser.id };
+      const [dailyLogs, projects, vehicleExpenses] = await Promise.all([
+        fetch('/api/worklogs/daily', { headers }).then(r => r.json()).catch(() => []),
+        fetch('/api/projects', { headers }).then(r => r.json()).catch(() => []),
+        fetch('/api/vehicles/expenses', { headers }).then(r => r.json()).catch(() => [])
+      ]);
+
+      const projectNameById: Record<string, string> = {};
+      if (Array.isArray(projects)) {
+        projects.forEach((p: any) => { projectNameById[p.id] = p.name || p.title || ''; });
+      }
+
+      const worklogRows: ImportableExpenseRow[] = [];
+      if (Array.isArray(dailyLogs)) {
+        dailyLogs.forEach((log: any) => {
+          const projectLabel = (log.projectIds || []).map((pid: string) => projectNameById[pid]).filter(Boolean).join(', ');
+          (log.expenses || []).forEach((exp: any) => {
+            worklogRows.push({
+              id: `wl-${exp.id}`,
+              date: log.date,
+              project: projectLabel,
+              description: exp.memo || WORKLOG_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
+              amount: exp.amount || 0,
+              account: exp.categoryCustom || WORKLOG_EXPENSE_LABEL[exp.category] || '',
+              companyName: '',
+              remark: '업무일지'
+            });
+          });
+        });
+      }
+
+      const vehicleRows: ImportableExpenseRow[] = [];
+      if (Array.isArray(vehicleExpenses)) {
+        vehicleExpenses.forEach((exp: any) => {
+          vehicleRows.push({
+            id: `veh-${exp.id}`,
+            date: exp.date,
+            project: exp.projectName || '',
+            description: exp.memo || VEHICLE_EXPENSE_LABEL[exp.category] || exp.categoryCustom || '',
+            amount: exp.amount || 0,
+            account: exp.categoryCustom || VEHICLE_EXPENSE_LABEL[exp.category] || '',
+            companyName: exp.merchantName || '',
+            remark: '차량운행일지'
+          });
+        });
+      }
+
+      worklogRows.sort((a, b) => (a.date < b.date ? 1 : -1));
+      vehicleRows.sort((a, b) => (a.date < b.date ? 1 : -1));
+      setImportWorklogRows(worklogRows);
+      setImportVehicleRows(vehicleRows);
+    } catch (err) {
+      console.error('Import fetch error:', err);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const toggleImportSelect = (id: string) => {
+    setImportSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const applyImportedItems = () => {
+    const all = [...importWorklogRows, ...importVehicleRows];
+    const picked = all.filter(r => importSelectedIds.has(r.id));
+    const newItems: AdvancePaymentItem[] = picked.map(r => ({
+      id: `api-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      date: r.date, project: r.project, description: r.description,
+      amount: r.amount, account: r.account, companyName: r.companyName, remark: r.remark
+    }));
+    setApItems(prev => [...prev, ...newItems]);
+    setIsImportModalOpen(false);
+  };
+
+  // 화면에 보이는 가지급금 정산서 양식 그대로 엑셀(.xls)로 다운로드
+  const downloadAdvanceToExcel = (doc: AdvancePaymentSettlement) => {
+    const esc = (str: any): string => (str === null || str === undefined ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+    const cellBorder = 'border: 0.5pt solid #000000;';
+    const grayBg = 'background-color: #f3f4f6;';
+    const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
+    const total = doc.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+
+    const approvalHtml = `
+      <table style="border-collapse: collapse; ${baseFont}">
+        <tr>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
+          ${doc.approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:90px;">${esc(s.role)}</th>`).join('')}
+        </tr>
+        <tr>
+          ${doc.approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
+        </tr>
+      </table>`;
+
+    const headerHtml = `
+      <table style="border-collapse: collapse; width:60%; ${baseFont} margin-top:10px;">
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; width:20%;">회사명</td><td style="${cellBorder}" colspan="3">${esc(doc.companyName)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td><td style="${cellBorder}" colspan="3">${esc(formatKoreanPeriod(doc.periodStart, doc.periodEnd))}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">부서</td><td style="${cellBorder}" colspan="3">${esc(doc.department)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">작성자</td><td style="${cellBorder}" colspan="3">${esc(doc.author)}</td></tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기안일</td><td style="${cellBorder}" colspan="3">${esc(formatKoreanDate(doc.draftDate))}</td></tr>
+      </table>`;
+
+    const itemRows = doc.items.map(it => `
+      <tr>
+        <td style="${cellBorder} text-align:center; ${baseFont}">${esc(it.date)}</td>
+        <td style="${cellBorder} text-align:center; ${baseFont}">${esc(it.project)}</td>
+        <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(it.description)}</td>
+        <td style="${cellBorder} text-align:right; padding-right:5px; ${baseFont}">${it.amount.toLocaleString()}</td>
+        <td style="${cellBorder} text-align:center; ${baseFont}">${esc(it.account)}</td>
+        <td style="${cellBorder} text-align:center; ${baseFont}">${esc(it.companyName)}</td>
+        <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(it.remark)}</td>
+      </tr>`).join('');
+
+    const itemsTableHtml = `
+      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px;">
+        <tr style="${grayBg}">
+          <th style="${cellBorder} ${grayBg}">Date(날짜)</th><th style="${cellBorder} ${grayBg}">Project(프로젝트명)</th>
+          <th style="${cellBorder} ${grayBg}">Description(내용)</th><th style="${cellBorder} ${grayBg}">Expenses(금액/원)</th>
+          <th style="${cellBorder} ${grayBg}">Account(계정과목)</th><th style="${cellBorder} ${grayBg}">Company name(상호)</th>
+          <th style="${cellBorder} ${grayBg}">Remark(비고)</th>
+        </tr>
+        ${itemRows}
+        <tr style="${grayBg} font-weight:bold;">
+          <td colspan="3" style="${cellBorder} text-align:center;">총 합계</td>
+          <td style="${cellBorder} text-align:right; padding-right:5px;">${total.toLocaleString()}</td>
+          <td colspan="3" style="${cellBorder}"></td>
+        </tr>
+      </table>`;
+
+    const fullHtml = `
+      <div style="text-align:center; margin-bottom:16px;">
+        <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">가지급금 정산서</span>
+      </div>
+      <div style="display:flex; justify-content:flex-end;">${approvalHtml}</div>
+      ${headerHtml}
+      ${itemsTableHtml}
+    `;
+
+    const excelContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="utf-8">
+      <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+      <x:Name>가지급금정산서</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+      </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      </head><body>${fullHtml}</body></html>
+    `;
+
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `가지급금정산서_${doc.periodStart || todayStr()}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintAdvance = () => { window.print(); };
+
+  // 인쇄 전용 정적 렌더러: #print-root 포털에 렌더링되어 화면 미리보기와 별개로 단독 인쇄됨
+  const renderPrintableAdvance = (doc: AdvancePaymentSettlement | undefined) => {
+    if (!doc) return null;
+    const total = doc.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
+    const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
+    return (
+      <div style={{ width: '210mm', margin: '0 auto', padding: '12mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11 }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>가지급금 정산서</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <table style={{ borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 60 }}>결&nbsp;&nbsp;재</td>
+                {doc.approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 90 }}>{s.role}</th>)}
+              </tr>
+              <tr>
+                {doc.approvalLine.map((s, i) => <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 40 }}>{s.date || ''}</td>)}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <table style={{ borderCollapse: 'collapse', width: '60%', marginBottom: 14 }}>
+          <tbody>
+            <tr><td style={{ ...grayStyle, width: '20%' }}>회사명</td><td style={cellStyle} colSpan={3}>{doc.companyName}</td></tr>
+            <tr><td style={grayStyle}>기간</td><td style={cellStyle} colSpan={3}>{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</td></tr>
+            <tr><td style={grayStyle}>부서</td><td style={cellStyle} colSpan={3}>{doc.department}</td></tr>
+            <tr><td style={grayStyle}>작성자</td><td style={cellStyle} colSpan={3}>{doc.author}</td></tr>
+            <tr><td style={grayStyle}>기안일</td><td style={cellStyle} colSpan={3}>{formatKoreanDate(doc.draftDate)}</td></tr>
+          </tbody>
+        </table>
+        <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000' }}>
+          <thead>
+            <tr>
+              <th style={grayStyle}>Date(날짜)</th><th style={grayStyle}>Project(프로젝트명)</th>
+              <th style={grayStyle}>Description(내용)</th><th style={grayStyle}>Expenses(금액/원)</th>
+              <th style={grayStyle}>Account(계정과목)</th><th style={grayStyle}>Company name(상호)</th>
+              <th style={grayStyle}>Remark(비고)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {doc.items.map(it => (
+              <tr key={it.id}>
+                <td style={{ ...cellStyle, textAlign: 'center' }}>{it.date}</td>
+                <td style={{ ...cellStyle, textAlign: 'center' }}>{it.project}</td>
+                <td style={{ ...cellStyle, textAlign: 'left' }}>{it.description}</td>
+                <td style={{ ...cellStyle, textAlign: 'right' }}>{it.amount.toLocaleString()}</td>
+                <td style={{ ...cellStyle, textAlign: 'center' }}>{it.account}</td>
+                <td style={{ ...cellStyle, textAlign: 'center' }}>{it.companyName}</td>
+                <td style={{ ...cellStyle, textAlign: 'left' }}>{it.remark}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={{ ...grayStyle, textAlign: 'center' }} colSpan={3}>총 합계</td>
+              <td style={{ ...grayStyle, textAlign: 'right' }}>{total.toLocaleString()}</td>
+              <td style={cellStyle} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   const saveAdvance = async () => {
     if (!apCompanyName.trim()) { alert('회사명을 입력해 주세요.'); return; }
@@ -515,13 +801,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                           <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" />{doc.author}</span>
                           <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{doc.department}</span>
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{doc.periodStart} ~ {doc.periodEnd}</span>
+                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</span>
                         </div>
                         <ApprovalLineMini line={doc.approvalLine} />
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => openPrintWindow('가지급금 정산서', buildAdvancePrintHtml(doc))} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="인쇄">
-                          <Printer className="w-4 h-4" />
+                        <button onClick={() => setPreviewAdvanceId(doc.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="출력 미리보기">
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button onClick={() => openEditAdvance(doc)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors">
                           <Edit2 className="w-4 h-4" />
@@ -671,12 +957,23 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
               </div>
 
+              {(apPeriodStart || apPeriodEnd) && (
+                <p className="text-xs text-slate-400 bg-slate-950/50 rounded-xl px-4 py-2.5 -mt-2">
+                  출력 표기: <span className="font-bold text-slate-200">{formatKoreanPeriod(apPeriodStart, apPeriodEnd)}</span>
+                </p>
+              )}
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-300">정산 내역</label>
-                  <button type="button" onClick={addApItem} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-bold">
-                    <Plus className="w-3.5 h-3.5" /> 내역 추가
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-bold">
+                      <Download className="w-3.5 h-3.5" /> 업무일지/차량운행일지에서 가져오기
+                    </button>
+                    <button type="button" onClick={addApItem} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-bold">
+                      <Plus className="w-3.5 h-3.5" /> 내역 추가
+                    </button>
+                  </div>
                 </div>
                 {apItems.length === 0 && (
                   <div className="text-xs text-slate-500 text-center py-4 bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
@@ -722,6 +1019,70 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex items-center justify-end gap-2">
               <button onClick={() => setIsAdvanceModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-400 hover:bg-slate-800 transition-colors">취소</button>
               <button onClick={saveAdvance} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 업무일지/차량운행일지 비용 가져오기 모달 */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="font-bold text-lg text-slate-100 flex items-center gap-2">
+                <Download className="w-5 h-5 text-indigo-400" />
+                비용 가져오기
+              </h2>
+              <button onClick={() => setIsImportModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="px-6 pt-4">
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                <button onClick={() => setImportTab('worklog')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                  <ClipboardList className="w-3.5 h-3.5" /> 업무일지 비용 ({importWorklogRows.length})
+                </button>
+                <button onClick={() => setImportTab('vehicle')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                  <Car className="w-3.5 h-3.5" /> 차량운행 비용 ({importVehicleRows.length})
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 pt-4 space-y-2">
+              {importLoading ? (
+                <div className="py-16 flex flex-col items-center justify-center space-y-3">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-slate-400">비용 내역을 불러오는 중입니다...</p>
+                </div>
+              ) : (
+                (importTab === 'worklog' ? importWorklogRows : importVehicleRows).length === 0 ? (
+                  <div className="py-16 text-center text-slate-500 bg-slate-950/40 border border-dashed border-slate-800 rounded-2xl text-xs">
+                    가져올 수 있는 비용 내역이 없습니다.
+                  </div>
+                ) : (
+                  (importTab === 'worklog' ? importWorklogRows : importVehicleRows).map(row => (
+                    <label key={row.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${importSelectedIds.has(row.id) ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-950/50 border-slate-800 hover:bg-slate-800/40'}`}>
+                      <input type="checkbox" checked={importSelectedIds.has(row.id)} onChange={() => toggleImportSelect(row.id)}
+                        className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0" />
+                      <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+                        <span className="text-slate-400">{row.date}</span>
+                        <span className="text-slate-300 truncate">{row.project || '-'}</span>
+                        <span className="text-slate-300 truncate col-span-2 sm:col-span-1">{row.description}</span>
+                        <span className="text-slate-100 font-bold text-right sm:text-left">{formatCurrencyInput(row.amount)}원</span>
+                      </div>
+                    </label>
+                  ))
+                )
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-400">{importSelectedIds.size}건 선택됨</span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-400 hover:bg-slate-800 transition-colors">취소</button>
+                <button onClick={applyImportedItems} disabled={importSelectedIds.size === 0} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">선택 항목 가져오기</button>
+              </div>
             </div>
           </div>
         </div>
@@ -850,6 +1211,112 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
           </div>
         </div>
       )}
+
+      {/* 가지급금 정산서 출력 미리보기 (주간업무일지/차량운행일지와 동일한 방식: 화면에 그대로 보여준 뒤 엑셀/PDF로 출력) */}
+      {previewAdvanceId && (() => {
+        const previewDoc = advanceList.find(d => d.id === previewAdvanceId);
+        if (!previewDoc) return null;
+        const total = previewDoc.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+        return (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4">
+            <div className="w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden">
+              {/* 비인쇄 상단 바 */}
+              <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                    <Eye className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">가지급금 정산서 출력 미리보기</h2>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => downloadAdvanceToExcel(previewDoc)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
+                    <FileSpreadsheet className="w-3.5 h-3.5" /><span>엑셀 다운로드</span>
+                  </button>
+                  <button onClick={handlePrintAdvance} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
+                    <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
+                  </button>
+                  <button onClick={() => setPreviewAdvanceId(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
+              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center">
+                <div className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans leading-tight">
+                  <div className="text-center mb-6">
+                    <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">가지급금 정산서</span>
+                  </div>
+
+                  <div className="flex justify-end mb-3">
+                    <table className="border-collapse text-center text-xs">
+                      <tbody>
+                        <tr>
+                          <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 align-middle">결&nbsp;&nbsp;재</td>
+                          {previewDoc.approvalLine.map((s, i) => (
+                            <th key={i} className="border border-black bg-gray-100 font-bold px-4 py-1.5 min-w-[80px]">{s.role}</th>
+                          ))}
+                        </tr>
+                        <tr>
+                          {previewDoc.approvalLine.map((s, i) => (
+                            <td key={i} className="border border-black px-3 py-2.5 h-10">{s.date || ''}</td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <table className="border-collapse text-xs mb-5 w-[60%]">
+                    <tbody>
+                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5 w-[22%]">회사명</td><td className="border border-black px-3 py-1.5">{previewDoc.companyName}</td></tr>
+                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기간</td><td className="border border-black px-3 py-1.5">{formatKoreanPeriod(previewDoc.periodStart, previewDoc.periodEnd)}</td></tr>
+                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">부서</td><td className="border border-black px-3 py-1.5">{previewDoc.department}</td></tr>
+                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">작성자</td><td className="border border-black px-3 py-1.5">{previewDoc.author}</td></tr>
+                      <tr><td className="border border-black bg-gray-100 font-bold px-3 py-1.5">기안일</td><td className="border border-black px-3 py-1.5">{formatKoreanDate(previewDoc.draftDate)}</td></tr>
+                    </tbody>
+                  </table>
+
+                  <table className="w-full border-collapse border-[1.5px] border-black text-xs">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border border-black px-2 py-1.5 font-bold">Date(날짜)</th>
+                        <th className="border border-black px-2 py-1.5 font-bold">Project(프로젝트명)</th>
+                        <th className="border border-black px-2 py-1.5 font-bold">Description(내용)</th>
+                        <th className="border border-black px-2 py-1.5 font-bold">Expenses(금액/원)</th>
+                        <th className="border border-black px-2 py-1.5 font-bold">Account(계정과목)</th>
+                        <th className="border border-black px-2 py-1.5 font-bold">Company name(상호)</th>
+                        <th className="border border-black px-2 py-1.5 font-bold">Remark(비고)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewDoc.items.map(it => (
+                        <tr key={it.id}>
+                          <td className="border border-black px-2 py-1.5 text-center">{it.date}</td>
+                          <td className="border border-black px-2 py-1.5 text-center">{it.project}</td>
+                          <td className="border border-black px-2 py-1.5">{it.description}</td>
+                          <td className="border border-black px-2 py-1.5 text-right">{it.amount.toLocaleString()}</td>
+                          <td className="border border-black px-2 py-1.5 text-center">{it.account}</td>
+                          <td className="border border-black px-2 py-1.5 text-center">{it.companyName}</td>
+                          <td className="border border-black px-2 py-1.5">{it.remark}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-100 font-bold">
+                        <td className="border border-black px-2 py-1.5 text-center" colSpan={3}>총 합계</td>
+                        <td className="border border-black px-2 py-1.5 text-right">{total.toLocaleString()}</td>
+                        <td className="border border-black px-2 py-1.5" colSpan={3}></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 인쇄 전용 정적 리포트: 앱 트리 밖의 별도 포털(#print-root)에 렌더링되어 인쇄 시 단독으로 출력됨 */}
+      {previewAdvanceId && typeof document !== 'undefined' && document.getElementById('print-root') &&
+        createPortal(renderPrintableAdvance(advanceList.find(d => d.id === previewAdvanceId)), document.getElementById('print-root')!)}
     </div>
   );
 };
