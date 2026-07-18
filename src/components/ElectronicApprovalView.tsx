@@ -1277,7 +1277,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               <p className="text-sm">등록된 가지급금 정산서가 없습니다.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3">
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-3 -mx-1 px-1 [scrollbar-width:thin]">
               {[...advanceList].sort((a, b) => {
                 const byDate = (b.periodStart || '').localeCompare(a.periodStart || '');
                 if (byDate !== 0) return byDate;
@@ -1285,7 +1285,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               }).map(doc => {
                 const total = (doc.items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
                 return (
-                  <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+                  <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
