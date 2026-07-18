@@ -75,14 +75,13 @@ function leaveCategoryDisplay(doc: LeaveRequest): string {
 // "기간" 칸에 표시할 연차 누적 문구를 저장된 문자열에 의존하지 않고, 볼 때마다 전체 휴가 목록에서
 // 새로 계산한다 (저장 당시 스냅샷이 아니라 항상 최신 값을 보여주기 위함).
 function computeAnnualLeaveLabel(doc: LeaveRequest, allLeave: LeaveRequest[]): string {
-  if (doc.leaveCategory !== 'annual' || !doc.totalAnnualDays) {
+  if (!doc.totalAnnualDays) {
     return doc.annualLeaveNote || `${doc.days}일`;
   }
   const year = (doc.startDate || '').slice(0, 4);
   const normalizedAuthor = (doc.author || '').trim().toLowerCase();
   const cumulative = allLeave
     .filter(d =>
-      d.leaveCategory === 'annual' &&
       (d.author || '').trim().toLowerCase() === normalizedAuthor &&
       (d.startDate || '').slice(0, 4) === year &&
       d.status !== 'rejected'
@@ -424,18 +423,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     fetchMyProfile();
   }, [currentUser]);
 
-  // 연차 선택 시, 같은 해에 그 사람이 이미 사용한 연차(현재 작성 중인 문서 제외) + 이번 신청 일수를 더해
-  // "누적 12/20일" 형태로 자동 계산해 표시한다.
+  // 총 연차 일수가 입력되어 있으면, 휴가 구분과 무관하게 같은 해에 그 사람이 이미 사용한 휴가일수
+  // (현재 작성 중인 문서 제외) + 이번 신청 일수를 더해 "누적 12/20일" 형태로 자동 계산해 표시한다.
   useEffect(() => {
-    if (lvCategory !== 'annual') return;
     const totalDays = lvTotalAnnualDays || 0;
-    const currentDays = calcLeaveDays(lvStartDate, lvEndDate, ANNUAL_TYPE_MULTIPLIER[lvAnnualType]);
+    if (!totalDays) return;
+    const currentDays = calcLeaveDays(lvStartDate, lvEndDate, lvCategory === 'annual' ? ANNUAL_TYPE_MULTIPLIER[lvAnnualType] : 1);
     const year = (lvStartDate || todayStr()).slice(0, 4);
     const normalizedAuthor = (lvAuthor || '').trim().toLowerCase();
     const priorUsed = leaveList
       .filter(d =>
         d.id !== editingLeaveId &&
-        d.leaveCategory === 'annual' &&
         (d.author || '').trim().toLowerCase() === normalizedAuthor &&
         (d.startDate || '').slice(0, 4) === year &&
         d.status !== 'rejected'
@@ -1122,7 +1120,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       specialType: lvCategory === 'special' ? lvSpecialType : undefined,
       specialTypeCustom: lvCategory === 'special' && lvSpecialType === 'custom' ? lvSpecialTypeCustom : undefined,
       annualType: lvCategory === 'annual' ? lvAnnualType : undefined,
-      totalAnnualDays: lvCategory === 'annual' ? lvTotalAnnualDays : undefined,
+      totalAnnualDays: lvTotalAnnualDays || undefined,
       reason: lvReason, startDate: lvStartDate, endDate: lvEndDate,
       startTime: lvStartTime || undefined, endTime: lvEndTime || undefined,
       days, annualLeaveNote: lvAnnualNote || undefined,
@@ -1349,7 +1347,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                           {leaveCategoryDisplay(doc)}
                         </span>
-                        {doc.leaveCategory === 'annual' && doc.totalAnnualDays ? (
+                        {doc.totalAnnualDays ? (
                           <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
                             누적 {computeAnnualLeaveLabel(doc, leaveList)}
                           </span>
@@ -1817,19 +1815,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 {lvCategory === 'annual' && <span className="text-slate-500"> ({ANNUAL_TYPE_LABEL[lvAnnualType]} 기준)</span>}
               </div>
 
-              {lvCategory === 'annual' ? (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">누적 연차 표기 (총 연차 일수 기준 자동 계산, 필요시 직접 수정)</label>
-                  <input type="text" placeholder="5일/20일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">연차 사용/잔여 표기 (선택, 예: 5일/20일)</label>
-                  <input type="text" placeholder="5일/20일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">누적 휴가 표기 (총 연차 일수 기준 자동 계산, 필요시 직접 수정)</label>
+                <input type="text" placeholder="5일/20일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
