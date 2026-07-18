@@ -264,6 +264,50 @@ export interface WorkLogDayEntry {
   content: string;      // 해당 시간대 업무 내용
 }
 
+// === 전자결재 (Electronic Approval) ===
+
+export type ApprovalStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
+export interface AdvancePaymentItem {
+  id: string;
+  date: string;        // 사용 일자 (YYYY-MM-DD)
+  description: string; // 사용 내역
+  amount: number;       // 사용 금액 (원)
+}
+
+// 가지급금 정산서: 미리 지급받은 가지급금을 실제 사용 내역과 대조하여 정산
+export interface AdvancePaymentSettlement {
+  id: string;
+  title: string;          // 제목
+  author?: string;         // 작성자
+  department?: string;     // 부서
+  requestDate: string;     // 정산 신청일 (YYYY-MM-DD)
+  advanceAmount: number;   // 가지급받은 금액
+  items: AdvancePaymentItem[]; // 사용 내역 목록
+  memo?: string;            // 비고
+  status: ApprovalStatus;   // 결재 상태
+  approverMemo?: string;    // 결재자 반려/승인 메모
+  createdAt: string;
+}
+
+// 휴가 신청서
+export interface LeaveRequest {
+  id: string;
+  title: string;              // 제목
+  author?: string;             // 작성자
+  department?: string;         // 부서
+  leaveType: 'annual' | 'half_am' | 'half_pm' | 'sick' | 'special' | 'other'; // 휴가 종류
+  leaveTypeCustom?: string;    // 기타 선택시 직접 입력
+  startDate: string;           // 시작일 (YYYY-MM-DD)
+  endDate: string;             // 종료일 (YYYY-MM-DD)
+  days: number;                 // 휴가 일수
+  reason?: string;              // 사유
+  contactDuring?: string;       // 휴가중 비상 연락처
+  status: ApprovalStatus;       // 결재 상태
+  approverMemo?: string;        // 결재자 반려/승인 메모
+  createdAt: string;
+}
+
 export interface WeeklyWorkLog {
   id: string;
   startDate: string;     // 주간 시작일 (YYYY-MM-DD)
