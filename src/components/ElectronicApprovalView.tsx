@@ -714,39 +714,45 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       </tr></table>`;
 
     const mark = (cat: string) => doc.leaveCategory === cat ? `${grayBg.replace('background-color: #f3f4f6', 'background-color: #fde68a')} font-weight:bold;` : '';
-    const specialSubLabel = doc.specialType === 'custom' ? (doc.specialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[doc.specialType || 'birth'];
+    const markSpecial = (t: string) => (doc.leaveCategory === 'special' && doc.specialType === t) ? 'background-color: #fde68a; font-weight:bold;' : '';
 
     const bodyHtml = `
       <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px;" cellpadding="4">
         <tr>
-          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">소속</td><td style="${cellBorder} text-align:center;" colspan="3">${esc(doc.department)}</td>
-          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가자</td><td style="${cellBorder} text-align:center;" colspan="3">${esc(doc.author)}</td>
+          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">소속</td><td style="${cellBorder} text-align:center;" colspan="4">${esc(doc.department)}</td>
+          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가자</td><td style="${cellBorder} text-align:center;" colspan="5">${esc(doc.author)}</td>
         </tr>
         <tr>
-          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가구분</td>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가구분</td>
           <td style="${cellBorder} text-align:center; ${mark('monthly')}">월차</td>
           <td style="${cellBorder} text-align:center; ${mark('annual')}">연차</td>
           <td style="${cellBorder} text-align:center; ${mark('official')}">공가</td>
           <td style="${cellBorder} text-align:center; ${mark('sick')}">병가</td>
-          <td style="${cellBorder} text-align:center; ${mark('special')}">특별휴가${doc.leaveCategory === 'special' ? `<br/><span style="font-weight:normal;font-size:8pt;">(${esc(specialSubLabel)})</span>` : ''}</td>
+          <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; ${doc.leaveCategory === 'special' && doc.specialType === 'custom' ? 'background-color:#fde68a;' : ''}" colspan="4">특별 휴가${doc.leaveCategory === 'special' && doc.specialType === 'custom' ? `<br/><span style="font-weight:normal;font-size:8pt;">(${esc(doc.specialTypeCustom || '직접입력')})</span>` : ''}</td>
           <td style="${cellBorder} text-align:center; ${mark('health')}">보건</td>
           <td style="${cellBorder} text-align:center; ${mark('other')}">기타${doc.leaveCategory === 'other' && doc.leaveCategoryCustom ? `<br/><span style="font-weight:normal;font-size:8pt;">(${esc(doc.leaveCategoryCustom)})</span>` : ''}</td>
         </tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">사유</td><td style="${cellBorder}" colspan="7">${esc(doc.reason || '')}</td></tr>
+        <tr>
+          <td style="${cellBorder} text-align:center; ${markSpecial('birth')}">출산</td>
+          <td style="${cellBorder} text-align:center; ${markSpecial('summer')}">하기</td>
+          <td style="${cellBorder} text-align:center; ${markSpecial('family')}">경조</td>
+          <td style="${cellBorder} text-align:center; ${markSpecial('disaster')}">재해</td>
+        </tr>
+        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">사유</td><td style="${cellBorder}" colspan="10">${esc(doc.reason || '')}</td></tr>
         <tr>
           <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">기간</td>
-          <td style="${cellBorder} text-align:center;" colspan="3">${esc(doc.startDate)} ~ ${esc(doc.endDate)}</td>
-          <td style="${cellBorder} text-align:center;" colspan="2">${doc.startTime ? `${esc(doc.startTime)} ~ ${esc(doc.endTime || '')}` : ''}</td>
+          <td style="${cellBorder} text-align:center;" colspan="5">${esc(doc.startDate)} ~ ${esc(doc.endDate)}</td>
+          <td style="${cellBorder} text-align:center;" colspan="3">${doc.startTime ? `${esc(doc.startTime)} ~ ${esc(doc.endTime || '')}` : ''}</td>
           <td style="${cellBorder} text-align:center;" colspan="2">${doc.annualLeaveNote ? esc(doc.annualLeaveNote) : `${doc.days}일`}</td>
         </tr>
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">연락처</td>
-          <td style="${cellBorder}" colspan="3">집  ${esc(doc.homeContact || '')}</td>
+          <td style="${cellBorder}" colspan="4">집  ${esc(doc.homeContact || '')}</td>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">직무 대행자</td>
-          <td rowspan="2" style="${cellBorder} text-align:center;" colspan="3">${esc(doc.actingPerson || '')}</td>
+          <td rowspan="2" style="${cellBorder} text-align:center;" colspan="5">${esc(doc.actingPerson || '')}</td>
         </tr>
         <tr>
-          <td style="${cellBorder}" colspan="3">휴대폰  ${esc(doc.mobileContact || '')}</td>
+          <td style="${cellBorder}" colspan="4">휴대폰  ${esc(doc.mobileContact || '')}</td>
         </tr>
       </table>`;
 
@@ -788,7 +794,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
     const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
     const markStyle = (cat: string): React.CSSProperties => doc.leaveCategory === cat ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' };
-    const specialSubLabel = doc.specialType === 'custom' ? (doc.specialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[doc.specialType || 'birth'];
     return (
       <div style={{ width: '210mm', margin: '0 auto', padding: '12mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11 }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
@@ -811,18 +816,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', marginTop: 10, tableLayout: 'fixed' }}>
           <tbody>
             <tr>
-              <td style={{ ...grayStyle, textAlign: 'center' }}>소속</td><td style={{ ...cellStyle, textAlign: 'center' }} colSpan={3}>{doc.department}</td>
-              <td style={{ ...grayStyle, textAlign: 'center' }}>휴가자</td><td style={{ ...cellStyle, textAlign: 'center' }} colSpan={3}>{doc.author}</td>
+              <td style={{ ...grayStyle, textAlign: 'center' }}>소속</td><td style={{ ...cellStyle, textAlign: 'center' }} colSpan={4}>{doc.department}</td>
+              <td style={{ ...grayStyle, textAlign: 'center' }}>휴가자</td><td style={{ ...cellStyle, textAlign: 'center' }} colSpan={5}>{doc.author}</td>
             </tr>
             <tr>
-              <td style={{ ...grayStyle, textAlign: 'center' }}>휴가구분</td>
+              <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>휴가<br />구분</td>
               <td style={markStyle('monthly')}>월차</td>
               <td style={markStyle('annual')}>연차</td>
               <td style={markStyle('official')}>공가</td>
               <td style={markStyle('sick')}>병가</td>
-              <td style={markStyle('special')}>
-                특별휴가
-                {doc.leaveCategory === 'special' && <><br /><span style={{ fontWeight: 400, fontSize: 9 }}>({specialSubLabel})</span></>}
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'custom' ? { ...grayStyle, textAlign: 'center', backgroundColor: '#fde68a' } : { ...grayStyle, textAlign: 'center' }} colSpan={4}>
+                특별 휴가
+                {doc.leaveCategory === 'special' && doc.specialType === 'custom' && <><br /><span style={{ fontWeight: 400, fontSize: 9 }}>({doc.specialTypeCustom || '직접입력'})</span></>}
               </td>
               <td style={markStyle('health')}>보건</td>
               <td style={markStyle('other')}>
@@ -830,21 +835,27 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 {doc.leaveCategory === 'other' && doc.leaveCategoryCustom && <><br /><span style={{ fontWeight: 400, fontSize: 9 }}>({doc.leaveCategoryCustom})</span></>}
               </td>
             </tr>
-            <tr><td style={grayStyle}>사유</td><td style={cellStyle} colSpan={7}>{doc.reason || ''}</td></tr>
+            <tr>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'birth' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>출산</td>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'summer' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>하기</td>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'family' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>경조</td>
+              <td style={doc.leaveCategory === 'special' && doc.specialType === 'disaster' ? { ...cellStyle, textAlign: 'center', backgroundColor: '#fde68a', fontWeight: 700 } : { ...cellStyle, textAlign: 'center' }}>재해</td>
+            </tr>
+            <tr><td style={grayStyle}>사유</td><td style={cellStyle} colSpan={10}>{doc.reason || ''}</td></tr>
             <tr>
               <td style={{ ...grayStyle, textAlign: 'center' }}>기간</td>
-              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={3}>{doc.startDate} ~ {doc.endDate}</td>
-              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{doc.startTime ? `${doc.startTime} ~ ${doc.endTime || ''}` : ''}</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={5}>{doc.startDate} ~ {doc.endDate}</td>
+              <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={3}>{doc.startTime ? `${doc.startTime} ~ ${doc.endTime || ''}` : ''}</td>
               <td style={{ ...cellStyle, textAlign: 'center' }} colSpan={2}>{doc.annualLeaveNote || `${doc.days}일`}</td>
             </tr>
             <tr>
               <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>연락처</td>
-              <td style={cellStyle} colSpan={3}>집&nbsp;&nbsp;{doc.homeContact || ''}</td>
+              <td style={cellStyle} colSpan={4}>집&nbsp;&nbsp;{doc.homeContact || ''}</td>
               <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center' }}>직무 대행자</td>
-              <td rowSpan={2} style={{ ...cellStyle, textAlign: 'center' }} colSpan={3}>{doc.actingPerson || ''}</td>
+              <td rowSpan={2} style={{ ...cellStyle, textAlign: 'center' }} colSpan={5}>{doc.actingPerson || ''}</td>
             </tr>
             <tr>
-              <td style={cellStyle} colSpan={3}>휴대폰&nbsp;&nbsp;{doc.mobileContact || ''}</td>
+              <td style={cellStyle} colSpan={4}>휴대폰&nbsp;&nbsp;{doc.mobileContact || ''}</td>
             </tr>
           </tbody>
         </table>
@@ -1699,22 +1710,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     <tbody>
                       <tr>
                         <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">소속</td>
-                        <td className="border border-black px-3 py-1.5 text-center" colSpan={3}>{previewLeave.department}</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={4}>{previewLeave.department}</td>
                         <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">휴가자</td>
-                        <td className="border border-black px-3 py-1.5 text-center" colSpan={3}>{previewLeave.author}</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={5}>{previewLeave.author}</td>
                       </tr>
                       <tr>
-                        <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">휴가구분</td>
+                        <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">휴가<br />구분</td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'monthly' ? 'bg-yellow-200' : 'bg-gray-100'}`}>월차</td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'annual' ? 'bg-yellow-200' : 'bg-gray-100'}`}>연차</td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'official' ? 'bg-yellow-200' : 'bg-gray-100'}`}>공가</td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'sick' ? 'bg-yellow-200' : 'bg-gray-100'}`}>병가</td>
-                        <td className={`border border-black px-1 py-1.5 text-center font-bold leading-tight ${previewLeave.leaveCategory === 'special' ? 'bg-yellow-200' : 'bg-gray-100'}`}>
-                          특별휴가
-                          {previewLeave.leaveCategory === 'special' && (
-                            <div className="font-normal text-[10px]">
-                              ({previewLeave.specialType === 'custom' ? (previewLeave.specialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[previewLeave.specialType || 'birth']})
-                            </div>
+                        <td className={`border border-black px-1 py-1 text-center font-bold leading-tight ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'custom' ? 'bg-yellow-200' : 'bg-gray-100'}`} colSpan={4}>
+                          특별 휴가
+                          {previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'custom' && (
+                            <div className="font-normal text-[10px]">({previewLeave.specialTypeCustom || '직접입력'})</div>
                           )}
                         </td>
                         <td className={`border border-black px-1 py-1.5 text-center font-bold ${previewLeave.leaveCategory === 'health' ? 'bg-yellow-200' : 'bg-gray-100'}`}>보건</td>
@@ -1726,23 +1735,29 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         </td>
                       </tr>
                       <tr>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'birth' ? 'bg-yellow-200 font-bold' : ''}`}>출산</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'summer' ? 'bg-yellow-200 font-bold' : ''}`}>하기</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'family' ? 'bg-yellow-200 font-bold' : ''}`}>경조</td>
+                        <td className={`border border-black px-1 py-1.5 text-center ${previewLeave.leaveCategory === 'special' && previewLeave.specialType === 'disaster' ? 'bg-yellow-200 font-bold' : ''}`}>재해</td>
+                      </tr>
+                      <tr>
                         <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">사유</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={7}>{previewLeave.reason || ''}</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={10}>{previewLeave.reason || ''}</td>
                       </tr>
                       <tr>
                         <td className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center">기간</td>
-                        <td className="border border-black px-3 py-1.5 text-center" colSpan={3}>{previewLeave.startDate}&nbsp;&nbsp;~&nbsp;&nbsp;{previewLeave.endDate}</td>
-                        <td className="border border-black px-3 py-1.5 text-center" colSpan={2}>{previewLeave.startTime ? `${previewLeave.startTime}  ~  ${previewLeave.endTime || ''}` : ''}</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={5}>{previewLeave.startDate}&nbsp;&nbsp;~&nbsp;&nbsp;{previewLeave.endDate}</td>
+                        <td className="border border-black px-3 py-1.5 text-center" colSpan={3}>{previewLeave.startTime ? `${previewLeave.startTime}  ~  ${previewLeave.endTime || ''}` : ''}</td>
                         <td className="border border-black px-2 py-1.5 text-center" colSpan={2}>{previewLeave.annualLeaveNote || `${previewLeave.days}일`}</td>
                       </tr>
                       <tr>
                         <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">연락처</td>
-                        <td className="border border-black px-3 py-1.5" colSpan={3}>집&nbsp;&nbsp;{previewLeave.homeContact || ''}</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={4}>집&nbsp;&nbsp;{previewLeave.homeContact || ''}</td>
                         <td rowSpan={2} className="border border-black bg-gray-100 font-bold px-3 py-1.5 text-center align-middle">직무 대행자</td>
-                        <td rowSpan={2} className="border border-black px-3 py-1.5 text-center align-middle" colSpan={3}>{previewLeave.actingPerson || ''}</td>
+                        <td rowSpan={2} className="border border-black px-3 py-1.5 text-center align-middle" colSpan={5}>{previewLeave.actingPerson || ''}</td>
                       </tr>
                       <tr>
-                        <td className="border border-black px-3 py-1.5" colSpan={3}>휴대폰&nbsp;&nbsp;{previewLeave.mobileContact || ''}</td>
+                        <td className="border border-black px-3 py-1.5" colSpan={4}>휴대폰&nbsp;&nbsp;{previewLeave.mobileContact || ''}</td>
                       </tr>
                     </tbody>
                   </table>
