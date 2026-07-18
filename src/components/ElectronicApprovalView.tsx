@@ -170,7 +170,8 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
   return (
     <div className={`flex items-center gap-1 ${className || ''}`}>
       <input
-        ref={yRef} type="text" inputMode="numeric" placeholder="YYYY" maxLength={4} value={y}
+        ref={yRef} type="text" inputMode="numeric" placeholder="YYYY" value={y}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} name="ymd-year-field"
         // 포커스가 들어오면 일단 비워서, 커서 위치나 브라우저별 select() 동작에 상관없이
         // 항상 빈 칸에 새로 입력하는 것처럼 동작하게 한다 (기존 "0"이 남아있던 문제의 근본 원인).
         onFocus={(e) => { yPrev.current = y; e.currentTarget.value = ''; setY(''); }}
@@ -185,7 +186,8 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
       />
       <span className="text-slate-500 text-xs">년</span>
       <input
-        ref={mRef} type="text" inputMode="numeric" placeholder="MM" maxLength={2} value={m}
+        ref={mRef} type="text" inputMode="numeric" placeholder="MM" value={m}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} name="ymd-month-field"
         onFocus={(e) => { mPrev.current = m; e.currentTarget.value = ''; setM(''); }}
         onBlur={() => { if (m === '') setM(mPrev.current); }}
         onKeyDown={(e) => { if (e.key === 'Backspace' && m === '') yRef.current?.focus(); }}
@@ -200,7 +202,8 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
       />
       <span className="text-slate-500 text-xs">월</span>
       <input
-        ref={dRef} type="text" inputMode="numeric" placeholder="DD" maxLength={2} value={d}
+        ref={dRef} type="text" inputMode="numeric" placeholder="DD" value={d}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} name="ymd-day-field"
         onFocus={(e) => { dPrev.current = d; e.currentTarget.value = ''; setD(''); }}
         onBlur={() => { if (d === '') setD(dPrev.current); }}
         onKeyDown={(e) => { if (e.key === 'Backspace' && d === '') mRef.current?.focus(); }}
@@ -286,6 +289,24 @@ function addHoursToTime(time: string, hours: number): string {
   const hh = String(Math.floor(current / 60)).padStart(2, '0');
   const mm = String(current % 60).padStart(2, '0');
   return `${hh}:${mm}`;
+}
+
+// 전체 연차 일수는 매번 새로 입력하지 않도록, 휴가자 이름 기준으로 브라우저에 저장해두고 재사용한다
+function getStoredTotalAnnualDays(author: string): number {
+  try {
+    const v = localStorage.getItem(`leave_total_annual_days:${author || 'default'}`);
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : 15;
+  } catch {
+    return 15;
+  }
+}
+function setStoredTotalAnnualDays(author: string, days: number) {
+  try {
+    localStorage.setItem(`leave_total_annual_days:${author || 'default'}`, String(days));
+  } catch {
+    // localStorage 접근 불가 환경은 조용히 무시
+  }
 }
 
 function calcLeaveDays(startDate: string, endDate: string, multiplier: number = 1): number {
@@ -439,7 +460,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const resetLeaveForm = () => {
     setLvDraftNumber(makeDraftNumber(leaveList.map(l => l.draftNumber || '')));
     setLvDepartment(myProfile?.department || '');
-    setLvAuthor(myProfile?.name || currentUser?.name || '');
+    const resolvedAuthor = myProfile?.name || currentUser?.name || '';
+    setLvAuthor(resolvedAuthor);
     setLvCategory('annual');
     setLvCategoryCustom('');
     setLvSpecialType('birth');
@@ -453,7 +475,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setLvStartTime('');
     setLvEndTime('');
     setLvAnnualNote('');
-    setLvTotalAnnualDays(15);
+    setLvTotalAnnualDays(getStoredTotalAnnualDays(resolvedAuthor));
     setLvHomeContact('');
     setLvMobileContact(myProfile?.phoneMobile || '');
     setLvActingPerson('');
@@ -495,7 +517,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setLvStartTime(doc.startTime || '');
     setLvEndTime(doc.endTime || '');
     setLvAnnualNote(doc.annualLeaveNote || '');
-    setLvTotalAnnualDays(doc.totalAnnualDays ?? 15);
+    setLvTotalAnnualDays(doc.totalAnnualDays ?? getStoredTotalAnnualDays(doc.author));
     setLvHomeContact(doc.homeContact || '');
     setLvMobileContact(doc.mobileContact || '');
     setLvActingPerson(doc.actingPerson || '');
@@ -1299,6 +1321,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                           {leaveCategoryDisplay(doc)}
                         </span>
+                        {doc.leaveCategory === 'annual' && doc.annualLeaveNote && (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            누적 {doc.annualLeaveNote}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                         <span className="flex items-center gap-1"><Hash className="w-3 h-3" />{doc.draftNumber}</span>
@@ -1607,9 +1634,28 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300">휴가자</label>
-                  <input type="text" value={lvAuthor} onChange={(e) => setLvAuthor(e.target.value)}
+                  <input type="text" value={lvAuthor} onChange={(e) => {
+                    const v = e.target.value;
+                    setLvAuthor(v);
+                    setLvTotalAnnualDays(getStoredTotalAnnualDays(v));
+                  }}
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
                 </div>
+              </div>
+
+              {/* 총 연차 일수: 카테고리와 무관하게 항상 보이고, 한 번 입력해두면 이 휴가자 이름으로 자동 저장되어
+                  다음에 새 휴가 신청서를 작성할 때도 다시 입력할 필요가 없다. */}
+              <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-1.5">
+                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <Hash className="w-3.5 h-3.5" /> 총 연차 일수 (올해 부여된 전체 연차 — 한 번 입력해두면 자동 저장됩니다)
+                </label>
+                <input type="number" min={0} step={0.5} value={lvTotalAnnualDays}
+                  onChange={(e) => {
+                    const v = Number(e.target.value) || 0;
+                    setLvTotalAnnualDays(v);
+                    setStoredTotalAnnualDays(lvAuthor, v);
+                  }}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 text-sm" />
               </div>
 
               <div className="space-y-1.5">
@@ -1744,18 +1790,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               </div>
 
               {lvCategory === 'annual' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">전체 연차 일수 (올해 부여된 총 연차)</label>
-                    <input type="number" min={0} step={0.5} value={lvTotalAnnualDays}
-                      onChange={(e) => setLvTotalAnnualDays(Number(e.target.value) || 0)}
-                      className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">누적 연차 표기 (자동 계산, 필요시 직접 수정)</label>
-                    <input type="text" placeholder="5일/20일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">누적 연차 표기 (총 연차 일수 기준 자동 계산, 필요시 직접 수정)</label>
+                  <input type="text" placeholder="5일/20일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
                 </div>
               ) : (
                 <div className="space-y-1.5">
