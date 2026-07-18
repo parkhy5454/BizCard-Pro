@@ -276,16 +276,15 @@ export interface ApprovalStep {
 }
 
 export type LeaveCategory =
-  | 'monthly'         // 월차
-  | 'annual'          // 연차
-  | 'official'        // 공가
-  | 'sick'            // 병가
-  | 'special_birth'   // 특별휴가 - 출산
-  | 'special_summer'  // 특별휴가 - 하기
-  | 'special_family'  // 특별휴가 - 경조
-  | 'special_disaster'// 특별휴가 - 재해
-  | 'health'          // 보건
-  | 'other';          // 기타
+  | 'monthly'   // 월차
+  | 'annual'    // 연차
+  | 'official'  // 공가
+  | 'sick'      // 병가
+  | 'special'   // 특별휴가 (세부 종류는 specialType 필드로 구분: 출산/하기/경조/재해/직접입력)
+  | 'health'    // 보건
+  | 'other';    // 기타
+
+export type LeaveSpecialType = 'birth' | 'summer' | 'family' | 'disaster' | 'custom';
 
 // 휴가 신청서
 export interface LeaveRequest {
@@ -295,6 +294,8 @@ export interface LeaveRequest {
   author: string;                // 휴가자
   leaveCategory: LeaveCategory;  // 휴가 구분
   leaveCategoryCustom?: string;  // 기타 선택시 직접 입력
+  specialType?: LeaveSpecialType;   // 특별휴가 선택시 세부 종류
+  specialTypeCustom?: string;       // 특별휴가 세부 종류가 직접입력일 때의 텍스트
   reason: string;                // 사유
   startDate: string;             // 시작일 YYYY-MM-DD
   endDate: string;               // 종료일 YYYY-MM-DD
