@@ -1,12 +1,92 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { X, Camera, RefreshCw, Image as ImageIcon } from 'lucide-react';
+import { X, RefreshCw, Image as ImageIcon, Camera, Loader2 } from 'lucide-react';
+import {
+  loadOpenCv, detectQuad, warpToRect, enhanceMat, matToDataUrl,
+  computeBlurScore, computeBrightness, computeGlareRatio, Quad
+} from '../cardVision.js';
 
 interface Props {
   title?: string;
-  guideAspectRatio?: number; // 가이드 사각형의 가로:세로 비율 (명함 ≈ 1.586, 영수증은 세로로 길게 등)
+  guideAspectRatio?: number; // 문서 가로:세로 비율 (명함 ≈ 1.586, 영수증은 세로로 길게 등)
   onCapture: (croppedDataUrl: string) => void;
   onCancel: () => void;
   onFallbackToFile: () => void; // 카메라 권한이 없거나 사용자가 "갤러리에서 선택"을 누르면
+}
+
+interface Quality {
+  sizeOk: boolean;
+  focusOk: boolean;
+  brightOk: boolean;
+  glareOk: boolean;
+}
+
+const DETECT_W = 480; // 실시간 감지용 축소 해상도 (성능을 위해 원본보다 작게 처리)
+const DETECT_INTERVAL_MS = 180;
+const STABLE_MOVE_THRESHOLD = 14; // px (감지 캔버스 기준) - 이보다 적게 움직이면 "안정"으로 판단
+const STABLE_DURATION_MS = 650; // 이 시간 이상 안정 + 품질 통과 시 자동 촬영
+const OUTPUT_LONG_SIDE = 1400;
+
+function dist(a: [number, number], b: [number, number]): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+function scaleQuad(quad: Quad, sx: number, sy: number): Quad {
+  return quad.map(([x, y]) => [x * sx, y * sy]) as Quad;
+}
+
+// 감지 캔버스 좌표(비디오 원본과 같은 비율로 축소된 좌표) → 화면에 실제 렌더링된(object-cover) 좌표로 변환
+function mapToDisplay(quad: Quad, srcW: number, srcH: number, dispW: number, dispH: number): Quad {
+  const srcRatio = srcW / srcH;
+  const dispRatio = dispW / dispH;
+  let scale: number, offsetX = 0, offsetY = 0;
+  if (srcRatio > dispRatio) {
+    scale = dispH / srcH;
+    offsetX = (dispW - srcW * scale) / 2;
+  } else {
+    scale = dispW / srcW;
+    offsetY = (dispH - srcH * scale) / 2;
+  }
+  return quad.map(([x, y]) => [x * scale + offsetX, y * scale + offsetY]) as Quad;
+}
+
+// (구) 고정 가이드 사각형 기준 크롭 — OpenCV 미지원/미감지 시 안전한 대체 동작
+function fallbackCenterCrop(video: HTMLVideoElement, container: HTMLDivElement | null, aspect: number): string {
+  const cw = container?.clientWidth || video.clientWidth || video.videoWidth;
+  const ch = container?.clientHeight || video.clientHeight || video.videoHeight;
+  const marginRatio = 0.08;
+  let w = cw * (1 - marginRatio * 2);
+  let h = w / aspect;
+  if (h > ch * (1 - marginRatio * 2)) {
+    h = ch * (1 - marginRatio * 2);
+    w = h * aspect;
+  }
+  const x = (cw - w) / 2;
+  const y = (ch - h) / 2;
+
+  const videoW = video.videoWidth;
+  const videoH = video.videoHeight;
+  const displayRatio = cw / ch;
+  const videoRatio = videoW / videoH;
+  let scale: number, offsetX = 0, offsetY = 0;
+  if (videoRatio > displayRatio) {
+    scale = videoH / ch;
+    offsetX = (videoW - cw * scale) / 2;
+  } else {
+    scale = videoW / cw;
+    offsetY = (videoH - ch * scale) / 2;
+  }
+  const sx = offsetX + x * scale;
+  const sy = offsetY + y * scale;
+  const sw = w * scale;
+  const sh = h * scale;
+
+  const outScale = Math.max(sw, sh) > OUTPUT_LONG_SIDE ? OUTPUT_LONG_SIDE / Math.max(sw, sh) : 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(sw * outScale);
+  canvas.height = Math.round(sh * outScale);
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 export const LiveCameraCapture: React.FC<Props> = ({
@@ -19,9 +99,26 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const detectCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [cvStatus, setCvStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [quadDisplay, setQuadDisplay] = useState<Quad | null>(null);
+  const [quality, setQuality] = useState<Quality | null>(null);
+  const [isStable, setIsStable] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('명함을 화면 안에 맞춰주세요');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [captureFlash, setCaptureFlash] = useState(false);
+
+  const cvRef = useRef<any>(null);
+  const quadHistoryRef = useRef<{ quad: Quad; t: number }[]>([]);
+  const stableSinceRef = useRef<number | null>(null);
+  const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number } | null>(null);
+  const autoCapturedRef = useRef(false);
+  const isProcessingRef = useRef(false);
+  const detectIntervalRef = useRef<number | null>(null);
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -38,21 +135,14 @@ export const LiveCameraCapture: React.FC<Props> = ({
       return;
     }
 
-    const tryGetStream = async (constraints: MediaStreamConstraints) => {
-      return navigator.mediaDevices.getUserMedia(constraints);
-    };
+    const tryGetStream = async (constraints: MediaStreamConstraints) => navigator.mediaDevices.getUserMedia(constraints);
 
     try {
       let stream: MediaStream;
       try {
-        // 1차 시도: 선호 카메라(후면/전면) 지정 (iOS는 'exact'보다 'ideal'이 더 안정적으로 동작함)
-        stream = await tryGetStream({
-          video: { facingMode: { ideal: mode } },
-          audio: false
-        });
+        stream = await tryGetStream({ video: { facingMode: { ideal: mode } }, audio: false });
       } catch (firstErr) {
         console.warn('1차 카메라 요청 실패, 기본 카메라로 재시도:', firstErr);
-        // 2차 시도: 세부 제약 없이 카메라만 요청 (일부 iOS 버전 호환성 이슈 대응)
         stream = await tryGetStream({ video: true, audio: false });
       }
 
@@ -87,75 +177,211 @@ export const LiveCameraCapture: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode]);
 
-  // 가이드 사각형의 화면상 위치/크기 계산 (컨테이너에 꽉 채우되 여백 10%)
-  const getGuideRect = () => {
-    const container = containerRef.current;
-    if (!container) return null;
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
-    const marginRatio = 0.08;
-    let w = cw * (1 - marginRatio * 2);
-    let h = w / guideAspectRatio;
-    if (h > ch * (1 - marginRatio * 2)) {
-      h = ch * (1 - marginRatio * 2);
-      w = h * guideAspectRatio;
-    }
-    const x = (cw - w) / 2;
-    const y = (ch - h) / 2;
-    return { x, y, w, h, cw, ch };
-  };
+  // OpenCV.js 지연 로딩 (스캔 화면이 열릴 때만)
+  useEffect(() => {
+    let cancelled = false;
+    setCvStatus('loading');
+    loadOpenCv()
+      .then((cv) => {
+        if (cancelled) return;
+        cvRef.current = cv;
+        setCvStatus('ready');
+      })
+      .catch((err) => {
+        console.warn('OpenCV.js 로드 실패 - 수동 촬영 모드로 전환합니다:', err);
+        if (!cancelled) setCvStatus('failed');
+      });
+    return () => { cancelled = true; };
+  }, []);
 
-  const handleCapture = () => {
+  // 실제 촬영 + 보정 처리 (자동/수동 공통)
+  const handleCapture = useCallback(async () => {
     const video = videoRef.current;
-    const guide = getGuideRect();
-    if (!video || !guide || !isReady) return;
+    if (!video || !isReady || isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    setIsProcessing(true);
 
-    // 비디오의 실제 해상도와 화면에 표시된(object-cover) 크기 사이의 배율 계산
-    const videoW = video.videoWidth;
-    const videoH = video.videoHeight;
-    const displayRatio = guide.cw / guide.ch;
-    const videoRatio = videoW / videoH;
+    try {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const fullCanvas = document.createElement('canvas');
+      fullCanvas.width = vw;
+      fullCanvas.height = vh;
+      const fctx = fullCanvas.getContext('2d')!;
+      fctx.drawImage(video, 0, 0, vw, vh);
 
-    // object-cover 기준으로 비디오가 컨테이너를 채울 때의 스케일/오프셋 계산
-    let scale: number;
-    let offsetX = 0;
-    let offsetY = 0;
-    if (videoRatio > displayRatio) {
-      // 비디오가 더 넓음 → 높이 기준으로 채우고 좌우가 잘림
-      scale = videoH / guide.ch;
-      offsetX = (videoW - guide.cw * scale) / 2;
-    } else {
-      // 비디오가 더 좁음(또는 세로) → 너비 기준으로 채우고 위아래가 잘림
-      scale = videoW / guide.cw;
-      offsetY = (videoH - guide.ch * scale) / 2;
+      const cv = cvRef.current;
+      let outDataUrl: string;
+
+      if (cv && lastRawQuadRef.current) {
+        const { quad, detectW, detectH } = lastRawQuadRef.current;
+        const videoQuad = scaleQuad(quad, vw / detectW, vh / detectH);
+        const srcMat = cv.imread(fullCanvas);
+        try {
+          let outW: number, outH: number;
+          if (guideAspectRatio >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / guideAspectRatio); }
+          else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * guideAspectRatio); }
+
+          const warped = warpToRect(cv, srcMat, videoQuad, outW, outH);
+          const enhanced = enhanceMat(cv, warped);
+          outDataUrl = matToDataUrl(cv, enhanced, 0.9);
+          warped.delete();
+          enhanced.delete();
+        } finally {
+          srcMat.delete();
+        }
+      } else {
+        // 사각형이 감지되지 않았거나 OpenCV를 못 쓰는 경우: 화면 중앙 가이드 영역으로 대체
+        outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
+      }
+
+      stopStream();
+      setCaptureFlash(true);
+      window.setTimeout(() => onCapture(outDataUrl), 120);
+    } catch (err) {
+      console.error('촬영/보정 처리 실패:', err);
+      try {
+        const fallback = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
+        stopStream();
+        onCapture(fallback);
+      } catch {
+        alert('사진 처리에 실패했습니다. 다시 시도해주세요.');
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+      }
+    }
+  }, [isReady, guideAspectRatio, stopStream, onCapture]);
+
+  // 실시간 감지 루프: 카메라 프레임에서 문서 사각형을 찾아 위치/기울기에 맞는 테두리를 표시하고,
+  // 크기·초점·밝기·반사광 품질과 안정성(흔들림 없음)을 체크해 자동 촬영을 트리거한다.
+  const runDetection = useCallback(() => {
+    const video = videoRef.current;
+    const cv = cvRef.current;
+    const container = containerRef.current;
+    if (!video || !cv || !container || video.readyState < 2 || isProcessingRef.current) return;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) return;
+
+    const detectW = DETECT_W;
+    const detectH = Math.round(detectW * (vh / vw));
+
+    if (!detectCanvasRef.current) detectCanvasRef.current = document.createElement('canvas');
+    const canvas = detectCanvasRef.current;
+    canvas.width = detectW;
+    canvas.height = detectH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, detectW, detectH);
+
+    let srcMat: any;
+    try {
+      srcMat = cv.imread(canvas);
+    } catch {
+      return;
     }
 
-    const sx = offsetX + guide.x * scale;
-    const sy = offsetY + guide.y * scale;
-    const sw = guide.w * scale;
-    const sh = guide.h * scale;
+    try {
+      const found = detectQuad(cv, srcMat, guideAspectRatio);
+      if (!found) {
+        setQuadDisplay(null);
+        setQuality(null);
+        setIsStable(false);
+        quadHistoryRef.current = [];
+        stableSinceRef.current = null;
+        lastRawQuadRef.current = null;
+        setStatusMessage('명함을 화면 안에 맞춰주세요');
+        return;
+      }
 
-    // 저장 용량을 줄이기 위해 긴 변을 최대 1400px로 제한 (DB 저장/조회 속도에 영향을 주므로 필수)
-    const MAX_DIM = 1400;
-    const longSide = Math.max(sw, sh);
-    const outScale = longSide > MAX_DIM ? MAX_DIM / longSide : 1;
+      const xs = found.points.map((p) => p[0]);
+      const ys = found.points.map((p) => p[1]);
+      const minX = Math.max(0, Math.min(...xs));
+      const minY = Math.max(0, Math.min(...ys));
+      const maxX = Math.min(detectW, Math.max(...xs));
+      const maxY = Math.min(detectH, Math.max(...ys));
+      const roiW = Math.max(1, Math.round(maxX - minX));
+      const roiH = Math.max(1, Math.round(maxY - minY));
+      const roi = srcMat.roi(new cv.Rect(Math.round(minX), Math.round(minY), roiW, roiH));
 
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(sw * outScale);
-    canvas.height = Math.round(sh * outScale);
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-    stopStream();
-    onCapture(dataUrl);
-  };
+      const blur = computeBlurScore(cv, roi);
+      const brightness = computeBrightness(cv, roi);
+      const glare = computeGlareRatio(cv, roi);
+      roi.delete();
+
+      const sizeOk = found.areaRatio >= 0.18;
+      const focusOk = blur >= 25;
+      const brightOk = brightness >= 60 && brightness <= 235;
+      const glareOk = glare <= 0.06;
+
+      lastRawQuadRef.current = { quad: found.points, detectW, detectH };
+
+      const now = performance.now();
+      quadHistoryRef.current.push({ quad: found.points, t: now });
+      quadHistoryRef.current = quadHistoryRef.current.filter((h) => now - h.t < 1200);
+
+      let stable = false;
+      if (quadHistoryRef.current.length >= 3) {
+        const recent = quadHistoryRef.current.slice(-4);
+        let maxMove = 0;
+        for (let i = 1; i < recent.length; i++) {
+          for (let k = 0; k < 4; k++) {
+            maxMove = Math.max(maxMove, dist(recent[i].quad[k], recent[i - 1].quad[k]));
+          }
+        }
+        stable = maxMove < STABLE_MOVE_THRESHOLD;
+      }
+
+      if (stable) {
+        if (stableSinceRef.current === null) stableSinceRef.current = now;
+      } else {
+        stableSinceRef.current = null;
+      }
+
+      const stableDuration = stableSinceRef.current ? now - stableSinceRef.current : 0;
+      const allQualityOk = sizeOk && focusOk && brightOk && glareOk;
+
+      const dispW = container.clientWidth;
+      const dispH = container.clientHeight;
+      setQuadDisplay(mapToDisplay(found.points, detectW, detectH, dispW, dispH));
+      setQuality({ sizeOk, focusOk, brightOk, glareOk });
+      setIsStable(stable && allQualityOk);
+
+      if (!sizeOk) setStatusMessage('명함을 조금 더 가까이 가져와 주세요');
+      else if (!brightOk) setStatusMessage(brightness < 60 ? '조명이 어두워요' : '빛이 너무 강해요');
+      else if (!glareOk) setStatusMessage('반사광이 있어요, 각도를 살짝 바꿔주세요');
+      else if (!focusOk) setStatusMessage('흔들리지 않게 잠시 고정해주세요');
+      else if (!stable) setStatusMessage('위치를 고정해주세요...');
+      else setStatusMessage('고정됨! 자동 촬영합니다');
+
+      if (allQualityOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
+        autoCapturedRef.current = true;
+        handleCapture();
+      }
+    } finally {
+      srcMat.delete();
+    }
+  }, [guideAspectRatio, handleCapture]);
+
+  useEffect(() => {
+    if (cvStatus !== 'ready' || !isReady || error) return;
+    const id = window.setInterval(runDetection, DETECT_INTERVAL_MS);
+    detectIntervalRef.current = id;
+    return () => window.clearInterval(id);
+  }, [cvStatus, isReady, error, runDetection]);
+
+  const allQualityOk = quality ? Object.values(quality).every(Boolean) : false;
+  const outlineColor = quadDisplay ? (isStable && allQualityOk ? '#22c55e' : allQualityOk ? '#facc15' : '#f87171') : '#f87171';
 
   return (
     <div className="fixed inset-0 z-[70] bg-black flex flex-col">
       <div className="flex items-center justify-between p-4 bg-slate-950/80 backdrop-blur-sm">
         <div>
-          <h3 className="text-sm font-bold text-white">{title || '가이드에 맞춰 촬영하세요'}</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">사각형 안에 맞춰서 찍으면 그 부분만 자동으로 업로드돼요</p>
+          <h3 className="text-sm font-bold text-white">{title || '명함을 화면 안에 비춰주세요'}</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {cvStatus === 'ready' ? '초록 테두리가 뜨고 고정되면 자동으로 촬영돼요' : '가이드에 맞춰 촬영 버튼을 눌러주세요'}
+          </p>
         </div>
         <button onClick={() => { stopStream(); onCancel(); }} className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10">
           <X className="w-5 h-5" />
@@ -177,13 +403,37 @@ export const LiveCameraCapture: React.FC<Props> = ({
         ) : (
           <>
             <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline muted />
-            {/* 어두운 마스크 + 가이드 사각형 (CSS box-shadow로 바깥을 어둡게 처리) */}
-            {isReady && (
-              <GuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
+
+            {isReady && cvStatus === 'ready' && (
+              <DetectionOverlay quad={quadDisplay} color={outlineColor} />
+            )}
+            {isReady && cvStatus === 'failed' && (
+              <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
+            )}
+            {isReady && cvStatus === 'loading' && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 text-white text-[11px]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                스캔 엔진 준비 중...
+              </div>
             )}
             {!isReady && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              </div>
+            )}
+
+            {isReady && cvStatus === 'ready' && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/65 text-white text-xs font-semibold whitespace-nowrap">
+                {statusMessage}
+              </div>
+            )}
+
+            {captureFlash && <div className="absolute inset-0 bg-white animate-pulse" />}
+
+            {isProcessing && (
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+                <p className="text-xs text-slate-200">각도 보정 및 화질 개선 중...</p>
               </div>
             )}
           </>
@@ -202,10 +452,12 @@ export const LiveCameraCapture: React.FC<Props> = ({
         </button>
 
         <button
-          onClick={handleCapture}
-          disabled={!isReady || !!error}
-          className="w-16 h-16 rounded-full bg-white border-4 border-slate-300 shadow-xl active:scale-95 transition-transform disabled:opacity-40"
-        />
+          onClick={() => { autoCapturedRef.current = true; handleCapture(); }}
+          disabled={!isReady || !!error || isProcessing}
+          className="w-16 h-16 rounded-full bg-white border-4 border-slate-300 shadow-xl active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center"
+        >
+          {isProcessing && <Camera className="w-5 h-5 text-slate-500" />}
+        </button>
 
         <button
           onClick={() => setFacingMode((m) => (m === 'environment' ? 'user' : 'environment'))}
@@ -221,8 +473,35 @@ export const LiveCameraCapture: React.FC<Props> = ({
   );
 };
 
-// 어두운 마스크 위에 밝은 사각형 구멍을 뚫어 가이드 영역을 표시
-const GuideOverlay: React.FC<{ containerRef: React.RefObject<HTMLDivElement>; aspectRatio: number }> = ({ containerRef, aspectRatio }) => {
+// 실시간으로 감지된 사각형(기울어진 네 모서리)을 그대로 따라가는 테두리 오버레이
+const DetectionOverlay: React.FC<{ quad: Quad | null; color: string }> = ({ quad, color }) => {
+  if (!quad) {
+    return (
+      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.35)" />
+      </svg>
+    );
+  }
+  const pointsAttr = quad.map((p) => p.join(',')).join(' ');
+  return (
+    <svg className="absolute inset-0 w-full h-full pointer-events-none">
+      <defs>
+        <mask id="quad-mask">
+          <rect x="0" y="0" width="100%" height="100%" fill="white" />
+          <polygon points={pointsAttr} fill="black" />
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.45)" mask="url(#quad-mask)" />
+      <polygon points={pointsAttr} fill="none" stroke={color} strokeWidth={3.5} strokeLinejoin="round" />
+      {quad.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={6} fill={color} />
+      ))}
+    </svg>
+  );
+};
+
+// OpenCV.js를 못 쓰는 환경을 위한 대체(고정 위치) 가이드 — 기존 동작 유지
+const StaticGuideOverlay: React.FC<{ containerRef: React.RefObject<HTMLDivElement>; aspectRatio: number }> = ({ containerRef, aspectRatio }) => {
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   useEffect(() => {
@@ -248,7 +527,7 @@ const GuideOverlay: React.FC<{ containerRef: React.RefObject<HTMLDivElement>; as
   if (!rect) return null;
 
   return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ width: '100%', height: '100%' }}>
+    <svg className="absolute inset-0 w-full h-full pointer-events-none">
       <defs>
         <mask id="guide-mask">
           <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -257,7 +536,6 @@ const GuideOverlay: React.FC<{ containerRef: React.RefObject<HTMLDivElement>; as
       </defs>
       <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#guide-mask)" />
       <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={12} fill="none" stroke="#818cf8" strokeWidth={3} />
-      {/* 모서리 강조 마커 */}
       {[
         [rect.x, rect.y],
         [rect.x + rect.w, rect.y],
