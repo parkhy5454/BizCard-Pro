@@ -25,24 +25,56 @@ export function loadOpenCv(): Promise<any> {
   if (openCvPromise) return openCvPromise;
 
   openCvPromise = new Promise((resolve, reject) => {
+    let settled = false;
+    let pollId: number | null = null;
+    let timeoutId: number | null = null;
+
+    const cleanup = () => {
+      if (pollId !== null) window.clearInterval(pollId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+    const settleResolve = (cv: any) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(cv);
+    };
+    const settleReject = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
+
+    // WASM 런타임 초기화 완료 시점을 못 잡는 경쟁 조건(onRuntimeInitialized 콜백을 늦게 붙여서 놓치는 경우)에
+    // 대비해, 콜백과 별개로 window.cv.Mat 존재 여부를 주기적으로 폴링해서 이중으로 감지한다.
+    pollId = window.setInterval(() => {
+      if (w.cv && w.cv.Mat) settleResolve(w.cv);
+    }, 200);
+
+    // 무한 대기를 막기 위한 최대 대기 시간 (네트워크가 느리거나 초기화가 막힌 경우 명확히 실패로 처리)
+    timeoutId = window.setTimeout(() => {
+      settleReject(new Error('OpenCV.js 초기화가 시간 내에 끝나지 않았습니다 (12초 초과).'));
+    }, 12000);
+
     const resolveWhenReady = () => {
       const cv = w.cv;
-      if (!cv) { reject(new Error('OpenCV 전역 객체를 찾을 수 없습니다.')); return; }
+      if (!cv) { settleReject(new Error('OpenCV 전역 객체를 찾을 수 없습니다.')); return; }
       // opencv.js 빌드에 따라 cv 자체가 Promise이거나(then 지원), onRuntimeInitialized 콜백 방식이거나, 이미 준비된 경우가 있다.
       if (typeof cv.then === 'function') {
-        cv.then((resolvedCv: any) => resolve(resolvedCv));
+        cv.then((resolvedCv: any) => settleResolve(resolvedCv)).catch((e: any) => settleReject(e instanceof Error ? e : new Error(String(e))));
       } else if (cv.Mat) {
-        resolve(cv);
+        settleResolve(cv);
       } else {
-        cv['onRuntimeInitialized'] = () => resolve(cv);
+        cv['onRuntimeInitialized'] = () => settleResolve(w.cv);
       }
     };
 
     const existing = document.getElementById('opencv-js-lib') as HTMLScriptElement | null;
     if (existing) {
-      if (w.cv?.Mat) { resolve(w.cv); return; }
+      if (w.cv?.Mat) { settleResolve(w.cv); return; }
       existing.addEventListener('load', resolveWhenReady);
-      existing.addEventListener('error', () => reject(new Error('OpenCV.js 로드에 실패했습니다.')));
+      existing.addEventListener('error', () => settleReject(new Error('OpenCV.js 로드에 실패했습니다.')));
       return;
     }
 
@@ -51,7 +83,7 @@ export function loadOpenCv(): Promise<any> {
     script.src = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
     script.async = true;
     script.onload = resolveWhenReady;
-    script.onerror = () => reject(new Error('OpenCV.js 로드에 실패했습니다.'));
+    script.onerror = () => settleReject(new Error('OpenCV.js 로드에 실패했습니다.'));
     document.body.appendChild(script);
   });
 
