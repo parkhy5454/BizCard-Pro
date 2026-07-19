@@ -566,9 +566,10 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           title={cameraTarget === 'front' ? '명함 앞면 촬영' : '명함 뒷면 촬영'}
           guideAspectRatio={1.586}
           onCapture={(dataUrl) => {
-            if (cameraTarget === 'front') setScanImg(dataUrl);
-            else setScanImgBack(dataUrl);
+            // 실시간 촬영본도 파일 업로드와 동일하게 확인/조정 단계를 거치도록 한다
+            const side = cameraTarget;
             setCameraTarget(null);
+            if (side) setCropTarget({ side, rawImage: dataUrl });
           }}
           onCancel={() => setCameraTarget(null)}
           onFallbackToFile={() => {
