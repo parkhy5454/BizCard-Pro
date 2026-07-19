@@ -376,10 +376,11 @@ export const ScanModal: React.FC<Props> = ({ groups, onClose, onSave }) => {
           title={cameraTarget === 'front' ? '명함 앞면 촬영' : '명함 뒷면 촬영'}
           guideAspectRatio={1.586}
           onCapture={(dataUrl) => {
-            // 가이드에 맞춰 찍었으므로 이미 그 부분만 잘려있음 → 바로 사용
-            if (cameraTarget === 'front') setFrontImg(dataUrl);
-            else setBackImg(dataUrl);
+            // 실시간 촬영본도 파일 업로드와 동일하게 확인/조정 단계를 거치도록 한다
+            // (실시간 인식이 완벽하지 않았을 경우를 위한 안전장치)
+            const side = cameraTarget;
             setCameraTarget(null);
+            if (side) setCropTarget({ side, rawImage: dataUrl });
           }}
           onCancel={() => setCameraTarget(null)}
           onFallbackToFile={() => {

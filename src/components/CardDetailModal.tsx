@@ -732,8 +732,10 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
           title={rescanCameraTarget === 'front' ? '명함 앞면 재촬영' : '명함 뒷면 재촬영'}
           guideAspectRatio={1.586}
           onCapture={(dataUrl) => {
-            applyRescannedImage(rescanCameraTarget, dataUrl);
+            // 실시간 촬영본도 파일 업로드와 동일하게 확인/조정 단계를 거치도록 한다
+            const side = rescanCameraTarget;
             setRescanCameraTarget(null);
+            if (side) setRescanCropTarget({ side, rawImage: dataUrl });
           }}
           onCancel={() => setRescanCameraTarget(null)}
           onFallbackToFile={() => rescanFileInputRef.current?.click()}

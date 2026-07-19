@@ -37,22 +37,35 @@ const resizeDataUrl = (dataUrl: string, maxDim = 1400, quality = 0.82): Promise<
 };
 
 // OpenCV.js를 최초 1회만 지연 로딩 (여러 화면에서 공유)
-const loadOpenCv = (): Promise<void> => {
+let openCvLoadPromise: Promise<any> | null = null;
+const loadOpenCv = (): Promise<any> => {
   const w = window as any;
-  if (w.cv && w.cv.Mat) return Promise.resolve();
-  if (w.__openCvLoadingPromise) return w.__openCvLoadingPromise;
-  w.__openCvLoadingPromise = new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://docs.opencv.org/4.10.0/opencv.js';
-    script.async = true;
-    script.onload = () => {
-      const check = () => { if (w.cv && w.cv.Mat) resolve(); else setTimeout(check, 50); };
-      check();
-    };
-    script.onerror = () => reject(new Error('OpenCV.js 로드 실패'));
-    document.body.appendChild(script);
+  if (w.cv && w.cv.Mat) return Promise.resolve(w.cv);
+  if (openCvLoadPromise) return openCvLoadPromise;
+
+  const loadTask = (async () => {
+    // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
+    const mod: any = await import('@techstark/opencv-js');
+    let cv = (mod && (mod.default ?? mod)) as any;
+    if (cv && typeof cv.then === 'function') {
+      cv = await cv;
+    } else if (cv && !cv.Mat) {
+      await new Promise<void>((resolve) => { cv.onRuntimeInitialized = () => resolve(); });
+    }
+    if (!cv || !cv.Mat) throw new Error('OpenCV 모듈 초기화에 실패했습니다.');
+    w.cv = cv;
+    return cv;
+  })();
+
+  const timeoutTask = new Promise<never>((_, reject) => {
+    window.setTimeout(() => reject(new Error('OpenCV.js 초기화 시간 초과')), 15000);
   });
-  return w.__openCvLoadingPromise;
+
+  openCvLoadPromise = Promise.race([loadTask, timeoutTask]).catch((err) => {
+    openCvLoadPromise = null;
+    throw err;
+  });
+  return openCvLoadPromise;
 };
 
 // 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
