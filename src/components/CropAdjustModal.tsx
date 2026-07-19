@@ -100,6 +100,9 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
     cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
     const imgArea = img.naturalWidth * img.naturalHeight;
+    const centerX = img.naturalWidth / 2;
+    const centerY = img.naturalHeight / 2;
+    const frameDiag = Math.hypot(centerX, centerY);
     let bestScore = -1;
 
     for (let i = 0; i < contours.size(); i++) {
@@ -112,9 +115,16 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
 
       // 명함/영수증다운 후보만: 화면의 15%~95% 사이 면적, 볼록(convex)한 4각형
       if (approx.rows === 4 && areaRatio > 0.15 && areaRatio < 0.95 && cv.isContourConvex(approx)) {
-        // 면적이 클수록 우선하되, 이미지 전체 테두리(거의 100%에 가까운 사각형)는 배제됨(위 0.95 조건)
-        if (areaRatio > bestScore) {
-          bestScore = areaRatio;
+        // 사용자가 문서를 화면 중앙에 놓는다고 가정하고, 면적만이 아니라 중앙에 얼마나 가까운지도 반영한다.
+        // (그렇지 않으면 책상 모서리·문틀처럼 크고 사각형에 가까운 배경 요소를 잘못 고르는 경우가 있다)
+        let cx = 0, cy = 0;
+        for (let j = 0; j < 4; j++) { cx += approx.data32S[j * 2]; cy += approx.data32S[j * 2 + 1]; }
+        cx /= 4; cy /= 4;
+        const centerDist = Math.min(Math.hypot(cx - centerX, cy - centerY) / frameDiag, 1);
+        const score = areaRatio * (1 - centerDist * 0.8);
+
+        if (score > bestScore) {
+          bestScore = score;
           if (bestApprox) bestApprox.delete();
           bestApprox = approx;
         } else {
