@@ -48,7 +48,7 @@ export function loadOpenCv(): Promise<any> {
 
     const script = document.createElement('script');
     script.id = 'opencv-js-lib';
-    script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
+    script.src = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
     script.async = true;
     script.onload = resolveWhenReady;
     script.onerror = () => reject(new Error('OpenCV.js 로드에 실패했습니다.'));
@@ -101,32 +101,39 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
     cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
     const frameArea = srcMat.cols * srcMat.rows;
+    const epsilonFactors = [0.02, 0.01, 0.03, 0.05]; // 윤곽선마다 여러 근사값을 시도해 4점으로 떨어질 확률을 높인다
 
     for (let i = 0; i < contours.size(); i++) {
       const cnt = contours.get(i);
       const peri = cv.arcLength(cnt, true);
-      const approx = new cv.Mat();
-      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+      if (peri <= 0) { cnt.delete(); continue; }
 
-      if (approx.rows === 4 && cv.isContourConvex(approx)) {
-        const area = Math.abs(cv.contourArea(approx));
-        const areaRatio = area / frameArea;
-        // 화면의 10%~95% 사이 크기만 후보로 (너무 작으면 노이즈, 너무 크면 화면 테두리 자체를 잡은 것)
-        if (areaRatio > 0.1 && areaRatio < 0.95) {
-          const pts: Point[] = [];
-          for (let j = 0; j < 4; j++) {
-            pts.push([approx.data32S[j * 2], approx.data32S[j * 2 + 1]]);
+      for (const factor of epsilonFactors) {
+        const approx = new cv.Mat();
+        cv.approxPolyDP(cnt, approx, factor * peri, true);
+
+        if (approx.rows === 4 && cv.isContourConvex(approx)) {
+          const area = Math.abs(cv.contourArea(approx));
+          const areaRatio = area / frameArea;
+          // 화면의 8%~95% 사이 크기만 후보로 (너무 작으면 노이즈, 너무 크면 화면 테두리 자체를 잡은 것)
+          if (areaRatio > 0.08 && areaRatio < 0.95) {
+            const pts: Point[] = [];
+            for (let j = 0; j < 4; j++) {
+              pts.push([approx.data32S[j * 2], approx.data32S[j * 2 + 1]]);
+            }
+            const ordered = orderQuadPoints(pts);
+            const aspect = quadAspectRatio(ordered);
+            const aspectDiff = Math.min(Math.abs(aspect - targetAspect) / targetAspect, 1);
+            const score = areaRatio * (1 - aspectDiff * 0.65);
+            if (!best || score > best.score) {
+              best = { quad: ordered, score, areaRatio };
+            }
           }
-          const ordered = orderQuadPoints(pts);
-          const aspect = quadAspectRatio(ordered);
-          const aspectDiff = Math.min(Math.abs(aspect - targetAspect) / targetAspect, 1);
-          const score = areaRatio * (1 - aspectDiff * 0.65);
-          if (!best || score > best.score) {
-            best = { quad: ordered, score, areaRatio };
-          }
+          approx.delete();
+          break; // 이 윤곽선에서 4점 근사를 찾았으니 다음 epsilon은 시도할 필요 없음
         }
+        approx.delete();
       }
-      approx.delete();
       cnt.delete();
     }
   } finally {
