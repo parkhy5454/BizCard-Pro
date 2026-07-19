@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
@@ -124,47 +124,6 @@ const VEHICLE_EXPENSE_LABEL: Record<string, string> = {
 
 // 년/월/일을 각각 따로 입력하고, 자리수가 채워지면 자동으로 다음 칸(월→일)으로 커서가 넘어가는 날짜 입력.
 // 데이터 형태는 기존과 동일하게 'YYYY-MM-DD' 문자열을 그대로 주고받는다.
-// A4 용지 미리보기를 화면에 꽉 차게 축소해서, 스크롤 없이 전체 페이지가 한 번에 보이도록 하는 래퍼.
-// ResizeObserver로 잰 크기를 React 상태가 아니라 DOM에 직접 반영해서(useLayoutEffect) 매 렌더마다
-// 항상 최신 크기로 다시 맞춰준다.
-const FitPage: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const wrapRef = React.useRef<HTMLDivElement>(null);
-  const pageRef = React.useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const wrap = wrapRef.current;
-    const page = pageRef.current;
-    if (!container || !wrap || !page) return;
-
-    const apply = () => {
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      const pw = page.offsetWidth;
-      const ph = page.offsetHeight;
-      if (!cw || !ch || !pw || !ph) return;
-      const scale = Math.min(cw / pw, ch / ph, 1);
-      wrap.style.width = `${pw * scale}px`;
-      wrap.style.height = `${ph * scale}px`;
-      page.style.transform = `scale(${scale})`;
-    };
-
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(container);
-    ro.observe(page);
-    return () => ro.disconnect();
-  });
-
-  return (
-    <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-hidden">
-      <div ref={wrapRef}>
-        <div ref={pageRef} style={{ display: 'inline-block', transformOrigin: 'top left' }}>{children}</div>
-      </div>
-    </div>
-  );
-};
 
 const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; className?: string }> = ({ value, onChange, className }) => {
   const initial = value ? value.split('-') : ['', '', ''];
@@ -1908,10 +1867,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
               </div>
 
-              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 (전체 페이지가 잘리지 않고 한 화면에 맞춰 보이도록 축소) */}
-              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-hidden">
-                <FitPage>
-                <div className="w-[210mm] h-[297mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-4 border-black text-xs font-sans leading-tight overflow-hidden">
+              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
+              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
+                <div className="w-[210mm] h-[297mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-4 border-black text-xs font-sans leading-tight overflow-hidden shrink-0">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">가지급금 정산서</span>
                   </div>
@@ -1975,7 +1933,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     </tbody>
                   </table>
                 </div>
-                </FitPage>
               </div>
             </div>
           </div>
@@ -2012,10 +1969,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
               </div>
 
-              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 (전체 페이지가 잘리지 않고 한 화면에 맞춰 보이도록 축소) */}
-              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-hidden">
-                <FitPage>
-                <div className="w-[210mm] h-[297mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-4 border-black text-xs font-sans leading-tight overflow-hidden">
+              {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
+              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
+                <div className="w-[210mm] h-[297mm] box-border bg-white text-black p-6 sm:p-10 shadow-2xl border-4 border-black text-xs font-sans leading-tight overflow-hidden shrink-0">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
                   </div>
@@ -2126,7 +2082,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <p className="text-center mt-10">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
                   <p className="text-center mt-8">{previewLeave.submittedDate.replace(/-/g, '. ')}</p>
                 </div>
-                </FitPage>
               </div>
             </div>
           </div>
