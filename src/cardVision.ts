@@ -102,6 +102,10 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
     const frameArea = srcMat.cols * srcMat.rows;
     const epsilonFactors = [0.02, 0.01, 0.03, 0.05]; // 윤곽선마다 여러 근사값을 시도해 4점으로 떨어질 확률을 높인다
 
+    const frameCenterX = srcMat.cols / 2;
+    const frameCenterY = srcMat.rows / 2;
+    const frameDiag = Math.hypot(frameCenterX, frameCenterY);
+
     for (let i = 0; i < contours.size(); i++) {
       const cnt = contours.get(i);
       const peri = cv.arcLength(cnt, true);
@@ -123,7 +127,14 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
             const ordered = orderQuadPoints(pts);
             const aspect = quadAspectRatio(ordered);
             const aspectDiff = Math.min(Math.abs(aspect - targetAspect) / targetAspect, 1);
-            const score = areaRatio * (1 - aspectDiff * 0.65);
+
+            // 사용자가 화면 중앙에 문서를 놓는다고 가정하고, 중앙에서 먼 후보(책상 모서리, 문틀 등 배경
+            // 요소가 크기/비율만으로 우연히 점수가 높게 나오는 경우)는 확실히 불리하게 만든다.
+            const cx = (ordered[0][0] + ordered[1][0] + ordered[2][0] + ordered[3][0]) / 4;
+            const cy = (ordered[0][1] + ordered[1][1] + ordered[2][1] + ordered[3][1]) / 4;
+            const centerDist = Math.min(Math.hypot(cx - frameCenterX, cy - frameCenterY) / frameDiag, 1);
+
+            const score = areaRatio * (1 - aspectDiff * 0.65) * (1 - centerDist * 0.8);
             if (!best || score > best.score) {
               best = { quad: ordered, score, areaRatio };
             }
