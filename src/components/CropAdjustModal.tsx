@@ -162,8 +162,8 @@ const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Promise<s
   const src = cv.imread(canvas);
 
   const [tl, tr, br, bl] = corners;
-  const maxWidth = Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y));
-  const maxHeight = Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y));
+  const maxWidth = Math.round(Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y)));
+  const maxHeight = Math.round(Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y)));
 
   const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
   const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, maxWidth, maxHeight, 0, maxHeight]);
@@ -201,6 +201,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const [corners, setCorners] = useState<Point[] | null>(null); // 표시 좌표계 기준
   const [isDetecting, setIsDetecting] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [warpError, setWarpError] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgNaturalRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
@@ -289,18 +290,29 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       return;
     }
     setIsProcessing(true);
+    setWarpError(null);
     try {
       const scaleX = imgNaturalRef.current.width / displaySize.width;
       const scaleY = imgNaturalRef.current.height / displaySize.height;
       const naturalCorners = corners.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
       const cropped = await warpToCorners(imgEl, naturalCorners);
       onConfirm(cropped);
-    } catch (err) {
-      console.error('크롭 처리 실패, 원본 사용:', err);
-      onConfirm(await resizeDataUrl(imageDataUrl));
+    } catch (err: any) {
+      // 이전에는 실패를 콘솔에만 남기고 조용히 원본으로 넘어갔는데, 그러면 왜 보정이 안 됐는지 알 수가 없다.
+      // 화면에 실제 에러 메시지를 보여줘서 다음에 실패하면 정확한 원인을 바로 알 수 있게 한다.
+      const message = err?.message || String(err);
+      console.error('크롭(테두리 보정) 처리 실패:', err);
+      setWarpError(message);
+      setIsProcessing(false);
+      return; // 원본으로 자동 진행하지 않고, 사용자가 에러를 보고 재시도하거나 "원본 그대로 사용"을 직접 선택하게 한다
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleConfirmAnyway = async () => {
+    setWarpError(null);
+    onConfirm(await resizeDataUrl(imageDataUrl));
   };
 
   const handleReset = () => {
@@ -380,6 +392,21 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
             </div>
           )}
         </div>
+
+        {warpError && (
+          <div className="px-4 pt-3 flex flex-col gap-2">
+            <div className="px-3 py-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-[11px] leading-relaxed">
+              <p className="font-bold mb-0.5">테두리 보정에 실패했어요</p>
+              <p className="text-rose-300/90 break-all">{warpError}</p>
+            </div>
+            <button
+              onClick={handleConfirmAnyway}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+            >
+              보정 없이 원본으로 계속 진행
+            </button>
+          </div>
+        )}
 
         <div className="p-4 flex items-center gap-2 border-t border-slate-800">
           <button
