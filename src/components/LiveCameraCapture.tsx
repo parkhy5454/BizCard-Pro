@@ -111,6 +111,13 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const [statusMessage, setStatusMessage] = useState('명함을 화면 안에 맞춰주세요');
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({
+    cvError: '',
+    detectRuns: 0,
+    lastFound: false,
+    lastAreaRatio: 0,
+    lastAspect: 0
+  });
 
   const cvRef = useRef<any>(null);
   const quadHistoryRef = useRef<{ quad: Quad; t: number }[]>([]);
@@ -189,7 +196,10 @@ export const LiveCameraCapture: React.FC<Props> = ({
       })
       .catch((err) => {
         console.warn('OpenCV.js 로드 실패 - 수동 촬영 모드로 전환합니다:', err);
-        if (!cancelled) setCvStatus('failed');
+        if (!cancelled) {
+          setCvStatus('failed');
+          setDebugInfo((d) => ({ ...d, cvError: err?.message || String(err) }));
+        }
       });
     return () => { cancelled = true; };
   }, []);
@@ -284,6 +294,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
     try {
       const found = detectQuad(cv, srcMat, guideAspectRatio);
+      setDebugInfo((d) => ({ ...d, detectRuns: d.detectRuns + 1, lastFound: !!found, lastAreaRatio: found ? found.areaRatio : 0 }));
       if (!found) {
         setQuadDisplay(null);
         setQuality(null);
@@ -434,6 +445,19 @@ export const LiveCameraCapture: React.FC<Props> = ({
             )}
 
             {captureFlash && <div className="absolute inset-0 bg-white animate-pulse" />}
+
+            {/* 진단용 정보 패널: 문제가 재현되면 이 내용을 그대로 캡처해서 보내주시면 원인 파악에 큰 도움이 됩니다 */}
+            <div className="absolute top-3 right-3 max-w-[190px] px-2.5 py-2 rounded-lg bg-black/70 text-[9px] leading-tight text-lime-300 font-mono pointer-events-none">
+              <div>cv: {cvStatus}{debugInfo.cvError ? ` (${debugInfo.cvError.slice(0, 40)})` : ''}</div>
+              <div>runs: {debugInfo.detectRuns} / found: {debugInfo.lastFound ? 'Y' : 'N'}</div>
+              <div>area: {(debugInfo.lastAreaRatio * 100).toFixed(1)}%</div>
+              {quality && (
+                <div>
+                  size:{quality.sizeOk ? 'O' : 'X'} focus:{quality.focusOk ? 'O' : 'X'} bright:{quality.brightOk ? 'O' : 'X'} glare:{quality.glareOk ? 'O' : 'X'}
+                </div>
+              )}
+              <div>stable: {isStable ? 'Y' : 'N'}</div>
+            </div>
 
             {isProcessing && (
               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3">

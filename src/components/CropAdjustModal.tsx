@@ -212,6 +212,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const [isDetecting, setIsDetecting] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [warpError, setWarpError] = useState<string | null>(null);
+  const [autoDetected, setAutoDetected] = useState<boolean | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgNaturalRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
@@ -226,6 +227,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       // 표시 크기 계산은 아래 별도 effect(리사이즈 감지)에서 처리되므로,
       // 여기서는 우선 감지 결과를 "자연 좌표계" 기준으로 저장해두고 표시 시점에 스케일 변환
       setIsDetecting(false);
+      setAutoDetected(!!detected);
       if (detected) {
         (img as any).__detectedCorners = detected;
       }
@@ -352,6 +354,11 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           <div>
             <h3 className="text-sm font-bold text-slate-100">{title || '테두리 확인 및 조정'}</h3>
             <p className="text-[11px] text-slate-500 mt-0.5">모서리 점을 드래그해서 실제 가장자리에 맞춰주세요</p>
+            {autoDetected !== null && (
+              <p className="text-[10px] font-mono mt-0.5 text-lime-500">
+                자동감지: {autoDetected ? '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)' : '실패 (기본 위치 - 직접 맞춰주세요)'}
+              </p>
+            )}
           </div>
           <button onClick={onCancel} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
             <X className="w-4 h-4" />
