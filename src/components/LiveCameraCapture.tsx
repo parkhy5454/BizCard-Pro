@@ -22,7 +22,7 @@ interface Quality {
 
 const DETECT_W = 480; // 실시간 감지용 축소 해상도 (성능을 위해 원본보다 작게 처리)
 const DETECT_INTERVAL_MS = 180;
-const STABLE_MOVE_THRESHOLD = 14; // px (감지 캔버스 기준) - 이보다 적게 움직이면 "안정"으로 판단
+const STABLE_MOVE_THRESHOLD = 20; // px (감지 캔버스 기준) - 이보다 적게 움직이면 "안정"으로 판단
 const STABLE_DURATION_MS = 650; // 이 시간 이상 안정 + 품질 통과 시 자동 촬영
 const OUTPUT_LONG_SIDE = 1400;
 
@@ -310,10 +310,10 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const glare = computeGlareRatio(cv, roi);
       roi.delete();
 
-      const sizeOk = found.areaRatio >= 0.18;
-      const focusOk = blur >= 25;
-      const brightOk = brightness >= 60 && brightness <= 235;
-      const glareOk = glare <= 0.06;
+      const sizeOk = found.areaRatio >= 0.14;
+      const focusOk = blur >= 12;
+      const brightOk = brightness >= 45 && brightness <= 245;
+      const glareOk = glare <= 0.10;
 
       lastRawQuadRef.current = { quad: found.points, detectW, detectH };
 
@@ -408,7 +408,12 @@ export const LiveCameraCapture: React.FC<Props> = ({
               <DetectionOverlay quad={quadDisplay} color={outlineColor} />
             )}
             {isReady && cvStatus === 'failed' && (
-              <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
+              <>
+                <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-200 text-[11px] font-semibold whitespace-nowrap">
+                  자동 인식 엔진을 불러오지 못했어요 · 가이드에 맞춰 수동으로 촬영해주세요
+                </div>
+              </>
             )}
             {isReady && cvStatus === 'loading' && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 text-white text-[11px]">
