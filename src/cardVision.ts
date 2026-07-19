@@ -1,5 +1,6 @@
 // 명함/영수증 등 문서 스캔을 위한 실시간 컴퓨터비전 유틸리티.
-// OpenCV.js(WASM)를 브라우저에서 지연 로딩해서 사용한다 (번들 크기 때문에 스캔 화면을 열 때만 불러옴).
+// OpenCV.js(WASM)를 @techstark/opencv-js 패키지로 지연 로딩해서 사용한다.
+// (동적 import()를 쓰면 Vite가 자동으로 별도 청크로 분리해서, 스캔 화면을 열 때만 내려받는다.)
 //
 // 제공 기능:
 //  - loadOpenCv(): OpenCV.js 지연 로딩
@@ -18,73 +19,39 @@ export interface DetectedQuad {
 
 let openCvPromise: Promise<any> | null = null;
 
-// OpenCV.js를 CDN에서 지연 로딩. 여러 컴포넌트에서 동시에 호출해도 한 번만 로딩되도록 프로미스를 캐시한다.
+// OpenCV.js를 지연 로딩. 여러 컴포넌트에서 동시에 호출해도 한 번만 로딩되도록 프로미스를 캐시한다.
 export function loadOpenCv(): Promise<any> {
   const w = window as any;
   if (w.cv && w.cv.Mat) return Promise.resolve(w.cv);
   if (openCvPromise) return openCvPromise;
 
-  openCvPromise = new Promise((resolve, reject) => {
-    let settled = false;
-    let pollId: number | null = null;
-    let timeoutId: number | null = null;
+  const loadTask = (async () => {
+    // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
+    const mod: any = await import('@techstark/opencv-js');
+    let cv = (mod && (mod.default ?? mod)) as any;
 
-    const cleanup = () => {
-      if (pollId !== null) window.clearInterval(pollId);
-      if (timeoutId !== null) window.clearTimeout(timeoutId);
-    };
-    const settleResolve = (cv: any) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(cv);
-    };
-    const settleReject = (err: Error) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(err);
-    };
-
-    // WASM 런타임 초기화 완료 시점을 못 잡는 경쟁 조건(onRuntimeInitialized 콜백을 늦게 붙여서 놓치는 경우)에
-    // 대비해, 콜백과 별개로 window.cv.Mat 존재 여부를 주기적으로 폴링해서 이중으로 감지한다.
-    pollId = window.setInterval(() => {
-      if (w.cv && w.cv.Mat) settleResolve(w.cv);
-    }, 200);
-
-    // 무한 대기를 막기 위한 최대 대기 시간 (네트워크가 느리거나 초기화가 막힌 경우 명확히 실패로 처리)
-    timeoutId = window.setTimeout(() => {
-      settleReject(new Error('OpenCV.js 초기화가 시간 내에 끝나지 않았습니다 (12초 초과).'));
-    }, 12000);
-
-    const resolveWhenReady = () => {
-      const cv = w.cv;
-      if (!cv) { settleReject(new Error('OpenCV 전역 객체를 찾을 수 없습니다.')); return; }
-      // opencv.js 빌드에 따라 cv 자체가 Promise이거나(then 지원), onRuntimeInitialized 콜백 방식이거나, 이미 준비된 경우가 있다.
-      if (typeof cv.then === 'function') {
-        cv.then((resolvedCv: any) => settleResolve(resolvedCv)).catch((e: any) => settleReject(e instanceof Error ? e : new Error(String(e))));
-      } else if (cv.Mat) {
-        settleResolve(cv);
-      } else {
-        cv['onRuntimeInitialized'] = () => settleResolve(w.cv);
-      }
-    };
-
-    const existing = document.getElementById('opencv-js-lib') as HTMLScriptElement | null;
-    if (existing) {
-      if (w.cv?.Mat) { settleResolve(w.cv); return; }
-      existing.addEventListener('load', resolveWhenReady);
-      existing.addEventListener('error', () => settleReject(new Error('OpenCV.js 로드에 실패했습니다.')));
-      return;
+    // 이 패키지는 cv 자체가 Promise이거나(WASM 런타임 초기화까지 기다리는 형태),
+    // 이미 준비된 객체이거나, onRuntimeInitialized 콜백을 기다려야 하는 경우가 있다.
+    if (cv && typeof cv.then === 'function') {
+      cv = await cv;
+    } else if (cv && !cv.Mat) {
+      await new Promise<void>((resolve) => {
+        cv.onRuntimeInitialized = () => resolve();
+      });
     }
 
-    const script = document.createElement('script');
-    script.id = 'opencv-js-lib';
-    script.src = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
-    script.async = true;
-    script.onload = resolveWhenReady;
-    script.onerror = () => settleReject(new Error('OpenCV.js 로드에 실패했습니다.'));
-    document.body.appendChild(script);
+    if (!cv || !cv.Mat) throw new Error('OpenCV 모듈 초기화에 실패했습니다.');
+    w.cv = cv;
+    return cv;
+  })();
+
+  const timeoutTask = new Promise<never>((_, reject) => {
+    window.setTimeout(() => reject(new Error('OpenCV.js 초기화가 시간 내에 끝나지 않았습니다 (15초 초과).')), 15000);
+  });
+
+  openCvPromise = Promise.race([loadTask, timeoutTask]).catch((err) => {
+    openCvPromise = null; // 실패 시 다음 재시도 때 다시 로딩을 시도할 수 있도록 캐시를 비운다
+    throw err;
   });
 
   return openCvPromise;
