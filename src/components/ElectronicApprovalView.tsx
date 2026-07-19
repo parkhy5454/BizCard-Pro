@@ -784,13 +784,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       </table>`;
 
     const fullHtml = `
-      <div style="border: 4px solid #000000; box-sizing: border-box; width: 190mm; min-height: 260mm; padding: 10mm;">
+      <table style="border-collapse: collapse; width: 190mm;"><tr>
+      <td style="border: 4px solid #000000; box-sizing: border-box; height: 260mm; padding: 10mm; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">가지급금 정산서</span>
       </div>
       ${topRowHtml}
       ${itemsTableHtml}
-      </div>
+      </td>
+      </tr></table>
     `;
 
     const excelContent = `
@@ -970,7 +972,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       </table>`;
 
     const fullHtml = `
-      <div style="border: 4px solid #000000; box-sizing: border-box; width: 190mm; min-height: 260mm; padding: 10mm;">
+      <table style="border-collapse: collapse; width: 190mm;"><tr>
+      <td style="border: 4px solid #000000; box-sizing: border-box; height: 260mm; padding: 10mm; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
@@ -979,7 +982,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       ${bodyHtml}
       <p style="text-align:center; margin-top:30px; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
       <p style="text-align:center; margin-top:20px; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</p>
-      </div>
+      </td>
+      </tr></table>
     `;
 
     const excelContent = `
