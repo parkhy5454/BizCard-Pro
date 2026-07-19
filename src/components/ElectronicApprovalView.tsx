@@ -1869,7 +1869,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
-                <div className="w-[210mm] box-border bg-white shadow-2xl text-black p-8 sm:p-10 text-xs font-sans leading-tight shrink-0" style={{ border: '2px solid #000000', minHeight: '150mm' }}>
+                <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
+                <div className="text-black p-8 sm:p-10 text-xs font-sans leading-tight" style={{ minHeight: '150mm' }}>
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">가지급금 정산서</span>
                   </div>
@@ -1933,13 +1934,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     </tbody>
                   </table>
                 </div>
+                </td></tr></tbody></table>
               </div>
             </div>
           </div>
         );
       })()}
-
-      {/* 휴가 신청서 출력 미리보기 (업무일지/차량관리와 동일한 방식: 화면에 그대로 보여준 뒤 엑셀/PDF로 출력) */}
       {previewLeaveId && (() => {
         const previewLeave = leaveList.find(d => d.id === previewLeaveId);
         if (!previewLeave) return null;
@@ -1971,7 +1971,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
-                <div className="w-[210mm] box-border bg-white shadow-2xl text-black p-8 sm:p-10 text-xs font-sans leading-tight shrink-0" style={{ border: '2px solid #000000', minHeight: '150mm' }}>
+                <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
+                <div className="text-black p-8 sm:p-10 text-xs font-sans leading-tight" style={{ minHeight: '150mm' }}>
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
                   </div>
@@ -2082,6 +2083,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <p className="text-center mt-10">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
                   <p className="text-center mt-8">{previewLeave.submittedDate.replace(/-/g, '. ')}</p>
                 </div>
+                </td></tr></tbody></table>
               </div>
             </div>
           </div>
