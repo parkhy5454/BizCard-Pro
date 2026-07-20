@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2, KeyRound } from 'lucide-react';
 import { motion } from 'motion/react';
 import { User as UserType } from '../types.js';
 
@@ -17,10 +17,89 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [businessNumber, setBusinessNumber] = useState<string>('');
   const [position, setPosition] = useState<string>('');
   const [signupRole, setSignupRole] = useState<'admin' | 'member'>('member');
-  
+
+  // 비밀번호 찾기 / 재설정 화면 상태
+  const [screen, setScreen] = useState<'auth' | 'forgot' | 'reset'>('auth');
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [forgotEmail, setForgotEmail] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState<string>('');
+
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string>('');
+
+  // 이메일로 받은 재설정 링크(?resetToken=...)로 들어온 경우, 새 비밀번호 설정 화면을 바로 띄운다.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('resetToken');
+    if (token) {
+      setResetToken(token);
+      setScreen('reset');
+    }
+  }, []);
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    if (!forgotEmail.trim()) {
+      setError('이메일을 입력해주세요.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
+      setSuccessMsg(data.message || '입력하신 이메일로 안내를 보내드렸습니다.');
+    } catch (err: any) {
+      setError(err.message || '요청 처리 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    if (!newPassword || newPassword.length < 4) {
+      setError('비밀번호는 4자 이상 입력해주세요.');
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setError('비밀번호가 서로 일치하지 않습니다.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '비밀번호 변경 중 오류가 발생했습니다.');
+
+      // URL의 ?resetToken= 파라미터를 지우고 로그인 화면으로 복귀
+      window.history.replaceState({}, '', window.location.pathname);
+      setScreen('auth');
+      setIsLogin(true);
+      setResetToken(null);
+      setNewPassword('');
+      setNewPasswordConfirm('');
+      setSuccessMsg('비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.');
+    } catch (err: any) {
+      setError(err.message || '비밀번호 변경 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 사업자번호 하이픈 자동 포맷팅 (123-45-67890 형식)
   const handleBusinessNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,6 +185,126 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
       setLoading(false);
     }
   };
+
+  if (screen === 'forgot') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="h-14 w-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/20 border border-indigo-400/20">
+              <KeyRound className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-extrabold text-white tracking-tight">비밀번호 찾기</h2>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
+          <div className="bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl py-8 px-4 shadow-2xl rounded-3xl sm:px-10">
+            {error && (
+              <div className="mb-4 p-3 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center gap-2.5 text-xs text-red-400">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span className="font-semibold">{error}</span>
+              </div>
+            )}
+            {successMsg && (
+              <div className="mb-4 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center gap-2.5 text-xs text-emerald-400">
+                <Check className="w-4 h-4 shrink-0" />
+                <span className="font-semibold">{successMsg}</span>
+              </div>
+            )}
+            <p className="text-xs text-slate-400 mb-4 leading-relaxed">가입하신 이메일 주소를 입력하시면, 비밀번호 재설정 링크를 보내드립니다.</p>
+            <form onSubmit={handleForgotSubmit} className="space-y-4">
+              <div className="relative rounded-xl shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-4 w-4 text-slate-500" />
+                </div>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="가입한 이메일 주소"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl shadow-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors disabled:opacity-50"
+              >
+                {loading ? '전송 중...' : '재설정 링크 받기'} <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { setScreen('auth'); setError(''); setSuccessMsg(''); }}
+                className="w-full text-center text-xs text-slate-400 hover:text-slate-200 font-medium"
+              >
+                로그인으로 돌아가기
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'reset') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="h-14 w-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/20 border border-indigo-400/20">
+              <KeyRound className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-extrabold text-white tracking-tight">새 비밀번호 설정</h2>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
+          <div className="bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl py-8 px-4 shadow-2xl rounded-3xl sm:px-10">
+            {error && (
+              <div className="mb-4 p-3 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center gap-2.5 text-xs text-red-400">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span className="font-semibold">{error}</span>
+              </div>
+            )}
+            <form onSubmit={handleResetSubmit} className="space-y-4">
+              <div className="relative rounded-xl shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-4 w-4 text-slate-500" />
+                </div>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="새 비밀번호 (4자 이상)"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="relative rounded-xl shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-4 w-4 text-slate-500" />
+                </div>
+                <input
+                  type="password"
+                  value={newPasswordConfirm}
+                  onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                  placeholder="새 비밀번호 확인"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl shadow-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors disabled:opacity-50"
+              >
+                {loading ? '변경 중...' : '비밀번호 변경하기'} <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
@@ -231,6 +430,15 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={() => { setScreen('forgot'); setForgotEmail(email); setError(''); setSuccessMsg(''); }}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                >
+                  비밀번호를 잊으셨나요?
+                </button>
+              )}
             </div>
 
             {/* 회원가입 시: 계정 종류 선택 (개인 vs 회사) */}
