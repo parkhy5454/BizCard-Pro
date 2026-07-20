@@ -761,7 +761,7 @@ function verifyPassword(inputPassword: string, storedPassword?: string): boolean
 
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, name, type, companyName, businessNumber, position } = req.body;
+  const { email, password, name, type, companyName, businessNumber, position, role: requestedRole } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
@@ -771,18 +771,22 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '이미 존재하는 이메일입니다.' });
   }
 
-  // 같은 회사(회사명+사업자번호)로 가입하는 첫 번째 사용자는 자동으로 관리자가 된다.
-  // (이후 가입하는 같은 회사 사용자는 일반 사용자로 시작, 관리자가 나중에 직책/권한을 지정할 수 있음)
+  // 가입 화면에서 직접 관리자/일반 사용자를 선택한 값을 우선 사용한다.
+  // 값이 없는 경우(예: 예전 방식 요청)에는, 같은 회사로 가입하는 첫 번째 사용자를 자동으로 관리자로 지정한다.
   let role: 'admin' | 'member' | undefined;
   if (type === 'company') {
-    const cName = (companyName || '').trim();
-    const bNum = (businessNumber || '').trim();
-    const hasExistingCompanyUser = users.some(u =>
-      u.type === 'company' &&
-      (u.companyName || '').trim() === cName &&
-      (u.businessNumber || '').trim() === bNum
-    );
-    role = hasExistingCompanyUser ? 'member' : 'admin';
+    if (requestedRole === 'admin' || requestedRole === 'member') {
+      role = requestedRole;
+    } else {
+      const cName = (companyName || '').trim();
+      const bNum = (businessNumber || '').trim();
+      const hasExistingCompanyUser = users.some(u =>
+        u.type === 'company' &&
+        (u.companyName || '').trim() === cName &&
+        (u.businessNumber || '').trim() === bNum
+      );
+      role = hasExistingCompanyUser ? 'member' : 'admin';
+    }
   }
 
   const newUser: RegisteredUser = {
