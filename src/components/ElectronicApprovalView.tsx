@@ -324,6 +324,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [advanceList, setAdvanceList] = useState<AdvancePaymentSettlement[]>([]);
   const [leaveList, setLeaveList] = useState<LeaveRequest[]>([]);
   const [myProfile, setMyProfile] = useState<any>(null);
+  const [companyPositions, setCompanyPositions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
@@ -388,6 +389,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   useEffect(() => {
     fetchAll();
     fetchMyProfile();
+    fetchCompanyPositions();
   }, [currentUser]);
 
   // 총 연차 일수가 입력되어 있으면, 휴가 구분과 무관하게 같은 해에 그 사람이 이미 사용한 휴가일수
@@ -419,6 +421,29 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       if (res.ok) setMyProfile(await res.json());
     } catch (err) {
       console.error('My profile fetch error:', err);
+    }
+  };
+
+  // 결재선 입력 시 자동완성 후보로 쓸, 같은 회사 소속 가입자들의 직책 목록
+  // (오타로 결재 요청 이메일이 매칭 실패하는 걸 줄이기 위한 힌트일 뿐, 강제 선택은 아님)
+  const fetchCompanyPositions = async () => {
+    try {
+      const res = await fetch('/api/auth/users');
+      if (!res.ok) return;
+      const allUsers = await res.json();
+      const mine = currentUser;
+      if (!mine || mine.type !== 'company') return;
+      const positions = allUsers
+        .filter((u: any) =>
+          u.type === 'company' &&
+          (u.companyName || '').trim() === (mine.companyName || '').trim() &&
+          (u.businessNumber || '').trim() === (mine.businessNumber || '').trim() &&
+          u.position
+        )
+        .map((u: any) => u.position as string);
+      setCompanyPositions(Array.from(new Set(positions)));
+    } catch (err) {
+      console.error('Company positions fetch error:', err);
     }
   };
 
@@ -1187,11 +1212,19 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <label className="text-xs font-bold text-slate-300">결재선</label>
       <div className="grid grid-cols-4 gap-2">
         {line.map((step, idx) => (
-          <input key={idx} type="text" value={step.role} placeholder={`결재${idx + 1}`}
+          <input key={idx} type="text" value={step.role} placeholder={`결재${idx + 1}`} list="company-positions-datalist"
             onChange={(e) => setLine(line.map((s, i) => i === idx ? { ...s, role: e.target.value } : s))}
             className="px-2 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
         ))}
       </div>
+      {companyPositions.length > 0 && (
+        <datalist id="company-positions-datalist">
+          {companyPositions.map((p) => <option key={p} value={p} />)}
+        </datalist>
+      )}
+      <p className="text-[10px] text-slate-500">
+        여기 적는 직책이 회원가입 시 등록한 직책과 정확히 일치해야 결재 요청 이메일이 그 사람에게 자동으로 전달됩니다.
+      </p>
     </div>
   );
 
