@@ -15,6 +15,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [accountType, setAccountType] = useState<'individual' | 'company'>('individual');
   const [companyName, setCompanyName] = useState<string>('');
   const [businessNumber, setBusinessNumber] = useState<string>('');
+  const [position, setPosition] = useState<string>('');
+  const [signupRole, setSignupRole] = useState<'admin' | 'member'>('member');
   
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -72,6 +74,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
             type: accountType,
             companyName: accountType === 'company' ? companyName.trim() : undefined,
             businessNumber: accountType === 'company' ? businessNumber.trim() : undefined,
+            position: accountType === 'company' ? position.trim() : undefined,
+            role: accountType === 'company' ? signupRole : undefined,
           };
 
       const res = await fetch(endpoint, {
@@ -309,6 +313,46 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                           className="block w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-bold text-slate-400">직책 (선택, 예: 대표이사·기술이사·경영지원실장)</label>
+                      <div className="relative rounded-xl shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Briefcase className="h-3.5 w-3.5 text-slate-500" />
+                        </div>
+                        <input
+                          type="text"
+                          value={position}
+                          onChange={(e) => setPosition(e.target.value)}
+                          placeholder="예: 대표이사"
+                          className="block w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <p className="mt-1 text-[10px] text-slate-500">전자결재 결재라인과 이름을 매칭해 결재 요청 메일을 보내는 데 쓰입니다.</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-bold text-slate-400">가입 유형</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSignupRole('member')}
+                          className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${signupRole === 'member' ? 'bg-indigo-950/30 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'}`}
+                        >
+                          일반 사용자
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSignupRole('admin')}
+                          className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${signupRole === 'admin' ? 'bg-amber-950/30 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'}`}
+                        >
+                          관리자
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        관리자는 결재라인 지정, 소속 직원 직책/권한 관리가 가능합니다. 이미 같은 회사에 관리자가 있다면 <span className="text-slate-400 font-medium">일반 사용자</span>로 가입한 뒤, 기존 관리자에게 "가입 회원 & 협업 디렉토리"에서 권한을 요청하세요.
+                      </p>
                     </div>
                   </motion.div>
                 )}
