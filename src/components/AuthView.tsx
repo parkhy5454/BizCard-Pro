@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2, Shield } from 'lucide-react';
+import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { User as UserType } from '../types.js';
 
@@ -118,9 +118,6 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
         </div>
         <div>
           <h2 className="text-3xl font-extrabold text-white tracking-tight">BizCard Pro AI</h2>
-          <p className="mt-2 text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-            스마트 명함 관리, AI OCR 자동인식 및 회사 동료 협업기반 프로젝트 영업 팔로우업 통합 시스템
-          </p>
         </div>
       </div>
 
@@ -277,11 +274,6 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     animate={{ opacity: 1, height: 'auto' }}
                     className="p-4 bg-slate-950 border border-indigo-500/10 rounded-2xl space-y-3.5 mt-2"
                   >
-                    <div className="flex items-start gap-2 text-[10px] text-indigo-300 leading-normal mb-1">
-                      <Shield className="w-4 h-4 shrink-0 text-indigo-400 mt-0.5" />
-                      <span>회사는 <span className="font-bold underline">동일한 회사명과 사업자번호</span>를 매칭하여 인증하고, 로그인한 구성원들끼리 명함첩, 프로젝트 진행 상황 및 후속 미팅 기록이 실시간 공동 트래킹됩니다.</span>
-                    </div>
-
                     <div className="space-y-1.5">
                       <label className="block text-[10px] font-bold text-slate-400">공식 회사명</label>
                       <div className="relative rounded-xl shadow-sm">
