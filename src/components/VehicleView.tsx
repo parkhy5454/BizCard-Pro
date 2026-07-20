@@ -2042,7 +2042,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       )}
                     </div>
                     {drivingReceiptExpense && (
-                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
                         <select
                           value={drivingReceiptExpense.category}
                           onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, category: e.target.value as VehicleExpense['category'] })}
@@ -2055,6 +2055,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           <option value="beverage">음료</option>
                           <option value="custom">직접 입력</option>
                         </select>
+                        <input
+                          type="text"
+                          value={drivingReceiptExpense.merchantName}
+                          onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, merchantName: e.target.value })}
+                          placeholder="상호명 (인식 안 되면 직접 입력)"
+                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white placeholder:text-slate-600"
+                        />
                         <input
                           type="text"
                           inputMode="numeric"
