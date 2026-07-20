@@ -10,6 +10,7 @@ import {
   ensureScopeInitialized,
   getUsers,
   addUser,
+  isSupabaseConfigured,
   getScopedCollection,
   getScopedDoc,
   setScopedDoc,
@@ -765,10 +766,18 @@ app.post('/api/auth/signup', async (req, res) => {
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
+  const normalizedEmail = email.trim().toLowerCase();
 
-  const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  // 메모리 캐시(users)로 1차 확인 + Supabase에서 직접 한 번 더 재확인(캐시가 오래됐을 가능성에 대비한 안전장치).
+  // 이 두 단계 확인으로, 같은 이메일로 두 계정(예: 개인+사업자)이 동시에 만들어지는 문제를 막는다.
+  let existing = users.find(u => u.email.toLowerCase() === normalizedEmail);
+  if (!existing && isSupabaseConfigured) {
+    const freshUsers = await getUsers();
+    existing = freshUsers.find(u => u.email.toLowerCase() === normalizedEmail);
+    if (existing) users = freshUsers; // 캐시가 오래되어 있었다면 이 기회에 최신 상태로 갱신
+  }
   if (existing) {
-    return res.status(400).json({ error: '이미 존재하는 이메일입니다.' });
+    return res.status(400).json({ error: '이미 가입에 사용된 이메일입니다. 개인/사업자 계정 모두 같은 이메일로는 중복 가입할 수 없으니, 다른 이메일로 가입해주세요.' });
   }
 
   // 가입 화면에서 직접 관리자/일반 사용자를 선택한 값을 우선 사용한다.
@@ -867,6 +876,25 @@ app.get('/api/auth/users', (req, res) => {
     position: u.position,
     role: u.role
   })));
+});
+
+// 진단용: 같은 이메일로 여러 계정이 만들어진 경우(예: 개인+사업자 중복 가입)를 찾아서 보여준다.
+// 삭제는 안전을 위해 여기서 하지 않고, 확인 후 Supabase 테이블 편집기에서 직접 지우는 걸 권장한다.
+app.get('/api/auth/duplicate-emails', async (req, res) => {
+  const all = isSupabaseConfigured ? await getUsers() : users;
+  const byEmail = new Map<string, RegisteredUser[]>();
+  for (const u of all) {
+    const key = u.email.toLowerCase();
+    if (!byEmail.has(key)) byEmail.set(key, []);
+    byEmail.get(key)!.push(u);
+  }
+  const duplicates = Array.from(byEmail.entries())
+    .filter(([, list]) => list.length > 1)
+    .map(([email, list]) => ({
+      email,
+      accounts: list.map(u => ({ id: u.id, type: u.type, companyName: u.companyName, businessNumber: u.businessNumber, position: u.position, role: u.role }))
+    }));
+  res.json({ duplicateCount: duplicates.length, duplicates });
 });
 
 // 회사 스코프 판별에 쓰이는 것과 동일한 규칙 (resolveScopeId와 반드시 일치시켜야 함)
