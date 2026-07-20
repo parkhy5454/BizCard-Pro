@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -691,13 +692,7 @@ function resolveScopeId(req: express.Request): string {
   if (userId) {
     const user = users.find(u => u.id === userId);
     if (user) {
-      if (user.type === 'company') {
-        const cName = (user.companyName || '').trim();
-        const bNum = (user.businessNumber || '').trim();
-        scopeId = `company:${cName}_${bNum}`;
-      } else {
-        scopeId = `individual:${user.id}`;
-      }
+      scopeId = scopeIdForUser(user);
     }
   }
   return scopeId;
@@ -766,7 +761,7 @@ function verifyPassword(inputPassword: string, storedPassword?: string): boolean
 
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, name, type, companyName, businessNumber } = req.body;
+  const { email, password, name, type, companyName, businessNumber, position } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
@@ -776,6 +771,20 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '이미 존재하는 이메일입니다.' });
   }
 
+  // 같은 회사(회사명+사업자번호)로 가입하는 첫 번째 사용자는 자동으로 관리자가 된다.
+  // (이후 가입하는 같은 회사 사용자는 일반 사용자로 시작, 관리자가 나중에 직책/권한을 지정할 수 있음)
+  let role: 'admin' | 'member' | undefined;
+  if (type === 'company') {
+    const cName = (companyName || '').trim();
+    const bNum = (businessNumber || '').trim();
+    const hasExistingCompanyUser = users.some(u =>
+      u.type === 'company' &&
+      (u.companyName || '').trim() === cName &&
+      (u.businessNumber || '').trim() === bNum
+    );
+    role = hasExistingCompanyUser ? 'member' : 'admin';
+  }
+
   const newUser: RegisteredUser = {
     id: `user-${Date.now()}`,
     email: email.toLowerCase(),
@@ -783,7 +792,9 @@ app.post('/api/auth/signup', async (req, res) => {
     name,
     type,
     companyName,
-    businessNumber
+    businessNumber,
+    position: position || undefined,
+    role
   };
 
   users.push(newUser);
@@ -801,7 +812,9 @@ app.post('/api/auth/signup', async (req, res) => {
       name: newUser.name, 
       type: newUser.type, 
       companyName: newUser.companyName, 
-      businessNumber: newUser.businessNumber 
+      businessNumber: newUser.businessNumber,
+      position: newUser.position,
+      role: newUser.role
     } 
   });
 });
@@ -831,7 +844,9 @@ app.post('/api/auth/login', async (req, res) => {
       name: user.name,
       type: user.type,
       companyName: user.companyName,
-      businessNumber: user.businessNumber
+      businessNumber: user.businessNumber,
+      position: user.position,
+      role: user.role
     }
   });
 });
@@ -844,8 +859,41 @@ app.get('/api/auth/users', (req, res) => {
     name: u.name,
     type: u.type,
     companyName: u.companyName,
-    businessNumber: u.businessNumber
+    businessNumber: u.businessNumber,
+    position: u.position,
+    role: u.role
   })));
+});
+
+// 회사 스코프 판별에 쓰이는 것과 동일한 규칙 (resolveScopeId와 반드시 일치시켜야 함)
+function scopeIdForUser(user: RegisteredUser): string {
+  if (user.type === 'company') {
+    const cName = (user.companyName || '').trim();
+    const bNum = (user.businessNumber || '').trim();
+    return `company:${cName}_${bNum}`;
+  }
+  return `individual:${user.id}`;
+}
+
+// 관리자 전용: 같은 회사 소속 사용자의 직책/권한 수정 (결재라인 매칭 및 직원 관리용)
+app.put('/api/auth/users/:targetId', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 직원 정보를 수정할 수 있습니다.' });
+
+  const target = users.find(u => u.id === req.params.targetId);
+  if (!target) return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+  if (scopeIdForUser(requester) !== scopeIdForUser(target)) {
+    return res.status(403).json({ error: '같은 회사 소속 사용자만 수정할 수 있습니다.' });
+  }
+
+  const { position, role } = req.body;
+  if (typeof position === 'string') target.position = position;
+  if (role === 'admin' || role === 'member') target.role = role;
+  await addUser(target);
+
+  res.json({ success: true, user: { id: target.id, email: target.email, name: target.name, position: target.position, role: target.role } });
 });
 
 // 📁 Scoped CRUD APIs
@@ -1742,6 +1790,105 @@ app.delete('/api/worklogs/weekly/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// ------------------------------------------------------------------
+// 📧 전자결재 메일 발송 (Gmail/회사 메일 SMTP)
+// 환경변수: SMTP_HOST(기본 smtp.gmail.com), SMTP_PORT(기본 587), SMTP_USER, SMTP_PASS, SMTP_FROM_NAME, APP_BASE_URL
+// Gmail을 쓰는 경우 SMTP_PASS는 일반 비밀번호가 아니라 "앱 비밀번호"를 발급받아 사용해야 합니다.
+// ------------------------------------------------------------------
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const SMTP_FROM_NAME = process.env.SMTP_FROM_NAME || 'BizCard Pro 전자결재';
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://bizcard-pro.onrender.com';
+
+const isMailerConfigured = Boolean(SMTP_USER && SMTP_PASS);
+if (!isMailerConfigured) {
+  console.warn('[mailer] SMTP_USER 또는 SMTP_PASS 환경변수가 설정되지 않아 결재 요청 이메일 발송이 비활성화됩니다.');
+}
+
+const mailTransporter = isMailerConfigured
+  ? nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: { user: SMTP_USER, pass: SMTP_PASS }
+    })
+  : null;
+
+async function sendApprovalRequestEmail(opts: {
+  toEmail: string; toName: string; approverRole: string;
+  docTypeLabel: string; draftNumber: string; authorName: string;
+}) {
+  if (!mailTransporter) {
+    console.warn(`[mailer] 미설정 상태라 ${opts.toEmail}에게 결재 요청 이메일을 보내지 못했습니다.`);
+    return;
+  }
+  try {
+    await mailTransporter.sendMail({
+      from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
+      to: opts.toEmail,
+      subject: `[결재 요청] ${opts.docTypeLabel} - ${opts.authorName}님이 상신한 문서 (기안번호: ${opts.draftNumber})`,
+      html: `
+        <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
+          <h2 style="margin-bottom:4px;">${opts.docTypeLabel} 결재 요청</h2>
+          <p style="color:#555;">${opts.toName}님(${opts.approverRole}), 결재해 주실 문서가 도착했습니다.</p>
+          <table style="border-collapse:collapse; margin:16px 0; font-size:14px;">
+            <tr><td style="padding:4px 16px 4px 0; color:#888;">기안번호</td><td>${opts.draftNumber}</td></tr>
+            <tr><td style="padding:4px 16px 4px 0; color:#888;">기안자</td><td>${opts.authorName}</td></tr>
+          </table>
+          <a href="${APP_BASE_URL}" style="display:inline-block; padding:10px 22px; background:#4f46e5; color:#fff; text-decoration:none; border-radius:8px; font-weight:bold;">사이트에서 확인하기</a>
+        </div>
+      `
+    });
+    console.log(`[mailer] ${opts.toEmail}에게 결재 요청 이메일 발송 완료`);
+  } catch (err) {
+    console.error(`[mailer] ${opts.toEmail}에게 이메일 발송 실패:`, err);
+  }
+}
+
+// 결재라인에서 아직 서명(date)되지 않은 첫 번째 단계 = 다음 결재 대기자
+function getNextPendingApprover(approvalLine: ApprovalStep[] = []): ApprovalStep | undefined {
+  return approvalLine.find(s => !s.date);
+}
+
+// 결재라인이 진전되어 "다음 결재 대기자"가 바뀌었을 때만(중복 발송 방지) 그 사람에게 이메일을 보낸다.
+// - 신규 기안(beforeLine 없음): 첫 번째 결재자에게 발송
+// - 결재 진행(beforeLine 있음): 다음 결재자가 바뀐 경우에만 발송
+async function notifyNextApproverIfChanged(
+  scopeId: string,
+  docTypeLabel: string,
+  draftNumber: string,
+  authorName: string,
+  afterLine: ApprovalStep[] | undefined,
+  afterStatus: string | undefined,
+  beforeLine?: ApprovalStep[]
+) {
+  if (!isMailerConfigured) return;
+  if (afterStatus !== 'pending') return; // 승인 완료/반려된 문서는 알림 대상 아님
+  if (!scopeId.startsWith('company:')) return; // 회사 계정이 아니면 결재라인-직원 매칭 불가
+
+  const nextBefore = beforeLine ? getNextPendingApprover(beforeLine) : undefined;
+  const nextAfter = getNextPendingApprover(afterLine || []);
+  if (!nextAfter) return;
+  if (beforeLine && nextBefore?.role === nextAfter.role && nextBefore?.date === nextAfter.date) return; // 변화 없음
+
+  const normalize = (s: string) => s.trim().replace(/\s+/g, '').toLowerCase();
+  const target = users.find(u => scopeIdForUser(u) === scopeId && normalize(u.position || '') === normalize(nextAfter.role));
+  if (!target) {
+    console.warn(`[mailer] "${nextAfter.role}" 직책을 가진 가입자를 찾지 못해 결재 요청 이메일을 보내지 못했습니다. (직원 관리에서 직책을 지정해주세요)`);
+    return;
+  }
+  await sendApprovalRequestEmail({
+    toEmail: target.email,
+    toName: target.name,
+    approverRole: nextAfter.role,
+    docTypeLabel,
+    draftNumber,
+    authorName
+  });
+}
+
 // 전자결재: 가지급금 정산서 CRUD
 app.get('/api/approvals/advance', (req, res) => {
   const dbData = getScopedData(req);
@@ -1761,6 +1908,9 @@ app.post('/api/approvals/advance', async (req, res) => {
   dbData.advancePayments.unshift(doc);
   await setScopedDoc(scopeId, 'advancePayments', doc);
   res.status(201).json(doc);
+
+  notifyNextApproverIfChanged(scopeId, '가지급금 정산서', `${doc.periodStart} ~ ${doc.periodEnd}`, doc.author, doc.approvalLine, doc.status)
+    .catch(err => console.error('[mailer] 가지급금 정산서 결재 알림 처리 실패:', err));
 });
 
 app.put('/api/approvals/advance/:id', async (req, res) => {
@@ -1770,10 +1920,14 @@ app.put('/api/approvals/advance/:id', async (req, res) => {
   const idx = dbData.advancePayments.findIndex((d: AdvancePaymentSettlement) => d.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Advance payment settlement not found' });
 
-  const updated = { ...dbData.advancePayments[idx], ...req.body };
+  const before = dbData.advancePayments[idx];
+  const updated = { ...before, ...req.body };
   dbData.advancePayments[idx] = updated;
   await setScopedDoc(scopeId, 'advancePayments', updated);
   res.json(updated);
+
+  notifyNextApproverIfChanged(scopeId, '가지급금 정산서', `${updated.periodStart} ~ ${updated.periodEnd}`, updated.author, updated.approvalLine, updated.status, before.approvalLine)
+    .catch(err => console.error('[mailer] 가지급금 정산서 결재 알림 처리 실패:', err));
 });
 
 app.delete('/api/approvals/advance/:id', async (req, res) => {
@@ -1803,6 +1957,9 @@ app.post('/api/approvals/leave', async (req, res) => {
   dbData.leaveRequests.unshift(doc);
   await setScopedDoc(scopeId, 'leaveRequests', doc);
   res.status(201).json(doc);
+
+  notifyNextApproverIfChanged(scopeId, '휴가 신청서', doc.draftNumber, doc.author, doc.approvalLine, doc.status)
+    .catch(err => console.error('[mailer] 휴가 신청서 결재 알림 처리 실패:', err));
 });
 
 app.put('/api/approvals/leave/:id', async (req, res) => {
@@ -1812,10 +1969,14 @@ app.put('/api/approvals/leave/:id', async (req, res) => {
   const idx = dbData.leaveRequests.findIndex((d: LeaveRequest) => d.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Leave request not found' });
 
-  const updated = { ...dbData.leaveRequests[idx], ...req.body };
+  const before = dbData.leaveRequests[idx];
+  const updated = { ...before, ...req.body };
   dbData.leaveRequests[idx] = updated;
   await setScopedDoc(scopeId, 'leaveRequests', updated);
   res.json(updated);
+
+  notifyNextApproverIfChanged(scopeId, '휴가 신청서', updated.draftNumber, updated.author, updated.approvalLine, updated.status, before.approvalLine)
+    .catch(err => console.error('[mailer] 휴가 신청서 결재 알림 처리 실패:', err));
 });
 
 app.delete('/api/approvals/leave/:id', async (req, res) => {
