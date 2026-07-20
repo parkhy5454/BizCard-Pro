@@ -18,6 +18,36 @@
   --color-indigo-800: #422F97;
   --color-indigo-900: #382A78;
   --color-indigo-950: #221A4D;
+
+  /* 기본 Tailwind blue보다 채도를 낮추고 깊이를 더한 코발트 톤 — 위 indigo와 그라데이션으로
+     이어졌을 때(from-blue-600 to-indigo-600 등, 앱 전반에 이미 쓰이는 패턴) 훨씬 자연스럽게 조화된다 */
+  --color-blue-50: #EFF5FF;
+  --color-blue-100: #DCE9FE;
+  --color-blue-200: #BAD4FD;
+  --color-blue-300: #8DB8FB;
+  --color-blue-400: #5C96F5;
+  --color-blue-500: #3D79EC;
+  --color-blue-600: #2E5FDB;
+  --color-blue-700: #2549B4;
+  --color-blue-800: #1F3D8F;
+  --color-blue-900: #1C356F;
+  --color-blue-950: #131F45;
+
+  /* 밋밋하고 칙칙하게 느껴지던 기본 slate 대신, 명도 단계 사이 대비를 또렷이 살리고
+     아주 옅은 블루 톤을 섞어 더 고급스러운 "차콜/옵시디언" 느낌으로 다듬은 배경 색상.
+     bg-slate-*, border-slate-*, text-slate-* 로 앱 전체에서 이미 쓰이고 있어
+     이 값만 바꿔도 전체 화면 톤이 자동으로 바뀐다. */
+  --color-slate-50: #F7F8FA;
+  --color-slate-100: #ECEEF3;
+  --color-slate-200: #D9DCE4;
+  --color-slate-300: #B2B8C6;
+  --color-slate-400: #8890A3;
+  --color-slate-500: #666E82;
+  --color-slate-600: #4C5265;
+  --color-slate-700: #383D4D;
+  --color-slate-800: #23262F;
+  --color-slate-900: #15171E;
+  --color-slate-950: #0B0C11;
 }
 
 html {
@@ -26,6 +56,16 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'tnum' 1; /* 숫자(금액/전화번호 등) 폭을 고르게 정렬 */
+}
+
+/* 평평한 단색 대신 은은한 방사형/선형 그라데이션으로 배경에 깊이감을 준다.
+   (App.tsx의 최상위 컨테이너가 bg-slate-950을 쓰므로, 그 위에 살짝 얹히는 정도로 아주 은은하게) */
+body {
+  background-color: var(--color-slate-950);
+  background-image:
+    radial-gradient(1200px 600px at 12% -10%, rgba(98, 71, 221, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(46, 95, 219, 0.08), transparent 55%);
+  background-attachment: fixed;
 }
 
 /* 스크롤바를 어두운 테마에 맞춰 얇고 은은하게 */
