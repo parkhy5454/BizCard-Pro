@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
@@ -862,6 +863,74 @@ app.post('/api/auth/login', async (req, res) => {
       role: user.role
     }
   });
+});
+
+// ------------------------------------------------------------------
+// 🔑 비밀번호 찾기 (이메일로 재설정 링크 발송)
+// 토큰은 메모리에만 저장 (서버 재시작 시 만료된 요청은 그냥 다시 받으면 됨). 유효시간 30분.
+// ------------------------------------------------------------------
+const passwordResetTokens = new Map<string, { userId: string; expiresAt: number }>();
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30분
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: '이메일을 입력해주세요.' });
+
+  const user = users.find(u => u.email.toLowerCase() === String(email).trim().toLowerCase());
+
+  // 보안상 "가입된 이메일인지" 여부를 응답으로 알려주지 않는다 (등록 여부와 상관없이 동일한 안내).
+  if (user && isMailerConfigured) {
+    const token = crypto.randomBytes(32).toString('hex');
+    passwordResetTokens.set(token, { userId: user.id, expiresAt: Date.now() + RESET_TOKEN_TTL_MS });
+
+    const resetUrl = `${APP_BASE_URL}/?resetToken=${token}`;
+    try {
+      await mailTransporter!.sendMail({
+        from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
+        to: user.email,
+        subject: '[BizCard Pro] 비밀번호 재설정 안내',
+        html: `
+          <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
+            <h2 style="margin-bottom:4px;">비밀번호 재설정</h2>
+            <p style="color:#555;">${user.name}님, 비밀번호 재설정을 요청하셨습니다. 아래 버튼을 눌러 새 비밀번호를 설정해주세요.</p>
+            <p style="color:#999; font-size:12px;">이 링크는 30분 동안만 유효합니다. 본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.</p>
+            <a href="${resetUrl}" style="display:inline-block; margin-top:12px; padding:10px 22px; background:#4f46e5; color:#fff; text-decoration:none; border-radius:8px; font-weight:bold;">새 비밀번호 설정하기</a>
+          </div>
+        `
+      });
+      console.log(`[mailer] ${user.email}에게 비밀번호 재설정 메일 발송 완료`);
+    } catch (err) {
+      console.error(`[mailer] ${user.email}에게 비밀번호 재설정 메일 발송 실패:`, err);
+    }
+  } else if (user && !isMailerConfigured) {
+    console.warn('[mailer] SMTP 미설정으로 비밀번호 재설정 메일을 보내지 못했습니다.');
+  }
+
+  res.json({ success: true, message: '입력하신 이메일로 가입된 계정이 있다면, 비밀번호 재설정 안내 메일을 보내드렸습니다.' });
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) return res.status(400).json({ error: '재설정 토큰과 새 비밀번호를 모두 입력해주세요.' });
+  if (String(newPassword).length < 4) return res.status(400).json({ error: '비밀번호는 4자 이상이어야 합니다.' });
+
+  const entry = passwordResetTokens.get(token);
+  if (!entry || entry.expiresAt < Date.now()) {
+    passwordResetTokens.delete(token);
+    return res.status(400).json({ error: '재설정 링크가 만료되었거나 유효하지 않습니다. 비밀번호 찾기를 다시 요청해주세요.' });
+  }
+
+  const user = users.find(u => u.id === entry.userId);
+  if (!user) {
+    passwordResetTokens.delete(token);
+    return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+  }
+
+  user.password = bcrypt.hashSync(newPassword, 10);
+  await addUser(user);
+  passwordResetTokens.delete(token);
+
+  res.json({ success: true, message: '비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.' });
 });
 
 // 👥 Registered Users Directory API
