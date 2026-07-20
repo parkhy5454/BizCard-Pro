@@ -599,16 +599,21 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   // 이번 요청은 빈 목록으로 우선 응답하되, 전체 결과는 캐싱하지 않아 다음 요청에서 다시 시도합니다.
   let hadTimeout = false;
   const withTimeout = <T>(promise: Promise<T[]>, label: string, ms = 15000): Promise<T[]> => {
-    return Promise.race([
-      promise,
-      new Promise<T[]>((resolve) => {
-        setTimeout(() => {
-          hadTimeout = true;
-          console.error(`getScopedCollection(${scopeId}, ${label}) 타임아웃 - 이번 요청은 빈 목록으로 처리합니다.`);
-          resolve([]);
-        }, ms);
-      })
-    ]);
+    let timer: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<T[]>((resolve) => {
+      timer = setTimeout(() => {
+        hadTimeout = true;
+        console.error(`getScopedCollection(${scopeId}, ${label}) 타임아웃 - 이번 요청은 빈 목록으로 처리합니다.`);
+        resolve([]);
+      }, ms);
+    });
+    // 실제 쿼리가 먼저 끝나도 setTimeout 타이머 자체는 계속 살아있다가 나중에(ms 뒤) 뒤늦게 발동해서,
+    // 이미 성공적으로 끝난 요청에 대해서까지 "타임아웃" 에러 로그를 잘못 찍는 버그가 있었다.
+    // 어느 쪽이 이기든 결과가 나오는 즉시 타이머를 확실히 정리한다.
+    return Promise.race([promise, timeoutPromise]).then((result) => {
+      clearTimeout(timer);
+      return result;
+    });
   };
 
   await ensureScopeInitialized(scopeId, {
