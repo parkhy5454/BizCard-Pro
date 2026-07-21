@@ -925,7 +925,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const colgroup = `<colgroup>${COLS.map(w => `<col style="width:${w}%;" />`).join('')}</colgroup>`;
 
     const bodyHtml = `
-      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} table-layout: fixed;" cellpadding="4">
+      <table style="border-collapse: collapse; width:100%; border-left:1.5pt solid #000; border-right:1.5pt solid #000; border-bottom:1.5pt solid #000; border-top:none; ${baseFont} table-layout: fixed;" cellpadding="4">
         ${colgroup}
         <tr>
           <td colspan="6" style="border:none;"></td>
@@ -992,7 +992,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <table style="border-collapse: collapse; width:100%; height:100%; border: 2px solid #000000;"><tr>
       <td style="box-sizing: border-box; padding: 10mm; mso-padding-alt: 28pt 28pt 28pt 28pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
-        <span style="font-size:18pt; font-weight:bold;">휴가 신청서</span>
+        <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
       ${bodyHtml}
       </td>
