@@ -927,10 +927,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const bodyHtml = `
       <table style="border-collapse: collapse; width:100%; border-left:1.5pt solid #000; border-right:1.5pt solid #000; border-bottom:1.5pt solid #000; border-top:none; ${baseFont} table-layout: fixed;" cellpadding="4">
         ${colgroup}
+        <tr><td colspan="11" style="border:none; height:2px; line-height:2px; font-size:1px;">&nbsp;</td></tr>
         <tr>
           <td colspan="6" style="border:none;"></td>
-          <td rowspan="2" style="${cellBorder} border-top:0.5pt solid #000000; ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} border-top:0.5pt solid #000000; ${grayBg} text-align:center;">${esc(s.role)}</th>`).join('')}
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
           <td colspan="6" style="border:none;"></td>
