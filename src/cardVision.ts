@@ -118,8 +118,9 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
         if (approx.rows === 4 && cv.isContourConvex(approx)) {
           const area = Math.abs(cv.contourArea(approx));
           const areaRatio = area / frameArea;
-          // 화면의 8%~95% 사이 크기만 후보로 (너무 작으면 노이즈, 너무 크면 화면 테두리 자체를 잡은 것)
-          if (areaRatio > 0.08 && areaRatio < 0.95) {
+          // [수정] 화면의 5%~97% 사이 크기로 허용 범위 확대 (기존 8%~95%보다 관대하게 —
+          // 명함이 화면에 작게 잡히거나 화면 끝에 걸쳐도 후보로 인정되도록)
+          if (areaRatio > 0.05 && areaRatio < 0.97) {
             const pts: Point[] = [];
             for (let j = 0; j < 4; j++) {
               pts.push([approx.data32S[j * 2], approx.data32S[j * 2 + 1]]);
@@ -129,12 +130,14 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
             const aspectDiff = Math.min(Math.abs(aspect - targetAspect) / targetAspect, 1);
 
             // 사용자가 화면 중앙에 문서를 놓는다고 가정하고, 중앙에서 먼 후보(책상 모서리, 문틀 등 배경
-            // 요소가 크기/비율만으로 우연히 점수가 높게 나오는 경우)는 확실히 불리하게 만든다.
+            // 요소가 크기/비율만으로 우연히 점수가 높게 나오는 경우)는 불리하게 만든다.
+            // [수정] 감점 폭을 완화해서(0.65->0.5, 0.8->0.6), 화면 중앙이 아니거나 비율이 살짝
+            // 다른 경우에도 후보에서 탈락하지 않고 인식되도록 함
             const cx = (ordered[0][0] + ordered[1][0] + ordered[2][0] + ordered[3][0]) / 4;
             const cy = (ordered[0][1] + ordered[1][1] + ordered[2][1] + ordered[3][1]) / 4;
             const centerDist = Math.min(Math.hypot(cx - frameCenterX, cy - frameCenterY) / frameDiag, 1);
 
-            const score = areaRatio * (1 - aspectDiff * 0.65) * (1 - centerDist * 0.8);
+            const score = areaRatio * (1 - aspectDiff * 0.5) * (1 - centerDist * 0.6);
             if (!best || score > best.score) {
               best = { quad: ordered, score, areaRatio };
             }
