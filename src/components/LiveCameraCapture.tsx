@@ -24,7 +24,8 @@ const DETECT_W = 480; // 실시간 감지용 축소 해상도 (성능을 위해 
 const DETECT_INTERVAL_MS = 180;
 const STABLE_MOVE_THRESHOLD = 20; // px (감지 캔버스 기준) - 이보다 적게 움직이면 "안정"으로 판단
 const STABLE_DURATION_MS = 650; // 이 시간 이상 안정 + 품질 통과 시 자동 촬영
-const OUTPUT_LONG_SIDE = 1400;
+// [수정] 1400 -> 1600: 카메라 해상도를 올린 만큼, 출력 크기도 살짝 상향해 원본 디테일을 더 살림
+const OUTPUT_LONG_SIDE = 1600;
 
 function dist(a: [number, number], b: [number, number]): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -147,10 +148,31 @@ export const LiveCameraCapture: React.FC<Props> = ({
     try {
       let stream: MediaStream;
       try {
-        stream = await tryGetStream({ video: { facingMode: { ideal: mode } }, audio: false });
+        // [수정] width/height를 명시적으로 요청 (안 하면 브라우저가 임의로 저해상도를 줄 수 있음 — 흐림의 주된 원인)
+        stream = await tryGetStream({
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        });
       } catch (firstErr) {
-        console.warn('1차 카메라 요청 실패, 기본 카메라로 재시도:', firstErr);
-        stream = await tryGetStream({ video: true, audio: false });
+        console.warn('1차 카메라 요청 실패, 해상도 조건을 낮춰 재시도:', firstErr);
+        try {
+          // [수정] 완전히 해상도 조건 없이 바로 가지 않고, 한 단계 낮춰서 한 번 더 시도
+          stream = await tryGetStream({
+            video: {
+              facingMode: { ideal: mode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+        } catch (secondErr) {
+          console.warn('2차 카메라 요청도 실패, 기본 카메라로 재시도:', secondErr);
+          stream = await tryGetStream({ video: true, audio: false });
+        }
       }
 
       streamRef.current = stream;
@@ -322,7 +344,8 @@ export const LiveCameraCapture: React.FC<Props> = ({
       roi.delete();
 
       const sizeOk = found.areaRatio >= 0.14;
-      const focusOk = blur >= 12;
+      // [수정] 12 -> 18: 임계값을 올려서 살짝 흐린 프레임이 "초점 OK"로 통과해 자동촬영되는 것을 방지
+      const focusOk = blur >= 18;
       const brightOk = brightness >= 45 && brightness <= 245;
       const glareOk = glare <= 0.10;
 
