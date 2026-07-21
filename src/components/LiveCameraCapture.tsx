@@ -54,7 +54,8 @@ function mapToDisplay(quad: Quad, srcW: number, srcH: number, dispW: number, dis
 function fallbackCenterCrop(video: HTMLVideoElement, container: HTMLDivElement | null, aspect: number): string {
   const cw = container?.clientWidth || video.clientWidth || video.videoWidth;
   const ch = container?.clientHeight || video.clientHeight || video.videoHeight;
-  const marginRatio = 0.08;
+  // [수정] 8% -> 4%: StaticGuideOverlay와 동일하게 맞춰, 화면에 보이는 가이드 박스와 실제 잘리는 영역이 일치하도록 함
+  const marginRatio = 0.04;
   let w = cw * (1 - marginRatio * 2);
   let h = w / aspect;
   if (h > ch * (1 - marginRatio * 2)) {
@@ -343,11 +344,13 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const glare = computeGlareRatio(cv, roi);
       roi.delete();
 
-      const sizeOk = found.areaRatio >= 0.14;
-      // [수정] 12 -> 18: 임계값을 올려서 살짝 흐린 프레임이 "초점 OK"로 통과해 자동촬영되는 것을 방지
+      // [수정] 크기 기준을 0.14 -> 0.10으로 완화: 명함이 화면에 조금 작게 잡혀도(멀리서 찍어도) 인식되도록.
+      // 초점 기준은 흐림 방지를 위해 유지하되, 밝기/반사광 허용 범위는 살짝 넓혀서
+      // 실제 촬영 환경(약한 조명, 약한 반사)에서 "실패"로 튕기는 경우를 줄인다.
+      const sizeOk = found.areaRatio >= 0.10;
       const focusOk = blur >= 18;
-      const brightOk = brightness >= 45 && brightness <= 245;
-      const glareOk = glare <= 0.10;
+      const brightOk = brightness >= 35 && brightness <= 250;
+      const glareOk = glare <= 0.13;
 
       lastRawQuadRef.current = { quad: found.points, detectW, detectH };
 
@@ -562,7 +565,8 @@ const StaticGuideOverlay: React.FC<{ containerRef: React.RefObject<HTMLDivElemen
       if (!el) return;
       const cw = el.clientWidth;
       const ch = el.clientHeight;
-      const marginRatio = 0.08;
+      // [수정] 8% -> 4%: 고정 가이드 박스를 더 크게 표시해서, 명함이 박스보다 커서 안 들어가는 경우를 줄임
+      const marginRatio = 0.04;
       let w = cw * (1 - marginRatio * 2);
       let h = w / aspectRatio;
       if (h > ch * (1 - marginRatio * 2)) {
