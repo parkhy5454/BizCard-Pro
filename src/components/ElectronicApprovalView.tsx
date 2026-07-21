@@ -832,7 +832,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
     const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
     return (
-      <div style={{ width: '210mm', minHeight: '270mm', boxSizing: 'border-box', margin: '0 auto', padding: '14mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000', background: 'white' }}>
+      <div style={{ width: '210mm', boxSizing: 'border-box', margin: '0 auto', padding: '14mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000', background: 'white' }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>가지급금 정산서</span>
         </div>
