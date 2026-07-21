@@ -985,7 +985,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     const fullHtml = `
       <table style="border-collapse: collapse; width: 190mm; height: 265mm;"><tr>
-      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 15mm 10mm; mso-padding-alt: 43pt 28pt 43pt 28pt; vertical-align: top;">
+      <td style="box-sizing: border-box; padding: 15mm 10mm; mso-padding-alt: 43pt 28pt 43pt 28pt; vertical-align: top;">
+      <table style="border-collapse: collapse; width:100%; height:100%; border: 2px solid #000000;"><tr>
+      <td style="box-sizing: border-box; padding: 10mm; mso-padding-alt: 28pt 28pt 28pt 28pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
@@ -994,6 +996,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       ${bodyHtml}
       <p style="text-align:center; margin-top:40mm; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
       <p style="text-align:center; margin-top:20px; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</p>
+      </td>
+      </tr></table>
       </td>
       </tr></table>
     `;
@@ -1034,7 +1038,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       );
     };
     return (
-      <div style={{ width: '210mm', minHeight: '270mm', boxSizing: 'border-box', margin: '0 auto', padding: '15mm 10mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '3px solid #000', background: 'white' }}>
+      <div style={{ width: '210mm', minHeight: '270mm', boxSizing: 'border-box', margin: '0 auto', display: 'flex', flexDirection: 'column', paddingTop: '15mm', paddingBottom: '15mm', paddingLeft: '10mm', paddingRight: '10mm', background: 'white' }}>
+      <div style={{ flex: 1, border: '3px solid #000', boxSizing: 'border-box', padding: '10mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11 }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>휴가 신청서</span>
         </div>
@@ -1103,6 +1108,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         </table>
         <p style={{ textAlign: 'center', marginTop: '40mm' }}>위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
         <p style={{ textAlign: 'center', marginTop: 30 }}>{doc.submittedDate.replace(/-/g, '. ')}</p>
+      </div>
       </div>
     );
   };
@@ -2043,8 +2049,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
-                <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '3px solid #000000', background: '#fff' }}>
-                <div className="text-black text-xs font-sans leading-tight" style={{ paddingTop: '15mm', paddingBottom: '15mm', paddingLeft: '10mm', paddingRight: '10mm', minHeight: '297mm', boxSizing: 'border-box' }}>
+                <div className="shrink-0" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', paddingTop: '15mm', paddingBottom: '15mm', paddingLeft: '10mm', paddingRight: '10mm', background: '#fff' }}>
+                <div style={{ flex: 1, border: '3px solid #000000', boxSizing: 'border-box' }}>
+                <div className="text-black text-xs font-sans leading-tight" style={{ padding: '10mm', boxSizing: 'border-box' }}>
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
                   </div>
@@ -2155,7 +2162,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <p className="text-center" style={{ marginTop: '40mm' }}>위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
                   <p className="text-center mt-8">{previewLeave.submittedDate.replace(/-/g, '. ')}</p>
                 </div>
-                </td></tr></tbody></table>
+                </div>
+                </div>
               </div>
             </div>
           </div>
