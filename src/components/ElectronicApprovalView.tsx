@@ -711,32 +711,43 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const approvalLine = doc.approvalLine || [];
     const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
 
-    const approvalHtml = `
-      <table style="border-collapse: collapse; width:100%; table-layout:fixed; ${baseFont}" cellpadding="4">
+    // 엑셀은 한 시트 안에서 열(A, B, C...)마다 폭이 하나로 고정된다. 정보표/결재표/항목표를 각각 다른
+    // 열 개수의 별도 테이블로 나누면, 엑셀이 이걸 합칠 때 서로 다른 열 폭 요구가 충돌해서 결재표가
+    // 항목표만큼 오른쪽까지 안 뻗어나가는 문제가 생긴다. 그래서 전체를 하나의 테이블 + 하나의 열
+    // 구성(colgroup)으로 통일하고, colspan/rowspan으로 필요한 자리를 만든다.
+    const COLS = [10, 22, 20, 10, 12, 12, 14]; // 7개 열, 합계 100% (Date/Project/Description/Expenses/Account/Company/Remark와 동일한 열)
+    const colgroup = `<colgroup>${COLS.map(w => `<col style="width:${w}%;" />`).join('')}</colgroup>`;
+
+    const roleCell = (role: string) => `<th style="${cellBorder} ${grayBg} text-align:center;">${esc(role)}</th>`;
+    const dateCell = (d?: string) => `<td style="${cellBorder} text-align:center; height:32px;">${esc(d || '')}</td>`;
+
+    const topHtml = `
+      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} table-layout: fixed;" cellpadding="4">
+        ${colgroup}
         <tr>
-          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:15%;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:${Math.floor(85 / Math.max(approvalLine.length, 1))}%;">${esc(s.role)}</th>`).join('')}
+          <td style="${cellBorder} ${grayBg} font-weight:bold;">회사명</td>
+          <td style="${cellBorder}">${esc(doc.companyName)}</td>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
+          ${approvalLine.map(s => roleCell(s.role)).join('')}
         </tr>
         <tr>
-          ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
+          <td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td>
+          <td style="${cellBorder}">${esc(formatKoreanPeriod(doc.periodStart, doc.periodEnd))}</td>
+          ${approvalLine.map(s => dateCell(s.date)).join('')}
+        </tr>
+        <tr>
+          <td style="${cellBorder} ${grayBg} font-weight:bold;">부서</td>
+          <td style="${cellBorder}" colspan="${COLS.length - 1}">${esc(doc.department)}</td>
+        </tr>
+        <tr>
+          <td style="${cellBorder} ${grayBg} font-weight:bold;">작성자</td>
+          <td style="${cellBorder}" colspan="${COLS.length - 1}">${esc(doc.author)}</td>
+        </tr>
+        <tr>
+          <td style="${cellBorder} ${grayBg} font-weight:bold;">기안일</td>
+          <td style="${cellBorder}" colspan="${COLS.length - 1}">${esc(formatKoreanDate(doc.draftDate))}</td>
         </tr>
       </table>`;
-
-    const headerHtml = `
-      <table style="border-collapse: collapse; width:100%;" cellpadding="4">
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold; width:40%;">회사명</td><td style="${cellBorder}">${esc(doc.companyName)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td><td style="${cellBorder}">${esc(formatKoreanPeriod(doc.periodStart, doc.periodEnd))}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">부서</td><td style="${cellBorder}">${esc(doc.department)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">작성자</td><td style="${cellBorder}">${esc(doc.author)}</td></tr>
-        <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기안일</td><td style="${cellBorder}">${esc(formatKoreanDate(doc.draftDate))}</td></tr>
-      </table>`;
-
-    // 엑셀은 flexbox를 지원하지 않으므로 바깥 테이블 한 줄에 정보표/결재표를 각각 셀로 넣어 나란히 배치한다
-    const topRowHtml = `
-      <table style="border-collapse: collapse; width:100%; ${baseFont} margin-top:10px; table-layout:fixed;"><tr>
-        <td style="border:none; vertical-align:top; width:55%;">${headerHtml}</td>
-        <td style="border:none; vertical-align:top; text-align:right; width:45%;">${approvalHtml}</td>
-      </tr></table>`;
 
     const itemRows = items.map(it => `
       <tr>
@@ -762,10 +773,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     const itemsTableHtml = `
       <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px; table-layout: fixed;" cellpadding="4">
-        <colgroup>
-          <col style="width:10%;" /><col style="width:16%;" /><col style="width:24%;" />
-          <col style="width:12%;" /><col style="width:10%;" /><col style="width:12%;" /><col style="width:16%;" />
-        </colgroup>
+        ${colgroup}
         <tr style="${grayBg}">
           ${th2('Date', '날짜')}${th2('Project', '프로젝트명')}
           ${th2('Description', '내용')}${th2('Expenses', '금액/원')}
@@ -787,7 +795,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">가지급금 정산서</span>
       </div>
-      ${topRowHtml}
+      ${topHtml}
       ${itemsTableHtml}
       </td>
       </tr></table>
