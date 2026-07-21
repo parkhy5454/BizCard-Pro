@@ -749,6 +749,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(it.remark)}</td>
       </tr>`).join('');
 
+    // 항목이 적어도 실제 전표처럼 밑에 빈 줄(테두리 있는 빈 칸)을 채워서 A4 한 장을 꽉 채운다
+    const ITEMS_MIN_ROWS = 18;
+    const blankRowHtml = `
+      <tr>
+        <td style="${cellBorder}">&nbsp;</td><td style="${cellBorder}">&nbsp;</td><td style="${cellBorder}">&nbsp;</td>
+        <td style="${cellBorder}">&nbsp;</td><td style="${cellBorder}">&nbsp;</td><td style="${cellBorder}">&nbsp;</td><td style="${cellBorder}">&nbsp;</td>
+      </tr>`;
+    const blankRowsHtml = Array(Math.max(0, ITEMS_MIN_ROWS - items.length)).fill(blankRowHtml).join('');
+
     const th2 = (en: string, ko: string) => `<th style="${cellBorder} ${grayBg} text-align:center;">${en}<br/><span style="font-weight:normal; font-size:8pt;">(${ko})</span></th>`;
 
     const itemsTableHtml = `
@@ -760,6 +769,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
           ${th2('Remark', '비고')}
         </tr>
         ${itemRows}
+        ${blankRowsHtml}
         <tr style="${grayBg} font-weight:bold;">
           <td colspan="3" style="${cellBorder} text-align:center;">총 합계</td>
           <td style="${cellBorder} text-align:right; padding-right:5px;">${total.toLocaleString()}</td>
@@ -857,6 +867,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 <td style={{ ...cellStyle, textAlign: 'center' }}>{it.account}</td>
                 <td style={{ ...cellStyle, textAlign: 'center' }}>{it.companyName}</td>
                 <td style={{ ...cellStyle, textAlign: 'left' }}>{it.remark}</td>
+              </tr>
+            ))}
+            {Array.from({ length: Math.max(0, 18 - items.length) }).map((_, i) => (
+              <tr key={`blank-${i}`}>
+                <td style={cellStyle}>&nbsp;</td><td style={cellStyle}>&nbsp;</td><td style={cellStyle}>&nbsp;</td>
+                <td style={cellStyle}>&nbsp;</td><td style={cellStyle}>&nbsp;</td><td style={cellStyle}>&nbsp;</td><td style={cellStyle}>&nbsp;</td>
               </tr>
             ))}
             <tr>
@@ -1957,6 +1973,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                           <td className="border border-black px-2 py-1.5 text-center">{it.account}</td>
                           <td className="border border-black px-2 py-1.5 text-center">{it.companyName}</td>
                           <td className="border border-black px-2 py-1.5">{it.remark}</td>
+                        </tr>
+                      ))}
+                      {Array.from({ length: Math.max(0, 18 - previewItems.length) }).map((_, i) => (
+                        <tr key={`blank-${i}`}>
+                          <td className="border border-black px-2 py-1.5">&nbsp;</td>
+                          <td className="border border-black px-2 py-1.5">&nbsp;</td>
+                          <td className="border border-black px-2 py-1.5">&nbsp;</td>
+                          <td className="border border-black px-2 py-1.5">&nbsp;</td>
+                          <td className="border border-black px-2 py-1.5">&nbsp;</td>
+                          <td className="border border-black px-2 py-1.5">&nbsp;</td>
+                          <td className="border border-black px-2 py-1.5">&nbsp;</td>
                         </tr>
                       ))}
                       <tr className="bg-gray-100 font-bold">
