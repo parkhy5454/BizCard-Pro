@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
-import { CropAdjustModal } from './CropAdjustModal.js';
+import { CropAdjustModal, resizeDataUrl } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 
 interface Props {
@@ -565,11 +565,16 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         <LiveCameraCapture
           title={cameraTarget === 'front' ? '명함 앞면 촬영' : '명함 뒷면 촬영'}
           guideAspectRatio={1.586}
-          onCapture={(dataUrl) => {
-            // 실시간 촬영본도 파일 업로드와 동일하게 확인/조정 단계를 거치도록 한다
+          onCapture={async (dataUrl) => {
+            // [수정] 카메라 촬영본은 LiveCameraCapture 내부에서 이미 4각 테두리에 맞춰
+            // 잘리고(warpToRect) 화질 보정(enhanceMat)까지 끝난 상태이므로,
+            // CropAdjustModal(2차 테두리 조정 화면)을 다시 거치지 않고 바로 사용한다.
             const side = cameraTarget;
             setCameraTarget(null);
-            if (side) setCropTarget({ side, rawImage: dataUrl });
+            if (!side) return;
+            const resized = await resizeDataUrl(dataUrl);
+            if (side === 'front') setScanImg(resized);
+            else setScanImgBack(resized);
           }}
           onCancel={() => setCameraTarget(null)}
           onFallbackToFile={() => {
