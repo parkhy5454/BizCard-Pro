@@ -733,9 +733,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     // 엑셀은 flexbox를 지원하지 않으므로 바깥 테이블 한 줄에 정보표/결재표를 각각 셀로 넣어 나란히 배치한다
     const topRowHtml = `
-      <table style="border-collapse: collapse; width:100%; ${baseFont} margin-top:10px;"><tr>
+      <table style="border-collapse: collapse; width:100%; ${baseFont} margin-top:10px; table-layout:fixed;"><tr>
         <td style="border:none; vertical-align:top; width:55%;">${headerHtml}</td>
-        <td style="border:none; vertical-align:top; text-align:right;">${approvalHtml}</td>
+        <td style="border:none; vertical-align:top; text-align:right; width:45%;">${approvalHtml}</td>
       </tr></table>`;
 
     const itemRows = items.map(it => `
@@ -914,9 +914,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     // 엑셀은 flexbox를 지원하지 않으므로 바깥 테이블로 감싸 결재표를 오른쪽 정렬한다
     const approvalRowHtml = `
-      <table style="border-collapse: collapse; width:100%;"><tr>
-        <td style="border:none;"></td>
-        <td style="border:none; vertical-align:top; text-align:right;">${approvalHtml}</td>
+      <table style="border-collapse: collapse; width:100%; table-layout:fixed;"><tr>
+        <td style="border:none; width:55%;"></td>
+        <td style="border:none; vertical-align:top; text-align:right; width:45%;">${approvalHtml}</td>
       </tr></table>`;
 
     const markCell = (cat: string, extra?: string) => {
