@@ -929,8 +929,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         ${colgroup}
         <tr>
           <td colspan="6" style="border:none;"></td>
-          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center;">${esc(s.role)}</th>`).join('')}
+          <td rowspan="2" style="${cellBorder} border-top:0.5pt solid #000000; ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
+          ${approvalLine.map(s => `<th style="${cellBorder} border-top:0.5pt solid #000000; ${grayBg} text-align:center;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
           <td colspan="6" style="border:none;"></td>
