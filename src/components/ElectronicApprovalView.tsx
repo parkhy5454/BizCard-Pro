@@ -929,7 +929,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         ${colgroup}
         <tr>
           <td colspan="6" style="border:none;"></td>
-          <td rowspan="2" style="${cellBorder} border-left:none; ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
           ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
@@ -992,7 +992,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <table style="border-collapse: collapse; width:100%; height:100%; border: 2px solid #000000;"><tr>
       <td style="box-sizing: border-box; padding: 10mm; mso-padding-alt: 28pt 28pt 28pt 28pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
-        <span style="font-size:18pt; font-weight:bold; border-top: 3px double #000000; padding-top:4px;">휴가 신청서</span>
+        <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
       ${bodyHtml}
       </td>
