@@ -712,10 +712,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
 
     const approvalHtml = `
-      <table align="right" style="border-collapse: collapse; ${baseFont}" cellpadding="4">
+      <table style="border-collapse: collapse; width:100%; table-layout:fixed; ${baseFont}" cellpadding="4">
         <tr>
-          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:110px; white-space:nowrap;">${esc(s.role)}</th>`).join('')}
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:15%;">결&nbsp;&nbsp;재</td>
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:${Math.floor(85 / Math.max(approvalLine.length, 1))}%;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
           ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
@@ -902,10 +902,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const approvalLine = doc.approvalLine || [];
 
     const approvalHtml = `
-      <table align="right" style="border-collapse: collapse; ${baseFont}" cellpadding="4">
+      <table style="border-collapse: collapse; width:100%; table-layout:fixed; ${baseFont}" cellpadding="4">
         <tr>
-          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:110px; white-space:nowrap;">${esc(s.role)}</th>`).join('')}
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:15%;">결&nbsp;&nbsp;재</td>
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:${Math.floor(85 / Math.max(approvalLine.length, 1))}%;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
           ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
