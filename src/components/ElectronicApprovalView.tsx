@@ -712,7 +712,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
 
     const approvalHtml = `
-      <table style="border-collapse: collapse; ${baseFont}" cellpadding="4">
+      <table align="right" style="border-collapse: collapse; ${baseFont}" cellpadding="4">
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
           ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:110px; white-space:nowrap;">${esc(s.role)}</th>`).join('')}
@@ -783,7 +783,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     const fullHtml = `
       <table style="border-collapse: collapse; width: 190mm; height: 265mm;"><tr>
-      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 14mm; vertical-align: top;">
+      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 14mm; mso-padding-alt: 40pt 40pt 40pt 40pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">가지급금 정산서</span>
       </div>
@@ -902,7 +902,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const approvalLine = doc.approvalLine || [];
 
     const approvalHtml = `
-      <table style="border-collapse: collapse; ${baseFont}" cellpadding="4">
+      <table align="right" style="border-collapse: collapse; ${baseFont}" cellpadding="4">
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
           ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:110px; white-space:nowrap;">${esc(s.role)}</th>`).join('')}
@@ -977,7 +977,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     const fullHtml = `
       <table style="border-collapse: collapse; width: 190mm; height: 265mm;"><tr>
-      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 14mm; vertical-align: top;">
+      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 14mm; mso-padding-alt: 40pt 40pt 40pt 40pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
