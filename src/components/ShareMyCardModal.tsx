@@ -565,16 +565,20 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         <LiveCameraCapture
           title={cameraTarget === 'front' ? '명함 앞면 촬영' : '명함 뒷면 촬영'}
           guideAspectRatio={1.586}
-          onCapture={async (dataUrl) => {
-            // [수정] 카메라 촬영본은 LiveCameraCapture 내부에서 이미 4각 테두리에 맞춰
-            // 잘리고(warpToRect) 화질 보정(enhanceMat)까지 끝난 상태이므로,
-            // CropAdjustModal(2차 테두리 조정 화면)을 다시 거치지 않고 바로 사용한다.
+          onCapture={async (dataUrl, autoDetected) => {
+            // [수정] 자동 인식이 성공한 경우에만 CropAdjustModal을 건너뛰고 바로 사용한다.
+            // 실패했다면(OpenCV 로딩 실패 등) 화면 중앙 고정 박스로 대충 잘린 것이므로
+            // 그대로 쓰지 않고 사용자가 직접 테두리를 맞추도록 안내한다.
             const side = cameraTarget;
             setCameraTarget(null);
             if (!side) return;
-            const resized = await resizeDataUrl(dataUrl);
-            if (side === 'front') setScanImg(resized);
-            else setScanImgBack(resized);
+            if (autoDetected) {
+              const resized = await resizeDataUrl(dataUrl);
+              if (side === 'front') setScanImg(resized);
+              else setScanImgBack(resized);
+            } else {
+              setCropTarget({ side, rawImage: dataUrl });
+            }
           }}
           onCancel={() => setCameraTarget(null)}
           onFallbackToFile={() => {

@@ -8,7 +8,10 @@ import {
 interface Props {
   title?: string;
   guideAspectRatio?: number; // 문서 가로:세로 비율 (명함 ≈ 1.586, 영수증은 세로로 길게 등)
-  onCapture: (croppedDataUrl: string) => void;
+  // [수정] autoDetected: OpenCV가 실시간으로 문서 사각형을 인식해서 정확히 잘라낸 경우 true.
+  // false면 자동 인식 없이 화면 중앙 고정 박스로 대충 잘린 것이므로, 호출 측에서
+  // 수동 테두리 조정 화면(CropAdjustModal)으로 보내는 것을 권장한다.
+  onCapture: (croppedDataUrl: string, autoDetected: boolean) => void;
   onCancel: () => void;
   onFallbackToFile: () => void; // 카메라 권한이 없거나 사용자가 "갤러리에서 선택"을 누르면
 }
@@ -236,9 +239,12 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
       const cv = cvRef.current;
       let outDataUrl: string;
+      // [수정] cv와 사각형이 모두 있어야 "자동 인식 성공"으로 판단. 그렇지 않으면
+      // 화면 중앙 고정 박스로 대충 잘린 것이므로 false를 전달해 호출 측이 수동 조정으로 보낼 수 있게 한다.
+      const autoDetected = !!(cv && lastRawQuadRef.current);
 
-      if (cv && lastRawQuadRef.current) {
-        const { quad, detectW, detectH } = lastRawQuadRef.current;
+      if (autoDetected) {
+        const { quad, detectW, detectH } = lastRawQuadRef.current!;
         const videoQuad = scaleQuad(quad, vw / detectW, vh / detectH);
         const srcMat = cv.imread(fullCanvas);
         try {
@@ -261,13 +267,13 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
       stopStream();
       setCaptureFlash(true);
-      window.setTimeout(() => onCapture(outDataUrl), 120);
+      window.setTimeout(() => onCapture(outDataUrl, autoDetected), 120);
     } catch (err) {
       console.error('촬영/보정 처리 실패:', err);
       try {
         const fallback = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
         stopStream();
-        onCapture(fallback);
+        onCapture(fallback, false);
       } catch {
         alert('사진 처리에 실패했습니다. 다시 시도해주세요.');
         isProcessingRef.current = false;
