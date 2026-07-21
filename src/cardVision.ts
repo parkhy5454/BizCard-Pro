@@ -20,12 +20,13 @@ export interface DetectedQuad {
 let openCvPromise: Promise<any> | null = null;
 
 // OpenCV.js를 지연 로딩. 여러 컴포넌트에서 동시에 호출해도 한 번만 로딩되도록 프로미스를 캐시한다.
+// [수정] 네트워크 순간 오류로 로딩이 실패하는 경우를 대비해, 실패 시 한 번 더 자동으로 재시도한다.
 export function loadOpenCv(): Promise<any> {
   const w = window as any;
   if (w.cv && w.cv.Mat) return Promise.resolve(w.cv);
   if (openCvPromise) return openCvPromise;
 
-  const loadTask = (async () => {
+  const attemptLoad = async (): Promise<any> => {
     // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
     const mod: any = await import('@techstark/opencv-js');
     let cv = (mod && (mod.default ?? mod)) as any;
@@ -43,14 +44,26 @@ export function loadOpenCv(): Promise<any> {
     if (!cv || !cv.Mat) throw new Error('OpenCV 모듈 초기화에 실패했습니다.');
     w.cv = cv;
     return cv;
-  })();
+  };
 
-  const timeoutTask = new Promise<never>((_, reject) => {
-    window.setTimeout(() => reject(new Error('OpenCV.js 초기화가 시간 내에 끝나지 않았습니다 (15초 초과).')), 15000);
-  });
+  const withTimeout = (task: Promise<any>, ms: number) => Promise.race([
+    task,
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error(`OpenCV.js 초기화가 시간 내에 끝나지 않았습니다 (${Math.round(ms / 1000)}초 초과).`)), ms);
+    })
+  ]);
 
-  openCvPromise = Promise.race([loadTask, timeoutTask]).catch((err) => {
-    openCvPromise = null; // 실패 시 다음 재시도 때 다시 로딩을 시도할 수 있도록 캐시를 비운다
+  const loadWithRetry = async () => {
+    try {
+      return await withTimeout(attemptLoad(), 18000);
+    } catch (firstErr) {
+      console.warn('OpenCV.js 1차 로딩 실패, 한 번 더 시도합니다:', firstErr);
+      return await withTimeout(attemptLoad(), 22000);
+    }
+  };
+
+  openCvPromise = loadWithRetry().catch((err) => {
+    openCvPromise = null; // 재시도까지 모두 실패한 경우, 다음 진입 때 다시 로딩을 시도할 수 있도록 캐시를 비운다
     throw err;
   });
 
