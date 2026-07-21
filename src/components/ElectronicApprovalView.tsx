@@ -979,11 +979,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <tr>
           <td style="${cellBorder}" colspan="4">휴대폰  ${esc(doc.mobileContact || '')}</td>
         </tr>
-        ${Array(11).fill(`<tr><td colspan="11" style="border:none; height:14px;">&nbsp;</td></tr>`).join('')}
+        ${Array(11).fill(`<tr style="height:17pt;"><td colspan="11" style="border:none; height:17pt;">&nbsp;</td></tr>`).join('')}
         <tr><td colspan="11" style="border:none; text-align:center; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</td></tr>
-        <tr><td colspan="11" style="border:none; height:14px;">&nbsp;</td></tr>
+        <tr style="height:17pt;"><td colspan="11" style="border:none; height:17pt;">&nbsp;</td></tr>
         <tr><td colspan="11" style="border:none; text-align:center; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</td></tr>
-        ${Array(11).fill(`<tr><td colspan="11" style="border:none; height:14px;">&nbsp;</td></tr>`).join('')}
+        ${Array(11).fill(`<tr style="height:17pt;"><td colspan="11" style="border:none; height:17pt;">&nbsp;</td></tr>`).join('')}
       </table>`;
 
     const fullHtml = `
