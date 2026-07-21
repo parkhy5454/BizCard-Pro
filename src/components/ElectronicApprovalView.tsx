@@ -791,7 +791,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     const fullHtml = `
       <table style="border-collapse: collapse; width: 190mm; height: 265mm;"><tr>
-      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 14mm; mso-padding-alt: 40pt 40pt 40pt 40pt; vertical-align: top;">
+      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 8mm; mso-padding-alt: 23pt 23pt 23pt 23pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">가지급금 정산서</span>
       </div>
@@ -832,7 +832,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 8px', verticalAlign: 'middle' };
     const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
     return (
-      <div style={{ width: '210mm', boxSizing: 'border-box', margin: '0 auto', padding: '14mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000', background: 'white' }}>
+      <div style={{ width: '210mm', boxSizing: 'border-box', margin: '0 auto', padding: '8mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000', background: 'white' }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>가지급금 정산서</span>
         </div>
@@ -985,7 +985,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
     const fullHtml = `
       <table style="border-collapse: collapse; width: 190mm; height: 265mm;"><tr>
-      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 14mm; mso-padding-alt: 40pt 40pt 40pt 40pt; vertical-align: top;">
+      <td style="border: 2px solid #000000; box-sizing: border-box; padding: 8mm; mso-padding-alt: 23pt 23pt 23pt 23pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
@@ -1034,7 +1034,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       );
     };
     return (
-      <div style={{ width: '210mm', minHeight: '270mm', boxSizing: 'border-box', margin: '0 auto', padding: '14mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '2px solid #000', background: 'white' }}>
+      <div style={{ width: '210mm', minHeight: '270mm', boxSizing: 'border-box', margin: '0 auto', padding: '8mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11, border: '3px solid #000', background: 'white' }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <span style={{ fontSize: 22, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>휴가 신청서</span>
         </div>
@@ -1931,7 +1931,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
                 <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
-                <div className="text-black p-10 sm:p-12 text-xs font-sans leading-tight">
+                <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">가지급금 정산서</span>
                   </div>
@@ -2043,8 +2043,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
-                <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
-                <div className="text-black p-10 sm:p-12 text-xs font-sans leading-tight">
+                <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '3px solid #000000', background: '#fff' }}>
+                <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
                   </div>
