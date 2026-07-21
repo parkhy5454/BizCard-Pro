@@ -992,7 +992,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       ${approvalRowHtml}
       <p style="${baseFont}">기안번호 : ${esc(doc.draftNumber)}</p>
       ${bodyHtml}
-      <p style="text-align:center; margin-top:30px; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
+      <p style="text-align:center; margin-top:40mm; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
       <p style="text-align:center; margin-top:20px; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</p>
       </td>
       </tr></table>
@@ -1101,7 +1101,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </tr>
           </tbody>
         </table>
-        <p style={{ textAlign: 'center', marginTop: 40 }}>위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
+        <p style={{ textAlign: 'center', marginTop: '40mm' }}>위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
         <p style={{ textAlign: 'center', marginTop: 30 }}>{doc.submittedDate.replace(/-/g, '. ')}</p>
       </div>
     );
@@ -2152,7 +2152,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     </tbody>
                   </table>
 
-                  <p className="text-center mt-10">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
+                  <p className="text-center" style={{ marginTop: '40mm' }}>위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
                   <p className="text-center mt-8">{previewLeave.submittedDate.replace(/-/g, '. ')}</p>
                 </div>
                 </td></tr></tbody></table>
