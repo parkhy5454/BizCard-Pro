@@ -2044,7 +2044,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
               <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
                 <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '3px solid #000000', background: '#fff' }}>
-                <div className="text-black text-xs font-sans leading-tight" style={{ paddingTop: '15mm', paddingBottom: '15mm', paddingLeft: '10mm', paddingRight: '10mm' }}>
+                <div className="text-black text-xs font-sans leading-tight" style={{ paddingTop: '15mm', paddingBottom: '15mm', paddingLeft: '10mm', paddingRight: '10mm', minHeight: '297mm', boxSizing: 'border-box' }}>
                   <div className="text-center mb-6">
                     <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">휴가 신청서</span>
                   </div>
