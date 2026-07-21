@@ -979,6 +979,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <tr>
           <td style="${cellBorder}" colspan="4">휴대폰  ${esc(doc.mobileContact || '')}</td>
         </tr>
+        ${Array(11).fill(`<tr><td colspan="11" style="border:none; height:14px;">&nbsp;</td></tr>`).join('')}
+        <tr><td colspan="11" style="border:none; text-align:center; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</td></tr>
+        <tr><td colspan="11" style="border:none; height:14px;">&nbsp;</td></tr>
+        <tr><td colspan="11" style="border:none; text-align:center; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</td></tr>
+        ${Array(11).fill(`<tr><td colspan="11" style="border:none; height:14px;">&nbsp;</td></tr>`).join('')}
       </table>`;
 
     const fullHtml = `
@@ -990,9 +995,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
       ${bodyHtml}
-      <div style="height:100mm; line-height:100mm; font-size:1px;">&nbsp;</div>
-      <p style="text-align:center; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
-      <p style="text-align:center; margin-top:20px; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</p>
       </td>
       </tr></table>
       </td>
