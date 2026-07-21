@@ -993,7 +993,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <table style="border-collapse: collapse; width:100%; height:100%; border: 2px solid #000000;"><tr>
       <td style="box-sizing: border-box; padding: 10mm; mso-padding-alt: 28pt 28pt 28pt 28pt; vertical-align: top;">
       <div style="text-align:center; margin-bottom:16px;">
-        <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
+        <span style="font-size:18pt; font-weight:bold;">휴가 신청서</span>
+        <div style="width:160px; margin:6px auto 0 auto;">
+          <div style="border-bottom:2px solid #000000; height:2px;"></div>
+          <div style="border-bottom:2px solid #000000; height:2px; margin-top:2px;"></div>
+        </div>
       </div>
       ${bodyHtml}
       </td>
