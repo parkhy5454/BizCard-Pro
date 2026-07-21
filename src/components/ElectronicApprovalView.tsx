@@ -735,7 +735,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const topRowHtml = `
       <table style="border-collapse: collapse; width:100%; ${baseFont} margin-top:10px;"><tr>
         <td style="border:none; vertical-align:top; width:55%;">${headerHtml}</td>
-        <td style="border:none; vertical-align:top;">${approvalHtml}</td>
+        <td style="border:none; vertical-align:top; text-align:right;">${approvalHtml}</td>
       </tr></table>`;
 
     const itemRows = items.map(it => `
@@ -916,7 +916,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const approvalRowHtml = `
       <table style="border-collapse: collapse; width:100%;"><tr>
         <td style="border:none;"></td>
-        <td style="border:none; vertical-align:top;">${approvalHtml}</td>
+        <td style="border:none; vertical-align:top; text-align:right;">${approvalHtml}</td>
       </tr></table>`;
 
     const markCell = (cat: string, extra?: string) => {
