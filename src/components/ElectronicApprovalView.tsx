@@ -715,7 +715,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <table style="border-collapse: collapse; ${baseFont}" cellpadding="4">
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:90px;">${esc(s.role)}</th>`).join('')}
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:110px; white-space:nowrap;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
           ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
@@ -723,7 +723,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       </table>`;
 
     const headerHtml = `
-      <table style="border-collapse: collapse; width:20%;" cellpadding="4">
+      <table style="border-collapse: collapse; width:100%;" cellpadding="4">
         <tr><td style="${cellBorder} ${grayBg} font-weight:bold; width:40%;">회사명</td><td style="${cellBorder}">${esc(doc.companyName)}</td></tr>
         <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td><td style="${cellBorder}">${esc(formatKoreanPeriod(doc.periodStart, doc.periodEnd))}</td></tr>
         <tr><td style="${cellBorder} ${grayBg} font-weight:bold;">부서</td><td style="${cellBorder}">${esc(doc.department)}</td></tr>
@@ -761,7 +761,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const th2 = (en: string, ko: string) => `<th style="${cellBorder} ${grayBg} text-align:center;">${en}<br/><span style="font-weight:normal; font-size:8pt;">(${ko})</span></th>`;
 
     const itemsTableHtml = `
-      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px;" cellpadding="4">
+      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px; table-layout: fixed;" cellpadding="4">
+        <colgroup>
+          <col style="width:10%;" /><col style="width:16%;" /><col style="width:24%;" />
+          <col style="width:12%;" /><col style="width:10%;" /><col style="width:12%;" /><col style="width:16%;" />
+        </colgroup>
         <tr style="${grayBg}">
           ${th2('Date', '날짜')}${th2('Project', '프로젝트명')}
           ${th2('Description', '내용')}${th2('Expenses', '금액/원')}
@@ -901,7 +905,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <table style="border-collapse: collapse; ${baseFont}" cellpadding="4">
         <tr>
           <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:60px;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:90px;">${esc(s.role)}</th>`).join('')}
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:110px; white-space:nowrap;">${esc(s.role)}</th>`).join('')}
         </tr>
         <tr>
           ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
