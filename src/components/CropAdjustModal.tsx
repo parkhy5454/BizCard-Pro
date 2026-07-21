@@ -14,7 +14,8 @@ interface Props {
 }
 
 // 저장 용량을 줄이기 위해 이미지의 긴 변을 최대 크기로 축소 (DB 조회 속도에 큰 영향을 주므로 모든 최종 출력에 적용)
-const resizeDataUrl = (dataUrl: string, maxDim = 1400, quality = 0.82): Promise<string> => {
+// [수정] 카메라 촬영 결과(LiveCameraCapture)도 재사용할 수 있도록 export 처리
+export const resizeDataUrl = (dataUrl: string, maxDim = 1400, quality = 0.82): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
