@@ -909,24 +909,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
     const approvalLine = doc.approvalLine || [];
 
-    const approvalHtml = `
-      <table style="border-collapse: collapse; width:100%; table-layout:fixed; ${baseFont}" cellpadding="4">
-        <tr>
-          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center; width:15%;">결&nbsp;&nbsp;재</td>
-          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center; width:${Math.floor(85 / Math.max(approvalLine.length, 1))}%;">${esc(s.role)}</th>`).join('')}
-        </tr>
-        <tr>
-          ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:40px;">${esc(s.date || '')}</td>`).join('')}
-        </tr>
-      </table>`;
-
-    // 엑셀은 flexbox를 지원하지 않으므로 바깥 테이블로 감싸 결재표를 오른쪽 정렬한다
-    const approvalRowHtml = `
-      <table style="border-collapse: collapse; width:100%; table-layout:fixed;"><tr>
-        <td style="border:none; width:55%;"></td>
-        <td style="border:none; vertical-align:top; text-align:right; width:45%;">${approvalHtml}</td>
-      </tr></table>`;
-
     const markCell = (cat: string, extra?: string) => {
       const selected = doc.leaveCategory === cat;
       const bg = selected ? 'background-color: #fde68a;' : '';
@@ -937,8 +919,24 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const annualExtra = doc.leaveCategory === 'annual' && doc.annualType && doc.annualType !== 'full' ? ANNUAL_TYPE_LABEL[doc.annualType] : undefined;
     const otherExtra = doc.leaveCategory === 'other' ? doc.leaveCategoryCustom : undefined;
 
+    // 엑셀은 별도의 <table> 태그끼리는 열 폭을 공유하지 않으므로, 결재 영역과 본문 표를
+    // 하나의 표 + 하나의 11열 구성으로 합쳐야 결재표가 본문 표와 정확히 같은 오른쪽 끝까지 맞춰진다.
+    const COLS = Array(11).fill(9); // 11개 열, 각 9% (합계 99%, 반올림 오차는 무시)
+    const colgroup = `<colgroup>${COLS.map(w => `<col style="width:${w}%;" />`).join('')}</colgroup>`;
+
     const bodyHtml = `
-      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} margin-top:14px;" cellpadding="4">
+      <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} table-layout: fixed;" cellpadding="4">
+        ${colgroup}
+        <tr>
+          <td colspan="6" style="border:none;"></td>
+          <td rowspan="2" style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">결&nbsp;&nbsp;재</td>
+          ${approvalLine.map(s => `<th style="${cellBorder} ${grayBg} text-align:center;">${esc(s.role)}</th>`).join('')}
+        </tr>
+        <tr>
+          <td colspan="6" style="border:none;"></td>
+          ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:32px;">${esc(s.date || '')}</td>`).join('')}
+        </tr>
+        <tr><td colspan="11" style="border:none; padding-top:10px;">기안번호 : ${esc(doc.draftNumber)}</td></tr>
         <tr>
           <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">소속</td><td style="${cellBorder} text-align:center;" colspan="4">${esc(doc.department)}</td>
           <td style="${cellBorder} ${grayBg} font-weight:bold; text-align:center;">휴가자</td><td style="${cellBorder} text-align:center;" colspan="5">${esc(doc.author)}</td>
@@ -991,8 +989,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       <div style="text-align:center; margin-bottom:16px;">
         <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">휴가 신청서</span>
       </div>
-      ${approvalRowHtml}
-      <p style="${baseFont}">기안번호 : ${esc(doc.draftNumber)}</p>
       ${bodyHtml}
       <p style="text-align:center; margin-top:40mm; ${baseFont}">위와 같이 신청하오니 승인하여 주시기 바랍니다.</p>
       <p style="text-align:center; margin-top:20px; ${baseFont}">${esc(doc.submittedDate.replace(/-/g, '. '))}</p>
