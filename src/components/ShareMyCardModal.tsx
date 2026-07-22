@@ -110,8 +110,16 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const mecardString = `MECARD:N:${profile.name};ORG:${profile.company};TIL:${profile.title};TEL:${profile.phoneMobile};EMAIL:${profile.email};ADR:${profile.address};URL:${profile.website || ''};;`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=15&data=${encodeURIComponent(mecardString)}`;
 
-  // 공유 메시지 텍스트
-  const shareMessage = `[디지털 명함 전달]\n${profile.company} ${profile.department} ${profile.name} ${profile.title}\n📞 핸드폰: ${profile.phoneMobile}\n📧 이메일: ${profile.email}\n🏢 주소: ${profile.address}\n🌐 웹사이트: ${profile.website || ''}`;
+  // [수정] 카카오톡/문자/이메일/트위터/링크드인 등 모든 채널이 공통으로 쓰는 공유 링크.
+  // 서버가 생성해준 shareSlug로 만든 /s/:slug 페이지는 실제 명함 사진과 정보를 담고 있고,
+  // 카카오톡·트위터·링크드인이 이 링크의 og:title/description/image를 자동으로 읽어 예쁜 미리보기를 만들어준다.
+  const shareUrl = profile.shareSlug ? `${window.location.origin}/s/${profile.shareSlug}` : (profile.website || window.location.origin);
+  const shareImageUrl = profile.shareSlug && profile.frontImage
+    ? `${window.location.origin}/s/${profile.shareSlug}/photo`
+    : 'https://bizcard-pro.onrender.com/kakao-share-thumb.png';
+
+  // 공유 메시지 텍스트 (링크를 포함해서, 문자/이메일/트위터로 보내도 상대방이 눌러서 실제 명함 페이지를 볼 수 있게 한다)
+  const shareMessage = `[디지털 명함 전달]\n${profile.company} ${profile.department} ${profile.name} ${profile.title}\n📞 핸드폰: ${profile.phoneMobile}\n📧 이메일: ${profile.email}\n🏢 주소: ${profile.address}\n🔗 명함 보기: ${shareUrl}`;
 
   // 카카오톡 공유: 카카오 JS SDK를 최초 1회만 지연 로딩 후 초기화
   const KAKAO_JS_KEY = 'cb1b045b76bfb5a7d4deaf6985b50a2a';
@@ -146,18 +154,19 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         content: {
           title: `${profile.name} · ${profile.company}`,
           description: `${profile.title} | ${profile.department}\n📞 ${profile.phoneMobile}\n📧 ${profile.email}`,
-          imageUrl: profile.website ? `${profile.website}/kakao-share-thumb.png` : 'https://bizcard-pro.onrender.com/kakao-share-thumb.png',
+          // [수정] 고정 썸네일 대신, 실제 촬영한 명함 사진(있으면)을 카카오톡 미리보기에 사용
+          imageUrl: shareImageUrl,
           link: {
-            mobileWebUrl: profile.website || 'https://bizcard-pro.onrender.com',
-            webUrl: profile.website || 'https://bizcard-pro.onrender.com'
+            mobileWebUrl: shareUrl,
+            webUrl: shareUrl
           }
         },
         buttons: [
           {
             title: '명함 정보 보기',
             link: {
-              mobileWebUrl: profile.website || 'https://bizcard-pro.onrender.com',
-              webUrl: profile.website || 'https://bizcard-pro.onrender.com'
+              mobileWebUrl: shareUrl,
+              webUrl: shareUrl
             }
           }
         ]
@@ -421,7 +430,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                   </a>
 
                   <a
-                    href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(profile.website || 'https://bizcard-pro.ai')}`}
+                    href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 flex items-center gap-3 transition-all"
