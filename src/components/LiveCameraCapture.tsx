@@ -239,29 +239,46 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
       const cv = cvRef.current;
       let outDataUrl: string;
-      // [수정] cv와 사각형이 모두 있어야 "자동 인식 성공"으로 판단. 그렇지 않으면
-      // 화면 중앙 고정 박스로 대충 잘린 것이므로 false를 전달해 호출 측이 수동 조정으로 보낼 수 있게 한다.
-      const autoDetected = !!(cv && lastRawQuadRef.current);
+      let autoDetected = false;
 
-      if (autoDetected) {
-        const { quad, detectW, detectH } = lastRawQuadRef.current!;
-        const videoQuad = scaleQuad(quad, vw / detectW, vh / detectH);
+      if (cv) {
         const srcMat = cv.imread(fullCanvas);
         try {
-          let outW: number, outH: number;
-          if (guideAspectRatio >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / guideAspectRatio); }
-          else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * guideAspectRatio); }
+          // [수정] 실시간 감지 때 썼던 저해상도(480px) 좌표를 그대로 확대해서 쓰면
+          // 확대 배율만큼 오차가 커져 화면에 보였던 테두리와 실제 크롭 결과가 어긋나는 문제가 있었다.
+          // 그래서 촬영 버튼이 눌린 바로 그 순간, 실제로 찍힌 고화질 원본 위에서
+          // 사각형을 한 번 더 정밀하게 재감지해서 훨씬 정확한 경계로 잘라낸다.
+          const preciseQuad = detectQuad(cv, srcMat, guideAspectRatio);
+          let quadToUse: Quad | null = null;
 
-          const warped = warpToRect(cv, srcMat, videoQuad, outW, outH);
-          const enhanced = enhanceMat(cv, warped);
-          outDataUrl = matToDataUrl(cv, enhanced, 0.9);
-          warped.delete();
-          enhanced.delete();
+          if (preciseQuad) {
+            quadToUse = preciseQuad.points;
+          } else if (lastRawQuadRef.current) {
+            // 정밀 재감지가 실패한 경우에만, 실시간 감지 때 찾았던 좌표를 확대해서 대체 사용
+            const { quad, detectW, detectH } = lastRawQuadRef.current;
+            quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
+          }
+
+          if (quadToUse) {
+            autoDetected = true;
+            let outW: number, outH: number;
+            if (guideAspectRatio >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / guideAspectRatio); }
+            else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * guideAspectRatio); }
+
+            const warped = warpToRect(cv, srcMat, quadToUse, outW, outH);
+            const enhanced = enhanceMat(cv, warped);
+            outDataUrl = matToDataUrl(cv, enhanced, 0.9);
+            warped.delete();
+            enhanced.delete();
+          } else {
+            // 사각형이 감지되지 않은 경우: 화면 중앙 가이드 영역으로 대체
+            outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
+          }
         } finally {
           srcMat.delete();
         }
       } else {
-        // 사각형이 감지되지 않았거나 OpenCV를 못 쓰는 경우: 화면 중앙 가이드 영역으로 대체
+        // OpenCV를 못 쓰는 경우: 화면 중앙 가이드 영역으로 대체
         outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
       }
 

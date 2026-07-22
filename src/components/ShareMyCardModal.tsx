@@ -4,6 +4,7 @@ import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
 import { CropAdjustModal, resizeDataUrl } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
+import { loadOpenCv } from '../cardVision.js';
 
 interface Props {
   onClose: () => void;
@@ -21,6 +22,12 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [cropTarget, setCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const galleryFileInputRef = React.useRef<HTMLInputElement>(null);
   const galleryFileInputBackRef = React.useRef<HTMLInputElement>(null);
+
+  // [수정] "촬영" 버튼을 누르는 순간이 아니라 이 화면이 열리자마자 미리 OpenCV 엔진 로딩을 시작해둔다.
+  // (ScanModal과 동일한 개선사항 — 실패해도 무시, LiveCameraCapture가 필요 시 다시 시도한다)
+  useEffect(() => {
+    loadOpenCv().catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/my-profile')

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2, Camera } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { CropAdjustModal, resizeDataUrl } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
+import { loadOpenCv } from '../cardVision.js';
 
 interface Props {
   groups: ContactGroup[];
@@ -16,6 +17,14 @@ export const ScanModal: React.FC<Props> = ({ groups, onClose, onSave }) => {
   const [backImg, setBackImg] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanDone, setScanDone] = useState<boolean>(false);
+
+  // [수정] 사용자가 "카메라로 촬영" 버튼을 누르는 그 순간이 아니라, 이 스캔 화면이 열리자마자
+  // 미리 백그라운드로 OpenCV 엔진 로딩을 시작해둔다. 이렇게 하면 실제로 카메라 버튼을 누를 때쯤엔
+  // 대부분 이미 로딩이 끝나 있어서, 리멤버/캠카드처럼 즉시 실시간 자동 인식이 되는 경우가 늘어난다.
+  // (실패해도 무시 — 카메라 버튼을 누를 때 LiveCameraCapture가 다시 시도한다)
+  useEffect(() => {
+    loadOpenCv().catch(() => {});
+  }, []);
 
   // 입력 폼
   const [form, setForm] = useState<Partial<BusinessCard>>({
