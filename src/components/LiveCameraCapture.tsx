@@ -38,6 +38,14 @@ function scaleQuad(quad: Quad, sx: number, sy: number): Quad {
   return quad.map(([x, y]) => [x * sx, y * sy]) as Quad;
 }
 
+// [수정] Canny 엣지 감지가 카드 그림자/테두리까지 살짝 포함해서 실제보다 약간 크게 잡히는 경향이 있어,
+// 감지된 사각형을 중심점 방향으로 살짝(기본 1.6%) 안쪽으로 줄여서 여백이 같이 잘리는 문제를 줄인다.
+function shrinkQuadInward(quad: Quad, ratio = 0.016): Quad {
+  const cx = (quad[0][0] + quad[1][0] + quad[2][0] + quad[3][0]) / 4;
+  const cy = (quad[0][1] + quad[1][1] + quad[2][1] + quad[3][1]) / 4;
+  return quad.map(([x, y]) => [x + (cx - x) * ratio, y + (cy - y) * ratio]) as Quad;
+}
+
 // 감지 캔버스 좌표(비디오 원본과 같은 비율로 축소된 좌표) → 화면에 실제 렌더링된(object-cover) 좌표로 변환
 function mapToDisplay(quad: Quad, srcW: number, srcH: number, dispW: number, dispH: number): Quad {
   const srcRatio = srcW / srcH;
@@ -270,6 +278,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
           if (quadToUse) {
             autoDetected = true;
+            quadToUse = shrinkQuadInward(quadToUse);
             let outW: number, outH: number;
             if (guideAspectRatio >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / guideAspectRatio); }
             else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * guideAspectRatio); }

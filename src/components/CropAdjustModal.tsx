@@ -6,6 +6,16 @@ interface Point {
   y: number;
 }
 
+// corners 배열 순서(좌상, 우상, 우하, 좌하)를 기준으로, 각 변을 이루는 두 점의 인덱스.
+// [수정] 변 중간 손잡이를 드래그하면 이 두 점만 같이 움직여서 "위쪽만/오른쪽만/아래쪽만/왼쪽만" 조정이 가능해진다.
+const EDGE_POINT_INDEXES: [number, number][] = [
+  [0, 1], // 위쪽 변 (좌상-우상)
+  [1, 2], // 오른쪽 변 (우상-우하)
+  [2, 3], // 아래쪽 변 (우하-좌하)
+  [3, 0]  // 왼쪽 변 (좌하-좌상)
+];
+const EDGE_CURSORS = ['ns-resize', 'ew-resize', 'ns-resize', 'ew-resize'];
+
 interface Props {
   imageDataUrl: string;
   title?: string;
@@ -218,6 +228,8 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   // [수정] 모서리 점을 하나씩 맞추는 게 번거롭다는 피드백에 따라, 사각형 안쪽을 드래그하면
   // 네 점이 동시에 같은 방향으로 움직이는 "전체 이동" 모드를 추가한다.
   const [isDraggingAll, setIsDraggingAll] = useState<boolean>(false);
+  // [수정] 위/아래/왼쪽/오른쪽 변만 따로 옮길 수 있는 드래그 모드 (0=위, 1=오른쪽, 2=아래, 3=왼쪽)
+  const [dragEdge, setDragEdge] = useState<number | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgNaturalRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
@@ -292,6 +304,15 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
   };
 
+  // [수정] 변 중간 손잡이를 누르면 그 변을 이루는 두 점만 같이 이동시킨다 (위/아래/왼쪽/오른쪽만 조정)
+  const handleEdgePointerDown = (edgeIdx: number) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    setDragEdge(edgeIdx);
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+  };
+
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || !corners) return;
 
@@ -320,6 +341,33 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       return;
     }
 
+    if (dragEdge !== null && lastPointerRef.current) {
+      const dx = e.clientX - lastPointerRef.current.x;
+      const dy = e.clientY - lastPointerRef.current.y;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      setCorners((prev) => {
+        if (!prev) return prev;
+        const idxs = EDGE_POINT_INDEXES[dragEdge];
+        const pts = idxs.map((i) => prev[i]);
+        const minX = Math.min(...pts.map((p) => p.x));
+        const maxX = Math.max(...pts.map((p) => p.x));
+        const minY = Math.min(...pts.map((p) => p.y));
+        const maxY = Math.max(...pts.map((p) => p.y));
+        let clampedDx = dx;
+        let clampedDy = dy;
+        if (minX + clampedDx < 0) clampedDx = -minX;
+        if (maxX + clampedDx > displaySize.width) clampedDx = displaySize.width - maxX;
+        if (minY + clampedDy < 0) clampedDy = -minY;
+        if (maxY + clampedDy > displaySize.height) clampedDy = displaySize.height - maxY;
+        const next = [...prev];
+        idxs.forEach((i) => {
+          next[i] = { x: prev[i].x + clampedDx, y: prev[i].y + clampedDy };
+        });
+        return next;
+      });
+      return;
+    }
+
     if (dragIndex === null) return;
     const rect = containerRef.current.getBoundingClientRect();
     const offsetX = (rect.width - displaySize.width) / 2;
@@ -334,11 +382,12 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       next[dragIndex] = { x, y };
       return next;
     });
-  }, [dragIndex, isDraggingAll, corners, displaySize]);
+  }, [dragIndex, isDraggingAll, dragEdge, corners, displaySize]);
 
   const handlePointerUp = () => {
     setDragIndex(null);
     setIsDraggingAll(false);
+    setDragEdge(null);
     lastPointerRef.current = null;
   };
 
@@ -399,7 +448,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         <div className="flex items-center justify-between p-4 border-b border-slate-800">
           <div>
             <h3 className="text-sm font-bold text-slate-100">{title || '테두리 확인 및 조정'}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">사각형 안쪽을 밀어서 위치를 맞추고, 모서리 점으로 세밀하게 조정하세요</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">안쪽을 밀어 전체 위치를, 네모 손잡이로 위/아래/좌우 한 변씩, 동그란 점으로 모서리를 조정하세요</p>
             {autoDetected !== null && (
               <p className="text-[10px] font-mono mt-0.5 text-lime-500">
                 자동감지: {autoDetected ? '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)' : '실패 (기본 위치 - 직접 맞춰주세요)'}
@@ -439,6 +488,27 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
                     style={{ cursor: 'move', touchAction: 'none', pointerEvents: 'all' }}
                     onPointerDown={handlePolygonPointerDown}
                   />
+                  {EDGE_POINT_INDEXES.map(([i1, i2], edgeIdx) => {
+                    const p1 = corners[i1];
+                    const p2 = corners[i2];
+                    const mx = (p1.x + p2.x) / 2;
+                    const my = (p1.y + p2.y) / 2;
+                    return (
+                      <rect
+                        key={edgeIdx}
+                        x={mx - 9}
+                        y={my - 9}
+                        width={18}
+                        height={18}
+                        rx={5}
+                        fill="#a5b4fc"
+                        stroke="white"
+                        strokeWidth={1.5}
+                        style={{ cursor: EDGE_CURSORS[edgeIdx], touchAction: 'none', pointerEvents: 'all' }}
+                        onPointerDown={handleEdgePointerDown(edgeIdx)}
+                      />
+                    );
+                  })}
                   {corners.map((p, idx) => (
                     <circle
                       key={idx}
