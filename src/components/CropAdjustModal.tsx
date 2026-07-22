@@ -215,6 +215,10 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const [warpError, setWarpError] = useState<string | null>(null);
   const [autoDetected, setAutoDetected] = useState<boolean | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // [수정] 모서리 점을 하나씩 맞추는 게 번거롭다는 피드백에 따라, 사각형 안쪽을 드래그하면
+  // 네 점이 동시에 같은 방향으로 움직이는 "전체 이동" 모드를 추가한다.
+  const [isDraggingAll, setIsDraggingAll] = useState<boolean>(false);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgNaturalRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
 
@@ -274,12 +278,49 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
 
   const handlePointerDown = (idx: number) => (e: React.PointerEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     setDragIndex(idx);
   };
 
+  // [수정] 사각형 안쪽(테두리 선/채워진 영역)을 누르면 네 점을 통째로 같은 방향으로 이동시킨다.
+  // 모서리 점을 하나씩 맞출 필요 없이, 대략적인 위치는 이 방법으로 한 번에 맞출 수 있다.
+  const handlePolygonPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    setIsDraggingAll(true);
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+  };
+
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (dragIndex === null || !containerRef.current || !corners) return;
+    if (!containerRef.current || !corners) return;
+
+    if (isDraggingAll && lastPointerRef.current) {
+      const dx = e.clientX - lastPointerRef.current.x;
+      const dy = e.clientY - lastPointerRef.current.y;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      setCorners((prev) => {
+        if (!prev) return prev;
+        // 사각형 전체의 경계 상자를 구해서, 이동해도 화면(이미지) 밖으로 나가지 않도록 이동량을 제한한다.
+        // (점마다 다르게 자르면 사각형 모양이 일그러지므로, dx/dy를 전체에 동일하게 적용해야 모양이 유지된다)
+        const xs = prev.map((p) => p.x);
+        const ys = prev.map((p) => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        let clampedDx = dx;
+        let clampedDy = dy;
+        if (minX + clampedDx < 0) clampedDx = -minX;
+        if (maxX + clampedDx > displaySize.width) clampedDx = displaySize.width - maxX;
+        if (minY + clampedDy < 0) clampedDy = -minY;
+        if (maxY + clampedDy > displaySize.height) clampedDy = displaySize.height - maxY;
+        return prev.map((p) => ({ x: p.x + clampedDx, y: p.y + clampedDy }));
+      });
+      return;
+    }
+
+    if (dragIndex === null) return;
     const rect = containerRef.current.getBoundingClientRect();
     const offsetX = (rect.width - displaySize.width) / 2;
     const offsetY = (rect.height - displaySize.height) / 2;
@@ -293,9 +334,13 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       next[dragIndex] = { x, y };
       return next;
     });
-  }, [dragIndex, corners, displaySize]);
+  }, [dragIndex, isDraggingAll, corners, displaySize]);
 
-  const handlePointerUp = () => setDragIndex(null);
+  const handlePointerUp = () => {
+    setDragIndex(null);
+    setIsDraggingAll(false);
+    lastPointerRef.current = null;
+  };
 
   const handleConfirm = async () => {
     if (!imgEl || !corners) {
@@ -354,7 +399,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         <div className="flex items-center justify-between p-4 border-b border-slate-800">
           <div>
             <h3 className="text-sm font-bold text-slate-100">{title || '테두리 확인 및 조정'}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">모서리 점을 드래그해서 실제 가장자리에 맞춰주세요</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">사각형 안쪽을 밀어서 위치를 맞추고, 모서리 점으로 세밀하게 조정하세요</p>
             {autoDetected !== null && (
               <p className="text-[10px] font-mono mt-0.5 text-lime-500">
                 자동감지: {autoDetected ? '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)' : '실패 (기본 위치 - 직접 맞춰주세요)'}
@@ -391,6 +436,8 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
                     fill="rgba(99,102,241,0.18)"
                     stroke="#818cf8"
                     strokeWidth={2}
+                    style={{ cursor: 'move', touchAction: 'none', pointerEvents: 'all' }}
+                    onPointerDown={handlePolygonPointerDown}
                   />
                   {corners.map((p, idx) => (
                     <circle
