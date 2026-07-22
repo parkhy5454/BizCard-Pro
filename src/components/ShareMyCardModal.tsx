@@ -72,6 +72,18 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
   // vCard 생성 문자열
   const generateVCardText = () => {
+    // [수정] 명함 앞면 사진이 있으면 vCard의 PHOTO 필드에 base64로 직접 내장한다.
+    // (다른 채널과 달리 vCard 표준은 사진을 파일 안에 담는 방식이 일반적)
+    let photoLine = '';
+    if (profile.frontImage) {
+      const match = profile.frontImage.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (match) {
+        const [, imgType, base64Data] = match;
+        const vcardImgType = imgType.toLowerCase() === 'jpg' ? 'JPEG' : imgType.toUpperCase();
+        photoLine = `PHOTO;ENCODING=b;TYPE=${vcardImgType}:${base64Data}`;
+      }
+    }
+
     return [
       'BEGIN:VCARD',
       'VERSION:3.0',
@@ -86,6 +98,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       `ADR;TYPE=WORK:;;${profile.address};;;;`,
       profile.website ? `URL:${profile.website}` : '',
       profile.memo ? `NOTE:${profile.memo}` : '',
+      photoLine,
       'END:VCARD'
     ].filter(Boolean).join('\r\n');
   };
