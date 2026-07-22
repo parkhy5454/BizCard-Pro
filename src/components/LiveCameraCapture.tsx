@@ -202,8 +202,8 @@ export const LiveCameraCapture: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode]);
 
-  // OpenCV.js 지연 로딩 (스캔 화면이 열릴 때만)
-  useEffect(() => {
+  // OpenCV.js 지연 로딩 (스캔 화면이 열릴 때 + "다시 시도" 버튼을 눌렀을 때 재사용)
+  const attemptLoadCv = useCallback(() => {
     let cancelled = false;
     setCvStatus('loading');
     loadOpenCv()
@@ -219,6 +219,11 @@ export const LiveCameraCapture: React.FC<Props> = ({
         }
       });
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    return attemptLoadCv();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 실제 촬영 + 보정 처리 (자동/수동 공통)
@@ -460,8 +465,18 @@ export const LiveCameraCapture: React.FC<Props> = ({
             {isReady && cvStatus === 'failed' && (
               <>
                 <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-200 text-[11px] font-semibold whitespace-nowrap">
-                  자동 인식 엔진을 불러오지 못했어요 · 가이드에 맞춰 수동으로 촬영해주세요
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5">
+                  <div className="px-3 py-1.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-200 text-[11px] font-semibold whitespace-nowrap">
+                    자동 인식 엔진을 불러오지 못했어요 · 가이드에 맞춰 수동으로 촬영해주세요
+                  </div>
+                  <button
+                    type="button"
+                    onClick={attemptLoadCv}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-[11px] font-semibold transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    자동 인식 다시 시도
+                  </button>
                 </div>
               </>
             )}
