@@ -21,7 +21,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | null>(null);
   // [수정] 명함 등록 화면처럼 앞/뒤를 좌우로 넘겨보는 캐러셀을 위한 상태
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
-  const swipeStartXRef = useRef<number | null>(null);
+  const swipeStartXRef = React.useRef<number | null>(null);
   const [cropTarget, setCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const galleryFileInputRef = React.useRef<HTMLInputElement>(null);
   const galleryFileInputBackRef = React.useRef<HTMLInputElement>(null);
