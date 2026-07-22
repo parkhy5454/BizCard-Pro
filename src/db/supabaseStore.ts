@@ -203,6 +203,25 @@ export async function setScopedProfile(scopeId: string, profile: MyProfile): Pro
   if (error) console.error(`setScopedProfile(${scopeId}) error:`, error);
 }
 
+// [수정] 공유 랜딩 페이지(/s/:slug)용: scope_id를 몰라도 shareSlug만으로
+// 전체 스코프를 통틀어 해당하는 myProfile 문서를 찾는다.
+// Postgres jsonb 컬럼의 특정 키(data->>shareSlug)를 기준으로 필터링한다.
+export async function findProfileByShareSlug(slug: string): Promise<{ scopeId: string; profile: MyProfile } | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase
+    .from('scoped_items')
+    .select('scope_id, data')
+    .eq('collection', 'myProfile')
+    .eq('data->>shareSlug', slug)
+    .maybeSingle();
+  if (error) {
+    console.error(`findProfileByShareSlug(${slug}) error:`, error);
+    return null;
+  }
+  if (!data) return null;
+  return { scopeId: data.scope_id as string, profile: data.data as MyProfile };
+}
+
 export async function updateScopedDoc<T>(scopeId: string, collectionName: string, docId: string, updates: Partial<T>): Promise<void> {
   if (!isSupabaseConfigured) return;
   // Postgres jsonb 부분 병합: 기존 데이터를 읽어 merge 후 다시 저장 (Firestore updateDoc과 동일한 동작)
