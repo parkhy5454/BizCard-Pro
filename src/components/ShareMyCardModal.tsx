@@ -168,14 +168,26 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
     // [수정] 텍스트 정보뿐 아니라 앞/뒤 명함 사진(scanImg/scanImgBack)도 함께 저장한다.
     // (기존에는 profile 객체에만 담겨 전송되어, 촬영한 사진 자체는 서버에 저장되지 않았음)
     const payload = { ...profile, frontImage: scanImg || '', backImage: scanImgBack || '' };
-    await fetch('/api/my-profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    setProfile(payload);
-    setIsEditing(false);
-    setActiveTab('qr');
+    try {
+      const res = await fetch('/api/my-profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`저장 실패 (HTTP ${res.status}) ${errText.slice(0, 200)}`);
+      }
+      const saved = await res.json().catch(() => payload);
+      setProfile(saved);
+      setScanImg(saved.frontImage || '');
+      setScanImgBack(saved.backImage || '');
+      setIsEditing(false);
+      setActiveTab('qr');
+    } catch (err: any) {
+      console.error('내 명함 프로필 저장 실패:', err);
+      alert(`저장 중 문제가 발생했습니다: ${err.message || err}\n다시 시도해주세요.`);
+    }
   };
 
   // 내 명함 사진 업로드 (촬영 또는 갤러리 선택)
