@@ -125,6 +125,8 @@ export interface MyProfile {
   // (기존에는 이 필드가 없어서 촬영한 사진이 AI 인식에만 잠깐 쓰이고 저장되지 않았음)
   frontImage?: string; // base64 data url
   backImage?: string;  // base64 data url
+  // [수정] 공유용 랜딩 페이지(/s/:slug)에 쓰이는 공개 식별자. 최초 조회 시 서버가 자동 생성해서 저장한다.
+  shareSlug?: string;
 }
 
 export interface User {
