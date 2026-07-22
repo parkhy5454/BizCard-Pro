@@ -110,6 +110,8 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const [isReady, setIsReady] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [cvStatus, setCvStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  // [수정] 실패했을 때만 화면에 짧게 보여줄 원인 문구 (평소엔 안 보이고, 문제 진단용으로만 노출)
+  const [cvErrorMessage, setCvErrorMessage] = useState<string>('');
   const [quadDisplay, setQuadDisplay] = useState<Quad | null>(null);
   const [quality, setQuality] = useState<Quality | null>(null);
   const [isStable, setIsStable] = useState(false);
@@ -206,6 +208,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const attemptLoadCv = useCallback(() => {
     let cancelled = false;
     setCvStatus('loading');
+    setCvErrorMessage('');
     loadOpenCv()
       .then((cv) => {
         if (cancelled) return;
@@ -216,6 +219,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
         console.warn('OpenCV.js 로드 실패 - 수동 촬영 모드로 전환합니다:', err);
         if (!cancelled) {
           setCvStatus('failed');
+          setCvErrorMessage(err?.message || String(err));
         }
       });
     return () => { cancelled = true; };
@@ -477,6 +481,11 @@ export const LiveCameraCapture: React.FC<Props> = ({
                     <RefreshCw className="w-3 h-3" />
                     자동 인식 다시 시도
                   </button>
+                  {cvErrorMessage && (
+                    <div className="max-w-[260px] px-2.5 py-1 rounded-lg bg-black/70 text-amber-300 text-[9px] font-mono text-center leading-tight">
+                      원인: {cvErrorMessage.slice(0, 120)}
+                    </div>
+                  )}
                 </div>
               </>
             )}
