@@ -19,7 +19,8 @@ import {
   setScopedProfile,
   updateScopedDoc,
   deleteScopedDoc,
-  replaceScopedCollection
+  replaceScopedCollection,
+  findProfileByShareSlug
 } from './src/db/supabaseStore.js';
 
 const app = express();
@@ -1372,8 +1373,13 @@ app.post('/api/contacts/import', async (req, res) => {
 });
 
 // 내 명함 프로필 API
-app.get('/api/my-profile', (req, res) => {
+app.get('/api/my-profile', async (req, res) => {
   const dbData = getScopedData(req);
+  // [수정] 공유 랜딩 페이지(/s/:slug)용 공개 식별자가 없으면 최초 조회 시 자동 생성해서 저장한다.
+  if (!dbData.myProfile.shareSlug) {
+    dbData.myProfile.shareSlug = crypto.randomBytes(6).toString('hex');
+    await setScopedProfile((req as any).scopeId, dbData.myProfile);
+  }
   res.json(dbData.myProfile);
 });
 
@@ -1382,6 +1388,96 @@ app.put('/api/my-profile', async (req, res) => {
   dbData.myProfile = { ...dbData.myProfile, ...req.body };
   await setScopedProfile((req as any).scopeId, dbData.myProfile);
   res.json(dbData.myProfile);
+});
+
+// ------------------------------------------------------------------
+// 🔗 공유 랜딩 페이지 (누구나 로그인 없이 접근 가능한 공개 페이지)
+// 카카오톡/트위터/링크드인 등에 이 링크를 공유하면, 아래 og:title/description/image
+// 메타태그를 각 플랫폼이 자동으로 긁어가 예쁜 미리보기 카드를 만들어준다.
+// ------------------------------------------------------------------
+function escapeHtml(str: string): string {
+  return String(str || '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c
+  ));
+}
+
+app.get('/s/:slug', async (req, res) => {
+  try {
+    const result = await findProfileByShareSlug(req.params.slug);
+    if (!result) {
+      return res.status(404).send('<h1 style="font-family:sans-serif;text-align:center;margin-top:80px;">명함을 찾을 수 없습니다.</h1>');
+    }
+    const { profile } = result;
+    const title = `${profile.name} · ${profile.company}`;
+    const description = `${profile.title}${profile.department ? ' | ' + profile.department : ''} · 📞 ${profile.phoneMobile}`;
+    const hasPhoto = !!profile.frontImage;
+    const imageUrl = hasPhoto
+      ? `${APP_BASE_URL}/s/${req.params.slug}/photo`
+      : `${APP_BASE_URL}/kakao-share-thumb.png`;
+    const pageUrl = `${APP_BASE_URL}/s/${req.params.slug}`;
+
+    res.send(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(title)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta property="og:type" content="profile" />
+<meta property="og:title" content="${escapeHtml(title)}" />
+<meta property="og:description" content="${escapeHtml(description)}" />
+<meta property="og:image" content="${imageUrl}" />
+<meta property="og:url" content="${pageUrl}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${escapeHtml(title)}" />
+<meta name="twitter:description" content="${escapeHtml(description)}" />
+<meta name="twitter:image" content="${imageUrl}" />
+<style>
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background:#0f172a; color:#e2e8f0; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:24px; box-sizing:border-box; }
+  .card { background:#1e293b; border-radius:24px; padding:32px; max-width:420px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.4); box-sizing:border-box; }
+  .card img { width:100%; border-radius:16px; margin-bottom:20px; display:block; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .title { color:#60a5fa; font-size:13px; margin-bottom:16px; }
+  .row { font-size:14px; margin:8px 0; color:#cbd5e1; }
+  a { color:#93c5fd; text-decoration:none; }
+  .badge { display:inline-block; margin-top:20px; font-size:11px; color:#64748b; }
+</style>
+</head>
+<body>
+  <div class="card">
+    ${hasPhoto ? `<img src="${imageUrl}" alt="명함" />` : ''}
+    <h1>${escapeHtml(profile.name)}</h1>
+    <div class="title">${escapeHtml(profile.title)}${profile.company ? ' · ' + escapeHtml(profile.company) : ''}</div>
+    ${profile.phoneMobile ? `<div class="row">📱 <a href="tel:${escapeHtml(profile.phoneMobile)}">${escapeHtml(profile.phoneMobile)}</a></div>` : ''}
+    ${profile.email ? `<div class="row">✉️ <a href="mailto:${escapeHtml(profile.email)}">${escapeHtml(profile.email)}</a></div>` : ''}
+    ${profile.address ? `<div class="row">🏢 ${escapeHtml(profile.address)}</div>` : ''}
+    ${profile.website ? `<div class="row">🌐 <a href="${escapeHtml(profile.website)}" target="_blank" rel="noreferrer">${escapeHtml(profile.website)}</a></div>` : ''}
+    <div class="badge">BizCard Pro 디지털 명함</div>
+  </div>
+</body>
+</html>`);
+  } catch (error: any) {
+    console.error('공유 페이지 오류:', error);
+    res.status(500).send('오류가 발생했습니다.');
+  }
+});
+
+// 공유 페이지용 명함 사진: base64로 저장된 사진을 실제 이미지 응답으로 변환해서 내려준다.
+// (카카오톡/트위터 등은 og:image에 실제 접근 가능한 이미지 URL을 요구하며 data: URI는 인식하지 못한다)
+app.get('/s/:slug/photo', async (req, res) => {
+  try {
+    const result = await findProfileByShareSlug(req.params.slug);
+    if (!result || !result.profile.frontImage) return res.status(404).end();
+    const match = result.profile.frontImage.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!match) return res.status(404).end();
+    const [, mime, base64Data] = match;
+    const buffer = Buffer.from(base64Data, 'base64');
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(buffer);
+  } catch (error) {
+    console.error('공유 사진 오류:', error);
+    res.status(500).end();
+  }
 });
 
 // 프로젝트 CRUD API
