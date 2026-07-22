@@ -35,7 +35,13 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
     fetch('/api/my-profile')
       .then((res) => res.json())
-      .then((data) => setProfile(data))
+      .then((data) => {
+        setProfile(data);
+        // [수정] 서버에 저장된 앞/뒤 명함 사진이 있으면 불러와서 화면에 반영
+        // (기존에는 이 부분이 없어서, 다른 기기/새로고침 시 방금 찍은 사진이 안 보였음)
+        setScanImg(data.frontImage || '');
+        setScanImgBack(data.backImage || '');
+      })
       .catch(() => {
         setProfile({
           name: '박영록',
@@ -159,11 +165,15 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   // 프로필 저장
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    // [수정] 텍스트 정보뿐 아니라 앞/뒤 명함 사진(scanImg/scanImgBack)도 함께 저장한다.
+    // (기존에는 profile 객체에만 담겨 전송되어, 촬영한 사진 자체는 서버에 저장되지 않았음)
+    const payload = { ...profile, frontImage: scanImg || '', backImage: scanImgBack || '' };
     await fetch('/api/my-profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profile)
+      body: JSON.stringify(payload)
     });
+    setProfile(payload);
     setIsEditing(false);
     setActiveTab('qr');
   };
