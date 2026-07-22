@@ -121,6 +121,10 @@ export interface MyProfile {
   snsUrl?: string;
   website?: string;
   memo?: string;
+  // [수정] 내 명함 앞/뒷면 스캔 사진을 프로필과 함께 저장/조회할 수 있도록 추가
+  // (기존에는 이 필드가 없어서 촬영한 사진이 AI 인식에만 잠깐 쓰이고 저장되지 않았음)
+  frontImage?: string; // base64 data url
+  backImage?: string;  // base64 data url
 }
 
 export interface User {
@@ -378,5 +382,3 @@ export interface WeeklyWorkLog {
   expenses?: WorkLogExpense[]; // 비용 추가 항목 리스트
   createdAt: string;
 }
-
-
