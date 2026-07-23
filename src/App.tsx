@@ -263,7 +263,8 @@ export default function App() {
         onExportProjectsExcel={() => setTriggerProjectsExcelExport((n) => n + 1)}
         onOpenProjectsPrintPreview={() => setTriggerProjectsPrintPreview((n) => n + 1)}
         isProjectsListOutputActive={isProjectsListOutputActive}
-        onToggleProjectsListOutput={() => setIsProjectsListOutputActive((v) => !v)}
+        onShowProjectsCardView={() => setIsProjectsListOutputActive(false)}
+        onShowProjectsListOutput={() => setIsProjectsListOutputActive(true)}
         totalContactsCount={contacts.length}
         projectFilterStatus={projectFilterStatus}
         setProjectFilterStatus={setProjectFilterStatus}
