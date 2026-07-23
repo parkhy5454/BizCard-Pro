@@ -20,7 +20,8 @@ import {
   updateScopedDoc,
   deleteScopedDoc,
   replaceScopedCollection,
-  findProfileByShareSlug
+  findProfileByShareSlug,
+  uploadDataUrlImage
 } from './src/db/supabaseStore.js';
 
 const app = express();
@@ -752,6 +753,21 @@ function assignCoords(address: string): { lat: number; lng: number } {
 
 // API Routes
 
+// [수정] frontImage/backImage 같은 사진 필드가 base64 데이터(용량이 큼)로 들어오면
+// Supabase Storage에 실제 파일로 올리고, DB에는 그 파일 주소(URL)만 저장한다.
+// 이미 URL이거나(재사용) 값이 없으면 그대로 둔다. 업로드가 실패해도 예전처럼
+// base64를 그대로 저장해서(안전장치) 최소한 사진 자체는 안 깨지게 한다.
+async function persistImageField(scopeId: string, value: string | undefined, keyHint: string): Promise<string | undefined> {
+  if (!value || !value.startsWith('data:image/')) return value;
+  try {
+    const url = await uploadDataUrlImage(scopeId, value, keyHint);
+    return url || value;
+  } catch (err) {
+    console.error(`persistImageField(${keyHint}) 실패, base64를 그대로 저장합니다:`, err);
+    return value;
+  }
+}
+
 // 비밀번호 검증: bcrypt 해시면 정식 비교, 옛날 평문으로 저장된 계정이면 평문 비교 후
 // 성공 시 자동으로 안전한 해시로 업그레이드합니다 (기존 가입자 로그인이 끊기지 않도록).
 function verifyPassword(inputPassword: string, storedPassword?: string): boolean {
@@ -1006,6 +1022,7 @@ app.get('/api/contacts', (req, res) => {
 
 app.post('/api/contacts', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const newCard: BusinessCard = req.body;
   if (!newCard.id) newCard.id = `c-${Date.now()}`;
   if (!newCard.createdAt) newCard.createdAt = new Date().toISOString();
@@ -1017,14 +1034,19 @@ app.post('/api/contacts', async (req, res) => {
     newCard.lat = coords.lat;
     newCard.lng = coords.lng;
   }
+
+  // [수정] 명함 사진을 DB에 base64로 통째로 넣지 않고 Storage에 업로드 후 URL만 저장
+  newCard.frontImage = await persistImageField(scopeId, newCard.frontImage, `contact-${newCard.id}-front`);
+  newCard.backImage = await persistImageField(scopeId, newCard.backImage, `contact-${newCard.id}-back`);
   
   dbData.contacts.unshift(newCard);
-  await setScopedDoc((req as any).scopeId, 'contacts', newCard);
+  await setScopedDoc(scopeId, 'contacts', newCard);
   res.status(201).json(newCard);
 });
 
 app.put('/api/contacts/:id', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const idx = dbData.contacts.findIndex(c => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Contact not found' });
   
@@ -1034,8 +1056,13 @@ app.put('/api/contacts/:id', async (req, res) => {
     updated.lat = coords.lat;
     updated.lng = coords.lng;
   }
+
+  // [수정] 재스캔 등으로 사진이 새로 바뀐 경우에만 업로드 (이미 URL이면 그대로 재사용, 불필요한 재업로드 방지)
+  updated.frontImage = await persistImageField(scopeId, updated.frontImage, `contact-${updated.id}-front`);
+  updated.backImage = await persistImageField(scopeId, updated.backImage, `contact-${updated.id}-back`);
+
   dbData.contacts[idx] = updated;
-  await setScopedDoc((req as any).scopeId, 'contacts', updated);
+  await setScopedDoc(scopeId, 'contacts', updated);
   res.json(updated);
 });
 
@@ -1385,8 +1412,12 @@ app.get('/api/my-profile', async (req, res) => {
 
 app.put('/api/my-profile', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   dbData.myProfile = { ...dbData.myProfile, ...req.body };
-  await setScopedProfile((req as any).scopeId, dbData.myProfile);
+  // [수정] 내 명함 사진도 마찬가지로 Storage에 업로드 후 URL만 저장
+  dbData.myProfile.frontImage = await persistImageField(scopeId, dbData.myProfile.frontImage, `myprofile-${scopeId}-front`);
+  dbData.myProfile.backImage = await persistImageField(scopeId, dbData.myProfile.backImage, `myprofile-${scopeId}-back`);
+  await setScopedProfile(scopeId, dbData.myProfile);
   res.json(dbData.myProfile);
 });
 
@@ -1486,6 +1517,14 @@ app.get('/s/:slug/photo', async (req, res) => {
   try {
     const result = await findProfileByShareSlug(req.params.slug);
     if (!result || !result.profile.frontImage) return res.status(404).end();
+
+    // [수정] 이제 frontImage는 base64가 아니라 Supabase Storage의 실제 URL인 경우가 대부분이다.
+    // URL이면 그 주소로 바로 리다이렉트해서 보여주고, 예전 방식(base64)으로 저장된 옛 데이터도
+    // 계속 문제없이 보이도록 두 경우 모두 지원한다.
+    if (/^https?:\/\//.test(result.profile.frontImage)) {
+      return res.redirect(302, result.profile.frontImage);
+    }
+
     const match = result.profile.frontImage.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!match) return res.status(404).end();
     const [, mime, base64Data] = match;
