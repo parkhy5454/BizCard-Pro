@@ -2576,6 +2576,7 @@ export const ProjectsView: React.FC<Props> = ({
       {receiptCameraTarget && (
         <LiveCameraCapture
           title="영수증 촬영"
+          docLabel="영수증"
           guideAspectRatio={0.62}
           onCapture={(dataUrl) => {
             const { setter } = receiptCameraTarget;
