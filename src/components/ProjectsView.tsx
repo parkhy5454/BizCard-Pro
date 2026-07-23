@@ -1060,12 +1060,11 @@ export const ProjectsView: React.FC<Props> = ({
 
   const handleExportProjectsExcel = () => {
     const esc = (v: any) => (v === null || v === undefined ? '' : String(v)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '마감일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사', '관련 명함 수', '팔로우업 건수'];
+    const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '마감일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사'];
     const rows = filteredProjects.map(p => [
       p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', p.budget || '',
       p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
-      p.mechanicalDesigner || '', p.supervisor || '', p.operator || '',
-      String((p.contactIds || []).length), String((p.followUps || []).length)
+      p.mechanicalDesigner || '', p.supervisor || '', p.operator || ''
     ]);
 
     const tableHtml = `
@@ -1228,7 +1227,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full text-xs text-slate-300 whitespace-nowrap">
                   <thead className="bg-slate-900 text-slate-400">
                     <tr>
-                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
+                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
                         <th key={h} className="px-3 py-2.5 text-left font-bold border-b border-slate-800">{h}</th>
                       ))}
                     </tr>
@@ -1250,8 +1249,6 @@ export const ProjectsView: React.FC<Props> = ({
                         <td className="px-3 py-2.5">{p.mechanicalDesigner || '-'}</td>
                         <td className="px-3 py-2.5">{p.supervisor || '-'}</td>
                         <td className="px-3 py-2.5">{p.operator || '-'}</td>
-                        <td className="px-3 py-2.5 text-center">{(p.contactIds || []).length}</td>
-                        <td className="px-3 py-2.5 text-center">{(p.followUps || []).length}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2811,7 +2808,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
                   <thead>
                     <tr className="bg-gray-100">
-                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
+                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
                         <th key={h} className="border border-black px-1.5 py-1.5 font-bold">{h}</th>
                       ))}
                     </tr>
@@ -2833,12 +2830,10 @@ export const ProjectsView: React.FC<Props> = ({
                         <td className="border border-black px-1.5 py-1.5">{p.mechanicalDesigner || '-'}</td>
                         <td className="border border-black px-1.5 py-1.5">{p.supervisor || '-'}</td>
                         <td className="border border-black px-1.5 py-1.5">{p.operator || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-center">{(p.contactIds || []).length}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-center">{(p.followUps || []).length}</td>
                       </tr>
                     ))}
                     {filteredProjects.length === 0 && (
-                      <tr><td colSpan={16} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
+                      <tr><td colSpan={14} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
                     )}
                   </tbody>
                 </table>
