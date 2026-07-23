@@ -5718,6 +5718,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {receiptCameraTarget && (
         <LiveCameraCapture
           title="영수증 촬영"
+          docLabel="영수증"
           guideAspectRatio={0.62}
           onCapture={(dataUrl) => {
             runReceiptOcr(receiptCameraTarget, dataUrl);
