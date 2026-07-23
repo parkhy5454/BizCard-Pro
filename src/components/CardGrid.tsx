@@ -311,8 +311,10 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
                     </span>
                   )}
 
-                  {/* 삭제/수정 액션 (호버 시 표시) */}
-                  <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                  {/* [수정] 삭제/수정 액션: 기존엔 PC 마우스 호버 시에만 나타났는데, 휴대폰은 "호버" 개념이
+                      없어서 이 버튼 자체가 안 보이는 문제가 있었다. 그래서 작은 화면(터치 기기로 간주)에서는
+                      항상 보이게 하고, 큰 화면(마우스 사용 PC)에서는 기존처럼 호버할 때만 나타나게 유지한다. */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 z-10">
                     <button
                       type="button"
                       onClick={(e) => {
