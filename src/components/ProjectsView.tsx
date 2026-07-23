@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X } from 'lucide-react';
+import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
@@ -301,6 +301,8 @@ export const ProjectsView: React.FC<Props> = ({
   // 새 프로젝트 생성 모달 상태
   const [isNewOpen, setIsNewOpen] = useState<boolean>(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState<string>('');
+  // [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하기 위한 상태
+  const [showProjectsPrintPreview, setShowProjectsPrintPreview] = useState<boolean>(false);
 
   // 상단 메뉴의 '새 프로젝트 등록' 버튼에서 신호가 오면 등록 모달을 엽니다.
   useEffect(() => {
@@ -1039,6 +1041,44 @@ export const ProjectsView: React.FC<Props> = ({
       );
     });
 
+  // [수정] 전체 프로젝트 목록을 엑셀(.xls)로 다운로드. 현재 화면에 적용된 상태 필터/검색어를 그대로 반영한다.
+  const STATUS_LABEL_KO: Record<Project['status'], string> = { opportunity: '기회', progress: '진행', completed: '완료', failed: '실패' };
+  const PRIORITY_LABEL_KO: Record<Project['priority'], string> = { high: '높음', medium: '보통', low: '낮음' };
+
+  const handleExportProjectsExcel = () => {
+    const esc = (v: any) => (v === null || v === undefined ? '' : String(v)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const headers = ['프로젝트명', '상태', '우선순위', '마감일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사', '관련 명함 수', '팔로우업 건수'];
+    const rows = filteredProjects.map(p => [
+      p.name, STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', p.budget || '',
+      p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
+      p.mechanicalDesigner || '', p.supervisor || '', p.operator || '',
+      String((p.contactIds || []).length), String((p.followUps || []).length)
+    ]);
+
+    const tableHtml = `
+      <table style="border-collapse: collapse; font-family: 'Malgun Gothic', Arial; font-size: 10pt;">
+        <tr>${headers.map(h => `<th style="border: 0.5pt solid #000; background:#f1f5f9; font-weight:bold; padding:6px 8px;">${h}</th>`).join('')}</tr>
+        ${rows.map(r => `<tr>${r.map(c => `<td style="border: 0.5pt solid #000; padding:6px 8px;">${esc(c)}</td>`).join('')}</tr>`).join('')}
+      </table>
+    `;
+    const excelContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="utf-8">
+      <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+      <x:Name>전체_프로젝트</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+      </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      </head><body>${tableHtml}</body></html>
+    `;
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `전체_프로젝트_목록_${new Date().toISOString().split('T')[0]}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-3 animate-fadeIn max-w-6xl mx-auto">
       
@@ -1111,6 +1151,26 @@ export const ProjectsView: React.FC<Props> = ({
         onTouchEnd={handleTouchEnd}
         className="touch-pan-y space-y-4"
       >
+        {/* [수정] 전체 프로젝트 엑셀/PDF 다운로드 (현재 상태 필터/검색 결과 기준) */}
+        <div className="max-w-md mx-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportProjectsExcel}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>엑셀 다운로드</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowProjectsPrintPreview(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>PDF 인쇄 / 다운로드</span>
+          </button>
+        </div>
+
         {/* 프로젝트 검색 */}
         <div className="max-w-md mx-auto relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -2634,6 +2694,78 @@ export const ProjectsView: React.FC<Props> = ({
           e.target.value = '';
         }}
       />
+
+      {/* [수정] 전체 프로젝트 목록 PDF 인쇄/미리보기 모달 */}
+      {showProjectsPrintPreview && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+          <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">전체 프로젝트 목록 미리보기 (총 {filteredProjects.length}건)</h2>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={handleExportProjectsExcel} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
+                  <FileSpreadsheet className="w-3.5 h-3.5" /><span>엑셀 다운로드</span>
+                </button>
+                <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
+                  <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
+                </button>
+                <button onClick={() => setShowProjectsPrintPreview(false)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
+              <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
+              <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
+                <div className="text-center mb-6">
+                  <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">전체 프로젝트 목록</span>
+                  <p className="text-[10px] text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
+                </div>
+
+                <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      {['프로젝트명', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
+                        <th key={h} className="border border-black px-1.5 py-1.5 font-bold">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProjects.map(p => (
+                      <tr key={p.id}>
+                        <td className="border border-black px-1.5 py-1.5 text-left">{p.name}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-center">{STATUS_LABEL_KO[p.status]}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-center">{PRIORITY_LABEL_KO[p.priority]}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-center">{p.dueDate}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-right">{p.budget || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.developer || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.contractor || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.architect || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.interiorDesigner || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.electricalDesigner || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.mechanicalDesigner || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.supervisor || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5">{p.operator || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-center">{(p.contactIds || []).length}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-center">{(p.followUps || []).length}</td>
+                      </tr>
+                    ))}
+                    {filteredProjects.length === 0 && (
+                      <tr><td colSpan={15} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              </td></tr></tbody></table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
