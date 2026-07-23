@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks } from 'lucide-react';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
@@ -48,6 +48,8 @@ export const Navigation: React.FC<Props> = ({
 }) => {
   // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
+  const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackContent, setFeedbackContent] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -366,21 +368,40 @@ export const Navigation: React.FC<Props> = ({
                 <Briefcase className="w-4 h-4" />
                 <span>새 프로젝트 등록</span>
               </button>
-              {/* [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하는 버튼 (새 프로젝트 등록 바로 옆) */}
-              <button
-                onClick={onExportProjectsExcel}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm shadow-md shadow-emerald-600/25 transition-all active:scale-95"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>엑셀 다운로드</span>
-              </button>
-              <button
-                onClick={onOpenProjectsPrintPreview}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 text-xs sm:text-sm shadow-md transition-all active:scale-95"
-              >
-                <Printer className="w-4 h-4 text-indigo-400" />
-                <span>PDF 인쇄 / 다운로드</span>
-              </button>
+              {/* [수정] 엑셀/PDF 다운로드를 각각의 버튼 대신 "프로젝트 리스트" 드롭다운 하위 메뉴로 정리 */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsProjectListMenuOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 text-xs sm:text-sm shadow-md transition-all active:scale-95"
+                >
+                  <ListChecks className="w-4 h-4 text-indigo-400" />
+                  <span>프로젝트 리스트</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isProjectListMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isProjectListMenuOpen && (
+                  <>
+                    {/* 바깥 영역을 누르면 닫히도록 하는 투명 오버레이 */}
+                    <div className="fixed inset-0 z-30" onClick={() => setIsProjectListMenuOpen(false)} />
+                    <div className="absolute left-0 top-full mt-1.5 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-40 overflow-hidden">
+                      <button
+                        onClick={() => { onExportProjectsExcel(); setIsProjectListMenuOpen(false); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-colors"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                        <span>엑셀 다운로드</span>
+                      </button>
+                      <button
+                        onClick={() => { onOpenProjectsPrintPreview(); setIsProjectListMenuOpen(false); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-800"
+                      >
+                        <Printer className="w-4 h-4 text-indigo-400" />
+                        <span>PDF 인쇄 / 다운로드</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
