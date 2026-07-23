@@ -30,6 +30,8 @@ export const ProjectsView: React.FC<Props> = ({
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // [수정] 영수증 썸네일을 눌렀을 때 크게 볼 수 있는 팝업(라이트박스)용 상태
+  const [enlargedReceiptUrl, setEnlargedReceiptUrl] = useState<string | null>(null);
   // [수정] 팔로우업 알림 배너를 닫을 수 있게: 닫으면 "오늘 하루만" 숨기고, 완전히 사라지지 않도록
   // 작은 뱃지로 흔적을 남겨서 다시 펼쳐볼 수 있게 한다. 날짜가 바뀌면 자동으로 다시 배너가 뜬다.
   const [followupBannerDismissedDate, setFollowupBannerDismissedDate] = useState<string>(() => {
@@ -837,7 +839,12 @@ export const ProjectsView: React.FC<Props> = ({
             <div key={exp.id} className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
               <div className="flex items-start gap-2">
                 {exp.receiptImage && (
-                  <img src={exp.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                  <img
+                    src={exp.receiptImage}
+                    alt="영수증"
+                    onClick={() => setEnlargedReceiptUrl(exp.receiptImage!)}
+                    className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                  />
                 )}
                 <div className="flex-1 grid grid-cols-2 gap-1.5">
                   <select
@@ -2560,6 +2567,27 @@ export const ProjectsView: React.FC<Props> = ({
           </div>
         );
       })()}
+
+      {/* [수정] 영수증 썸네일 확대보기 라이트박스 */}
+      {enlargedReceiptUrl && (
+        <div
+          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          onClick={() => setEnlargedReceiptUrl(null)}
+        >
+          <button
+            onClick={() => setEnlargedReceiptUrl(null)}
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+          >
+            닫기
+          </button>
+          <img
+            src={enlargedReceiptUrl}
+            alt="영수증 확대보기"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+          />
+        </div>
+      )}
 
       {receiptCropTarget && (
         <CropAdjustModal

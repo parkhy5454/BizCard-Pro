@@ -67,6 +67,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   // 자동차 등록증 상세 보기용 모달 상태
   const [viewDocUrl, setViewDocUrl] = useState<string | null>(null);
+  // [수정] 영수증 썸네일을 눌렀을 때 크게 볼 수 있는 팝업(라이트박스)용 상태
+  const [enlargedReceiptUrl, setEnlargedReceiptUrl] = useState<string | null>(null);
   // 상세 통계 보기용 모달 상태
   const [selectedStatsVehicle, setSelectedStatsVehicle] = useState<Vehicle | null>(null);
 
@@ -2038,7 +2040,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         <span>{isScanningDrivingReceipt ? '영수증 스캔 중...' : '통행료/주차비 등 영수증 촬영 (비용관리에 자동 연동 등록)'}</span>
                       </button>
                       {drivingReceiptExpense && (
-                        <img src={drivingReceiptExpense.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                        <img
+                          src={drivingReceiptExpense.receiptImage}
+                          alt="영수증"
+                          onClick={() => setEnlargedReceiptUrl(drivingReceiptExpense.receiptImage)}
+                          className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                        />
                       )}
                     </div>
                     {drivingReceiptExpense && (
@@ -2712,7 +2719,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 촬영 (자동으로 아래 항목 채움)'}</span>
                   </button>
                   {newExpense.receiptImage && (
-                    <img src={newExpense.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                    <img
+                      src={newExpense.receiptImage}
+                      alt="영수증"
+                      onClick={() => setEnlargedReceiptUrl(newExpense.receiptImage)}
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    />
                   )}
                 </div>
                 <div className="space-y-1.5">
@@ -3154,7 +3166,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 촬영 (자동으로 아래 항목 채움)'}</span>
                   </button>
                   {newMaint.receiptImage && (
-                    <img src={newMaint.receiptImage} alt="영수증" className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0" />
+                    <img
+                      src={newMaint.receiptImage}
+                      alt="영수증"
+                      onClick={() => setEnlargedReceiptUrl(newMaint.receiptImage)}
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    />
                   )}
                 </div>
                 <div className="space-y-1.5">
@@ -4717,6 +4734,27 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* [수정] 영수증 썸네일 확대보기 라이트박스 */}
+      {enlargedReceiptUrl && (
+        <div
+          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          onClick={() => setEnlargedReceiptUrl(null)}
+        >
+          <button
+            onClick={() => setEnlargedReceiptUrl(null)}
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+          >
+            닫기
+          </button>
+          <img
+            src={enlargedReceiptUrl}
+            alt="영수증 확대보기"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+          />
         </div>
       )}
 

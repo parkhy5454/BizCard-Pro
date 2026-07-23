@@ -20,6 +20,8 @@ interface Props {
 
 export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScanComplete }) => {
   const [receiptImg, setReceiptImg] = useState<string>('');
+  // [수정] 영수증 미리보기를 눌렀을 때 전체화면으로 크게 볼 수 있는 팝업(라이트박스)용 상태
+  const [isReceiptEnlarged, setIsReceiptEnlarged] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanDone, setScanDone] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
@@ -200,7 +202,12 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
             >
               {receiptImg ? (
                 <>
-                  <img src={receiptImg} alt="영수증 미리보기" className="w-full h-full object-contain p-2" />
+                  <img
+                    src={receiptImg}
+                    alt="영수증 미리보기"
+                    onClick={() => setIsReceiptEnlarged(true)}
+                    className="w-full h-full object-contain p-2 cursor-pointer"
+                  />
                   <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <button 
                       type="button" 
@@ -465,6 +472,27 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
           }}
           onCancel={() => setCropRawImage(null)}
         />
+      )}
+
+      {/* [수정] 영수증 미리보기 확대보기 라이트박스 */}
+      {isReceiptEnlarged && receiptImg && (
+        <div
+          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          onClick={() => setIsReceiptEnlarged(false)}
+        >
+          <button
+            onClick={() => setIsReceiptEnlarged(false)}
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+          >
+            닫기
+          </button>
+          <img
+            src={receiptImg}
+            alt="영수증 확대보기"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+          />
+        </div>
       )}
     </div>
   );
