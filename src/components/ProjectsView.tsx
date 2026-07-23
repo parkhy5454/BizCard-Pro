@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera } from 'lucide-react';
+import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
@@ -30,6 +30,21 @@ export const ProjectsView: React.FC<Props> = ({
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // [수정] 팔로우업 알림 배너를 닫을 수 있게: 닫으면 "오늘 하루만" 숨기고, 완전히 사라지지 않도록
+  // 작은 뱃지로 흔적을 남겨서 다시 펼쳐볼 수 있게 한다. 날짜가 바뀌면 자동으로 다시 배너가 뜬다.
+  const [followupBannerDismissedDate, setFollowupBannerDismissedDate] = useState<string>(() => {
+    try { return localStorage.getItem('bizcard_followup_banner_dismissed_date') || ''; } catch { return ''; }
+  });
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isFollowupBannerDismissed = followupBannerDismissedDate === todayStr;
+  const dismissFollowupBannerForToday = () => {
+    try { localStorage.setItem('bizcard_followup_banner_dismissed_date', todayStr); } catch {}
+    setFollowupBannerDismissedDate(todayStr);
+  };
+  const reopenFollowupBanner = () => {
+    try { localStorage.removeItem('bizcard_followup_banner_dismissed_date'); } catch {}
+    setFollowupBannerDismissedDate('');
+  };
   const [companyStaff, setCompanyStaff] = useState<{ id: string; name: string }[]>([]);
 
   // 같은 회사(사업자번호)로 가입한 다른 계정들을 "우리 회사 직원" 목록으로 불러옴
@@ -1026,12 +1041,31 @@ export const ProjectsView: React.FC<Props> = ({
         });
 
         if (needyProjs.length > 0) {
+          // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
+          if (isFollowupBannerDismissed) {
+            return (
+              <button
+                onClick={reopenFollowupBanner}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all animate-fadeIn"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>팔로우업 필요 {needyProjs.length}건</span>
+              </button>
+            );
+          }
           return (
-            <div className="bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 md:p-6 shadow-xl flex items-start gap-4 animate-fadeIn">
+            <div className="relative bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 md:p-6 shadow-xl flex items-start gap-4 animate-fadeIn">
+              <button
+                onClick={dismissFollowupBannerForToday}
+                className="absolute top-3 right-3 p-1.5 rounded-lg text-rose-300/70 hover:text-rose-200 hover:bg-rose-500/10 transition-colors"
+                title="오늘 하루 닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
               <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 shrink-0">
                 <AlertTriangle className="w-5 h-5 animate-bounce" />
               </div>
-              <div className="space-y-1.5 flex-1">
+              <div className="space-y-1.5 flex-1 pr-6">
                 <h4 className="text-sm font-bold text-rose-300 flex items-center gap-1.5">
                   <span>신속한 팔로우업이 필요한 활성 프로젝트가 {needyProjs.length}개 있습니다!</span>
                 </h4>
@@ -2528,7 +2562,6 @@ export const ProjectsView: React.FC<Props> = ({
       {receiptCameraTarget && (
         <LiveCameraCapture
           title="영수증 촬영"
-          docLabel="영수증"
           guideAspectRatio={0.62}
           onCapture={(dataUrl) => {
             const { setter } = receiptCameraTarget;
