@@ -330,7 +330,8 @@ export const ProjectsView: React.FC<Props> = ({
   const [newOperator, setNewOperator] = useState<string>('');
   const [newStatus, setNewStatus] = useState<Project['status']>('opportunity');
   const [newPriority, setNewPriority] = useState<Project['priority']>('high');
-  const [newDueDate, setNewDueDate] = useState<string>(new Date(Date.now() + 86400000 * 14).toISOString().split('T')[0]);
+  // [수정] "마감 기한" 대신 "프로젝트 등록일" 개념으로 변경 - 기본값을 오늘 날짜로
+  const [newDueDate, setNewDueDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [newBudget, setNewBudget] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
 
@@ -436,6 +437,7 @@ export const ProjectsView: React.FC<Props> = ({
     // 초기화
     setNewName('');
     setNewSalesRep(currentUser?.name || '');
+    setNewDueDate(new Date().toISOString().split('T')[0]);
     setNewDeveloper('');
     setNewContractor('');
     setNewArchitect('');
@@ -1060,7 +1062,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   const handleExportProjectsExcel = () => {
     const esc = (v: any) => (v === null || v === undefined ? '' : String(v)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '마감일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사'];
+    const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '등록일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사'];
     const rows = filteredProjects.map(p => [
       p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', p.budget || '',
       p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
@@ -1227,7 +1229,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full text-xs text-slate-300 whitespace-nowrap">
                   <thead className="bg-slate-900 text-slate-400">
                     <tr>
-                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
+                      {['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
                         <th key={h} className="px-3 py-2.5 text-left font-bold border-b border-slate-800">{h}</th>
                       ))}
                     </tr>
@@ -1340,7 +1342,7 @@ export const ProjectsView: React.FC<Props> = ({
                     <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-1 font-mono">
                       <span className="flex items-center gap-1 text-slate-300">
                         <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                        기한: {proj.dueDate}
+                        등록일: {proj.dueDate}
                       </span>
                       {proj.budget && (
                         <span className="flex items-center gap-1 text-emerald-300">
@@ -2092,7 +2094,7 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">마감 기한</label>
+                  <label className="block text-slate-300 font-semibold mb-1">프로젝트 등록일</label>
                   <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
@@ -2314,7 +2316,7 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">마감 기한</label>
+                  <label className="block text-slate-300 font-semibold mb-1">프로젝트 등록일</label>
                   <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
@@ -2808,7 +2810,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
                   <thead>
                     <tr className="bg-gray-100">
-                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
+                      {['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
                         <th key={h} className="border border-black px-1.5 py-1.5 font-bold">{h}</th>
                       ))}
                     </tr>
