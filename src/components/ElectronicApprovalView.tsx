@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
   Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
-  Download, ClipboardList, Car, Wrench, ChevronDown
+  Download, ClipboardList, Car, Wrench, ChevronDown, Camera
 } from 'lucide-react';
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -110,6 +110,7 @@ interface ImportableExpenseRow {
   companyName: string;    // 상호
   remark: string;
   payMethodLabel: string; // 결제수단 라벨(개인카드/현금 등)
+  receiptImage?: string;  // [수정] 원본(차량비용/정비/업무일지)에 첨부된 영수증 사진도 같이 가져온다
 }
 
 const WORKLOG_EXPENSE_LABEL: Record<string, string> = {
@@ -406,6 +407,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [apAuthor, setApAuthor] = useState('');
   const [apDraftDate, setApDraftDate] = useState(todayStr());
   const [apItems, setApItems] = useState<AdvancePaymentItem[]>([]);
+  // [수정] 정산 항목에 딸려온 영수증 사진을 눌렀을 때 크게 볼 수 있는 팝업(라이트박스)용 상태
+  const [enlargedReceiptUrl, setEnlargedReceiptUrl] = useState<string | null>(null);
   const [apApprovalLine, setApApprovalLine] = useState<ApprovalStep[]>(defaultAdvanceApprovalLine());
 
   // 업무일지/차량운행일지 비용 가져오기
@@ -697,7 +700,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               account: exp.categoryCustom || WORKLOG_EXPENSE_LABEL[exp.category] || '',
               companyName: '',
               remark: '업무일지',
-              payMethodLabel: exp.payMethod === 'cash_personal' ? '개인현금' : '개인카드'
+              payMethodLabel: exp.payMethod === 'cash_personal' ? '개인현금' : '개인카드',
+              receiptImage: exp.receiptImage
             });
           });
       });
@@ -717,7 +721,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             account: exp.categoryCustom || VEHICLE_EXPENSE_LABEL[exp.category] || '',
             companyName: exp.merchantName || '',
             remark: '차량 비용관리',
-            payMethodLabel: exp.payMethod === 'cash' ? '현금' : '개인카드'
+            payMethodLabel: exp.payMethod === 'cash' ? '현금' : '개인카드',
+            receiptImage: exp.receiptImage
           });
         });
     }
@@ -736,7 +741,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             account: '정비비',
             companyName: m.shopName || '',
             remark: '정비일지',
-            payMethodLabel: m.payMethod === 'cash' ? '현금' : '개인카드'
+            payMethodLabel: m.payMethod === 'cash' ? '현금' : '개인카드',
+            receiptImage: m.receiptImage
           });
         });
     }
@@ -783,7 +789,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const applyItemPicker = (itemId: string, row: ImportableExpenseRow) => {
     updateApItem(itemId, {
       date: row.date, project: row.project, description: row.description,
-      amount: row.amount, account: row.account, companyName: row.companyName, remark: row.remark
+      amount: row.amount, account: row.account, companyName: row.companyName, remark: row.remark,
+      receiptImage: row.receiptImage
     });
     setItemPickerForId(null);
   };
@@ -802,7 +809,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const newItems: AdvancePaymentItem[] = picked.map(r => ({
       id: `api-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       date: r.date, project: r.project, description: r.description,
-      amount: r.amount, account: r.account, companyName: r.companyName, remark: r.remark
+      amount: r.amount, account: r.account, companyName: r.companyName, remark: r.remark,
+      receiptImage: r.receiptImage
     }));
     setApItems(prev => [...prev, ...newItems]);
     setIsImportModalOpen(false);
@@ -1634,6 +1642,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                                     <div className="flex items-center justify-between gap-2 mt-0.5">
                                       <span className="text-[11px] text-slate-400 truncate">{r.description}</span>
                                       <div className="flex items-center gap-1.5 shrink-0">
+                                        {r.receiptImage && <Camera className="w-3 h-3 text-emerald-400" />}
                                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{r.payMethodLabel}</span>
                                         <span className="text-xs font-bold text-slate-200">{formatCurrencyInput(r.amount)}원</span>
                                       </div>
@@ -1661,6 +1670,22 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                      {/* [수정] 차량비용/정비/업무일지에서 가져온 항목에 영수증 사진이 딸려있으면 여기에 썸네일로 표시.
+                          누르면 크게 볼 수 있어 결재자가 원본 지출 증빙을 바로 확인할 수 있다. */}
+                      {item.receiptImage && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <img
+                            src={item.receiptImage}
+                            alt="영수증"
+                            onClick={() => setEnlargedReceiptUrl(item.receiptImage!)}
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-700 cursor-pointer hover:opacity-80 transition-opacity"
+                          />
+                          <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                            <Camera className="w-3 h-3" />
+                            영수증 첨부됨 (눌러서 크게 보기)
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1747,7 +1772,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <span className="text-blue-300 font-semibold truncate">{row.project || '-'}</span>
                         <span className="text-slate-300 truncate col-span-2 sm:col-span-1">{row.description}</span>
                         <span className="text-slate-100 font-bold text-right sm:text-left">{formatCurrencyInput(row.amount)}원</span>
-                        <span className="justify-self-start sm:justify-self-end px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">{row.payMethodLabel}</span>
+                        <span className="flex items-center gap-1 justify-self-start sm:justify-self-end">
+                          {row.receiptImage && <Camera className="w-3 h-3 text-emerald-400" title="영수증 첨부됨" />}
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">{row.payMethodLabel}</span>
+                        </span>
                       </div>
                     </label>
                   ))
@@ -2262,6 +2290,27 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         createPortal(renderPrintableAdvance(advanceList.find(d => d.id === previewAdvanceId)), document.getElementById('print-root')!)}
       {previewLeaveId && typeof document !== 'undefined' && document.getElementById('print-root') &&
         createPortal(renderPrintableLeave(leaveList.find(d => d.id === previewLeaveId)), document.getElementById('print-root')!)}
+
+      {/* [수정] 정산 항목에 딸린 영수증 썸네일 확대보기 라이트박스 */}
+      {enlargedReceiptUrl && (
+        <div
+          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          onClick={() => setEnlargedReceiptUrl(null)}
+        >
+          <button
+            onClick={() => setEnlargedReceiptUrl(null)}
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+          >
+            닫기
+          </button>
+          <img
+            src={enlargedReceiptUrl}
+            alt="영수증 확대보기"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+          />
+        </div>
+      )}
     </div>
   );
 };
