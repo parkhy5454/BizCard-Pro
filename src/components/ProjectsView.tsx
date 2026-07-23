@@ -309,6 +309,7 @@ export const ProjectsView: React.FC<Props> = ({
   const [newContractor, setNewContractor] = useState<string>('');
   const [newArchitect, setNewArchitect] = useState<string>('');
   const [newElectricalDesigner, setNewElectricalDesigner] = useState<string>('');
+  const [newInteriorDesigner, setNewInteriorDesigner] = useState<string>('');
   const [newMechanicalDesigner, setNewMechanicalDesigner] = useState<string>('');
   const [newSupervisor, setNewSupervisor] = useState<string>('');
   const [newOperator, setNewOperator] = useState<string>('');
@@ -389,6 +390,7 @@ export const ProjectsView: React.FC<Props> = ({
       contractor: newContractor,
       architect: newArchitect,
       electricalDesigner: newElectricalDesigner,
+      interiorDesigner: newInteriorDesigner,
       mechanicalDesigner: newMechanicalDesigner,
       supervisor: newSupervisor,
       operator: newOperator,
@@ -421,6 +423,7 @@ export const ProjectsView: React.FC<Props> = ({
     setNewContractor('');
     setNewArchitect('');
     setNewElectricalDesigner('');
+    setNewInteriorDesigner('');
     setNewMechanicalDesigner('');
     setNewSupervisor('');
     setNewOperator('');
@@ -1194,6 +1197,7 @@ export const ProjectsView: React.FC<Props> = ({
                       {proj.developer && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">시행: {proj.developer}</span>}
                       {proj.contractor && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">시공: {proj.contractor}</span>}
                       {proj.architect && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">건축설계: {proj.architect}</span>}
+                      {proj.interiorDesigner && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">인테리어: {proj.interiorDesigner}</span>}
                       {proj.electricalDesigner && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">전기설계: {proj.electricalDesigner}</span>}
                       {proj.mechanicalDesigner && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">기계설계: {proj.mechanicalDesigner}</span>}
                       {proj.supervisor && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">감리: {proj.supervisor}</span>}
@@ -1295,14 +1299,15 @@ export const ProjectsView: React.FC<Props> = ({
                           ['시행사(발주처)', proj.developer],
                           ['시공사', proj.contractor],
                           ['건축설계사', proj.architect],
+                          ['인테리어설계사', proj.interiorDesigner],
                           ['전기설계사', proj.electricalDesigner],
                           ['기계설계사', proj.mechanicalDesigner],
                           ['감리사', proj.supervisor],
                           ['운영사', proj.operator]
-                        ] as [string, string | undefined][]).map(([label, companyName], boxIdx) => {
+                        ] as [string, string | undefined][]).map(([label, companyName]) => {
                           const matched = findContactsForCompany(companyName);
                           return (
-                            <div key={label} className={`bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40 ${boxIdx === 6 ? 'col-span-2' : ''}`}>
+                            <div key={label} className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
                               <div className="text-[10px] text-slate-500 font-semibold mb-0.5">{label}</div>
                               <div className="text-slate-200 font-medium">{companyName || '-'}</div>
                               {matched.length > 0 && (
@@ -1310,6 +1315,7 @@ export const ProjectsView: React.FC<Props> = ({
                                   {matched.map((c) => (
                                     <div key={c.id} className="text-[10px] text-indigo-300 leading-relaxed">
                                       <span className="font-bold text-indigo-200">{c.name}</span>
+                                      {c.department && <span className="text-slate-400"> · {c.department}</span>}
                                       {c.title && <span className="text-slate-400"> · {c.title}</span>}
                                       {c.phoneMobile && <div className="text-slate-400 font-mono">{c.phoneMobile}</div>}
                                       {!c.phoneMobile && c.phoneOffice && <div className="text-slate-400 font-mono">{c.phoneOffice}</div>}
@@ -1905,10 +1911,14 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">건축설계사</label>
                   <input type="text" value={newArchitect} onChange={(e) => setNewArchitect(e.target.value)} placeholder="예: 희림건축" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">인테리어설계사</label>
+                  <input type="text" value={newInteriorDesigner} onChange={(e) => setNewInteriorDesigner(e.target.value)} placeholder="예: 원오디자인" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">전기설계사</label>
@@ -2117,10 +2127,14 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">건축설계사</label>
                   <input type="text" value={editingProject.architect || ''} onChange={(e) => setEditingProject({ ...editingProject, architect: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">인테리어설계사</label>
+                  <input type="text" value={editingProject.interiorDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, interiorDesigner: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">전기설계사</label>
