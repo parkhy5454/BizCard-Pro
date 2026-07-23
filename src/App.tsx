@@ -44,6 +44,9 @@ export default function App() {
   // 모달 제어 상태
   const [isScanOpen, setIsScanOpen] = useState<boolean>(false);
   const [triggerNewProject, setTriggerNewProject] = useState<number>(0);
+  // [수정] Navigation의 "엑셀 다운로드"/"PDF 인쇄" 버튼 신호를 ProjectsView로 전달하기 위한 트리거
+  const [triggerProjectsExcelExport, setTriggerProjectsExcelExport] = useState<number>(0);
+  const [triggerProjectsPrintPreview, setTriggerProjectsPrintPreview] = useState<number>(0);
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
@@ -255,6 +258,8 @@ export default function App() {
         onOpenShareMyCardModal={() => setIsShareMyCardOpen(true)}
         onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
         onOpenNewProject={() => setTriggerNewProject((n) => n + 1)}
+        onExportProjectsExcel={() => setTriggerProjectsExcelExport((n) => n + 1)}
+        onOpenProjectsPrintPreview={() => setTriggerProjectsPrintPreview((n) => n + 1)}
         totalContactsCount={contacts.length}
         projectFilterStatus={projectFilterStatus}
         setProjectFilterStatus={setProjectFilterStatus}
@@ -335,6 +340,8 @@ export default function App() {
                 setFilterStatus={setProjectFilterStatus}
                 currentUser={currentUser}
                 triggerNewProject={triggerNewProject}
+                triggerExcelExport={triggerProjectsExcelExport}
+                triggerPrintPreview={triggerProjectsPrintPreview}
               />
             )}
 
