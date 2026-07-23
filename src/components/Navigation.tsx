@@ -16,9 +16,11 @@ interface Props {
   onOpenNewProject?: () => void;
   onExportProjectsExcel?: () => void;
   onOpenProjectsPrintPreview?: () => void;
-  // [수정] "리스트 출력" 탭 켜짐/꺼짐 상태 및 토글 콜백
+  // [수정] 토글(반전) 방식 대신, 각 버튼이 정확히 어느 화면으로 갈지 명시적으로 지정하는 콜백으로 변경.
+  // (기존엔 "프로젝트 리스트"를 눌러도 그냥 드롭다운만 열릴 뿐, 카드 화면으로 돌아가지 않는 문제가 있었음)
   isProjectsListOutputActive?: boolean;
-  onToggleProjectsListOutput?: () => void;
+  onShowProjectsCardView?: () => void;
+  onShowProjectsListOutput?: () => void;
   totalContactsCount: number;
   projectFilterStatus?: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed';
   setProjectFilterStatus?: (status: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed') => void;
@@ -42,7 +44,8 @@ export const Navigation: React.FC<Props> = ({
   onExportProjectsExcel = () => {},
   onOpenProjectsPrintPreview = () => {},
   isProjectsListOutputActive = false,
-  onToggleProjectsListOutput = () => {},
+  onShowProjectsCardView = () => {},
+  onShowProjectsListOutput = () => {},
   totalContactsCount,
   projectFilterStatus = 'all',
   setProjectFilterStatus = (_st) => {},
@@ -372,15 +375,26 @@ export const Navigation: React.FC<Props> = ({
                 <Briefcase className="w-4 h-4" />
                 <span>새 프로젝트 등록</span>
               </button>
-              {/* [수정] 엑셀/PDF 다운로드를 각각의 버튼 대신 "프로젝트 리스트" 드롭다운 하위 메뉴로 정리 */}
-              <div className="relative">
+              {/* [수정] "프로젝트 리스트": 이제 눌렀을 때 카드 화면으로 돌아가는 진짜 탭 역할을 한다.
+                  엑셀/PDF 다운로드는 오른쪽의 작은 화살표(▼)를 따로 눌러야 열리도록 분리했다. */}
+              <div className="relative flex items-stretch rounded-lg overflow-hidden border border-slate-700">
                 <button
-                  onClick={() => setIsProjectListMenuOpen((v) => !v)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 text-xs sm:text-sm shadow-md transition-all active:scale-95"
+                  onClick={onShowProjectsCardView}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 font-semibold whitespace-nowrap text-xs sm:text-sm transition-all active:scale-95 ${
+                    !isProjectsListOutputActive
+                      ? 'bg-blue-600/20 text-blue-400'
+                      : 'bg-slate-800 hover:bg-slate-700 text-indigo-300'
+                  }`}
                 >
                   <ListChecks className="w-4 h-4 text-indigo-400" />
                   <span>프로젝트 리스트</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isProjectListMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setIsProjectListMenuOpen((v) => !v)}
+                  className="flex items-center px-2 bg-slate-800 hover:bg-slate-700 border-l border-slate-700 transition-colors"
+                  title="엑셀/PDF 다운로드"
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isProjectListMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isProjectListMenuOpen && (
@@ -408,9 +422,9 @@ export const Navigation: React.FC<Props> = ({
               </div>
 
               {/* [수정] "리스트 출력" 탭: 누르면 카드 목록 대신 화면에 표 형태로 전체 프로젝트가 보이고,
-                  그 화면 안에서 바로 엑셀/PDF로 출력할 수 있다. 다시 누르면 원래 카드 목록으로 돌아온다. */}
+                  그 화면 안에서 바로 엑셀/PDF로 출력할 수 있다. "프로젝트 리스트"를 누르면 다시 카드로 돌아간다. */}
               <button
-                onClick={onToggleProjectsListOutput}
+                onClick={onShowProjectsListOutput}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
                   isProjectsListOutputActive
                     ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
