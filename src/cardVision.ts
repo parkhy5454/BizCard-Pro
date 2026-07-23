@@ -148,6 +148,10 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
   const hierarchy = new cv.Mat();
 
   let best: { quad: Quad; score: number; areaRatio: number } | null = null;
+  // [수정] 영수증처럼 얇은 종이는 살짝 휘거나 구겨져 있어서 윤곽선이 "정확히 꼭짓점 4개"로
+  // 딱 떨어지지 않는 경우가 많다. 그런 경우를 위해, 화면에서 가장 큰 덩어리를 감싸는
+  // 최소 회전 사각형(minAreaRect)을 마지막 안전장치로 준비해둔다.
+  let fallback: { quad: Quad; areaRatio: number } | null = null;
 
   try {
     cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY);
@@ -167,6 +171,29 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
       const cnt = contours.get(i);
       const peri = cv.arcLength(cnt, true);
       if (peri <= 0) { cnt.delete(); continue; }
+
+      // 정확히 4점으로 떨어지는 윤곽선을 찾는 기존 로직과는 별개로, 이 윤곽선의 실제 면적이
+      // 지금까지의 폴백 후보보다 크면 minAreaRect(회전된 최소 사각형)를 미리 계산해 저장해둔다.
+      // (아래에서 4점 근사가 하나도 안 나올 경우에만 이 폴백을 최종적으로 사용한다)
+      try {
+        const rawArea = Math.abs(cv.contourArea(cnt));
+        const rawAreaRatio = rawArea / frameArea;
+        if (rawAreaRatio > 0.05 && rawAreaRatio < 0.97 && (!fallback || rawAreaRatio > fallback.areaRatio)) {
+          const rotRect = cv.minAreaRect(cnt);
+          const angleRad = (rotRect.angle * Math.PI) / 180;
+          const cos = Math.cos(angleRad);
+          const sin = Math.sin(angleRad);
+          const hw = rotRect.size.width / 2;
+          const hh = rotRect.size.height / 2;
+          const corners: Point[] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) => [
+            rotRect.center.x + dx * cos - dy * sin,
+            rotRect.center.y + dx * sin + dy * cos
+          ] as Point);
+          fallback = { quad: orderQuadPoints(corners), areaRatio: rawAreaRatio };
+        }
+      } catch {
+        // minAreaRect 계산이 실패해도(드물게 점 개수가 너무 적은 경우 등) 전체 인식은 계속 진행
+      }
 
       for (const factor of epsilonFactors) {
         const approx = new cv.Mat();
@@ -205,6 +232,12 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
         approx.delete();
       }
       cnt.delete();
+    }
+
+    // 정확히 4점으로 떨어지는 윤곽선을 하나도 못 찾았다면(휘거나 구겨진 영수증 등),
+    // 가장 큰 덩어리를 감싸는 최소 사각형을 대신 사용한다.
+    if (!best && fallback) {
+      best = { quad: fallback.quad, score: fallback.areaRatio, areaRatio: fallback.areaRatio };
     }
   } finally {
     gray.delete();
