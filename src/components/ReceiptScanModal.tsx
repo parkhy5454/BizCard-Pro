@@ -439,6 +439,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       {isCameraOpen && (
         <LiveCameraCapture
           title="영수증 촬영"
+          docLabel="영수증"
           guideAspectRatio={0.62}
           onCapture={(dataUrl) => {
             setReceiptImg(dataUrl);
