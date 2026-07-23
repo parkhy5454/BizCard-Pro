@@ -318,6 +318,69 @@ function makeDraftNumber(existing: string[]): string {
   return `${prefix}-${String(seq).padStart(2, '0')}`;
 }
 
+// [수정] 이 컴포넌트는 원래 ElectronicApprovalView 함수 "안"에서 정의되어 있었다.
+// 그러면 부모가 리렌더링될 때마다(글자 하나 입력할 때마다) 매번 새로운 컴포넌트로 취급되어
+// React가 이 입력창을 통째로 언마운트 후 재마운트하면서 포커스가 끊겨, 한 글자 치면 커서가
+// 빠져나가 이어서 입력할 수 없는 문제가 있었다. 컴포넌트 바깥(모듈 최상단)으로 옮겨서 고정하고,
+// 필요한 값들은 클로저 대신 props로 전달받도록 바꿔서 이 문제를 해결한다.
+const ApprovalLineEditor: React.FC<{
+  line: ApprovalStep[];
+  setLine: (v: ApprovalStep[]) => void;
+  kind: 'advance' | 'leave';
+  companyPositions: string[];
+  onSaveAsDefault: (kind: 'advance' | 'leave', line: ApprovalStep[]) => void;
+}> = ({ line, setLine, kind, companyPositions, onSaveAsDefault }) => (
+  <div className="space-y-1.5">
+    <div className="flex items-center justify-between gap-2">
+      <label className="text-xs font-bold text-slate-300">결재선</label>
+      <button
+        type="button"
+        onClick={() => onSaveAsDefault(kind, line)}
+        className="text-[10px] px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
+      >
+        우리 회사 기본값으로 저장
+      </button>
+    </div>
+    {/* 회사마다 결재 단계 수가 다를 수 있어 4단계 고정 그리드 대신, 자유롭게 추가/삭제 가능한 구조로 되어 있다 */}
+    <div className="flex flex-wrap gap-2">
+      {line.map((step, idx) => (
+        <div key={idx} className="flex items-center gap-1">
+          <input type="text" value={step.role} placeholder={`결재${idx + 1}`} list="company-positions-datalist"
+            onChange={(e) => setLine(line.map((s, i) => i === idx ? { ...s, role: e.target.value } : s))}
+            className="w-24 px-2 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          {line.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setLine(line.filter((_, i) => i !== idx))}
+              className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+              title="이 단계 삭제"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => setLine([...line, { role: '' }])}
+        className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-slate-700 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50 text-xs font-semibold transition-colors"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        <span>단계 추가</span>
+      </button>
+    </div>
+    {companyPositions.length > 0 && (
+      <datalist id="company-positions-datalist">
+        {companyPositions.map((p) => <option key={p} value={p} />)}
+      </datalist>
+    )}
+    <p className="text-[10px] text-slate-500">
+      여기 적는 직책이 회원가입 시 등록한 직책과 정확히 일치해야 결재 요청 이메일이 그 사람에게 자동으로 전달됩니다.
+      "우리 회사 기본값으로 저장"을 누르면 다음부터 새 문서 작성 시 이 결재선이 자동으로 채워집니다.
+    </p>
+  </div>
+);
+
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave'>('advance');
 
@@ -1286,58 +1349,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     </div>
   );
 
-  const ApprovalLineEditor: React.FC<{ line: ApprovalStep[]; setLine: (v: ApprovalStep[]) => void; kind: 'advance' | 'leave' }> = ({ line, setLine, kind }) => (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <label className="text-xs font-bold text-slate-300">결재선</label>
-        <button
-          type="button"
-          onClick={() => saveApprovalLineAsCompanyDefault(kind, line)}
-          className="text-[10px] px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
-        >
-          우리 회사 기본값으로 저장
-        </button>
-      </div>
-      {/* [수정] 회사마다 결재 단계 수가 다를 수 있어 4단계 고정 그리드 대신, 자유롭게 추가/삭제 가능한 구조로 변경 */}
-      <div className="flex flex-wrap gap-2">
-        {line.map((step, idx) => (
-          <div key={idx} className="flex items-center gap-1">
-            <input type="text" value={step.role} placeholder={`결재${idx + 1}`} list="company-positions-datalist"
-              onChange={(e) => setLine(line.map((s, i) => i === idx ? { ...s, role: e.target.value } : s))}
-              className="w-24 px-2 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            {line.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setLine(line.filter((_, i) => i !== idx))}
-                className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                title="이 단계 삭제"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => setLine([...line, { role: '' }])}
-          className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-slate-700 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50 text-xs font-semibold transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>단계 추가</span>
-        </button>
-      </div>
-      {companyPositions.length > 0 && (
-        <datalist id="company-positions-datalist">
-          {companyPositions.map((p) => <option key={p} value={p} />)}
-        </datalist>
-      )}
-      <p className="text-[10px] text-slate-500">
-        여기 적는 직책이 회원가입 시 등록한 직책과 정확히 일치해야 결재 요청 이메일이 그 사람에게 자동으로 전달됩니다.
-        "우리 회사 기본값으로 저장"을 누르면 다음부터 새 문서 작성 시 이 결재선이 자동으로 채워집니다.
-      </p>
-    </div>
-  );
-
   return (
     <div className="space-y-5">
       {/* 전자결재 하위 탭 */}
@@ -1531,7 +1542,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div className="p-6 space-y-4">
-              <ApprovalLineEditor line={apApprovalLine} setLine={setApApprovalLine} kind="advance" />
+              <ApprovalLineEditor line={apApprovalLine} setLine={setApApprovalLine} kind="advance" companyPositions={companyPositions} onSaveAsDefault={saveApprovalLineAsCompanyDefault} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -1768,7 +1779,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div className="p-6 space-y-4">
-              <ApprovalLineEditor line={lvApprovalLine} setLine={setLvApprovalLine} kind="leave" />
+              <ApprovalLineEditor line={lvApprovalLine} setLine={setLvApprovalLine} kind="leave" companyPositions={companyPositions} onSaveAsDefault={saveApprovalLineAsCompanyDefault} />
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300">기안번호</label>
