@@ -1,5 +1,5 @@
-import React from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2 } from 'lucide-react';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
@@ -41,7 +41,53 @@ export const Navigation: React.FC<Props> = ({
   currentUser,
   onLogout
 }) => {
+  // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
+  const [feedbackContent, setFeedbackContent] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
+
+  const submitFeedback = async () => {
+    if (!feedbackContent.trim()) {
+      setFeedbackError('문의 내용을 입력해주세요.');
+      return;
+    }
+    setFeedbackSubmitting(true);
+    setFeedbackError('');
+    try {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (currentUser) headers['x-user-id'] = currentUser.id;
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ category: feedbackCategory, content: feedbackContent.trim(), pageContext: activeTab })
+      });
+      if (!res.ok) throw new Error('문의 접수에 실패했습니다.');
+      setFeedbackSubmitted(true);
+      setFeedbackContent('');
+    } catch (err) {
+      console.error('Feedback submit error:', err);
+      setFeedbackError('문의 접수 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  const closeFeedbackModal = () => {
+    setIsFeedbackOpen(false);
+    // 팝업 닫고 나서 애니메이션 등이 자연스럽게 끝나도록 살짝 뒤에 상태 초기화
+    setTimeout(() => {
+      setFeedbackSubmitted(false);
+      setFeedbackError('');
+      setFeedbackCategory('bug');
+    }, 300);
+  };
+
+
   return (
+    <>
     <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-slate-100 shadow-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between py-4 md:py-0 md:h-16 gap-4">
@@ -378,5 +424,117 @@ export const Navigation: React.FC<Props> = ({
         </div>
       </div>
     </header>
+
+    {/* [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 플로팅 "문의하기" 버튼.
+        Navigation은 모든 탭에서 공통으로 항상 렌더링되므로, 여기에 두면 어느 화면에 있든 계속 떠 있다. */}
+    <button
+      type="button"
+      onClick={() => setIsFeedbackOpen(true)}
+      className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 text-white shadow-2xl shadow-indigo-600/40 flex items-center justify-center transition-all active:scale-95"
+      title="문의하기"
+    >
+      <MessageCircleQuestion className="w-6 h-6" />
+    </button>
+
+    {isFeedbackOpen && (
+      <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="w-full sm:max-w-md bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
+          <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                <MessageCircleQuestion className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100">문의하기</h3>
+            </div>
+            <button onClick={closeFeedbackModal} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {feedbackSubmitted ? (
+            <div className="p-8 flex flex-col items-center text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+              </div>
+              <p className="text-sm font-bold text-slate-100">문의가 접수되었습니다!</p>
+              <p className="text-xs text-slate-400 leading-relaxed">빠른 시일 내에 확인하고 반영하도록 하겠습니다.<br />소중한 의견 감사합니다.</p>
+              <button
+                onClick={closeFeedbackModal}
+                className="mt-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          ) : (
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-2">문의 종류</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackCategory('bug')}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'bug' ? 'bg-rose-500/15 border-rose-500/40 text-rose-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/60'}`}
+                  >
+                    <Bug className="w-4 h-4" />
+                    버그 신고
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackCategory('feature')}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'feature' ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/60'}`}
+                  >
+                    <Lightbulb className="w-4 h-4" />
+                    기능 제안
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackCategory('other')}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'other' ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/60'}`}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    기타 문의
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-2">내용</label>
+                <textarea
+                  rows={5}
+                  value={feedbackContent}
+                  onChange={(e) => setFeedbackContent(e.target.value)}
+                  placeholder="어떤 화면에서, 무슨 문제가 있었는지 또는 어떤 기능이 있으면 좋을지 자유롭게 적어주세요."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              {feedbackError && (
+                <p className="text-xs text-rose-400">{feedbackError}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={submitFeedback}
+                disabled={feedbackSubmitting}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/25 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {feedbackSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    <span>접수 중...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>문의 제출하기</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 };
