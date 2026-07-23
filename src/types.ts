@@ -334,6 +334,8 @@ export interface AdvancePaymentItem {
   account?: string;        // 계정과목
   companyName?: string;    // 상호
   remark?: string;         // 비고
+  // [수정] 차량비용/정비/업무일지에서 "가져오기" 할 때 원본에 첨부된 영수증 사진도 같이 가져오기 위한 필드
+  receiptImage?: string;
 }
 
 // 가지급금 정산서
