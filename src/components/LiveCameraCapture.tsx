@@ -8,6 +8,9 @@ import {
 interface Props {
   title?: string;
   guideAspectRatio?: number; // 문서 가로:세로 비율 (명함 ≈ 1.586, 영수증은 세로로 길게 등)
+  // [수정] 화면 안내 문구에 쓰이는 문서 종류 이름. 이 컴포넌트가 명함 외에 영수증 스캔에도
+  // 재사용되기 때문에, "명함을 화면 안에 맞춰주세요" 같은 문구가 항상 명함으로 고정되지 않도록 분리했다.
+  docLabel?: string; // 기본값 '명함' (영수증 스캔 시 '영수증'을 넘겨서 사용)
   // [수정] autoDetected: OpenCV가 실시간으로 문서 사각형을 인식해서 정확히 잘라낸 경우 true.
   // false면 자동 인식 없이 화면 중앙 고정 박스로 대충 잘린 것이므로, 호출 측에서
   // 수동 테두리 조정 화면(CropAdjustModal)으로 보내는 것을 권장한다.
@@ -105,6 +108,7 @@ function fallbackCenterCrop(video: HTMLVideoElement, container: HTMLDivElement |
 export const LiveCameraCapture: React.FC<Props> = ({
   title,
   guideAspectRatio = 1.586,
+  docLabel = '명함',
   onCapture,
   onCancel,
   onFallbackToFile
@@ -123,7 +127,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const [quadDisplay, setQuadDisplay] = useState<Quad | null>(null);
   const [quality, setQuality] = useState<Quality | null>(null);
   const [isStable, setIsStable] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('명함을 화면 안에 맞춰주세요');
+  const [statusMessage, setStatusMessage] = useState(`${docLabel}을(를) 화면 안에 맞춰주세요`);
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
   const cvRef = useRef<any>(null);
@@ -356,7 +360,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
         quadHistoryRef.current = [];
         stableSinceRef.current = null;
         lastRawQuadRef.current = null;
-        setStatusMessage('명함을 화면 안에 맞춰주세요');
+        setStatusMessage(`${docLabel}을(를) 화면 안에 맞춰주세요`);
         return;
       }
 
@@ -416,7 +420,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
       setQuality({ sizeOk, focusOk, brightOk, glareOk });
       setIsStable(stable && allQualityOk);
 
-      if (!sizeOk) setStatusMessage('명함을 조금 더 가까이 가져와 주세요');
+      if (!sizeOk) setStatusMessage(`${docLabel}을(를) 조금 더 가까이 가져와 주세요`);
       else if (!brightOk) setStatusMessage(brightness < 60 ? '조명이 어두워요' : '빛이 너무 강해요');
       else if (!glareOk) setStatusMessage('반사광이 있어요, 각도를 살짝 바꿔주세요');
       else if (!focusOk) setStatusMessage('흔들리지 않게 잠시 고정해주세요');
@@ -446,7 +450,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
     <div className="fixed inset-0 z-[70] bg-black flex flex-col">
       <div className="flex items-center justify-between p-4 bg-slate-950/80 backdrop-blur-sm">
         <div>
-          <h3 className="text-sm font-bold text-white">{title || '명함을 화면 안에 비춰주세요'}</h3>
+          <h3 className="text-sm font-bold text-white">{title || `${docLabel}을(를) 화면 안에 비춰주세요`}</h3>
           <p className="text-[11px] text-slate-400 mt-0.5">
             {cvStatus === 'ready' ? '초록 테두리가 뜨고 고정되면 자동으로 촬영돼요' : '가이드에 맞춰 촬영 버튼을 눌러주세요'}
           </p>
