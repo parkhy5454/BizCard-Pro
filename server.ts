@@ -768,6 +768,20 @@ async function persistImageField(scopeId: string, value: string | undefined, key
   }
 }
 
+// [수정] 미팅 지출/업무일지 지출처럼 "배열 안에 여러 영수증 사진"이 들어있는 경우,
+// 항목 하나하나(receiptImage)를 각각 Storage에 업로드하고 URL로 교체한다.
+async function persistReceiptImagesInArray<T extends { id: string; receiptImage?: string }>(
+  scopeId: string,
+  items: T[] | undefined,
+  keyPrefix: string
+): Promise<T[] | undefined> {
+  if (!items || !items.length) return items;
+  return Promise.all(items.map(async (item) => ({
+    ...item,
+    receiptImage: await persistImageField(scopeId, item.receiptImage, `${keyPrefix}-${item.id}`)
+  })));
+}
+
 // 비밀번호 검증: bcrypt 해시면 정식 비교, 옛날 평문으로 저장된 계정이면 평문 비교 후
 // 성공 시 자동으로 안전한 해시로 업그레이드합니다 (기존 가입자 로그인이 끊기지 않도록).
 function verifyPassword(inputPassword: string, storedPassword?: string): boolean {
@@ -1575,6 +1589,7 @@ app.delete('/api/projects/:id', async (req, res) => {
 // 프로젝트 팔로우업 노트 관리
 app.post('/api/projects/:id/followups', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const idx = dbData.projects.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Project not found' });
   
@@ -1594,20 +1609,27 @@ app.post('/api/projects/:id/followups', async (req, res) => {
     attachments: req.body.attachments || [],
     expenses: req.body.expenses || []
   };
+  // [수정] 미팅 지출 영수증 사진들을 Storage에 업로드 후 URL로 교체
+  f.expenses = await persistReceiptImagesInArray(scopeId, f.expenses, `followup-${f.id}`);
   dbData.projects[idx].followUps.unshift(f);
-  await setScopedDoc((req as any).scopeId, 'projects', dbData.projects[idx]);
+  await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
   res.status(201).json(dbData.projects[idx]);
 });
 
 app.put('/api/projects/:id/followups/:fid', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const idx = dbData.projects.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Project not found' });
   
   const fIdx = dbData.projects[idx].followUps.findIndex(f => f.id === req.params.fid);
   if (fIdx !== -1) {
-    dbData.projects[idx].followUps[fIdx] = { ...dbData.projects[idx].followUps[fIdx], ...req.body };
-    await setScopedDoc((req as any).scopeId, 'projects', dbData.projects[idx]);
+    const updatedFollowUp = { ...dbData.projects[idx].followUps[fIdx], ...req.body };
+    if (req.body.expenses) {
+      updatedFollowUp.expenses = await persistReceiptImagesInArray(scopeId, updatedFollowUp.expenses, `followup-${req.params.fid}`);
+    }
+    dbData.projects[idx].followUps[fIdx] = updatedFollowUp;
+    await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
   }
   res.json(dbData.projects[idx]);
 });
@@ -1715,12 +1737,14 @@ app.get('/api/vehicles/expenses', (req, res) => {
 
 app.post('/api/vehicles/expenses', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const exp: VehicleExpense = req.body;
   if (!exp.id) exp.id = `exp-${Date.now()}`;
   if (!exp.createdAt) exp.createdAt = new Date().toISOString();
+  exp.receiptImage = await persistImageField(scopeId, exp.receiptImage, `vehicle-expense-${exp.id}`);
   
   dbData.expenses.unshift(exp);
-  await setScopedDoc((req as any).scopeId, 'expenses', exp);
+  await setScopedDoc(scopeId, 'expenses', exp);
   res.status(201).json(exp);
 });
 
@@ -1739,22 +1763,27 @@ app.get('/api/vehicles/maintenances', (req, res) => {
 
 app.post('/api/vehicles/maintenances', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const maint: VehicleMaintenance = req.body;
   if (!maint.id) maint.id = `maint-${Date.now()}`;
   if (!maint.createdAt) maint.createdAt = new Date().toISOString();
+  maint.receiptImage = await persistImageField(scopeId, maint.receiptImage, `vehicle-maint-${maint.id}`);
   
   dbData.maintenances.unshift(maint);
-  await setScopedDoc((req as any).scopeId, 'maintenances', maint);
+  await setScopedDoc(scopeId, 'maintenances', maint);
   res.status(201).json(maint);
 });
 
 app.put('/api/vehicles/maintenances/:id', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const idx = dbData.maintenances.findIndex(m => m.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Maintenance not found' });
   
-  dbData.maintenances[idx] = { ...dbData.maintenances[idx], ...req.body };
-  await setScopedDoc((req as any).scopeId, 'maintenances', dbData.maintenances[idx]);
+  const updated = { ...dbData.maintenances[idx], ...req.body };
+  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-maint-${updated.id}`);
+  dbData.maintenances[idx] = updated;
+  await setScopedDoc(scopeId, 'maintenances', dbData.maintenances[idx]);
   res.json(dbData.maintenances[idx]);
 });
 
@@ -1791,10 +1820,13 @@ app.put('/api/vehicles/driving/:id', async (req, res) => {
 // === 지출비용 수정 API ===
 app.put('/api/vehicles/expenses/:id', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const idx = dbData.expenses.findIndex(e => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Expense not found' });
-  dbData.expenses[idx] = { ...dbData.expenses[idx], ...req.body };
-  await setScopedDoc((req as any).scopeId, 'expenses', dbData.expenses[idx]);
+  const updated = { ...dbData.expenses[idx], ...req.body };
+  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-expense-${updated.id}`);
+  dbData.expenses[idx] = updated;
+  await setScopedDoc(scopeId, 'expenses', dbData.expenses[idx]);
   res.json(dbData.expenses[idx]);
 });
 
@@ -1910,6 +1942,9 @@ function syncWorkLogExpenses(dbData: any, logId: string, logDate: string, logTit
       amount: Number(expense.amount) || 0,
       memo: memoContent.trim(),
       payMethod: payMethod,
+      // [수정] 업무일지 지출 쪽에서 이미 Storage에 업로드된 영수증 URL을 그대로 같이 넘겨서,
+      // 연동된 차량 비용 화면에서도 같은 영수증 사진을 볼 수 있게 한다.
+      receiptImage: expense.receiptImage,
       createdAt: new Date().toISOString()
     });
   });
@@ -1929,6 +1964,10 @@ app.post('/api/worklogs/daily', async (req, res) => {
   if (!log.createdAt) log.createdAt = new Date().toISOString();
   if (!log.projectIds) log.projectIds = [];
   if (!log.contactIds) log.contactIds = [];
+
+  // [수정] 지출 영수증 사진들을 Storage에 업로드 후 URL로 교체 (차량비용 연동 동기화보다 먼저 해야
+  // 동기화되는 차량 지출 항목에도 URL이 반영된다)
+  log.expenses = await persistReceiptImagesInArray(scopeId, log.expenses, `worklog-daily-${log.id}`);
   
   // 비용 항목 연동 동기화
   syncWorkLogExpenses(dbData, log.id, log.date, log.title, log.expenses);
@@ -1951,6 +1990,7 @@ app.put('/api/worklogs/daily/:id', async (req, res) => {
   
   const original = dbData.dailyLogs[idx];
   const updated = { ...original, ...req.body };
+  updated.expenses = await persistReceiptImagesInArray(scopeId, updated.expenses, `worklog-daily-${req.params.id}`);
   dbData.dailyLogs[idx] = updated;
 
   // 비용 항목 연동 동기화
@@ -1995,6 +2035,9 @@ app.post('/api/worklogs/weekly', async (req, res) => {
   if (!log.projectIds) log.projectIds = [];
   if (!log.contactIds) log.contactIds = [];
 
+  // [수정] 지출 영수증 사진들을 Storage에 업로드 후 URL로 교체
+  log.expenses = await persistReceiptImagesInArray(scopeId, log.expenses, `worklog-weekly-${log.id}`);
+
   // 비용 항목 연동 동기화 (주간은 시작일을 지출일자로 연동)
   syncWorkLogExpenses(dbData, log.id, log.startDate, log.title, log.expenses);
 
@@ -2016,6 +2059,7 @@ app.put('/api/worklogs/weekly/:id', async (req, res) => {
   
   const original = dbData.weeklyLogs[idx];
   const updated = { ...original, ...req.body };
+  updated.expenses = await persistReceiptImagesInArray(scopeId, updated.expenses, `worklog-weekly-${req.params.id}`);
   dbData.weeklyLogs[idx] = updated;
 
   // 비용 항목 연동 동기화 (주간은 시작일을 지출일자로 연동)
