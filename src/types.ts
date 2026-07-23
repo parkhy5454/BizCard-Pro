@@ -92,6 +92,7 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
+  salesRep?: string;           // 영업자(담당자) - 이 프로젝트를 등록/담당하는 내부 영업 담당자 (기본값: 등록자 본인)
   developer?: string;          // 시행사(발주처)
   contractor?: string;         // 시공사
   architect?: string;          // 건축설계사
