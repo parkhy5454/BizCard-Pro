@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -2150,6 +2150,72 @@ async function sendApprovalRequestEmail(opts: {
     console.error(`[mailer] ${opts.toEmail}에게 이메일 발송 실패:`, err);
   }
 }
+
+// ------------------------------------------------------------------
+// 💬 전체 문의하기 (Feedback) — 명함뿐 아니라 앱 전체 어디서나 접수 가능
+// 회사별로 나뉘지 않고 개발자(운영자)에게 전부 모이도록, 고정된 전역 스코프에 저장한다.
+// ------------------------------------------------------------------
+const GLOBAL_FEEDBACK_SCOPE = '__global_feedback__';
+
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { category, content, pageContext } = req.body;
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ error: '문의 내용을 입력해주세요.' });
+    }
+
+    const userId = req.headers['x-user-id'] as string;
+    const user = users.find(u => u.id === userId);
+
+    const item: FeedbackItem = {
+      id: `fb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      category: (['bug', 'feature', 'other'].includes(category) ? category : 'other'),
+      content: String(content).trim(),
+      authorName: user?.name,
+      authorEmail: user?.email,
+      companyName: user?.companyName,
+      pageContext: pageContext || undefined,
+      status: 'new',
+      createdAt: new Date().toISOString()
+    };
+
+    await setScopedDoc(GLOBAL_FEEDBACK_SCOPE, 'feedback', item);
+    res.status(201).json({ success: true });
+
+    // 이메일 알림은 실패해도 사용자 응답에는 영향 없도록 응답을 먼저 보낸 뒤 처리(fire-and-forget)
+    if (mailTransporter) {
+      const categoryLabel = item.category === 'bug' ? '🐞 버그 신고' : item.category === 'feature' ? '💡 기능 제안' : '✉️ 기타 문의';
+      mailTransporter.sendMail({
+        from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
+        to: SMTP_USER,
+        subject: `[BizCard Pro 문의] ${categoryLabel} - ${item.authorName || '익명'}`,
+        html: `
+          <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
+            <h2 style="margin-bottom:4px;">${categoryLabel}</h2>
+            <p style="color:#555;">작성자: ${item.authorName || '알 수 없음'} (${item.authorEmail || '-'})</p>
+            <p style="color:#555;">소속: ${item.companyName || '개인 계정'}</p>
+            <p style="color:#555;">접수 화면: ${item.pageContext || '-'}</p>
+            <div style="margin-top:16px; padding:16px; background:#f8fafc; border-radius:8px; white-space:pre-wrap; font-size:14px;">${String(item.content).replace(/</g, '&lt;')}</div>
+          </div>
+        `
+      }).then(() => {
+        console.log('[mailer] 문의 접수 알림 메일 발송 완료');
+      }).catch((err: any) => {
+        console.error('[mailer] 문의 접수 알림 메일 발송 실패:', err);
+      });
+    }
+  } catch (err: any) {
+    console.error('Feedback submit error:', err);
+    if (!res.headersSent) res.status(500).json({ error: '문의 접수 중 오류가 발생했습니다.' });
+  }
+});
+
+// 접수된 문의 목록 조회 (지금은 전용 관리 화면이 없어 이메일로만 확인하는 구조이지만,
+// 나중에 관리자용 문의함 화면을 만들 경우를 대비해 조회 API도 열어둔다)
+app.get('/api/feedback', async (req, res) => {
+  const list = await getScopedCollection<FeedbackItem>(GLOBAL_FEEDBACK_SCOPE, 'feedback');
+  res.json(list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
+});
 
 // 결재라인에서 아직 서명(date)되지 않은 첫 번째 단계 = 다음 결재 대기자
 function getNextPendingApprover(approvalLine: ApprovalStep[] = []): ApprovalStep | undefined {
