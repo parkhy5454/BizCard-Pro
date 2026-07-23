@@ -38,7 +38,12 @@ export const supabase: SupabaseClient = createClient(
 // (사전 준비: Supabase 대시보드 → Storage에서 "card-images"라는 이름의 Public 버킷을 만들어둬야 함)
 const CARD_IMAGES_BUCKET = 'card-images';
 
-export async function uploadDataUrlImage(scopeId: string, dataUrl: string, keyHint: string): Promise<string | null> {
+export async function uploadDataUrlImage(
+  scopeId: string,
+  dataUrl: string,
+  keyHint: string,
+  category: 'cards' | 'receipts' = 'cards'
+): Promise<string | null> {
   if (!isSupabaseConfigured) return null;
   const match = dataUrl.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
   if (!match) return null;
@@ -47,7 +52,8 @@ export async function uploadDataUrlImage(scopeId: string, dataUrl: string, keyHi
   const ext = extFromMime === 'jpeg' ? 'jpg' : extFromMime;
   const safeScopeId = scopeId.replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeKeyHint = keyHint.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filePath = `${safeScopeId}/${safeKeyHint}-${Date.now()}.${ext}`;
+  // [수정] 같은 버킷 안에서 명함 사진(cards)과 영수증 사진(receipts)을 폴더로 분리해서 저장
+  const filePath = `${category}/${safeScopeId}/${safeKeyHint}-${Date.now()}.${ext}`;
 
   try {
     const buffer = Buffer.from(base64Data, 'base64');
