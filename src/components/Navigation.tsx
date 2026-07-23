@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2 } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer } from 'lucide-react';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
@@ -14,6 +14,9 @@ interface Props {
   onOpenShareMyCardModal: () => void;
   onOpenUserDirectory: () => void;
   onOpenNewProject?: () => void;
+  // [수정] "새 프로젝트 등록" 옆에 붙는 전체 프로젝트 엑셀/PDF 다운로드 버튼용 콜백
+  onExportProjectsExcel?: () => void;
+  onOpenProjectsPrintPreview?: () => void;
   totalContactsCount: number;
   projectFilterStatus?: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed';
   setProjectFilterStatus?: (status: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed') => void;
@@ -34,6 +37,8 @@ export const Navigation: React.FC<Props> = ({
   onOpenShareMyCardModal,
   onOpenUserDirectory,
   onOpenNewProject = () => {},
+  onExportProjectsExcel = () => {},
+  onOpenProjectsPrintPreview = () => {},
   totalContactsCount,
   projectFilterStatus = 'all',
   setProjectFilterStatus = (_st) => {},
@@ -360,6 +365,21 @@ export const Navigation: React.FC<Props> = ({
               >
                 <Briefcase className="w-4 h-4" />
                 <span>새 프로젝트 등록</span>
+              </button>
+              {/* [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하는 버튼 (새 프로젝트 등록 바로 옆) */}
+              <button
+                onClick={onExportProjectsExcel}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm shadow-md shadow-emerald-600/25 transition-all active:scale-95"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>엑셀 다운로드</span>
+              </button>
+              <button
+                onClick={onOpenProjectsPrintPreview}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 text-xs sm:text-sm shadow-md transition-all active:scale-95"
+              >
+                <Printer className="w-4 h-4 text-indigo-400" />
+                <span>PDF 인쇄 / 다운로드</span>
               </button>
             </div>
           )}

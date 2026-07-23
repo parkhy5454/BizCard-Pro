@@ -16,6 +16,10 @@ interface Props {
   setFilterStatus: (status: 'all' | Project['status']) => void;
   currentUser?: import('../types.js').User | null;
   triggerNewProject?: number;
+  // [수정] "새 프로젝트 등록" 버튼과 같은 위치(Navigation 상단바)에서 엑셀/PDF 버튼을 눌렀을 때
+  // 신호를 받기 위한 트리거. triggerNewProject와 동일한 방식(숫자가 바뀔 때마다 실행)이다.
+  triggerExcelExport?: number;
+  triggerPrintPreview?: number;
 }
 
 export const ProjectsView: React.FC<Props> = ({ 
@@ -26,7 +30,9 @@ export const ProjectsView: React.FC<Props> = ({
   filterStatus,
   setFilterStatus,
   currentUser,
-  triggerNewProject
+  triggerNewProject,
+  triggerExcelExport,
+  triggerPrintPreview
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1079,6 +1085,16 @@ export const ProjectsView: React.FC<Props> = ({
     document.body.removeChild(link);
   };
 
+  // [수정] "새 프로젝트 등록"과 같은 위치(Navigation 상단바)의 엑셀/PDF 버튼에서 신호가 오면 실행
+  useEffect(() => {
+    if (triggerExcelExport) handleExportProjectsExcel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerExcelExport]);
+
+  useEffect(() => {
+    if (triggerPrintPreview) setShowProjectsPrintPreview(true);
+  }, [triggerPrintPreview]);
+
   return (
     <div className="space-y-3 animate-fadeIn max-w-6xl mx-auto">
       
@@ -1151,26 +1167,6 @@ export const ProjectsView: React.FC<Props> = ({
         onTouchEnd={handleTouchEnd}
         className="touch-pan-y space-y-4"
       >
-        {/* [수정] 전체 프로젝트 엑셀/PDF 다운로드 (현재 상태 필터/검색 결과 기준) */}
-        <div className="max-w-md mx-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExportProjectsExcel}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>엑셀 다운로드</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowProjectsPrintPreview(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>PDF 인쇄 / 다운로드</span>
-          </button>
-        </div>
-
         {/* 프로젝트 검색 */}
         <div className="max-w-md mx-auto relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
