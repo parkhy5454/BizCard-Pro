@@ -95,6 +95,7 @@ export interface Project {
   developer?: string;          // 시행사(발주처)
   contractor?: string;         // 시공사
   architect?: string;          // 건축설계사
+  interiorDesigner?: string;   // 인테리어설계사
   electricalDesigner?: string; // 전기설계사
   mechanicalDesigner?: string; // 기계설계사
   supervisor?: string;         // 감리사
