@@ -757,10 +757,15 @@ function assignCoords(address: string): { lat: number; lng: number } {
 // Supabase Storage에 실제 파일로 올리고, DB에는 그 파일 주소(URL)만 저장한다.
 // 이미 URL이거나(재사용) 값이 없으면 그대로 둔다. 업로드가 실패해도 예전처럼
 // base64를 그대로 저장해서(안전장치) 최소한 사진 자체는 안 깨지게 한다.
-async function persistImageField(scopeId: string, value: string | undefined, keyHint: string): Promise<string | undefined> {
+async function persistImageField(
+  scopeId: string,
+  value: string | undefined,
+  keyHint: string,
+  category: 'cards' | 'receipts' = 'cards'
+): Promise<string | undefined> {
   if (!value || !value.startsWith('data:image/')) return value;
   try {
-    const url = await uploadDataUrlImage(scopeId, value, keyHint);
+    const url = await uploadDataUrlImage(scopeId, value, keyHint, category);
     return url || value;
   } catch (err) {
     console.error(`persistImageField(${keyHint}) 실패, base64를 그대로 저장합니다:`, err);
@@ -769,7 +774,7 @@ async function persistImageField(scopeId: string, value: string | undefined, key
 }
 
 // [수정] 미팅 지출/업무일지 지출처럼 "배열 안에 여러 영수증 사진"이 들어있는 경우,
-// 항목 하나하나(receiptImage)를 각각 Storage에 업로드하고 URL로 교체한다.
+// 항목 하나하나(receiptImage)를 각각 Storage의 receipts 폴더에 업로드하고 URL로 교체한다.
 async function persistReceiptImagesInArray<T extends { id: string; receiptImage?: string }>(
   scopeId: string,
   items: T[] | undefined,
@@ -778,7 +783,7 @@ async function persistReceiptImagesInArray<T extends { id: string; receiptImage?
   if (!items || !items.length) return items;
   return Promise.all(items.map(async (item) => ({
     ...item,
-    receiptImage: await persistImageField(scopeId, item.receiptImage, `${keyPrefix}-${item.id}`)
+    receiptImage: await persistImageField(scopeId, item.receiptImage, `${keyPrefix}-${item.id}`, 'receipts')
   })));
 }
 
@@ -1741,7 +1746,7 @@ app.post('/api/vehicles/expenses', async (req, res) => {
   const exp: VehicleExpense = req.body;
   if (!exp.id) exp.id = `exp-${Date.now()}`;
   if (!exp.createdAt) exp.createdAt = new Date().toISOString();
-  exp.receiptImage = await persistImageField(scopeId, exp.receiptImage, `vehicle-expense-${exp.id}`);
+  exp.receiptImage = await persistImageField(scopeId, exp.receiptImage, `vehicle-expense-${exp.id}`, 'receipts');
   
   dbData.expenses.unshift(exp);
   await setScopedDoc(scopeId, 'expenses', exp);
@@ -1767,7 +1772,7 @@ app.post('/api/vehicles/maintenances', async (req, res) => {
   const maint: VehicleMaintenance = req.body;
   if (!maint.id) maint.id = `maint-${Date.now()}`;
   if (!maint.createdAt) maint.createdAt = new Date().toISOString();
-  maint.receiptImage = await persistImageField(scopeId, maint.receiptImage, `vehicle-maint-${maint.id}`);
+  maint.receiptImage = await persistImageField(scopeId, maint.receiptImage, `vehicle-maint-${maint.id}`, 'receipts');
   
   dbData.maintenances.unshift(maint);
   await setScopedDoc(scopeId, 'maintenances', maint);
@@ -1781,7 +1786,7 @@ app.put('/api/vehicles/maintenances/:id', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Maintenance not found' });
   
   const updated = { ...dbData.maintenances[idx], ...req.body };
-  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-maint-${updated.id}`);
+  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-maint-${updated.id}`, 'receipts');
   dbData.maintenances[idx] = updated;
   await setScopedDoc(scopeId, 'maintenances', dbData.maintenances[idx]);
   res.json(dbData.maintenances[idx]);
@@ -1824,7 +1829,7 @@ app.put('/api/vehicles/expenses/:id', async (req, res) => {
   const idx = dbData.expenses.findIndex(e => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Expense not found' });
   const updated = { ...dbData.expenses[idx], ...req.body };
-  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-expense-${updated.id}`);
+  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-expense-${updated.id}`, 'receipts');
   dbData.expenses[idx] = updated;
   await setScopedDoc(scopeId, 'expenses', dbData.expenses[idx]);
   res.json(dbData.expenses[idx]);
