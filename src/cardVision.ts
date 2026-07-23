@@ -46,6 +46,45 @@ export function loadOpenCv(): Promise<any> {
     return cv;
   };
 
+  // [수정] npm 패키지 방식(ES 모듈 동적 import)이 특정 브라우저/네트워크 환경에서 반복적으로
+  // 실패하는 경우를 대비해, 완전히 다른 방식(공식 OpenCV.js CDN을 <script> 태그로 직접 삽입)으로
+  // 한 번 더 시도하는 최후의 수단을 추가한다. 두 경로 모두 실패해야만 진짜로 실패로 처리된다.
+  const attemptLoadFromCdn = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const w2 = window as any;
+      if (w2.cv && w2.cv.Mat) { resolve(w2.cv); return; }
+
+      const existing = document.getElementById('opencv-cdn-fallback-script') as HTMLScriptElement | null;
+      if (existing) {
+        // 이미 스크립트 태그가 붙어있다면(이전 시도 잔재) 초기화 완료를 폴링으로 기다린다
+        const started = Date.now();
+        const check = () => {
+          if (w2.cv && w2.cv.Mat) { resolve(w2.cv); return; }
+          if (Date.now() - started > 20000) { reject(new Error('CDN 폴백에서 OpenCV.js 초기화 시간 초과')); return; }
+          window.setTimeout(check, 250);
+        };
+        check();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'opencv-cdn-fallback-script';
+      script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
+      script.async = true;
+      script.onload = () => {
+        const w3 = window as any;
+        if (w3.cv && w3.cv.Mat) { resolve(w3.cv); return; }
+        if (w3.cv) {
+          w3.cv.onRuntimeInitialized = () => resolve(w3.cv);
+        } else {
+          reject(new Error('CDN 스크립트는 로드됐지만 cv 객체를 찾지 못했습니다.'));
+        }
+      };
+      script.onerror = () => reject(new Error('CDN에서 OpenCV.js 스크립트 로딩 자체에 실패했습니다.'));
+      document.head.appendChild(script);
+    });
+  };
+
   const withTimeout = (task: Promise<any>, ms: number) => Promise.race([
     task,
     new Promise<never>((_, reject) => {
@@ -58,7 +97,12 @@ export function loadOpenCv(): Promise<any> {
       return await withTimeout(attemptLoad(), 18000);
     } catch (firstErr) {
       console.warn('OpenCV.js 1차 로딩 실패, 한 번 더 시도합니다:', firstErr);
-      return await withTimeout(attemptLoad(), 22000);
+      try {
+        return await withTimeout(attemptLoad(), 22000);
+      } catch (secondErr) {
+        console.warn('OpenCV.js 2차 로딩(같은 방식)도 실패, CDN 폴백으로 마지막 시도합니다:', secondErr);
+        return await withTimeout(attemptLoadFromCdn(), 25000);
+      }
     }
   };
 
