@@ -1058,13 +1058,18 @@ export const ProjectsView: React.FC<Props> = ({
 
   // [수정] 전체 프로젝트 목록을 엑셀(.xls)로 다운로드. 현재 화면에 적용된 상태 필터/검색어를 그대로 반영한다.
   const STATUS_LABEL_KO: Record<Project['status'], string> = { opportunity: '기회', progress: '진행', completed: '완료', failed: '실패' };
+  // [수정] 출력 양식(엑셀/화면표/PDF)에서 예산이 숫자로만 되어 있으면 천단위 콤마를 붙여서 보여준다 (카드에서 쓰던 방식과 동일)
+  const formatBudgetDisplay = (budget?: string): string => {
+    if (!budget) return '-';
+    return /^\d+$/.test(budget) ? `${formatCurrencyInput(budget)}원` : budget;
+  };
   const PRIORITY_LABEL_KO: Record<Project['priority'], string> = { high: '높음', medium: '보통', low: '낮음' };
 
   const handleExportProjectsExcel = () => {
     const esc = (v: any) => (v === null || v === undefined ? '' : String(v)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '등록일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사'];
     const rows = filteredProjects.map(p => [
-      p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', p.budget || '',
+      p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', formatBudgetDisplay(p.budget),
       p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
       p.mechanicalDesigner || '', p.supervisor || '', p.operator || ''
     ]);
@@ -1242,7 +1247,7 @@ export const ProjectsView: React.FC<Props> = ({
                         <td className="px-3 py-2.5">{STATUS_LABEL_KO[p.status]}</td>
                         <td className="px-3 py-2.5">{PRIORITY_LABEL_KO[p.priority]}</td>
                         <td className="px-3 py-2.5 font-mono">{p.dueDate}</td>
-                        <td className="px-3 py-2.5">{p.budget || '-'}</td>
+                        <td className="px-3 py-2.5">{formatBudgetDisplay(p.budget)}</td>
                         <td className="px-3 py-2.5">{p.developer || '-'}</td>
                         <td className="px-3 py-2.5">{p.contractor || '-'}</td>
                         <td className="px-3 py-2.5">{p.architect || '-'}</td>
@@ -2823,7 +2828,7 @@ export const ProjectsView: React.FC<Props> = ({
                         <td className="border border-black px-1.5 py-1.5 text-center">{STATUS_LABEL_KO[p.status]}</td>
                         <td className="border border-black px-1.5 py-1.5 text-center">{PRIORITY_LABEL_KO[p.priority]}</td>
                         <td className="border border-black px-1.5 py-1.5 text-center">{p.dueDate}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-right">{p.budget || '-'}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-right">{formatBudgetDisplay(p.budget)}</td>
                         <td className="border border-black px-1.5 py-1.5">{p.developer || '-'}</td>
                         <td className="border border-black px-1.5 py-1.5">{p.contractor || '-'}</td>
                         <td className="border border-black px-1.5 py-1.5">{p.architect || '-'}</td>
