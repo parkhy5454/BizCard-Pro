@@ -387,3 +387,20 @@ export interface WeeklyWorkLog {
   expenses?: WorkLogExpense[]; // 비용 추가 항목 리스트
   createdAt: string;
 }
+
+// === 전체 문의하기 (Feedback) ===
+// [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 문의. 회사별로 나뉘지 않고
+// 개발자(운영자)에게 전부 모이는 전역 데이터라서, 다른 데이터처럼 회사 스코프로 나누지 않는다.
+export type FeedbackCategory = 'bug' | 'feature' | 'other';
+
+export interface FeedbackItem {
+  id: string;
+  category: FeedbackCategory;
+  content: string;
+  authorName?: string;      // 작성자 이름 (로그인 정보 자동 기입)
+  authorEmail?: string;      // 작성자 이메일
+  companyName?: string;      // 작성자 소속 회사명 (개인 계정이면 비어있음)
+  pageContext?: string;      // 문의를 남긴 시점의 화면(탭) - 어디서 접수됐는지 참고용
+  status: 'new' | 'in_progress' | 'resolved';
+  createdAt: string;
+}
