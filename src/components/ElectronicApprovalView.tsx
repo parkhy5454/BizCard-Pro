@@ -325,6 +325,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const [leaveList, setLeaveList] = useState<LeaveRequest[]>([]);
   const [myProfile, setMyProfile] = useState<any>(null);
   const [companyPositions, setCompanyPositions] = useState<string[]>([]);
+  // [수정] 회사마다 결재 단계/직책명이 다를 수 있어, 서버에 저장된 "우리 회사 기본 결재선"을 불러와 사용한다.
+  // 저장된 게 없으면 null로 남아있고, 이 경우에만 내장된 예시 기본값을 쓴다.
+  const [companyApprovalTemplate, setCompanyApprovalTemplate] = useState<{ advance: ApprovalStep[] | null; leave: ApprovalStep[] | null }>({ advance: null, leave: null });
   const [loading, setLoading] = useState<boolean>(true);
 
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
@@ -390,6 +393,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     fetchAll();
     fetchMyProfile();
     fetchCompanyPositions();
+    fetchApprovalLineTemplate();
   }, [currentUser]);
 
   // 총 연차 일수가 입력되어 있으면, 휴가 구분과 무관하게 같은 해에 그 사람이 이미 사용한 휴가일수
@@ -447,6 +451,47 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
+  // [수정] 회사(스코프) 단위로 저장된 기본 결재선을 불러온다. (여러 회사가 함께 쓰는 서비스이므로,
+  // "경영지원실장/기술이사/대표이사" 같은 특정 회사의 직책이 모두에게 강제되지 않도록 회사별로 다르게 저장 가능하게 함)
+  const fetchApprovalLineTemplate = async () => {
+    try {
+      const headers = currentUser ? { 'x-user-id': currentUser.id } : undefined;
+      const res = await fetch('/api/approval-line-templates', { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      setCompanyApprovalTemplate({
+        advance: (data.advance && data.advance.length) ? data.advance : null,
+        leave: (data.leave && data.leave.length) ? data.leave : null
+      });
+    } catch (err) {
+      console.error('Approval line template fetch error:', err);
+    }
+  };
+
+  // 현재 편집 중인 결재선을 "우리 회사 기본값"으로 저장 (다음부터 새 문서 작성 시 자동으로 채워짐)
+  const saveApprovalLineAsCompanyDefault = async (kind: 'advance' | 'leave', line: ApprovalStep[]) => {
+    const cleanedLine = line.map(s => ({ role: s.role })); // 이름/날짜는 템플릿에 저장하지 않고 직책만
+    const nextTemplate = { ...companyApprovalTemplate, [kind]: cleanedLine };
+    try {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (currentUser) headers['x-user-id'] = currentUser.id;
+      const res = await fetch('/api/approval-line-templates', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(nextTemplate)
+      });
+      if (res.ok) {
+        setCompanyApprovalTemplate(nextTemplate as any);
+        alert('현재 결재선을 우리 회사 기본값으로 저장했습니다. 다음부터 새 문서 작성 시 자동으로 채워집니다.');
+      } else {
+        alert('저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } catch (err) {
+      console.error('Approval line template save error:', err);
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  };
+
   const fetchAll = async () => {
     setLoading(true);
     try {
@@ -472,7 +517,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setApAuthor(myProfile?.name || currentUser?.name || '');
     setApDraftDate(todayStr());
     setApItems([]);
-    setApApprovalLine(defaultAdvanceApprovalLine());
+    setApApprovalLine((companyApprovalTemplate.advance && companyApprovalTemplate.advance.length) ? companyApprovalTemplate.advance : defaultAdvanceApprovalLine());
     setEditingAdvanceId(null);
     setItemPickerForId(null);
   };
@@ -500,7 +545,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setLvMobileContact(myProfile?.phoneMobile || '');
     setLvActingPerson('');
     setLvSubmittedDate(todayStr());
-    setLvApprovalLine(defaultLeaveApprovalLine());
+    setLvApprovalLine((companyApprovalTemplate.leave && companyApprovalTemplate.leave.length) ? companyApprovalTemplate.leave : defaultLeaveApprovalLine());
     setEditingLeaveId(null);
   };
 
@@ -515,7 +560,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setApAuthor(doc.author);
     setApDraftDate(doc.draftDate);
     setApItems(doc.items || []);
-    setApApprovalLine(doc.approvalLine && doc.approvalLine.length ? doc.approvalLine : defaultAdvanceApprovalLine());
+    setApApprovalLine(doc.approvalLine && doc.approvalLine.length ? doc.approvalLine : ((companyApprovalTemplate.advance && companyApprovalTemplate.advance.length) ? companyApprovalTemplate.advance : defaultAdvanceApprovalLine()));
     setIsAdvanceModalOpen(true);
   };
 
@@ -542,7 +587,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setLvMobileContact(doc.mobileContact || '');
     setLvActingPerson(doc.actingPerson || '');
     setLvSubmittedDate(doc.submittedDate);
-    setLvApprovalLine(doc.approvalLine && doc.approvalLine.length ? doc.approvalLine : defaultLeaveApprovalLine());
+    setLvApprovalLine(doc.approvalLine && doc.approvalLine.length ? doc.approvalLine : ((companyApprovalTemplate.leave && companyApprovalTemplate.leave.length) ? companyApprovalTemplate.leave : defaultLeaveApprovalLine()));
     setIsLeaveModalOpen(true);
   };
 
@@ -1241,15 +1286,45 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     </div>
   );
 
-  const ApprovalLineEditor: React.FC<{ line: ApprovalStep[]; setLine: (v: ApprovalStep[]) => void }> = ({ line, setLine }) => (
+  const ApprovalLineEditor: React.FC<{ line: ApprovalStep[]; setLine: (v: ApprovalStep[]) => void; kind: 'advance' | 'leave' }> = ({ line, setLine, kind }) => (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-slate-300">결재선</label>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-xs font-bold text-slate-300">결재선</label>
+        <button
+          type="button"
+          onClick={() => saveApprovalLineAsCompanyDefault(kind, line)}
+          className="text-[10px] px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
+        >
+          우리 회사 기본값으로 저장
+        </button>
+      </div>
+      {/* [수정] 회사마다 결재 단계 수가 다를 수 있어 4단계 고정 그리드 대신, 자유롭게 추가/삭제 가능한 구조로 변경 */}
+      <div className="flex flex-wrap gap-2">
         {line.map((step, idx) => (
-          <input key={idx} type="text" value={step.role} placeholder={`결재${idx + 1}`} list="company-positions-datalist"
-            onChange={(e) => setLine(line.map((s, i) => i === idx ? { ...s, role: e.target.value } : s))}
-            className="px-2 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div key={idx} className="flex items-center gap-1">
+            <input type="text" value={step.role} placeholder={`결재${idx + 1}`} list="company-positions-datalist"
+              onChange={(e) => setLine(line.map((s, i) => i === idx ? { ...s, role: e.target.value } : s))}
+              className="w-24 px-2 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            {line.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setLine(line.filter((_, i) => i !== idx))}
+                className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+                title="이 단계 삭제"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         ))}
+        <button
+          type="button"
+          onClick={() => setLine([...line, { role: '' }])}
+          className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-slate-700 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50 text-xs font-semibold transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>단계 추가</span>
+        </button>
       </div>
       {companyPositions.length > 0 && (
         <datalist id="company-positions-datalist">
@@ -1258,6 +1333,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       )}
       <p className="text-[10px] text-slate-500">
         여기 적는 직책이 회원가입 시 등록한 직책과 정확히 일치해야 결재 요청 이메일이 그 사람에게 자동으로 전달됩니다.
+        "우리 회사 기본값으로 저장"을 누르면 다음부터 새 문서 작성 시 이 결재선이 자동으로 채워집니다.
       </p>
     </div>
   );
@@ -1455,7 +1531,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div className="p-6 space-y-4">
-              <ApprovalLineEditor line={apApprovalLine} setLine={setApApprovalLine} />
+              <ApprovalLineEditor line={apApprovalLine} setLine={setApApprovalLine} kind="advance" />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -1692,7 +1768,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             <div className="p-6 space-y-4">
-              <ApprovalLineEditor line={lvApprovalLine} setLine={setLvApprovalLine} />
+              <ApprovalLineEditor line={lvApprovalLine} setLine={setLvApprovalLine} kind="leave" />
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300">기안번호</label>
