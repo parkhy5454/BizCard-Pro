@@ -20,6 +20,8 @@ interface Props {
   // 신호를 받기 위한 트리거. triggerNewProject와 동일한 방식(숫자가 바뀔 때마다 실행)이다.
   triggerExcelExport?: number;
   triggerPrintPreview?: number;
+  // [수정] "리스트 출력" 탭이 켜져 있으면 카드 목록 대신 표 형태의 리스트를 보여준다
+  showListOutputView?: boolean;
 }
 
 export const ProjectsView: React.FC<Props> = ({ 
@@ -32,7 +34,8 @@ export const ProjectsView: React.FC<Props> = ({
   currentUser,
   triggerNewProject,
   triggerExcelExport,
-  triggerPrintPreview
+  triggerPrintPreview,
+  showListOutputView = false
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1187,7 +1190,71 @@ export const ProjectsView: React.FC<Props> = ({
           )}
         </div>
 
-        {loading ? (
+        {showListOutputView ? (
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-200">전체 프로젝트 리스트 ({filteredProjects.length}건)</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportProjectsExcel}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>엑셀 다운로드</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProjectsPrintPreview(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>PDF 인쇄 / 다운로드</span>
+                </button>
+              </div>
+            </div>
+
+            {filteredProjects.length === 0 ? (
+              <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-16 text-center space-y-4">
+                <Briefcase className="w-12 h-12 text-slate-600 mx-auto" />
+                <h3 className="text-lg font-bold text-white">해당하는 프로젝트가 없습니다.</h3>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-800">
+                <table className="w-full text-xs text-slate-300 whitespace-nowrap">
+                  <thead className="bg-slate-900 text-slate-400">
+                    <tr>
+                      {['프로젝트명', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
+                        <th key={h} className="px-3 py-2.5 text-left font-bold border-b border-slate-800">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {filteredProjects.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
+                        <td className="px-3 py-2.5 font-semibold text-slate-100">{p.name}</td>
+                        <td className="px-3 py-2.5">{STATUS_LABEL_KO[p.status]}</td>
+                        <td className="px-3 py-2.5">{PRIORITY_LABEL_KO[p.priority]}</td>
+                        <td className="px-3 py-2.5 font-mono">{p.dueDate}</td>
+                        <td className="px-3 py-2.5">{p.budget || '-'}</td>
+                        <td className="px-3 py-2.5">{p.developer || '-'}</td>
+                        <td className="px-3 py-2.5">{p.contractor || '-'}</td>
+                        <td className="px-3 py-2.5">{p.architect || '-'}</td>
+                        <td className="px-3 py-2.5">{p.interiorDesigner || '-'}</td>
+                        <td className="px-3 py-2.5">{p.electricalDesigner || '-'}</td>
+                        <td className="px-3 py-2.5">{p.mechanicalDesigner || '-'}</td>
+                        <td className="px-3 py-2.5">{p.supervisor || '-'}</td>
+                        <td className="px-3 py-2.5">{p.operator || '-'}</td>
+                        <td className="px-3 py-2.5 text-center">{(p.contactIds || []).length}</td>
+                        <td className="px-3 py-2.5 text-center">{(p.followUps || []).length}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : loading ? (
           <div className="py-24 text-center text-slate-500 text-sm">프로젝트 히스토리 불러오는 중...</div>
         ) : (
           <AnimatePresence mode="wait" initial={false}>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText } from 'lucide-react';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
@@ -14,9 +14,11 @@ interface Props {
   onOpenShareMyCardModal: () => void;
   onOpenUserDirectory: () => void;
   onOpenNewProject?: () => void;
-  // [수정] "새 프로젝트 등록" 옆에 붙는 전체 프로젝트 엑셀/PDF 다운로드 버튼용 콜백
   onExportProjectsExcel?: () => void;
   onOpenProjectsPrintPreview?: () => void;
+  // [수정] "리스트 출력" 탭 켜짐/꺼짐 상태 및 토글 콜백
+  isProjectsListOutputActive?: boolean;
+  onToggleProjectsListOutput?: () => void;
   totalContactsCount: number;
   projectFilterStatus?: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed';
   setProjectFilterStatus?: (status: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed') => void;
@@ -39,6 +41,8 @@ export const Navigation: React.FC<Props> = ({
   onOpenNewProject = () => {},
   onExportProjectsExcel = () => {},
   onOpenProjectsPrintPreview = () => {},
+  isProjectsListOutputActive = false,
+  onToggleProjectsListOutput = () => {},
   totalContactsCount,
   projectFilterStatus = 'all',
   setProjectFilterStatus = (_st) => {},
@@ -402,6 +406,20 @@ export const Navigation: React.FC<Props> = ({
                   </>
                 )}
               </div>
+
+              {/* [수정] "리스트 출력" 탭: 누르면 카드 목록 대신 화면에 표 형태로 전체 프로젝트가 보이고,
+                  그 화면 안에서 바로 엑셀/PDF로 출력할 수 있다. 다시 누르면 원래 카드 목록으로 돌아온다. */}
+              <button
+                onClick={onToggleProjectsListOutput}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
+                  isProjectsListOutputActive
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                    : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>리스트 출력</span>
+              </button>
             </div>
           )}
 
