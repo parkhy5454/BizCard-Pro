@@ -318,6 +318,8 @@ export const ProjectsView: React.FC<Props> = ({
     if (triggerNewProject) setIsNewOpen(true);
   }, [triggerNewProject]);
   const [newName, setNewName] = useState<string>('');
+  // [수정] 영업자(담당자) - 기본값은 지금 로그인한 사람(등록자) 이름, 직접 수정 가능
+  const [newSalesRep, setNewSalesRep] = useState<string>(currentUser?.name || '');
   const [newDeveloper, setNewDeveloper] = useState<string>('');
   const [newContractor, setNewContractor] = useState<string>('');
   const [newArchitect, setNewArchitect] = useState<string>('');
@@ -399,6 +401,7 @@ export const ProjectsView: React.FC<Props> = ({
 
     const newProj: Partial<Project> = {
       name: newName,
+      salesRep: newSalesRep,
       developer: newDeveloper,
       contractor: newContractor,
       architect: newArchitect,
@@ -432,6 +435,7 @@ export const ProjectsView: React.FC<Props> = ({
 
     // 초기화
     setNewName('');
+    setNewSalesRep(currentUser?.name || '');
     setNewDeveloper('');
     setNewContractor('');
     setNewArchitect('');
@@ -1056,9 +1060,9 @@ export const ProjectsView: React.FC<Props> = ({
 
   const handleExportProjectsExcel = () => {
     const esc = (v: any) => (v === null || v === undefined ? '' : String(v)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const headers = ['프로젝트명', '상태', '우선순위', '마감일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사', '관련 명함 수', '팔로우업 건수'];
+    const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '마감일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사', '관련 명함 수', '팔로우업 건수'];
     const rows = filteredProjects.map(p => [
-      p.name, STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', p.budget || '',
+      p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', p.budget || '',
       p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
       p.mechanicalDesigner || '', p.supervisor || '', p.operator || '',
       String((p.contactIds || []).length), String((p.followUps || []).length)
@@ -1224,7 +1228,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full text-xs text-slate-300 whitespace-nowrap">
                   <thead className="bg-slate-900 text-slate-400">
                     <tr>
-                      {['프로젝트명', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
+                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
                         <th key={h} className="px-3 py-2.5 text-left font-bold border-b border-slate-800">{h}</th>
                       ))}
                     </tr>
@@ -1233,6 +1237,7 @@ export const ProjectsView: React.FC<Props> = ({
                     {filteredProjects.map((p) => (
                       <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
                         <td className="px-3 py-2.5 font-semibold text-slate-100">{p.name}</td>
+                        <td className="px-3 py-2.5 text-indigo-300 font-semibold">{p.salesRep || '-'}</td>
                         <td className="px-3 py-2.5">{STATUS_LABEL_KO[p.status]}</td>
                         <td className="px-3 py-2.5">{PRIORITY_LABEL_KO[p.priority]}</td>
                         <td className="px-3 py-2.5 font-mono">{p.dueDate}</td>
@@ -1324,6 +1329,7 @@ export const ProjectsView: React.FC<Props> = ({
                     </div>
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
+                      {proj.salesRep && <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-md font-bold">영업자: {proj.salesRep}</span>}
                       {proj.developer && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">시행: {proj.developer}</span>}
                       {proj.contractor && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">시공: {proj.contractor}</span>}
                       {proj.architect && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">건축설계: {proj.architect}</span>}
@@ -2030,6 +2036,12 @@ export const ProjectsView: React.FC<Props> = ({
                 <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 삼성전자 온디바이스 B2B 라이선스 공급 제안" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" required />
               </div>
 
+              {/* [수정] 영업자(담당자): 기본값은 등록자 본인 이름이며 직접 수정 가능 */}
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">영업자(담당자)</label>
+                <input type="text" value={newSalesRep} onChange={(e) => setNewSalesRep(e.target.value)} placeholder="예: 홍길동" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">시행사(발주처)</label>
@@ -2244,6 +2256,12 @@ export const ProjectsView: React.FC<Props> = ({
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">프로젝트 타이틀 *</label>
                 <input type="text" value={editingProject.name} onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" required />
+              </div>
+
+              {/* [수정] 영업자(담당자) 수정 가능 */}
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">영업자(담당자)</label>
+                <input type="text" value={editingProject.salesRep || ''} onChange={(e) => setEditingProject({ ...editingProject, salesRep: e.target.value })} placeholder="예: 홍길동" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2793,7 +2811,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
                   <thead>
                     <tr className="bg-gray-100">
-                      {['프로젝트명', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
+                      {['프로젝트명', '영업자', '상태', '우선순위', '마감일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사', '명함', '팔로우업'].map(h => (
                         <th key={h} className="border border-black px-1.5 py-1.5 font-bold">{h}</th>
                       ))}
                     </tr>
@@ -2802,6 +2820,7 @@ export const ProjectsView: React.FC<Props> = ({
                     {filteredProjects.map(p => (
                       <tr key={p.id}>
                         <td className="border border-black px-1.5 py-1.5 text-left">{p.name}</td>
+                        <td className="border border-black px-1.5 py-1.5 text-center">{p.salesRep || '-'}</td>
                         <td className="border border-black px-1.5 py-1.5 text-center">{STATUS_LABEL_KO[p.status]}</td>
                         <td className="border border-black px-1.5 py-1.5 text-center">{PRIORITY_LABEL_KO[p.priority]}</td>
                         <td className="border border-black px-1.5 py-1.5 text-center">{p.dueDate}</td>
@@ -2819,7 +2838,7 @@ export const ProjectsView: React.FC<Props> = ({
                       </tr>
                     ))}
                     {filteredProjects.length === 0 && (
-                      <tr><td colSpan={15} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
+                      <tr><td colSpan={16} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
                     )}
                   </tbody>
                 </table>
