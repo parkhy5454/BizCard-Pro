@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw } from 'lucide-react';
+import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2 } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
@@ -14,6 +14,36 @@ interface Props {
   initialTab?: 'info' | 'history' | 'edit';
 }
 
+// [수정] 명함 전달하기(Web Share API)에서 함께 보낼 vCard(.vcf) 텍스트 생성.
+// 명함 앞면 사진이 있으면 PHOTO 필드로 함께 담아, 상대방 연락처 앱에 저장 시 사진도 같이 들어가게 한다.
+function generateContactVCardText(contact: BusinessCard): string {
+  let photoLine = '';
+  if (contact.frontImage) {
+    const match = contact.frontImage.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (match) {
+      const [, imgType, base64Data] = match;
+      const vcardImgType = imgType.toLowerCase() === 'jpg' ? 'JPEG' : imgType.toUpperCase();
+      photoLine = `PHOTO;ENCODING=b;TYPE=${vcardImgType}:${base64Data}`;
+    }
+  }
+  return [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${contact.name}`,
+    `N:${contact.name};;;;`,
+    `ORG:${contact.company};${contact.department}`,
+    `TITLE:${contact.title}`,
+    contact.phoneMobile ? `TEL;TYPE=CELL:${contact.phoneMobile}` : '',
+    contact.phoneOffice ? `TEL;TYPE=WORK:${contact.phoneOffice}` : '',
+    contact.phoneFax ? `TEL;TYPE=FAX:${contact.phoneFax}` : '',
+    contact.email ? `EMAIL;TYPE=PREF,INTERNET:${contact.email}` : '',
+    contact.address ? `ADR;TYPE=WORK:;;${contact.address};;;;` : '',
+    contact.memo ? `NOTE:${contact.memo}` : '',
+    photoLine,
+    'END:VCARD'
+  ].filter(Boolean).join('\r\n');
+}
+
 export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
   // Hooks(useState/useRef/useEffect)는 반드시 조건 없이 매 렌더링마다 동일한 순서로 호출되어야 하므로,
   // "contact가 없으면 그리지 않는다" 처리보다 먼저 선언합니다 (React Hooks 규칙).
@@ -23,6 +53,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
   const [rescanCropTarget, setRescanCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const rescanFileInputRef = React.useRef<HTMLInputElement>(null);
   const cardSwipeStartX = React.useRef<number>(0);
+  // [수정] "전달하기" 버튼이 잠깐 "복사됨" 등으로 상태를 표시할 수 있도록
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   // 통화기록 추가 폼 상태
   const [callType, setCallType] = useState<'incoming' | 'outgoing' | 'missed'>('incoming');
@@ -107,6 +139,49 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
     setCallDuration('');
     setCallNote('');
     setIsAddingCall(false);
+  };
+
+  // [수정] 회사 사람이 아닌 외부인에게 이 명함(회사 내부에서 등록해 공유 중인 거래처 명함)을 전달하는 기능.
+  // 별도의 공개 웹링크를 만들지 않고, 휴대폰 기본 공유 시트(Web Share API)를 통해 그 자리에서
+  // 카카오톡/문자/메일/에어드롭 등 사용자가 이미 쓰는 채널로 1:1 전달하도록 한다.
+  const handleShareContact = async () => {
+    const text = [
+      `[명함 전달] ${contact.name} · ${contact.company}`,
+      `${contact.title}${contact.department ? ' | ' + contact.department : ''}`,
+      contact.phoneMobile ? `📞 ${contact.phoneMobile}` : '',
+      contact.email ? `📧 ${contact.email}` : '',
+      contact.address ? `🏢 ${contact.address}` : ''
+    ].filter(Boolean).join('\n');
+
+    try {
+      const nav = navigator as any;
+      // 1) vCard 파일까지 함께 공유 가능한 환경이면 파일로 전달 (상대방이 바로 연락처 저장 가능)
+      if (nav.canShare && typeof File !== 'undefined') {
+        try {
+          const vcardText = generateContactVCardText(contact);
+          const file = new File([vcardText], `${contact.name}.vcf`, { type: 'text/vcard' });
+          if (nav.canShare({ files: [file] })) {
+            await nav.share({ title: `${contact.name} 명함`, text, files: [file] });
+            return;
+          }
+        } catch {
+          // 파일 공유 준비 중 문제가 있으면 아래 텍스트 공유로 조용히 넘어간다
+        }
+      }
+      // 2) 파일 공유는 안 되지만 기본 공유 시트는 지원하는 환경 (텍스트만 공유)
+      if (nav.share) {
+        await nav.share({ title: `${contact.name} 명함`, text });
+        return;
+      }
+      // 3) 공유 API 자체를 지원하지 않는 환경(주로 PC 브라우저): 클립보드로 복사
+      await navigator.clipboard.writeText(text);
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2000);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('명함 전달 실패:', err);
+      }
+    }
   };
 
   const formatDate = (iso: string) => {
@@ -236,6 +311,17 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
                 <span>사무실 유선전화 연결 ({contact.phoneOffice})</span>
               </a>
             )}
+
+            {/* [수정] 외부(회사 밖) 사람에게 이 명함을 전달하는 버튼. 휴대폰 기본 공유 시트를 열어
+                카카오톡/문자/메일/에어드롭 등으로 그 자리에서 바로 보낼 수 있게 한다. */}
+            <button
+              type="button"
+              onClick={handleShareContact}
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 text-slate-200 hover:text-white font-bold text-xs transition-colors"
+            >
+              <Share2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>{shareStatus === 'copied' ? '명함 정보가 복사되었습니다!' : '이 명함 외부로 전달하기'}</span>
+            </button>
           </div>
         </div>
 
