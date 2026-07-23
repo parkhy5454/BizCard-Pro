@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 
 interface Props {
@@ -35,6 +35,21 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
   const [expandedCallsId, setExpandedCallsId] = useState<string | null>(null);
   const [expandedNavId, setExpandedNavId] = useState<string | null>(null);
   const [cardImageSide, setCardImageSide] = useState<Record<string, 'front' | 'back'>>({});
+  // [수정] 연락 뜸한 거래처 알림 배너를 닫을 수 있게: 닫으면 "오늘 하루만" 숨기고,
+  // 작은 뱃지로 흔적을 남겨서 다시 펼쳐볼 수 있게 한다. 날짜가 바뀌면 자동으로 다시 배너가 뜬다.
+  const [staleBannerDismissedDate, setStaleBannerDismissedDate] = useState<string>(() => {
+    try { return localStorage.getItem('bizcard_stale_contact_banner_dismissed_date') || ''; } catch { return ''; }
+  });
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isStaleBannerDismissed = staleBannerDismissedDate === todayStr;
+  const dismissStaleBannerForToday = () => {
+    try { localStorage.setItem('bizcard_stale_contact_banner_dismissed_date', todayStr); } catch {}
+    setStaleBannerDismissedDate(todayStr);
+  };
+  const reopenStaleBanner = () => {
+    try { localStorage.removeItem('bizcard_stale_contact_banner_dismissed_date'); } catch {}
+    setStaleBannerDismissedDate('');
+  };
   const swipeStartX = useRef<number>(0);
 
   const handleImageSwipeStart = (e: React.TouchEvent) => {
@@ -120,12 +135,34 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
 
         if (staleContacts.length === 0) return null;
 
+        // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
+        if (isStaleBannerDismissed) {
+          return (
+            <div className="max-w-3xl mx-auto flex">
+              <button
+                onClick={reopenStaleBanner}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all animate-fadeIn"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>연락 뜸한 거래처 {staleContacts.length}건</span>
+              </button>
+            </div>
+          );
+        }
+
         return (
-          <div className="bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 shadow-xl flex items-start gap-4 animate-fadeIn max-w-3xl mx-auto">
+          <div className="relative bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 shadow-xl flex items-start gap-4 animate-fadeIn max-w-3xl mx-auto">
+            <button
+              onClick={dismissStaleBannerForToday}
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-rose-300/70 hover:text-rose-200 hover:bg-rose-500/10 transition-colors"
+              title="오늘 하루 닫기"
+            >
+              <X className="w-4 h-4" />
+            </button>
             <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 shrink-0">
               <AlertTriangle className="w-5 h-5 animate-bounce" />
             </div>
-            <div className="space-y-1.5 flex-1">
+            <div className="space-y-1.5 flex-1 pr-6">
               <h4 className="text-sm font-bold text-rose-300">
                 5일 이상 연락이 뜸한 거래처가 {staleContacts.length}개 있습니다!
               </h4>
