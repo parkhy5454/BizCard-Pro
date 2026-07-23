@@ -32,6 +32,40 @@ export const supabase: SupabaseClient = createClient(
   SUPABASE_SERVICE_ROLE_KEY || 'local-development-placeholder-key'
 );
 
+// [수정] 명함 사진 등을 DB(jsonb)에 base64 텍스트로 통째로 저장하지 않고,
+// Supabase Storage(파일 저장 공간)에 실제 파일로 올린 뒤 그 주소(URL)만 DB에 저장하기 위한 함수.
+// 사용자/명함 수가 늘어나도 DB 조회 속도가 느려지지 않도록 하기 위함.
+// (사전 준비: Supabase 대시보드 → Storage에서 "card-images"라는 이름의 Public 버킷을 만들어둬야 함)
+const CARD_IMAGES_BUCKET = 'card-images';
+
+export async function uploadDataUrlImage(scopeId: string, dataUrl: string, keyHint: string): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+  const match = dataUrl.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
+  if (!match) return null;
+  const [, mime, base64Data] = match;
+  const extFromMime = mime.split('/')[1] || 'jpg';
+  const ext = extFromMime === 'jpeg' ? 'jpg' : extFromMime;
+  const safeScopeId = scopeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeKeyHint = keyHint.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filePath = `${safeScopeId}/${safeKeyHint}-${Date.now()}.${ext}`;
+
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    const { error } = await supabase.storage
+      .from(CARD_IMAGES_BUCKET)
+      .upload(filePath, buffer, { contentType: mime, upsert: true });
+    if (error) {
+      console.error(`uploadDataUrlImage(${filePath}) error:`, error);
+      return null;
+    }
+    const { data } = supabase.storage.from(CARD_IMAGES_BUCKET).getPublicUrl(filePath);
+    return data?.publicUrl || null;
+  } catch (err) {
+    console.error(`uploadDataUrlImage(${filePath}) exception:`, err);
+    return null;
+  }
+}
+
 // ------------------------------------------------------------------
 // 데이터 모델: Firestore의 scopes/{scopeId}/{collection}/{docId} 구조를
 // Postgres의 scoped_items(scope_id, collection, doc_id, data jsonb) 테이블로
