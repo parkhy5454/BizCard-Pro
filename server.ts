@@ -1391,6 +1391,25 @@ app.put('/api/my-profile', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// 🧩 회사별 결재선 기본 템플릿 (전자결재)
+// 회사마다 결재 단계/직책명이 다를 수 있어, 새 문서 작성 시 자동으로 채워질
+// "우리 회사 기본 결재선"을 회사(스코프) 단위로 저장/조회한다.
+// 저장된 템플릿이 없으면 null을 내려주고, 프론트에서 내장 기본값을 사용한다.
+// ------------------------------------------------------------------
+app.get('/api/approval-line-templates', async (req, res) => {
+  const scopeId = (req as any).scopeId;
+  const existing = await getScopedDoc<{ id: string; advance?: ApprovalStep[]; leave?: ApprovalStep[] }>(scopeId, 'approvalLineTemplates', 'default');
+  res.json(existing || { id: 'default', advance: null, leave: null });
+});
+
+app.put('/api/approval-line-templates', async (req, res) => {
+  const scopeId = (req as any).scopeId;
+  const template = { id: 'default', advance: req.body.advance || null, leave: req.body.leave || null };
+  await setScopedDoc(scopeId, 'approvalLineTemplates', template);
+  res.json(template);
+});
+
+// ------------------------------------------------------------------
 // 🔗 공유 랜딩 페이지 (누구나 로그인 없이 접근 가능한 공개 페이지)
 // 카카오톡/트위터/링크드인 등에 이 링크를 공유하면, 아래 og:title/description/image
 // 메타태그를 각 플랫폼이 자동으로 긁어가 예쁜 미리보기 카드를 만들어준다.
