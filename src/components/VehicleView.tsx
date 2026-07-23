@@ -3,7 +3,7 @@ import {
   Car, Calendar, MapPin, Receipt, Wrench, FileText, BarChart3, 
   Plus, Trash2, Search, ArrowRight, TrendingUp, CheckCircle2, 
   AlertTriangle, DollarSign, Printer, Download, Clock, Landmark, Info, Pencil, Eye, FileSpreadsheet,
-  Upload, X, Paperclip, RefreshCw, Camera, Sparkles
+  Upload, X, Paperclip, RefreshCw, Camera, Sparkles, Navigation
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
@@ -2567,6 +2567,49 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               <p className="text-[10px] text-slate-500 font-mono leading-tight pt-0.5">
                                 {log.startAddress || '-'} → {log.endAddress || '-'}
                               </p>
+                            )}
+                            {/* [수정] 명함 상세보기와 동일하게, 목적지 주소가 있으면 바로 내비게이션 앱으로 연결하는 길찾기 버튼 추가 */}
+                            {log.endAddress && (
+                              <div className="flex flex-wrap items-center gap-1 pt-1">
+                                <span className="text-[9px] text-slate-500 flex items-center gap-0.5 mr-0.5">
+                                  <Navigation className="w-2.5 h-2.5 text-blue-400" />
+                                  길찾기:
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const enc = encodeURIComponent(log.endAddress!);
+                                    window.open(`tmap://search?name=${enc}`, '_blank');
+                                    setTimeout(() => {
+                                      window.open(`https://search.naver.com/search.naver?query=${enc}+길찾기`, '_blank');
+                                    }, 500);
+                                  }}
+                                  className="text-[9px] px-1.5 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded border border-amber-500/20 font-bold"
+                                >
+                                  티맵
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(log.endAddress!)}`, '_blank')}
+                                  className="text-[9px] px-1.5 py-0.5 bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-500 rounded border border-yellow-400/20 font-bold"
+                                >
+                                  카카오
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(log.endAddress!)}`, '_blank')}
+                                  className="text-[9px] px-1.5 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded border border-emerald-500/20 font-bold"
+                                >
+                                  네이버
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(log.endAddress!)}`, '_blank')}
+                                  className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded border border-blue-500/20 font-bold"
+                                >
+                                  구글맵
+                                </button>
+                              </div>
                             )}
                           </div>
 
