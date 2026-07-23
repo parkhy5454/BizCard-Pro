@@ -2258,17 +2258,22 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     {/* 명함(주소록)에서 회사명 일치하는 곳 찾아 자동 채우기 */}
                     {newDriving.startPlace.trim().length > 0 && (() => {
                       const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(newDriving.startPlace.trim().toLowerCase())).slice(0, 3);
-                      return matches.length > 0 ? (
+                      // [수정] 명함에 주소가 2개(본사/지사 등) 등록된 경우, 하나만 보이던 걸 둘 다 선택할 수 있게 함
+                      const options = matches.flatMap(c => [
+                        { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
+                        ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
+                      ]);
+                      return options.length > 0 ? (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {matches.map(c => (
+                          {options.map(opt => (
                             <button
-                              key={c.id}
+                              key={opt.key}
                               type="button"
-                              onClick={() => setNewDriving({ ...newDriving, startPlace: c.company, startAddress: c.address })}
+                              onClick={() => setNewDriving({ ...newDriving, startPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), startAddress: opt.address })}
                               className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
-                              title={c.address}
+                              title={opt.address}
                             >
-                              🏢 {c.company} 주소로 채우기
+                              🏢 {opt.label} 주소로 채우기
                             </button>
                           ))}
                         </div>
@@ -2320,17 +2325,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     {/* 명함(주소록)에서 회사명 일치하는 곳 찾아 자동 채우기 */}
                     {newDriving.endPlace.trim().length > 0 && (() => {
                       const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(newDriving.endPlace.trim().toLowerCase())).slice(0, 3);
-                      return matches.length > 0 ? (
+                      const options = matches.flatMap(c => [
+                        { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
+                        ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
+                      ]);
+                      return options.length > 0 ? (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {matches.map(c => (
+                          {options.map(opt => (
                             <button
-                              key={c.id}
+                              key={opt.key}
                               type="button"
-                              onClick={() => setNewDriving({ ...newDriving, endPlace: c.company, endAddress: c.address })}
+                              onClick={() => setNewDriving({ ...newDriving, endPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), endAddress: opt.address })}
                               className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
-                              title={c.address}
+                              title={opt.address}
                             >
-                              🏢 {c.company} 주소로 채우기
+                              🏢 {opt.label} 주소로 채우기
                             </button>
                           ))}
                         </div>
@@ -5096,17 +5105,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   />
                   {editingDriving.startPlace.trim().length > 0 && (() => {
                     const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.startPlace.trim().toLowerCase())).slice(0, 3);
-                    return matches.length > 0 ? (
+                    const options = matches.flatMap(c => [
+                      { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
+                      ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
+                    ]);
+                    return options.length > 0 ? (
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {matches.map(c => (
+                        {options.map(opt => (
                           <button
-                            key={c.id}
+                            key={opt.key}
                             type="button"
-                            onClick={() => setEditingDriving({ ...editingDriving, startPlace: c.company, startAddress: c.address })}
+                            onClick={() => setEditingDriving({ ...editingDriving, startPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), startAddress: opt.address })}
                             className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
-                            title={c.address}
+                            title={opt.address}
                           >
-                            🏢 {c.company} 주소로 채우기
+                            🏢 {opt.label} 주소로 채우기
                           </button>
                         ))}
                       </div>
@@ -5135,17 +5148,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   />
                   {editingDriving.endPlace.trim().length > 0 && (() => {
                     const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.endPlace.trim().toLowerCase())).slice(0, 3);
-                    return matches.length > 0 ? (
+                    const options = matches.flatMap(c => [
+                      { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
+                      ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
+                    ]);
+                    return options.length > 0 ? (
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {matches.map(c => (
+                        {options.map(opt => (
                           <button
-                            key={c.id}
+                            key={opt.key}
                             type="button"
-                            onClick={() => setEditingDriving({ ...editingDriving, endPlace: c.company, endAddress: c.address })}
+                            onClick={() => setEditingDriving({ ...editingDriving, endPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), endAddress: opt.address })}
                             className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
-                            title={c.address}
+                            title={opt.address}
                           >
-                            🏢 {c.company} 주소로 채우기
+                            🏢 {opt.label} 주소로 채우기
                           </button>
                         ))}
                       </div>
