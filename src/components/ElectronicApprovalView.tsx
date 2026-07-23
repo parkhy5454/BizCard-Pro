@@ -747,9 +747,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         });
     }
 
-    worklogRows.sort((a, b) => (a.date < b.date ? 1 : -1));
-    vehicleRows.sort((a, b) => (a.date < b.date ? 1 : -1));
-    maintenanceRows.sort((a, b) => (a.date < b.date ? 1 : -1));
+    // [수정] 최신순(내림차순)이던 정렬을 날짜 오름차순(오래된 순)으로 변경.
+    // 뒤쪽 "영수증 첨부" 페이지도 날짜 오름차순으로 정렬되므로, 가져오기 목록과 등록 순서를
+    // 통일해두면 경영정보실장이 위 표와 뒤 영수증을 순서대로 대조하기 쉬워진다.
+    worklogRows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    vehicleRows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    maintenanceRows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     return { worklogRows, vehicleRows, maintenanceRows };
   };
 
@@ -1010,6 +1013,32 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             </tr>
           </tbody>
         </table>
+
+        {/* [수정] 영수증 사진이 첨부된 항목이 하나라도 있으면, 정산서 뒤에 "영수증 첨부" 페이지를
+            자동으로 붙여서 결재 올릴 때 증빙이 같이 첨부되도록 한다 (인쇄 시 새 페이지로 시작됨). */}
+        {items.some(it => it.receiptImage) && (
+          <div style={{ pageBreakBefore: 'always', marginTop: 24 }}>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <span style={{ fontSize: 18, fontWeight: 800, borderBottom: '2px solid #000', paddingBottom: 4 }}>영수증 첨부</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              {items
+                .filter(it => it.receiptImage)
+                .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+                .map((it, idx) => (
+                <div key={it.id} style={{ border: '0.5pt solid #000', padding: 8, breakInside: 'avoid' }}>
+                  <img src={it.receiptImage} alt="영수증" style={{ width: '100%', maxHeight: 260, objectFit: 'contain', display: 'block', marginBottom: 6 }} />
+                  <div style={{ fontSize: 10, lineHeight: 1.5 }}>
+                    <div><strong>No.{idx + 1} &nbsp;날짜:</strong> {it.date}</div>
+                    <div><strong>내용:</strong> {it.description}</div>
+                    <div><strong>금액:</strong> {it.amount.toLocaleString()}원</div>
+                    {it.companyName && <div><strong>상호:</strong> {it.companyName}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1606,7 +1635,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   </div>
                 )}
                 <div className="space-y-2">
-                  {apItems.map(item => (
+                  {/* [수정] 등록된 항목들을 날짜 오름차순(오래된 순)으로 보여준다.
+                      뒤쪽 "영수증 첨부" 페이지도 같은 순서로 정렬되므로 서로 대조하기 쉬워진다. */}
+                  {[...apItems]
+                    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+                    .map(item => (
                     <div key={item.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-slate-500 font-bold shrink-0">날짜</span>
@@ -2126,6 +2159,31 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       </tr>
                     </tbody>
                   </table>
+
+                  {/* [수정] 영수증이 첨부된 항목이 있으면 화면 미리보기에도 같이 보여준다 (인쇄본과 동일하게) */}
+                  {previewItems.some(it => it.receiptImage) && (
+                    <div style={{ pageBreakBefore: 'always' }} className="mt-6">
+                      <div className="text-center mb-4">
+                        <span className="inline-block border-b-2 border-black pb-1 px-3 text-base font-extrabold text-black">영수증 첨부</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {previewItems
+                          .filter(it => it.receiptImage)
+                          .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+                          .map((it, idx) => (
+                          <div key={it.id} className="border border-black p-2" style={{ breakInside: 'avoid' }}>
+                            <img src={it.receiptImage} alt="영수증" className="w-full object-contain mb-1.5" style={{ maxHeight: 260 }} />
+                            <div className="text-[10px] leading-relaxed">
+                              <div><strong>No.{idx + 1} &nbsp;날짜:</strong> {it.date}</div>
+                              <div><strong>내용:</strong> {it.description}</div>
+                              <div><strong>금액:</strong> {it.amount.toLocaleString()}원</div>
+                              {it.companyName && <div><strong>상호:</strong> {it.companyName}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 </td></tr></tbody></table>
               </div>
