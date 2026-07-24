@@ -82,6 +82,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
   // ===== [수정] 연속 촬영(배치) 모드 상태 =====
   const [batchMode, setBatchMode] = useState<boolean>(false);
+  // [수정] 연속 촬영을 시작하기 전에 미리 지정해두는 그룹. 이 배치로 찍는 명함은 전부 이 그룹으로 저장된다.
+  const [batchGroupId, setBatchGroupId] = useState<string>(defaultGroupId);
   const [batchStage, setBatchStage] = useState<'capturing' | 'review'>('capturing');
   const [batchQueue, setBatchQueue] = useState<BatchItem[]>([]);
   const [batchCameraOpen, setBatchCameraOpen] = useState<boolean>(false);
@@ -213,13 +215,15 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
     setBatchMode(true);
     setBatchStage('capturing');
     setBatchQueue([]);
-    setBatchCameraOpen(true);
+    setBatchGroupId(defaultGroupId);
+    setBatchCameraOpen(false);
   };
 
   const exitBatchMode = () => {
     setBatchMode(false);
     setBatchStage('capturing');
     setBatchQueue([]);
+    setBatchGroupId(defaultGroupId);
     setBatchCameraOpen(false);
     setBatchCropTarget(null);
   };
@@ -292,7 +296,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           name: data.name || '', company: data.company || '', department: data.department || '', title: data.title || '',
           phoneMobile: data.phoneMobile || '', phoneOffice: data.phoneOffice || '', phoneOffice2: data.phoneOffice2 || '',
           phoneFax: data.phoneFax || '', email: data.email || '', address: data.address || '', address2: data.address2 || '',
-          memo: data.memo || '', groupId: defaultGroupId
+          memo: data.memo || '', groupId: batchGroupId
         };
 
         const dup =
@@ -307,7 +311,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           id: item.tempId, name: parsed.name || '', company: parsed.company || '', department: parsed.department || '',
           title: parsed.title || '', phoneMobile: parsed.phoneMobile || '', phoneOffice: parsed.phoneOffice || '',
           phoneFax: parsed.phoneFax || '', email: parsed.email || '', address: parsed.address || '',
-          groupId: defaultGroupId, memo: '', createdAt: new Date().toISOString(), callHistory: []
+          groupId: batchGroupId, memo: '', createdAt: new Date().toISOString(), callHistory: []
         });
       } catch (err: any) {
         setBatchQueue((prev) => prev.map((it) => (it.tempId === item.tempId ? { ...it, status: 'error', errorMessage: err?.message || '인식 실패' } : it)));
@@ -343,7 +347,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         name: data.name || '', company: data.company || '', department: data.department || '', title: data.title || '',
         phoneMobile: data.phoneMobile || '', phoneOffice: data.phoneOffice || '', phoneOffice2: data.phoneOffice2 || '',
         phoneFax: data.phoneFax || '', email: data.email || '', address: data.address || '', address2: data.address2 || '',
-        memo: data.memo || '', groupId: defaultGroupId
+        memo: data.memo || '', groupId: batchGroupId
       };
       const dup = findDuplicateContact(parsed, contacts);
       setBatchQueue((prev) => prev.map((it) => (it.tempId === tempId ? { ...it, status: 'done', parsed, duplicateMatch: dup, action: dup ? 'skip' : 'create' } : it)));
@@ -374,7 +378,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         email: item.parsed?.email || '',
         address: item.parsed?.address || '',
         address2: item.parsed?.address2 || '',
-        groupId: item.parsed?.groupId || defaultGroupId,
+        groupId: item.parsed?.groupId || batchGroupId,
         frontImage: item.frontImage,
         memo: item.parsed?.memo || '',
         createdAt: isUpdate ? item.duplicateMatch!.createdAt : new Date().toISOString(),
@@ -414,13 +418,31 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                     {batchQueue.length}장
                   </span>
                 )}
+                {batchQueue.length > 0 && (
+                  <span className="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full">
+                    → {groups.find((g) => g.id === batchGroupId)?.name || '그룹 미지정'}
+                  </span>
+                )}
               </div>
               <button type="button" onClick={onClose} className="text-slate-400 hover:text-white p-1 bg-slate-800 rounded-full"><X className="w-4 h-4" /></button>
             </div>
 
-            {batchStage === 'capturing' && !batchCameraOpen && (
-              <div className="text-center py-10 space-y-4">
+            {batchStage === 'capturing' && !batchCameraOpen && batchQueue.length === 0 && (
+              <div className="text-center py-8 space-y-4">
                 <p className="text-sm text-slate-300">명함을 여러 장 연달아 찍을 수 있어요. 한 장 찍으면 자동으로 다음 촬영을 위해 카메라가 다시 열려요.</p>
+
+                {/* [수정] 촬영 시작 전에 그룹을 미리 지정해두면, 이번에 찍는 명함들이 전부 이 그룹으로 저장된다 */}
+                <div className="max-w-xs mx-auto text-left space-y-1.5">
+                  <label className="text-xs text-slate-400 font-medium">저장할 그룹</label>
+                  <select
+                    value={batchGroupId}
+                    onChange={(e) => setBatchGroupId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-medium outline-none focus:border-indigo-500"
+                  >
+                    {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setBatchCameraOpen(true)}
