@@ -149,6 +149,16 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
     }
   };
 
+  // [수정] 영수증 스캔은 촬영하자마자 자동으로 AI 인식이 실행되는데, 명함은 촬영 후 "AI 자동 스캔 실행"
+  // 버튼을 따로 눌러야 해서 불일치가 있었다. 앞면(또는 뒷면) 사진이 채워지는 순간 자동으로 스캔이
+  // 시작되도록 통일한다. (연속 촬영 모드는 별도의 "일괄 인식" 단계를 따로 쓰므로 여기서는 제외)
+  useEffect(() => {
+    if (!batchMode && (frontImg || backImg)) {
+      handleStartOCR();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frontImg, backImg]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) {
