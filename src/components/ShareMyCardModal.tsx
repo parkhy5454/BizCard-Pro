@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
 import { CropAdjustModal, resizeDataUrl } from './CropAdjustModal.js';
@@ -269,6 +269,15 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       setIsScanning(false);
     }
   };
+
+  // [수정] 다른 영수증/명함 스캔 화면들과 통일: 사진이 올라오면 버튼을 누르지 않아도
+  // 자동으로 AI 인식이 시작되도록 한다.
+  useEffect(() => {
+    if (scanImg || scanImgBack) {
+      handleRunProfileScan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanImg, scanImgBack]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
@@ -603,22 +612,29 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                 </div>
 
 
-                <button
-                  type="button"
-                  disabled={(!scanImg && !scanImgBack) || isScanning}
-                  onClick={handleRunProfileScan}
-                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold flex items-center justify-center gap-2 transition-all"
-                >
-                  {isScanning ? (
-                    <span>인식 중...</span>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>AI로 정보 채우기</span>
-                    </>
-                  )}
-                </button>
-                <p className="text-slate-500">사진을 올리고 인식하면, 아래 항목들이 자동으로 채워져요. 채워진 내용은 저장 전에 직접 수정할 수 있어요.</p>
+                {(isScanning || (scanImg || scanImgBack)) && (
+                  <div className="flex items-center justify-center gap-2 py-1.5 text-xs">
+                    {isScanning ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-slate-400">AI가 명함을 인식하고 있어요...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400 font-medium">AI 인식 완료</span>
+                        <button
+                          type="button"
+                          onClick={handleRunProfileScan}
+                          className="text-slate-500 hover:text-slate-300 underline underline-offset-2"
+                        >
+                          다시 인식
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+                <p className="text-slate-500">사진을 올리면 아래 항목들이 자동으로 채워져요. 채워진 내용은 저장 전에 직접 수정할 수 있어요.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
