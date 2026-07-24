@@ -469,6 +469,9 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
             setReceiptImg(cropped);
             setScanDone(false);
             setCropRawImage(null);
+            // [수정] 카메라 자동촬영과 마찬가지로, 테두리를 수동으로 맞춘 뒤(갤러리 업로드 등)에도
+            // 바로 AI 인식이 자동으로 시작되도록 통일한다.
+            handleStartOCR(cropped);
           }}
           onCancel={() => setCropRawImage(null)}
         />
