@@ -238,14 +238,18 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   // 업로드한 내 명함 사진(앞/뒤)을 AI로 인식해서 입력 폼에 자동 반영
-  const handleRunProfileScan = async () => {
-    if (!scanImg && !scanImgBack) return;
+  // [수정] overrideFront/overrideBack을 받을 수 있게 해서, 방금 찍거나 올린 사진을 state 갱신을
+  // 기다리지 않고 바로 넘겨 스캔할 수 있도록 한다.
+  const handleRunProfileScan = async (overrideFront?: string, overrideBack?: string) => {
+    const targetFront = overrideFront !== undefined ? overrideFront : scanImg;
+    const targetBack = overrideBack !== undefined ? overrideBack : scanImgBack;
+    if (!targetFront && !targetBack) return;
     setIsScanning(true);
     try {
       const res = await fetch('/api/scan-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frontImage: scanImg, backImage: scanImgBack })
+        body: JSON.stringify({ frontImage: targetFront, backImage: targetBack })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '명함 인식에 실패했습니다.');
@@ -269,15 +273,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       setIsScanning(false);
     }
   };
-
-  // [수정] 다른 영수증/명함 스캔 화면들과 통일: 사진이 올라오면 버튼을 누르지 않아도
-  // 자동으로 AI 인식이 시작되도록 한다.
-  useEffect(() => {
-    if (scanImg || scanImgBack) {
-      handleRunProfileScan();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanImg, scanImgBack]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
@@ -705,8 +700,13 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           imageDataUrl={cropTarget.rawImage}
           title={cropTarget.side === 'front' ? '명함 앞면 테두리 확인' : '명함 뒷면 테두리 확인'}
           onConfirm={(cropped) => {
-            if (cropTarget.side === 'front') setScanImg(cropped);
-            else setScanImgBack(cropped);
+            if (cropTarget.side === 'front') {
+              setScanImg(cropped);
+              handleRunProfileScan(cropped, scanImgBack);
+            } else {
+              setScanImgBack(cropped);
+              handleRunProfileScan(scanImg, cropped);
+            }
             setCropTarget(null);
           }}
           onCancel={() => setCropTarget(null)}
@@ -726,8 +726,13 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
             if (!side) return;
             if (autoDetected) {
               const resized = await resizeDataUrl(dataUrl);
-              if (side === 'front') setScanImg(resized);
-              else setScanImgBack(resized);
+              if (side === 'front') {
+                setScanImg(resized);
+                handleRunProfileScan(resized, scanImgBack);
+              } else {
+                setScanImgBack(resized);
+                handleRunProfileScan(scanImg, resized);
+              }
             } else {
               setCropTarget({ side, rawImage: dataUrl });
             }
