@@ -735,38 +735,30 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                 </div>
               </div>
 
-              {/* AI 스캔 가동 버튼 */}
-              <div className="pt-6">
-                <button
-                  type="button"
-                  disabled={isScanning || (!frontImg && !backImg)}
-                  onClick={handleStartOCR}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition-all ${
-                    isScanning
-                      ? 'bg-slate-800 text-slate-400 cursor-wait'
-                      : (!frontImg && !backImg)
-                      ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30 active:scale-95'
-                  }`}
-                >
+              {/* [수정] 영수증 화면과 통일: 별도의 큰 "AI 자동 스캔 실행" 버튼 없이, 사진이 찍히면
+                  바로 자동으로 인식되고 여기엔 진행 상태만 작게 표시한다. */}
+              {(isScanning || scanDone) && (
+                <div className="pt-6">
                   {isScanning ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                      <span>Gemini Vision이 명함을 분석 중입니다...</span>
-                    </>
-                  ) : scanDone ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                      <span>AI 스캔 및 추출 완료! 다시 스캔하기</span>
-                    </>
+                    <div className="flex items-center justify-center gap-2 py-2 text-xs text-slate-400">
+                      <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Gemini Vision이 명함을 분석하고 있어요...</span>
+                    </div>
                   ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 text-amber-300 animate-spin" />
-                      <span>AI 자동 스캔 실행 (연락처 정보 파싱)</span>
-                    </>
+                    <div className="flex items-center justify-center gap-2 py-2 text-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400 font-medium">AI 인식 완료</span>
+                      <button
+                        type="button"
+                        onClick={() => handleStartOCR()}
+                        className="text-slate-500 hover:text-slate-300 underline underline-offset-2"
+                      >
+                        다시 스캔
+                      </button>
+                    </div>
                   )}
-                </button>
-              </div>
+                </div>
+              )}
             </div>
 
             {/* 우측: OCR 추출 결과 및 정보 확인 폼 */}
