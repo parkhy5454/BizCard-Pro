@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2 } from 'lucide-react';
-import { BusinessCard, ContactGroup, CallRecord } from '../types.js';
+import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock } from 'lucide-react';
+import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
@@ -8,6 +8,7 @@ import { CropAdjustModal } from './CropAdjustModal.js';
 interface Props {
   contact: BusinessCard | null;
   groups: ContactGroup[];
+  currentUser?: User | null;
   onClose: () => void;
   onUpdateContact: (updated: BusinessCard) => void;
   onAddCallHistory: (contactId: string, record: { type: 'incoming'|'outgoing'|'missed'; duration?: string; note?: string }) => void;
@@ -44,7 +45,7 @@ function generateContactVCardText(contact: BusinessCard): string {
   ].filter(Boolean).join('\r\n');
 }
 
-export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
+export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
   // Hooks(useState/useRef/useEffect)는 반드시 조건 없이 매 렌더링마다 동일한 순서로 호출되어야 하므로,
   // "contact가 없으면 그리지 않는다" 처리보다 먼저 선언합니다 (React Hooks 규칙).
   const [activeTab, setActiveTab] = useState<'info' | 'history' | 'edit'>(initialTab);
@@ -55,6 +56,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
   const cardSwipeStartX = React.useRef<number>(0);
   // [수정] "전달하기" 버튼이 잠깐 "복사됨" 등으로 상태를 표시할 수 있도록
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  // [수정] "이 분에게 앱 추천하기" 버튼의 상태 표시용
+  const [inviteStatus, setInviteStatus] = useState<'idle' | 'copied'>('idle');
 
   // 통화기록 추가 폼 상태
   const [callType, setCallType] = useState<'incoming' | 'outgoing' | 'missed'>('incoming');
@@ -182,6 +185,57 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
         console.error('명함 전달 실패:', err);
       }
     }
+  };
+
+  // [수정] 명함 스캔 초대(바이럴 루프): 이 명함의 주인에게 앱 사용을 추천하는 메시지를 보낸다.
+  // 실제로 그 사람이 이 링크로 가입했는지까지는 추적하지 않고, "보냈다"는 사실만 서버에 기록해서
+  // 나중에 "누가 몇 명 추천했는지" 정도는 볼 수 있게 해둔다.
+  const handleInviteContact = async () => {
+    const inviteText = [
+      `${currentUser?.name ? currentUser.name + '님이' : '지인이'} BizCard Pro를 추천했어요!`,
+      `명함을 카메라로 찍기만 하면 AI가 자동으로 인식해서 저장해주는 스마트 명함 관리 앱이에요.`,
+      `👉 https://bizcard-pro.onrender.com`
+    ].join('\n');
+
+    let channel: 'sms' | 'share' | 'other' = 'other';
+    try {
+      const nav = navigator as any;
+      if (nav.share) {
+        channel = 'share';
+        await nav.share({ title: 'BizCard Pro 추천', text: inviteText });
+      } else if (contact.phoneMobile) {
+        channel = 'sms';
+        window.open(`sms:${contact.phoneMobile}?body=${encodeURIComponent(inviteText)}`, '_blank');
+      } else {
+        await navigator.clipboard.writeText(inviteText);
+        setInviteStatus('copied');
+        setTimeout(() => setInviteStatus('idle'), 2000);
+      }
+
+      // 발송 이력 기록 (실패해도 사용자 경험엔 영향 없도록 조용히 무시)
+      try {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (currentUser) headers['x-user-id'] = currentUser.id;
+        await fetch('/api/invites', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ contactId: contact.id, contactName: contact.name, channel })
+        });
+      } catch (err) {
+        console.error('초대 기록 저장 실패:', err);
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('초대 보내기 실패:', err);
+      }
+    }
+  };
+
+  // [수정] "나만 보기(비공개)" 토글. 이 명함을 등록한 본인만 켜고 끌 수 있다
+  // (오래된 데이터처럼 등록자 정보가 없는 경우엔 누구나 설정 가능하게 허용).
+  const canTogglePrivacy = !contact.addedByUserId || contact.addedByUserId === currentUser?.id;
+  const handleTogglePrivate = () => {
+    onUpdateContact({ ...contact, isPrivate: !contact.isPrivate });
   };
 
   const formatDate = (iso: string) => {
@@ -322,6 +376,16 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
               <Share2 className="w-3.5 h-3.5 text-indigo-400" />
               <span>{shareStatus === 'copied' ? '명함 정보가 복사되었습니다!' : '이 명함 외부로 전달하기'}</span>
             </button>
+
+            {/* [수정] 명함 스캔 초대(바이럴 루프): 이 명함 주인에게 앱 사용을 추천하는 메시지를 보낸다 */}
+            <button
+              type="button"
+              onClick={handleInviteContact}
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-950/60 to-blue-950/60 border border-indigo-500/30 hover:border-indigo-400/60 text-indigo-300 hover:text-indigo-200 font-bold text-xs transition-colors"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>{inviteStatus === 'copied' ? '추천 메시지가 복사되었습니다!' : '이 분에게 앱 추천하기'}</span>
+            </button>
           </div>
         </div>
 
@@ -374,6 +438,22 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, onClose, onU
                 <div className="flex items-center gap-3">
                   <h2 className="text-3xl font-extrabold text-white tracking-tight">{contact.name}</h2>
                   {group && <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${group.color}`}>{group.name}</span>}
+                  {/* [수정] 팀/부서별 공유 범위: 이 명함을 등록한 본인만 켜고 끌 수 있는 "나만 보기(비공개)" 토글 */}
+                  {canTogglePrivacy && (
+                    <button
+                      type="button"
+                      onClick={handleTogglePrivate}
+                      title={contact.isPrivate ? '비공개 상태 - 눌러서 회사 전체에 공개하기' : '눌러서 나만 보기(비공개)로 전환'}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                        contact.isPrivate
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                          : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300'
+                      }`}
+                    >
+                      {contact.isPrivate ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                      <span>{contact.isPrivate ? '나만 보기' : '회사 전체 공개'}</span>
+                    </button>
+                  )}
                 </div>
                 <p className="text-base font-semibold text-blue-400 mt-1">{contact.title || '직책 미등록'}</p>
                 <p className="text-sm font-medium text-slate-300 flex items-center gap-1.5 mt-1">
