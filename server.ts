@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -1036,7 +1036,11 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
 // 📁 Scoped CRUD APIs
 app.get('/api/contacts', (req, res) => {
   const dbData = getScopedData(req);
-  res.json(dbData.contacts);
+  const requesterId = req.headers['x-user-id'] as string;
+  // [수정] "나만 보기(비공개)"로 설정된 명함은 등록한 본인 것만 내려주고, 다른 사람에게는 숨긴다.
+  // addedByUserId가 아예 없는(기존 데이터) 명함은 예전처럼 회사 전체에 그대로 보인다.
+  const visible = dbData.contacts.filter(c => !c.isPrivate || !c.addedByUserId || c.addedByUserId === requesterId);
+  res.json(visible);
 });
 
 app.post('/api/contacts', async (req, res) => {
@@ -1046,6 +1050,12 @@ app.post('/api/contacts', async (req, res) => {
   if (!newCard.id) newCard.id = `c-${Date.now()}`;
   if (!newCard.createdAt) newCard.createdAt = new Date().toISOString();
   if (!newCard.callHistory) newCard.callHistory = [];
+
+  // [수정] 팀/부서별 공유(비공개) 기능을 위해 등록자 정보를 자동으로 남긴다.
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  newCard.addedByUserId = requesterId || newCard.addedByUserId;
+  newCard.addedByUserName = requester?.name || newCard.addedByUserName;
   
   // 좌표가 없으면 주소 기반 부여
   if (!newCard.lat || !newCard.lng) {
@@ -2215,6 +2225,38 @@ app.post('/api/feedback', async (req, res) => {
 app.get('/api/feedback', async (req, res) => {
   const list = await getScopedCollection<FeedbackItem>(GLOBAL_FEEDBACK_SCOPE, 'feedback');
   res.json(list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
+});
+
+// ------------------------------------------------------------------
+// 📇 명함 초대(바이럴 루프) — 명함 상세보기에서 "이 분에게 앱 추천하기"를 보낸 이력을
+// 회사(스코프) 단위로 기록한다. 실제 가입 전환 여부까지는 추적하지 않고, 발송 이력만 남긴다.
+// ------------------------------------------------------------------
+app.post('/api/invites', async (req, res) => {
+  try {
+    const scopeId = (req as any).scopeId;
+    const userId = req.headers['x-user-id'] as string;
+    const user = users.find(u => u.id === userId);
+    const record: InviteRecord = {
+      id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      contactId: req.body.contactId,
+      contactName: req.body.contactName,
+      channel: (['sms', 'email', 'kakao', 'share', 'other'].includes(req.body.channel) ? req.body.channel : 'other'),
+      sentByUserId: userId,
+      sentByUserName: user?.name,
+      sentAt: new Date().toISOString()
+    };
+    await setScopedDoc(scopeId, 'invites', record);
+    res.status(201).json(record);
+  } catch (err) {
+    console.error('Invite log error:', err);
+    res.status(500).json({ error: '초대 기록 저장에 실패했습니다.' });
+  }
+});
+
+app.get('/api/invites', async (req, res) => {
+  const scopeId = (req as any).scopeId;
+  const list = await getScopedCollection<InviteRecord>(scopeId, 'invites');
+  res.json(list.sort((a, b) => (b.sentAt || '').localeCompare(a.sentAt || '')));
 });
 
 // 결재라인에서 아직 서명(date)되지 않은 첫 번째 단계 = 다음 결재 대기자
