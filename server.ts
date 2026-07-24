@@ -4,6 +4,33 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
+
+// [수정] Gemini API가 "This model is currently experiencing high demand"(503/UNAVAILABLE) 같은
+// 일시적인 과부하 에러를 낼 때가 있다. 이런 경우 사용자에게 바로 에러를 보여주지 않고,
+// 짧게 대기했다가 자동으로 한두 번 더 시도해서 대부분의 일시적 실패를 자동으로 넘어가게 한다.
+async function generateContentWithRetry(
+  ai: any,
+  params: any,
+  maxRetries: number = 2
+): Promise<any> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (err: any) {
+      lastErr = err;
+      const message = String(err?.message || err || '');
+      const isTransient = err?.status === 503 || err?.code === 503 ||
+        /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i.test(message);
+      if (!isTransient || attempt === maxRetries) throw err;
+      const delayMs = 800 * (attempt + 1); // 800ms, 1600ms ... 점점 늘려가며 재시도
+      console.warn(`[Gemini] 일시적 오류로 ${delayMs}ms 후 재시도 (${attempt + 1}/${maxRetries}):`, message.slice(0, 200));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw lastErr;
+}
+
 import { createServer as createViteServer } from 'vite';
 import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord } from './src/types.js';
 import {
@@ -1243,7 +1270,7 @@ app.post('/api/scan-card', async (req, res) => {
       });
     }
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
       model: 'gemini-3.5-flash',
       contents: contents
     });
@@ -1338,7 +1365,7 @@ app.post('/api/scan-receipt', async (req, res) => {
       }
     });
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
       model: 'gemini-3.5-flash',
       contents: contents
     });
@@ -1388,7 +1415,7 @@ app.post('/api/company/search-summary', async (req, res) => {
       `예시 포맷: "인공지능 기반 B2B DX 및 스마트 비즈니스 솔루션 기업 (전년도 매출액 약 320억원)"\n` +
       `마크다운 백틱 이나 불필요한 서술 없이 최종 요약 문장 하나만 바로 반환해줘.`;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
       model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
@@ -2445,7 +2472,7 @@ ${text}
 4. 불필요한 사족이나 미사여구, 인사말, 마크다운 백틱(\`\`\`json 또는 \`\`\` 등)은 모두 제거하고, 오직 "교정 정제된 완성 문장들"만 반환해야 합니다.
 `;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
       model: 'gemini-3.5-flash',
       contents: prompt,
     });
