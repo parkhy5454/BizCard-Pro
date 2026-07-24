@@ -1196,7 +1196,12 @@ app.post('/api/scan-card', async (req, res) => {
 
     const ai = new GoogleGenAI({ apiKey });
     
-    // 이미지 파트 생성
+    // [수정] 예전엔 이 호출 안에서 googleSearch(실시간 구글 검색) 도구까지 같이 써서
+    // 회사 매출/비즈니스 요약(companyInfo)을 한 번에 만들었는데, 이 검색 도구가 일반 OCR보다
+    // 훨씬 엄격한 별도 할당량(quota)이 걸려있어서 자주 "RESOURCE_EXHAUSTED" 에러로 명함 등록
+    // 자체가 막히는 문제가 있었다. 영수증 스캔처럼 이름/직책/연락처만 뽑는 가볍고 빠른 호출로
+    // 분리하고, 회사 요약은 명함 상세보기의 "AI 매출액/비즈니스 실시간 검색" 버튼(별도 API:
+    // /api/company/search-summary)에서 필요할 때만 따로 조회하도록 한다.
     const contents: any[] = [
       "이 명함 이미지(앞면 및 뒷면)를 분석하여 다음 정보들을 추출해줘. 한국어 또는 영어 명함을 인식하여 정확한 문자열로 정리해줘.\n" +
       "명함에 본사/지사, 서울사무소/공장, 헤드오피스/연구소 등 '주소가 2개 표기되어 있는 경우' 각각을 철저하게 분리하여 address와 address2에 나눠 담아주고, 주소가 1개만 있다면 address2는 빈 문자열로 처리해줘.\n" +
@@ -1214,8 +1219,7 @@ app.post('/api/scan-card', async (req, res) => {
       '  "email": "이메일 주소",\n' +
       '  "address": "회사 첫 번째/기본/본사 주소",\n' +
       '  "address2": "회사 두 번째/지사/공장/보조 주소 (명함 내 주소가 2개 존재하는 경우에만 작성, 1개일 경우 빈 문자열 \"\")",\n' +
-      '  "memo": "명함에 적힌 슬로건이나 주요 비즈니스 요약",\n' +
-      '  "companyInfo": "이 회사가 어떤 업종이고 무엇을 하는 곳인지 AI 지식 및 구글 실시간 인터넷 검색(googleSearch)을 기반으로 핵심 비즈니스를 1줄 요약하고, 전년도 매출액 규모(인터넷 검색을 통해 최근 전년도 매출 규모를 찾아 기재하며, 예: \'매출액 약 5,000억원\', 구체적 파악이 어려울 경우 \'매출 정보 확인 어려움\' 등으로 명시)를 반드시 포함하여 완성도 높은 한 문장으로 작성해줘 (예: \'인공지능 기반 B2B DX 및 스마트 비즈니스 솔루션 기업 (전년도 매출액 약 320억원)\')"\n' +
+      '  "memo": "명함에 적힌 슬로건이나 주요 비즈니스 요약"\n' +
       "}"
     ];
 
@@ -1241,10 +1245,7 @@ app.post('/api/scan-card', async (req, res) => {
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
-      contents: contents,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
+      contents: contents
     });
 
     const text = response.text || '';
