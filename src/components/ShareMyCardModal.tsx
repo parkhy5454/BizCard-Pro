@@ -620,7 +620,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                         <span className="text-emerald-400 font-medium">AI 인식 완료</span>
                         <button
                           type="button"
-                          onClick={handleRunProfileScan}
+                          onClick={() => handleRunProfileScan()}
                           className="text-slate-500 hover:text-slate-300 underline underline-offset-2"
                         >
                           다시 인식
