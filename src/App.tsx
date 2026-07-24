@@ -385,8 +385,10 @@ export default function App() {
       {isScanOpen && (
         <ScanModal
           groups={groups}
+          contacts={contacts}
           onClose={() => setIsScanOpen(false)}
           onSave={handleSaveNewCard}
+          onUpdate={handleUpdateCard}
         />
       )}
 
