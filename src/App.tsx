@@ -402,6 +402,7 @@ export default function App() {
         contact={selectedContactDetail}
         groups={groups}
         initialTab={detailModalTab}
+        currentUser={currentUser}
         onClose={() => setSelectedContactDetail(null)}
         onUpdateContact={handleUpdateCard}
         onAddCallHistory={handleAddCallHistory}

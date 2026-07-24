@@ -27,6 +27,11 @@ export interface BusinessCard {
   backImage?: string;
   memo?: string;
   companyInfo?: string; // 회사 간략 요약 정보
+  // [수정] 팀/부서별 공유 범위를 위해 이 명함을 누가 등록했는지 기록. isPrivate가 true면
+  // 등록한 본인 외에는(같은 회사 소속이라도) 조회 목록에서 보이지 않는다.
+  addedByUserId?: string;
+  addedByUserName?: string;
+  isPrivate?: boolean; // true면 "나만 보기(비공개)" - 등록한 본인에게만 보임
   createdAt: string;
   callHistory: CallRecord[];
 }
@@ -404,4 +409,17 @@ export interface FeedbackItem {
   pageContext?: string;      // 문의를 남긴 시점의 화면(탭) - 어디서 접수됐는지 참고용
   status: 'new' | 'in_progress' | 'resolved';
   createdAt: string;
+}
+
+// === 명함 스캔 초대(바이럴 루프) ===
+// [수정] 명함 상세보기에서 "이 분에게 앱 추천하기"를 보낸 기록. 실제 가입 전환까지는
+// 추적하지 않고(가입 화면 쪽 파일이 필요해 범위 밖), "누가 몇 명에게 보냈는지" 발송 이력만 기록한다.
+export interface InviteRecord {
+  id: string;
+  contactId?: string;      // 어떤 명함(사람)에게 보냈는지
+  contactName?: string;
+  channel: 'sms' | 'email' | 'kakao' | 'share' | 'other';
+  sentByUserId?: string;
+  sentByUserName?: string;
+  sentAt: string;
 }
