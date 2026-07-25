@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
-import { CropAdjustModal } from './CropAdjustModal.js';
+import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
@@ -740,12 +740,22 @@ export const ProjectsView: React.FC<Props> = ({
       const data = await res.json();
       if (res.ok) {
         const mapped = mapReceiptCategoryToMeeting(data.category);
+        // [수정] AI가 함께 알려준 "영수증 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
+        let finalReceiptImage = dataUrl;
+        if (isValidNormalizedCorners(data.corners)) {
+          try {
+            finalReceiptImage = await warpDataUrlWithNormalizedCorners(dataUrl, data.corners);
+          } catch (err) {
+            console.error('AI 좌표 기반 영수증 재크롭 실패, 기존 사진 유지:', err);
+          }
+        }
         updateMeetingExpense(setter, tempId, {
           category: mapped.category,
           categoryCustom: mapped.categoryCustom,
           amount: data.amount || 0,
           payMethod: data.payMethod === 'personal_card' ? 'personal_card' : data.payMethod === 'cash' ? 'cash' : 'company_card',
-          memo: [data.merchantName, data.memo].filter(Boolean).join(' · ')
+          memo: [data.merchantName, data.memo].filter(Boolean).join(' · '),
+          receiptImage: finalReceiptImage
         });
       }
     } catch (err) {

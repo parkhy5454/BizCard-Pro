@@ -6,7 +6,7 @@ import {
   Upload, X, Paperclip, RefreshCw, Camera, Sparkles, Navigation
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
-import { CropAdjustModal } from './CropAdjustModal.js';
+import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
@@ -404,6 +404,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       });
       const data = await res.json();
       if (res.ok) {
+        // [수정] AI가 함께 알려준 "영수증 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
+        let finalReceiptImage = dataUrl;
+        if (isValidNormalizedCorners(data.corners)) {
+          try {
+            finalReceiptImage = await warpDataUrlWithNormalizedCorners(dataUrl, data.corners);
+          } catch (err) {
+            console.error('AI 좌표 기반 영수증 재크롭 실패, 기존 사진 유지:', err);
+          }
+        }
+
         if (context === 'driving') {
           setDrivingReceiptExpense((prev) => prev ? {
             ...prev,
@@ -411,7 +421,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             amount: data.amount || prev.amount,
             merchantName: data.merchantName || prev.merchantName,
             memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || prev.payMethod
+            payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || prev.payMethod,
+            receiptImage: finalReceiptImage
           } : prev);
         } else if (context === 'expense') {
           setNewExpense((prev) => ({
@@ -421,7 +432,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             date: data.date || prev.date,
             merchantName: data.merchantName || prev.merchantName,
             memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as VehicleExpense['payMethod']) || prev.payMethod
+            payMethod: (data.payMethod as VehicleExpense['payMethod']) || prev.payMethod,
+            receiptImage: finalReceiptImage
           }));
         } else {
           setNewMaint((prev) => ({
@@ -430,7 +442,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             date: data.date || prev.date,
             shopName: data.merchantName || prev.shopName,
             memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as VehicleMaintenance['payMethod']) || prev.payMethod
+            payMethod: (data.payMethod as VehicleMaintenance['payMethod']) || prev.payMethod,
+            receiptImage: finalReceiptImage
           }));
         }
       }

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText, Camera } from 'lucide-react';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { CropAdjustModal } from './CropAdjustModal.js';
+import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 
 interface Props {
   expenseType: 'vehicle' | 'worklog';
@@ -144,6 +144,16 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         category: mappedCategory,
         payMethod: mappedPayMethod
       });
+
+      // [수정] AI가 함께 알려준 "영수증 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
+      if (isValidNormalizedCorners(data.corners)) {
+        try {
+          const recropped = await warpDataUrlWithNormalizedCorners(targetImage, data.corners);
+          setReceiptImg(recropped);
+        } catch (err) {
+          console.error('AI 좌표 기반 영수증 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
 
       setScanDone(true);
     } catch (err: any) {
