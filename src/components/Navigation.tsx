@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox } from 'lucide-react';
+import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
@@ -55,6 +56,10 @@ export const Navigation: React.FC<Props> = ({
 }) => {
   // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  // [수정] 관리자(개발자)용 "문의함" 화면 열림 상태. 이 화면은 회사 구분 없이 앱 전체 문의가
+  // 다 모이는 화면이라, 아무나 보면 안 되고 개발자 계정에서만 보이게 제한한다.
+  const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
+  const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
   // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
@@ -497,6 +502,24 @@ export const Navigation: React.FC<Props> = ({
         </div>
       </div>
     </header>
+
+    {/* [수정] 개발자(운영자) 계정에서만 보이는 "문의함" 버튼. 회사 전체를 통틀어 모이는 데이터라
+        일반 사용자에게는 노출하지 않는다. 이메일 알림이 SMTP 연결 문제로 불안정할 수 있어,
+        앱 안에서 직접 확인할 수 있는 화면을 별도로 마련했다. */}
+    {isDeveloperAccount && (
+      <button
+        type="button"
+        onClick={() => setIsFeedbackInboxOpen(true)}
+        className="fixed bottom-24 right-5 z-40 w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 shadow-xl flex items-center justify-center transition-all active:scale-95"
+        title="문의함 (관리자 전용)"
+      >
+        <Inbox className="w-5 h-5" />
+      </button>
+    )}
+
+    {isFeedbackInboxOpen && (
+      <FeedbackInboxModal currentUser={currentUser} onClose={() => setIsFeedbackInboxOpen(false)} />
+    )}
 
     {/* [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 플로팅 "문의하기" 버튼.
         Navigation은 모든 탭에서 공통으로 항상 렌더링되므로, 여기에 두면 어느 화면에 있든 계속 떠 있다. */}
