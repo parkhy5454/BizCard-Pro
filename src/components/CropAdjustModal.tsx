@@ -253,8 +253,17 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   }, [imageDataUrl]);
 
   // 컨테이너 크기에 맞춰 이미지 표시 크기 계산 및 모서리 좌표를 표시 좌표계로 변환
+  // [수정] 예전엔 window의 resize 이벤트가 뜰 때마다 사용자가 손으로 맞춰둔 테두리를 무시하고
+  // 자동 감지(또는 기본 여백) 위치로 되돌려버렸다. 문제는 모바일 사파리에서 화면을 터치/스크롤하면
+  // 주소창이 나타났다 사라지면서 "가짜 resize 이벤트"가 자주 발생한다는 점이다 — 그때마다 사용자가
+  // 방금 조정한 내용이 사라지고 다시 넓은 기본 박스로 돌아가버렸다(=조정 중 갑자기 커지는 현상).
+  // 이제는 최초 1회만 자동 감지/기본 위치로 초기화하고, 그 이후 크기가 실제로 바뀌면 사용자가
+  // 조정해둔 테두리를 "비율에 맞게 그대로 유지"한 채 옮긴다.
+  const initializedRef = useRef(false);
   useEffect(() => {
     if (!imgEl || !containerRef.current) return;
+    initializedRef.current = false;
+
     const updateSize = () => {
       const containerWidth = containerRef.current!.clientWidth;
       const maxHeight = window.innerHeight * 0.55;
@@ -265,23 +274,40 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         h = maxHeight;
         w = h * ratio;
       }
-      setDisplaySize({ width: w, height: h });
 
-      const scaleX = w / imgEl.naturalWidth;
-      const scaleY = h / imgEl.naturalHeight;
-      const detected = (imgEl as any).__detectedCorners as Point[] | undefined;
-      if (detected) {
-        setCorners(detected.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
-      } else {
-        // 감지 실패 시 이미지 안쪽 8% 여백을 둔 기본 사각형 제시 (사용자가 직접 맞추도록)
-        const margin = 0.08;
-        setCorners([
-          { x: w * margin, y: h * margin },
-          { x: w * (1 - margin), y: h * margin },
-          { x: w * (1 - margin), y: h * (1 - margin) },
-          { x: w * margin, y: h * (1 - margin) }
-        ]);
-      }
+      setDisplaySize((prevSize) => {
+        // 이미 초기화된 뒤, 크기가 실질적으로 안 바뀌었다면(모바일 주소창 표시/숨김 등 가짜 resize)
+        // 아무것도 하지 않고 사용자가 조정 중이던 테두리를 그대로 둔다.
+        if (initializedRef.current && Math.abs(prevSize.width - w) < 2 && Math.abs(prevSize.height - h) < 2) {
+          return prevSize;
+        }
+
+        if (initializedRef.current && prevSize.width > 0 && prevSize.height > 0) {
+          // 실제로 크기가 바뀐 경우: 기존에 사용자가 맞춰둔 테두리를 새 크기 비율에 맞게 그대로 옮긴다
+          const scaleX = w / prevSize.width;
+          const scaleY = h / prevSize.height;
+          setCorners((prevCorners) => (prevCorners ? prevCorners.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })) : prevCorners));
+        } else {
+          // 최초 1회만: 자동 감지 결과 또는 기본 여백 박스로 초기화
+          const scaleX = w / imgEl.naturalWidth;
+          const scaleY = h / imgEl.naturalHeight;
+          const detected = (imgEl as any).__detectedCorners as Point[] | undefined;
+          if (detected) {
+            setCorners(detected.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
+          } else {
+            const margin = 0.08;
+            setCorners([
+              { x: w * margin, y: h * margin },
+              { x: w * (1 - margin), y: h * margin },
+              { x: w * (1 - margin), y: h * (1 - margin) },
+              { x: w * margin, y: h * (1 - margin) }
+            ]);
+          }
+        }
+
+        initializedRef.current = true;
+        return { width: w, height: h };
+      });
     };
     updateSize();
     window.addEventListener('resize', updateSize);

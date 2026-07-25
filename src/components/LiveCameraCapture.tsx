@@ -28,8 +28,11 @@ interface Quality {
 
 const DETECT_W = 480; // 실시간 감지용 축소 해상도 (성능을 위해 원본보다 작게 처리)
 const DETECT_INTERVAL_MS = 180;
-const STABLE_MOVE_THRESHOLD = 20; // px (감지 캔버스 기준) - 이보다 적게 움직이면 "안정"으로 판단
-const STABLE_DURATION_MS = 650; // 이 시간 이상 안정 + 품질 통과 시 자동 촬영
+// [수정] 20px는 명함(딱딱한 재질)엔 맞지만, 영수증(얇은 종이)은 미세하게 흔들리거나
+// 프레임마다 테두리가 살짝씩 달라 보여서 이 기준을 잘 못 채우고 "고정됨" 판정이 잘 안 나던 문제가 있었다.
+// 기준을 완화하고 고정 유지 시간도 살짝 줄여서, 종이류도 안정적으로 자동 촬영되도록 한다.
+const STABLE_MOVE_THRESHOLD = 32; // px (감지 캔버스 기준) - 이보다 적게 움직이면 "안정"으로 판단
+const STABLE_DURATION_MS = 500; // 이 시간 이상 안정 + 품질 통과 시 자동 촬영
 // [수정] 1400 -> 1600: 카메라 해상도를 올린 만큼, 출력 크기도 살짝 상향해 원본 디테일을 더 살림
 const OUTPUT_LONG_SIDE = 1600;
 
