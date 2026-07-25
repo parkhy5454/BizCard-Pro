@@ -5313,6 +5313,19 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             
             <form onSubmit={handleUpdateExpense} className="p-5 space-y-4 overflow-y-auto flex-1">
               <div className="space-y-4">
+                {/* [수정] 등록할 때 스캔한 영수증 사진이 수정 화면에는 안 보이던 문제 - 여기에 썸네일로 표시 */}
+                {editingExpense.receiptImage && (
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
+                    <img
+                      src={editingExpense.receiptImage}
+                      alt="영수증"
+                      onClick={() => setEnlargedReceiptUrl(editingExpense.receiptImage!)}
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    />
+                    <span className="text-[11px] text-slate-400">등록된 영수증 (눌러서 크게 보기)</span>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-400">지출 일자</label>
                   <input 
@@ -5507,6 +5520,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             
             <form onSubmit={handleUpdateMaint} className="p-5 space-y-4 overflow-y-auto flex-1">
               <div className="space-y-4">
+                {editingMaint.receiptImage && (
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
+                    <img
+                      src={editingMaint.receiptImage}
+                      alt="영수증"
+                      onClick={() => setEnlargedReceiptUrl(editingMaint.receiptImage!)}
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    />
+                    <span className="text-[11px] text-slate-400">등록된 영수증 (눌러서 크게 보기)</span>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-400">정비 일자</label>
                   <input 
