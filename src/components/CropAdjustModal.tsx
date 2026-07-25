@@ -80,6 +80,10 @@ const loadOpenCv = (): Promise<any> => {
 };
 
 // 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
+// [수정] 예전엔 "정확히 꼭짓점 4개로 근사되는 윤곽선"만 인정해서, 살짝 휘거나 구겨진 영수증
+// 또는 조명이 애매한 명함에서 실패하는 경우가 많았다. cardVision.ts의 실시간 감지 로직과
+// 같은 수준으로 맞춰서: 여러 근사값을 시도하고, 그래도 4점이 안 나오면 가장 큰 덩어리를
+// 감싸는 최소 회전 사각형(minAreaRect)을 대신 쓰는 안전장치를 추가했다.
 const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => {
   try {
     await loadOpenCv();
@@ -87,7 +91,12 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
     return null;
   }
   const cv = (window as any).cv;
-  let src, gray, blurred, edged, dilated, kernel, contours, hierarchy, bestApprox: any = null;
+  let src, gray, blurred, edged, dilated, kernel, contours, hierarchy: any = null;
+  let bestApprox: any = null;
+  let bestApproxScore = -1;
+  let fallbackQuad: Point[] | null = null;
+  let fallbackAreaRatio = -1;
+
   try {
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth;
@@ -101,7 +110,7 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
     blurred = new cv.Mat();
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
     edged = new cv.Mat();
-    cv.Canny(blurred, edged, 50, 150);
+    cv.Canny(blurred, edged, 45, 140);
     dilated = new cv.Mat();
     kernel = cv.Mat.ones(3, 3, cv.CV_8U);
     cv.dilate(edged, dilated, kernel);
@@ -114,45 +123,79 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
     const centerX = img.naturalWidth / 2;
     const centerY = img.naturalHeight / 2;
     const frameDiag = Math.hypot(centerX, centerY);
-    let bestScore = -1;
+    const epsilonFactors = [0.02, 0.01, 0.03, 0.05];
 
     for (let i = 0; i < contours.size(); i++) {
       const cnt = contours.get(i);
       const peri = cv.arcLength(cnt, true);
-      const approx = new cv.Mat();
-      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-      const area = cv.contourArea(approx);
-      const areaRatio = area / imgArea;
+      if (peri <= 0) { cnt.delete(); continue; }
 
-      // 명함/영수증다운 후보만: 화면의 15%~95% 사이 면적, 볼록(convex)한 4각형
-      if (approx.rows === 4 && areaRatio > 0.15 && areaRatio < 0.95 && cv.isContourConvex(approx)) {
-        // 사용자가 문서를 화면 중앙에 놓는다고 가정하고, 면적만이 아니라 중앙에 얼마나 가까운지도 반영한다.
-        // (그렇지 않으면 책상 모서리·문틀처럼 크고 사각형에 가까운 배경 요소를 잘못 고르는 경우가 있다)
-        let cx = 0, cy = 0;
-        for (let j = 0; j < 4; j++) { cx += approx.data32S[j * 2]; cy += approx.data32S[j * 2 + 1]; }
-        cx /= 4; cy /= 4;
-        const centerDist = Math.min(Math.hypot(cx - centerX, cy - centerY) / frameDiag, 1);
-        const score = areaRatio * (1 - centerDist * 0.8);
+      // 4점으로 안 떨어질 경우를 대비해, 이 윤곽선의 실제 면적 기준으로 최소 회전 사각형 폴백도 준비
+      try {
+        const rawArea = Math.abs(cv.contourArea(cnt));
+        const rawAreaRatio = rawArea / imgArea;
+        if (rawAreaRatio > 0.05 && rawAreaRatio < 0.97 && rawAreaRatio > fallbackAreaRatio) {
+          const rotRect = cv.minAreaRect(cnt);
+          const angleRad = (rotRect.angle * Math.PI) / 180;
+          const cos = Math.cos(angleRad);
+          const sin = Math.sin(angleRad);
+          const hw = rotRect.size.width / 2;
+          const hh = rotRect.size.height / 2;
+          const corners: Point[] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) => ({
+            x: rotRect.center.x + dx * cos - dy * sin,
+            y: rotRect.center.y + dx * sin + dy * cos
+          }));
+          fallbackQuad = corners;
+          fallbackAreaRatio = rawAreaRatio;
+        }
+      } catch {
+        // minAreaRect 계산 실패해도 전체 흐름은 계속 진행
+      }
 
-        if (score > bestScore) {
-          bestScore = score;
-          if (bestApprox) bestApprox.delete();
-          bestApprox = approx;
+      let matchedThisContour = false;
+      for (const factor of epsilonFactors) {
+        const approx = new cv.Mat();
+        cv.approxPolyDP(cnt, approx, factor * peri, true);
+        const area = cv.contourArea(approx);
+        const areaRatio = area / imgArea;
+
+        // 명함/영수증다운 후보만: 화면의 5%~97% 사이 면적, 볼록(convex)한 4각형
+        if (!matchedThisContour && approx.rows === 4 && areaRatio > 0.05 && areaRatio < 0.97 && cv.isContourConvex(approx)) {
+          let cx = 0, cy = 0;
+          for (let j = 0; j < 4; j++) { cx += approx.data32S[j * 2]; cy += approx.data32S[j * 2 + 1]; }
+          cx /= 4; cy /= 4;
+          const centerDist = Math.min(Math.hypot(cx - centerX, cy - centerY) / frameDiag, 1);
+          const score = areaRatio * (1 - centerDist * 0.6);
+
+          if (score > bestApproxScore) {
+            bestApproxScore = score;
+            if (bestApprox) bestApprox.delete();
+            bestApprox = approx;
+            matchedThisContour = true;
+          } else {
+            approx.delete();
+          }
         } else {
           approx.delete();
         }
-      } else {
-        approx.delete();
       }
       cnt.delete();
     }
 
-    if (!bestApprox) return null;
-
-    const pts: Point[] = [];
-    for (let i = 0; i < 4; i++) {
-      pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
+    let pts: Point[] | null = null;
+    if (bestApprox) {
+      pts = [];
+      for (let i = 0; i < 4; i++) {
+        pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
+      }
+    } else if (fallbackQuad) {
+      // 정확히 4점으로 떨어지는 윤곽선을 못 찾은 경우(휘거나 구겨진 영수증 등),
+      // 가장 큰 덩어리를 감싸는 최소 사각형을 대신 사용한다.
+      pts = fallbackQuad;
     }
+
+    if (!pts) return null;
+
     // 좌상 → 우상 → 우하 → 좌하 순서로 정렬
     const sums = pts.map((p) => p.x + p.y);
     const diffs = pts.map((p) => p.x - p.y);
@@ -165,6 +208,7 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
     console.error('모서리 자동 감지 실패:', err);
     return null;
   } finally {
+    if (bestApprox) { try { bestApprox.delete(); } catch {} }
     [src, gray, blurred, edged, dilated, kernel, contours, hierarchy].forEach((m) => {
       try { m && m.delete && m.delete(); } catch {}
     });
