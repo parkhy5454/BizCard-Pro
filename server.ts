@@ -1233,6 +1233,13 @@ app.post('/api/scan-card', async (req, res) => {
       "이 명함 이미지(앞면 및 뒷면)를 분석하여 다음 정보들을 추출해줘. 한국어 또는 영어 명함을 인식하여 정확한 문자열로 정리해줘.\n" +
       "명함에 본사/지사, 서울사무소/공장, 헤드오피스/연구소 등 '주소가 2개 표기되어 있는 경우' 각각을 철저하게 분리하여 address와 address2에 나눠 담아주고, 주소가 1개만 있다면 address2는 빈 문자열로 처리해줘.\n" +
       "또한 유선전화/사무실 전화번호가 2개 이상 존재하는 경우(예: 대표전화 및 직통번호, 혹은 서울사무소 번호 및 공장 번호), 첫 번째 번호는 phoneOffice에, 두 번째 번호는 phoneOffice2에 분리하여 담아주고, 1개만 있다면 phoneOffice2는 빈 문자열로 처리해줘.\n" +
+      // [수정] 텍스트 정보뿐 아니라, 사진 속에서 "명함 실물의 네 꼭짓점이 어디인지"도 같이 알려달라고 요청한다.
+      // 이렇게 받은 좌표로 나중에 반듯하게 자르면, 화면의 명암 차이만으로 테두리를 찾는 기존 방식보다
+      // 훨씬 안정적이다(배경과 명함 색이 비슷해도 AI는 "명함처럼 생긴 패턴" 자체로 인식하기 때문).
+      "추가로, 사진에 찍힌 명함 실물(종이 카드 자체)의 네 모서리 좌표를 각 이미지 기준으로 알려줘. " +
+      "좌표는 이미지의 가로/세로 크기에 대한 0~1 사이의 비율로 표현해줘 (예: 이미지 맨 왼쪽 위 모서리는 x:0, y:0). " +
+      "카메라 각도 때문에 명함이 기울어져 찍혔어도, 실제 카드의 네 꼭짓점 위치를 최대한 정확하게 찾아줘 " +
+      "(카드 주변 배경, 손가락, 그림자는 절대 포함하지 말고 카드 실물 가장자리에 딱 맞춰줘).\n" +
       "응답은 반드시 아래 JSON 규격에 맞게 순수 JSON 데이터만 리턴해줘. 마크다운 백틱(```json) 없이 리턴하거나 있어도 JSON 파싱 가능해야 함.\n" +
       "{\n" +
       '  "name": "성명",\n' +
@@ -1246,12 +1253,16 @@ app.post('/api/scan-card', async (req, res) => {
       '  "email": "이메일 주소",\n' +
       '  "address": "회사 첫 번째/기본/본사 주소",\n' +
       '  "address2": "회사 두 번째/지사/공장/보조 주소 (명함 내 주소가 2개 존재하는 경우에만 작성, 1개일 경우 빈 문자열 \"\")",\n' +
-      '  "memo": "명함에 적힌 슬로건이나 주요 비즈니스 요약"\n' +
-      "}"
+      '  "memo": "명함에 적힌 슬로건이나 주요 비즈니스 요약",\n' +
+      '  "frontCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n' +
+      '  "backCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}}\n' +
+      "}\n" +
+      "(frontCorners는 첫 번째로 첨부된 이미지, backCorners는 두 번째로 첨부된 이미지 기준이야. 해당 이미지가 없으면 그 필드는 생략해도 돼.)"
     ];
 
     if (frontImage) {
       const base64Data = frontImage.replace(/^data:image\/\w+;base64,/, '');
+      contents.push("다음은 명함 앞면 이미지야 (frontCorners는 이 이미지 기준):");
       contents.push({
         inlineData: {
           mimeType: 'image/jpeg',
@@ -1262,6 +1273,7 @@ app.post('/api/scan-card', async (req, res) => {
 
     if (backImage) {
       const base64DataBack = backImage.replace(/^data:image\/\w+;base64,/, '');
+      contents.push("다음은 명함 뒷면 이미지야 (backCorners는 이 이미지 기준):");
       contents.push({
         inlineData: {
           mimeType: 'image/jpeg',
