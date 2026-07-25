@@ -1949,7 +1949,14 @@ export const ProjectsView: React.FC<Props> = ({
                                     <div className="flex flex-wrap gap-1.5">
                                       {(fu.expenses || []).map((exp) => (
                                         <span key={exp.id} className="text-[10px] text-slate-300 bg-slate-950/60 border border-slate-800 rounded-lg px-2 py-1 flex items-center gap-1">
-                                          {exp.receiptImage && <Camera className="w-3 h-3 text-emerald-400" />}
+                                          {exp.receiptImage && (
+                                            <img
+                                              src={exp.receiptImage}
+                                              alt="영수증"
+                                              onClick={(e) => { e.stopPropagation(); setEnlargedReceiptUrl(exp.receiptImage!); }}
+                                              className="w-4 h-4 rounded object-cover border border-emerald-500/40 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
+                                            />
+                                          )}
                                           <span>{expenseCategoryLabel(exp)}</span>
                                           <span className="font-mono text-slate-400">{formatCurrencyInput(exp.amount)}원</span>
                                           <span className="text-slate-500">
