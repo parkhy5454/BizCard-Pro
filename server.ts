@@ -2269,11 +2269,25 @@ app.post('/api/feedback', async (req, res) => {
   }
 });
 
-// 접수된 문의 목록 조회 (지금은 전용 관리 화면이 없어 이메일로만 확인하는 구조이지만,
-// 나중에 관리자용 문의함 화면을 만들 경우를 대비해 조회 API도 열어둔다)
+// 접수된 문의 목록 조회 (관리자용 문의함 화면에서 사용)
 app.get('/api/feedback', async (req, res) => {
   const list = await getScopedCollection<FeedbackItem>(GLOBAL_FEEDBACK_SCOPE, 'feedback');
   res.json(list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
+});
+
+// 문의 처리 상태 변경 (신규 → 처리중 → 완료)
+app.put('/api/feedback/:id', async (req, res) => {
+  try {
+    const existing = await getScopedDoc<FeedbackItem>(GLOBAL_FEEDBACK_SCOPE, 'feedback', req.params.id);
+    if (!existing) return res.status(404).json({ error: '해당 문의를 찾을 수 없습니다.' });
+    const status = ['new', 'in_progress', 'resolved'].includes(req.body.status) ? req.body.status : existing.status;
+    const updated: FeedbackItem = { ...existing, status };
+    await setScopedDoc(GLOBAL_FEEDBACK_SCOPE, 'feedback', updated);
+    res.json(updated);
+  } catch (err: any) {
+    console.error('Feedback status update error:', err);
+    res.status(500).json({ error: '상태 변경 중 오류가 발생했습니다.' });
+  }
 });
 
 // ------------------------------------------------------------------
