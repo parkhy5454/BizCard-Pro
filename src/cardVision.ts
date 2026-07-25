@@ -178,7 +178,7 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
       try {
         const rawArea = Math.abs(cv.contourArea(cnt));
         const rawAreaRatio = rawArea / frameArea;
-        if (rawAreaRatio > 0.05 && rawAreaRatio < 0.97 && (!fallback || rawAreaRatio > fallback.areaRatio)) {
+        if (rawAreaRatio > 0.05 && rawAreaRatio < 0.99 && (!fallback || rawAreaRatio > fallback.areaRatio)) {
           const rotRect = cv.minAreaRect(cnt);
           const angleRad = (rotRect.angle * Math.PI) / 180;
           const cos = Math.cos(angleRad);
@@ -204,7 +204,7 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
           const areaRatio = area / frameArea;
           // [수정] 화면의 5%~97% 사이 크기로 허용 범위 확대 (기존 8%~95%보다 관대하게 —
           // 명함이 화면에 작게 잡히거나 화면 끝에 걸쳐도 후보로 인정되도록)
-          if (areaRatio > 0.05 && areaRatio < 0.97) {
+          if (areaRatio > 0.05 && areaRatio < 0.99) {
             const pts: Point[] = [];
             for (let j = 0; j < 4; j++) {
               pts.push([approx.data32S[j * 2], approx.data32S[j * 2 + 1]]);
