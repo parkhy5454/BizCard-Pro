@@ -79,16 +79,23 @@ const loadOpenCv = (): Promise<any> => {
   return openCvLoadPromise;
 };
 
-// [수정] 명함이 배경과 색·명암 대비가 약할 때(예: 크림색 명함 + 회색 벽), 고정된 경계선 검출
-// 민감도 하나로는 실패하는 경우가 있어서, 기본 민감도 → 완화된 민감도 순으로 자동 재시도한다.
-const CANNY_THRESHOLD_LADDER_CROP: [number, number][] = [
-  [45, 140],
-  [25, 90],
-  [15, 60]
+// [수정] 명함이 배경과 색·명암 대비가 약할 때(예: 크림색 명함 + 회색 벽), Canny(경계선 명암차
+// 기반) 방식 하나로는 아무리 민감도를 조절해도 실패하는 경우가 있었다. Canny 민감도를 단계적으로
+// 낮춰가며 재시도하는 것에 더해, 완전히 다른 방식인 적응형 이진화(주변 지역과 비교해 밝은지
+// 어두운지를 보는 방식)도 마지막 안전장치로 추가했다.
+type DetectionStrategyCrop =
+  | { mode: 'canny'; low: number; high: number }
+  | { mode: 'adaptive'; blockSize: number; C: number };
+
+const DETECTION_STRATEGY_LADDER_CROP: DetectionStrategyCrop[] = [
+  { mode: 'canny', low: 45, high: 140 },
+  { mode: 'canny', low: 25, high: 90 },
+  { mode: 'canny', low: 15, high: 60 },
+  { mode: 'adaptive', blockSize: 35, C: 5 }
 ];
 
-const detectCornersOnce = (img: HTMLImageElement, cv: any, cannyLow: number, cannyHigh: number): Point[] | null => {
-  let src, gray, blurred, edged, dilated, kernel, contours, hierarchy: any = null;
+const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionStrategyCrop): Point[] | null => {
+  let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy: any = null;
   let bestApprox: any = null;
   let bestApproxScore = -1;
   let fallbackQuad: Point[] | null = null;
@@ -107,10 +114,17 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, cannyLow: number, can
     blurred = new cv.Mat();
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
     edged = new cv.Mat();
-    cv.Canny(blurred, edged, cannyLow, cannyHigh);
     dilated = new cv.Mat();
     kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-    cv.dilate(edged, dilated, kernel);
+    closeKernel = cv.Mat.ones(9, 9, cv.CV_8U);
+
+    if (strategy.mode === 'canny') {
+      cv.Canny(blurred, edged, strategy.low, strategy.high);
+      cv.dilate(edged, dilated, kernel);
+    } else {
+      cv.adaptiveThreshold(blurred, edged, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, strategy.blockSize, strategy.C);
+      cv.morphologyEx(edged, dilated, cv.MORPH_CLOSE, closeKernel);
+    }
 
     contours = new cv.MatVector();
     hierarchy = new cv.Mat();
@@ -206,14 +220,14 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, cannyLow: number, can
     return null;
   } finally {
     if (bestApprox) { try { bestApprox.delete(); } catch {} }
-    [src, gray, blurred, edged, dilated, kernel, contours, hierarchy].forEach((m) => {
+    [src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy].forEach((m) => {
       try { m && m.delete && m.delete(); } catch {}
     });
   }
 };
 
 // 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
-// 기본 민감도로 먼저 시도하고, 실패하면 더 민감한(엣지를 더 쉽게 잡는) 설정으로 자동 재시도한다.
+// 기본 민감도로 먼저 시도하고, 실패하면 더 민감한 설정 → 적응형 이진화 순으로 자동 재시도한다.
 const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => {
   try {
     await loadOpenCv();
@@ -221,8 +235,8 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
     return null;
   }
   const cv = (window as any).cv;
-  for (const [low, high] of CANNY_THRESHOLD_LADDER_CROP) {
-    const result = detectCornersOnce(img, cv, low, high);
+  for (const strategy of DETECTION_STRATEGY_LADDER_CROP) {
+    const result = detectCornersOnce(img, cv, strategy);
     if (result) return result;
   }
   return null;
