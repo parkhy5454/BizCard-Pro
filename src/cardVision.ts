@@ -138,7 +138,24 @@ function quadAspectRatio(q: Quad): number {
 
 // 카메라 프레임(cv.Mat)에서 문서로 보이는 사각형을 찾는다.
 // targetAspect: 찾고자 하는 문서의 가로:세로 비율(예: 명함 ≈ 1.586). 비율이 가까울수록, 넓이가 클수록 높은 점수.
-export function detectQuad(cv: any, srcMat: any, targetAspect: number): DetectedQuad | null {
+// [수정] 명함/영수증이 가까이서 배경과 색·명암 대비가 약할 때, 고정된 엣지(경계선) 검출
+// 민감도 하나로는 윤곽선 자체가 잘 안 잡히는 경우가 있었다(예: 크림색 명함 + 회색 벽처럼
+// 대비가 약한 조합에서, 카메라를 가까이 가져갈수록 오히려 인식이 실패하는 현상).
+// 이제는 기본 민감도로 먼저 시도하고, 실패하면 더 민감한(엣지를 더 쉽게 잡는) 설정으로
+// 자동으로 한 번 더 시도한다.
+const CANNY_THRESHOLD_LADDER: [number, number][] = [
+  [45, 140], // 기본: 또렷한 대비에 적합
+  [25, 90],  // 완화: 대비가 약한 상황에서 흐릿한 경계선도 더 쉽게 잡음
+  [15, 60]   // 더 완화: 그래도 실패하면 최후 시도
+];
+
+function detectQuadWithCanny(
+  cv: any,
+  srcMat: any,
+  targetAspect: number,
+  cannyLow: number,
+  cannyHigh: number
+): { quad: Quad; score: number; areaRatio: number } | null {
   const gray = new cv.Mat();
   const blurred = new cv.Mat();
   const edges = new cv.Mat();
@@ -156,7 +173,7 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
   try {
     cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY);
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-    cv.Canny(blurred, edges, 45, 140);
+    cv.Canny(blurred, edges, cannyLow, cannyHigh);
     cv.dilate(edges, dilated, kernel);
     cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
@@ -202,8 +219,8 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
         if (approx.rows === 4 && cv.isContourConvex(approx)) {
           const area = Math.abs(cv.contourArea(approx));
           const areaRatio = area / frameArea;
-          // [수정] 화면의 5%~97% 사이 크기로 허용 범위 확대 (기존 8%~95%보다 관대하게 —
-          // 명함이 화면에 작게 잡히거나 화면 끝에 걸쳐도 후보로 인정되도록)
+          // [수정] 화면의 5%~99% 사이 크기로 허용 범위 확대 (명함이 화면에 작게 잡히거나,
+          // 반대로 화면에 꽉 차게 가까이 잡혀도 후보로 인정되도록)
           if (areaRatio > 0.05 && areaRatio < 0.99) {
             const pts: Point[] = [];
             for (let j = 0; j < 4; j++) {
@@ -249,7 +266,19 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
     hierarchy.delete();
   }
 
-  return best ? { points: best.quad, areaRatio: best.areaRatio } : null;
+  return best;
+}
+
+export function detectQuad(cv: any, srcMat: any, targetAspect: number): DetectedQuad | null {
+  // 기본 민감도부터 순서대로 시도하고, 뭔가 찾아지는 순간 바로 반환한다.
+  // (대부분의 경우 첫 번째 시도에서 바로 찾아지므로, 실시간 감지 성능에 거의 영향이 없다)
+  for (const [low, high] of CANNY_THRESHOLD_LADDER) {
+    const best = detectQuadWithCanny(cv, srcMat, targetAspect, low, high);
+    if (best) {
+      return { points: best.quad, areaRatio: best.areaRatio };
+    }
+  }
+  return null;
 }
 
 // 탐지된 네 모서리를 기준으로 perspective transform을 적용해 정면 직사각형 이미지로 보정
