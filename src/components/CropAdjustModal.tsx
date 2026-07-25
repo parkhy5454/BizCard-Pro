@@ -79,18 +79,15 @@ const loadOpenCv = (): Promise<any> => {
   return openCvLoadPromise;
 };
 
-// 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
-// [수정] 예전엔 "정확히 꼭짓점 4개로 근사되는 윤곽선"만 인정해서, 살짝 휘거나 구겨진 영수증
-// 또는 조명이 애매한 명함에서 실패하는 경우가 많았다. cardVision.ts의 실시간 감지 로직과
-// 같은 수준으로 맞춰서: 여러 근사값을 시도하고, 그래도 4점이 안 나오면 가장 큰 덩어리를
-// 감싸는 최소 회전 사각형(minAreaRect)을 대신 쓰는 안전장치를 추가했다.
-const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => {
-  try {
-    await loadOpenCv();
-  } catch {
-    return null;
-  }
-  const cv = (window as any).cv;
+// [수정] 명함이 배경과 색·명암 대비가 약할 때(예: 크림색 명함 + 회색 벽), 고정된 경계선 검출
+// 민감도 하나로는 실패하는 경우가 있어서, 기본 민감도 → 완화된 민감도 순으로 자동 재시도한다.
+const CANNY_THRESHOLD_LADDER_CROP: [number, number][] = [
+  [45, 140],
+  [25, 90],
+  [15, 60]
+];
+
+const detectCornersOnce = (img: HTMLImageElement, cv: any, cannyLow: number, cannyHigh: number): Point[] | null => {
   let src, gray, blurred, edged, dilated, kernel, contours, hierarchy: any = null;
   let bestApprox: any = null;
   let bestApproxScore = -1;
@@ -110,7 +107,7 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
     blurred = new cv.Mat();
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
     edged = new cv.Mat();
-    cv.Canny(blurred, edged, 45, 140);
+    cv.Canny(blurred, edged, cannyLow, cannyHigh);
     dilated = new cv.Mat();
     kernel = cv.Mat.ones(3, 3, cv.CV_8U);
     cv.dilate(edged, dilated, kernel);
@@ -213,6 +210,22 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
       try { m && m.delete && m.delete(); } catch {}
     });
   }
+};
+
+// 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
+// 기본 민감도로 먼저 시도하고, 실패하면 더 민감한(엣지를 더 쉽게 잡는) 설정으로 자동 재시도한다.
+const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => {
+  try {
+    await loadOpenCv();
+  } catch {
+    return null;
+  }
+  const cv = (window as any).cv;
+  for (const [low, high] of CANNY_THRESHOLD_LADDER_CROP) {
+    const result = detectCornersOnce(img, cv, low, high);
+    if (result) return result;
+  }
+  return null;
 };
 
 // 4개 점(원본 이미지 좌표)을 기준으로 원근 보정하여 반듯하게 자름
