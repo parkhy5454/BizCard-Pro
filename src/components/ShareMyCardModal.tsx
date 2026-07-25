@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
-import { CropAdjustModal, resizeDataUrl } from './CropAdjustModal.js';
+import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 
@@ -267,6 +267,24 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         address: data.address || prev.address,
         memo: data.memo || prev.memo
       } : prev);
+
+      // [수정] AI가 함께 알려준 "명함 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
+      if (targetFront && isValidNormalizedCorners(data.frontCorners)) {
+        try {
+          const recropped = await warpDataUrlWithNormalizedCorners(targetFront, data.frontCorners);
+          setScanImg(recropped);
+        } catch (err) {
+          console.error('AI 좌표 기반 앞면 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
+      if (targetBack && isValidNormalizedCorners(data.backCorners)) {
+        try {
+          const recropped = await warpDataUrlWithNormalizedCorners(targetBack, data.backCorners);
+          setScanImgBack(recropped);
+        } catch (err) {
+          console.error('AI 좌표 기반 뒷면 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
     } catch (err: any) {
       alert(err.message || '명함 인식 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {

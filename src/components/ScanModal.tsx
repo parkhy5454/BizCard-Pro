@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
-import { CropAdjustModal, resizeDataUrl } from './CropAdjustModal.js';
+import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 
@@ -140,6 +140,26 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         address2: data.address2 || prev.address2 || '',
         memo: data.memo || prev.memo || ''
       }));
+
+      // [수정] AI가 함께 알려준 "명함 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
+      // 화면의 명암 차이로 테두리를 찾는 기존 방식보다 훨씬 안정적이라(배경과 색이 비슷해도 잘 됨),
+      // 이 결과가 있으면 지금까지의 대충 잘린/원본 사진을 이걸로 교체한다.
+      if (frontImg && isValidNormalizedCorners(data.frontCorners)) {
+        try {
+          const recropped = await warpDataUrlWithNormalizedCorners(frontImg, data.frontCorners);
+          setFrontImg(recropped);
+        } catch (err) {
+          console.error('AI 좌표 기반 앞면 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
+      if (backImg && isValidNormalizedCorners(data.backCorners)) {
+        try {
+          const recropped = await warpDataUrlWithNormalizedCorners(backImg, data.backCorners);
+          setBackImg(recropped);
+        } catch (err) {
+          console.error('AI 좌표 기반 뒷면 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
 
       setScanDone(true);
     } catch (err: any) {
@@ -309,12 +329,22 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           memo: data.memo || '', groupId: batchGroupId
         };
 
+        // [수정] AI가 알려준 꼭짓점 좌표로 이 항목의 사진도 정밀하게 재크롭한다.
+        let finalFrontImage = item.frontImage;
+        if (isValidNormalizedCorners(data.frontCorners)) {
+          try {
+            finalFrontImage = await warpDataUrlWithNormalizedCorners(item.frontImage, data.frontCorners);
+          } catch (err) {
+            console.error('AI 좌표 기반 재크롭 실패, 기존 사진 유지:', err);
+          }
+        }
+
         const dup =
           findDuplicateContact(parsed, contacts) ||
           findDuplicateContact(parsed, recognizedInThisBatch);
 
         setBatchQueue((prev) => prev.map((it) => (it.tempId === item.tempId ? {
-          ...it, status: 'done', parsed, duplicateMatch: dup, action: dup ? 'skip' : 'create'
+          ...it, status: 'done', parsed, duplicateMatch: dup, action: dup ? 'skip' : 'create', frontImage: finalFrontImage
         } : it)));
 
         recognizedInThisBatch.push({
@@ -359,8 +389,16 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         phoneFax: data.phoneFax || '', email: data.email || '', address: data.address || '', address2: data.address2 || '',
         memo: data.memo || '', groupId: batchGroupId
       };
+      let finalFrontImage = item.frontImage;
+      if (isValidNormalizedCorners(data.frontCorners)) {
+        try {
+          finalFrontImage = await warpDataUrlWithNormalizedCorners(item.frontImage, data.frontCorners);
+        } catch (err) {
+          console.error('AI 좌표 기반 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
       const dup = findDuplicateContact(parsed, contacts);
-      setBatchQueue((prev) => prev.map((it) => (it.tempId === tempId ? { ...it, status: 'done', parsed, duplicateMatch: dup, action: dup ? 'skip' : 'create' } : it)));
+      setBatchQueue((prev) => prev.map((it) => (it.tempId === tempId ? { ...it, status: 'done', parsed, duplicateMatch: dup, action: dup ? 'skip' : 'create', frontImage: finalFrontImage } : it)));
     } catch (err: any) {
       setBatchQueue((prev) => prev.map((it) => (it.tempId === tempId ? { ...it, status: 'error', errorMessage: err?.message || '인식 실패' } : it)));
     }

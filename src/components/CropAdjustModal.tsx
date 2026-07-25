@@ -243,7 +243,7 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
 };
 
 // 4개 점(원본 이미지 좌표)을 기준으로 원근 보정하여 반듯하게 자름
-const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Promise<string> => {
+export const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Promise<string> => {
   await loadOpenCv();
   const cv = (window as any).cv;
   const canvas = document.createElement('canvas');
@@ -285,6 +285,61 @@ const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Promise<s
 
   [src, srcTri, dstTri, M, dst].forEach((m) => { try { m.delete(); } catch {} });
   return result;
+};
+
+// [수정] Gemini Vision이 명함 인식과 함께 알려주는 "네 꼭짓점 좌표"(이미지 가로/세로에 대한 0~1 비율)를
+// 받아서, 그 좌표대로 정밀하게 반듯이 잘라주는 편의 함수. OpenCV로 화면에서 직접 테두리를 찾는 방식보다
+// AI가 "이게 명함처럼 생겼다"는 패턴 자체로 판단하는 것이라, 배경과 색이 비슷해도 훨씬 안정적이다.
+export interface NormalizedCorners {
+  topLeft: { x: number; y: number };
+  topRight: { x: number; y: number };
+  bottomRight: { x: number; y: number };
+  bottomLeft: { x: number; y: number };
+}
+
+// [수정] AI가 응답에 꼭짓점 좌표를 아예 안 주거나(파싱 실패 등), 좌표가 말이 안 되는 값(예: 네 점이
+// 거의 겹쳐서 면적이 0에 가까움)일 때는 재크롭을 시도하지 않고 기존 사진을 그대로 쓰기 위한 안전장치.
+// 명함 등록(ScanModal), 내 명함 공유(ShareMyCardModal) 등 여러 화면에서 공통으로 재사용한다.
+export function isValidNormalizedCorners(c: any): c is NormalizedCorners {
+  if (!c || typeof c !== 'object') return false;
+  const keys = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'] as const;
+  for (const k of keys) {
+    const p = c[k];
+    if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') return false;
+    if (p.x < -0.05 || p.x > 1.05 || p.y < -0.05 || p.y > 1.05) return false;
+  }
+  // 신발끈 공식으로 대략적인 면적을 구해, 네 점이 거의 한 점에 겹쳐있는 경우(찌그러진 응답)를 걸러낸다.
+  const pts = [c.topLeft, c.topRight, c.bottomRight, c.bottomLeft];
+  let area = 0;
+  for (let i = 0; i < 4; i++) {
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % 4];
+    area += p1.x * p2.y - p2.x * p1.y;
+  }
+  area = Math.abs(area) / 2;
+  return area > 0.03; // 이미지 전체 면적의 3% 미만이면 신뢰하지 않음
+}
+
+export const warpDataUrlWithNormalizedCorners = (dataUrl: string, corners: NormalizedCorners): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = async () => {
+      try {
+        const pts: Point[] = [
+          { x: corners.topLeft.x * img.naturalWidth, y: corners.topLeft.y * img.naturalHeight },
+          { x: corners.topRight.x * img.naturalWidth, y: corners.topRight.y * img.naturalHeight },
+          { x: corners.bottomRight.x * img.naturalWidth, y: corners.bottomRight.y * img.naturalHeight },
+          { x: corners.bottomLeft.x * img.naturalWidth, y: corners.bottomLeft.y * img.naturalHeight }
+        ];
+        const result = await warpToCorners(img, pts);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => reject(new Error('이미지 로딩 실패'));
+    img.src = dataUrl;
+  });
 };
 
 export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel }) => {
