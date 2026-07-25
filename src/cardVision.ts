@@ -138,29 +138,35 @@ function quadAspectRatio(q: Quad): number {
 
 // 카메라 프레임(cv.Mat)에서 문서로 보이는 사각형을 찾는다.
 // targetAspect: 찾고자 하는 문서의 가로:세로 비율(예: 명함 ≈ 1.586). 비율이 가까울수록, 넓이가 클수록 높은 점수.
-// [수정] 명함/영수증이 가까이서 배경과 색·명암 대비가 약할 때, 고정된 엣지(경계선) 검출
-// 민감도 하나로는 윤곽선 자체가 잘 안 잡히는 경우가 있었다(예: 크림색 명함 + 회색 벽처럼
-// 대비가 약한 조합에서, 카메라를 가까이 가져갈수록 오히려 인식이 실패하는 현상).
-// 이제는 기본 민감도로 먼저 시도하고, 실패하면 더 민감한(엣지를 더 쉽게 잡는) 설정으로
-// 자동으로 한 번 더 시도한다.
-const CANNY_THRESHOLD_LADDER: [number, number][] = [
-  [45, 140], // 기본: 또렷한 대비에 적합
-  [25, 90],  // 완화: 대비가 약한 상황에서 흐릿한 경계선도 더 쉽게 잡음
-  [15, 60]   // 더 완화: 그래도 실패하면 최후 시도
+// [수정] 명함/영수증이 가까이서 배경과 색·명암 대비가 약할 때, Canny(경계선 명암차 기반) 방식
+// 하나로는 아무리 민감도를 조절해도 실패하는 경우가 있었다(예: 크림색 명함 + 회색 벽처럼
+// 전체적인 명암 차이가 약한 조합). 그래서 Canny 민감도를 단계적으로 낮춰가며 재시도하는 것에
+// 더해, 완전히 다른 방식인 "적응형 이진화(adaptive threshold)"도 마지막 안전장치로 추가했다.
+// 적응형 이진화는 화면 전체의 밝기 차이가 아니라 "주변 지역과 비교해 밝은지 어두운지"를 보기
+// 때문에, 전체 대비가 약해도 그 지역 안에서의 미세한 밝기 차이만으로 경계를 찾아낼 수 있다.
+type DetectionStrategy =
+  | { mode: 'canny'; low: number; high: number }
+  | { mode: 'adaptive'; blockSize: number; C: number };
+
+const DETECTION_STRATEGY_LADDER: DetectionStrategy[] = [
+  { mode: 'canny', low: 45, high: 140 }, // 기본: 또렷한 대비에 적합
+  { mode: 'canny', low: 25, high: 90 },  // 완화: 대비가 약한 상황에서 흐릿한 경계선도 더 쉽게 잡음
+  { mode: 'canny', low: 15, high: 60 },  // 더 완화
+  { mode: 'adaptive', blockSize: 35, C: 5 } // 최후 수단: 전체 대비가 아닌 지역별 밝기 차이로 재시도
 ];
 
-function detectQuadWithCanny(
+function detectQuadOnce(
   cv: any,
   srcMat: any,
   targetAspect: number,
-  cannyLow: number,
-  cannyHigh: number
+  strategy: DetectionStrategy
 ): { quad: Quad; score: number; areaRatio: number } | null {
   const gray = new cv.Mat();
   const blurred = new cv.Mat();
   const edges = new cv.Mat();
   const dilated = new cv.Mat();
   const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+  const closeKernel = cv.Mat.ones(9, 9, cv.CV_8U);
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
 
@@ -173,8 +179,18 @@ function detectQuadWithCanny(
   try {
     cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY);
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-    cv.Canny(blurred, edges, cannyLow, cannyHigh);
-    cv.dilate(edges, dilated, kernel);
+
+    if (strategy.mode === 'canny') {
+      cv.Canny(blurred, edges, strategy.low, strategy.high);
+      cv.dilate(edges, dilated, kernel);
+    } else {
+      // 적응형 이진화: 화면 전체가 아니라 각 지점 주변(blockSize)의 평균 밝기와 비교해서
+      // 그 지점이 상대적으로 밝은지/어두운지를 판단한다. 그 후 작은 잡음(글씨, 로고 디테일)은
+      // 형태학적 닫힘(close) 연산으로 뭉개서, 카드 전체가 하나의 매끈한 덩어리로 보이게 한다.
+      cv.adaptiveThreshold(blurred, edges, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, strategy.blockSize, strategy.C);
+      cv.morphologyEx(edges, dilated, cv.MORPH_CLOSE, closeKernel);
+    }
+
     cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
     const frameArea = srcMat.cols * srcMat.rows;
@@ -262,6 +278,7 @@ function detectQuadWithCanny(
     edges.delete();
     dilated.delete();
     kernel.delete();
+    closeKernel.delete();
     contours.delete();
     hierarchy.delete();
   }
@@ -272,8 +289,8 @@ function detectQuadWithCanny(
 export function detectQuad(cv: any, srcMat: any, targetAspect: number): DetectedQuad | null {
   // 기본 민감도부터 순서대로 시도하고, 뭔가 찾아지는 순간 바로 반환한다.
   // (대부분의 경우 첫 번째 시도에서 바로 찾아지므로, 실시간 감지 성능에 거의 영향이 없다)
-  for (const [low, high] of CANNY_THRESHOLD_LADDER) {
-    const best = detectQuadWithCanny(cv, srcMat, targetAspect, low, high);
+  for (const strategy of DETECTION_STRATEGY_LADDER) {
+    const best = detectQuadOnce(cv, srcMat, targetAspect, strategy);
     if (best) {
       return { points: best.quad, areaRatio: best.areaRatio };
     }
