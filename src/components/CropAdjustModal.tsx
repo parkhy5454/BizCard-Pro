@@ -134,7 +134,7 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
       try {
         const rawArea = Math.abs(cv.contourArea(cnt));
         const rawAreaRatio = rawArea / imgArea;
-        if (rawAreaRatio > 0.05 && rawAreaRatio < 0.97 && rawAreaRatio > fallbackAreaRatio) {
+        if (rawAreaRatio > 0.05 && rawAreaRatio < 0.99 && rawAreaRatio > fallbackAreaRatio) {
           const rotRect = cv.minAreaRect(cnt);
           const angleRad = (rotRect.angle * Math.PI) / 180;
           const cos = Math.cos(angleRad);
@@ -160,7 +160,7 @@ const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => 
         const areaRatio = area / imgArea;
 
         // 명함/영수증다운 후보만: 화면의 5%~97% 사이 면적, 볼록(convex)한 4각형
-        if (!matchedThisContour && approx.rows === 4 && areaRatio > 0.05 && areaRatio < 0.97 && cv.isContourConvex(approx)) {
+        if (!matchedThisContour && approx.rows === 4 && areaRatio > 0.05 && areaRatio < 0.99 && cv.isContourConvex(approx)) {
           let cx = 0, cy = 0;
           for (let j = 0; j < 4; j++) { cx += approx.data32S[j * 2]; cy += approx.data32S[j * 2 + 1]; }
           cx /= 4; cy /= 4;
