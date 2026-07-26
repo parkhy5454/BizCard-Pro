@@ -2236,6 +2236,7 @@ app.post('/api/feedback', async (req, res) => {
       content: String(content).trim(),
       authorName: user?.name,
       authorEmail: user?.email,
+      authorPhone: user?.phone,
       companyName: user?.companyName,
       pageContext: pageContext || undefined,
       status: 'new',
@@ -2256,6 +2257,7 @@ app.post('/api/feedback', async (req, res) => {
           <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
             <h2 style="margin-bottom:4px;">${categoryLabel}</h2>
             <p style="color:#555;">작성자: ${item.authorName || '알 수 없음'} (${item.authorEmail || '-'})</p>
+            <p style="color:#555;">연락처: ${item.authorPhone || '등록된 번호 없음'}</p>
             <p style="color:#555;">소속: ${item.companyName || '개인 계정'}</p>
             <p style="color:#555;">접수 화면: ${item.pageContext || '-'}</p>
             <div style="margin-top:16px; padding:16px; background:#f8fafc; border-radius:8px; white-space:pre-wrap; font-size:14px;">${String(item.content).replace(/</g, '&lt;')}</div>
