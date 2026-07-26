@@ -147,6 +147,9 @@ export interface User {
 
 export interface RegisteredUser extends User {
   password?: string;
+  // [수정] 언제 가입했는지 확인할 수 있도록 가입 일시 기록. 이 필드가 생기기 전에 이미
+  // 가입되어 있던 계정은 값이 없을 수 있다(운영 현황 화면에서 "정보 없음"으로 표시).
+  createdAt?: string;
 }
 
 // === 통합 차량 관리 (Vehicle Management) ===
