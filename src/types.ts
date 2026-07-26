@@ -143,6 +143,8 @@ export interface User {
   type: 'individual' | 'company';
   companyName?: string;
   businessNumber?: string;
+  // [수정] 운영 현황에서 가입자 연락처를 확인할 수 있도록 (선택 입력)
+  phone?: string;
 }
 
 export interface RegisteredUser extends User {
