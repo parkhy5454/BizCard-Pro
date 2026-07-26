@@ -827,7 +827,7 @@ function verifyPassword(inputPassword: string, storedPassword?: string): boolean
 
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, name, type, companyName, businessNumber, position, role: requestedRole } = req.body;
+  const { email, password, name, phone, type, companyName, businessNumber, position, role: requestedRole } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
@@ -868,6 +868,7 @@ app.post('/api/auth/signup', async (req, res) => {
     email: email.toLowerCase(),
     password: bcrypt.hashSync(password, 10), // 안전하게 암호화하여 저장
     name,
+    phone: phone || undefined,
     type,
     companyName,
     businessNumber,
@@ -2289,7 +2290,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     const scopeStats = await getPlatformStats();
 
     // 회사별 가입 직원 수/명단은 users 목록에서 같은 스코프(회사)로 묶어서 계산한다.
-    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string; members: { name: string; email: string; createdAt?: string }[] }>();
+    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string; members: { name: string; email: string; phone?: string; createdAt?: string }[] }>();
     for (const u of users) {
       const scopeId = scopeIdForUser(u);
       if (!usersByScope.has(scopeId)) {
@@ -2297,7 +2298,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       }
       const entry = usersByScope.get(scopeId)!;
       entry.count += 1;
-      entry.members.push({ name: u.name, email: u.email, createdAt: u.createdAt });
+      entry.members.push({ name: u.name, email: u.email, phone: u.phone, createdAt: u.createdAt });
     }
 
     const companies = scopeStats
@@ -2339,7 +2340,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     // 목록으로 그대로 보여준다 (가입일 기록 이전에 가입한 계정은 createdAt이 없을 수 있음).
     const individuals = users
       .filter(u => u.type === 'individual')
-      .map(u => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt }))
+      .map(u => ({ id: u.id, name: u.name, email: u.email, phone: u.phone, createdAt: u.createdAt }))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
     const individualScopeCount = scopeStats.filter(s => s.scopeId.startsWith('individual:')).length;
