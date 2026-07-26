@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Building2, User, CheckCircle2, ShieldCheck, Info } from 'lucide-react';
+import { X, Search, Building2, User, CheckCircle2, ShieldCheck, Info, Phone } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
 interface Props {
@@ -41,7 +41,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
 
   // 필터링 적용
   const filteredUsers = users.filter(user => {
-    const text = `${user.name} ${user.email} ${user.companyName || ''} ${user.businessNumber || ''}`.toLowerCase();
+    const text = `${user.name} ${user.email} ${user.phone || ''} ${user.companyName || ''} ${user.businessNumber || ''}`.toLowerCase();
     return text.includes(searchTerm.toLowerCase());
   });
 
@@ -158,7 +158,13 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm text-slate-100">{u.name}</span>
                           <span className="text-xs text-slate-500 font-mono">({u.email})</span>
-                          
+                          {u.phone && (
+                            <span className="flex items-center gap-1 text-xs text-slate-400 font-mono">
+                              <Phone className="w-3 h-3 text-slate-500" />
+                              {u.phone}
+                            </span>
+                          )}
+
                           {isMe && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                               나 (접속중)
