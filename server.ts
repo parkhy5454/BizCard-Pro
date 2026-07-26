@@ -872,7 +872,8 @@ app.post('/api/auth/signup', async (req, res) => {
     companyName,
     businessNumber,
     position: position || undefined,
-    role
+    role,
+    createdAt: new Date().toISOString()
   };
 
   users.push(newUser);
@@ -2288,7 +2289,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     const scopeStats = await getPlatformStats();
 
     // 회사별 가입 직원 수/명단은 users 목록에서 같은 스코프(회사)로 묶어서 계산한다.
-    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string; members: { name: string; email: string }[] }>();
+    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string; members: { name: string; email: string; createdAt?: string }[] }>();
     for (const u of users) {
       const scopeId = scopeIdForUser(u);
       if (!usersByScope.has(scopeId)) {
@@ -2296,7 +2297,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       }
       const entry = usersByScope.get(scopeId)!;
       entry.count += 1;
-      entry.members.push({ name: u.name, email: u.email });
+      entry.members.push({ name: u.name, email: u.email, createdAt: u.createdAt });
     }
 
     const companies = scopeStats
@@ -2334,11 +2335,12 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       }
     }
 
-    // [수정] 개인 가입자는 그동안 숫자로만 집계됐는데, 실제로는 이름/이메일 정보가 이미 있으므로
-    // 목록으로 그대로 보여준다 (가입 일시는 현재 시스템에 기록되고 있지 않아 포함하지 않음).
+    // [수정] 개인 가입자는 그동안 숫자로만 집계됐는데, 실제로는 이름/이메일/가입일 정보가 있으므로
+    // 목록으로 그대로 보여준다 (가입일 기록 이전에 가입한 계정은 createdAt이 없을 수 있음).
     const individuals = users
       .filter(u => u.type === 'individual')
-      .map(u => ({ id: u.id, name: u.name, email: u.email }));
+      .map(u => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt }))
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
     const individualScopeCount = scopeStats.filter(s => s.scopeId.startsWith('individual:')).length;
 
