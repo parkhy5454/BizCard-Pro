@@ -38,6 +38,47 @@ export const supabase: SupabaseClient = createClient(
 // (사전 준비: Supabase 대시보드 → Storage에서 "card-images"라는 이름의 Public 버킷을 만들어둬야 함)
 const CARD_IMAGES_BUCKET = 'card-images';
 
+// [수정] 관리자 대시보드용: scoped_items 테이블 전체를 스코프(회사/개인)별로 집계해서
+// "어느 회사가 무엇을 얼마나 등록했는지, 마지막 활동이 언제였는지"를 한 번에 계산한다.
+// (테이블이 아주 커지기 전까지는, 필요한 컬럼만 가져와서 서버 메모리에서 집계하는 방식이 가장 간단하다)
+export interface PlatformScopeStats {
+  scopeId: string;
+  itemCounts: Record<string, number>; // collection(예: contacts, projects, vehicles...) -> 개수
+  totalItems: number;
+  lastActivity: string | null; // 이 스코프에서 가장 최근에 저장/수정된 시각(ISO)
+}
+
+export async function getPlatformStats(): Promise<PlatformScopeStats[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const { data, error } = await supabase
+      .from('scoped_items')
+      .select('scope_id, collection, updated_at');
+    if (error) {
+      console.error('getPlatformStats 조회 실패:', error);
+      return [];
+    }
+    const byScope = new Map<string, PlatformScopeStats>();
+    for (const row of (data || []) as any[]) {
+      const scopeId = row.scope_id as string;
+      if (!scopeId) continue;
+      if (!byScope.has(scopeId)) {
+        byScope.set(scopeId, { scopeId, itemCounts: {}, totalItems: 0, lastActivity: null });
+      }
+      const entry = byScope.get(scopeId)!;
+      entry.itemCounts[row.collection] = (entry.itemCounts[row.collection] || 0) + 1;
+      entry.totalItems += 1;
+      if (row.updated_at && (!entry.lastActivity || row.updated_at > entry.lastActivity)) {
+        entry.lastActivity = row.updated_at;
+      }
+    }
+    return Array.from(byScope.values());
+  } catch (err) {
+    console.error('getPlatformStats 예외:', err);
+    return [];
+  }
+}
+
 export async function uploadDataUrlImage(
   scopeId: string,
   dataUrl: string,
