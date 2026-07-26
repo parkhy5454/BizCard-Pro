@@ -48,7 +48,8 @@ import {
   deleteScopedDoc,
   replaceScopedCollection,
   findProfileByShareSlug,
-  uploadDataUrlImage
+  uploadDataUrlImage,
+  getPlatformStats
 } from './src/db/supabaseStore.js';
 
 const app = express();
@@ -2266,6 +2267,89 @@ app.post('/api/feedback', async (req, res) => {
   } catch (err: any) {
     console.error('Feedback submit error:', err);
     if (!res.headersSent) res.status(500).json({ error: '문의 접수 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 📊 운영자 대시보드 — 회사별 가입/사용 현황을 한눈에 보기 위한 통계 API.
+// 다른 회사의 데이터 규모(명함/차량/프로젝트 개수 등)까지 노출되는 민감한 정보라,
+// 개발자(운영자) 계정에서만 접근 가능하도록 제한한다.
+// ------------------------------------------------------------------
+const ADMIN_EMAIL = 'parkhy5454@gmail.com';
+
+app.get('/api/admin/platform-stats', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester || requester.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: '접근 권한이 없습니다.' });
+  }
+
+  try {
+    const scopeStats = await getPlatformStats();
+
+    // 회사별 가입 직원 수는 users 목록에서 같은 스코프(회사)로 묶어서 계산한다.
+    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string }>();
+    for (const u of users) {
+      const scopeId = scopeIdForUser(u);
+      if (!usersByScope.has(scopeId)) {
+        usersByScope.set(scopeId, { count: 0, companyName: u.companyName, businessNumber: u.businessNumber });
+      }
+      usersByScope.get(scopeId)!.count += 1;
+    }
+
+    const companies = scopeStats
+      .filter(s => s.scopeId.startsWith('company:'))
+      .map(s => {
+        const userInfo = usersByScope.get(s.scopeId);
+        return {
+          scopeId: s.scopeId,
+          companyName: userInfo?.companyName || s.scopeId.replace('company:', ''),
+          businessNumber: userInfo?.businessNumber || '',
+          userCount: userInfo?.count || 0,
+          itemCounts: s.itemCounts,
+          totalItems: s.totalItems,
+          lastActivity: s.lastActivity
+        };
+      })
+      .sort((a, b) => (b.lastActivity || '').localeCompare(a.lastActivity || ''));
+
+    // 아직 아무 데이터도 등록하지 않은(가입만 한) 회사도 목록에 나오도록, users에는 있지만
+    // scoped_items에는 아직 없는 회사 스코프도 0건짜리 항목으로 추가해준다.
+    const seenScopeIds = new Set(companies.map(c => c.scopeId));
+    for (const [scopeId, info] of usersByScope) {
+      if (scopeId.startsWith('company:') && !seenScopeIds.has(scopeId)) {
+        companies.push({
+          scopeId,
+          companyName: info.companyName || scopeId.replace('company:', ''),
+          businessNumber: info.businessNumber || '',
+          userCount: info.count,
+          itemCounts: {},
+          totalItems: 0,
+          lastActivity: null
+        });
+      }
+    }
+
+    const individualScopeCount = scopeStats.filter(s => s.scopeId.startsWith('individual:')).length;
+
+    // 기능별 전체 사용 빈도 (모든 회사 합산) - 어느 기능이 제일 많이 쓰이는지 파악용
+    const featureTotals: Record<string, number> = {};
+    for (const s of scopeStats) {
+      for (const [collection, count] of Object.entries(s.itemCounts)) {
+        featureTotals[collection] = (featureTotals[collection] || 0) + count;
+      }
+    }
+
+    res.json({
+      totalUsers: users.length,
+      totalCompanies: companies.length,
+      individualAccountCount: individualScopeCount,
+      companies,
+      featureTotals
+    });
+  } catch (err: any) {
+    console.error('platform-stats 조회 오류:', err);
+    res.status(500).json({ error: '통계 조회 중 오류가 발생했습니다.' });
   }
 });
 
