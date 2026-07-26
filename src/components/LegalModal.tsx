@@ -217,7 +217,7 @@ const PrivacyContent: React.FC = () => (
       <p>회사는 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 이용자의 불만처리 및 피해구제 등을 위하여 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.</p>
       <div className="mt-2 p-3 bg-slate-950 border border-slate-800 rounded-xl text-[11px]">
         <p>성명: 박현용</p>
-        <p>연락처: [이메일 주소] / 02-971-0954</p>
+        <p>연락처: hypark@kaisersolution.com / 02-971-0954</p>
       </div>
     </Section>
 
