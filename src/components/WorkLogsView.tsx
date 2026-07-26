@@ -1696,8 +1696,24 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     <div className="space-y-3">
       
       {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-4 border border-slate-800 rounded-3xl backdrop-blur-md">
-        <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 border border-slate-800 rounded-3xl backdrop-blur-md">
+        {/* [수정] "+ 일일 일지 작성" 버튼을 맨 왼쪽(모바일에선 맨 위)으로 이동 */}
+        <div className="flex gap-2 shrink-0 order-1">
+          <button
+            onClick={handleOpenNewLog}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 whitespace-nowrap ${
+              activeSubTab === 'daily'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20'
+                : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20'
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span>{activeSubTab === 'daily' ? '일일 일지 작성' : '주간 일지 작성'}</span>
+          </button>
+        </div>
+
+        {/* [수정] 모바일 화면 너비가 좁아도 탭 글자가 줄바꿈되지 않도록, 넘치면 가로 스크롤되게 함 */}
+        <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent order-2">
           <button
             onClick={() => {
               setActiveSubTab('daily');
@@ -1705,7 +1721,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               setSelectedProjectFilter('all');
               setSelectedContactFilter('all');
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'daily'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                 : 'text-slate-400 hover:text-slate-200'
@@ -1725,7 +1741,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               setSelectedProjectFilter('all');
               setSelectedContactFilter('all');
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'weekly'
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
                 : 'text-slate-400 hover:text-slate-200'
@@ -1740,7 +1756,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
           <button
             onClick={() => setActiveSubTab('monthly')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'monthly'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
                 : 'text-slate-400 hover:text-slate-200'
@@ -1752,7 +1768,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
           <button
             onClick={() => setActiveSubTab('report')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'report'
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
                 : 'text-slate-400 hover:text-slate-200'
@@ -1760,20 +1776,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           >
             <Printer className="w-4 h-4" />
             <span>리포트 출력</span>
-          </button>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleOpenNewLog}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 ${
-              activeSubTab === 'daily'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20'
-                : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20'
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            <span>{activeSubTab === 'daily' ? '일일 일지 작성' : '주간 일지 작성'}</span>
           </button>
         </div>
       </div>
