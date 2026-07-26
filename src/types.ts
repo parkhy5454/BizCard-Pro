@@ -410,6 +410,7 @@ export interface FeedbackItem {
   content: string;
   authorName?: string;      // 작성자 이름 (로그인 정보 자동 기입)
   authorEmail?: string;      // 작성자 이메일
+  authorPhone?: string;      // [수정] 답변/연락을 위해 작성자 핸드폰 번호도 같이 기록 (로그인 정보에 등록되어 있는 경우)
   companyName?: string;      // 작성자 소속 회사명 (개인 계정이면 비어있음)
   pageContext?: string;      // 문의를 남긴 시점의 화면(탭) - 어디서 접수됐는지 참고용
   status: 'new' | 'in_progress' | 'resolved';
