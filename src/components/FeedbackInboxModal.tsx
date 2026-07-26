@@ -10,6 +10,7 @@ interface Props {
 interface Member {
   name: string;
   email: string;
+  phone?: string;
   createdAt?: string;
 }
 
@@ -28,6 +29,7 @@ interface IndividualUser {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   createdAt?: string;
 }
 
@@ -362,7 +364,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                           <div className="flex flex-wrap gap-1.5 pt-0.5">
                             {c.members.map((m, idx) => (
                               <span key={idx} className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">
-                                {m.name} · {m.email}{m.createdAt ? ` · ${formatDate(m.createdAt)} 가입` : ''}
+                                {m.name} · {m.email}{m.phone ? ` · ${m.phone}` : ''}{m.createdAt ? ` · ${formatDate(m.createdAt)} 가입` : ''}
                               </span>
                             ))}
                           </div>
@@ -398,7 +400,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                     <div className="flex flex-wrap gap-1.5">
                       {stats.individuals.map((u) => (
                         <span key={u.id} className="text-[11px] bg-slate-950 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
-                          {u.name} · {u.email}{u.createdAt ? ` · ${formatDate(u.createdAt)} 가입` : ' · 가입일 정보 없음'}
+                          {u.name} · {u.email}{u.phone ? ` · ${u.phone}` : ''}{u.createdAt ? ` · ${formatDate(u.createdAt)} 가입` : ' · 가입일 정보 없음'}
                         </span>
                       ))}
                     </div>

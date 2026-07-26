@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2, KeyRound } from 'lucide-react';
+import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2, KeyRound, Phone } from 'lucide-react';
 import { motion } from 'motion/react';
 import { User as UserType } from '../types.js';
+import { formatPhoneNumber } from '../phoneFormat.js';
 
 interface Props {
   onLoginSuccess: (user: UserType) => void;
@@ -12,6 +13,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [name, setName] = useState<string>('');
+  // [수정] 운영 현황에서 가입자 연락처를 확인할 수 있도록 핸드폰 번호도 받는다 (선택 입력)
+  const [phone, setPhone] = useState<string>('');
   const [accountType, setAccountType] = useState<'individual' | 'company'>('individual');
   const [companyName, setCompanyName] = useState<string>('');
   const [businessNumber, setBusinessNumber] = useState<string>('');
@@ -150,6 +153,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
             email,
             password,
             name,
+            phone: phone.trim() || undefined,
             type: accountType,
             companyName: accountType === 'company' ? companyName.trim() : undefined,
             businessNumber: accountType === 'company' ? businessNumber.trim() : undefined,
@@ -389,6 +393,30 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
                     className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                  />
+                </div>
+              </motion.div>
+            )}
+
+            {/* 회원가입 시: 핸드폰 번호 입력 (선택) */}
+            {!isLogin && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-1.5"
+              >
+                <label className="block text-xs font-bold text-slate-300">핸드폰 번호 <span className="text-slate-500 font-normal">(선택)</span></label>
+                <div className="relative rounded-xl shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={phone}
+                    onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                    placeholder="010-0000-0000"
+                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium font-mono"
                   />
                 </div>
               </motion.div>
