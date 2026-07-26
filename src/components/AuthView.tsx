@@ -3,6 +3,7 @@ import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, 
 import { motion } from 'motion/react';
 import { User as UserType } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
+import { LegalModal } from './LegalModal.js';
 
 interface Props {
   onLoginSuccess: (user: UserType) => void;
@@ -31,6 +32,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string>('');
+  // [수정] 이용약관/개인정보처리방침 모달
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy' | null>(null);
 
   // 이메일로 받은 재설정 링크(?resetToken=...)로 들어온 경우, 새 비밀번호 설정 화면을 바로 띄운다.
   useEffect(() => {
@@ -607,7 +610,20 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
             </div>
           </form>
         </div>
+
+        {/* [수정] 회원가입/로그인 화면에서도 이용약관·개인정보처리방침을 확인할 수 있도록 링크 추가 */}
+        <div className="text-center pt-1">
+          <p className="text-[11px] text-slate-600">
+            계속 진행하면{' '}
+            <button type="button" onClick={() => setLegalTab('terms')} className="underline underline-offset-2 hover:text-slate-400 transition-colors">이용약관</button>
+            {' '}및{' '}
+            <button type="button" onClick={() => setLegalTab('privacy')} className="underline underline-offset-2 hover:text-slate-400 transition-colors">개인정보처리방침</button>
+            에 동의하는 것으로 간주됩니다.
+          </p>
+        </div>
       </div>
+
+      {legalTab && <LegalModal initialTab={legalTab} onClose={() => setLegalTab(null)} />}
     </div>
   );
 };
