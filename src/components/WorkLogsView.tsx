@@ -1696,9 +1696,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     <div className="space-y-3">
       
       {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 border border-slate-800 rounded-3xl backdrop-blur-md">
-        {/* [수정] "+ 일일 일지 작성" 버튼을 맨 왼쪽(모바일에선 맨 위)으로 이동 */}
-        <div className="flex gap-2 shrink-0 order-1">
+      <div className="flex items-center gap-2 bg-slate-900/60 p-4 border border-slate-800 rounded-3xl backdrop-blur-md">
+        {/* [수정] "+ 일일 일지 작성" 버튼을 항상 맨 왼쪽에 고정, 줄어들지 않게 함 */}
+        <div className="flex gap-2 shrink-0">
           <button
             onClick={handleOpenNewLog}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 whitespace-nowrap ${
@@ -1713,7 +1713,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </div>
 
         {/* [수정] 모바일 화면 너비가 좁아도 탭 글자가 줄바꿈되지 않도록, 넘치면 가로 스크롤되게 함 */}
-        <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent order-2">
+        <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex-1 min-w-0">
           <button
             onClick={() => {
               setActiveSubTab('daily');
