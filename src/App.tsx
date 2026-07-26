@@ -422,12 +422,24 @@ export default function App() {
 
       {/* 하단 저작권 푸터 */}
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500 space-y-2">
-        <p>© 2026 BizCard Pro AI. All rights reserved. Powered by Google Gemini Vision & Express Fullstack.</p>
         <div className="flex items-center justify-center gap-3">
           <button onClick={() => setLegalTab('terms')} className="hover:text-slate-300 underline underline-offset-2 transition-colors">이용약관</button>
           <span className="text-slate-700">|</span>
           <button onClick={() => setLegalTab('privacy')} className="hover:text-slate-300 underline underline-offset-2 transition-colors">개인정보처리방침</button>
         </div>
+        {/* [수정] 전자상거래법상 필수 표시 항목: 사업자정보. "[ ]"로 표시된 곳은 실제 정보로 채워야 함 */}
+        <p className="text-[11px] text-slate-600">
+          상호명: [운영 회사명] · 대표자: [대표자명] · 사업자등록번호: [000-00-00000] · 통신판매업신고: [제0000-지역-0000호]
+        </p>
+        <p className="text-[11px] text-slate-600">
+          주소: [사업장 주소] · 전화: [연락처] · 이메일: [문의 이메일]
+        </p>
+        {/* [수정] 정보통신망법상 필수 표시 문구: 전자우편 무단수집 거부 */}
+        <p className="text-[11px] text-slate-600">
+          본 웹사이트에 게시된 이메일 주소가 전자우편 수집 프로그램이나 그 밖의 기술적 장치를 이용하여
+          무단으로 수집되는 것을 거부하며, 이를 위반 시 정보통신망법에 의해 형사처벌됨을 유의하시기 바랍니다.
+        </p>
+        <p>© 2026 BizCard Pro AI. All rights reserved. Powered by Google Gemini Vision & Express Fullstack.</p>
       </footer>
 
       {legalTab && <LegalModal initialTab={legalTab} onClose={() => setLegalTab(null)} />}
