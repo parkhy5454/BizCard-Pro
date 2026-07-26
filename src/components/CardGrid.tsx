@@ -32,6 +32,14 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  // [수정] 명함이 몇백~몇천 개로 늘어나도 느려지지 않도록, 처음엔 50개만 화면에 그리고
+  // 스크롤해서 끝에 가까워지면 50개씩 더 그린다. 데이터 자체는 그대로 다 갖고 있고
+  // (검색/지도/중복감지 등 다른 기능에 영향 없음), "화면에 그리는" 개수만 제한한다.
+  const [visibleCount, setVisibleCount] = useState<number>(50);
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [searchQuery]);
+  const visibleContacts = contacts.slice(0, Math.max(visibleCount, 50));
   const [expandedCallsId, setExpandedCallsId] = useState<string | null>(null);
   const [expandedNavId, setExpandedNavId] = useState<string | null>(null);
   const [cardImageSide, setCardImageSide] = useState<Record<string, 'front' | 'back'>>({});
@@ -79,6 +87,12 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
         contacts.length - 1
       );
       setCurrentIndex(index);
+
+      // [수정] 오른쪽 끝(카드 약 2장 정도 남았을 때)에 가까워지면 50개씩 더 그린다.
+      const nearEnd = scrollLeft + clientWidth > scrollWidth - (cardWidth + 24) * 2;
+      if (nearEnd) {
+        setVisibleCount((prev) => (prev < contacts.length ? Math.min(prev + 50, contacts.length) : prev));
+      }
     }
   };
 
@@ -262,7 +276,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
           className="flex overflow-x-auto gap-6 pb-4 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-none"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {contacts.map((contact) => {
+          {visibleContacts.map((contact) => {
             const group = groups.find((g) => g.id === contact.groupId);
             return (
               <div
@@ -572,6 +586,18 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
               </div>
             );
           })}
+
+          {/* [수정] 스크롤 감지가 안 먹히는 경우를 대비한 수동 "더 보기" 카드 */}
+          {visibleCount < contacts.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((prev) => Math.min(prev + 50, contacts.length))}
+              className="flex flex-col items-center justify-center gap-2 bg-slate-900/60 hover:bg-slate-900 border border-dashed border-slate-700 hover:border-indigo-500/50 rounded-2xl w-[85vw] sm:w-[220px] shrink-0 snap-center md:snap-start text-slate-400 hover:text-indigo-300 transition-all"
+            >
+              <span className="text-2xl">＋</span>
+              <span className="text-xs font-bold">{contacts.length - visibleCount}명 더 보기</span>
+            </button>
+          )}
         </div>
       </div>
 

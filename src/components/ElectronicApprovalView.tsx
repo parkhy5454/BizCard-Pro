@@ -387,6 +387,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
   const [advanceList, setAdvanceList] = useState<AdvancePaymentSettlement[]>([]);
   const [leaveList, setLeaveList] = useState<LeaveRequest[]>([]);
+  // [수정] 결재 문서가 몇백 건으로 늘어나도 느려지지 않도록, 처음엔 50건만 화면에 그린다.
+  const [visibleAdvanceCount, setVisibleAdvanceCount] = useState<number>(50);
+  const [visibleLeaveCount, setVisibleLeaveCount] = useState<number>(50);
   const [myProfile, setMyProfile] = useState<any>(null);
   const [companyPositions, setCompanyPositions] = useState<string[]>([]);
   // [수정] 회사마다 결재 단계/직책명이 다를 수 있어, 서버에 저장된 "우리 회사 기본 결재선"을 불러와 사용한다.
@@ -1436,7 +1439,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 const byDate = (b.periodStart || '').localeCompare(a.periodStart || '');
                 if (byDate !== 0) return byDate;
                 return (b.createdAt || '').localeCompare(a.createdAt || '');
-              }).map(doc => {
+              }).slice(0, visibleAdvanceCount).map(doc => {
                 const total = (doc.items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
                 return (
                   <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
@@ -1487,6 +1490,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   </div>
                 );
               })}
+
+              {/* [수정] 더 남은 정산서가 있으면 "더 보기" 버튼으로 이어서 로딩 */}
+              {visibleAdvanceCount < advanceList.length && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleAdvanceCount((prev) => Math.min(prev + 50, advanceList.length))}
+                  className="flex-none w-[150px] snap-center border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                >
+                  <span className="text-2xl">＋</span>
+                  <span className="text-xs font-bold">{advanceList.length - visibleAdvanceCount}건 더 보기</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1509,7 +1524,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 const byDate = (b.startDate || '').localeCompare(a.startDate || '');
                 if (byDate !== 0) return byDate;
                 return (b.createdAt || '').localeCompare(a.createdAt || '');
-              }).map(doc => (
+              }).slice(0, visibleLeaveCount).map(doc => (
                 <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -1561,6 +1576,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   )}
                 </div>
               ))}
+
+              {/* [수정] 더 남은 휴가신청서가 있으면 "더 보기" 버튼으로 이어서 로딩 */}
+              {visibleLeaveCount < leaveList.length && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleLeaveCount((prev) => Math.min(prev + 50, leaveList.length))}
+                  className="flex-none w-[150px] snap-center border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                >
+                  <span className="text-2xl">＋</span>
+                  <span className="text-xs font-bold">{leaveList.length - visibleLeaveCount}건 더 보기</span>
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -88,13 +88,27 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [expenseCustomEnd, setExpenseCustomEnd] = useState<string>('');
 
   const [maintPeriod, setMaintPeriod] = useState<string>('all');
+  const [visibleMaintCount, setVisibleMaintCount] = useState<number>(50);
+  useEffect(() => {
+    setVisibleMaintCount(50);
+  }, [maintPeriod]);
   const [maintCustomStart, setMaintCustomStart] = useState<string>('');
   const [maintCustomEnd, setMaintCustomEnd] = useState<string>('');
 
   // 검색/필터 상태
   const [vehicleSearch, setVehicleSearch] = useState('');
   const [selectedVehicleFilter, setSelectedVehicleFilter] = useState<string>('all');
+  // [수정] 운행기록이 몇백~몇천 건으로 늘어나도 느려지지 않도록, 처음엔 50건만 화면에 그리고
+  // "더 보기"를 누르면 50건씩 더 그린다. 필터가 바뀌면 다시 50건부터 시작한다.
+  const [visibleDrivingCount, setVisibleDrivingCount] = useState<number>(50);
+  useEffect(() => {
+    setVisibleDrivingCount(50);
+  }, [selectedVehicleFilter, drivingPeriod]);
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>('all');
+  const [visibleExpenseCount, setVisibleExpenseCount] = useState<number>(50);
+  useEffect(() => {
+    setVisibleExpenseCount(50);
+  }, [selectedVehicleFilter, expenseCategoryFilter, expensePeriod]);
 
   // 신규 등록용 폼 상태들
   // 1. 차량등록 폼
@@ -2541,7 +2555,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </span>
                 </div>
                 <div className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                  {filteredLogs.map(log => (
+                  {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
                       className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-800 bg-slate-900/80 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
@@ -2668,6 +2682,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       </div>
                     </div>
                   ))}
+
+                  {/* [수정] 필터 조건에 더 남은 운행기록이 있으면 "더 보기" 버튼으로 이어서 로딩 */}
+                  {visibleDrivingCount < filteredLogs.length && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleDrivingCount((prev) => Math.min(prev + 50, filteredLogs.length))}
+                      className="flex-none w-[150px] snap-start border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                    >
+                      <span className="text-2xl">＋</span>
+                      <span className="text-xs font-bold">{filteredLogs.length - visibleDrivingCount}건 더 보기</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -3081,7 +3107,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </span>
                 </div>
                 <div className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                  {filteredExpenses.map(e => {
+                  {filteredExpenses.slice(0, visibleExpenseCount).map(e => {
                     let payMethodKo = '법인(회사)카드';
                     if (e.payMethod === 'personal_card') payMethodKo = '개인카드';
                     if (e.payMethod === 'cash') payMethodKo = '현금';
@@ -3170,6 +3196,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       </div>
                     );
                   })}
+
+                  {visibleExpenseCount < filteredExpenses.length && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleExpenseCount((prev) => Math.min(prev + 50, filteredExpenses.length))}
+                      className="flex-none w-[150px] snap-start border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                    >
+                      <span className="text-2xl">＋</span>
+                      <span className="text-xs font-bold">{filteredExpenses.length - visibleExpenseCount}건 더 보기</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* 합계 바 */}
@@ -3587,22 +3624,27 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 )}
               </div>
 
-              {maintenances.filter(m => isDateInPeriod(m.date, maintPeriod, maintCustomStart, maintCustomEnd)).length === 0 ? (
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl py-12 text-center text-slate-400 text-xs">
-                  기록된 예방 정비 대장이 없거나 필터 조건에 부합하는 내역이 없습니다.
-                </div>
-              ) : (
+              {(() => {
+                const filteredMaint = maintenances.filter(m => isDateInPeriod(m.date, maintPeriod, maintCustomStart, maintCustomEnd));
+                if (filteredMaint.length === 0) {
+                  return (
+                    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl py-12 text-center text-slate-400 text-xs">
+                      기록된 예방 정비 대장이 없거나 필터 조건에 부합하는 내역이 없습니다.
+                    </div>
+                  );
+                }
+                return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-                    <span>총 {maintenances.filter(m => isDateInPeriod(m.date, maintPeriod, maintCustomStart, maintCustomEnd)).length}건의 정비 대장</span>
+                    <span>총 {filteredMaint.length}건의 정비 대장</span>
                     <span className="flex items-center gap-1 text-indigo-400 font-medium">
                       <span>옆으로 밀어서 보기</span>
                       <span className="animate-pulse">↔</span>
                     </span>
                   </div>
                   <div className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                    {maintenances
-                      .filter(m => isDateInPeriod(m.date, maintPeriod, maintCustomStart, maintCustomEnd))
+                    {filteredMaint
+                      .slice(0, visibleMaintCount)
                       .map(m => {
                         let payMethodKo = '법인(회사)카드';
                         if (m.payMethod === 'personal_card') payMethodKo = '개인카드';
@@ -3698,9 +3740,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         </div>
                       );
                     })}
+
+                    {visibleMaintCount < filteredMaint.length && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleMaintCount((prev) => Math.min(prev + 50, filteredMaint.length))}
+                        className="flex-none w-[150px] snap-start border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                      >
+                        <span className="text-2xl">＋</span>
+                        <span className="text-xs font-bold">{filteredMaint.length - visibleMaintCount}건 더 보기</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           )}
 

@@ -31,7 +31,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 검색 및 필터 상태
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>('all');
+  // [수정] 업무일지가 몇백~몇천 건으로 늘어나도 느려지지 않도록, 처음엔 50건만 화면에 그리고
+  // "더 보기"를 누르면 50건씩 더 그린다. 엑셀 다운로드는 이 제한과 무관하게 항상 전체를 쓴다.
+  const [visibleLogCount, setVisibleLogCount] = useState<number>(50);
   const [selectedContactFilter, setSelectedContactFilter] = useState<string>('all');
+  useEffect(() => {
+    setVisibleLogCount(50);
+  }, [activeSubTab, searchQuery, selectedProjectFilter, selectedContactFilter]);
   
   // 모달 제어 상태
   const [isWriteModalOpen, setIsWriteModalOpen] = useState<boolean>(false);
@@ -1994,7 +2000,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             ) : (
         <div className="space-y-4">
           <AnimatePresence initial={false}>
-            {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).map((log: any) => {
+            {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).slice(0, visibleLogCount).map((log: any) => {
               const isExpanded = expandedLogId === log.id;
               const relatedProjects = projects.filter(p => (log.projectIds || []).includes(p.id));
               const relatedContacts = contacts.filter(c => (log.contactIds || []).includes(c.id));
@@ -2326,6 +2332,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               );
             })}
           </AnimatePresence>
+
+          {/* [수정] 필터 조건에 더 남은 업무일지가 있으면 "더 보기" 버튼으로 이어서 로딩 */}
+          {visibleLogCount < (activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length && (
+            <button
+              type="button"
+              onClick={() => setVisibleLogCount((prev) => prev + 50)}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/40 hover:bg-slate-900/70 text-slate-400 hover:text-indigo-300 text-xs font-bold transition-all"
+            >
+              <span className="text-lg">＋</span>
+              <span>{(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length - visibleLogCount}건 더 보기</span>
+            </button>
+          )}
         </div>
       )}
           </motion.div>
