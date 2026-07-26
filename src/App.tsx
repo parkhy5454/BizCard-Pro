@@ -19,6 +19,7 @@ import { UserDirectoryModal } from './components/UserDirectoryModal.js';
 import { VehicleView } from './components/VehicleView.js';
 import { WorkLogsView } from './components/WorkLogsView.js';
 import { ElectronicApprovalView } from './components/ElectronicApprovalView.js';
+import { LegalModal } from './components/LegalModal.js';
 
 export default function App() {
   // 회원 세션 상태
@@ -53,6 +54,8 @@ export default function App() {
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
   const [isUserDirectoryOpen, setIsUserDirectoryOpen] = useState<boolean>(false);
+  // [수정] 이용약관/개인정보처리방침 모달 - 푸터에서 열림
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy' | null>(null);
 
   // 로그아웃 핸들러
   const handleLogout = () => {
@@ -418,9 +421,16 @@ export default function App() {
       )}
 
       {/* 하단 저작권 푸터 */}
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500 space-y-2">
         <p>© 2026 BizCard Pro AI. All rights reserved. Powered by Google Gemini Vision & Express Fullstack.</p>
+        <div className="flex items-center justify-center gap-3">
+          <button onClick={() => setLegalTab('terms')} className="hover:text-slate-300 underline underline-offset-2 transition-colors">이용약관</button>
+          <span className="text-slate-700">|</span>
+          <button onClick={() => setLegalTab('privacy')} className="hover:text-slate-300 underline underline-offset-2 transition-colors">개인정보처리방침</button>
+        </div>
       </footer>
+
+      {legalTab && <LegalModal initialTab={legalTab} onClose={() => setLegalTab(null)} />}
 
     </div>
   );
