@@ -1005,6 +1005,7 @@ app.get('/api/auth/users', (req, res) => {
     id: u.id,
     email: u.email,
     name: u.name,
+    phone: u.phone,
     type: u.type,
     companyName: u.companyName,
     businessNumber: u.businessNumber,
