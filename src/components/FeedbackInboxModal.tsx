@@ -7,14 +7,26 @@ interface Props {
   onClose: () => void;
 }
 
+interface Member {
+  name: string;
+  email: string;
+}
+
 interface CompanyStat {
   scopeId: string;
   companyName: string;
   businessNumber: string;
   userCount: number;
+  members: Member[];
   itemCounts: Record<string, number>;
   totalItems: number;
   lastActivity: string | null;
+}
+
+interface IndividualUser {
+  id: string;
+  name: string;
+  email: string;
 }
 
 interface PlatformStats {
@@ -22,6 +34,7 @@ interface PlatformStats {
   totalCompanies: number;
   individualAccountCount: number;
   companies: CompanyStat[];
+  individuals: IndividualUser[];
   featureTotals: Record<string, number>;
 }
 
@@ -53,6 +66,8 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
+  const [expandedScopeId, setExpandedScopeId] = useState<string | null>(null);
+  const [showIndividuals, setShowIndividuals] = useState<boolean>(false);
 
   const fetchFeedback = async () => {
     setLoading(true);
@@ -331,10 +346,25 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                          <span>직원 {c.userCount}명</span>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedScopeId((prev) => (prev === c.scopeId ? null : c.scopeId))}
+                            className="underline underline-offset-2 hover:text-slate-300"
+                          >
+                            직원 {c.userCount}명 {expandedScopeId === c.scopeId ? '▲' : '▾'}
+                          </button>
                           <span>·</span>
                           <span>총 데이터 {c.totalItems}건</span>
                         </div>
+                        {expandedScopeId === c.scopeId && c.members.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {c.members.map((m, idx) => (
+                              <span key={idx} className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">
+                                {m.name} · {m.email}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {Object.keys(c.itemCounts).length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-1">
                             {Object.entries(c.itemCounts).map(([key, count]) => (
@@ -347,6 +377,30 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+
+              {/* 개인 가입자 목록 */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowIndividuals((v) => !v)}
+                  className="text-xs font-bold text-slate-400 underline underline-offset-2 hover:text-slate-300"
+                >
+                  개인 가입자 목록 ({stats.individuals.length}명) {showIndividuals ? '▲' : '▾'}
+                </button>
+                {showIndividuals && (
+                  stats.individuals.length === 0 ? (
+                    <div className="py-6 text-center text-slate-500 text-xs">개인으로 가입한 사람이 없습니다.</div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {stats.individuals.map((u) => (
+                        <span key={u.id} className="text-[11px] bg-slate-950 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                          {u.name} · {u.email}
+                        </span>
+                      ))}
+                    </div>
+                  )
                 )}
               </div>
             </div>
