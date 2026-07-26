@@ -263,6 +263,28 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                       {item.content}
                     </p>
 
+                    {/* [수정] 답변/연락하기 편하도록 이메일·핸드폰 번호를 바로 누를 수 있는 링크로 표시 */}
+                    {(item.authorEmail || item.authorPhone) && (
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        {item.authorEmail && (
+                          <a
+                            href={`mailto:${item.authorEmail}`}
+                            className="text-[11px] bg-blue-500/10 border border-blue-500/25 text-blue-300 hover:text-blue-200 hover:bg-blue-500/20 px-2.5 py-1 rounded-full transition-colors"
+                          >
+                            ✉️ {item.authorEmail}
+                          </a>
+                        )}
+                        {item.authorPhone && (
+                          <a
+                            href={`tel:${item.authorPhone}`}
+                            className="text-[11px] bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/20 px-2.5 py-1 rounded-full transition-colors"
+                          >
+                            📞 {item.authorPhone}
+                          </a>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-500">
                       <span>
                         {item.authorName || '알 수 없음'}
