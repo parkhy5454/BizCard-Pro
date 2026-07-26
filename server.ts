@@ -2287,14 +2287,16 @@ app.get('/api/admin/platform-stats', async (req, res) => {
   try {
     const scopeStats = await getPlatformStats();
 
-    // 회사별 가입 직원 수는 users 목록에서 같은 스코프(회사)로 묶어서 계산한다.
-    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string }>();
+    // 회사별 가입 직원 수/명단은 users 목록에서 같은 스코프(회사)로 묶어서 계산한다.
+    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string; members: { name: string; email: string }[] }>();
     for (const u of users) {
       const scopeId = scopeIdForUser(u);
       if (!usersByScope.has(scopeId)) {
-        usersByScope.set(scopeId, { count: 0, companyName: u.companyName, businessNumber: u.businessNumber });
+        usersByScope.set(scopeId, { count: 0, companyName: u.companyName, businessNumber: u.businessNumber, members: [] });
       }
-      usersByScope.get(scopeId)!.count += 1;
+      const entry = usersByScope.get(scopeId)!;
+      entry.count += 1;
+      entry.members.push({ name: u.name, email: u.email });
     }
 
     const companies = scopeStats
@@ -2306,6 +2308,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
           companyName: userInfo?.companyName || s.scopeId.replace('company:', ''),
           businessNumber: userInfo?.businessNumber || '',
           userCount: userInfo?.count || 0,
+          members: userInfo?.members || [],
           itemCounts: s.itemCounts,
           totalItems: s.totalItems,
           lastActivity: s.lastActivity
@@ -2323,12 +2326,19 @@ app.get('/api/admin/platform-stats', async (req, res) => {
           companyName: info.companyName || scopeId.replace('company:', ''),
           businessNumber: info.businessNumber || '',
           userCount: info.count,
+          members: info.members,
           itemCounts: {},
           totalItems: 0,
           lastActivity: null
         });
       }
     }
+
+    // [수정] 개인 가입자는 그동안 숫자로만 집계됐는데, 실제로는 이름/이메일 정보가 이미 있으므로
+    // 목록으로 그대로 보여준다 (가입 일시는 현재 시스템에 기록되고 있지 않아 포함하지 않음).
+    const individuals = users
+      .filter(u => u.type === 'individual')
+      .map(u => ({ id: u.id, name: u.name, email: u.email }));
 
     const individualScopeCount = scopeStats.filter(s => s.scopeId.startsWith('individual:')).length;
 
@@ -2345,6 +2355,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       totalCompanies: companies.length,
       individualAccountCount: individualScopeCount,
       companies,
+      individuals,
       featureTotals
     });
   } catch (err: any) {
