@@ -1,11 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bug, Lightbulb, MessageSquare, RefreshCw, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { X, Bug, Lightbulb, MessageSquare, RefreshCw, CheckCircle2, Clock, Loader2, BarChart3, Building2, Users, Activity, Inbox as InboxIcon } from 'lucide-react';
 import { FeedbackItem, User } from '../types.js';
 
 interface Props {
   currentUser?: User | null;
   onClose: () => void;
 }
+
+interface CompanyStat {
+  scopeId: string;
+  companyName: string;
+  businessNumber: string;
+  userCount: number;
+  itemCounts: Record<string, number>;
+  totalItems: number;
+  lastActivity: string | null;
+}
+
+interface PlatformStats {
+  totalUsers: number;
+  totalCompanies: number;
+  individualAccountCount: number;
+  companies: CompanyStat[];
+  featureTotals: Record<string, number>;
+}
+
+// scoped_items의 collection 이름을 사람이 읽기 좋은 한글 라벨로 매핑
+const FEATURE_LABELS: Record<string, string> = {
+  contacts: '명함', projects: '프로젝트', vehicles: '차량', drivingLogs: '운행기록',
+  expenses: '차량비용', maintenances: '정비기록', dailyLogs: '일일업무일지', weeklyLogs: '주간업무일지',
+  advanceSettlements: '가지급금정산서', leaveRequests: '휴가신청서', invites: '명함초대', feedback: '문의'
+};
+const featureLabel = (key: string) => FEATURE_LABELS[key] || key;
 
 const CATEGORY_META: Record<FeedbackItem['category'], { label: string; icon: React.ReactNode; color: string }> = {
   bug: { label: '버그 신고', icon: <Bug className="w-3.5 h-3.5" />, color: 'text-rose-400 bg-rose-500/10 border-rose-500/30' },
@@ -20,10 +46,13 @@ const STATUS_META: Record<FeedbackItem['status'], { label: string; color: string
 };
 
 export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'feedback' | 'dashboard'>('feedback');
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<'all' | FeedbackItem['status']>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState<boolean>(false);
 
   const fetchFeedback = async () => {
     setLoading(true);
@@ -44,6 +73,29 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
     fetchFeedback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const headers: any = {};
+      if (currentUser) headers['x-user-id'] = currentUser.id;
+      const res = await fetch('/api/admin/platform-stats', { headers });
+      if (!res.ok) throw new Error('통계 조회 실패');
+      const data = await res.json();
+      setStats(data);
+    } catch (err) {
+      console.error('운영 현황 조회 실패:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'dashboard' && !stats) {
+      fetchStats();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const updateStatus = async (id: string, status: FeedbackItem['status']) => {
     setUpdatingId(id);
@@ -93,16 +145,18 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
       <div className="w-full max-w-2xl max-h-[88vh] bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
         <div className="p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-base font-bold text-slate-100">문의함</h2>
-            <p className="text-xs text-slate-500 mt-0.5">앱 전체에서 접수된 문의를 모아 확인합니다.</p>
+            <h2 className="text-base font-bold text-slate-100">{activeTab === 'feedback' ? '문의함' : '운영 현황'}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {activeTab === 'feedback' ? '앱 전체에서 접수된 문의를 모아 확인합니다.' : '회사별 가입/사용 현황을 한눈에 확인합니다.'}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={fetchFeedback}
+              onClick={activeTab === 'feedback' ? fetchFeedback : fetchStats}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
               title="새로고침"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${(loading || statsLoading) ? 'animate-spin' : ''}`} />
             </button>
             <button onClick={onClose} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
               <X className="w-4 h-4" />
@@ -110,6 +164,29 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
           </div>
         </div>
 
+        {/* [수정] 문의함 ↔ 운영 현황(대시보드) 탭 전환 */}
+        <div className="px-4 pt-3 flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setActiveTab('feedback')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+              activeTab === 'feedback' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'bg-slate-800 text-slate-400 border border-slate-700'
+            }`}
+          >
+            <InboxIcon className="w-3.5 h-3.5" />
+            문의함
+          </button>
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+              activeTab === 'dashboard' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'bg-slate-800 text-slate-400 border border-slate-700'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            운영 현황
+          </button>
+        </div>
+
+        {activeTab === 'feedback' && (
         <div className="p-4 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto shrink-0">
           {([
             ['all', '전체'],
@@ -130,69 +207,149 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
             </button>
           ))}
         </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {loading ? (
+          {activeTab === 'feedback' ? (
+            loading ? (
+              <div className="py-16 flex flex-col items-center gap-2 text-slate-500">
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span className="text-xs">문의 목록 불러오는 중...</span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 text-xs">해당하는 문의가 없습니다.</div>
+            ) : (
+              filtered.map((item) => {
+                const cat = CATEGORY_META[item.category] || CATEGORY_META.other;
+                const status = STATUS_META[item.status] || STATUS_META.new;
+                return (
+                  <div key={item.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cat.color}`}>
+                          {cat.icon}
+                          {cat.label}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${status.color}`}>
+                          {status.label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(item.createdAt)}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-slate-900/60 p-3 rounded-xl border border-slate-800/60">
+                      {item.content}
+                    </p>
+
+                    <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-500">
+                      <span>
+                        {item.authorName || '알 수 없음'}
+                        {item.companyName ? ` · ${item.companyName}` : ' · 개인 계정'}
+                        {item.pageContext ? ` · ${item.pageContext} 화면` : ''}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        {(['new', 'in_progress', 'resolved'] as const).map((s) => (
+                          <button
+                            key={s}
+                            disabled={updatingId === item.id || item.status === s}
+                            onClick={() => updateStatus(item.id, s)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-40 ${
+                              item.status === s
+                                ? STATUS_META[s].color
+                                : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
+                            }`}
+                          >
+                            {STATUS_META[s].label}
+                          </button>
+                        ))}
+                        {item.status === 'resolved' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )
+          ) : statsLoading || !stats ? (
             <div className="py-16 flex flex-col items-center gap-2 text-slate-500">
               <Loader2 className="w-6 h-6 animate-spin" />
-              <span className="text-xs">문의 목록 불러오는 중...</span>
+              <span className="text-xs">운영 현황 불러오는 중...</span>
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-slate-500 text-xs">해당하는 문의가 없습니다.</div>
           ) : (
-            filtered.map((item) => {
-              const cat = CATEGORY_META[item.category] || CATEGORY_META.other;
-              const status = STATUS_META[item.status] || STATUS_META.new;
-              return (
-                <div key={item.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2.5">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cat.color}`}>
-                        {cat.icon}
-                        {cat.label}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${status.color}`}>
-                        {status.label}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDate(item.createdAt)}
-                    </span>
-                  </div>
+            <div className="space-y-5">
+              {/* 상단 요약 카드 */}
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 flex flex-col items-center gap-1">
+                  <Building2 className="w-4 h-4 text-indigo-400" />
+                  <span className="text-lg font-extrabold text-white">{stats.totalCompanies}</span>
+                  <span className="text-[10px] text-slate-500">가입 회사</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 flex flex-col items-center gap-1">
+                  <Users className="w-4 h-4 text-emerald-400" />
+                  <span className="text-lg font-extrabold text-white">{stats.totalUsers}</span>
+                  <span className="text-[10px] text-slate-500">전체 가입자</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 flex flex-col items-center gap-1">
+                  <Activity className="w-4 h-4 text-amber-400" />
+                  <span className="text-lg font-extrabold text-white">{stats.individualAccountCount}</span>
+                  <span className="text-[10px] text-slate-500">개인 계정</span>
+                </div>
+              </div>
 
-                  <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed bg-slate-900/60 p-3 rounded-xl border border-slate-800/60">
-                    {item.content}
-                  </p>
-
-                  <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-500">
-                    <span>
-                      {item.authorName || '알 수 없음'}
-                      {item.companyName ? ` · ${item.companyName}` : ' · 개인 계정'}
-                      {item.pageContext ? ` · ${item.pageContext} 화면` : ''}
-                    </span>
-
-                    <div className="flex items-center gap-1.5">
-                      {(['new', 'in_progress', 'resolved'] as const).map((s) => (
-                        <button
-                          key={s}
-                          disabled={updatingId === item.id || item.status === s}
-                          onClick={() => updateStatus(item.id, s)}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-40 ${
-                            item.status === s
-                              ? STATUS_META[s].color
-                              : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
-                          }`}
-                        >
-                          {STATUS_META[s].label}
-                        </button>
+              {/* 기능별 전체 사용 빈도 */}
+              {Object.keys(stats.featureTotals).length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-400">기능별 전체 사용 빈도</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(stats.featureTotals)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([key, count]) => (
+                        <span key={key} className="text-[11px] bg-slate-950 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                          {featureLabel(key)} <span className="font-mono text-indigo-400 font-bold">{count}</span>
+                        </span>
                       ))}
-                      {item.status === 'resolved' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                    </div>
                   </div>
                 </div>
-              );
-            })
+              )}
+
+              {/* 회사별 현황 목록 */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-400">회사별 가입/사용 현황 (최근 활동순)</span>
+                {stats.companies.length === 0 ? (
+                  <div className="py-8 text-center text-slate-500 text-xs">아직 가입한 회사가 없습니다.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {stats.companies.map((c) => (
+                      <div key={c.scopeId} className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-1.5">
+                        <div className="flex items-center justify-between flex-wrap gap-1.5">
+                          <span className="text-sm font-bold text-slate-100">{c.companyName}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {c.lastActivity ? formatDate(c.lastActivity) + ' 마지막 활동' : '아직 활동 없음'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                          <span>직원 {c.userCount}명</span>
+                          <span>·</span>
+                          <span>총 데이터 {c.totalItems}건</span>
+                        </div>
+                        {Object.keys(c.itemCounts).length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {Object.entries(c.itemCounts).map(([key, count]) => (
+                              <span key={key} className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-1.5 py-0.5 rounded-md">
+                                {featureLabel(key)} {count}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
