@@ -20,8 +20,8 @@ interface Props {
   // 신호를 받기 위한 트리거. triggerNewProject와 동일한 방식(숫자가 바뀔 때마다 실행)이다.
   triggerExcelExport?: number;
   triggerPrintPreview?: number;
-  // [수정] "리스트 출력" 탭이 켜져 있으면 카드 목록 대신 표 형태의 리스트를 보여준다
-  showListOutputView?: boolean;
+  // [수정] "리스트 출력"/"파이프라인" 탭 전환을 위한 화면 모드
+  viewMode?: 'cards' | 'listOutput' | 'pipeline';
 }
 
 export const ProjectsView: React.FC<Props> = ({ 
@@ -35,7 +35,7 @@ export const ProjectsView: React.FC<Props> = ({
   triggerNewProject,
   triggerExcelExport,
   triggerPrintPreview,
-  showListOutputView = false
+  viewMode = 'cards'
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1278,7 +1278,123 @@ export const ProjectsView: React.FC<Props> = ({
           )}
         </div>
 
-        {showListOutputView ? (
+        {viewMode === 'pipeline' ? (
+          (() => {
+            const parseAmt = (b?: string) => (b && /^\d+$/.test(b) ? parseInt(b, 10) : 0);
+            const byStatus = {
+              opportunity: projects.filter((p) => p.status === 'opportunity'),
+              progress: projects.filter((p) => p.status === 'progress'),
+              completed: projects.filter((p) => p.status === 'completed'),
+              failed: projects.filter((p) => p.status === 'failed')
+            };
+            const valueOf = (arr: Project[]) => arr.reduce((s, p) => s + parseAmt(p.budget), 0);
+            const pipelineValue = valueOf(byStatus.opportunity) + valueOf(byStatus.progress);
+            const winRateBase = byStatus.completed.length + byStatus.failed.length;
+            const winRate = winRateBase > 0 ? Math.round((byStatus.completed.length / winRateBase) * 100) : null;
+
+            const now = new Date();
+            const dueThisMonth = projects.filter((p) => {
+              if (p.status !== 'opportunity' && p.status !== 'progress') return false;
+              const d = new Date(p.dueDate);
+              return !isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            });
+
+            // 영업자별 집계 (담당 건수 / 파이프라인 가치 / 완료 건수)
+            const repMap = new Map<string, { count: number; value: number; completed: number }>();
+            projects.forEach((p) => {
+              const rep = p.salesRep?.trim() || '미지정';
+              if (!repMap.has(rep)) repMap.set(rep, { count: 0, value: 0, completed: 0 });
+              const entry = repMap.get(rep)!;
+              entry.count += 1;
+              if (p.status === 'opportunity' || p.status === 'progress') entry.value += parseAmt(p.budget);
+              if (p.status === 'completed') entry.completed += 1;
+            });
+            const repRows = Array.from(repMap.entries()).sort((a, b) => b[1].value - a[1].value);
+
+            const funnelStages: { key: 'opportunity' | 'progress' | 'completed' | 'failed'; label: string; color: string; barColor: string }[] = [
+              { key: 'opportunity', label: '💡 기회', color: 'text-blue-400', barColor: 'bg-blue-500' },
+              { key: 'progress', label: '⚡ 진행', color: 'text-amber-400', barColor: 'bg-amber-500' },
+              { key: 'completed', label: '✅ 완료', color: 'text-emerald-400', barColor: 'bg-emerald-500' },
+              { key: 'failed', label: '❌ 실패', color: 'text-rose-400', barColor: 'bg-rose-500' }
+            ];
+            const maxCount = Math.max(1, ...funnelStages.map((s) => byStatus[s.key].length));
+
+            return (
+              <div className="space-y-5">
+                {/* 핵심 지표 카드 */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-1">
+                    <span className="text-[11px] text-slate-500 font-medium">전체 파이프라인 가치 (기회+진행)</span>
+                    <p className="text-xl font-extrabold text-indigo-300">{formatBudgetDisplay(String(pipelineValue))}</p>
+                  </div>
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-1">
+                    <span className="text-[11px] text-slate-500 font-medium">이번 달 마감 예정</span>
+                    <p className="text-xl font-extrabold text-amber-300">{dueThisMonth.length}건</p>
+                  </div>
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-1">
+                    <span className="text-[11px] text-slate-500 font-medium">성사율 (완료 ÷ 완료+실패)</span>
+                    <p className="text-xl font-extrabold text-emerald-300">{winRate === null ? '집계 전' : `${winRate}%`}</p>
+                  </div>
+                </div>
+
+                {/* 영업 깔때기(퍼널) */}
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-200">영업 깔때기</h3>
+                  <div className="space-y-2.5">
+                    {funnelStages.map((stage) => {
+                      const list = byStatus[stage.key];
+                      const widthPct = Math.max(6, Math.round((list.length / maxCount) * 100));
+                      return (
+                        <div key={stage.key} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className={`font-bold ${stage.color}`}>{stage.label}</span>
+                            <span className="text-slate-400 font-mono">
+                              {list.length}건 · {formatBudgetDisplay(String(valueOf(list)))}
+                            </span>
+                          </div>
+                          <div className="h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                            <div className={`h-full ${stage.barColor} rounded-full transition-all`} style={{ width: `${widthPct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 영업자별 현황 */}
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-200">영업자별 현황</h3>
+                  {repRows.length === 0 ? (
+                    <p className="text-xs text-slate-500 py-4 text-center">등록된 프로젝트가 없습니다.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-slate-500 border-b border-slate-800">
+                            <th className="text-left font-bold py-2">영업자</th>
+                            <th className="text-right font-bold py-2">담당 건수</th>
+                            <th className="text-right font-bold py-2">파이프라인 가치</th>
+                            <th className="text-right font-bold py-2">완료 건수</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {repRows.map(([rep, stat]) => (
+                            <tr key={rep}>
+                              <td className="py-2 font-semibold text-slate-200">{rep}</td>
+                              <td className="py-2 text-right text-slate-400">{stat.count}건</td>
+                              <td className="py-2 text-right text-indigo-300 font-mono">{formatBudgetDisplay(String(stat.value))}</td>
+                              <td className="py-2 text-right text-emerald-400">{stat.completed}건</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()
+        ) : viewMode === 'listOutput' ? (
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-slate-200">전체 프로젝트 리스트 ({filteredProjects.length}건)</h3>

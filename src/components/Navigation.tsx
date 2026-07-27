@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
@@ -19,9 +19,11 @@ interface Props {
   onOpenProjectsPrintPreview?: () => void;
   // [수정] 토글(반전) 방식 대신, 각 버튼이 정확히 어느 화면으로 갈지 명시적으로 지정하는 콜백으로 변경.
   // (기존엔 "프로젝트 리스트"를 눌러도 그냥 드롭다운만 열릴 뿐, 카드 화면으로 돌아가지 않는 문제가 있었음)
-  isProjectsListOutputActive?: boolean;
+  // [수정] 카드/리스트출력/파이프라인 3가지 화면을 오가야 해서 boolean 대신 모드 문자열로 변경
+  projectsViewMode?: 'cards' | 'listOutput' | 'pipeline';
   onShowProjectsCardView?: () => void;
   onShowProjectsListOutput?: () => void;
+  onShowProjectsPipeline?: () => void;
   totalContactsCount: number;
   projectFilterStatus?: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed';
   setProjectFilterStatus?: (status: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed') => void;
@@ -44,9 +46,10 @@ export const Navigation: React.FC<Props> = ({
   onOpenNewProject = () => {},
   onExportProjectsExcel = () => {},
   onOpenProjectsPrintPreview = () => {},
-  isProjectsListOutputActive = false,
+  projectsViewMode = 'cards',
   onShowProjectsCardView = () => {},
   onShowProjectsListOutput = () => {},
+  onShowProjectsPipeline = () => {},
   totalContactsCount,
   projectFilterStatus = 'all',
   setProjectFilterStatus = (_st) => {},
@@ -386,7 +389,7 @@ export const Navigation: React.FC<Props> = ({
                 <button
                   onClick={onShowProjectsCardView}
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 font-semibold whitespace-nowrap text-xs sm:text-sm transition-all active:scale-95 ${
-                    !isProjectsListOutputActive
+                    projectsViewMode === 'cards'
                       ? 'bg-blue-600/20 text-blue-400'
                       : 'bg-slate-800 hover:bg-slate-700 text-indigo-300'
                   }`}
@@ -431,13 +434,26 @@ export const Navigation: React.FC<Props> = ({
               <button
                 onClick={onShowProjectsListOutput}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
-                  isProjectsListOutputActive
+                  projectsViewMode === 'listOutput'
                     ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
                     : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300'
                 }`}
               >
                 <FileText className="w-4 h-4" />
                 <span>리스트 출력</span>
+              </button>
+
+              {/* [수정] "파이프라인" 탭: 영업 깔때기(기회→진행→완료/실패)와 핵심 지표를 한눈에 보는 대시보드 */}
+              <button
+                onClick={onShowProjectsPipeline}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
+                  projectsViewMode === 'pipeline'
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                    : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>파이프라인</span>
               </button>
             </div>
           )}
