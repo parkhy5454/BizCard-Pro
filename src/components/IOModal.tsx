@@ -19,6 +19,87 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
   // 가져오기 결과 알림
   const [importStatus, setImportStatus] = useState<string>('');
+  // [수정] 외부에서 가져온 연락처는 데이터만 있고 사진이 없어서 밋밋했다. 이제는 이름/회사/
+  // 연락처 정보를 예쁜 명함 템플릿에 자동으로 배치해서 이미지를 만들어 붙여준다(AI 생성이
+  // 아니라 캔버스로 직접 그리는 방식이라 빠르고 비용이 안 든다). 기본은 켜져 있고, 원하면 끌 수 있다.
+  const [autoGenerateImage, setAutoGenerateImage] = useState<boolean>(true);
+
+  const ACCENT_COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+  const pickAccentColor = (seed: string) => {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    return ACCENT_COLORS[hash % ACCENT_COLORS.length];
+  };
+
+  // 이름/회사/연락처 정보로 정형화된 명함 이미지를 캔버스로 그려서 데이터 URL로 반환
+  const generateStandardCardImage = (c: BusinessCard): string => {
+    const canvas = document.createElement('canvas');
+    const W = 1050, H = 662; // 실제 명함과 동일한 1.586 : 1 비율
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    const accent = pickAccentColor(c.company || c.name || 'x');
+
+    // 배경
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    // 왼쪽 세로 악센트 바 (회사/이름에 따라 색이 달라져서 시각적으로 구분됨)
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, 22, H);
+
+    // 회사명
+    if (c.company) {
+      ctx.fillStyle = accent;
+      ctx.font = 'bold 32px "Malgun Gothic", sans-serif';
+      ctx.fillText(c.company, 68, 88);
+    }
+
+    // 성명
+    ctx.fillStyle = '#111827';
+    ctx.font = 'bold 56px "Malgun Gothic", sans-serif';
+    ctx.fillText(c.name || '이름없음', 68, 188);
+
+    // 직책 · 부서
+    const titleLine = [c.title, c.department].filter(Boolean).join(' · ');
+    if (titleLine) {
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '28px "Malgun Gothic", sans-serif';
+      ctx.fillText(titleLine, 68, 232);
+    }
+
+    // 구분선
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(68, 300);
+    ctx.lineTo(W - 60, 300);
+    ctx.stroke();
+
+    // 연락처 정보
+    ctx.font = '25px "Malgun Gothic", sans-serif';
+    ctx.fillStyle = '#374151';
+    let y = 360;
+    const lineHeight = 48;
+    if (c.phoneMobile) { ctx.fillText(`M   ${c.phoneMobile}`, 68, y); y += lineHeight; }
+    if (c.phoneOffice) { ctx.fillText(`T   ${c.phoneOffice}`, 68, y); y += lineHeight; }
+    if (c.email) { ctx.fillText(`E   ${c.email}`, 68, y); y += lineHeight; }
+    if (c.address) {
+      ctx.font = '21px "Malgun Gothic", sans-serif';
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(`A   ${c.address.length > 42 ? c.address.slice(0, 42) + '…' : c.address}`, 68, y);
+    }
+
+    // 우측 하단 "가져온 연락처" 표시 (실제 명함 스캔과 구분되도록)
+    ctx.font = '18px "Malgun Gothic", sans-serif';
+    ctx.fillStyle = '#d1d5db';
+    ctx.textAlign = 'right';
+    ctx.fillText('가져온 연락처 · 사진 없음', W - 40, H - 30);
+    ctx.textAlign = 'left';
+
+    return canvas.toDataURL('image/png');
+  };
 
   // 필터링된 대상 리스트
   const targetContacts = contacts.filter((c) => {
@@ -178,16 +259,21 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           throw new Error('파싱 가능한 명함 연락처가 없습니다.');
         }
 
+        // [수정] 옵션이 켜져 있으면, 데이터만 있던 각 연락처에 정형화된 명함 이미지를 만들어 붙인다
+        const finalList = autoGenerateImage
+          ? parsedList.map((c) => ({ ...c, frontImage: generateStandardCardImage(c) || undefined }))
+          : parsedList;
+
         // 서버 벌크 수신 API 전송
         const res = await fetch('/api/contacts/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ importedContacts: parsedList })
+          body: JSON.stringify({ importedContacts: finalList })
         });
         const data = await res.json();
         
-        setImportStatus(`✅ 파일에서 ${parsedList.length}건의 명함 데이터를 성공적으로 복원(가져오기)했습니다.`);
-        onImportSuccess(data.contacts || parsedList);
+        setImportStatus(`✅ 파일에서 ${finalList.length}건의 명함 데이터를 성공적으로 복원(가져오기)했습니다.${autoGenerateImage ? ' 명함 이미지도 자동으로 만들었어요.' : ''}`);
+        onImportSuccess(data.contacts || finalList);
       } catch (err: any) {
         alert('파일 가져오기 실패: ' + err.message);
       }
@@ -314,6 +400,20 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
                 <span className="text-[11px] text-slate-500 mt-1">지원 확장자: .vcf, .csv, .xls</span>
                 <input type="file" accept=".vcf,.csv,.xls,.xlsx" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
               </div>
+
+              {/* [수정] 가져온 연락처에 자동으로 명함 이미지를 만들어 붙일지 선택 */}
+              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoGenerateImage}
+                  onChange={(e) => setAutoGenerateImage(e.target.checked)}
+                  className="w-4 h-4 accent-emerald-500"
+                />
+                <span className="text-xs text-slate-300">
+                  사진이 없는 연락처에 <span className="text-emerald-400 font-semibold">정형화된 명함 이미지 자동 생성</span>
+                  <span className="block text-[10px] text-slate-500 mt-0.5">이름·회사·연락처로 깔끔한 명함 이미지를 자동으로 만들어줘요 (AI 생성 아님, 즉시 처리)</span>
+                </span>
+              </label>
             </div>
 
             {importStatus && (
