@@ -1419,6 +1419,64 @@ app.post('/api/summarize-meeting', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// 🎤 음성 명함 등록 — 전시회처럼 손이 바쁠 때 "방금 만난 사람 이름 불러줘"로
+// 빠르게 기록할 수 있도록, 말한 문장에서 이름/회사/직책을 AI가 뽑아준다.
+// 사진 없이 일단 저장해두고, 나중에 실제 명함을 스캔하면 기존 중복 감지 로직이
+// 자동으로 "기존 정보 업데이트"를 제안해서 완성되는 구조다.
+// ------------------------------------------------------------------
+app.post('/api/parse-voice-contact', async (req, res) => {
+  try {
+    const { rawText } = req.body;
+    if (!rawText || !String(rawText).trim()) {
+      return res.status(400).json({ error: '인식된 음성 내용이 없습니다.' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt =
+      "다음은 전시회나 미팅 자리에서 방금 만난 사람에 대해 손이 바빠서 음성으로 급하게 말한 내용이야. " +
+      "이름과 (언급됐다면) 회사명/직책/부서/메모를 뽑아줘.\n\n" +
+      `[음성 인식 텍스트]\n${rawText}\n\n` +
+      "다음 JSON 규격에 맞게 순수 JSON만 리턴해줘. 마크다운 백틱 없이. " +
+      "언급 안 된 항목은 빈 문자열로 둬. 이름은 최대한 추정해서라도 채워줘(사람 이름으로 들리는 단어).\n" +
+      "{\n" +
+      '  "name": "성명",\n' +
+      '  "company": "회사명",\n' +
+      '  "department": "부서명",\n' +
+      '  "title": "직책/직급",\n' +
+      '  "memo": "그 외 언급된 내용(예: 어디서 만났는지, 관심사 등)"\n' +
+      "}";
+
+    const response = await generateContentWithRetry(ai, {
+      model: 'gemini-3.5-flash',
+      contents: prompt
+    });
+
+    const text = response.text || '';
+    let parsed: any = {};
+    try {
+      const cleaned = text.replace(/```json\s*|```/g, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      parsed = { name: rawText.trim().split(/[\s,]+/)[0] || '', company: '', department: '', title: '', memo: rawText };
+    }
+
+    res.json({
+      name: parsed.name || '',
+      company: parsed.company || '',
+      department: parsed.department || '',
+      title: parsed.title || '',
+      memo: parsed.memo || ''
+    });
+  } catch (error: any) {
+    console.error('음성 명함 파싱 오류:', error);
+    res.status(500).json({ error: error.message || '음성 인식 처리 중 오류가 발생했습니다.' });
+  }
+});
+
 // Gemini Vision 영수증 OCR API
 app.post('/api/scan-receipt', async (req, res) => {
   try {
