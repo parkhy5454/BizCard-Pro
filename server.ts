@@ -694,18 +694,26 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
     });
   };
 
+  // [수정] 예전엔 새로 가입하는 회사/개인 계정마다 개발 중에 쓰던 가짜 샘플 데이터
+  // (명함, 프로젝트, 내 프로필 등)가 그대로 복사되어 들어갔다. 실제 서비스 이용자에게는
+  // 절대 있으면 안 되는 문제라서, 이제는 전부 빈 상태로 시작하도록 고쳤다.
+  // (initialContacts 등 원본 상수는 다른 곳에서 참조하지 않는 한 그대로 남아있어도 무방하다)
   await ensureScopeInitialized(scopeId, {
-    contacts: JSON.parse(JSON.stringify(initialContacts)),
-    projects: JSON.parse(JSON.stringify(initialProjects)),
+    contacts: [],
+    projects: [],
     groups: JSON.parse(JSON.stringify(initialGroups)),
-    myProfile: JSON.parse(JSON.stringify(initialMyProfile)),
-    vehicles: JSON.parse(JSON.stringify(initialVehicles)),
-    drivingLogs: JSON.parse(JSON.stringify(initialDrivingLogs)),
-    expenses: JSON.parse(JSON.stringify(initialExpenses)),
-    maintenances: JSON.parse(JSON.stringify(initialMaintenances)),
+    myProfile: {
+      name: '', company: '', department: '', title: '',
+      phoneMobile: '', phoneOffice: '', phoneFax: '', email: '',
+      address: '', snsUrl: '', website: '', memo: ''
+    },
+    vehicles: [],
+    drivingLogs: [],
+    expenses: [],
+    maintenances: [],
     maintenanceIntervals: [],
-    dailyLogs: JSON.parse(JSON.stringify(initialDailyLogs)),
-    weeklyLogs: JSON.parse(JSON.stringify(initialWeeklyLogs))
+    dailyLogs: [],
+    weeklyLogs: []
   });
 
   // 11개 컬렉션을 한꺼번에(Promise.all) 동시 요청하면 Supabase(PostgREST)의 커넥션 풀을
