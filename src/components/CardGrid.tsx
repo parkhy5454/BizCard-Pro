@@ -1,15 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X } from 'lucide-react';
-import { BusinessCard, ContactGroup } from '../types.js';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight } from 'lucide-react';
+import { BusinessCard, ContactGroup, Project } from '../types.js';
 
 interface Props {
   contacts: BusinessCard[];
   groups: ContactGroup[];
+  // [수정] "관계 인텔리전스" 패널에서 명함과 프로젝트/팔로우업을 엮어서 분석하기 위해 필요
+  projects?: Project[];
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onSelectContact: (contact: BusinessCard) => void;
   onEditContact: (contact: BusinessCard) => void;
   onDeleteContact: (id: string, e: React.MouseEvent) => void;
+  // [수정] 인텔리전스 패널에서 "프로젝트 보기"를 누르면 프로젝트 탭으로 이동시키기 위한 콜백 (선택)
+  onNavigateToProjects?: () => void;
 }
 
 const formatCallDate = (isoStr: string) => {
@@ -27,7 +31,7 @@ const formatCallDate = (isoStr: string) => {
   }
 };
 
-export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact }) => {
+export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onNavigateToProjects }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -43,20 +47,19 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
   const [expandedCallsId, setExpandedCallsId] = useState<string | null>(null);
   const [expandedNavId, setExpandedNavId] = useState<string | null>(null);
   const [cardImageSide, setCardImageSide] = useState<Record<string, 'front' | 'back'>>({});
-  // [수정] 연락 뜸한 거래처 알림 배너를 닫을 수 있게: 닫으면 "오늘 하루만" 숨기고,
-  // 작은 뱃지로 흔적을 남겨서 다시 펼쳐볼 수 있게 한다. 날짜가 바뀌면 자동으로 다시 배너가 뜬다.
-  const [staleBannerDismissedDate, setStaleBannerDismissedDate] = useState<string>(() => {
-    try { return localStorage.getItem('bizcard_stale_contact_banner_dismissed_date') || ''; } catch { return ''; }
-  });
   const todayStr = new Date().toISOString().split('T')[0];
-  const isStaleBannerDismissed = staleBannerDismissedDate === todayStr;
-  const dismissStaleBannerForToday = () => {
-    try { localStorage.setItem('bizcard_stale_contact_banner_dismissed_date', todayStr); } catch {}
-    setStaleBannerDismissedDate(todayStr);
+  // [수정] "관계 인텔리전스" 패널의 닫기 상태 (오늘 하루만 닫기, 날짜 바뀌면 자동 재표시)
+  const [intelDismissedDate, setIntelDismissedDate] = useState<string>(() => {
+    try { return localStorage.getItem('bizcard_relationship_intel_dismissed_date') || ''; } catch { return ''; }
+  });
+  const isIntelDismissed = intelDismissedDate === todayStr;
+  const dismissIntelForToday = () => {
+    try { localStorage.setItem('bizcard_relationship_intel_dismissed_date', todayStr); } catch {}
+    setIntelDismissedDate(todayStr);
   };
-  const reopenStaleBanner = () => {
-    try { localStorage.removeItem('bizcard_stale_contact_banner_dismissed_date'); } catch {}
-    setStaleBannerDismissedDate('');
+  const reopenIntel = () => {
+    try { localStorage.removeItem('bizcard_relationship_intel_dismissed_date'); } catch {}
+    setIntelDismissedDate('');
   };
   const swipeStartX = useRef<number>(0);
 
@@ -133,75 +136,161 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, searchQuery, setSe
 
   return (
     <div className="space-y-3">
-      {/* ⚠️ 5일 이상 연락 없는 거래처 알림 배너 */}
+      {/* 🧠 관계 인텔리전스: 명함 + 프로젝트 + 팔로우업 + 통화기록을 엮어서
+          "지금 누구를 챙겨야 하는지, 왜"까지 알려주는 패널 */}
       {(() => {
         const now = Date.now();
-        const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
-        const staleContacts = contacts.filter((c) => {
-          if (!c.callHistory || c.callHistory.length === 0) return false;
-          const lastCall = c.callHistory.reduce((latest, cur) => {
-            const t = new Date(cur.timestamp).getTime();
-            return t > latest ? t : latest;
-          }, 0);
-          if (!lastCall) return false;
-          return now - lastCall >= FIVE_DAYS_MS;
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const PRIORITY_WEIGHT: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+        interface Insight {
+          contact: BusinessCard;
+          reasonText: string;
+          daysSince: number;
+          urgencyLabel: '높음' | '보통';
+          score: number;
+          linkedProjectName?: string;
+        }
+
+        const insights: Insight[] = [];
+
+        contacts.forEach((c) => {
+          // 이 명함과 연결된 프로젝트 중, 아직 끝나지 않은(진행중/기회) 것만 대상으로 한다
+          const linkedActiveProjects = projects.filter(
+            (p) => (p.contactIds || []).includes(c.id) && (p.status === 'opportunity' || p.status === 'progress')
+          );
+
+          let best: Insight | null = null;
+
+          for (const p of linkedActiveProjects) {
+            // 이 프로젝트의 "마지막 활동일" = 가장 최근 팔로우업 날짜, 없으면 프로젝트 등록일
+            const followUpDates = (p.followUps || []).map((f) => new Date(f.date || '').getTime()).filter((t) => !isNaN(t));
+            const lastActivity = followUpDates.length > 0 ? Math.max(...followUpDates) : new Date(p.createdAt).getTime();
+            if (isNaN(lastActivity)) continue;
+            const daysSince = Math.floor((now - lastActivity) / DAY_MS);
+            if (daysSince < 7) continue; // 일주일 안 됐으면 아직 급하지 않다고 판단
+
+            const weight = PRIORITY_WEIGHT[p.priority] || 1;
+            const score = daysSince * weight;
+
+            if (!best || score > best.score) {
+              best = {
+                contact: c,
+                reasonText: `"${p.name}" 프로젝트 연결 · ${p.priority === 'high' ? '우선순위 높음' : p.priority === 'medium' ? '우선순위 보통' : '우선순위 낮음'}`,
+                daysSince,
+                urgencyLabel: score >= 40 ? '높음' : '보통',
+                score,
+                linkedProjectName: p.name
+              };
+            }
+          }
+
+          // 연결된 활성 프로젝트가 없으면, 기존처럼 통화기록 기준으로 판단(최소한의 안전망)
+          if (!best && c.callHistory && c.callHistory.length > 0) {
+            const lastCall = c.callHistory.reduce((latest, cur) => {
+              const t = new Date(cur.timestamp).getTime();
+              return t > latest ? t : latest;
+            }, 0);
+            if (lastCall) {
+              const daysSince = Math.floor((now - lastCall) / DAY_MS);
+              if (daysSince >= 14) {
+                best = {
+                  contact: c,
+                  reasonText: '연결된 진행중 프로젝트는 없지만, 통화 기록 기준 연락이 뜸함',
+                  daysSince,
+                  urgencyLabel: daysSince >= 30 ? '높음' : '보통',
+                  score: daysSince
+                };
+              }
+            }
+          }
+
+          if (best) insights.push(best);
         });
 
-        if (staleContacts.length === 0) return null;
+        insights.sort((a, b) => b.score - a.score);
+        const topInsights = insights.slice(0, 5);
+
+        if (topInsights.length === 0) return null;
 
         // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
-        if (isStaleBannerDismissed) {
+        if (isIntelDismissed) {
           return (
             <div className="max-w-3xl mx-auto flex">
               <button
-                onClick={reopenStaleBanner}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all animate-fadeIn"
+                onClick={reopenIntel}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition-all animate-fadeIn"
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>연락 뜸한 거래처 {staleContacts.length}건</span>
+                <Brain className="w-3.5 h-3.5" />
+                <span>관계 인텔리전스 · 챙길 거래처 {topInsights.length}건</span>
               </button>
             </div>
           );
         }
 
         return (
-          <div className="relative bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 shadow-xl flex items-start gap-4 animate-fadeIn max-w-3xl mx-auto">
+          <div className="relative bg-gradient-to-r from-indigo-950/40 to-purple-950/30 border border-indigo-500/30 rounded-3xl p-5 shadow-xl animate-fadeIn max-w-3xl mx-auto">
             <button
-              onClick={dismissStaleBannerForToday}
-              className="absolute top-3 right-3 p-1.5 rounded-lg text-rose-300/70 hover:text-rose-200 hover:bg-rose-500/10 transition-colors"
+              onClick={dismissIntelForToday}
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-indigo-300/70 hover:text-indigo-200 hover:bg-indigo-500/10 transition-colors"
               title="오늘 하루 닫기"
             >
               <X className="w-4 h-4" />
             </button>
-            <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 shrink-0">
-              <AlertTriangle className="w-5 h-5 animate-bounce" />
-            </div>
-            <div className="space-y-1.5 flex-1 pr-6">
-              <h4 className="text-sm font-bold text-rose-300">
-                5일 이상 연락이 뜸한 거래처가 {staleContacts.length}개 있습니다!
-              </h4>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                안부 전화나 후속 연락을 진행해 보세요.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {staleContacts.map((c) => {
-                  const lastCall = (c.callHistory || []).reduce((latest, cur) => {
-                    const t = new Date(cur.timestamp).getTime();
-                    return t > latest ? t : latest;
-                  }, 0);
-                  const daysSince = Math.floor((now - lastCall) / (24 * 60 * 60 * 1000));
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => onSelectContact(c)}
-                      className="px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 bg-slate-950 hover:bg-slate-900 border-rose-500/20 hover:border-rose-500/40 text-rose-300"
-                    >
-                      <span className="font-bold">{c.name}</span>
-                      <span className="text-[10px] opacity-80 font-mono">({daysSince}일 경과)</span>
-                    </button>
-                  );
-                })}
+
+            <div className="flex items-start gap-3 mb-3">
+              <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30 shrink-0">
+                <Brain className="w-5 h-5" />
               </div>
+              <div className="pr-6">
+                <h4 className="text-sm font-bold text-indigo-300">🧠 관계 인텔리전스 · 지금 챙기면 좋은 거래처 {topInsights.length}곳</h4>
+                <p className="text-xs text-slate-400 mt-0.5">진행중인 프로젝트와 마지막 연락 시점을 같이 분석했어요.</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {topInsights.map((insight) => (
+                <div
+                  key={insight.contact.id}
+                  className="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800 rounded-2xl p-3 hover:border-indigo-500/40 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-slate-100">{insight.contact.name}</span>
+                      <span className="text-xs text-slate-500">{insight.contact.company}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        insight.urgencyLabel === '높음'
+                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                      }`}>
+                        긴급도 {insight.urgencyLabel}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1 truncate">
+                      {insight.reasonText} · <span className="font-mono">{insight.daysSince}일째 활동 없음</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {insight.contact.phoneMobile && (
+                      <a
+                        href={`tel:${insight.contact.phoneMobile}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 transition-colors"
+                        title="전화 걸기"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <button
+                      onClick={() => onSelectContact(insight.contact)}
+                      className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 text-[11px] font-bold transition-colors"
+                    >
+                      <span>상세보기</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         );
