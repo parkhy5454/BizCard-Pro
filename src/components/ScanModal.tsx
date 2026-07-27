@@ -17,7 +17,7 @@ interface Props {
 }
 
 // [수정] 이름+회사가 같거나 핸드폰 번호가 같으면 "같은 사람"으로 간주해서 중복 후보로 판단한다.
-function findDuplicateContact(
+export function findDuplicateContact(
   candidate: { name?: string; company?: string; phoneMobile?: string },
   existing: BusinessCard[]
 ): BusinessCard | null {
