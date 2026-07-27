@@ -1622,10 +1622,11 @@ app.post('/api/company/search-summary', async (req, res) => {
 // 데이터 전체 입출력을 위한 벌크 업데이트 API
 app.post('/api/contacts/import', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const { importedContacts } = req.body;
   if (!Array.isArray(importedContacts)) return res.status(400).json({ error: 'Invalid data' });
-  
-  importedContacts.forEach((c: any) => {
+
+  for (const c of importedContacts as any[]) {
     if (!c.id) c.id = `c-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     if (!c.createdAt) c.createdAt = new Date().toISOString();
     if (!c.callHistory) c.callHistory = [];
@@ -1637,10 +1638,15 @@ app.post('/api/contacts/import', async (req, res) => {
       c.lat = coords.lat;
       c.lng = coords.lng;
     }
+    // [수정] 가져온 연락처에 자동 생성된 명함 이미지(base64)가 붙어있는 경우, 다른 명함 등록
+    // 경로와 동일하게 Storage에 업로드하고 URL만 저장한다 (DB에 원본 base64를 그대로
+    // 넣으면 용량이 커지고, 다른 경로로 등록된 명함들과 저장 방식이 달라져버린다).
+    c.frontImage = await persistImageField(scopeId, c.frontImage, `contact-${c.id}-front`);
+    c.backImage = await persistImageField(scopeId, c.backImage, `contact-${c.id}-back`);
     dbData.contacts.unshift(c);
-  });
-  
-  await setScopedDocs((req as any).scopeId, 'contacts', importedContacts);
+  }
+
+  await setScopedDocs(scopeId, 'contacts', importedContacts);
   res.json({ count: importedContacts.length, contacts: dbData.contacts });
 });
 
