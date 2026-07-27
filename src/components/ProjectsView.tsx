@@ -1337,9 +1337,9 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {/* 영업 깔때기(퍼널) */}
+                {/* 영업 단계별 현황 */}
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-200">영업 깔때기</h3>
+                  <h3 className="text-sm font-bold text-slate-200">영업 단계별 현황</h3>
                   <div className="space-y-2.5">
                     {funnelStages.map((stage) => {
                       const list = byStatus[stage.key];
