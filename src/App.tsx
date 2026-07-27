@@ -49,7 +49,7 @@ export default function App() {
   const [triggerProjectsExcelExport, setTriggerProjectsExcelExport] = useState<number>(0);
   const [triggerProjectsPrintPreview, setTriggerProjectsPrintPreview] = useState<number>(0);
   // [수정] "리스트 출력" 탭 켜짐/꺼짐 상태 (카드 목록 ↔ 표 형태 리스트 전환)
-  const [isProjectsListOutputActive, setIsProjectsListOutputActive] = useState<boolean>(false);
+  const [projectsViewMode, setProjectsViewMode] = useState<'cards' | 'listOutput' | 'pipeline'>('cards');
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
@@ -265,9 +265,10 @@ export default function App() {
         onOpenNewProject={() => setTriggerNewProject((n) => n + 1)}
         onExportProjectsExcel={() => setTriggerProjectsExcelExport((n) => n + 1)}
         onOpenProjectsPrintPreview={() => setTriggerProjectsPrintPreview((n) => n + 1)}
-        isProjectsListOutputActive={isProjectsListOutputActive}
-        onShowProjectsCardView={() => setIsProjectsListOutputActive(false)}
-        onShowProjectsListOutput={() => setIsProjectsListOutputActive(true)}
+        projectsViewMode={projectsViewMode}
+        onShowProjectsCardView={() => setProjectsViewMode('cards')}
+        onShowProjectsListOutput={() => setProjectsViewMode('listOutput')}
+        onShowProjectsPipeline={() => setProjectsViewMode('pipeline')}
         totalContactsCount={contacts.length}
         projectFilterStatus={projectFilterStatus}
         setProjectFilterStatus={setProjectFilterStatus}
@@ -352,7 +353,7 @@ export default function App() {
                 triggerNewProject={triggerNewProject}
                 triggerExcelExport={triggerProjectsExcelExport}
                 triggerPrintPreview={triggerProjectsPrintPreview}
-                showListOutputView={isProjectsListOutputActive}
+                viewMode={projectsViewMode}
               />
             )}
 
