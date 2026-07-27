@@ -291,6 +291,7 @@ export default function App() {
               <CardGrid
                 contacts={filteredContacts}
                 groups={groups}
+                projects={projects}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 onSelectContact={(c) => {
@@ -302,6 +303,7 @@ export default function App() {
                   setSelectedContactDetail(c);
                 }}
                 onDeleteContact={handleDeleteCard}
+                onNavigateToProjects={() => setActiveTab('projects')}
               />
             )}
 
