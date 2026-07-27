@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
@@ -12,6 +12,7 @@ interface Props {
   setSelectedGroup: (gid: string) => void;
   groups: ContactGroup[];
   onOpenScanModal: () => void;
+  onOpenVoiceQuickAdd: () => void;
   onOpenShareMyCardModal: () => void;
   onOpenUserDirectory: () => void;
   onOpenNewProject?: () => void;
@@ -41,6 +42,7 @@ export const Navigation: React.FC<Props> = ({
   setSelectedGroup,
   groups,
   onOpenScanModal,
+  onOpenVoiceQuickAdd,
   onOpenShareMyCardModal,
   onOpenUserDirectory,
   onOpenNewProject = () => {},
@@ -295,6 +297,15 @@ export const Navigation: React.FC<Props> = ({
             >
               <PlusCircle className="w-4 h-4" />
               <span>명함 등록</span>
+            </button>
+
+            {/* [수정] 전시회처럼 손이 바쁠 때, 음성만으로 이름/회사를 빠르게 기록하는 버튼 */}
+            <button
+              onClick={onOpenVoiceQuickAdd}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-slate-800 hover:bg-rose-950/30 border border-slate-700 hover:border-rose-500/30 text-rose-300 text-xs sm:text-sm transition-all active:scale-95"
+            >
+              <Mic className="w-4 h-4 text-rose-400" />
+              <span>음성으로 빠르게 등록</span>
             </button>
 
             <button
