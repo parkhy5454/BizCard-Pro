@@ -9,6 +9,7 @@ import { Navigation } from './components/Navigation.js';
 import { CardGrid } from './components/CardGrid.js';
 import { CardDetailModal } from './components/CardDetailModal.js';
 import { ScanModal } from './components/ScanModal.js';
+import { VoiceQuickAddModal } from './components/VoiceQuickAddModal.js';
 import { GroupModal } from './components/GroupModal.js';
 import { IOModal } from './components/IOModal.js';
 import { NearbyRadarMap } from './components/NearbyRadarMap.js';
@@ -44,6 +45,7 @@ export default function App() {
 
   // 모달 제어 상태
   const [isScanOpen, setIsScanOpen] = useState<boolean>(false);
+  const [isVoiceQuickAddOpen, setIsVoiceQuickAddOpen] = useState<boolean>(false);
   const [triggerNewProject, setTriggerNewProject] = useState<number>(0);
   // [수정] Navigation의 "엑셀 다운로드"/"PDF 인쇄" 버튼 신호를 ProjectsView로 전달하기 위한 트리거
   const [triggerProjectsExcelExport, setTriggerProjectsExcelExport] = useState<number>(0);
@@ -260,6 +262,7 @@ export default function App() {
         setSelectedGroup={setSelectedGroupFilter}
         groups={groups}
         onOpenScanModal={() => setIsScanOpen(true)}
+        onOpenVoiceQuickAdd={() => setIsVoiceQuickAddOpen(true)}
         onOpenShareMyCardModal={() => setIsShareMyCardOpen(true)}
         onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
         onOpenNewProject={() => setTriggerNewProject((n) => n + 1)}
@@ -393,6 +396,17 @@ export default function App() {
           groups={groups}
           contacts={contacts}
           onClose={() => setIsScanOpen(false)}
+          onSave={handleSaveNewCard}
+          onUpdate={handleUpdateCard}
+        />
+      )}
+
+      {/* 모달: 음성으로 빠르게 명함 등록 (전시회 등 손이 바쁠 때) */}
+      {isVoiceQuickAddOpen && (
+        <VoiceQuickAddModal
+          groups={groups}
+          contacts={contacts}
+          onClose={() => setIsVoiceQuickAddOpen(false)}
           onSave={handleSaveNewCard}
           onUpdate={handleUpdateCard}
         />
