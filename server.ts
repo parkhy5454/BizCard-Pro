@@ -4,6 +4,51 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
+import * as Sentry from '@sentry/node';
+
+// ------------------------------------------------------------------
+// 🚨 자동 에러 모니터링(Sentry) — 서버에서 문제가 생기면 사람이 로그를 뒤지기 전에
+// 자동으로 알림을 받기 위한 설정. SENTRY_DSN 환경변수가 없으면 그냥 조용히 비활성화되고
+// (로컬 개발이나 아직 계정을 안 만든 경우에도 서버는 평소처럼 정상 작동), 있으면 켜진다.
+// ------------------------------------------------------------------
+const SENTRY_DSN = process.env.SENTRY_DSN;
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: 0.1 // 성능 추적은 10%만 샘플링 (에러 보고 자체는 100% 그대로 다 됨)
+  });
+  console.log('[Sentry] 에러 모니터링이 활성화되었습니다.');
+} else {
+  console.log('[Sentry] SENTRY_DSN 환경변수가 없어 에러 모니터링이 비활성화되어 있습니다.');
+}
+
+// [수정] 코드 곳곳(수백 곳)에 이미 있는 console.error(...) 호출을 하나하나 다 안 고쳐도,
+// console.error 자체를 감싸서 "화면(로그)에 찍히는 동시에 Sentry에도 자동으로 보고"되게 만든다.
+// 이렇게 하면 오늘까지 쌓인 기존 에러 처리 코드가 전부 자동으로 모니터링 대상이 된다.
+const __originalConsoleError = console.error.bind(console);
+console.error = (...args: any[]) => {
+  __originalConsoleError(...args);
+  if (!SENTRY_DSN) return;
+  try {
+    const errorArg = args.find((a) => a instanceof Error);
+    if (errorArg) {
+      Sentry.captureException(errorArg, { extra: { logArgs: args.filter((a) => a !== errorArg).map(String) } });
+    } else {
+      Sentry.captureMessage(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '), 'error');
+    }
+  } catch {
+    // Sentry 보고 자체가 실패해도 서버 동작에는 절대 영향을 주면 안 된다
+  }
+};
+
+// 어디서도 안 잡힌 예외/프로미스 거부까지 마지막 안전망으로 잡아서 보고
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException] 처리되지 않은 예외:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection] 처리되지 않은 프로미스 거부:', reason);
+});
 
 // [수정] Gemini API가 "This model is currently experiencing high demand"(503/UNAVAILABLE) 같은
 // 일시적인 과부하 에러를 낼 때가 있다. 이런 경우 사용자에게 바로 에러를 보여주지 않고,
@@ -1322,6 +1367,58 @@ app.post('/api/scan-card', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// 🎙️ AI 회의록 자동화 — 미팅 중 음성 인식으로 받아적은 두서없는 텍스트를,
+// AI가 깔끔한 회의록 형태로 정리해주고, 액션 아이템과 언급된 금액(지출 후보)까지 뽑아준다.
+// ------------------------------------------------------------------
+app.post('/api/summarize-meeting', async (req, res) => {
+  try {
+    const { rawText } = req.body;
+    if (!rawText || !String(rawText).trim()) {
+      return res.status(400).json({ error: '정리할 회의 내용이 없습니다.' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt =
+      "다음은 미팅/거래처 방문 중에 음성 인식으로 받아적어서, 문장이 두서없고 정리가 안 되어 있는 회의 메모야. " +
+      "이걸 실제 업무 팔로우업 기록으로 쓸 수 있게 정리해줘.\n\n" +
+      `[원본 메모]\n${rawText}\n\n` +
+      "다음 JSON 규격에 맞게 순수 JSON만 리턴해줘. 마크다운 백틱 없이. " +
+      "원본에 없는 내용을 지어내지 말고, 실제 언급된 내용만 정리해줘.\n" +
+      "{\n" +
+      '  "summary": "핵심 내용을 자연스러운 문장 2~4개로 정리한 회의록 (두서없던 말투를 업무 기록체로 다듬어줘)",\n' +
+      '  "actionItems": ["다음에 하기로 한 일 1", "다음에 하기로 한 일 2"], // 언급이 없으면 빈 배열\n' +
+      '  "mentionedAmounts": [{"amount": 500000, "context": "식대로 언급된 금액"}], // 원 단위 숫자로 변환, 언급 없으면 빈 배열\n' +
+      "}";
+
+    const response = await generateContentWithRetry(ai, {
+      model: 'gemini-3.5-flash',
+      contents: prompt
+    });
+
+    const text = response.text || '';
+    let parsed: any = {};
+    try {
+      const cleaned = text.replace(/```json\s*|```/g, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      parsed = { summary: text.trim(), actionItems: [], mentionedAmounts: [] };
+    }
+
+    res.json({
+      summary: parsed.summary || '',
+      actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
+      mentionedAmounts: Array.isArray(parsed.mentionedAmounts) ? parsed.mentionedAmounts : []
+    });
+  } catch (error: any) {
+    console.error('회의록 AI 요약 오류:', error);
+    res.status(500).json({ error: error.message || '회의록 요약 중 오류가 발생했습니다.' });
+  }
+});
+
 // Gemini Vision 영수증 OCR API
 app.post('/api/scan-receipt', async (req, res) => {
   try {
@@ -2632,6 +2729,12 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static('dist'));
+  }
+
+  // [수정] 라우트 안에서 처리 안 하고 그냥 던져진(throw) 에러까지 Sentry가 잡아서 보고하도록.
+  // 반드시 "모든 라우트 등록 이후, app.listen 이전"에 붙여야 한다.
+  if (SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
   }
 
   app.listen(PORT, '0.0.0.0', () => {
