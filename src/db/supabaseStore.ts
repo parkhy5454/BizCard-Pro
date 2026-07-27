@@ -105,8 +105,20 @@ export async function uploadDataUrlImage(
       console.error(`uploadDataUrlImage(${filePath}) error:`, error);
       return null;
     }
-    const { data } = supabase.storage.from(CARD_IMAGES_BUCKET).getPublicUrl(filePath);
-    return data?.publicUrl || null;
+    // [수정] Storage 버킷을 비공개(Private)로 바꾸면서, 공개 URL(getPublicUrl) 대신
+    // "서명된 URL"(createSignedUrl)을 발급받는 방식으로 변경했다. 유효기간을 10년으로 아주 길게
+    // 줘서, 기존처럼 이 URL 하나만 DB에 저장해두고 화면에서 그대로 계속 써도 되게 했다
+    // (다른 화면 코드는 하나도 안 건드려도 됨). 대신 버킷 자체는 비공개라, 목록 열람이나
+    // URL 패턴 추측으로는 더 이상 접근할 수 없다.
+    const TEN_YEARS_IN_SECONDS = 60 * 60 * 24 * 365 * 10;
+    const { data, error: signError } = await supabase.storage
+      .from(CARD_IMAGES_BUCKET)
+      .createSignedUrl(filePath, TEN_YEARS_IN_SECONDS);
+    if (signError) {
+      console.error(`uploadDataUrlImage(${filePath}) 서명 URL 발급 실패:`, signError);
+      return null;
+    }
+    return data?.signedUrl || null;
   } catch (err) {
     console.error(`uploadDataUrlImage(${filePath}) exception:`, err);
     return null;
