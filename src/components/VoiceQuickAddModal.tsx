@@ -22,7 +22,9 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
   const [duplicateMatch, setDuplicateMatch] = useState<BusinessCard | null>(null);
   const [saved, setSaved] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>(''); // [수정] state는 비동기라 타이밍이 어긋날 수 있어, ref로 항상 최신값을 같이 들고 있는다
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [voiceError, setVoiceError] = useState('');
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -39,29 +41,66 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
       }
-      if (finalText) setTranscript((prev) => (prev ? prev + ' ' + finalText : finalText));
+      if (finalText) {
+        const next = transcriptRef.current ? transcriptRef.current + ' ' + finalText : finalText;
+        transcriptRef.current = next;
+        setTranscript(next);
+      }
     };
-    rec.onerror = () => setIsListening(false);
+    // [수정] 에러가 나도 그냥 조용히 멈추지 않고, 이유를 사용자에게 보여준다
+    rec.onerror = (event: any) => {
+      setIsListening(false);
+      if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+        setVoiceError('마이크 권한이 꺼져있어요. 브라우저 설정에서 마이크 권한을 허용해주세요.');
+      } else if (event?.error === 'no-speech') {
+        setVoiceError('음성이 감지되지 않았어요. 마이크에 조금 더 가까이서 다시 말씀해주세요.');
+      } else {
+        setVoiceError('음성 인식 중 문제가 발생했어요. 다시 시도해주세요.');
+      }
+    };
+    // [수정] recognition.stop()을 호출해도 마지막 인식 결과는 조금 뒤에(비동기로) 도착한다.
+    // 그래서 stop() 직후 바로 transcript를 확인하면 마지막 몇 단어가 누락될 수 있었다.
+    // 이제는 브라우저가 완전히 종료를 마쳤다는 신호(onend)를 기다린 다음에 최종 확인한다.
+    rec.onend = () => {
+      setIsListening(false);
+      if (transcriptRef.current.trim()) {
+        parseTranscript(transcriptRef.current);
+      } else {
+        setVoiceError('음성이 인식되지 않았어요. 조금 더 크고 명확하게 다시 말씀해주세요.');
+      }
+    };
     recognitionRef.current = rec;
     return () => {
       try { rec.stop(); } catch {}
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startListening = () => {
+    transcriptRef.current = '';
     setTranscript('');
     setParsed(null);
     setDuplicateMatch(null);
+    setVoiceError('');
     setIsListening(true);
-    try { recognitionRef.current?.start(); } catch {}
+    try {
+      recognitionRef.current?.start();
+    } catch (err) {
+      // 이미 시작된 상태에서 다시 start()를 부르면 브라우저가 에러를 던지는 경우가 있다 -
+      // 한 번 멈췄다가 다시 시작해서 복구를 시도한다
+      try {
+        recognitionRef.current?.stop();
+        setTimeout(() => recognitionRef.current?.start(), 150);
+      } catch {
+        setIsListening(false);
+        setVoiceError('마이크를 시작하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
+      }
+    }
   };
 
-  const stopListening = async () => {
-    setIsListening(false);
-    try { recognitionRef.current?.stop(); } catch {}
-    if (transcript.trim()) {
-      await parseTranscript(transcript);
-    }
+  // [수정] 실제 정리/확인 로직은 이제 onend에서 처리하므로, 이 버튼은 그냥 "그만 듣기" 신호만 보낸다
+  const stopListening = () => {
+    try { recognitionRef.current?.stop(); } catch { setIsListening(false); }
   };
 
   const parseTranscript = async (text: string) => {
@@ -236,6 +275,12 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                 <p className="text-[11px] text-slate-500 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 w-full text-center">
                   "{transcript}"
                 </p>
+              )}
+              {voiceError && !isListening && (
+                <div className="w-full flex items-start gap-2 text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{voiceError}</span>
+                </div>
               )}
             </div>
           )}
