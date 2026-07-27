@@ -134,6 +134,13 @@ export const ProjectsView: React.FC<Props> = ({
   const [attachedVoiceDuration, setAttachedVoiceDuration] = useState<string>('');
   const [attachedVoiceUrl, setAttachedVoiceUrl] = useState<string>('');
 
+  // [수정] AI 회의록 자동화: 음성 인식으로 두서없이 받아적힌 텍스트를 AI가 정리해주고
+  // 액션 아이템/언급된 금액까지 뽑아주는 기능
+  const [isSummarizing, setIsSummarizing] = useState<boolean>(false);
+  const [meetingAISuggestion, setMeetingAISuggestion] = useState<{
+    summary: string; actionItems: string[]; mentionedAmounts: { amount: number; context: string }[];
+  } | null>(null);
+
   // 음성 재생 시뮬레이션 상태
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState<{ [key: string]: number }>({});
@@ -267,6 +274,57 @@ export const ProjectsView: React.FC<Props> = ({
     }
     
     setAttachedVoiceUrl('simulated-voice-memo');
+  };
+
+  // [수정] AI 회의록 자동화: 음성 인식으로 두서없이 받아적힌 meetingContent를 AI에게 보내
+  // 깔끔한 회의록 + 액션 아이템 + 언급된 금액을 뽑아온다.
+  const handleSummarizeMeeting = async () => {
+    if (!meetingContent.trim()) return;
+    setIsSummarizing(true);
+    setMeetingAISuggestion(null);
+    try {
+      const res = await fetch('/api/summarize-meeting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rawText: meetingContent })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setMeetingAISuggestion(data);
+    } catch (err: any) {
+      alert(err.message || 'AI 정리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  // AI가 정리해준 요약 + 액션 아이템을 실제 미팅 내용 칸에 반영
+  const applyMeetingSummary = () => {
+    if (!meetingAISuggestion) return;
+    let finalText = meetingAISuggestion.summary;
+    if (meetingAISuggestion.actionItems.length > 0) {
+      finalText += '\n\n[다음 액션]\n' + meetingAISuggestion.actionItems.map((a) => `- ${a}`).join('\n');
+    }
+    setMeetingContent(finalText);
+    setMeetingAISuggestion(null);
+  };
+
+  // AI가 감지한 언급 금액을 지출 항목으로 바로 추가
+  const addSuggestedExpense = (amount: number, context: string) => {
+    setMeetingExpenses((prev) => [
+      ...prev,
+      {
+        id: `me-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        category: 'custom' as const,
+        categoryCustom: '',
+        amount,
+        payMethod: 'company_card' as const,
+        memo: context
+      }
+    ]);
+    setMeetingAISuggestion((prev) =>
+      prev ? { ...prev, mentionedAmounts: prev.mentionedAmounts.filter((m) => !(m.amount === amount && m.context === context)) } : prev
+    );
   };
 
   // 마지막 미팅(또는 프로젝트 생성일)로부터 경과된 일수 계산 함수
@@ -1764,6 +1822,22 @@ export const ProjectsView: React.FC<Props> = ({
                                   {meetingContent.length}자 입력됨
                                 </span>
                                 <div className="flex items-center gap-2">
+                                  {/* [수정] AI 회의록 자동화: 받아적힌 두서없는 텍스트를 AI가 정리해줌 */}
+                                  {meetingContent.trim().length > 10 && (
+                                    <button
+                                      type="button"
+                                      onClick={handleSummarizeMeeting}
+                                      disabled={isSummarizing}
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-indigo-950/30 border border-slate-800 hover:border-indigo-500/30 text-indigo-300 text-[10px] font-semibold transition-colors disabled:opacity-50"
+                                    >
+                                      {isSummarizing ? (
+                                        <div className="w-3 h-3 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
+                                      ) : (
+                                        <Sparkles className="w-3 h-3 text-indigo-400" />
+                                      )}
+                                      <span>{isSummarizing ? 'AI 정리 중...' : '✨ AI로 정리하기'}</span>
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={startRecording}
@@ -1776,6 +1850,69 @@ export const ProjectsView: React.FC<Props> = ({
                               </div>
                             )}
                           </div>
+
+                          {/* [수정] AI 정리 결과 제안 패널: 요약 적용 + 액션아이템 + 언급된 금액을 지출로 바로 추가 */}
+                          {meetingAISuggestion && (
+                            <div className="bg-indigo-950/20 border border-indigo-500/30 rounded-2xl p-3.5 space-y-2.5 animate-fadeIn">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                  AI가 정리한 회의록
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setMeetingAISuggestion(null)}
+                                  className="text-[10px] text-slate-500 hover:text-slate-300"
+                                >
+                                  닫기
+                                </button>
+                              </div>
+
+                              <p className="text-xs text-slate-200 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 leading-relaxed whitespace-pre-wrap">
+                                {meetingAISuggestion.summary}
+                              </p>
+
+                              {meetingAISuggestion.actionItems.length > 0 && (
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-400">📌 다음 액션</span>
+                                  <ul className="space-y-0.5">
+                                    {meetingAISuggestion.actionItems.map((item, idx) => (
+                                      <li key={idx} className="text-[11px] text-slate-300 flex items-start gap-1.5">
+                                        <span className="text-indigo-400">-</span>
+                                        <span>{item}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {meetingAISuggestion.mentionedAmounts.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[10px] font-bold text-slate-400">💰 언급된 금액 (눌러서 지출로 바로 추가)</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {meetingAISuggestion.mentionedAmounts.map((m, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => addSuggestedExpense(m.amount, m.context)}
+                                        className="text-[11px] px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-300 font-semibold transition-colors"
+                                      >
+                                        {formatCurrencyInput(String(m.amount))}원 · {m.context}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={applyMeetingSummary}
+                                className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors"
+                              >
+                                이 요약으로 미팅 내용 교체하기
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* 첨부파일 (제안서, 견적서, 발송자료 등) */}
