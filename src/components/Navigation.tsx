@@ -13,6 +13,7 @@ interface Props {
   groups: ContactGroup[];
   onOpenScanModal: () => void;
   onOpenVoiceQuickAdd: () => void;
+  onOpenTaxPackage: () => void;
   onOpenShareMyCardModal: () => void;
   onOpenUserDirectory: () => void;
   onOpenNewProject?: () => void;
@@ -43,6 +44,7 @@ export const Navigation: React.FC<Props> = ({
   groups,
   onOpenScanModal,
   onOpenVoiceQuickAdd,
+  onOpenTaxPackage,
   onOpenShareMyCardModal,
   onOpenUserDirectory,
   onOpenNewProject = () => {},
@@ -210,6 +212,15 @@ export const Navigation: React.FC<Props> = ({
             )}
 
             <div className="flex items-center gap-2">
+              {/* [수정] 그 달의 모든 지출/영수증을 세무사에게 이메일로 바로 보내는 버튼 (전체 화면에서 접근 가능) */}
+              <button
+                onClick={onOpenTaxPackage}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-300 font-semibold text-xs shadow transition-all active:scale-95"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">세무자료 발송</span>
+              </button>
+
               {/* 가입 회원 및 동료 확인 버튼 */}
               <button
                 onClick={onOpenUserDirectory}
