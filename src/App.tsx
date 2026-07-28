@@ -10,6 +10,7 @@ import { CardGrid } from './components/CardGrid.js';
 import { CardDetailModal } from './components/CardDetailModal.js';
 import { ScanModal } from './components/ScanModal.js';
 import { VoiceQuickAddModal } from './components/VoiceQuickAddModal.js';
+import { TaxPackageModal } from './components/TaxPackageModal.js';
 import { GroupModal } from './components/GroupModal.js';
 import { IOModal } from './components/IOModal.js';
 import { NearbyRadarMap } from './components/NearbyRadarMap.js';
@@ -46,6 +47,7 @@ export default function App() {
   // 모달 제어 상태
   const [isScanOpen, setIsScanOpen] = useState<boolean>(false);
   const [isVoiceQuickAddOpen, setIsVoiceQuickAddOpen] = useState<boolean>(false);
+  const [isTaxPackageOpen, setIsTaxPackageOpen] = useState<boolean>(false);
   const [triggerNewProject, setTriggerNewProject] = useState<number>(0);
   // [수정] Navigation의 "엑셀 다운로드"/"PDF 인쇄" 버튼 신호를 ProjectsView로 전달하기 위한 트리거
   const [triggerProjectsExcelExport, setTriggerProjectsExcelExport] = useState<number>(0);
@@ -263,6 +265,7 @@ export default function App() {
         groups={groups}
         onOpenScanModal={() => setIsScanOpen(true)}
         onOpenVoiceQuickAdd={() => setIsVoiceQuickAddOpen(true)}
+        onOpenTaxPackage={() => setIsTaxPackageOpen(true)}
         onOpenShareMyCardModal={() => setIsShareMyCardOpen(true)}
         onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
         onOpenNewProject={() => setTriggerNewProject((n) => n + 1)}
@@ -410,6 +413,11 @@ export default function App() {
           onSave={handleSaveNewCard}
           onUpdate={handleUpdateCard}
         />
+      )}
+
+      {/* 모달: 월별 세무 자료(엑셀+영수증) 세무사에게 이메일로 발송 */}
+      {isTaxPackageOpen && (
+        <TaxPackageModal onClose={() => setIsTaxPackageOpen(false)} />
       )}
 
       {/* 모달 2: 내 명함 공유 및 전송 */}
