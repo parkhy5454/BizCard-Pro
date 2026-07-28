@@ -5,7 +5,6 @@ import * as Sentry from '@sentry/node';
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
 import * as XLSX from 'xlsx';
 import archiver from 'archiver';
@@ -1008,9 +1007,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     const resetUrl = `${APP_BASE_URL}/?resetToken=${token}`;
     try {
-      await mailTransporter!.sendMail({
-        from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
+      await sendEmail({
         to: user.email,
+        toName: user.name,
         subject: '[BizCard Pro] 비밀번호 재설정 안내',
         html: `
           <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
@@ -1026,7 +1025,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       console.error(`[mailer] ${user.email}에게 비밀번호 재설정 메일 발송 실패:`, err);
     }
   } else if (user && !isMailerConfigured) {
-    console.warn('[mailer] SMTP 미설정으로 비밀번호 재설정 메일을 보내지 못했습니다.');
+    console.warn('[mailer] 메일 미설정으로 비밀번호 재설정 메일을 보내지 못했습니다.');
   }
 
   res.json({ success: true, message: '입력하신 이메일로 가입된 계정이 있다면, 비밀번호 재설정 안내 메일을 보내드렸습니다.' });
@@ -2331,47 +2330,71 @@ app.delete('/api/worklogs/weekly/:id', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// 📧 전자결재 메일 발송 (Gmail/회사 메일 SMTP)
-// 환경변수: SMTP_HOST(기본 smtp.gmail.com), SMTP_PORT(기본 587), SMTP_USER, SMTP_PASS, SMTP_FROM_NAME, APP_BASE_URL
-// Gmail을 쓰는 경우 SMTP_PASS는 일반 비밀번호가 아니라 "앱 비밀번호"를 발급받아 사용해야 합니다.
+// 📧 이메일 발송 (Brevo HTTPS API 방식)
+// [수정] Render 무료 요금제는 아웃바운드 SMTP 포트(25/465/587) 자체를 차단한다. 그래서
+// Daum이든 Gmail이든 "SMTP 프로토콜"로 보내는 방식은 서버가 유료로 전환되지 않는 한 절대
+// 작동할 수 없다. 대신 일반 웹 요청과 똑같은 HTTPS(포트 443, 절대 안 막힘)로 메일을
+// 보내주는 Brevo의 API를 사용한다. 여기서는 nodemailer/SMTP를 아예 쓰지 않는다.
+// 환경변수: BREVO_API_KEY, SMTP_FROM_EMAIL(Brevo에서 인증 완료한 발신 이메일), SMTP_FROM_NAME, APP_BASE_URL
 // ------------------------------------------------------------------
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
-const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || '';
 const SMTP_FROM_NAME = process.env.SMTP_FROM_NAME || 'BizCard Pro 전자결재';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://bizcard-pro.onrender.com';
 
-const isMailerConfigured = Boolean(SMTP_USER && SMTP_PASS);
+const isMailerConfigured = Boolean(BREVO_API_KEY && SMTP_FROM_EMAIL);
 if (!isMailerConfigured) {
-  console.warn('[mailer] SMTP_USER 또는 SMTP_PASS 환경변수가 설정되지 않아 결재 요청 이메일 발송이 비활성화됩니다.');
+  console.warn('[mailer] BREVO_API_KEY 또는 SMTP_FROM_EMAIL 환경변수가 설정되지 않아 이메일 발송이 비활성화됩니다.');
 }
 
-const mailTransporter = isMailerConfigured
-  ? nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-      // [수정] Render 같은 일부 호스팅 환경은 아웃바운드 IPv6 경로가 막혀있어서,
-      // smtp.gmail.com이 IPv6 주소로 응답하면 "ENETUNREACH"로 연결 자체가 실패했다.
-      // IPv4로 접속하도록 강제해서 이 문제를 피해간다.
-      family: 4
-    })
-  : null;
+// 모든 이메일 발송이 공통으로 거쳐가는 단일 함수. 첨부파일(영수증 압축파일 등)도 지원한다.
+async function sendEmail(opts: {
+  to: string; toName?: string; subject: string; html: string;
+  attachments?: { filename: string; content: Buffer }[];
+}): Promise<void> {
+  if (!isMailerConfigured) {
+    console.warn(`[mailer] 미설정 상태라 ${opts.to}에게 메일을 보내지 못했습니다.`);
+    return;
+  }
+  const payload: any = {
+    sender: { name: SMTP_FROM_NAME, email: SMTP_FROM_EMAIL },
+    to: [{ email: opts.to, name: opts.toName || opts.to }],
+    subject: opts.subject,
+    htmlContent: opts.html
+  };
+  if (opts.attachments && opts.attachments.length > 0) {
+    payload.attachment = opts.attachments.map((a) => ({
+      name: a.filename,
+      content: a.content.toString('base64')
+    }));
+  }
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': BREVO_API_KEY as string,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Brevo 메일 발송 실패 (${res.status}): ${errText}`);
+  }
+}
 
 async function sendApprovalRequestEmail(opts: {
   toEmail: string; toName: string; approverRole: string;
   docTypeLabel: string; draftNumber: string; authorName: string;
 }) {
-  if (!mailTransporter) {
+  if (!isMailerConfigured) {
     console.warn(`[mailer] 미설정 상태라 ${opts.toEmail}에게 결재 요청 이메일을 보내지 못했습니다.`);
     return;
   }
   try {
-    await mailTransporter.sendMail({
-      from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
+    await sendEmail({
       to: opts.toEmail,
+      toName: opts.toName,
       subject: `[결재 요청] ${opts.docTypeLabel} - ${opts.authorName}님이 상신한 문서 (기안번호: ${opts.draftNumber})`,
       html: `
         <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
@@ -2424,11 +2447,10 @@ app.post('/api/feedback', async (req, res) => {
     res.status(201).json({ success: true });
 
     // 이메일 알림은 실패해도 사용자 응답에는 영향 없도록 응답을 먼저 보낸 뒤 처리(fire-and-forget)
-    if (mailTransporter) {
+    if (isMailerConfigured) {
       const categoryLabel = item.category === 'bug' ? '🐞 버그 신고' : item.category === 'feature' ? '💡 기능 제안' : '✉️ 기타 문의';
-      mailTransporter.sendMail({
-        from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
-        to: SMTP_USER,
+      sendEmail({
+        to: ADMIN_EMAIL,
         subject: `[BizCard Pro 문의] ${categoryLabel} - ${item.authorName || '익명'}`,
         html: `
           <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
@@ -2811,8 +2833,8 @@ app.post('/api/send-tax-package', async (req, res) => {
     if (!year || !month || !accountantEmail) {
       return res.status(400).json({ error: '연도, 월, 세무사 이메일을 모두 입력해주세요.' });
     }
-    if (!mailTransporter) {
-      return res.status(500).json({ error: '메일 발송 설정(SMTP)이 되어있지 않아 발송할 수 없습니다.' });
+    if (!isMailerConfigured) {
+      return res.status(500).json({ error: '메일 발송 설정(BREVO_API_KEY)이 되어있지 않아 발송할 수 없습니다.' });
     }
 
     const dbData = getScopedData(req);
@@ -2955,8 +2977,7 @@ app.post('/api/send-tax-package', async (req, res) => {
     const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
     const companyName = dbData.myProfile?.company || '';
 
-    await mailTransporter.sendMail({
-      from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
+    await sendEmail({
       to: accountantEmail,
       subject: `[${year}년 ${monthStr}월] 지출 및 영수증 자료${companyName ? ' - ' + companyName : ''}`,
       html: `
