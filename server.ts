@@ -1,10 +1,12 @@
 import 'dotenv/config';
+// [수정] Sentry가 express를 자동으로 감시(라우트별 에러 추적)하려면, express를 불러오기
+// "전에" Sentry부터 먼저 불러와야 한다. 순서가 바뀌면 "express is not instrumented" 경고가 뜬다.
+import * as Sentry from '@sentry/node';
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
-import * as Sentry from '@sentry/node';
 import * as XLSX from 'xlsx';
 import archiver from 'archiver';
 
