@@ -2352,7 +2352,11 @@ const mailTransporter = isMailerConfigured
       host: SMTP_HOST,
       port: SMTP_PORT,
       secure: SMTP_PORT === 465,
-      auth: { user: SMTP_USER, pass: SMTP_PASS }
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+      // [수정] Render 같은 일부 호스팅 환경은 아웃바운드 IPv6 경로가 막혀있어서,
+      // smtp.gmail.com이 IPv6 주소로 응답하면 "ENETUNREACH"로 연결 자체가 실패했다.
+      // IPv4로 접속하도록 강제해서 이 문제를 피해간다.
+      family: 4
     })
   : null;
 
