@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { GoogleGenAI } from '@google/genai';
 import * as Sentry from '@sentry/node';
+import * as XLSX from 'xlsx';
+import archiver from 'archiver';
 
 // ------------------------------------------------------------------
 // 🚨 자동 에러 모니터링(Sentry) — 서버에서 문제가 생기면 사람이 로그를 뒤지기 전에
@@ -2787,6 +2789,186 @@ ${text}
   } catch (error: any) {
     console.error('AI Polish Error:', error);
     res.status(500).json({ error: error.message || 'AI 정제 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 📊 월별 세무 자료 자동 발송 — 더존 같은 회계 프로그램에 실시간으로 직접 연동하려면
+// 별도의 기업 계약(EDI)이 필요해서 현실적으로 어렵다. 대신 "매달 세무사에게 서류를 직접
+// 갖다주는 수고"라는 실제 문제를 해결하기 위해, 그 달의 모든 지출(차량비용/정비/미팅지출/
+// 업무일지 지출)과 영수증 사진을 한데 모아 엑셀+영수증 압축파일로 만들어 이메일로 바로
+// 발송한다. 세무사가 어떤 프로그램을 쓰든, 받은 엑셀/사진을 그대로 입력하면 된다.
+// ------------------------------------------------------------------
+app.post('/api/send-tax-package', async (req, res) => {
+  try {
+    const { year, month, accountantEmail } = req.body;
+    if (!year || !month || !accountantEmail) {
+      return res.status(400).json({ error: '연도, 월, 세무사 이메일을 모두 입력해주세요.' });
+    }
+    if (!mailTransporter) {
+      return res.status(500).json({ error: '메일 발송 설정(SMTP)이 되어있지 않아 발송할 수 없습니다.' });
+    }
+
+    const dbData = getScopedData(req);
+    const monthStr = String(month).padStart(2, '0');
+    const prefix = `${year}-${monthStr}`; // 예: "2026-07"
+
+    interface TaxRow {
+      date: string; category: string; merchant: string; amount: number;
+      payMethod: string; memo: string; receiptImage?: string;
+    }
+    const rows: TaxRow[] = [];
+
+    const payMethodKo = (p?: string) => {
+      if (p === 'personal_card') return '개인카드';
+      if (p === 'cash' || p === 'cash_personal') return '현금';
+      if (p === 'cash_company') return '현금(회사)';
+      return '법인카드';
+    };
+
+    // 1) 차량 비용
+    (dbData.expenses || []).forEach((e: any) => {
+      if ((e.date || '').startsWith(prefix)) {
+        rows.push({
+          date: e.date, category: '차량비용', merchant: e.merchantName || e.categoryCustom || e.category || '',
+          amount: e.amount || 0, payMethod: payMethodKo(e.payMethod), memo: e.memo || '', receiptImage: e.receiptImage
+        });
+      }
+    });
+
+    // 2) 차량 정비
+    (dbData.maintenances || []).forEach((m: any) => {
+      if ((m.date || '').startsWith(prefix)) {
+        rows.push({
+          date: m.date, category: '차량정비', merchant: m.shopName || m.title || '',
+          amount: m.cost || 0, payMethod: payMethodKo(m.payMethod), memo: m.memo || '', receiptImage: m.receiptImage
+        });
+      }
+    });
+
+    // 3) 프로젝트 미팅 지출
+    (dbData.projects || []).forEach((p: any) => {
+      (p.followUps || []).forEach((fu: any) => {
+        if ((fu.date || '').startsWith(prefix)) {
+          (fu.expenses || []).forEach((exp: any) => {
+            rows.push({
+              date: fu.date, category: '미팅지출', merchant: exp.categoryCustom || exp.category || '',
+              amount: exp.amount || 0, payMethod: payMethodKo(exp.payMethod),
+              memo: [p.name, exp.memo].filter(Boolean).join(' · '), receiptImage: exp.receiptImage
+            });
+          });
+        }
+      });
+    });
+
+    // 4) 업무일지 지출 (일일)
+    (dbData.dailyLogs || []).forEach((log: any) => {
+      if ((log.date || '').startsWith(prefix)) {
+        (log.expenses || []).forEach((exp: any) => {
+          rows.push({
+            date: log.date, category: '업무일지 지출', merchant: exp.categoryCustom || exp.category || '',
+            amount: exp.amount || 0, payMethod: payMethodKo(exp.payMethod), memo: exp.memo || '', receiptImage: exp.receiptImage
+          });
+        });
+      }
+    });
+
+    // 5) 업무일지 지출 (주간 - 시작일 기준)
+    (dbData.weeklyLogs || []).forEach((log: any) => {
+      if ((log.startDate || '').startsWith(prefix)) {
+        (log.expenses || []).forEach((exp: any) => {
+          rows.push({
+            date: log.startDate, category: '업무일지 지출(주간)', merchant: exp.categoryCustom || exp.category || '',
+            amount: exp.amount || 0, payMethod: payMethodKo(exp.payMethod), memo: exp.memo || '', receiptImage: exp.receiptImage
+          });
+        });
+      }
+    });
+
+    rows.sort((a, b) => a.date.localeCompare(b.date));
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: `${year}년 ${monthStr}월에 해당하는 지출 내역이 없습니다.` });
+    }
+
+    // 엑셀(.xlsx) 생성
+    const wsData = [
+      ['날짜', '구분', '상호/항목', '금액', '결제수단', '메모'],
+      ...rows.map((r) => [r.date, r.category, r.merchant, r.amount, r.payMethod, r.memo])
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 30 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${year}년${monthStr}월`);
+    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+    // 압축(.zip) 생성: 엑셀 + 영수증 사진 전부
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const chunks: Buffer[] = [];
+    archive.on('data', (chunk: Buffer) => chunks.push(chunk));
+    const archiveFinished = new Promise<Buffer>((resolve, reject) => {
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      archive.on('error', reject);
+    });
+
+    archive.append(excelBuffer, { name: `${year}년_${monthStr}월_지출내역.xlsx` });
+
+    let receiptIndex = 1;
+    for (const r of rows) {
+      if (!r.receiptImage) continue;
+      try {
+        let imgBuffer: Buffer | null = null;
+        let ext = 'jpg';
+        if (r.receiptImage.startsWith('data:image/')) {
+          const match = r.receiptImage.match(/^data:image\/(\w+);base64,(.+)$/);
+          if (match) {
+            ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+            imgBuffer = Buffer.from(match[2], 'base64');
+          }
+        } else if (r.receiptImage.startsWith('http')) {
+          const resp = await fetch(r.receiptImage);
+          if (resp.ok) {
+            imgBuffer = Buffer.from(await resp.arrayBuffer());
+            const urlExt = r.receiptImage.split('?')[0].split('.').pop();
+            if (urlExt && urlExt.length <= 4) ext = urlExt;
+          }
+        }
+        if (imgBuffer) {
+          const safeMerchant = (r.merchant || '').replace(/[^\w가-힣]/g, '').slice(0, 15);
+          archive.append(imgBuffer, { name: `영수증/${receiptIndex}_${r.date}_${safeMerchant}.${ext}` });
+          receiptIndex++;
+        }
+      } catch (err) {
+        console.error('영수증 다운로드 실패(건너뜀):', err);
+      }
+    }
+
+    archive.finalize();
+    const zipBuffer = await archiveFinished;
+
+    const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
+    const companyName = dbData.myProfile?.company || '';
+
+    await mailTransporter.sendMail({
+      from: `"${SMTP_FROM_NAME}" <${SMTP_USER}>`,
+      to: accountantEmail,
+      subject: `[${year}년 ${monthStr}월] 지출 및 영수증 자료${companyName ? ' - ' + companyName : ''}`,
+      html: `
+        <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
+          <h2 style="margin-bottom:8px;">${year}년 ${monthStr}월 지출 자료</h2>
+          <p style="color:#555;">${companyName ? companyName + ' · ' : ''}총 ${rows.length}건, 합계 ${totalAmount.toLocaleString()}원</p>
+          <p style="color:#555; margin-top:12px;">첨부된 압축파일 안에 <b>엑셀 정리표</b>와 <b>영수증 사진</b>이 모두 들어있습니다.</p>
+        </div>
+      `,
+      attachments: [
+        { filename: `${year}년_${monthStr}월_세무자료.zip`, content: zipBuffer }
+      ]
+    });
+
+    res.json({ success: true, count: rows.length, totalAmount });
+  } catch (err: any) {
+    console.error('세무 자료 발송 오류:', err);
+    res.status(500).json({ error: err.message || '세무 자료 발송 중 오류가 발생했습니다.' });
   }
 });
 
