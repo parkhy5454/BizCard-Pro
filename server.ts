@@ -883,7 +883,7 @@ function verifyPassword(inputPassword: string, storedPassword?: string): boolean
 
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, name, phone, type, companyName, businessNumber, position } = req.body;
+  const { email, password, name, phone, type, companyName, businessNumber, position, role: requestedRole } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
@@ -901,18 +901,22 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '이미 가입에 사용된 이메일입니다. 개인/사업자 계정 모두 같은 이메일로는 중복 가입할 수 없으니, 다른 이메일로 가입해주세요.' });
   }
 
-  // [수정] 가입자 스스로 "저는 관리자입니다"를 선택할 수 있게 하면 보안상 위험하다
-  // (아무나 가입하면서 관리자 권한을 가질 수 있음). 그래서 클라이언트가 보낸 role 값은
-  // 절대 신뢰하지 않고, 서버가 항상 자동으로 판단한다: 같은 사업자등록번호로 "처음"
-  // 가입하는 사람 = 자동으로 관리자, 이미 그 회사 소속 가입자가 있으면 = 자동으로 일반
-  // 사용자. 이후 관리자가 "가입 회원 확인" 화면에서 다른 직원을 관리자로 지정할 수 있다.
-  // (회사명 표기가 갈려도(예: "(주)OO" vs "주식회사OO") 같은 회사로 인식되도록 사업자
-  // 등록번호만으로 판단한다 - 스코프 구분 규칙과 동일하게 맞춘 것)
+  // 가입 화면에서 직접 관리자/일반 사용자를 선택한 값을 우선 사용한다.
+  // 값이 없는 경우(예: 예전 방식 요청)에는, 같은 회사로 가입하는 첫 번째 사용자를 자동으로 관리자로 지정한다.
   let role: 'admin' | 'member' | undefined;
   if (type === 'company') {
-    const bNum = (businessNumber || '').trim();
-    const hasExistingCompanyUser = users.some(u => u.type === 'company' && (u.businessNumber || '').trim() === bNum);
-    role = hasExistingCompanyUser ? 'member' : 'admin';
+    if (requestedRole === 'admin' || requestedRole === 'member') {
+      role = requestedRole;
+    } else {
+      const cName = (companyName || '').trim();
+      const bNum = (businessNumber || '').trim();
+      const hasExistingCompanyUser = users.some(u =>
+        u.type === 'company' &&
+        (u.companyName || '').trim() === cName &&
+        (u.businessNumber || '').trim() === bNum
+      );
+      role = hasExistingCompanyUser ? 'member' : 'admin';
+    }
   }
 
   const newUser: RegisteredUser = {
@@ -2566,6 +2570,58 @@ app.get('/api/admin/platform-stats', async (req, res) => {
   } catch (err: any) {
     console.error('platform-stats 조회 오류:', err);
     res.status(500).json({ error: '통계 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 🔧 운영자 전용: 스코프(회사) 데이터 병합 도구.
+// 예전에 사업자번호 필드가 잘못 저장되어(예: "회사명_사업자번호" 형태) 데이터가
+// 엉뚱한 스코프에 쌓여있는 경우, 그 데이터를 올바른 스코프로 옮기기 위한 일회성 도구.
+// "가져올 스코프"의 모든 컬렉션(명함/프로젝트/차량 등)을 "옮길 대상 스코프"로 이동시키고,
+// 예전 스코프는 비운다. 되돌릴 수 없으니 반드시 fromScopeId/toScopeId를 신중히 확인할 것.
+// ------------------------------------------------------------------
+const MIGRATABLE_COLLECTIONS = [
+  'contacts', 'projects', 'groups', 'vehicles', 'drivingLogs', 'expenses',
+  'maintenances', 'maintenanceIntervals', 'dailyLogs', 'weeklyLogs',
+  'advancePayments', 'leaveRequests', 'myProfile'
+] as const;
+
+app.post('/api/admin/migrate-scope', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester || requester.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: '접근 권한이 없습니다.' });
+  }
+
+  const { fromScopeId, toScopeId } = req.body as { fromScopeId?: string; toScopeId?: string };
+  if (!fromScopeId || !toScopeId || fromScopeId === toScopeId) {
+    return res.status(400).json({ error: 'fromScopeId와 toScopeId를 서로 다르게 정확히 입력해주세요.' });
+  }
+
+  try {
+    const summary: Record<string, number> = {};
+
+    for (const name of MIGRATABLE_COLLECTIONS) {
+      const oldItems = await getScopedCollection(fromScopeId, name as any);
+      if (!oldItems || oldItems.length === 0) continue;
+
+      const newItems = await getScopedCollection(toScopeId, name as any);
+      const merged = [...(newItems || []), ...oldItems];
+
+      await replaceScopedCollection(toScopeId, name as any, merged as any);
+      await replaceScopedCollection(fromScopeId, name as any, [] as any);
+
+      summary[name] = oldItems.length;
+    }
+
+    // 메모리 캐시를 지워서, 다음 접근 시 Supabase에서 최신 상태로 다시 불러오게 한다.
+    delete db[fromScopeId];
+    delete db[toScopeId];
+
+    res.json({ success: true, fromScopeId, toScopeId, migratedCounts: summary });
+  } catch (err: any) {
+    console.error('scope migrate 오류:', err);
+    res.status(500).json({ error: '데이터 병합 중 오류가 발생했습니다.' });
   }
 });
 
