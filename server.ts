@@ -1090,11 +1090,15 @@ app.get('/api/auth/duplicate-emails', async (req, res) => {
 });
 
 // 회사 스코프 판별에 쓰이는 것과 동일한 규칙 (resolveScopeId와 반드시 일치시켜야 함)
+// [수정] 예전엔 "회사명 + 사업자번호"로 스코프를 구분했는데, 같은 회사라도 가입할 때
+// "(주)OO"와 "주식회사OO"처럼 회사명 표기가 조금만 달라도 완전히 다른 회사로 취급되어
+// 데이터가 쪼개지는 문제가 있었다(카이저솔루션에서 실제로 발생). 사업자등록번호는
+// 법적으로 회사마다 유일하고 표기가 갈릴 일이 없으므로, 이제는 사업자번호 하나만으로
+// 회사를 구분한다.
 function scopeIdForUser(user: RegisteredUser): string {
   if (user.type === 'company') {
-    const cName = (user.companyName || '').trim();
     const bNum = (user.businessNumber || '').trim();
-    return `company:${cName}_${bNum}`;
+    return `company:${bNum}`;
   }
   return `individual:${user.id}`;
 }
