@@ -883,7 +883,7 @@ function verifyPassword(inputPassword: string, storedPassword?: string): boolean
 
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, name, phone, type, companyName, businessNumber, position, role: requestedRole } = req.body;
+  const { email, password, name, phone, type, companyName, businessNumber, position } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
@@ -901,22 +901,18 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '이미 가입에 사용된 이메일입니다. 개인/사업자 계정 모두 같은 이메일로는 중복 가입할 수 없으니, 다른 이메일로 가입해주세요.' });
   }
 
-  // 가입 화면에서 직접 관리자/일반 사용자를 선택한 값을 우선 사용한다.
-  // 값이 없는 경우(예: 예전 방식 요청)에는, 같은 회사로 가입하는 첫 번째 사용자를 자동으로 관리자로 지정한다.
+  // [수정] 가입자 스스로 "저는 관리자입니다"를 선택할 수 있게 하면 보안상 위험하다
+  // (아무나 가입하면서 관리자 권한을 가질 수 있음). 그래서 클라이언트가 보낸 role 값은
+  // 절대 신뢰하지 않고, 서버가 항상 자동으로 판단한다: 같은 사업자등록번호로 "처음"
+  // 가입하는 사람 = 자동으로 관리자, 이미 그 회사 소속 가입자가 있으면 = 자동으로 일반
+  // 사용자. 이후 관리자가 "가입 회원 확인" 화면에서 다른 직원을 관리자로 지정할 수 있다.
+  // (회사명 표기가 갈려도(예: "(주)OO" vs "주식회사OO") 같은 회사로 인식되도록 사업자
+  // 등록번호만으로 판단한다 - 스코프 구분 규칙과 동일하게 맞춘 것)
   let role: 'admin' | 'member' | undefined;
   if (type === 'company') {
-    if (requestedRole === 'admin' || requestedRole === 'member') {
-      role = requestedRole;
-    } else {
-      const cName = (companyName || '').trim();
-      const bNum = (businessNumber || '').trim();
-      const hasExistingCompanyUser = users.some(u =>
-        u.type === 'company' &&
-        (u.companyName || '').trim() === cName &&
-        (u.businessNumber || '').trim() === bNum
-      );
-      role = hasExistingCompanyUser ? 'member' : 'admin';
-    }
+    const bNum = (businessNumber || '').trim();
+    const hasExistingCompanyUser = users.some(u => u.type === 'company' && (u.businessNumber || '').trim() === bNum);
+    role = hasExistingCompanyUser ? 'member' : 'admin';
   }
 
   const newUser: RegisteredUser = {
