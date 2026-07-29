@@ -73,6 +73,14 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   const [expandedScopeId, setExpandedScopeId] = useState<string | null>(null);
   const [showIndividuals, setShowIndividuals] = useState<boolean>(false);
 
+  // [추가] 고아 데이터(사업자번호 표기 오류 등으로 엉뚱한 스코프에 쌓인 데이터)를
+  // 올바른 스코프로 병합하기 위한 도구 상태.
+  const [mergeFrom, setMergeFrom] = useState<string>('');
+  const [mergeTo, setMergeTo] = useState<string>('');
+  const [mergeLoading, setMergeLoading] = useState<boolean>(false);
+  const [mergeMessage, setMergeMessage] = useState<string>('');
+  const [mergeError, setMergeError] = useState<string>('');
+
   const fetchFeedback = async () => {
     setLoading(true);
     try {
@@ -115,6 +123,50 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  // [추가] "가져올 스코프(from)"의 모든 데이터를 "옮길 대상 스코프(to)"로 병합한다.
+  // 되돌릴 수 없는 작업이라 실행 전 반드시 확인창을 띄운다.
+  const doMergeScopes = async () => {
+    setMergeMessage('');
+    setMergeError('');
+    if (!mergeFrom || !mergeTo) {
+      setMergeError('가져올 스코프와 옮길 대상 스코프를 먼저 선택(또는 입력)해주세요.');
+      return;
+    }
+    if (mergeFrom === mergeTo) {
+      setMergeError('두 스코프가 서로 같습니다. 다른 스코프를 선택해주세요.');
+      return;
+    }
+    const ok = window.confirm(
+      `되돌릴 수 없는 작업입니다.\n\n[${mergeFrom}]\n의 모든 데이터를\n\n[${mergeTo}]\n로 옮깁니다.\n\n계속할까요?`
+    );
+    if (!ok) return;
+
+    setMergeLoading(true);
+    try {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (currentUser) headers['x-user-id'] = currentUser.id;
+      const res = await fetch('/api/admin/migrate-scope', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ fromScopeId: mergeFrom, toScopeId: mergeTo })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || '병합 중 오류가 발생했습니다.');
+
+      const migratedList = Object.entries(data.migratedCounts || {})
+        .map(([key, count]) => `${featureLabel(key)} ${count}건`)
+        .join(', ');
+      setMergeMessage(migratedList ? `병합 완료: ${migratedList}` : '병합 완료 (옮길 데이터가 없었습니다)');
+      setMergeFrom('');
+      setMergeTo('');
+      fetchStats(); // 최신 상태로 새로고침
+    } catch (err: any) {
+      setMergeError(err.message || '병합 중 오류가 발생했습니다.');
+    } finally {
+      setMergeLoading(false);
+    }
+  };
 
   const updateStatus = async (id: string, status: FeedbackItem['status']) => {
     setUpdatingId(id);
@@ -371,7 +423,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                             {c.lastActivity ? formatDate(c.lastActivity) + ' 마지막 활동' : '아직 활동 없음'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
                           <button
                             type="button"
                             onClick={() => setExpandedScopeId((prev) => (prev === c.scopeId ? null : c.scopeId))}
@@ -381,6 +433,25 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                           </button>
                           <span>·</span>
                           <span>총 데이터 {c.totalItems}건</span>
+                          <span>·</span>
+                          <span className="font-mono text-slate-600">{c.scopeId}</span>
+                        </div>
+                        {/* [추가] 이 회사를 스코프 병합 도구의 from/to로 바로 채워넣는 단축 버튼 */}
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => { setMergeFrom(c.scopeId); setMergeMessage(''); setMergeError(''); }}
+                            className="text-[10px] px-2 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+                          >
+                            병합도구: 여기서 가져오기(from)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setMergeTo(c.scopeId); setMergeMessage(''); setMergeError(''); }}
+                            className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                          >
+                            병합도구: 여기로 옮기기(to)
+                          </button>
                         </div>
                         {expandedScopeId === c.scopeId && c.members.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -427,6 +498,54 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                       ))}
                     </div>
                   )
+                )}
+              </div>
+
+              {/* [추가] 스코프 병합 도구 — 고아 데이터(잘못된 사업자번호로 엉뚱한 곳에 쌓인 데이터)를
+                  올바른 스코프로 옮기는 일회성 도구. 위 회사 카드의 단축 버튼으로 채우거나 직접 입력. */}
+              <div className="bg-rose-950/10 border border-rose-900/40 rounded-2xl p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-bold text-rose-300">⚠️ 스코프 병합 도구 (되돌릴 수 없음)</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                    사업자번호 오기입 등으로 데이터가 엉뚱한 스코프에 쌓였을 때, 위 회사 카드의 버튼으로 from/to를 채운 뒤 실행하면 모든 데이터를 옮기고 예전 스코프는 비웁니다.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 font-semibold">가져올 스코프 (from) — 예전/잘못된 곳</label>
+                    <input
+                      type="text"
+                      value={mergeFrom}
+                      onChange={(e) => setMergeFrom(e.target.value)}
+                      placeholder="예: company:알앤씨_212-06-76430"
+                      className="w-full bg-slate-950 text-slate-200 text-[11px] font-mono px-2.5 py-2 rounded-lg border border-slate-800 focus:border-rose-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 font-semibold">옮길 대상 스코프 (to) — 현재 올바른 곳</label>
+                    <input
+                      type="text"
+                      value={mergeTo}
+                      onChange={(e) => setMergeTo(e.target.value)}
+                      placeholder="예: company:212-06-76430"
+                      className="w-full bg-slate-950 text-slate-200 text-[11px] font-mono px-2.5 py-2 rounded-lg border border-slate-800 focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={doMergeScopes}
+                  disabled={mergeLoading}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {mergeLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {mergeLoading ? '병합 중...' : '병합 실행'}
+                </button>
+                {mergeMessage && (
+                  <p className="text-[11px] text-emerald-400 bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">{mergeMessage}</p>
+                )}
+                {mergeError && (
+                  <p className="text-[11px] text-rose-400 bg-rose-500/5 border border-rose-500/20 rounded-lg px-2.5 py-1.5">{mergeError}</p>
                 )}
               </div>
             </div>
