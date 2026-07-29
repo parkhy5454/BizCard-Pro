@@ -563,11 +563,6 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] text-slate-500 leading-relaxed bg-slate-900/60 border border-slate-800 rounded-xl p-2.5">
-                        같은 회사(사업자번호 기준)로 <span className="text-amber-300 font-medium">처음 가입</span>하시면 자동으로 <span className="text-amber-300 font-medium">관리자</span>가 되고, 이미 가입된 동료가 있다면 자동으로 <span className="text-indigo-300 font-medium">일반 사용자</span>로 가입됩니다. 이후 관리자는 "가입 회원 & 협업 디렉토리"에서 다른 사용자의 권한(관리자/일반 사용자)을 언제든 변경할 수 있습니다.
-                      </p>
-                    </div>
                   </motion.div>
                 )}
               </motion.div>
