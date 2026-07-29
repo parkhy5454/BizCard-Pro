@@ -20,7 +20,6 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [companyName, setCompanyName] = useState<string>('');
   const [businessNumber, setBusinessNumber] = useState<string>('');
   const [position, setPosition] = useState<string>('');
-  const [signupRole, setSignupRole] = useState<'admin' | 'member'>('member');
 
   // 비밀번호 찾기 / 재설정 화면 상태
   const [screen, setScreen] = useState<'auth' | 'forgot' | 'reset'>('auth');
@@ -161,7 +160,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
             companyName: accountType === 'company' ? companyName.trim() : undefined,
             businessNumber: accountType === 'company' ? businessNumber.trim() : undefined,
             position: accountType === 'company' ? position.trim() : undefined,
-            role: accountType === 'company' ? signupRole : undefined,
+            // role은 보내지 않는다: 서버가 같은 회사의 최초 가입자면 자동으로 admin,
+            // 이미 소속 사용자가 있으면 자동으로 member로 지정한다.
           };
 
       const res = await fetch(endpoint, {
@@ -564,25 +564,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold text-slate-400">가입 유형</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSignupRole('member')}
-                          className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${signupRole === 'member' ? 'bg-indigo-950/30 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'}`}
-                        >
-                          일반 사용자
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSignupRole('admin')}
-                          className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${signupRole === 'admin' ? 'bg-amber-950/30 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'}`}
-                        >
-                          관리자
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed">
-                        관리자는 결재라인 지정, 소속 직원 직책/권한 관리가 가능합니다. 이미 같은 회사에 관리자가 있다면 <span className="text-slate-400 font-medium">일반 사용자</span>로 가입한 뒤, 기존 관리자에게 "가입 회원 & 협업 디렉토리"에서 권한을 요청하세요.
+                      <p className="text-[10px] text-slate-500 leading-relaxed bg-slate-900/60 border border-slate-800 rounded-xl p-2.5">
+                        같은 회사(사업자번호 기준)로 <span className="text-amber-300 font-medium">처음 가입</span>하시면 자동으로 <span className="text-amber-300 font-medium">관리자</span>가 되고, 이미 가입된 동료가 있다면 자동으로 <span className="text-indigo-300 font-medium">일반 사용자</span>로 가입됩니다. 이후 관리자는 "가입 회원 & 협업 디렉토리"에서 다른 사용자의 권한(관리자/일반 사용자)을 언제든 변경할 수 있습니다.
                       </p>
                     </div>
                   </motion.div>
