@@ -1057,7 +1057,13 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
 // 👥 Registered Users Directory API
 app.get('/api/auth/users', (req, res) => {
-  res.json(users.map(u => ({
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  const toPublicShape = (u: RegisteredUser) => ({
     id: u.id,
     email: u.email,
     name: u.name,
@@ -1067,7 +1073,24 @@ app.get('/api/auth/users', (req, res) => {
     businessNumber: u.businessNumber,
     position: u.position,
     role: u.role
-  })));
+  });
+
+  // [수정] 개발자(운영자) 계정은 전체 가입 회원(모든 회사 포함)을 다 볼 수 있다.
+  // 그 외 일반 회원(회사 관리자 포함)은 "같은 회사(사업자번호 기준)" 사람만 볼 수 있다.
+  // 개인 회원은 다른 회사/개인 정보를 볼 필요가 없으므로 본인 정보만 반환한다.
+  let visible: RegisteredUser[];
+  if (requester.email === ADMIN_EMAIL) {
+    visible = users;
+  } else if (requester.type === 'company') {
+    const bNum = (requester.businessNumber || '').trim().toLowerCase();
+    visible = users.filter(u =>
+      u.type === 'company' && (u.businessNumber || '').trim().toLowerCase() === bNum
+    );
+  } else {
+    visible = [requester];
+  }
+
+  res.json(visible.map(toPublicShape));
 });
 
 // 진단용: 같은 이메일로 여러 계정이 만들어진 경우(예: 개인+사업자 중복 가입)를 찾아서 보여준다.
