@@ -215,6 +215,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                           <div className="text-xs text-slate-400 flex flex-col gap-0.5">
                             <p className="font-medium text-slate-300">
                               회사명: <span className="text-indigo-300">{u.companyName}</span>
+                              {u.position && <span className="text-slate-500"> · 직책: <span className="text-slate-300">{u.position}</span></span>}
                             </p>
                             <p className="text-[11px] text-slate-500">
                               사업자등록번호: {u.businessNumber}

@@ -11,6 +11,7 @@ interface Member {
   name: string;
   email: string;
   phone?: string;
+  position?: string;
   createdAt?: string;
 }
 
@@ -457,7 +458,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                           <div className="flex flex-wrap gap-1.5 pt-0.5">
                             {c.members.map((m, idx) => (
                               <span key={idx} className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">
-                                {m.name} · {m.email}{m.phone ? ` · ${m.phone}` : ''}{m.createdAt ? ` · ${formatDate(m.createdAt)} 가입` : ''}
+                                {m.name}{m.position ? ` (${m.position})` : ''} · {m.email}{m.phone ? ` · ${m.phone}` : ''}{m.createdAt ? ` · ${formatDate(m.createdAt)} 가입` : ''}
                               </span>
                             ))}
                           </div>
