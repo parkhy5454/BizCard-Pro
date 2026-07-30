@@ -13,12 +13,16 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState('');
 
   const fetchUsers = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/auth/users');
+      const res = await fetch('/api/auth/users', {
+        headers: { 'x-user-id': currentUser.id }
+      });
       if (!res.ok) throw new Error('회원 목록을 가져오지 못했습니다.');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -57,6 +61,27 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     return false;
   };
 
+  // [추가] 관리자만 사용 가능: 같은 회사 소속 동료의 역할(관리자/일반 사용자)을 변경한다.
+  const canManageRoles = currentUser.type === 'company' && currentUser.role === 'admin';
+  const changeRole = async (target: UserType, newRole: 'admin' | 'member') => {
+    setRoleError('');
+    setRoleUpdatingId(target.id);
+    try {
+      const res = await fetch(`/api/auth/users/${target.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify({ role: newRole })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || '역할 변경에 실패했습니다.');
+      setUsers(prev => prev.map(u => (u.id === target.id ? { ...u, role: newRole } : u)));
+    } catch (err: any) {
+      setRoleError(err.message || '역할 변경 중 오류가 발생했습니다.');
+    } finally {
+      setRoleUpdatingId(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
@@ -86,7 +111,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
           <div className="space-y-1">
             <p className="font-semibold text-indigo-200">👥 회사 협업 스코프 작동 원리</p>
             <p className="leading-relaxed text-slate-400">
-              회원가입 시 <span className="text-slate-200 font-medium">회사 회원</span>으로 선택하고 동일한 <span className="text-indigo-400 font-semibold">회사명</span>과 <span className="text-indigo-400 font-semibold">사업자번호</span>를 등록한 회원들은 별도 설정 없이 <span className="text-indigo-300 underline font-medium">동일한 명함 데이터베이스와 프로젝트, 미팅 팔로우업 기록</span>을 실시간 공유하며 공동 작업할 수 있습니다.
+              회원가입 시 <span className="text-slate-200 font-medium">회사 회원</span>으로 선택하고 동일한 <span className="text-indigo-400 font-semibold">회사명</span>과 <span className="text-indigo-400 font-semibold">사업자번호</span>를 등록한 회원들은 별도 설정 없이 <span className="text-indigo-300 underline font-medium">동일한 명함 데이터베이스와 프로젝트, 미팅 팔로우업 기록</span>을 실시간 공유하며 공동 작업할 수 있습니다. 이 화면에는 <span className="text-slate-200 font-medium">본인과 같은 회사 소속 동료만</span> 표시되며, 관리자는 동료를 관리자/일반 사용자로 바로 지정할 수 있습니다.
             </p>
           </div>
         </div>
@@ -104,6 +129,10 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
             />
           </div>
         </div>
+
+        {roleError && (
+          <div className="px-5 pt-3 text-xs text-rose-400 bg-rose-500/5">{roleError}</div>
+        )}
 
         {/* 가입자 목록 영역 */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
@@ -133,8 +162,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                 const coWorker = isSameScope(u);
 
                 return (
+                  <div key={u.id}>
                   <div 
-                    key={u.id}
                     className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all ${
                       isMe 
                         ? 'bg-blue-950/20 border-blue-800/50 shadow-md ring-1 ring-blue-500/20' 
@@ -168,6 +197,16 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                           {isMe && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                               나 (접속중)
+                            </span>
+                          )}
+
+                          {u.type === 'company' && (
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                              u.role === 'admin'
+                                ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}>
+                              {u.role === 'admin' ? '관리자' : '일반 사용자'}
                             </span>
                           )}
                         </div>
@@ -205,6 +244,31 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* [추가] 관리자 전용: 같은 회사 동료의 역할(관리자/일반 사용자)을 여기서 바로 지정 */}
+                  {canManageRoles && coWorker && !isMe && u.type === 'company' && (
+                    <div className="flex items-center gap-2 px-4 pb-3 -mt-1">
+                      <span className="text-[11px] text-slate-500">권한 지정:</span>
+                      <button
+                        type="button"
+                        disabled={roleUpdatingId === u.id || u.role === 'admin'}
+                        onClick={() => changeRole(u, 'admin')}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        관리자로 지정
+                      </button>
+                      <button
+                        type="button"
+                        disabled={roleUpdatingId === u.id || u.role === 'member'}
+                        onClick={() => changeRole(u, 'member')}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        일반 사용자로 지정
+                      </button>
+                      {roleUpdatingId === u.id && <span className="text-[11px] text-slate-500">변경 중...</span>}
+                    </div>
+                  )}
                   </div>
                 );
               })}
