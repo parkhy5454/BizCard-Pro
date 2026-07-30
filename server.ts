@@ -2519,7 +2519,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     const scopeStats = await getPlatformStats();
 
     // 회사별 가입 직원 수/명단은 users 목록에서 같은 스코프(회사)로 묶어서 계산한다.
-    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string; members: { name: string; email: string; phone?: string; createdAt?: string }[] }>();
+    const usersByScope = new Map<string, { count: number; companyName?: string; businessNumber?: string; members: { name: string; email: string; phone?: string; position?: string; createdAt?: string }[] }>();
     for (const u of users) {
       const scopeId = scopeIdForUser(u);
       if (!usersByScope.has(scopeId)) {
@@ -2527,7 +2527,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       }
       const entry = usersByScope.get(scopeId)!;
       entry.count += 1;
-      entry.members.push({ name: u.name, email: u.email, phone: u.phone, createdAt: u.createdAt });
+      entry.members.push({ name: u.name, email: u.email, phone: u.phone, position: u.position, createdAt: u.createdAt });
     }
 
     const companies = scopeStats
