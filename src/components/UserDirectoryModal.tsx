@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Building2, User, ShieldCheck, Info, Phone } from 'lucide-react';
+import { X, Search, Building2, User, ShieldCheck, Info, Phone, Download } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
 interface Props {
@@ -80,6 +80,53 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     ? `${(currentUser.companyName || '').trim().toLowerCase()}|${(currentUser.businessNumber || '').trim().toLowerCase()}`
     : '__individual__';
 
+  // [추가] 엑셀(CSV)로 다운로드하는 기능. 별도 라이브러리 없이 브라우저 기능만으로 동작하며,
+  // 한글이 깨지지 않도록 UTF-8 BOM을 붙여서 내려준다. 엑셀에서 바로 열림.
+  const downloadCsv = (filename: string, rows: (string | number)[][]) => {
+    const escape = (v: string | number) => {
+      const s = String(v ?? '');
+      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = rows.map(row => row.map(escape).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const memberRow = (groupLabel: string, businessNumber: string, m: UserType): (string | number)[] => [
+    groupLabel,
+    businessNumber,
+    m.name,
+    m.email,
+    m.phone || '',
+    m.type === 'company' ? (m.position || '') : '',
+    m.type === 'company' ? (m.role === 'admin' ? '관리자' : '일반 사용자') : ''
+  ];
+  const CSV_HEADER = ['회사명', '사업자번호', '이름', '이메일', '전화번호', '직책', '역할'];
+
+  // 이 회사(그룹)만 다운로드
+  const exportGroupCsv = (g: DirectoryGroup) => {
+    const rows: (string | number)[][] = [CSV_HEADER];
+    for (const m of g.members) rows.push(memberRow(g.label, g.isIndividualGroup ? '' : (g.businessNumber || ''), m));
+    downloadCsv(`${g.label}_가입회원.csv`, rows);
+  };
+
+  // 전체 다운로드 (같은 회사끼리 모아서, 회사 사이는 빈 줄로 구분)
+  const exportAllCsv = () => {
+    const rows: (string | number)[][] = [CSV_HEADER];
+    for (const g of groups) {
+      for (const m of g.members) rows.push(memberRow(g.label, g.isIndividualGroup ? '' : (g.businessNumber || ''), m));
+      rows.push([]);
+    }
+    downloadCsv('전체_가입회원.csv', rows);
+  };
+
   // [추가] 관리자만 사용 가능: 같은 회사 소속 동료의 역할(관리자/일반 사용자)을 변경한다.
   const canManageRoles = currentUser.type === 'company' && currentUser.role === 'admin';
   const changeRole = async (target: UserType, newRole: 'admin' | 'member') => {
@@ -136,8 +183,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         </div>
 
         {/* 검색 및 필터 바 */}
-        <div className="p-4 bg-slate-950/20 border-b border-slate-800/60">
-          <div className="relative">
+        <div className="p-4 bg-slate-950/20 border-b border-slate-800/60 flex items-center gap-2">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
@@ -147,6 +194,16 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
               className="w-full bg-slate-950 text-slate-100 text-sm pl-9 pr-4 py-2.5 rounded-xl border border-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-slate-500 transition-all"
             />
           </div>
+          <button
+            type="button"
+            onClick={exportAllCsv}
+            disabled={groups.length === 0}
+            title="회사별로 모아서 전체 엑셀 다운로드"
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            전체 다운로드
+          </button>
         </div>
 
         {roleError && (
@@ -209,7 +266,18 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                           )}
                         </div>
                       </div>
-                      <span className="text-[11px] text-slate-500">{g.members.length}명</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500">{g.members.length}명</span>
+                        <button
+                          type="button"
+                          onClick={() => exportGroupCsv(g)}
+                          title="이 회사만 엑셀 다운로드"
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          다운로드
+                        </button>
+                      </div>
                     </div>
 
                     {/* 그룹 내 멤버 목록 */}

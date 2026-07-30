@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bug, Lightbulb, MessageSquare, RefreshCw, CheckCircle2, Clock, Loader2, BarChart3, Building2, Users, Activity, Inbox as InboxIcon } from 'lucide-react';
+import { X, Bug, Lightbulb, MessageSquare, RefreshCw, CheckCircle2, Clock, Loader2, BarChart3, Building2, Users, Activity, Inbox as InboxIcon, Download } from 'lucide-react';
 import { FeedbackItem, User } from '../types.js';
 
 interface Props {
@@ -169,6 +169,66 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
     }
   };
 
+  // [추가] 운영 현황을 엑셀(CSV)로 다운로드하는 기능. 별도 라이브러리 없이 브라우저 기능만으로 동작.
+  const downloadCsv = (filename: string, rows: (string | number)[][]) => {
+    const escape = (v: string | number) => {
+      const s = String(v ?? '');
+      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = rows.map(row => row.map(escape).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // 회사 하나의 요약 + 직원 상세를 CSV 행으로 변환
+  const companyRows = (c: CompanyStat): (string | number)[][] => {
+    const rows: (string | number)[][] = [];
+    rows.push(['[회사 요약]']);
+    rows.push(['회사명', '사업자번호', '직원수', '총데이터', '마지막활동']);
+    rows.push([c.companyName, c.businessNumber, c.userCount, c.totalItems, c.lastActivity ? formatDate(c.lastActivity) : '활동 없음']);
+    rows.push([]);
+    if (Object.keys(c.itemCounts).length > 0) {
+      rows.push(['[기능별 사용 건수]']);
+      rows.push(['기능', '건수']);
+      for (const [k, v] of Object.entries(c.itemCounts)) rows.push([featureLabel(k), v]);
+      rows.push([]);
+    }
+    rows.push(['[직원 상세]']);
+    rows.push(['이름', '이메일', '전화번호', '직책', '가입일']);
+    for (const m of c.members) rows.push([m.name, m.email, m.phone || '', m.position || '', m.createdAt ? formatDate(m.createdAt) : '']);
+    return rows;
+  };
+
+  // 이 회사만 다운로드
+  const exportCompanyCsv = (c: CompanyStat) => {
+    downloadCsv(`${c.companyName}_운영현황.csv`, companyRows(c));
+  };
+
+  // 전체 다운로드 (회사별 요약표 + 회사별로 모아서 상세까지)
+  const exportAllStatsCsv = () => {
+    if (!stats) return;
+    const rows: (string | number)[][] = [];
+    rows.push(['[전체 회사 요약]']);
+    rows.push(['회사명', '사업자번호', '직원수', '총데이터', '마지막활동']);
+    for (const c of stats.companies) {
+      rows.push([c.companyName, c.businessNumber, c.userCount, c.totalItems, c.lastActivity ? formatDate(c.lastActivity) : '활동 없음']);
+    }
+    rows.push([]);
+    for (const c of stats.companies) {
+      rows.push([`=== ${c.companyName} ===`]);
+      rows.push(...companyRows(c));
+      rows.push([]);
+    }
+    downloadCsv('전체_운영현황.csv', rows);
+  };
+
   const updateStatus = async (id: string, status: FeedbackItem['status']) => {
     setUpdatingId(id);
     try {
@@ -223,6 +283,17 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {activeTab === 'dashboard' && (
+              <button
+                onClick={exportAllStatsCsv}
+                disabled={!stats || stats.companies.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="회사별로 모아서 전체 엑셀 다운로드"
+              >
+                <Download className="w-3.5 h-3.5" />
+                전체 다운로드
+              </button>
+            )}
             <button
               onClick={activeTab === 'feedback' ? fetchFeedback : fetchStats}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
@@ -452,6 +523,14 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                             className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                           >
                             병합도구: 여기로 옮기기(to)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => exportCompanyCsv(c)}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors"
+                          >
+                            <Download className="w-3 h-3" />
+                            이 회사만 다운로드
                           </button>
                         </div>
                         {expandedScopeId === c.scopeId && c.members.length > 0 && (
