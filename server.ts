@@ -106,6 +106,75 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// ------------------------------------------------------------------
+// 🔐 세션 인증 (보안 수정)
+// [수정] 예전에는 클라이언트가 보내는 x-user-id 헤더를 그대로 신뢰했습니다.
+// 이 헤더는 브라우저 개발자도구/curl로 누구나 원하는 값으로 바꿔 보낼 수 있고,
+// 가입 시 생성되는 아이디(user-${Date.now()})도 예측이 쉬워서, 다른 사람(심지어
+// 관리자 계정)의 아이디만 알면 그 사람으로 완전히 위장해 데이터를 읽고 쓸 수
+// 있는 심각한 취약점이었습니다.
+// 이제는 로그인/회원가입 성공 시에만 서버가 임의의(예측 불가능한) 세션 토큰을
+// 발급해서 httpOnly 쿠키로 내려주고, 이후 모든 요청은 그 쿠키를 검증해서만
+// 사용자를 식별합니다. 라우트 코드 자체는 그대로 req.headers['x-user-id']를
+// 읽지만, 이 값은 이제 "검증된 세션"에서만 채워지고, 세션이 없거나 유효하지
+// 않으면 클라이언트가 뭘 보내든 무시(삭제)됩니다.
+// ------------------------------------------------------------------
+const SESSION_COOKIE_NAME = 'bizcard_session';
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일
+
+// [주의] 데모/단일 인스턴스 기준으로 세션을 메모리에 저장합니다. 서버가 재시작되면
+// 로그인된 세션이 모두 끊깁니다(다시 로그인하면 됨). 여러 인스턴스로 수평 확장할
+// 계획이 있다면 이 Map을 Supabase 등 공유 저장소로 옮겨야 합니다.
+const sessions = new Map<string, { userId: string; expiresAt: number }>();
+
+function createSession(userId: string): string {
+  const token = crypto.randomBytes(32).toString('hex'); // 256비트 무작위 값 → 추측 불가능
+  sessions.set(token, { userId, expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
+}
+
+function parseCookies(header?: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  header.split(';').forEach((pair) => {
+    const idx = pair.indexOf('=');
+    if (idx === -1) return;
+    const key = pair.slice(0, idx).trim();
+    const value = pair.slice(idx + 1).trim();
+    if (key) out[key] = decodeURIComponent(value);
+  });
+  return out;
+}
+
+function setSessionCookie(res: express.Response, token: string) {
+  const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader(
+    'Set-Cookie',
+    `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secureFlag}`
+  );
+}
+
+function clearSessionCookie(res: express.Response) {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+}
+
+// 모든 요청보다 먼저 실행: 쿠키의 세션을 검증하고, 그 결과로만 x-user-id를 채운다.
+app.use((req, res, next) => {
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies[SESSION_COOKIE_NAME];
+  const session = token ? sessions.get(token) : undefined;
+
+  if (session && session.expiresAt > Date.now()) {
+    // 세션이 유효하면, 클라이언트가 헤더에 뭘 보냈든 무시하고 서버가 확인한 사용자로 덮어쓴다.
+    req.headers['x-user-id'] = session.userId;
+  } else {
+    if (token) sessions.delete(token); // 만료된 세션 정리
+    // 유효한 세션이 없으면 클라이언트가 임의로 넣은 x-user-id는 절대 신뢰하지 않는다.
+    delete req.headers['x-user-id'];
+  }
+  next();
+});
+
 // === 통합 차량 관리 초기 데이터 정의 ===
 const initialVehicles: Vehicle[] = [
   {
@@ -881,11 +950,59 @@ function verifyPassword(inputPassword: string, storedPassword?: string): boolean
   return inputPassword === storedPassword; // 레거시 평문 비밀번호 호환
 }
 
+// ------------------------------------------------------------------
+// 🛡️ 로그인 무차별 대입(brute-force) 방어
+// [수정] 이전에는 /api/auth/login에 시도 횟수 제한이 전혀 없어서, 봇이 비밀번호를
+// 무제한으로 대입해볼 수 있었다. "이메일+IP" 조합으로 짧은 시간에 실패가 반복되면
+// 잠시 잠그는 간단한 메모리 기반 제한을 둔다 (계정 자체가 아니라 조합 단위로 제한해서,
+// 한 사람이 다른 사람 계정에 무제한 시도하는 것도 같이 막는다).
+// ------------------------------------------------------------------
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 10 * 60 * 1000; // 10분 안에
+const LOGIN_LOCKOUT_MS = 10 * 60 * 1000; // 5회 실패 시 10분 잠금
+
+const loginAttempts = new Map<string, { count: number; firstAttemptAt: number; lockedUntil?: number }>();
+
+function checkLoginRateLimit(key: string): { allowed: boolean; retryAfterSec?: number } {
+  const entry = loginAttempts.get(key);
+  if (!entry) return { allowed: true };
+
+  if (entry.lockedUntil && entry.lockedUntil > Date.now()) {
+    return { allowed: false, retryAfterSec: Math.ceil((entry.lockedUntil - Date.now()) / 1000) };
+  }
+  // 잠금이 풀렸거나 애초에 없었으면, 카운트 집계 창(window)이 지났는지도 함께 확인
+  if (Date.now() - entry.firstAttemptAt > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(key);
+  }
+  return { allowed: true };
+}
+
+function registerLoginFailure(key: string): void {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAttemptAt > LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { count: 1, firstAttemptAt: now });
+    return;
+  }
+  entry.count += 1;
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+    entry.lockedUntil = now + LOGIN_LOCKOUT_MS;
+  }
+}
+
+function registerLoginSuccess(key: string): void {
+  loginAttempts.delete(key);
+}
+
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
   const { email, password, name, phone, type, companyName, businessNumber, position, role: requestedRole } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
+  }
+  // [수정] 최소한의 비밀번호 길이 검증 (기존에는 검증이 전혀 없어 1자리 비밀번호도 통과됐음)
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
   }
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -940,6 +1057,9 @@ app.post('/api/auth/signup', async (req, res) => {
   const dummyReq = { headers: { 'x-user-id': newUser.id } } as any;
   await loadScopeFromSupabase(resolveScopeId(dummyReq));
 
+  // [수정] 가입 즉시 로그인 상태가 되도록 세션 쿠키 발급
+  setSessionCookie(res, createSession(newUser.id));
+
   res.status(201).json({ 
     success: true, 
     user: { 
@@ -961,10 +1081,24 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
   }
 
+  // [수정] 무차별 대입(brute-force) 방어: 같은 이메일 + 같은 IP 조합으로 짧은 시간에
+  // 로그인 실패가 반복되면 잠시 잠근다. 로그인 성공 시에는 카운터를 즉시 초기화한다.
+  const normalizedEmailForLimit = String(email).trim().toLowerCase();
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const limitKey = `${normalizedEmailForLimit}::${clientIp}`;
+  const limitCheck = checkLoginRateLimit(limitKey);
+  if (!limitCheck.allowed) {
+    return res.status(429).json({
+      error: `로그인 시도가 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.`
+    });
+  }
+
   const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (!user || !verifyPassword(password, user.password)) {
+    registerLoginFailure(limitKey);
     return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
   }
+  registerLoginSuccess(limitKey);
 
   // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
   if (!user.password?.startsWith('$2')) {
@@ -972,8 +1106,40 @@ app.post('/api/auth/login', async (req, res) => {
     await addUser(user);
   }
 
+  // [수정] 로그인 성공 시 세션 쿠키 발급 (이후 요청은 이 쿠키로만 사용자를 식별)
+  setSessionCookie(res, createSession(user.id));
+
   res.json({
     success: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      type: user.type,
+      companyName: user.companyName,
+      businessNumber: user.businessNumber,
+      position: user.position,
+      role: user.role
+    }
+  });
+});
+
+// [수정] 로그아웃: 서버 세션을 즉시 무효화하고 쿠키를 지운다.
+app.post('/api/auth/logout', (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies[SESSION_COOKIE_NAME];
+  if (token) sessions.delete(token);
+  clearSessionCookie(res);
+  res.json({ success: true });
+});
+
+// [수정] 새로고침/재방문 시 프런트가 로컬에 저장해둔 로그인 정보가 아직 유효한지
+// 서버 세션 기준으로 재확인하기 위한 엔드포인트.
+app.get('/api/auth/me', (req, res) => {
+  const userId = req.headers['x-user-id'] as string; // 세션 미들웨어가 검증한 경우에만 존재
+  const user = userId ? users.find(u => u.id === userId) : undefined;
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  res.json({
     user: {
       id: user.id,
       email: user.email,
@@ -1034,7 +1200,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) return res.status(400).json({ error: '재설정 토큰과 새 비밀번호를 모두 입력해주세요.' });
-  if (String(newPassword).length < 4) return res.status(400).json({ error: '비밀번호는 4자 이상이어야 합니다.' });
+  // [수정] 회원가입 시 요구하는 최소 길이(8자)와 통일 (그동안 재설정은 4자만 요구해서 우회 가능했음)
+  if (String(newPassword).length < 8) return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
 
   const entry = passwordResetTokens.get(token);
   if (!entry || entry.expiresAt < Date.now()) {
