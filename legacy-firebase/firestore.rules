@@ -1,8 +1,17 @@
 rules_version = '2';
+// [수정] 이 앱은 이제 Supabase(server.ts가 Service Role Key로만 접근)로 이전되었고,
+// 이 legacy-firebase/ 폴더는 더 이상 사용하지 않습니다.
+// 예전 규칙은 "allow read, write: if true" — 인증 없이 누구나 전체 데이터베이스를
+// 읽고 쓸 수 있는 매우 위험한 설정이었습니다. 혹시 이 Firebase 프로젝트가 아직
+// 실제로 배포되어 있다면, 아래처럼 전면 차단으로 바꾼 이 파일을 Firebase 콘솔의
+// Firestore → 규칙(Rules) 탭에 그대로 붙여넣고 "게시(Publish)"까지 해야 실제로 적용됩니다.
+// (이 저장소 안에 파일만 바꿔서는 자동 반영되지 않습니다.)
+// 함께 커밋된 apiKey(firebase-applet-config.json)도 프로젝트가 살아있다면
+// Firebase 콘솔에서 재발급(rotate)하는 것을 권장합니다.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
