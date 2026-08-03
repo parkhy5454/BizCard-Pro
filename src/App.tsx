@@ -63,12 +63,31 @@ export default function App() {
 
   // 로그아웃 핸들러
   const handleLogout = () => {
+    // [수정] 로컬 저장소만 지우면 서버의 세션 쿠키는 여전히 유효하게 남아있으므로,
+    // 서버에도 세션 무효화를 요청한다 (같은 기기를 다른 사람이 이어서 쓰는 경우 대비).
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('bizcard_user');
     setCurrentUser(null);
     setContacts([]);
     setGroups([]);
     setProjects([]);
   };
+
+  // [수정] 새로고침 시 localStorage에 저장된 로그인 정보를 무조건 믿지 않고,
+  // 서버 세션(httpOnly 쿠키)이 실제로 아직 유효한지 확인한다. 세션이 끊겼다면
+  // (서버 재시작, 만료, 다른 기기에서 로그아웃 등) 화면도 로그아웃 상태로 맞춘다.
+  useEffect(() => {
+    if (!currentUser) return;
+    fetch('/api/auth/me')
+      .then((res) => {
+        if (!res.ok) {
+          localStorage.removeItem('bizcard_user');
+          setCurrentUser(null);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 초기 API 로드 - 사용자 로그인된 상태에서만 작동
   useEffect(() => {
