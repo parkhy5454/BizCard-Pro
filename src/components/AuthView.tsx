@@ -73,8 +73,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
-    if (!newPassword || newPassword.length < 4) {
-      setError('비밀번호는 4자 이상 입력해주세요.');
+    if (!newPassword || newPassword.length < 8) {
+      setError('비밀번호는 8자 이상 입력해주세요.');
       return;
     }
     if (newPassword !== newPasswordConfirm) {
@@ -458,9 +458,14 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  minLength={isLogin ? undefined : 8}
                   className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
+              {/* [수정] 서버가 8자 미만 비밀번호를 거부하므로, 가입 화면에서 미리 안내해 제출 후 오류로 놀라지 않게 함 */}
+              {!isLogin && (
+                <p className="mt-1 text-[11px] text-slate-500">비밀번호는 8자 이상 입력해주세요.</p>
+              )}
               {isLogin && (
                 <button
                   type="button"
