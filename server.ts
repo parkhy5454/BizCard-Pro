@@ -4,6 +4,7 @@
 // 소용없었다 — 자세한 이유는 instrument.ts 상단 주석 참고).
 import { Sentry, SENTRY_DSN } from './instrument.js';
 import express from 'express';
+import helmet from 'helmet';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
@@ -69,12 +70,23 @@ async function generateContentWithRetry(
 }
 
 import { createServer as createViteServer } from 'vite';
+import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './src/authLogic.js';
+import { RateLimiter } from './src/rateLimiter.js';
+import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
 import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
   getUsers,
   addUser,
+  deleteUser,
+  deleteScopeCompletely,
+  saveSession,
+  loadSession,
+  deleteSession,
+  deleteAllSessionsForUser,
+  logAudit,
+  getAuditLogs,
   isSupabaseConfigured,
   getScopedCollection,
   getScopedDoc,
@@ -86,6 +98,7 @@ import {
   replaceScopedCollection,
   findProfileByShareSlug,
   uploadDataUrlImage,
+  uploadDataUrlFile,
   getPlatformStats
 } from './src/db/supabaseStore.js';
 
@@ -94,6 +107,24 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// [추가] 기본적인 보안 헤더(클릭재킹 방지, MIME 스니핑 방지, HSTS 등)를 적용한다.
+// - contentSecurityPolicy는 일부러 끈다: 지도(Kakao/Google), Supabase Storage, Gemini
+//   같은 외부 리소스 출처를 하나하나 다 정리하지 않은 상태에서 기본 CSP를 켜면 그런
+//   리소스들이 조용히 막혀서 화면이 깨질 수 있다. 외부 리소스 출처가 정리되면 그때 켜는 게 안전하다.
+// - crossOriginEmbedderPolicy도 끈다: 외부 이미지/지도 리소스에 CORP 헤더가 없으면
+//   이것도 로딩을 막을 수 있어서다.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+// [추가] 배포 플랫폼(Render 등)이나 외부 모니터링/핑 서비스가 "서버가 살아있는지"만 빠르게
+// 확인할 수 있는 엔드포인트. 로그인/DB 조회 없이 즉시 응답한다. 5~10분 간격으로 이 주소에
+// 외부에서 핑을 보내면, 무료 요금제의 "일정 시간 뒤 서버가 잠드는" 문제도 줄일 수 있다.
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
 
 // ------------------------------------------------------------------
 // 🔐 세션 인증 (보안 수정)
@@ -109,27 +140,37 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // 않으면 클라이언트가 뭘 보내든 무시(삭제)됩니다.
 // ------------------------------------------------------------------
 const SESSION_COOKIE_NAME = 'bizcard_session';
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일
+const SESSION_TTL_LONG_MS = 30 * 24 * 60 * 60 * 1000; // 30일 ("로그인 상태 유지" 체크 시)
+const SESSION_TTL_SHORT_MS = 24 * 60 * 60 * 1000; // 1일 (체크 안 하면 — 공용 PC 등에서 오래 남는 것 방지)
 
-// [주의] 데모/단일 인스턴스 기준으로 세션을 메모리에 저장합니다. 서버가 재시작되면
-// 로그인된 세션이 모두 끊깁니다(다시 로그인하면 됨). 여러 인스턴스로 수평 확장할
-// 계획이 있다면 이 Map을 Supabase 등 공유 저장소로 옮겨야 합니다.
+// [수정] 세션을 메모리에만 두면, Render 같은 배포 플랫폼이 일정 시간 뒤 서버를 재웠다가
+// 다음 요청에 다시 깨울 때(cold start) 메모리가 초기화되면서 로그인이 전부 끊긴다.
+// 접속이 뜸한 모바일에서 특히 자주 겪는 문제였다. 이제 진짜 저장소는 Supabase의
+// app_sessions 테이블이고, 이 Map은 매 요청마다 DB를 조회하지 않도록 돕는 "캐시"일 뿐이다.
+// Supabase가 설정 안 된 환경(로컬 개발 등)에서는 예전처럼 메모리로만 동작한다.
 const sessions = new Map<string, { userId: string; expiresAt: number }>();
 
-function createSession(userId: string): string {
+// [수정] "로그인 상태 유지"를 체크했으면 30일, 안 했으면 1일짜리 세션을 발급한다.
+// 기본값은 true(기존 동작과 동일하게 30일)로 둬서, 이 옵션을 안 보내는 예전 클라이언트도
+// 그대로 잘 동작한다.
+async function createSession(userId: string, rememberMe: boolean = true): Promise<{ token: string; ttlMs: number }> {
   const token = crypto.randomBytes(32).toString('hex'); // 256비트 무작위 값 → 추측 불가능
-  sessions.set(token, { userId, expiresAt: Date.now() + SESSION_TTL_MS });
-  return token;
+  const ttlMs = rememberMe ? SESSION_TTL_LONG_MS : SESSION_TTL_SHORT_MS;
+  const expiresAt = Date.now() + ttlMs;
+  sessions.set(token, { userId, expiresAt });
+  await saveSession(token, userId, expiresAt); // Supabase에 영구 저장 (미설정 시 조용히 무시됨)
+  return { token, ttlMs };
 }
 
 // [수정] 비밀번호를 재설정할 때 호출: 그 사용자 명의로 발급된 기존 세션을 전부 끊는다.
 // 계정이 탈취당해 공격자가 이미 로그인 세션을 갖고 있는 경우, 비밀번호만 바꾸고
 // 세션은 그대로 두면 공격자는 계속 접근할 수 있다 — 그래서 재설정 성공 시점에
 // "이 사용자의 세션은 전부 무효"로 만들어야 실제로 안전해진다.
-function invalidateAllSessionsForUser(userId: string): void {
+async function invalidateAllSessionsForUser(userId: string): Promise<void> {
   for (const [token, session] of sessions.entries()) {
     if (session.userId === userId) sessions.delete(token);
   }
+  await deleteAllSessionsForUser(userId);
 }
 
 function parseCookies(header?: string): Record<string, string> {
@@ -145,11 +186,11 @@ function parseCookies(header?: string): Record<string, string> {
   return out;
 }
 
-function setSessionCookie(res: express.Response, token: string) {
+function setSessionCookie(res: express.Response, token: string, ttlMs: number = SESSION_TTL_LONG_MS) {
   const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   res.setHeader(
     'Set-Cookie',
-    `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secureFlag}`
+    `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(ttlMs / 1000)}${secureFlag}`
   );
 }
 
@@ -158,16 +199,31 @@ function clearSessionCookie(res: express.Response) {
 }
 
 // 모든 요청보다 먼저 실행: 쿠키의 세션을 검증하고, 그 결과로만 x-user-id를 채운다.
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies[SESSION_COOKIE_NAME];
-  const session = token ? sessions.get(token) : undefined;
+  let session = token ? sessions.get(token) : undefined;
+
+  // [수정] 메모리 캐시에 없으면(=서버가 방금 재시작돼서 캐시가 비어있는 경우 포함)
+  // Supabase에서 한 번 더 확인한다. 여기서 찾으면 캐시에도 채워둬서 다음 요청부터는
+  // 다시 DB를 안 타도 되게 한다. 이 한 단계 덕분에 서버 재시작 후 첫 요청에서도
+  // 로그인이 안 끊긴다.
+  if (!session && token && isSupabaseConfigured) {
+    const stored = await loadSession(token);
+    if (stored) {
+      session = { userId: stored.userId, expiresAt: stored.expiresAt };
+      sessions.set(token, session);
+    }
+  }
 
   if (session && session.expiresAt > Date.now()) {
     // 세션이 유효하면, 클라이언트가 헤더에 뭘 보냈든 무시하고 서버가 확인한 사용자로 덮어쓴다.
     req.headers['x-user-id'] = session.userId;
   } else {
-    if (token) sessions.delete(token); // 만료된 세션 정리
+    if (token) {
+      sessions.delete(token); // 만료된 세션 정리
+      deleteSession(token).catch(() => {}); // Supabase 쪽도 정리 (실패해도 요청 흐름은 막지 않음)
+    }
     // 유효한 세션이 없으면 클라이언트가 임의로 넣은 x-user-id는 절대 신뢰하지 않는다.
     delete req.headers['x-user-id'];
   }
@@ -875,6 +931,48 @@ function getScopedData(req: express.Request): any {
   };
 }
 
+// ------------------------------------------------------------------
+// 🚧 승인 대기 회원 접근 차단
+// [추가] 같은 회사(사업자번호)로 두 번째 이후 가입한 사람은 approvalStatus가 'pending'
+// 상태로 시작한다. 관리자가 승인하기 전까지는, 로그인은 할 수 있지만(그래야 "승인
+// 대기중입니다" 화면을 보여줄 수 있으니) 그 외의 모든 API(명함 조회 포함)는 막는다.
+// 정적 파일(SPA 프런트엔드 자체)과 최소한의 인증 관련 API는 허용 목록에 둔다.
+// ------------------------------------------------------------------
+const PENDING_APPROVAL_ALLOWED_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/signup',
+  '/api/auth/logout',
+  '/api/auth/me',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/auth/withdraw'
+]);
+
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) return next(); // 프런트엔드 정적 파일/라우팅은 항상 통과
+  if (PENDING_APPROVAL_ALLOWED_PATHS.has(req.path)) return next();
+
+  const userId = req.headers['x-user-id'] as string;
+  const requester = userId ? users.find(u => u.id === userId) : undefined;
+  if (requester && requester.type === 'company' && requester.approvalStatus === 'pending') {
+    return res.status(403).json({
+      error: '아직 회사 관리자의 승인을 받지 못했습니다. 승인 후 이용할 수 있습니다.',
+      pendingApproval: true
+    });
+  }
+  // [추가] 이메일 인증도 승인 대기와 같은 방식으로 막는다: 로그인은 되지만(그래야
+  // "인증 메일을 확인해주세요" 화면을 보여줄 수 있음) 그 외 API는 다 막는다.
+  if (requester && !isEmailVerified(requester.emailVerified)) {
+    return res.status(403).json({
+      error: '이메일 인증이 필요합니다. 받으신 인증 메일의 링크를 눌러주세요.',
+      emailVerificationRequired: true
+    });
+  }
+  next();
+});
+
 // 🔗 스코프 해석 + Supabase 데이터 로드 미들웨어
 // 이 미들웨어가 실제로 연결되어 있지 않으면 모든 요청이 빈 데이터를 보게 되므로
 // (기존 AI Studio 스캐폴드에 있던 버그) 반드시 라우트 등록보다 먼저 위치해야 합니다.
@@ -939,6 +1037,29 @@ async function persistReceiptImagesInArray<T extends { id: string; receiptImage?
   })));
 }
 
+// [추가] 미팅 첨부파일(제안서/견적서/발송자료 등, PDF·PPT·엑셀·한글 다 포함)을 그대로 base64로
+// DB에 쌓아두면, 문서 몇 개만 있어도 프로젝트 하나의 JSON이 수십MB로 불어나서 저장/전송이
+// 느려지거나 실패하기 쉽다(특히 모바일 네트워크에서). 영수증 사진처럼 Storage에 실제 파일로
+// 올리고 URL만 남긴다. 업로드가 실패해도(설정 안 됐거나 오류) base64를 그대로 저장해서
+// 최소한 첨부파일 자체는 안 깨지게 한다.
+async function persistAttachmentsInArray(
+  scopeId: string,
+  attachments: { id: string; name: string; dataUrl: string; size?: number }[] | undefined,
+  keyPrefix: string
+): Promise<typeof attachments> {
+  if (!attachments || !attachments.length) return attachments;
+  return Promise.all(attachments.map(async (att) => {
+    if (!att.dataUrl || !att.dataUrl.startsWith('data:')) return att; // 이미 URL이면(재수정 시) 그대로 둠
+    try {
+      const url = await uploadDataUrlFile(scopeId, att.dataUrl, `${keyPrefix}-${att.id}`, 'attachments', att.name);
+      return url ? { ...att, dataUrl: url } : att;
+    } catch (err) {
+      console.error(`persistAttachmentsInArray(${keyPrefix}-${att.id}) 실패, base64를 그대로 저장합니다:`, err);
+      return att;
+    }
+  }));
+}
+
 // 비밀번호 검증: bcrypt 해시면 정식 비교, 옛날 평문으로 저장된 계정이면 평문 비교 후
 // 성공 시 자동으로 안전한 해시로 업그레이드합니다 (기존 가입자 로그인이 끊기지 않도록).
 function verifyPassword(inputPassword: string, storedPassword?: string): boolean {
@@ -950,52 +1071,28 @@ function verifyPassword(inputPassword: string, storedPassword?: string): boolean
 }
 
 // ------------------------------------------------------------------
-// 🛡️ 로그인 무차별 대입(brute-force) 방어
-// [수정] 이전에는 /api/auth/login에 시도 횟수 제한이 전혀 없어서, 봇이 비밀번호를
-// 무제한으로 대입해볼 수 있었다. "이메일+IP" 조합으로 짧은 시간에 실패가 반복되면
-// 잠시 잠그는 간단한 메모리 기반 제한을 둔다 (계정 자체가 아니라 조합 단위로 제한해서,
-// 한 사람이 다른 사람 계정에 무제한 시도하는 것도 같이 막는다).
+// 🛡️ 로그인 무차별 대입(brute-force) 방어 + 회원가입 스팸 방지
+// [수정] 레이트리밋 구현 자체는 src/rateLimiter.ts로 옮겨서 단위 테스트를 붙였다.
+// "이메일+IP" 조합으로 짧은 시간에 로그인 실패가 반복되면 잠시 잠근다 (계정 자체가 아니라
+// 조합 단위로 제한해서, 한 사람이 다른 사람 계정에 무제한 시도하는 것도 같이 막는다).
 // ------------------------------------------------------------------
-const LOGIN_MAX_ATTEMPTS = 5;
-const LOGIN_WINDOW_MS = 10 * 60 * 1000; // 10분 안에
-const LOGIN_LOCKOUT_MS = 10 * 60 * 1000; // 5회 실패 시 10분 잠금
+const loginRateLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 10 * 60 * 1000, lockoutMs: 10 * 60 * 1000 });
 
-const loginAttempts = new Map<string, { count: number; firstAttemptAt: number; lockedUntil?: number }>();
-
-function checkLoginRateLimit(key: string): { allowed: boolean; retryAfterSec?: number } {
-  const entry = loginAttempts.get(key);
-  if (!entry) return { allowed: true };
-
-  if (entry.lockedUntil && entry.lockedUntil > Date.now()) {
-    return { allowed: false, retryAfterSec: Math.ceil((entry.lockedUntil - Date.now()) / 1000) };
-  }
-  // 잠금이 풀렸거나 애초에 없었으면, 카운트 집계 창(window)이 지났는지도 함께 확인
-  if (Date.now() - entry.firstAttemptAt > LOGIN_WINDOW_MS) {
-    loginAttempts.delete(key);
-  }
-  return { allowed: true };
-}
-
-function registerLoginFailure(key: string): void {
-  const now = Date.now();
-  const entry = loginAttempts.get(key);
-  if (!entry || now - entry.firstAttemptAt > LOGIN_WINDOW_MS) {
-    loginAttempts.set(key, { count: 1, firstAttemptAt: now });
-    return;
-  }
-  entry.count += 1;
-  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
-    entry.lockedUntil = now + LOGIN_LOCKOUT_MS;
-  }
-}
-
-function registerLoginSuccess(key: string): void {
-  loginAttempts.delete(key);
-}
+// [추가] 회원가입 API도 무제한으로 열려있으면 스팸 계정을 자동으로 대량 생성할 수 있다.
+// IP 기준으로 1시간에 5회까지만 허용한다 (같은 사무실에서 여러 직원이 잇달아 가입하는
+// 정상적인 경우도 있어서, 로그인 제한보다는 넉넉하게 잡았다).
+const signupRateLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 60 * 60 * 1000 });
 
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, name, phone, type, companyName, businessNumber, position, role: requestedRole } = req.body;
+  const signupIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const signupLimit = signupRateLimiter.check(signupIp);
+  signupRateLimiter.registerAttempt(signupIp);
+  if (!signupLimit.allowed) {
+    return res.status(429).json({ error: `가입 시도가 너무 많습니다. ${signupLimit.retryAfterSec}초 후 다시 시도해주세요.` });
+  }
+
+  const { email, password, name, phone, type, companyName, businessNumber, position } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
@@ -1017,23 +1114,30 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '이미 가입에 사용된 이메일입니다. 개인/사업자 계정 모두 같은 이메일로는 중복 가입할 수 없으니, 다른 이메일로 가입해주세요.' });
   }
 
-  // 가입 화면에서 직접 관리자/일반 사용자를 선택한 값을 우선 사용한다.
-  // 값이 없는 경우(예: 예전 방식 요청)에는, 같은 회사로 가입하는 첫 번째 사용자를 자동으로 관리자로 지정한다.
-  let role: 'admin' | 'member' | undefined;
-  if (type === 'company') {
-    if (requestedRole === 'admin' || requestedRole === 'member') {
-      role = requestedRole;
-    } else {
-      const cName = (companyName || '').trim();
-      const bNum = (businessNumber || '').trim();
-      const hasExistingCompanyUser = users.some(u =>
-        u.type === 'company' &&
-        (u.companyName || '').trim() === cName &&
-        (u.businessNumber || '').trim() === bNum
-      );
-      role = hasExistingCompanyUser ? 'member' : 'admin';
-    }
-  }
+  // [수정] role은 이제 클라이언트가 보낸 값(requestedRole)을 절대 신뢰하지 않고 서버가
+  // 전적으로 계산한다. 예전에는 요청 본문에 role: 'admin'을 그냥 넣어 보내면 그대로
+  // admin으로 가입시켜버려서, 회사의 사업자등록번호만 알면 누구나 curl로 그 회사의
+  // 관리자 권한을 즉시 획득할 수 있는 심각한 취약점이 있었다.
+  //
+  // [추가] 같은 회사(회사명+사업자번호)에 이미 사람이 있으면, 이번 가입자는 "승인 대기"
+  // 상태로 시작한다. 그 회사 관리자가 승인해야 실제로 명함/프로젝트 등 회사 데이터에
+  // 접근할 수 있다 — 이것도 사업자번호를 아는 사람이면 누구나 즉시 회사 데이터를 볼 수
+  // 있었던 문제를 막기 위함이다. 그 회사의 최초 가입자는 관리자로서 바로 승인된 상태로 시작한다.
+  const cName = (companyName || '').trim();
+  const bNum = (businessNumber || '').trim();
+  const hasExistingCompanyUser = users.some(u =>
+    u.type === 'company' &&
+    (u.companyName || '').trim() === cName &&
+    (u.businessNumber || '').trim() === bNum
+  );
+  // [수정] role/승인상태 결정 로직 자체는 src/authLogic.ts로 옮겨서 단위 테스트를 붙였다.
+  const { role, approvalStatus } = decideSignupRoleAndApproval(type, hasExistingCompanyUser);
+
+  // [추가] 이메일 인증: 메일 발송이 설정 안 된 환경(로컬 개발 등)에서는 애초에 인증
+  //메일을 보낼 수가 없으므로, 가입 즉시 인증된 것으로 처리해서 개발/테스트 흐름을
+  //막지 않는다. 실제 운영 환경(메일 설정 완료)에서만 진짜로 인증을 요구한다.
+  const emailVerificationToken = isMailerConfigured ? crypto.randomBytes(32).toString('hex') : undefined;
+  const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 
   const newUser: RegisteredUser = {
     id: `user-${Date.now()}`,
@@ -1046,6 +1150,10 @@ app.post('/api/auth/signup', async (req, res) => {
     businessNumber,
     position: position || undefined,
     role,
+    approvalStatus,
+    emailVerified: !isMailerConfigured,
+    emailVerificationToken,
+    emailVerificationTokenExpiresAt: emailVerificationToken ? Date.now() + EMAIL_VERIFICATION_TTL_MS : undefined,
     createdAt: new Date().toISOString()
   };
 
@@ -1056,8 +1164,29 @@ app.post('/api/auth/signup', async (req, res) => {
   const dummyReq = { headers: { 'x-user-id': newUser.id } } as any;
   await loadScopeFromSupabase(resolveScopeId(dummyReq));
 
+  // [추가] 인증 메일 발송 (실패해도 가입 자체는 막지 않는다 — 재전송 버튼으로 다시 받을 수 있음)
+  if (emailVerificationToken) {
+    try {
+      const verifyUrl = `${APP_BASE_URL}/?verifyToken=${emailVerificationToken}`;
+      await sendEmail({
+        to: newUser.email,
+        subject: '[BizCard Pro] 이메일 주소를 인증해주세요',
+        html: `
+          <p>안녕하세요, ${escapeHtml(newUser.name)}님.</p>
+          <p>아래 버튼을 눌러 이메일 인증을 완료해주세요 (24시간 이내 유효).</p>
+          <p><a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;">이메일 인증하기</a></p>
+          <p>버튼이 안 눌리면 이 링크를 브라우저에 붙여넣어주세요: ${verifyUrl}</p>
+        `
+      });
+    } catch (err) {
+      console.error('회원가입 인증 메일 발송 실패:', err);
+    }
+  }
+
   // [수정] 가입 즉시 로그인 상태가 되도록 세션 쿠키 발급
-  setSessionCookie(res, createSession(newUser.id));
+  // [수정] 가입 즉시 로그인 상태가 되도록 세션 쿠키 발급 (가입 직후는 기본 30일 유지)
+  const signupSession = await createSession(newUser.id, true);
+  setSessionCookie(res, signupSession.token, signupSession.ttlMs);
 
   res.status(201).json({ 
     success: true, 
@@ -1069,13 +1198,15 @@ app.post('/api/auth/signup', async (req, res) => {
       companyName: newUser.companyName, 
       businessNumber: newUser.businessNumber,
       position: newUser.position,
-      role: newUser.role
+      role: newUser.role,
+      approvalStatus: newUser.approvalStatus,
+      emailVerified: newUser.emailVerified
     } 
   });
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, rememberMe } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
   }
@@ -1085,7 +1216,7 @@ app.post('/api/auth/login', async (req, res) => {
   const normalizedEmailForLimit = String(email).trim().toLowerCase();
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
   const limitKey = `${normalizedEmailForLimit}::${clientIp}`;
-  const limitCheck = checkLoginRateLimit(limitKey);
+  const limitCheck = loginRateLimiter.check(limitKey);
   if (!limitCheck.allowed) {
     return res.status(429).json({
       error: `로그인 시도가 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.`
@@ -1094,10 +1225,10 @@ app.post('/api/auth/login', async (req, res) => {
 
   const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (!user || !verifyPassword(password, user.password)) {
-    registerLoginFailure(limitKey);
+    loginRateLimiter.registerAttempt(limitKey);
     return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
   }
-  registerLoginSuccess(limitKey);
+  loginRateLimiter.reset(limitKey);
 
   // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
   if (!user.password?.startsWith('$2')) {
@@ -1106,7 +1237,10 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   // [수정] 로그인 성공 시 세션 쿠키 발급 (이후 요청은 이 쿠키로만 사용자를 식별)
-  setSessionCookie(res, createSession(user.id));
+  // "로그인 상태 유지"를 명시적으로 껐을 때만(false) 짧은 세션을 발급하고,
+  // 값이 없으면(예전 클라이언트) 기존처럼 30일 유지한다.
+  const loginSession = await createSession(user.id, rememberMe !== false);
+  setSessionCookie(res, loginSession.token, loginSession.ttlMs);
 
   res.json({
     success: true,
@@ -1118,16 +1252,83 @@ app.post('/api/auth/login', async (req, res) => {
       companyName: user.companyName,
       businessNumber: user.businessNumber,
       position: user.position,
-      role: user.role
+      role: user.role,
+      approvalStatus: user.approvalStatus,
+      emailVerified: isEmailVerified(user.emailVerified)
     }
   });
 });
 
+// [추가] 이메일 인증 링크(메일의 ?verifyToken=... 링크)를 클릭했을 때 클라이언트가 호출.
+app.post('/api/auth/verify-email', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: '인증 토큰이 없습니다.' });
+
+  const user = users.find(u => u.emailVerificationToken === token);
+  if (!user) return res.status(400).json({ error: '인증 링크가 유효하지 않습니다. 이미 사용됐거나 잘못된 링크일 수 있습니다.' });
+  if (!user.emailVerificationTokenExpiresAt || user.emailVerificationTokenExpiresAt < Date.now()) {
+    return res.status(400).json({ error: '인증 링크가 만료되었습니다. 인증 메일을 다시 받아주세요.' });
+  }
+
+  user.emailVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationTokenExpiresAt = undefined;
+  await addUser(user);
+
+  res.json({ success: true, message: '이메일 인증이 완료되었습니다.' });
+});
+
+// [추가] 인증 메일을 못 받았거나 링크가 만료된 경우 재전송. 무제한으로 보낼 수 있으면
+// 메일 폭탄에 악용될 수 있어 이메일+IP 기준으로 15분에 3회까지만 허용한다.
+const resendVerificationRateLimiter = new RateLimiter({ maxAttempts: 3, windowMs: 15 * 60 * 1000 });
+
+app.post('/api/auth/resend-verification', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: '이메일을 입력해주세요.' });
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const resendKey = `${normalizedEmail}::${clientIp}`;
+  const limitCheck = resendVerificationRateLimiter.check(resendKey);
+  resendVerificationRateLimiter.registerAttempt(resendKey);
+  if (!limitCheck.allowed) {
+    return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
+  }
+
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+  // 보안상 가입 여부를 알려주지 않고, 항상 같은 응답을 준다.
+  if (user && !isEmailVerified(user.emailVerified) && isMailerConfigured) {
+    user.emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationTokenExpiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    await addUser(user);
+    try {
+      const verifyUrl = `${APP_BASE_URL}/?verifyToken=${user.emailVerificationToken}`;
+      await sendEmail({
+        to: user.email,
+        subject: '[BizCard Pro] 이메일 주소를 인증해주세요',
+        html: `
+          <p>안녕하세요, ${escapeHtml(user.name)}님.</p>
+          <p>아래 버튼을 눌러 이메일 인증을 완료해주세요 (24시간 이내 유효).</p>
+          <p><a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;">이메일 인증하기</a></p>
+          <p>버튼이 안 눌리면 이 링크를 브라우저에 붙여넣어주세요: ${verifyUrl}</p>
+        `
+      });
+    } catch (err) {
+      console.error('인증 메일 재전송 실패:', err);
+    }
+  }
+
+  res.json({ success: true, message: '입력하신 이메일로 가입된 미인증 계정이 있다면, 인증 메일을 다시 보내드렸습니다.' });
+});
+
 // [수정] 로그아웃: 서버 세션을 즉시 무효화하고 쿠키를 지운다.
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies[SESSION_COOKIE_NAME];
-  if (token) sessions.delete(token);
+  if (token) {
+    sessions.delete(token);
+    await deleteSession(token);
+  }
   clearSessionCookie(res);
   res.json({ success: true });
 });
@@ -1147,7 +1348,9 @@ app.get('/api/auth/me', (req, res) => {
       companyName: user.companyName,
       businessNumber: user.businessNumber,
       position: user.position,
-      role: user.role
+      role: user.role,
+      approvalStatus: user.approvalStatus,
+      emailVerified: isEmailVerified(user.emailVerified)
     }
   });
 });
@@ -1163,23 +1366,7 @@ const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30분
 // 봇이 특정 이메일로 재설정 요청을 반복 호출해 "메일 폭탄"을 보내거나, 메일 발송
 // API(Brevo) 사용량을 소진시킬 수 있다. 로그인보다는 더 관대하게(15분에 3회) 둔다 —
 // 정상 사용자도 메일이 안 왔다고 몇 번 다시 누를 수 있기 때문이다.
-const FORGOT_PASSWORD_MAX_ATTEMPTS = 3;
-const FORGOT_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
-const forgotPasswordAttempts = new Map<string, { count: number; firstAttemptAt: number }>();
-
-function checkForgotPasswordRateLimit(key: string): { allowed: boolean; retryAfterSec?: number } {
-  const now = Date.now();
-  const entry = forgotPasswordAttempts.get(key);
-  if (!entry || now - entry.firstAttemptAt > FORGOT_PASSWORD_WINDOW_MS) {
-    forgotPasswordAttempts.set(key, { count: 1, firstAttemptAt: now });
-    return { allowed: true };
-  }
-  entry.count += 1;
-  if (entry.count > FORGOT_PASSWORD_MAX_ATTEMPTS) {
-    return { allowed: false, retryAfterSec: Math.ceil((entry.firstAttemptAt + FORGOT_PASSWORD_WINDOW_MS - now) / 1000) };
-  }
-  return { allowed: true };
-}
+const forgotPasswordRateLimiter = new RateLimiter({ maxAttempts: 3, windowMs: 15 * 60 * 1000 });
 
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
@@ -1187,7 +1374,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
   const normalizedEmail = String(email).trim().toLowerCase();
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-  const limitCheck = checkForgotPasswordRateLimit(`${normalizedEmail}::${clientIp}`);
+  const forgotKey = `${normalizedEmail}::${clientIp}`;
+  const limitCheck = forgotPasswordRateLimiter.check(forgotKey);
+  forgotPasswordRateLimiter.registerAttempt(forgotKey);
   if (!limitCheck.allowed) {
     // 보안상 "가입 여부"는 여전히 숨기되, 너무 잦은 요청 자체는 막는다.
     return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
@@ -1257,7 +1446,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   // [수정] 비밀번호가 바뀌었으니, 그동안 이 계정으로 로그인돼 있던 세션(공격자 것일 수도 있는)을
   // 전부 끊는다. 지금 이 요청으로 새로 로그인시키지는 않으므로, 사용자는 새 비밀번호로 다시
   // 로그인해야 한다 — 이건 의도된 동작이다.
-  invalidateAllSessionsForUser(user.id);
+  await invalidateAllSessionsForUser(user.id);
 
   res.json({ success: true, message: '비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.' });
 });
@@ -1279,7 +1468,8 @@ app.get('/api/auth/users', (req, res) => {
     companyName: u.companyName,
     businessNumber: u.businessNumber,
     position: u.position,
-    role: u.role
+    role: u.role,
+    approvalStatus: u.approvalStatus
   });
 
   // [수정] 개발자(운영자) 계정은 전체 가입 회원(모든 회사 포함)을 다 볼 수 있다.
@@ -1325,13 +1515,8 @@ app.get('/api/auth/duplicate-emails', async (req, res) => {
 // 데이터가 쪼개지는 문제가 있었다(카이저솔루션에서 실제로 발생). 사업자등록번호는
 // 법적으로 회사마다 유일하고 표기가 갈릴 일이 없으므로, 이제는 사업자번호 하나만으로
 // 회사를 구분한다.
-function scopeIdForUser(user: RegisteredUser): string {
-  if (user.type === 'company') {
-    const bNum = (user.businessNumber || '').trim();
-    return `company:${bNum}`;
-  }
-  return `individual:${user.id}`;
-}
+// [수정] 이 함수는 이제 src/authLogic.ts로 옮겨서 단위 테스트를 붙였다 (아래 import 참고).
+// 로직 자체는 그대로: 회사 계정은 사업자등록번호로, 개인 계정은 본인 id로 스코프를 나눈다.
 
 // 관리자 전용: 같은 회사 소속 사용자의 직책/권한 수정 (결재라인 매칭 및 직원 관리용)
 app.put('/api/auth/users/:targetId', async (req, res) => {
@@ -1347,11 +1532,477 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
   }
 
   const { position, role } = req.body;
+  const prevRole = target.role;
   if (typeof position === 'string') target.position = position;
   if (role === 'admin' || role === 'member') target.role = role;
   await addUser(target);
 
+  // [추가] 관리자가 동료 역할을 바꾼 기록을 남긴다.
+  if (role && role !== prevRole) {
+    await logAudit({
+      scopeId: scopeIdForUser(requester),
+      actorUserId: requester.id,
+      actorEmail: requester.email,
+      action: 'role_change',
+      targetUserId: target.id,
+      targetEmail: target.email,
+      detail: { from: prevRole || null, to: target.role }
+    });
+  }
+
   res.json({ success: true, user: { id: target.id, email: target.email, name: target.name, position: target.position, role: target.role } });
+});
+
+// 관리자 전용: 최근 관리자 작업 감사 로그 조회 (역할 변경, 승인/거절 등)
+app.get('/api/auth/audit-logs', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 조회할 수 있습니다.' });
+
+  const logs = await getAuditLogs(scopeIdForUser(requester));
+  res.json(logs);
+});
+
+// [추가] 관리자 전용: 우리 회사(또는 내 개인 계정) 데이터 전체를 JSON 하나로 내려받는다.
+// 명함/프로젝트/차량/업무일지 등 이 스코프의 모든 데이터를 백업 목적으로 한 번에 export.
+// 개인(individual) 계정은 본인 데이터니까 role 제한 없이 내려받을 수 있고, 회사 계정은
+// admin만 가능하다(직원이 회사 전체 데이터를 통째로 빼갈 수 없도록).
+// [추가] 로그인/관리자 권한이 필요하긴 하지만, 반복 호출로 DB에 부하를 줄 수 있어
+// 계정 기준으로 5분에 3회까지만 허용한다.
+const backupExportRateLimiter = new RateLimiter({ maxAttempts: 3, windowMs: 5 * 60 * 1000 });
+
+app.get('/api/backup/export', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.type === 'company' && requester.role !== 'admin') {
+    return res.status(403).json({ error: '회사 계정은 관리자만 전체 백업을 내려받을 수 있습니다.' });
+  }
+  const backupLimit = backupExportRateLimiter.check(requester.id);
+  backupExportRateLimiter.registerAttempt(requester.id);
+  if (!backupLimit.allowed) {
+    return res.status(429).json({ error: `요청이 너무 많습니다. ${backupLimit.retryAfterSec}초 후 다시 시도해주세요.` });
+  }
+
+  const dbData = getScopedData(req);
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    exportedBy: { id: requester.id, email: requester.email, name: requester.name },
+    scope: requester.type === 'company'
+      ? { type: 'company', companyName: requester.companyName, businessNumber: requester.businessNumber }
+      : { type: 'individual' },
+    data: {
+      contacts: dbData.contacts,
+      projects: dbData.projects,
+      groups: dbData.groups,
+      myProfile: dbData.myProfile,
+      vehicles: dbData.vehicles,
+      drivingLogs: dbData.drivingLogs,
+      expenses: dbData.expenses,
+      maintenances: dbData.maintenances,
+      maintenanceIntervals: dbData.maintenanceIntervals,
+      dailyLogs: dbData.dailyLogs,
+      weeklyLogs: dbData.weeklyLogs,
+      advancePayments: dbData.advancePayments,
+      leaveRequests: dbData.leaveRequests
+    }
+  };
+
+  await logAudit({
+    scopeId: scopeIdForUser(requester),
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'data_backup_export'
+  });
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  res.setHeader('Content-Disposition', `attachment; filename="bizcard-backup-${dateStr}.json"`);
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.send(JSON.stringify(backup, null, 2));
+});
+
+// ------------------------------------------------------------------
+// 🗑️ 회원 탈퇴
+// [추가] 개인정보처리방침에 "회원 탈퇴를 요청한 경우 지체 없이 파기한다"고 명시돼 있는데,
+// 정작 탈퇴 기능이 없었다. 세션 탈취 등으로 악용되지 않도록 비밀번호 재확인을 받는다.
+//
+// - 개인(individual) 계정: 그 스코프가 곧 본인 데이터 전부이므로, 명함/프로젝트/차량기록
+//   등을 전부 지우고 계정도 삭제한다.
+// - 회사(company) 계정: 동료들과 데이터를 공유하는 구조라, 회사 데이터까지 지우면 다른
+//   사람들 업무가 멈춘다. 그래서 "이 사람 계정"만 지우고 회사 데이터는 그대로 둔다.
+//   단, 그 회사의 유일한 관리자인데 다른 동료가 남아있으면, 관리자가 없어져 아무도
+//   승인/관리를 못 하게 되므로 먼저 다른 사람에게 관리자 권한을 넘기도록 안내하고 막는다.
+// ------------------------------------------------------------------
+app.post('/api/auth/withdraw', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { password } = req.body;
+  if (!password || !verifyPassword(password, requester.password)) {
+    return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+  }
+
+  if (requester.type === 'company' && requester.role === 'admin') {
+    const scopeId = scopeIdForUser(requester);
+    const otherMembersExist = users.some(u => u.id !== requester.id && scopeIdForUser(u) === scopeId);
+    const anotherAdminExists = users.some(u => u.id !== requester.id && scopeIdForUser(u) === scopeId && u.role === 'admin');
+    if (otherMembersExist && !anotherAdminExists) {
+      return res.status(400).json({
+        error: '아직 소속된 동료가 있는데 관리자가 본인 한 명뿐입니다. 다른 동료를 관리자로 먼저 지정한 뒤 탈퇴해주세요.'
+      });
+    }
+  }
+
+  await logAudit({
+    scopeId: scopeIdForUser(requester),
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'account_withdraw',
+    detail: { type: requester.type }
+  });
+
+  // 개인 계정만 데이터까지 완전히 파기 (회사 계정은 동료 공유 데이터라 계정만 삭제)
+  if (requester.type === 'individual') {
+    const scopeId = scopeIdForUser(requester);
+    delete db[scopeId];
+    await deleteScopeCompletely(scopeId);
+  }
+
+  users = users.filter(u => u.id !== requester.id);
+  await deleteUser(requester.id);
+  await invalidateAllSessionsForUser(requester.id);
+  clearSessionCookie(res);
+
+  res.json({ success: true, message: '탈퇴 처리가 완료되었습니다.' });
+});
+
+// ------------------------------------------------------------------
+// 💳 구독/결제 (토스페이먼츠 자동결제)
+// [추가] 인원(좌석)당 요금 × 승인된 회사 구성원 수로 매달 자동결제한다.
+// 결제 관리는 그 회사의 관리자(admin) 계정 기준으로 이뤄진다 — 회사 전체가 admin 한 명의
+// 카드로 결제되는 구조다. 개인(individual) 계정도 동일한 방식으로 구독할 수 있다(좌석 1개 고정).
+//
+// ⚠️ 실제 운영(라이브 키)에서 자동결제를 쓰려면 토스페이먼츠 고객센터(1544-7772,
+// support@tosspayments.com)로 별도 계약을 먼저 신청해야 한다. 테스트 키로는 지금 바로
+// 테스트할 수 있다.
+// ------------------------------------------------------------------
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
+const SUBSCRIPTION_PRICE_PER_SEAT_KRW = Number(process.env.SUBSCRIPTION_PRICE_PER_SEAT_KRW) || 5000;
+
+function seatCountForScope(scopeId: string): number {
+  // 승인된(=실제로 서비스를 쓸 수 있는) 구성원 수만 과금 대상으로 센다. 개인 계정은 항상 1석.
+  return Math.max(1, users.filter(u => scopeIdForUser(u) === scopeId && u.approvalStatus !== 'pending').length);
+}
+
+function billingOwnerForRequester(requester: RegisteredUser): RegisteredUser | null {
+  // 회사 계정이면 결제를 관리하는 사람은 "그 회사의 관리자"다 (일반 사용자는 결제를 만들 수 없다).
+  // 개인 계정이면 본인이 곧 결제 주체다.
+  if (requester.type === 'individual') return requester;
+  if (requester.role === 'admin') return requester;
+  return null;
+}
+
+// 구독 시작 전, 토스 카드 등록창(requestBillingAuth)에 넘길 고객키를 발급/조회한다.
+app.get('/api/billing/customer-key', (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const owner = billingOwnerForRequester(requester);
+  if (!owner) return res.status(403).json({ error: '회사 계정은 관리자만 구독을 관리할 수 있습니다.' });
+
+  if (!owner.tossCustomerKey) {
+    owner.tossCustomerKey = generateCustomerKey();
+    addUser(owner).catch((err) => console.error('customerKey 저장 실패:', err));
+  }
+  res.json({ customerKey: owner.tossCustomerKey });
+});
+
+// 카드 등록 완료(카드 등록창에서 authKey를 받은 뒤) → 빌링키 발급 및 저장
+app.post('/api/billing/register-card', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const owner = billingOwnerForRequester(requester);
+  if (!owner) return res.status(403).json({ error: '회사 계정은 관리자만 구독을 관리할 수 있습니다.' });
+  if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 기능이 아직 설정되지 않았습니다 (TOSS_SECRET_KEY 없음).' });
+
+  const { authKey } = req.body;
+  if (!authKey || !owner.tossCustomerKey) {
+    return res.status(400).json({ error: '카드 등록 정보가 올바르지 않습니다. 처음부터 다시 시도해주세요.' });
+  }
+
+  try {
+    const result = await issueBillingKey(TOSS_SECRET_KEY, authKey, owner.tossCustomerKey);
+    owner.tossBillingKey = result.billingKey;
+    await addUser(owner);
+    await logAudit({
+      scopeId: scopeIdForUser(owner),
+      actorUserId: owner.id,
+      actorEmail: owner.email,
+      action: 'billing_card_registered'
+    });
+    res.json({ success: true, card: result.card });
+  } catch (err: any) {
+    console.error('카드 등록 실패:', err);
+    res.status(400).json({ error: err.message || '카드 등록에 실패했습니다.' });
+  }
+});
+
+// 구독 시작: 등록된 빌링키로 이번 달분을 즉시 결제하고, 다음 결제일을 잡는다.
+app.post('/api/billing/subscribe', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const owner = billingOwnerForRequester(requester);
+  if (!owner) return res.status(403).json({ error: '회사 계정은 관리자만 구독을 관리할 수 있습니다.' });
+  if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 기능이 아직 설정되지 않았습니다 (TOSS_SECRET_KEY 없음).' });
+  if (!owner.tossBillingKey || !owner.tossCustomerKey) {
+    return res.status(400).json({ error: '먼저 카드를 등록해주세요.' });
+  }
+
+  const scopeId = scopeIdForUser(owner);
+  const seats = seatCountForScope(scopeId);
+  const amount = seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
+
+  try {
+    await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
+      customerKey: owner.tossCustomerKey,
+      amount,
+      orderId: generateOrderId(),
+      orderName: `BizCard Pro 구독 (좌석 ${seats}개)`,
+      customerEmail: owner.email,
+      customerName: owner.name
+    });
+
+    owner.plan = 'pro';
+    owner.subscriptionStatus = 'active';
+    owner.nextBillingAt = addOneMonth(new Date()).toISOString();
+    await addUser(owner);
+    await logAudit({
+      scopeId,
+      actorUserId: owner.id,
+      actorEmail: owner.email,
+      action: 'subscription_started',
+      detail: { seats, amount }
+    });
+
+    res.json({ success: true, plan: owner.plan, nextBillingAt: owner.nextBillingAt, amount });
+  } catch (err: any) {
+    console.error('구독 결제 실패:', err);
+    res.status(400).json({ error: err.message || '결제에 실패했습니다.' });
+  }
+});
+
+// 구독 해지: 지금 당장 기능을 끊지 않고, 이미 결제한 이번 결제 주기가 끝날 때까지는 pro를 유지한다
+// (일반적인 구독 서비스 관례 — 이미 낸 돈만큼은 계속 쓸 수 있게).
+app.post('/api/billing/cancel', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const owner = billingOwnerForRequester(requester);
+  if (!owner) return res.status(403).json({ error: '회사 계정은 관리자만 구독을 관리할 수 있습니다.' });
+  if (owner.subscriptionStatus !== 'active') {
+    return res.status(400).json({ error: '진행 중인 구독이 없습니다.' });
+  }
+
+  owner.subscriptionStatus = 'canceled';
+  await addUser(owner);
+  await logAudit({
+    scopeId: scopeIdForUser(owner),
+    actorUserId: owner.id,
+    actorEmail: owner.email,
+    action: 'subscription_canceled'
+  });
+
+  res.json({ success: true, message: `구독이 해지되었습니다. ${owner.nextBillingAt ? new Date(owner.nextBillingAt).toLocaleDateString('ko-KR') + '까지는 계속 이용하실 수 있어요.' : ''}` });
+});
+
+// 현재 구독 상태 조회 — 회사 계정이면 일반 사용자도 "우리 회사가 pro인지"는 볼 수 있어야 하므로
+// role 제한 없이 조회 가능하게 하되, 결제 자체(등록/구독/해지)는 admin만 가능하다.
+app.get('/api/billing/status', (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const scopeId = scopeIdForUser(requester);
+  const owner = requester.type === 'individual'
+    ? requester
+    : users.find(u => scopeIdForUser(u) === scopeId && u.role === 'admin');
+
+  const seats = seatCountForScope(scopeId);
+  res.json({
+    plan: owner?.plan || 'free',
+    subscriptionStatus: owner?.subscriptionStatus || 'none',
+    nextBillingAt: owner?.nextBillingAt || null,
+    hasCardRegistered: Boolean(owner?.tossBillingKey),
+    seats,
+    pricePerSeat: SUBSCRIPTION_PRICE_PER_SEAT_KRW,
+    estimatedMonthlyAmount: seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW,
+    // 결제 관리(카드 등록/구독/해지)를 이 사람이 할 수 있는지
+    canManageBilling: Boolean(billingOwnerForRequester(requester))
+  });
+});
+
+// [추가] 실제 매달 자동결제를 처리하는 함수. active 구독 중 결제일이 된 사람은 청구하고,
+// canceled 상태에서 결제 주기가 끝난 사람은 free로 내린다.
+// 이 서버 프로세스가 계속 켜져 있다는 전제로 아래에 주기적 인터벌도 걸어두지만, Render 무료
+// 요금제처럼 서버가 잠들 수 있는 환경에서는 그 시간 동안 청구가 밀릴 수 있다. 더 안정적으로
+// 하려면 외부 크론(예: cron-job.org, GitHub Actions 스케줄)이 아래 /api/billing/run-scheduled
+// 엔드포인트를 매일 한 번씩 호출하도록 설정하는 걸 권장한다 (해당 라우트 주석 참고).
+async function runScheduledBilling(): Promise<{ charged: number; failed: number; downgraded: number }> {
+  const now = new Date();
+  let charged = 0, failed = 0, downgraded = 0;
+
+  for (const owner of [...users]) {
+    if (owner.type === 'company' && owner.role !== 'admin') continue; // 관리자 계정만 결제 주체
+    if (!owner.nextBillingAt) continue;
+    if (new Date(owner.nextBillingAt) > now) continue;
+
+    const scopeId = scopeIdForUser(owner);
+
+    if (owner.subscriptionStatus === 'active') {
+      if (!owner.tossBillingKey || !owner.tossCustomerKey || !TOSS_SECRET_KEY) continue;
+      const seats = seatCountForScope(scopeId);
+      const amount = seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
+      try {
+        await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
+          customerKey: owner.tossCustomerKey,
+          amount,
+          orderId: generateOrderId(),
+          orderName: `BizCard Pro 구독 갱신 (좌석 ${seats}개)`,
+          customerEmail: owner.email,
+          customerName: owner.name
+        });
+        owner.nextBillingAt = addOneMonth(now).toISOString();
+        await addUser(owner);
+        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount } });
+        charged++;
+      } catch (err) {
+        console.error(`정기결제 실패 (${owner.email}):`, err);
+        owner.subscriptionStatus = 'past_due';
+        await addUser(owner);
+        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_payment_failed' });
+        failed++;
+      }
+    } else if (owner.subscriptionStatus === 'canceled') {
+      owner.plan = 'free';
+      owner.nextBillingAt = undefined;
+      await addUser(owner);
+      await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_downgraded_to_free' });
+      downgraded++;
+    }
+  }
+
+  return { charged, failed, downgraded };
+}
+
+// 서버가 켜져 있는 동안, 1시간마다 결제일이 된 구독을 확인한다 (최소한의 자체 스케줄러).
+setInterval(() => {
+  runScheduledBilling().catch((err) => console.error('runScheduledBilling 실패:', err));
+}, 60 * 60 * 1000);
+
+// [추가] 외부 크론 서비스가 매일 호출할 수 있는 엔드포인트. 서버가 잠들었다 깨어나는 배포
+// 환경에서도, 외부에서 이 주소를 정기적으로 때려주면 결제가 안정적으로 돌아간다.
+// CRON_SECRET 환경변수를 설정해두면, 그 값을 아는 요청만 실행할 수 있다(아무나 못 누르게).
+app.post('/api/billing/run-scheduled', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  try {
+    const result = await runScheduledBilling();
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || '스케줄 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 🚧 회사 가입 승인 관리 (관리자 전용)
+// [추가] 같은 회사(사업자번호)로 새로 가입한 사람은 관리자가 승인해야 실제로
+// 회사 데이터(명함/프로젝트 등)에 접근할 수 있다. 아래 3개 API로 그 승인 절차를 관리한다.
+// ------------------------------------------------------------------
+
+// 우리 회사의 승인 대기 중인 가입 신청자 목록
+app.get('/api/auth/pending-members', (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 조회할 수 있습니다.' });
+
+  const pending = users.filter(u =>
+    u.type === 'company' &&
+    u.approvalStatus === 'pending' &&
+    scopeIdForUser(u) === scopeIdForUser(requester)
+  );
+  res.json(pending.map(u => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    phone: u.phone,
+    position: u.position,
+    createdAt: u.createdAt
+  })));
+});
+
+// 가입 승인: 이때부터 그 사람이 우리 회사 데이터에 접근할 수 있게 된다
+app.post('/api/auth/pending-members/:targetId/approve', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 승인할 수 있습니다.' });
+
+  const target = users.find(u => u.id === req.params.targetId);
+  if (!target) return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+  if (scopeIdForUser(requester) !== scopeIdForUser(target)) {
+    return res.status(403).json({ error: '같은 회사 소속 신청자만 승인할 수 있습니다.' });
+  }
+
+  target.approvalStatus = 'approved';
+  await addUser(target);
+  await logAudit({
+    scopeId: scopeIdForUser(requester),
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'member_approve',
+    targetUserId: target.id,
+    targetEmail: target.email
+  });
+  res.json({ success: true });
+});
+
+// 가입 거절: 그 신청 자체를 계정과 함께 삭제한다 (거절된 사람은 같은 이메일로 재가입 가능)
+app.post('/api/auth/pending-members/:targetId/reject', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 거절할 수 있습니다.' });
+
+  const target = users.find(u => u.id === req.params.targetId);
+  if (!target) return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+  if (scopeIdForUser(requester) !== scopeIdForUser(target)) {
+    return res.status(403).json({ error: '같은 회사 소속 신청자만 거절할 수 있습니다.' });
+  }
+  if (target.approvalStatus !== 'pending') {
+    return res.status(400).json({ error: '이미 처리된 신청입니다.' });
+  }
+
+  // [수정] 계정을 지우기 전에 감사 로그부터 남긴다 (지운 뒤에는 대상 이메일 등 정보가 사라짐).
+  await logAudit({
+    scopeId: scopeIdForUser(requester),
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'member_reject',
+    targetUserId: target.id,
+    targetEmail: target.email
+  });
+
+  users = users.filter(u => u.id !== target.id);
+  await deleteUser(target.id);
+  await invalidateAllSessionsForUser(target.id); // 혹시 로그인돼 있었다면 세션도 끊는다
+  res.json({ success: true });
 });
 
 // 📁 Scoped CRUD APIs
@@ -1863,8 +2514,29 @@ app.post('/api/contacts/import', async (req, res) => {
   const { importedContacts } = req.body;
   if (!Array.isArray(importedContacts)) return res.status(400).json({ error: 'Invalid data' });
 
+  // [추가] 같은 사람을 여러 번 가져오면 중복 명함이 쌓이는 문제가 있었다. 전화번호(숫자만
+  // 비교) 또는 이메일이 이미 있는 명함과 같으면 건너뛴다. 이번 요청 안에서 중복되는
+  // 항목끼리도 서로 걸러지도록, 처리하면서 계속 채워나간다.
+  const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
+  const existingKeys = new Set<string>();
+  for (const c of dbData.contacts) {
+    if (c.phoneMobile) existingKeys.add(`phone:${normalizePhone(c.phoneMobile)}`);
+    if (c.email) existingKeys.add(`email:${c.email.trim().toLowerCase()}`);
+  }
+
+  const toInsert: any[] = [];
+  let skippedDuplicates = 0;
+
   for (const c of importedContacts as any[]) {
-    if (!c.id) c.id = `c-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    const phoneKey = c.phoneMobile && normalizePhone(c.phoneMobile) ? `phone:${normalizePhone(c.phoneMobile)}` : null;
+    const emailKey = c.email && c.email.trim() ? `email:${c.email.trim().toLowerCase()}` : null;
+    const isDuplicate = Boolean((phoneKey && existingKeys.has(phoneKey)) || (emailKey && existingKeys.has(emailKey)));
+    if (isDuplicate) {
+      skippedDuplicates += 1;
+      continue;
+    }
+
+    if (!c.id) c.id = `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     if (!c.createdAt) c.createdAt = new Date().toISOString();
     if (!c.callHistory) c.callHistory = [];
     if (!c.groupId || !dbData.groups.some(g => g.id === c.groupId)) {
@@ -1881,10 +2553,14 @@ app.post('/api/contacts/import', async (req, res) => {
     c.frontImage = await persistImageField(scopeId, c.frontImage, `contact-${c.id}-front`);
     c.backImage = await persistImageField(scopeId, c.backImage, `contact-${c.id}-back`);
     dbData.contacts.unshift(c);
+    toInsert.push(c);
+
+    if (phoneKey) existingKeys.add(phoneKey);
+    if (emailKey) existingKeys.add(emailKey);
   }
 
-  await setScopedDocs(scopeId, 'contacts', importedContacts);
-  res.json({ count: importedContacts.length, contacts: dbData.contacts });
+  await setScopedDocs(scopeId, 'contacts', toInsert);
+  res.json({ count: toInsert.length, skippedDuplicates, contacts: dbData.contacts });
 });
 
 // 내 명함 프로필 API
@@ -2085,6 +2761,8 @@ app.post('/api/projects/:id/followups', async (req, res) => {
   };
   // [수정] 미팅 지출 영수증 사진들을 Storage에 업로드 후 URL로 교체
   f.expenses = await persistReceiptImagesInArray(scopeId, f.expenses, `followup-${f.id}`);
+  // [추가] 첨부파일(제안서/견적서 등, PDF·PPT·엑셀·한글 포함)도 Storage에 업로드 후 URL로 교체
+  f.attachments = await persistAttachmentsInArray(scopeId, f.attachments, `followup-${f.id}`);
   dbData.projects[idx].followUps.unshift(f);
   await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
   res.status(201).json(dbData.projects[idx]);
@@ -2101,6 +2779,9 @@ app.put('/api/projects/:id/followups/:fid', async (req, res) => {
     const updatedFollowUp = { ...dbData.projects[idx].followUps[fIdx], ...req.body };
     if (req.body.expenses) {
       updatedFollowUp.expenses = await persistReceiptImagesInArray(scopeId, updatedFollowUp.expenses, `followup-${req.params.fid}`);
+    }
+    if (req.body.attachments) {
+      updatedFollowUp.attachments = await persistAttachmentsInArray(scopeId, updatedFollowUp.attachments, `followup-${req.params.fid}`);
     }
     dbData.projects[idx].followUps[fIdx] = updatedFollowUp;
     await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
@@ -2713,7 +3394,10 @@ app.post('/api/feedback', async (req, res) => {
 // 다른 회사의 데이터 규모(명함/차량/프로젝트 개수 등)까지 노출되는 민감한 정보라,
 // 개발자(운영자) 계정에서만 접근 가능하도록 제한한다.
 // ------------------------------------------------------------------
-const ADMIN_EMAIL = 'parkhy5454@gmail.com';
+// [수정] 운영 관리자 이메일이 코드에 하드코딩돼 있으면, 나중에 담당자가 바뀔 때마다
+// 코드를 고치고 재배포해야 한다. 환경변수로 빼되, 설정 안 했을 때는 지금까지 쓰던
+// 값으로 그대로 동작하게 폴백을 둔다(기존 배포가 갑자기 깨지지 않도록).
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'parkhy5454@gmail.com';
 
 app.get('/api/admin/platform-stats', async (req, res) => {
   const userId = req.headers['x-user-id'] as string;
