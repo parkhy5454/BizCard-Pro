@@ -133,6 +133,16 @@ function createSession(userId: string): string {
   return token;
 }
 
+// [수정] 비밀번호를 재설정할 때 호출: 그 사용자 명의로 발급된 기존 세션을 전부 끊는다.
+// 계정이 탈취당해 공격자가 이미 로그인 세션을 갖고 있는 경우, 비밀번호만 바꾸고
+// 세션은 그대로 두면 공격자는 계속 접근할 수 있다 — 그래서 재설정 성공 시점에
+// "이 사용자의 세션은 전부 무효"로 만들어야 실제로 안전해진다.
+function invalidateAllSessionsForUser(userId: string): void {
+  for (const [token, session] of sessions.entries()) {
+    if (session.userId === userId) sessions.delete(token);
+  }
+}
+
 function parseCookies(header?: string): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;
@@ -1160,14 +1170,50 @@ app.get('/api/auth/me', (req, res) => {
 const passwordResetTokens = new Map<string, { userId: string; expiresAt: number }>();
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30분
 
+// [수정] 로그인과 같은 방식의 레이트리밋을 비밀번호 찾기에도 적용한다. 이게 없으면
+// 봇이 특정 이메일로 재설정 요청을 반복 호출해 "메일 폭탄"을 보내거나, 메일 발송
+// API(Brevo) 사용량을 소진시킬 수 있다. 로그인보다는 더 관대하게(15분에 3회) 둔다 —
+// 정상 사용자도 메일이 안 왔다고 몇 번 다시 누를 수 있기 때문이다.
+const FORGOT_PASSWORD_MAX_ATTEMPTS = 3;
+const FORGOT_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
+const forgotPasswordAttempts = new Map<string, { count: number; firstAttemptAt: number }>();
+
+function checkForgotPasswordRateLimit(key: string): { allowed: boolean; retryAfterSec?: number } {
+  const now = Date.now();
+  const entry = forgotPasswordAttempts.get(key);
+  if (!entry || now - entry.firstAttemptAt > FORGOT_PASSWORD_WINDOW_MS) {
+    forgotPasswordAttempts.set(key, { count: 1, firstAttemptAt: now });
+    return { allowed: true };
+  }
+  entry.count += 1;
+  if (entry.count > FORGOT_PASSWORD_MAX_ATTEMPTS) {
+    return { allowed: false, retryAfterSec: Math.ceil((entry.firstAttemptAt + FORGOT_PASSWORD_WINDOW_MS - now) / 1000) };
+  }
+  return { allowed: true };
+}
+
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: '이메일을 입력해주세요.' });
 
-  const user = users.find(u => u.email.toLowerCase() === String(email).trim().toLowerCase());
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const limitCheck = checkForgotPasswordRateLimit(`${normalizedEmail}::${clientIp}`);
+  if (!limitCheck.allowed) {
+    // 보안상 "가입 여부"는 여전히 숨기되, 너무 잦은 요청 자체는 막는다.
+    return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
+  }
+
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
 
   // 보안상 "가입된 이메일인지" 여부를 응답으로 알려주지 않는다 (등록 여부와 상관없이 동일한 안내).
   if (user && isMailerConfigured) {
+    // [수정] 새 토큰을 발급하기 전에 이 사용자의 기존 재설정 토큰을 먼저 무효화한다.
+    // 안 그러면 예전에 받은 메일 링크가 새 링크와 함께 계속 유효한 상태로 남는다.
+    for (const [existingToken, entry] of passwordResetTokens.entries()) {
+      if (entry.userId === user.id) passwordResetTokens.delete(existingToken);
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     passwordResetTokens.set(token, { userId: user.id, expiresAt: Date.now() + RESET_TOKEN_TTL_MS });
 
@@ -1218,6 +1264,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
   user.password = bcrypt.hashSync(newPassword, 10);
   await addUser(user);
   passwordResetTokens.delete(token);
+
+  // [수정] 비밀번호가 바뀌었으니, 그동안 이 계정으로 로그인돼 있던 세션(공격자 것일 수도 있는)을
+  // 전부 끊는다. 지금 이 요청으로 새로 로그인시키지는 않으므로, 사용자는 새 비밀번호로 다시
+  // 로그인해야 한다 — 이건 의도된 동작이다.
+  invalidateAllSessionsForUser(user.id);
 
   res.json({ success: true, message: '비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.' });
 });
