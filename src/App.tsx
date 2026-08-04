@@ -17,6 +17,10 @@ import { NearbyRadarMap } from './components/NearbyRadarMap.js';
 import { ShareMyCardModal } from './components/ShareMyCardModal.js';
 import { ProjectsView } from './components/ProjectsView.js';
 import { AuthView } from './components/AuthView.js';
+import { PendingApprovalView } from './components/PendingApprovalView.js';
+import { EmailVerificationRequiredView } from './components/EmailVerificationRequiredView.js';
+import { WithdrawAccountModal } from './components/WithdrawAccountModal.js';
+import { SubscriptionModal } from './components/SubscriptionModal.js';
 import { UserDirectoryModal } from './components/UserDirectoryModal.js';
 import { VehicleView } from './components/VehicleView.js';
 import { WorkLogsView } from './components/WorkLogsView.js';
@@ -60,6 +64,12 @@ export default function App() {
   const [isUserDirectoryOpen, setIsUserDirectoryOpen] = useState<boolean>(false);
   // [수정] 이용약관/개인정보처리방침 모달 - 푸터에서 열림
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy' | null>(null);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  // [추가] 토스 카드 등록창에서 ?authKey=...를 달고 돌아온 경우, 구독 모달을 자동으로 열어서
+  // 이어서 처리할 수 있게 한다.
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(
+    () => new URLSearchParams(window.location.search).has('authKey')
+  );
 
   // 로그아웃 핸들러
   const handleLogout = () => {
@@ -256,6 +266,33 @@ export default function App() {
     return <AuthView onLoginSuccess={(user) => setCurrentUser(user)} />;
   }
 
+  // [추가] 이메일 인증 전이면 인증 대기 화면을 본다. (서버도 이 상태에서는 API를 대부분 막아둔다)
+  if (currentUser.emailVerified === false) {
+    return (
+      <EmailVerificationRequiredView
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onVerified={() => {
+          fetch('/api/auth/me')
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.user) {
+                localStorage.setItem('bizcard_user', JSON.stringify(data.user));
+                setCurrentUser(data.user);
+              }
+            })
+            .catch(() => {});
+        }}
+      />
+    );
+  }
+
+  // [추가] 같은 회사로 가입은 했지만 아직 관리자 승인을 못 받은 회원은 메인 화면 대신
+  // 승인 대기 화면을 본다. (서버도 이 상태에서는 회사 데이터 API를 전부 막아둔다.)
+  if (currentUser.type === 'company' && currentUser.approvalStatus === 'pending') {
+    return <PendingApprovalView currentUser={currentUser} onLogout={handleLogout} />;
+  }
+
   // 검색 및 그룹 칩 필터링 적용된 명함 목록
   const filteredContacts = contacts.filter(c => {
     const matchGroup = selectedGroupFilter === 'all' || c.groupId === selectedGroupFilter;
@@ -300,6 +337,8 @@ export default function App() {
         projects={projects}
         currentUser={currentUser}
         onLogout={handleLogout}
+        onOpenWithdrawModal={() => setIsWithdrawModalOpen(true)}
+        onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)}
       />
 
       {/* 바디 메인 영역 */}
@@ -487,6 +526,25 @@ export default function App() {
       </footer>
 
       {legalTab && <LegalModal initialTab={legalTab} onClose={() => setLegalTab(null)} />}
+      {isWithdrawModalOpen && currentUser && (
+        <WithdrawAccountModal
+          currentUser={currentUser}
+          onClose={() => setIsWithdrawModalOpen(false)}
+          onWithdrawn={() => {
+            // 탈퇴 API가 이미 서버 쪽 세션/계정을 다 정리했으므로, 여기서는 클라이언트
+            // 상태만 로그아웃 상태로 맞춘다 (handleLogout처럼 다시 로그아웃 API를 부를 필요는 없음).
+            localStorage.removeItem('bizcard_user');
+            setCurrentUser(null);
+            setContacts([]);
+            setGroups([]);
+            setProjects([]);
+            setIsWithdrawModalOpen(false);
+          }}
+        />
+      )}
+      {isSubscriptionModalOpen && currentUser && (
+        <SubscriptionModal onClose={() => setIsSubscriptionModalOpen(false)} />
+      )}
 
     </div>
   );
