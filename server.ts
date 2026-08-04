@@ -1,7 +1,8 @@
-import 'dotenv/config';
-// [수정] Sentry가 express를 자동으로 감시(라우트별 에러 추적)하려면, express를 불러오기
-// "전에" Sentry부터 먼저 불러와야 한다. 순서가 바뀌면 "express is not instrumented" 경고가 뜬다.
-import * as Sentry from '@sentry/node';
+// [수정] Sentry 초기화를 별도 파일(instrument.ts)로 분리해서, 반드시 이 파일의 맨 첫
+// import로 둔다. 아래에서 express 등을 import하기 "전에" Sentry.init()이 실제로 다
+// 끝나도록 하기 위함 (같은 파일 안에서 순서만 바꾸는 건 esbuild의 import 호이스팅 때문에
+// 소용없었다 — 자세한 이유는 instrument.ts 상단 주석 참고).
+import { Sentry, SENTRY_DSN } from './instrument.js';
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -10,21 +11,9 @@ import * as XLSX from 'xlsx';
 import archiver from 'archiver';
 
 // ------------------------------------------------------------------
-// 🚨 자동 에러 모니터링(Sentry) — 서버에서 문제가 생기면 사람이 로그를 뒤지기 전에
-// 자동으로 알림을 받기 위한 설정. SENTRY_DSN 환경변수가 없으면 그냥 조용히 비활성화되고
-// (로컬 개발이나 아직 계정을 안 만든 경우에도 서버는 평소처럼 정상 작동), 있으면 켜진다.
+// 🚨 자동 에러 모니터링(Sentry) — 초기화 자체는 instrument.ts에서 이미 끝났고,
+// 여기서는 기존 console.error 호출을 Sentry로도 함께 보고되게 감싸는 부분만 남는다.
 // ------------------------------------------------------------------
-const SENTRY_DSN = process.env.SENTRY_DSN;
-if (SENTRY_DSN) {
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    environment: process.env.NODE_ENV || 'production',
-    tracesSampleRate: 0.1 // 성능 추적은 10%만 샘플링 (에러 보고 자체는 100% 그대로 다 됨)
-  });
-  console.log('[Sentry] 에러 모니터링이 활성화되었습니다.');
-} else {
-  console.log('[Sentry] SENTRY_DSN 환경변수가 없어 에러 모니터링이 비활성화되어 있습니다.');
-}
 
 // [수정] 코드 곳곳(수백 곳)에 이미 있는 console.error(...) 호출을 하나하나 다 안 고쳐도,
 // console.error 자체를 감싸서 "화면(로그)에 찍히는 동시에 Sentry에도 자동으로 보고"되게 만든다.
