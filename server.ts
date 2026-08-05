@@ -2539,8 +2539,13 @@ app.post('/api/contacts/import', async (req, res) => {
     if (!c.id) c.id = `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     if (!c.createdAt) c.createdAt = new Date().toISOString();
     if (!c.callHistory) c.callHistory = [];
-    if (!c.groupId || !dbData.groups.some(g => g.id === c.groupId)) {
-      c.groupId = dbData.groups[0]?.id || 'g-client';
+    // [수정] 예전엔 그룹 정보가 없으면 그룹 목록의 "첫 번째 그룹"(보통 VIP 거래처)에 강제로
+    // 넣었는데, 관리자가 그룹 순서를 바꾸면 기본값도 같이 바뀌는 데다가, 가져온 명함이
+    // 의도치 않게 특정 그룹으로 분류되는 게 헷갈린다는 의견이 있었다. 이제는 그룹 정보가
+    // 없거나(파일에 없음) 우리 쪽에 존재하지 않는 그룹이면, 그냥 그룹을 비워둔다 — "전체보기"
+    // 에서는 보이지만 특정 그룹 필터에는 안 걸리는 상태. 필요하면 나중에 직접 그룹을 지정하면 된다.
+    if (c.groupId && !dbData.groups.some(g => g.id === c.groupId)) {
+      c.groupId = undefined;
     }
     if (!c.lat || !c.lng) {
       const coords = assignCoords(c.address || '');
