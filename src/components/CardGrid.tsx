@@ -14,6 +14,9 @@ interface Props {
   onDeleteContact: (id: string, e: React.MouseEvent) => void;
   // [수정] 인텔리전스 패널에서 "프로젝트 보기"를 누르면 프로젝트 탭으로 이동시키기 위한 콜백 (선택)
   onNavigateToProjects?: () => void;
+  // [추가] "관계 인텔리전스" 패널의 전화 버튼에서도, 눌렀을 때 자동으로 통화 시도 기록을
+  // 남기기 위해 필요. 선택값이라, 이 prop을 안 넘겨도 기존처럼 그냥 전화만 걸린다.
+  onAddCallHistory?: (contactId: string, record: { type: 'incoming' | 'outgoing' | 'missed'; note?: string }) => void;
 }
 
 const formatCallDate = (isoStr: string) => {
@@ -31,7 +34,7 @@ const formatCallDate = (isoStr: string) => {
   }
 };
 
-export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onNavigateToProjects }) => {
+export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onNavigateToProjects, onAddCallHistory }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -312,7 +315,13 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                     {insight.contact.phoneMobile && (
                       <a
                         href={`tel:${insight.contact.phoneMobile}`}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddCallHistory?.(insight.contact.id, {
+                            type: 'outgoing',
+                            note: '(자동 기록) 전화 버튼을 눌러 발신을 시도했습니다.'
+                          });
+                        }}
                         className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-600 transition-colors"
                         title="전화 걸기"
                       >

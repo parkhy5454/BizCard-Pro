@@ -147,6 +147,18 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     setActiveTab('info');
   };
 
+  // [추가] "통화가 됐는지"는 웹앱이 알 방법이 없지만(iOS/Android 정책상 막혀있음),
+  // "언제 전화 버튼을 눌렀는지"는 100% 알 수 있다. 그래서 전화 앱으로 넘어가는 바로 그
+  // 순간에, 자동으로 "발신 시도" 통화 기록을 하나 남긴다. 실제로 통화가 됐는지 여부와
+  // 상관없이 "몇 시에 연락을 시도했는지"만큼은 놓치지 않고 남는다.
+  const handleDialClick = (phoneNumber: string) => {
+    if (!contact || !phoneNumber) return;
+    onAddCallHistory(contact.id, {
+      type: 'outgoing',
+      note: '(자동 기록) 전화 버튼을 눌러 발신을 시도했습니다.'
+    });
+  };
+
   const handleSaveCallRecord = (e: React.FormEvent) => {
     e.preventDefault();
     onAddCallHistory(contact.id, {
@@ -356,6 +368,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
             <div className="grid grid-cols-2 gap-3">
               <a
                 href={contact.phoneMobile ? `tel:${contact.phoneMobile}` : '#'}
+                onClick={() => contact.phoneMobile && handleDialClick(contact.phoneMobile)}
                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm shadow-lg transition-all ${contact.phoneMobile ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 active:scale-95' : 'bg-slate-100 text-slate-400 pointer-events-none'}`}
               >
                 <Phone className="w-4 h-4" />
@@ -374,6 +387,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
             {contact.phoneOffice && (
               <a
                 href={`tel:${contact.phoneOffice}`}
+                onClick={() => handleDialClick(contact.phoneOffice)}
                 className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 hover:border-slate-200 text-slate-600 font-medium text-xs transition-colors"
               >
                 <Building2 className="w-3.5 h-3.5 text-blue-400" />
