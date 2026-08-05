@@ -198,42 +198,42 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
 
   if (screen === 'forgot') {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-4">
           <div className="flex justify-center">
             <div className="h-14 w-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/20 border border-indigo-400/20">
               <KeyRound className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">비밀번호 찾기</h2>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">비밀번호 찾기</h2>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
-          <div className="bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl py-8 px-4 shadow-2xl rounded-3xl sm:px-10">
+          <div className="bg-white border border-slate-200 py-8 px-4 shadow-2xl rounded-3xl sm:px-10">
             {error && (
-              <div className="mb-4 p-3 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center gap-2.5 text-xs text-red-400">
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 text-xs text-red-600">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span className="font-semibold">{error}</span>
               </div>
             )}
             {successMsg && (
-              <div className="mb-4 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center gap-2.5 text-xs text-emerald-400">
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-600">
                 <Check className="w-4 h-4 shrink-0" />
                 <span className="font-semibold">{successMsg}</span>
               </div>
             )}
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">가입하신 이메일 주소를 입력하시면, 비밀번호 재설정 링크를 보내드립니다.</p>
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">가입하신 이메일 주소를 입력하시면, 비밀번호 재설정 링크를 보내드립니다.</p>
             <form onSubmit={handleForgotSubmit} className="space-y-4">
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-slate-500" />
+                  <Mail className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
                   type="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="가입한 이메일 주소"
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <button
@@ -259,20 +259,20 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
 
   if (screen === 'reset') {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-4">
           <div className="flex justify-center">
             <div className="h-14 w-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/20 border border-indigo-400/20">
               <KeyRound className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">새 비밀번호 설정</h2>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">새 비밀번호 설정</h2>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
-          <div className="bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl py-8 px-4 shadow-2xl rounded-3xl sm:px-10">
+          <div className="bg-white border border-slate-200 py-8 px-4 shadow-2xl rounded-3xl sm:px-10">
             {error && (
-              <div className="mb-4 p-3 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center gap-2.5 text-xs text-red-400">
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 text-xs text-red-600">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span className="font-semibold">{error}</span>
               </div>
@@ -280,26 +280,26 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
             <form onSubmit={handleResetSubmit} className="space-y-4">
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-slate-500" />
+                  <Lock className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="새 비밀번호 (4자 이상)"
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-slate-500" />
+                  <Lock className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
                   type="password"
                   value={newPasswordConfirm}
                   onChange={(e) => setNewPasswordConfirm(e.target.value)}
                   placeholder="새 비밀번호 확인"
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <button
@@ -317,7 +317,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-4">
         {/* 로고 */}
         <div className="flex justify-center">
@@ -326,24 +326,24 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
           </div>
         </div>
         <div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">BizCard Pro AI</h2>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">BizCard Pro AI</h2>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
-        <div className="bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl py-8 px-4 shadow-2xl rounded-3xl sm:px-10 relative overflow-hidden">
+        <div className="bg-white border border-slate-200 py-8 px-4 shadow-2xl rounded-3xl sm:px-10 relative overflow-hidden">
           {/* 장식용 그래디언트 백 */}
           <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-80" />
 
           {/* 탭 전환 */}
-          <div className="flex border-b border-slate-800 pb-5 mb-6">
+          <div className="flex border-b border-slate-200 pb-5 mb-6">
             <button
               onClick={() => {
                 setIsLogin(true);
                 setError('');
                 setSuccessMsg('');
               }}
-              className={`flex-1 text-center pb-2.5 text-sm font-bold transition-all relative ${isLogin ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 text-center pb-2.5 text-sm font-bold transition-all relative ${isLogin ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
             >
               로그인
               {isLogin && (
@@ -356,7 +356,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 setError('');
                 setSuccessMsg('');
               }}
-              className={`flex-1 text-center pb-2.5 text-sm font-bold transition-all relative ${!isLogin ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 text-center pb-2.5 text-sm font-bold transition-all relative ${!isLogin ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
             >
               회원가입
               {!isLogin && (
@@ -367,14 +367,14 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
 
           {/* 에러 및 성공 안내 배너 */}
           {error && (
-            <div className="mb-4 p-3 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center gap-2.5 text-xs text-red-400 animate-fadeIn">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 text-xs text-red-600 animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span className="font-semibold">{error}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-4 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center gap-2.5 text-xs text-emerald-400 animate-fadeIn">
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-600 animate-fadeIn">
               <Check className="w-4 h-4 shrink-0" />
               <span className="font-semibold">{successMsg}</span>
             </div>
@@ -388,17 +388,17 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-1.5"
               >
-                <label className="block text-xs font-bold text-slate-300">이름</label>
+                <label className="block text-xs font-bold text-slate-700">이름</label>
                 <div className="relative rounded-xl shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 text-slate-500" />
+                    <User className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
-                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                   />
                 </div>
               </motion.div>
@@ -411,10 +411,10 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-1.5"
               >
-                <label className="block text-xs font-bold text-slate-300">핸드폰 번호 <span className="text-slate-500 font-normal">(선택)</span></label>
+                <label className="block text-xs font-bold text-slate-700">핸드폰 번호 <span className="text-slate-500 font-normal">(선택)</span></label>
                 <div className="relative rounded-xl shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="h-4 w-4 text-slate-500" />
+                    <Phone className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
                     type="text"
@@ -422,7 +422,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     value={phone}
                     onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                     placeholder="010-0000-0000"
-                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium font-mono"
+                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium font-mono"
                   />
                 </div>
               </motion.div>
@@ -430,10 +430,10 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
 
             {/* 공통: 이메일 입력 */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-300">이메일 주소</label>
+              <label className="block text-xs font-bold text-slate-700">이메일 주소</label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-slate-500" />
+                  <Mail className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
                   type="email"
@@ -442,17 +442,17 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
             </div>
 
             {/* 공통: 비밀번호 입력 */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-300">비밀번호</label>
+              <label className="block text-xs font-bold text-slate-700">비밀번호</label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-slate-500" />
+                  <Lock className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
                   type="password"
@@ -462,21 +462,21 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   minLength={isLogin ? undefined : 8}
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
               {/* [수정] 서버가 8자 미만 비밀번호를 거부하므로, 가입 화면에서 미리 안내해 제출 후 오류로 놀라지 않게 함 */}
               {!isLogin && (
-                <p className="mt-1 text-[11px] text-slate-500">비밀번호는 8자 이상 입력해주세요.</p>
+                <p className="mt-1 text-[11px] text-slate-400">비밀번호는 8자 이상 입력해주세요.</p>
               )}
               {isLogin && (
                 <div className="flex items-center justify-between mt-1">
-                  <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 accent-indigo-500"
+                      className="w-3.5 h-3.5 rounded border-slate-300 bg-white accent-indigo-600"
                     />
                     로그인 상태 유지 (30일)
                   </label>
@@ -498,29 +498,29 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 animate={{ opacity: 1 }}
                 className="space-y-3 pt-2"
               >
-                <label className="block text-xs font-bold text-slate-300">계정 유형</label>
+                <label className="block text-xs font-bold text-slate-700">계정 유형</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setAccountType('individual')}
-                    className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between h-24 transition-all ${accountType === 'individual' ? 'bg-indigo-950/20 border-indigo-500 text-indigo-300 shadow' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'}`}
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between h-24 transition-all ${accountType === 'individual' ? 'bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
                   >
                     <User className={`w-5 h-5 ${accountType === 'individual' ? 'text-indigo-400' : 'text-slate-500'}`} />
                     <div>
-                      <p className="text-xs font-bold text-slate-200">개인 회원</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">독립적인 내 개인 명함첩 관리</p>
+                      <p className="text-xs font-bold text-slate-800">개인 회원</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">독립적인 내 개인 명함첩 관리</p>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setAccountType('company')}
-                    className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between h-24 transition-all ${accountType === 'company' ? 'bg-indigo-950/20 border-indigo-500 text-indigo-300 shadow animate-pulse' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'}`}
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between h-24 transition-all ${accountType === 'company' ? 'bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm animate-pulse' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
                   >
                     <Building2 className={`w-5 h-5 ${accountType === 'company' ? 'text-indigo-400 animate-bounce' : 'text-slate-500'}`} />
                     <div>
-                      <p className="text-xs font-bold text-slate-200">회사/사업자 공동 회원</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">동일 회사 구성원 간 자동 DB 공유</p>
+                      <p className="text-xs font-bold text-slate-800">회사/사업자 공동 회원</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">동일 회사 구성원 간 자동 DB 공유</p>
                     </div>
                   </button>
                 </div>
@@ -530,20 +530,20 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="p-4 bg-slate-950 border border-indigo-500/10 rounded-2xl space-y-3.5 mt-2"
+                    className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl space-y-3.5 mt-2"
                   >
                     <div className="space-y-1.5">
                       <label className="block text-[10px] font-bold text-slate-400">공식 회사명</label>
                       <div className="relative rounded-xl shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Building2 className="h-3.5 w-3.5 text-slate-500" />
+                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
                         </div>
                         <input
                           type="text"
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
                           placeholder="예: (주)대한상사"
-                          className="block w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                     </div>
@@ -552,7 +552,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                       <label className="block text-[10px] font-bold text-slate-400">사업자등록번호 (10자리)</label>
                       <div className="relative rounded-xl shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <FileText className="h-3.5 w-3.5 text-slate-500" />
+                          <FileText className="h-3.5 w-3.5 text-slate-400" />
                         </div>
                         <input
                           type="text"
@@ -560,7 +560,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                           value={businessNumber}
                           onChange={handleBusinessNumberChange}
                           placeholder="123-45-67890"
-                          className="block w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                     </div>
@@ -569,16 +569,16 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                       <label className="block text-[10px] font-bold text-slate-400">직책 (선택, 예: 대표이사·기술이사·경영지원실장)</label>
                       <div className="relative rounded-xl shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Briefcase className="h-3.5 w-3.5 text-slate-500" />
+                          <Briefcase className="h-3.5 w-3.5 text-slate-400" />
                         </div>
                         <input
                           type="text"
                           value={position}
                           onChange={(e) => setPosition(e.target.value)}
                           placeholder="예: 대표이사"
-                          className="block w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
-                        <p className="mt-1 text-[10px] text-slate-500">전자결재 결재라인과 이름을 매칭해 결재 요청 메일을 보내는 데 쓰입니다.</p>
+                        <p className="mt-1 text-[10px] text-slate-400">전자결재 결재라인과 이름을 매칭해 결재 요청 메일을 보내는 데 쓰입니다.</p>
                       </div>
                     </div>
 
@@ -610,11 +610,11 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
 
         {/* [수정] 회원가입/로그인 화면에서도 이용약관·개인정보처리방침을 확인할 수 있도록 링크 추가 */}
         <div className="text-center pt-1">
-          <p className="text-[11px] text-slate-600">
+          <p className="text-[11px] text-slate-400">
             계속 진행하면{' '}
-            <button type="button" onClick={() => setLegalTab('terms')} className="underline underline-offset-2 hover:text-slate-400 transition-colors">이용약관</button>
+            <button type="button" onClick={() => setLegalTab('terms')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">이용약관</button>
             {' '}및{' '}
-            <button type="button" onClick={() => setLegalTab('privacy')} className="underline underline-offset-2 hover:text-slate-400 transition-colors">개인정보처리방침</button>
+            <button type="button" onClick={() => setLegalTab('privacy')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">개인정보처리방침</button>
             에 동의하는 것으로 간주됩니다.
           </p>
         </div>
