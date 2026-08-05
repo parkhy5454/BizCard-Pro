@@ -135,46 +135,46 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-indigo-400" />
-            <h2 className="text-sm font-bold text-slate-100">구독 관리</h2>
+            <h2 className="text-sm font-bold text-slate-800">구독 관리</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-800 text-slate-500">
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
           {loading ? (
-            <p className="text-xs text-slate-500 text-center py-6">불러오는 중...</p>
+            <p className="text-xs text-slate-400 text-center py-6">불러오는 중...</p>
           ) : !status ? (
             <p className="text-xs text-rose-400 text-center py-6">구독 정보를 불러오지 못했습니다.</p>
           ) : !status.canManageBilling ? (
-            <p className="text-xs text-slate-400 text-center py-6">구독 관리는 회사 관리자만 할 수 있습니다.</p>
+            <p className="text-xs text-slate-500 text-center py-6">구독 관리는 회사 관리자만 할 수 있습니다.</p>
           ) : (
             <>
-              <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+              <div className="bg-slate-100 border border-slate-200 rounded-xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">현재 플랜</span>
-                  <span className={`font-bold ${status.plan === 'pro' ? 'text-indigo-300' : 'text-slate-300'}`}>
+                  <span className="text-slate-500">현재 플랜</span>
+                  <span className={`font-bold ${status.plan === 'pro' ? 'text-indigo-600' : 'text-slate-600'}`}>
                     {status.plan === 'pro' ? 'Pro' : 'Free'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400 flex items-center gap-1"><Users className="w-3 h-3" />좌석 수</span>
-                  <span className="text-slate-200">{status.seats}석</span>
+                  <span className="text-slate-500 flex items-center gap-1"><Users className="w-3 h-3" />좌석 수</span>
+                  <span className="text-slate-700">{status.seats}석</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">월 예상 금액</span>
-                  <span className="text-slate-200 font-semibold">{status.estimatedMonthlyAmount.toLocaleString()}원</span>
+                  <span className="text-slate-500">월 예상 금액</span>
+                  <span className="text-slate-700 font-semibold">{status.estimatedMonthlyAmount.toLocaleString()}원</span>
                 </div>
                 {status.nextBillingAt && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">다음 결제일</span>
-                    <span className="text-slate-200">{new Date(status.nextBillingAt).toLocaleDateString('ko-KR')}</span>
+                    <span className="text-slate-500">다음 결제일</span>
+                    <span className="text-slate-700">{new Date(status.nextBillingAt).toLocaleDateString('ko-KR')}</span>
                   </div>
                 )}
                 {status.subscriptionStatus === 'past_due' && (
@@ -203,7 +203,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                   <button
                     onClick={handleRegisterCard}
                     disabled={processing}
-                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-bold transition-colors"
+                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-xs font-bold transition-colors"
                   >
                     카드 등록하기
                   </button>
@@ -222,7 +222,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                     <button
                       onClick={handleRegisterCard}
                       disabled={processing}
-                      className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-bold transition-colors"
+                      className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-600 text-xs font-bold transition-colors"
                     >
                       카드 변경하기
                     </button>

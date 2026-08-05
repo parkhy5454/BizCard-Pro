@@ -46,16 +46,16 @@ export const TaxPackageModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[95] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+    <div className="fixed inset-0 z-[95] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-500/20 text-emerald-700">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-slate-100">월별 세무 자료 보내기</h3>
+            <h3 className="text-base font-bold text-slate-800">월별 세무 자료 보내기</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -64,29 +64,29 @@ export const TaxPackageModal: React.FC<Props> = ({ onClose }) => {
           {result ? (
             <div className="py-6 flex flex-col items-center gap-2 text-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-400" />
-              <p className="text-sm font-bold text-slate-100">발송 완료!</p>
-              <p className="text-xs text-slate-400">
+              <p className="text-sm font-bold text-slate-800">발송 완료!</p>
+              <p className="text-xs text-slate-500">
                 {year}년 {month}월 지출 {result.count}건 (합계 {result.totalAmount.toLocaleString()}원)을<br />
                 {accountantEmail}로 보냈어요.
               </p>
-              <button onClick={onClose} className="mt-2 px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold">
+              <button onClick={onClose} className="mt-2 px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
                 닫기
               </button>
             </div>
           ) : (
             <>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                선택한 달의 차량비용·정비·미팅지출·업무일지 지출을 <b className="text-slate-300">엑셀 정리표 + 영수증 사진</b>으로
+              <p className="text-xs text-slate-500 leading-relaxed">
+                선택한 달의 차량비용·정비·미팅지출·업무일지 지출을 <b className="text-slate-600">엑셀 정리표 + 영수증 사진</b>으로
                 모아서 압축파일로 세무사님께 바로 보내드려요.
               </p>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] text-slate-500 font-bold block mb-1">연도</label>
+                  <label className="text-[10px] text-slate-400 font-bold block mb-1">연도</label>
                   <select
                     value={year}
                     onChange={(e) => setYear(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-emerald-500"
                   >
                     {[now.getFullYear(), now.getFullYear() - 1].map((y) => (
                       <option key={y} value={y}>{y}년</option>
@@ -94,11 +94,11 @@ export const TaxPackageModal: React.FC<Props> = ({ onClose }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-500 font-bold block mb-1">월</label>
+                  <label className="text-[10px] text-slate-400 font-bold block mb-1">월</label>
                   <select
                     value={month}
                     onChange={(e) => setMonth(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-emerald-500"
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                       <option key={m} value={m}>{m}월</option>
@@ -108,18 +108,18 @@ export const TaxPackageModal: React.FC<Props> = ({ onClose }) => {
               </div>
 
               <div>
-                <label className="text-[10px] text-slate-500 font-bold block mb-1">세무사님 이메일</label>
+                <label className="text-[10px] text-slate-400 font-bold block mb-1">세무사님 이메일</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="email"
                     value={accountantEmail}
                     onChange={(e) => setAccountantEmail(e.target.value)}
                     placeholder="taxaccountant@example.com"
-                    className="w-full pl-10 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
-                <p className="text-[10px] text-slate-600 mt-1">한번 입력하면 다음에 자동으로 기억해둬요.</p>
+                <p className="text-[10px] text-slate-400 mt-1">한번 입력하면 다음에 자동으로 기억해둬요.</p>
               </div>
 
               {error && (
