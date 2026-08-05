@@ -314,22 +314,22 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-8">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-2xl space-y-8">
         
         {/* 헤더 */}
-        <div className="flex items-center gap-3 border-b border-slate-800 pb-5">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
+        <div className="flex items-center gap-3 border-b border-slate-200 pb-5">
+          <div className="p-3 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-500/20">
             <ArrowDownUp className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">연락처 가져오기 / 내보내기 (Import & Export)</h2>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">연락처 가져오기 / 내보내기 (Import & Export)</h2>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* 섹션 1: 명함 백업 내보내기 (Export) */}
-          <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-5 flex flex-col justify-between">
+          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">📤 데이터 내보내기 (Export)</span>
@@ -338,26 +338,26 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
               {/* 내보내기 범위 선택 */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300">1. 내보내기 대상 범위 선택</label>
+                <label className="text-xs font-semibold text-slate-600">1. 내보내기 대상 범위 선택</label>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => setExportScope('all')}
-                    className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'all' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'}`}
+                    className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'all' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-white text-slate-500 border-slate-200 hover:text-white'}`}
                   >
                     전체 명함 ({contacts.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportScope('group')}
-                    className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'group' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'}`}
+                    className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'group' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-white text-slate-500 border-slate-200 hover:text-white'}`}
                   >
                     특정 그룹별
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportScope('single')}
-                    className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'single' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'}`}
+                    className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'single' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-white text-slate-500 border-slate-200 hover:text-white'}`}
                   >
                     개인 명함별
                   </button>
@@ -365,14 +365,14 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
                 {/* 그룹 선택 콤보 */}
                 {exportScope === 'group' && (
-                  <select value={selectedGid} onChange={(e) => setSelectedGid(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-medium mt-2">
+                  <select value={selectedGid} onChange={(e) => setSelectedGid(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium mt-2">
                     {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 )}
 
                 {/* 개인 선택 콤보 */}
                 {exportScope === 'single' && (
-                  <select value={selectedCid} onChange={(e) => setSelectedCid(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-medium mt-2">
+                  <select value={selectedCid} onChange={(e) => setSelectedCid(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium mt-2">
                     {contacts.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
                   </select>
                 )}
@@ -380,26 +380,26 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
               {/* 포맷 선택 */}
               <div className="space-y-2 pt-2">
-                <label className="text-xs font-semibold text-slate-300">2. 파일 저장 포맷 규격</label>
+                <label className="text-xs font-semibold text-slate-600">2. 파일 저장 포맷 규격</label>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => setExportFormat('vcf')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border font-bold ${exportFormat === 'vcf' ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border font-bold ${exportFormat === 'vcf' ? 'bg-indigo-600/30 border-indigo-500 text-indigo-600' : 'bg-white border-slate-200 text-slate-500'}`}
                   >
                     <FileText className="w-3.5 h-3.5 text-indigo-400" /> VCF (vCard)
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportFormat('excel')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border font-bold ${exportFormat === 'excel' ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border font-bold ${exportFormat === 'excel' ? 'bg-emerald-600/30 border-emerald-500 text-emerald-600' : 'bg-white border-slate-200 text-slate-500'}`}
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Excel (.xls)
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportFormat('csv')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border font-bold ${exportFormat === 'csv' ? 'bg-blue-600/30 border-blue-500 text-blue-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border font-bold ${exportFormat === 'csv' ? 'bg-blue-600/30 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-500'}`}
                   >
                     <FileText className="w-3.5 h-3.5 text-blue-400" /> CSV 파일
                   </button>
@@ -418,37 +418,37 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           </div>
 
           {/* 섹션 2: 외부 주소록 가져오기 (Import) */}
-          <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-5 flex flex-col justify-between">
+          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-400 uppercase font-mono tracking-wider">📥 외부 명함 파일 불러오기 (Import)</span>
                 <Upload className="w-4 h-4 text-emerald-400" />
               </div>
 
-              <div className="aspect-[2/1] w-full rounded-2xl border-2 border-dashed border-slate-800 hover:border-emerald-500/60 bg-slate-900/40 flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
-                <Upload className="w-8 h-8 text-slate-500 group-hover:text-emerald-400 transition-colors mb-2" />
-                <span className="text-xs font-bold text-slate-200">여기를 클릭하여 파일 선택</span>
-                <span className="text-[11px] text-slate-500 mt-1">지원 확장자: .vcf, .csv, .xls</span>
+              <div className="aspect-[2/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-500/60 bg-slate-100 flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
+                <Upload className="w-8 h-8 text-slate-400 group-hover:text-emerald-400 transition-colors mb-2" />
+                <span className="text-xs font-bold text-slate-700">여기를 클릭하여 파일 선택</span>
+                <span className="text-[11px] text-slate-400 mt-1">지원 확장자: .vcf, .csv, .xls</span>
                 <input type="file" accept=".vcf,.csv,.xls,.xlsx" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
               </div>
 
               {/* [수정] 가져온 연락처에 자동으로 명함 이미지를 만들어 붙일지 선택 */}
-              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800 cursor-pointer">
+              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-100 border border-slate-200 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoGenerateImage}
                   onChange={(e) => setAutoGenerateImage(e.target.checked)}
                   className="w-4 h-4 accent-emerald-500"
                 />
-                <span className="text-xs text-slate-300">
+                <span className="text-xs text-slate-600">
                   사진이 없는 연락처에 <span className="text-emerald-400 font-semibold">정형화된 명함 이미지 자동 생성</span>
-                  <span className="block text-[10px] text-slate-500 mt-0.5">이름·회사·연락처로 깔끔한 명함 이미지를 자동으로 만들어줘요 (AI 생성 아님, 즉시 처리)</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">이름·회사·연락처로 깔끔한 명함 이미지를 자동으로 만들어줘요 (AI 생성 아님, 즉시 처리)</span>
                 </span>
               </label>
             </div>
 
             {importStatus && (
-              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 font-medium flex items-center gap-2 animate-fadeIn">
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-500/30 text-xs text-emerald-700 font-medium flex items-center gap-2 animate-fadeIn">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{importStatus}</span>
               </div>

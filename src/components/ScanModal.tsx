@@ -446,46 +446,46 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (
           /* ========================================== */
           /* [수정] 연속 촬영(배치) 모드 화면              */
           /* ========================================== */
           <div className="p-6 space-y-5">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <button type="button" onClick={exitBatchMode} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+                <button type="button" onClick={exitBatchMode} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <Layers className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-lg text-white">연속 촬영 모드</h3>
+                <h3 className="font-bold text-lg text-slate-900">연속 촬영 모드</h3>
                 {batchQueue.length > 0 && (
-                  <span className="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">
+                  <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">
                     {batchQueue.length}장
                   </span>
                 )}
                 {batchQueue.length > 0 && (
-                  <span className="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">
                     → {groups.find((g) => g.id === batchGroupId)?.name || '그룹 미지정'}
                   </span>
                 )}
               </div>
-              <button type="button" onClick={onClose} className="text-slate-400 hover:text-white p-1 bg-slate-800 rounded-full"><X className="w-4 h-4" /></button>
+              <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-700 p-1 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
             </div>
 
             {batchStage === 'capturing' && !batchCameraOpen && batchQueue.length === 0 && (
               <div className="text-center py-8 space-y-4">
-                <p className="text-sm text-slate-300">명함을 여러 장 연달아 찍을 수 있어요. 한 장 찍으면 자동으로 다음 촬영을 위해 카메라가 다시 열려요.</p>
+                <p className="text-sm text-slate-600">명함을 여러 장 연달아 찍을 수 있어요. 한 장 찍으면 자동으로 다음 촬영을 위해 카메라가 다시 열려요.</p>
 
                 {/* [수정] 촬영 시작 전에 그룹을 미리 지정해두면, 이번에 찍는 명함들이 전부 이 그룹으로 저장된다 */}
                 <div className="max-w-xs mx-auto text-left space-y-1.5">
-                  <label className="text-xs text-slate-400 font-medium">저장할 그룹</label>
+                  <label className="text-xs text-slate-500 font-medium">저장할 그룹</label>
                   <select
                     value={batchGroupId}
                     onChange={(e) => setBatchGroupId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-medium outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 font-medium outline-none focus:border-indigo-500"
                   >
                     {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
@@ -505,7 +505,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
             {batchStage === 'capturing' && (
               <div className="flex flex-wrap gap-2">
                 {batchQueue.map((it) => (
-                  <div key={it.tempId} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700">
+                  <div key={it.tempId} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
                     <img src={it.frontImage} alt="촬영된 명함" className="w-full h-full object-cover" />
                   </div>
                 ))}
@@ -527,8 +527,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                 {!batchAllRecognized && (
                   <>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-400">촬영된 명함 {batchQueue.length}장</span>
-                      <button type="button" onClick={resumeBatchCapturing} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold">
+                      <span className="text-xs text-slate-500">촬영된 명함 {batchQueue.length}장</span>
+                      <button type="button" onClick={resumeBatchCapturing} className="text-xs text-indigo-400 hover:text-indigo-600 flex items-center gap-1 font-semibold">
                         <Camera className="w-3.5 h-3.5" />
                         촬영 더 하기
                       </button>
@@ -536,12 +536,12 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {batchQueue.map((it) => (
-                        <div key={it.tempId} className="relative aspect-[1.586/1] rounded-lg overflow-hidden border border-slate-700 group">
+                        <div key={it.tempId} className="relative aspect-[1.586/1] rounded-lg overflow-hidden border border-slate-200 group">
                           <img src={it.frontImage} alt="촬영된 명함" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeBatchItem(it.tempId)}
-                            className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/80 text-rose-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/60 text-rose-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -562,7 +562,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4 text-amber-300" />
+                          <Sparkles className="w-4 h-4 text-amber-600" />
                           <span>AI 일괄 인식 시작 ({batchPendingCount}장)</span>
                         </>
                       )}
@@ -572,13 +572,13 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                 {batchQueue.some((it) => it.status === 'done' || it.status === 'error') && (
                   <div className="space-y-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">인식 결과 확인 및 수정</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">인식 결과 확인 및 수정</span>
                     {batchQueue.map((it) => (
-                      <div key={it.tempId} className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 flex gap-3">
-                        <img src={it.frontImage} alt="명함" className="w-16 h-16 rounded-lg object-cover border border-slate-800 shrink-0" />
+                      <div key={it.tempId} className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 flex gap-3">
+                        <img src={it.frontImage} alt="명함" className="w-16 h-16 rounded-lg object-cover border border-slate-200 shrink-0" />
 
                         {it.status === 'scanning' && (
-                          <div className="flex-1 flex items-center gap-2 text-xs text-slate-400">
+                          <div className="flex-1 flex items-center gap-2 text-xs text-slate-500">
                             <div className="w-3.5 h-3.5 border-2 border-slate-600 border-t-blue-400 rounded-full animate-spin" />
                             인식 중...
                           </div>
@@ -588,7 +588,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                           <div className="flex-1 space-y-2">
                             <p className="text-xs text-rose-400">인식 실패: {it.errorMessage}</p>
                             <div className="flex gap-2">
-                              <button type="button" onClick={() => retryBatchItem(it.tempId)} className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">다시 시도</button>
+                              <button type="button" onClick={() => retryBatchItem(it.tempId)} className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold">다시 시도</button>
                               <button type="button" onClick={() => removeBatchItem(it.tempId)} className="text-[11px] px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-950/60 text-rose-400 font-semibold">이 항목 제외</button>
                             </div>
                           </div>
@@ -608,14 +608,14 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                                 placeholder="성명"
                                 value={it.parsed?.name || ''}
                                 onChange={(e) => updateBatchItemField(it.tempId, 'name', e.target.value)}
-                                className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-blue-500"
+                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-bold focus:outline-none focus:border-blue-500"
                               />
                               <input
                                 type="text"
                                 placeholder="회사명"
                                 value={it.parsed?.company || ''}
                                 onChange={(e) => updateBatchItemField(it.tempId, 'company', e.target.value)}
-                                className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
                               />
                               <input
                                 type="text"
@@ -623,21 +623,21 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                                 placeholder="핸드폰"
                                 value={it.parsed?.phoneMobile || ''}
                                 onChange={(e) => updateBatchItemField(it.tempId, 'phoneMobile', formatPhoneNumber(e.target.value))}
-                                className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-blue-500"
                               />
                               <input
                                 type="text"
                                 placeholder="직책"
                                 value={it.parsed?.title || ''}
                                 onChange={(e) => updateBatchItemField(it.tempId, 'title', e.target.value)}
-                                className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
                               />
                             </div>
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => setBatchItemAction(it.tempId, 'create')}
-                                className={`text-[10px] px-2 py-1 rounded-lg font-semibold border transition-colors ${it.action === 'create' ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+                                className={`text-[10px] px-2 py-1 rounded-lg font-semibold border transition-colors ${it.action === 'create' ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-600' : 'bg-white border-slate-200 text-slate-400'}`}
                               >
                                 새로 등록
                               </button>
@@ -645,7 +645,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                                 <button
                                   type="button"
                                   onClick={() => setBatchItemAction(it.tempId, 'update')}
-                                  className={`text-[10px] px-2 py-1 rounded-lg font-semibold border transition-colors ${it.action === 'update' ? 'bg-blue-600/20 border-blue-500/40 text-blue-300' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+                                  className={`text-[10px] px-2 py-1 rounded-lg font-semibold border transition-colors ${it.action === 'update' ? 'bg-blue-600/20 border-blue-500/40 text-blue-600' : 'bg-white border-slate-200 text-slate-400'}`}
                                 >
                                   기존 정보 업데이트
                                 </button>
@@ -653,7 +653,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                               <button
                                 type="button"
                                 onClick={() => setBatchItemAction(it.tempId, 'skip')}
-                                className={`text-[10px] px-2 py-1 rounded-lg font-semibold border transition-colors ${it.action === 'skip' ? 'bg-rose-600/20 border-rose-500/40 text-rose-300' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+                                className={`text-[10px] px-2 py-1 rounded-lg font-semibold border transition-colors ${it.action === 'skip' ? 'bg-rose-600/20 border-rose-500/40 text-rose-600' : 'bg-white border-slate-200 text-slate-400'}`}
                               >
                                 건너뛰기
                               </button>
@@ -681,21 +681,21 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           /* ========================================== */
           <div className="flex flex-col md:flex-row md:overflow-hidden">
             {/* 좌측: 앞면/뒷면 명함 스캔 업로딩 존 */}
-            <div className="w-full md:w-1/2 bg-slate-950 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 md:overflow-y-auto">
+            <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 md:overflow-y-auto">
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <ScanLine className="w-5 h-5 text-blue-400 animate-pulse" />
-                    <h3 className="font-bold text-base text-white">명함 스캔 & 이미지 저장</h3>
+                    <h3 className="font-bold text-base text-slate-900">명함 스캔 & 이미지 저장</h3>
                   </div>
-                  <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded font-mono">앞·뒤 동시지원</span>
+                  <span className="text-xs bg-blue-50 text-blue-700 border border-blue-500/30 px-2 py-0.5 rounded font-mono">앞·뒤 동시지원</span>
                 </div>
 
                 {/* [수정] 명함이 여러 장일 때는 이 버튼으로 연속 촬영 모드로 전환 */}
                 <button
                   type="button"
                   onClick={startBatchMode}
-                  className="w-full mb-4 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-950/50 hover:bg-indigo-950/80 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 text-xs font-bold transition-colors"
+                  className="w-full mb-4 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 hover:text-indigo-800 text-xs font-bold transition-colors"
                 >
                   <Layers className="w-3.5 h-3.5" />
                   명함이 여러 장이면 연속 촬영 모드
@@ -704,22 +704,22 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                 <div className="space-y-4">
                   {/* 앞면 스캔 업로드 */}
                   <div>
-                    <span className="text-xs font-bold text-slate-400 block mb-1.5 font-mono">① 명함 앞면 (Front Side)</span>
-                    <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-700 hover:border-blue-500/60 bg-slate-900/60 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
+                    <span className="text-xs font-bold text-slate-500 block mb-1.5 font-mono">① 명함 앞면 (Front Side)</span>
+                    <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-500/60 bg-slate-100 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
                       {frontImg ? (
                         <>
                           <img src={frontImg} alt="앞면 미리보기" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => setFrontImg('')}
-                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/80 text-rose-400 hover:text-white"
+                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/60 text-rose-400 hover:text-white"
                           >
                             <X className="w-4 h-4" />
                           </button>
                         </>
                       ) : (
                         <div className="flex flex-col items-center justify-center w-full h-full p-4 gap-2.5">
-                          <Upload className="w-7 h-7 text-slate-500" />
+                          <Upload className="w-7 h-7 text-slate-400" />
                           <button
                             type="button"
                             onClick={() => setCameraTarget('front')}
@@ -728,7 +728,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                             <Camera className="w-3.5 h-3.5" />
                             카메라로 촬영 (가이드 자동맞춤)
                           </button>
-                          <label className="text-[11px] text-slate-500 hover:text-slate-300 cursor-pointer underline underline-offset-2">
+                          <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
                             갤러리에서 사진 선택
                             <input type="file" accept="image/*" onChange={(e) => handleImageFile(e, 'front')} className="hidden" />
                           </label>
@@ -739,15 +739,15 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                   {/* 뒷면 스캔 업로드 */}
                   <div>
-                    <span className="text-xs font-bold text-slate-400 block mb-1.5 font-mono">② 명함 뒷면 (Back Side - 선택사항)</span>
-                    <div className="aspect-[2.5/1] w-full rounded-2xl border-2 border-dashed border-slate-800 hover:border-slate-600 bg-slate-900/30 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
+                    <span className="text-xs font-bold text-slate-500 block mb-1.5 font-mono">② 명함 뒷면 (Back Side - 선택사항)</span>
+                    <div className="aspect-[2.5/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-600 bg-white/30 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
                       {backImg ? (
                         <>
                           <img src={backImg} alt="뒷면 미리보기" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => setBackImg('')}
-                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/80 text-rose-400 hover:text-white"
+                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/60 text-rose-400 hover:text-white"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -762,7 +762,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                             <Camera className="w-3.5 h-3.5" />
                             카메라로 촬영
                           </button>
-                          <label className="text-[11px] text-slate-500 hover:text-slate-300 cursor-pointer underline underline-offset-2">
+                          <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
                             갤러리에서 선택
                             <input type="file" accept="image/*" onChange={(e) => handleImageFile(e, 'back')} className="hidden" />
                           </label>
@@ -778,7 +778,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
               {(isScanning || scanDone) && (
                 <div className="pt-6">
                   {isScanning ? (
-                    <div className="flex items-center justify-center gap-2 py-2 text-xs text-slate-400">
+                    <div className="flex items-center justify-center gap-2 py-2 text-xs text-slate-500">
                       <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                       <span>Gemini Vision이 명함을 분석하고 있어요...</span>
                     </div>
@@ -789,7 +789,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                       <button
                         type="button"
                         onClick={() => handleStartOCR()}
-                        className="text-slate-500 hover:text-slate-300 underline underline-offset-2"
+                        className="text-slate-400 hover:text-slate-600 underline underline-offset-2"
                       >
                         다시 스캔
                       </button>
@@ -802,21 +802,21 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
             {/* 우측: OCR 추출 결과 및 정보 확인 폼 */}
             <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between md:overflow-y-auto">
               <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                  <h3 className="font-bold text-lg text-white">스캔 정보 확인 및 입력</h3>
-                  <button type="button" onClick={onClose} className="text-slate-400 hover:text-white p-1 bg-slate-800 rounded-full"><X className="w-4 h-4" /></button>
+                <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+                  <h3 className="font-bold text-lg text-slate-900">스캔 정보 확인 및 입력</h3>
+                  <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-700 p-1 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
                 </div>
 
                 <div className="space-y-4 text-sm pr-1">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1 font-medium">성명 *</label>
-                      <input type="text" required placeholder="예: 김도현" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs text-slate-500 block mb-1 font-medium">성명 *</label>
+                      <input type="text" required placeholder="예: 김도현" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-bold focus:outline-none focus:border-blue-500" />
                     </div>
 
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1 font-medium">그룹 지정</label>
-                      <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-blue-500">
+                      <label className="text-xs text-slate-500 block mb-1 font-medium">그룹 지정</label>
+                      <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:border-blue-500">
                         {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                       </select>
                     </div>
@@ -824,34 +824,34 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1">회사명</label>
-                      <input type="text" placeholder="예: 네이버" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs text-slate-500 block mb-1">회사명</label>
+                      <input type="text" placeholder="예: 네이버" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1">부서명</label>
-                      <input type="text" placeholder="예: 개발팀" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs text-slate-500 block mb-1">부서명</label>
+                      <input type="text" placeholder="예: 개발팀" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1">직책/직급</label>
-                      <input type="text" placeholder="예: 팀장" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs text-slate-500 block mb-1">직책/직급</label>
+                      <input type="text" placeholder="예: 팀장" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                   </div>
 
                   {/* 요구사항: 연락처 핸드폰/사무실/팩스 나누어 입력 */}
-                  <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
-                    <span className="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">연락처 세부 분리</span>
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                    <span className="text-xs font-bold text-slate-500 uppercase font-mono tracking-wider">연락처 세부 분리</span>
 
                     <div className="grid grid-cols-1 gap-2">
                       <div>
                         <label className="text-[11px] text-emerald-400 block mb-0.5 font-medium">핸드폰 번호 (Mobile)</label>
-                        <input type="text" inputMode="numeric" placeholder="010-0000-0000" value={form.phoneMobile} onChange={(e) => setForm({ ...form, phoneMobile: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500" />
+                        <input type="text" inputMode="numeric" placeholder="010-0000-0000" value={form.phoneMobile} onChange={(e) => setForm({ ...form, phoneMobile: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-emerald-500" />
                       </div>
 
                       <div>
                         <label className="text-[11px] text-blue-400 block mb-0.5 font-medium flex items-center justify-between">
                           <span>사무실 유선전화 1 (Office 1)</span>
                         </label>
-                        <input type="text" inputMode="numeric" placeholder="02-000-0000" value={form.phoneOffice} onChange={(e) => setForm({ ...form, phoneOffice: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500" />
+                        <input type="text" inputMode="numeric" placeholder="02-000-0000" value={form.phoneOffice} onChange={(e) => setForm({ ...form, phoneOffice: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-blue-500" />
                       </div>
 
                       <div>
@@ -859,44 +859,44 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                           <span>사무실 유선전화 2 / 직통번호 (Office 2)</span>
                           <span className="text-[9px] bg-cyan-500/10 text-cyan-400 px-1 py-0.2 rounded font-mono font-bold">스캔 분리</span>
                         </label>
-                        <input type="text" inputMode="numeric" placeholder="지사번호, 직통번호 등이 표기된 경우 분리 인식됩니다." value={form.phoneOffice2 || ''} onChange={(e) => setForm({ ...form, phoneOffice2: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-500" />
+                        <input type="text" inputMode="numeric" placeholder="지사번호, 직통번호 등이 표기된 경우 분리 인식됩니다." value={form.phoneOffice2 || ''} onChange={(e) => setForm({ ...form, phoneOffice2: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-cyan-500" />
                       </div>
 
                       <div>
                         <label className="text-[11px] text-amber-400 block mb-0.5 font-medium">팩스 번호 (Fax)</label>
-                        <input type="text" inputMode="numeric" placeholder="02-000-0001" value={form.phoneFax} onChange={(e) => setForm({ ...form, phoneFax: formatPhoneNumber(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500" />
+                        <input type="text" inputMode="numeric" placeholder="02-000-0001" value={form.phoneFax} onChange={(e) => setForm({ ...form, phoneFax: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-amber-500" />
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1">이메일 주소</label>
-                      <input type="email" placeholder="email@domain.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs text-slate-500 block mb-1">이메일 주소</label>
+                      <input type="email" placeholder="email@domain.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1">회사 주소 1 (본사)</label>
-                      <input type="text" placeholder="서울시 강남구..." value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500" />
+                      <label className="text-xs text-slate-500 block mb-1">회사 주소 1 (본사)</label>
+                      <input type="text" placeholder="서울시 강남구..." value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1 font-medium text-slate-300 flex items-center gap-1">
+                    <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
                       <span>회사 주소 2 (지사/공장 등 2번째 주소)</span>
-                      <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.2 rounded">분리 인식</span>
+                      <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded">분리 인식</span>
                     </label>
-                    <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500" />
+                    <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">메모 / 슬로건 요약</label>
-                    <textarea rows={2} placeholder="주요 협의 사항이나 메모 작성" value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500" />
+                    <label className="text-xs text-slate-500 block mb-1">메모 / 슬로건 요약</label>
+                    <textarea rows={2} placeholder="주요 협의 사항이나 메모 작성" value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-800 flex gap-3">
-                <button type="button" onClick={onClose} className="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm">
+              <div className="pt-6 border-t border-slate-200 flex gap-3">
+                <button type="button" onClick={onClose} className="w-1/3 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm">
                   취소
                 </button>
                 <button type="submit" className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30">
@@ -911,14 +911,14 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
       {/* [수정] 단일 스캔 모드: 저장 직전 중복 명함 확인 팝업 */}
       {duplicateCheck && (
-        <div className="fixed inset-0 z-[120] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-slate-900 border border-amber-500/30 rounded-3xl shadow-2xl p-6 space-y-4">
+        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white border border-amber-500/30 rounded-3xl shadow-2xl p-6 space-y-4">
             <div className="flex items-center gap-2 text-amber-400">
               <AlertTriangle className="w-5 h-5" />
               <h3 className="text-sm font-bold">비슷한 명함이 이미 있어요</h3>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              <span className="font-bold text-white">{duplicateCheck.match.name}</span> ({duplicateCheck.match.company || '회사 미등록'}) 님이 이미 등록되어 있어요. 어떻게 할까요?
+            <p className="text-xs text-slate-600 leading-relaxed">
+              <span className="font-bold text-slate-900">{duplicateCheck.match.name}</span> ({duplicateCheck.match.company || '회사 미등록'}) 님이 이미 등록되어 있어요. 어떻게 할까요?
             </p>
             <div className="space-y-2">
               {onUpdate && (
@@ -933,14 +933,14 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
               <button
                 type="button"
                 onClick={() => resolveDuplicate('create')}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-colors"
+                className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
               >
                 그래도 새로 등록
               </button>
               <button
                 type="button"
                 onClick={() => resolveDuplicate('cancel')}
-                className="w-full py-2 text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                className="w-full py-2 text-slate-400 hover:text-slate-600 text-xs transition-colors"
               >
                 취소
               </button>

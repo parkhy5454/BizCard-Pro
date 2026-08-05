@@ -183,18 +183,18 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[92vh]">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[92vh]">
         
         {/* 좌측: 영수증 업로드 및 스캔 버튼 */}
-        <div className="w-full md:w-1/2 bg-slate-950 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 md:overflow-y-auto">
+        <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 md:overflow-y-auto">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <ScanLine className="w-5 h-5 text-indigo-400 animate-pulse" />
-                <h3 className="font-bold text-base text-white">영수증 이미지 스캔</h3>
+                <h3 className="font-bold text-base text-slate-900">영수증 이미지 스캔</h3>
               </div>
-              <span className="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded font-sans">Gemini Vision OCR</span>
+              <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-500/30 px-2 py-0.5 rounded font-sans">Gemini Vision OCR</span>
             </div>
 
             {/* 드래그 앤 드롭 영역 */}
@@ -204,10 +204,10 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
               onDrop={handleDrop}
               className={`aspect-[3/4] w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative overflow-hidden transition-all duration-200 group ${
                 receiptImg 
-                  ? 'border-slate-800 bg-slate-900/40' 
+                  ? 'border-slate-200 bg-slate-100' 
                   : isDragOver
                   ? 'border-indigo-500 bg-indigo-500/10 scale-[0.98]'
-                  : 'border-slate-700 bg-slate-900/60'
+                  : 'border-slate-200 bg-slate-100'
               }`}
             >
               {receiptImg ? (
@@ -218,7 +218,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                     onClick={() => setIsReceiptEnlarged(true)}
                     className="w-full h-full object-contain p-2 cursor-pointer"
                   />
-                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <div className="absolute inset-0 bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <button 
                       type="button" 
                       onClick={(e) => {
@@ -244,7 +244,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center p-6 gap-3">
-                  <Upload className="w-10 h-10 text-slate-500 mb-1" />
+                  <Upload className="w-10 h-10 text-slate-400 mb-1" />
                   <button
                     type="button"
                     onClick={() => setIsCameraOpen(true)}
@@ -256,7 +256,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2"
+                    className="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2"
                   >
                     갤러리에서 사진 선택 / 드래그
                   </button>
@@ -279,10 +279,10 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
               onClick={handleStartOCR}
               className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-xl transition-all ${
                 isScanning
-                  ? 'bg-slate-800 text-slate-400 cursor-wait'
+                  ? 'bg-slate-100 text-slate-500 cursor-wait'
                   : !receiptImg
-                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-500 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-600/20 active:scale-95'
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-500 hover:from-indigo-500 hover:to-violet-500 text-slate-700 shadow-indigo-600/20 active:scale-95'
               }`}
             >
               {isScanning ? (
@@ -297,7 +297,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5 text-amber-300" />
+                  <Sparkles className="w-5 h-5 text-amber-600" />
                   <span>AI 영수증 자동 인식 가동</span>
                 </>
               )}
@@ -308,18 +308,18 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         {/* 우측: 인식 결과 확인 및 편집 폼 */}
         <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between md:overflow-y-auto">
           <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-              <h3 className="font-bold text-lg text-white">지출 내역 자동 완성</h3>
-              <button type="button" onClick={onClose} className="text-slate-400 hover:text-white p-1 bg-slate-800 rounded-full">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+              <h3 className="font-bold text-lg text-slate-900">지출 내역 자동 완성</h3>
+              <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-700 p-1 bg-slate-100 rounded-full">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-4 text-sm pr-1">
               <div>
-                <label className="text-xs text-slate-400 block mb-1 font-medium">지출 금액 (원) *</label>
+                <label className="text-xs text-slate-500 block mb-1 font-medium">지출 금액 (원) *</label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">₩</span>
+                  <span className="absolute left-3.5 top-2.5 text-slate-500 font-bold">₩</span>
                   <input 
                     type="text" 
                     inputMode="numeric"
@@ -327,31 +327,31 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                     placeholder="0" 
                     value={form.amount ? formatCurrencyInput(form.amount) : ''} 
                     onChange={(e) => setForm({ ...form, amount: parseCurrencyInput(e.target.value) })} 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-indigo-500" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-2.5 text-slate-700 font-bold text-base focus:outline-none focus:border-indigo-500" 
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1 font-medium">지출 일자</label>
+                  <label className="text-xs text-slate-500 block mb-1 font-medium">지출 일자</label>
                   <div className="relative">
                     <input 
                       type="date" 
                       required
                       value={form.date} 
                       onChange={(e) => setForm({ ...form, date: e.target.value })} 
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500" 
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1 font-medium">결제 수단</label>
+                  <label className="text-xs text-slate-500 block mb-1 font-medium">결제 수단</label>
                   <select 
                     value={form.payMethod} 
                     onChange={(e) => setForm({ ...form, payMethod: e.target.value })} 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
                     {expenseType === 'worklog' ? (
                       <>
@@ -373,22 +373,22 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1 font-medium">상호명</label>
+                  <label className="text-xs text-slate-500 block mb-1 font-medium">상호명</label>
                   <input 
                     type="text" 
                     placeholder="예: 스타벅스 강남점" 
                     value={form.merchantName} 
                     onChange={(e) => setForm({ ...form, merchantName: e.target.value })} 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500" 
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1 font-medium">카테고리</label>
+                  <label className="text-xs text-slate-500 block mb-1 font-medium">카테고리</label>
                   <select 
                     value={form.category} 
                     onChange={(e) => setForm({ ...form, category: e.target.value })} 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
                     {expenseType === 'worklog' ? (
                       <>
@@ -422,23 +422,23 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 block mb-1 font-medium">품목 / 메모</label>
+                <label className="text-xs text-slate-500 block mb-1 font-medium">품목 / 메모</label>
                 <textarea 
                   rows={3} 
                   placeholder="예: 업무미팅 음료 및 식사 결제" 
                   value={form.memo} 
                   onChange={(e) => setForm({ ...form, memo: e.target.value })} 
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:border-indigo-500" 
                 />
               </div>
             </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-800 flex gap-3">
+          <div className="pt-6 border-t border-slate-200 flex gap-3">
             <button 
               type="button" 
               onClick={onClose} 
-              className="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm"
+              className="w-1/3 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm"
             >
               취소
             </button>
@@ -490,12 +490,12 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       {/* [수정] 영수증 미리보기 확대보기 라이트박스 */}
       {isReceiptEnlarged && receiptImg && (
         <div
-          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[110] flex items-center justify-center p-4"
           onClick={() => setIsReceiptEnlarged(false)}
         >
           <button
             onClick={() => setIsReceiptEnlarged(false)}
-            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
           >
             닫기
           </button>
@@ -503,7 +503,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
             src={receiptImg}
             alt="영수증 확대보기"
             onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
           />
         </div>
       )}
