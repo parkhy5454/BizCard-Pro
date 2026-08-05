@@ -123,11 +123,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
   if (contacts.length === 0 && !searchQuery) {
     return (
       <div className="py-20 text-center">
-        <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4 text-slate-500">
+        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4 text-slate-400">
           <Building2 className="w-8 h-8" />
         </div>
-        <h3 className="text-lg font-bold text-slate-200 mb-1">등록된 명함이 없습니다</h3>
-        <p className="text-sm text-slate-400 max-w-sm mx-auto mb-6">
+        <h3 className="text-lg font-bold text-slate-700 mb-1">등록된 명함이 없습니다</h3>
+        <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
           상단의 '명함 스캔/등록' 버튼을 눌러 카메라 사진이나 이미지를 업로드하고 AI OCR 자동 파싱을 체험해보세요.
         </p>
       </div>
@@ -139,7 +139,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
       {/* [추가] 참고하신 병원 근무표 앱처럼, 화면 맨 위에 한눈에 들어오는 요약 통계 카드를 둔다.
       다크 테마는 그대로 유지하면서(전체 톤 통일성 위해), 카드마다 포인트 컬러를 줘서
       정보가 한눈에 구분되게 했다. */}
-      {contacts.length > 0 && (() => {
+      {(() => {
         const now = new Date();
         const thisMonthCount = contacts.filter((c) => {
           if (!c.createdAt) return false;
@@ -156,18 +156,18 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
           { label: '나만 보기', value: privateCount, color: 'rose' as const }
         ];
         const colorClasses: Record<string, string> = {
-          indigo: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300',
-          emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
-          amber: 'bg-amber-500/10 border-amber-500/20 text-amber-300',
-          rose: 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+          indigo: 'bg-blue-600 text-white',
+          emerald: 'bg-emerald-500 text-white',
+          amber: 'bg-amber-500 text-white',
+          rose: 'bg-purple-500 text-white'
         };
 
         return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {stats.map((s) => (
-              <div key={s.label} className={`rounded-2xl border p-3.5 ${colorClasses[s.color]}`}>
+              <div key={s.label} className={`rounded-2xl p-3.5 shadow-md ${colorClasses[s.color]}`}>
                 <p className="text-2xl font-extrabold leading-none">{s.value.toLocaleString()}</p>
-                <p className="text-[11px] font-semibold mt-1.5 opacity-80">{s.label}</p>
+                <p className="text-[11px] font-semibold mt-1.5 opacity-90">{s.label}</p>
               </div>
             ))}
           </div>
@@ -267,22 +267,22 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
         }
 
         return (
-          <div className="relative bg-gradient-to-r from-indigo-950/40 to-purple-950/30 border border-indigo-500/30 rounded-3xl p-5 shadow-xl animate-fadeIn max-w-3xl mx-auto">
+          <div className="relative bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-3xl p-5 shadow-sm animate-fadeIn max-w-3xl mx-auto">
             <button
               onClick={dismissIntelForToday}
-              className="absolute top-3 right-3 p-1.5 rounded-lg text-indigo-300/70 hover:text-indigo-200 hover:bg-indigo-500/10 transition-colors"
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 transition-colors"
               title="오늘 하루 닫기"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div className="flex items-start gap-3 mb-3">
-              <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30 shrink-0">
+              <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl border border-indigo-200 shrink-0">
                 <Brain className="w-5 h-5" />
               </div>
               <div className="pr-6">
-                <h4 className="text-sm font-bold text-indigo-300">🧠 관계 인텔리전스 · 지금 챙기면 좋은 거래처 {topInsights.length}곳</h4>
-                <p className="text-xs text-slate-400 mt-0.5">진행중인 프로젝트와 마지막 연락 시점을 같이 분석했어요.</p>
+                <h4 className="text-sm font-bold text-indigo-700">🧠 관계 인텔리전스 · 지금 챙기면 좋은 거래처 {topInsights.length}곳</h4>
+                <p className="text-xs text-slate-500 mt-0.5">진행중인 프로젝트와 마지막 연락 시점을 같이 분석했어요.</p>
               </div>
             </div>
 
@@ -290,21 +290,21 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
               {topInsights.map((insight) => (
                 <div
                   key={insight.contact.id}
-                  className="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800 rounded-2xl p-3 hover:border-indigo-500/40 transition-colors"
+                  className="flex items-center justify-between gap-3 bg-slate-100 border border-slate-200 rounded-2xl p-3 hover:border-indigo-300 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-slate-100">{insight.contact.name}</span>
-                      <span className="text-xs text-slate-500">{insight.contact.company}</span>
+                      <span className="text-sm font-bold text-slate-800">{insight.contact.name}</span>
+                      <span className="text-xs text-slate-400">{insight.contact.company}</span>
                       <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${
                         insight.urgencyLabel === '높음'
-                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                          ? 'bg-rose-50 text-rose-600 border-rose-200'
+                          : 'bg-amber-50 text-amber-600 border-amber-200'
                       }`}>
                         긴급도 {insight.urgencyLabel}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1 truncate">
+                    <p className="text-[11px] text-slate-500 mt-1 truncate">
                       {insight.reasonText} · <span className="font-mono">{insight.daysSince}일째 활동 없음</span>
                     </p>
                   </div>
@@ -313,7 +313,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                       <a
                         href={`tel:${insight.contact.phoneMobile}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 transition-colors"
+                        className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-600 transition-colors"
                         title="전화 걸기"
                       >
                         <Phone className="w-3.5 h-3.5" />
@@ -321,7 +321,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                     )}
                     <button
                       onClick={() => onSelectContact(insight.contact)}
-                      className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 text-[11px] font-bold transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[11px] font-bold transition-colors"
                     >
                       <span>상세보기</span>
                       <ArrowRight className="w-3 h-3" />
@@ -337,18 +337,18 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
       {/* 명함 검색 영역 */}
       <div className="max-w-md mx-auto relative">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
             placeholder="이름 또는 회사명으로 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 transition-all placeholder:text-slate-500 shadow-inner"
+            className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 px-2 py-1 rounded-lg cursor-pointer"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-500 hover:text-blue-700 transition-colors bg-blue-50 px-2 py-1 rounded-lg cursor-pointer"
             >
               지우기
             </button>
@@ -358,16 +358,16 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
 
       {contacts.length === 0 ? (
         <div className="py-16 text-center">
-          <div className="w-14 h-14 rounded-full bg-slate-900/50 flex items-center justify-center mx-auto mb-3 text-slate-500 border border-slate-800">
-            <Search className="w-6 h-6 text-slate-400" />
+          <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400 border border-slate-200">
+            <Search className="w-6 h-6 text-slate-500" />
           </div>
-          <h3 className="text-base font-bold text-slate-300 mb-1">검색 결과가 없습니다</h3>
-          <p className="text-xs text-slate-500 mb-4">
+          <h3 className="text-base font-bold text-slate-600 mb-1">검색 결과가 없습니다</h3>
+          <p className="text-xs text-slate-400 mb-4">
             '{searchQuery}'에 일치하는 이름 또는 회사명의 명함이 없습니다.
           </p>
           <button
             onClick={() => setSearchQuery('')}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-all cursor-pointer"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl border border-slate-200 transition-all cursor-pointer"
           >
             검색어 초기화
           </button>
@@ -379,7 +379,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
         {showLeftArrow && (
           <button
             onClick={() => scroll('left')}
-            className="absolute -left-2 md:-left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-slate-900/95 border border-slate-700 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-white flex items-center justify-center shadow-2xl transition-all duration-200"
+            className="absolute -left-2 md:-left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-slate-200 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-slate-600 hover:text-white flex items-center justify-center shadow-lg transition-all duration-200"
             aria-label="이전 명함"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -390,7 +390,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
         {showRightArrow && (
           <button
             onClick={() => scroll('right')}
-            className="absolute -right-2 md:-right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-slate-900/95 border border-slate-700 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-white flex items-center justify-center shadow-2xl transition-all duration-200"
+            className="absolute -right-2 md:-right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-slate-200 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-slate-600 hover:text-white flex items-center justify-center shadow-lg transition-all duration-200"
             aria-label="다음 명함"
           >
             <ChevronRight className="w-6 h-6" />
@@ -409,11 +409,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
               <div
                 key={contact.id}
                 onClick={() => onSelectContact(contact)}
-                className="group relative bg-gradient-to-b from-slate-800/90 to-slate-900/90 rounded-2xl border border-slate-700/80 hover:border-blue-500/50 shadow-xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10 flex flex-col justify-between w-[85vw] sm:w-[380px] shrink-0 snap-center md:snap-start"
+                className="group relative bg-white rounded-2xl border border-slate-200 hover:border-blue-400 shadow-md overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 flex flex-col justify-between w-[85vw] sm:w-[380px] shrink-0 snap-center md:snap-start"
               >
                 {/* 카드 상단 배너 & 사진 프리뷰 배경 (명함 비율에 맞춰 전체가 보이도록, 뒷면 있으면 좌우로 밀어서 전환) */}
                 <div
-                  className="aspect-[1.586/1] relative overflow-hidden bg-slate-950 border-b border-slate-800 touch-pan-y"
+                  className="aspect-[1.586/1] relative overflow-hidden bg-slate-100 border-b border-slate-200 touch-pan-y"
                   onTouchStart={handleImageSwipeStart}
                   onTouchEnd={handleImageSwipeEnd(contact.id, !!contact.backImage)}
                 >
@@ -463,7 +463,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                         onEditContact(contact);
                       }}
                       title="명함 수정"
-                      className="w-8 h-8 rounded-full bg-slate-900/80 hover:bg-indigo-600 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-150 cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-white/80 hover:bg-indigo-600 text-slate-600 hover:text-white flex items-center justify-center shadow transition-all duration-150 cursor-pointer"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
@@ -471,7 +471,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                       type="button"
                       onClick={(e) => onDeleteContact(contact.id, e)}
                       title="명함 삭제"
-                      className="w-8 h-8 rounded-full bg-slate-900/80 hover:bg-rose-600 text-slate-300 hover:text-white flex items-center justify-center shadow transition-all duration-150 cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-white/80 hover:bg-rose-600 text-slate-600 hover:text-white flex items-center justify-center shadow transition-all duration-150 cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -485,60 +485,60 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-baseline gap-2">
-                        <h3 className="text-xl font-bold text-white tracking-tight group-hover:text-blue-400 transition-colors">
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">
                           {contact.name}
                         </h3>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-blue-300 border border-slate-700">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
                           {contact.title || '직책 미입력'}
                         </span>
                       </div>
-                      <p className="text-sm font-medium text-slate-300 mt-1 flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <p className="text-sm font-medium text-slate-600 mt-1 flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         <span className="truncate">{contact.company || '회사 미입력'} {contact.department ? `(${contact.department})` : ''}</span>
                       </p>
                     </div>
 
                     {/* 명함 앞/뒤 이미지 표시 아이콘 */}
-                    <div className="flex items-center gap-1 shrink-0 text-slate-400 bg-slate-800/80 px-2 py-1 rounded-lg text-xs font-mono">
+                    <div className="flex items-center gap-1 shrink-0 text-slate-500 bg-slate-100 px-2 py-1 rounded-lg text-xs font-mono">
                       <Eye className="w-3.5 h-3.5 text-blue-400" />
                       <span>{contact.backImage ? '앞·뒤' : '앞면'}</span>
                     </div>
                   </div>
 
                   {/* 연락처 분리 정보 (핸드폰 / 사무실 / 팩스) */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800 text-xs text-slate-300">
+                  <div className="space-y-2 pt-2 border-t border-slate-200 text-xs text-slate-600">
                     {contact.phoneMobile && (
-                      <div className="flex items-center gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                      <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200">
                         <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span className="text-slate-400 w-12 font-medium">핸드폰:</span>
-                        <span className="font-mono text-slate-100 font-semibold">{contact.phoneMobile}</span>
+                        <span className="text-slate-500 w-12 font-medium">핸드폰:</span>
+                        <span className="font-mono text-slate-800 font-semibold">{contact.phoneMobile}</span>
                       </div>
                     )}
 
                     {contact.phoneOffice && (
-                      <div className="flex items-center gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                      <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200">
                         <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                        <span className="text-slate-400 w-12 font-medium">사무실:</span>
-                        <span className="font-mono text-slate-200">{contact.phoneOffice}</span>
+                        <span className="text-slate-500 w-12 font-medium">사무실:</span>
+                        <span className="font-mono text-slate-700">{contact.phoneOffice}</span>
                       </div>
                     )}
 
                     {contact.phoneFax && (
-                      <div className="flex items-center gap-2 bg-slate-800/30 px-2 py-1.5 rounded border border-slate-800">
+                      <div className="flex items-center gap-2 bg-slate-100 px-2 py-1.5 rounded border border-slate-200">
                         <Printer className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span className="text-slate-400 w-12 font-medium">팩스:</span>
-                        <span className="font-mono text-slate-300">{contact.phoneFax}</span>
+                        <span className="text-slate-500 w-12 font-medium">팩스:</span>
+                        <span className="font-mono text-slate-600">{contact.phoneFax}</span>
                       </div>
                     )}
 
                     {contact.email && (
-                      <div className="flex items-center gap-2 truncate text-slate-400 pt-1">
+                      <div className="flex items-center gap-2 truncate text-slate-500 pt-1">
                         <Mail className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                         <span className="truncate">{contact.email}</span>
                       </div>
                     )}
 
-                    <div className="pt-1 border-t border-slate-800/30 space-y-1.5">
+                    <div className="pt-1 border-t border-slate-200 space-y-1.5">
                       <div 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -548,8 +548,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                         }}
                         className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-all ${
                           contact.address && contact.address !== '주소 미등록' 
-                            ? 'hover:bg-slate-800/50 cursor-pointer text-slate-300' 
-                            : 'text-slate-500'
+                            ? 'hover:bg-slate-100 cursor-pointer text-slate-600' 
+                            : 'text-slate-400'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate min-w-0">
@@ -560,7 +560,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                         </div>
                         {contact.address && contact.address !== '주소 미등록' && (
                           <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold font-mono shrink-0 transition-colors ${
-                            expandedNavId === contact.id ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-400 hover:text-white'
+                            expandedNavId === contact.id ? 'bg-blue-500/20 text-blue-600' : 'bg-slate-100 text-slate-500 hover:text-blue-600'
                           }`}>
                             길찾기
                           </span>
@@ -570,7 +570,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                       {expandedNavId === contact.id && contact.address && (
                         <div 
                           onClick={(e) => e.stopPropagation()}
-                          className="flex flex-wrap gap-1 bg-slate-950/80 p-2 rounded-lg border border-slate-800/60 items-center justify-center"
+                          className="flex flex-wrap gap-1 bg-slate-100 p-2 rounded-lg border border-slate-200 items-center justify-center"
                         >
                           <button
                             onClick={() => {
@@ -615,23 +615,23 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
 
                   {/* 회사 정보 간략 요약 */}
                   {contact.companyInfo && (
-                    <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-xs text-blue-200">
-                      <span className="font-bold text-blue-400 block text-[10px] uppercase font-mono mb-0.5">🏢 회사 비즈니스 요약</span>
+                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-800">
+                      <span className="font-bold text-blue-600 block text-[10px] uppercase font-mono mb-0.5">🏢 회사 비즈니스 요약</span>
                       <p className="line-clamp-2 leading-relaxed">{contact.companyInfo}</p>
                     </div>
                   )}
 
                   {/* 메모 요약 */}
                   {contact.memo && (
-                    <p className="text-xs text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 line-clamp-2 italic">
+                    <p className="text-xs text-slate-500 bg-slate-100 p-2.5 rounded-xl border border-slate-200 line-clamp-2 italic">
                       "{contact.memo}"
                     </p>
                   )}
                 </div>
 
                 {/* 하단 푸터 (등록일 & 통화 히스토리 카운트) */}
-                <div className="px-5 py-3 bg-slate-950/80 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                  <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+                <div className="px-5 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
                     <span>등록일: {new Date(contact.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
                   </div>
 
@@ -641,7 +641,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                       e.stopPropagation();
                       setExpandedCallsId(expandedCallsId === contact.id ? null : contact.id);
                     }}
-                    className="flex items-center gap-1.5 text-blue-400 font-bold font-mono shrink-0 hover:text-blue-300 hover:bg-blue-500/10 transition-colors select-none cursor-pointer border border-blue-500/20 rounded-lg px-2 py-1 bg-blue-950/20 active:scale-95 shadow-sm"
+                    className="flex items-center gap-1.5 text-blue-600 font-bold font-mono shrink-0 hover:text-blue-700 hover:bg-blue-100 transition-colors select-none cursor-pointer border border-blue-200 rounded-lg px-2 py-1 bg-blue-50 active:scale-95 shadow-sm"
                   >
                     <History className="w-3.5 h-3.5" />
                     <span>통화기록 {contact.callHistory?.length || 0}건</span>
@@ -652,26 +652,26 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                 {expandedCallsId === contact.id && (
                   <div 
                     onClick={(e) => e.stopPropagation()} // 카드 클릭 모달 오픈 방지
-                    className="bg-slate-950/90 border-t border-slate-800 p-4 space-y-3 max-h-60 overflow-y-auto"
+                    className="bg-slate-50 border-t border-slate-200 p-4 space-y-3 max-h-60 overflow-y-auto"
                   >
-                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/60">
-                      <span className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                      <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
                         <History className="w-3.5 h-3.5 text-blue-400" />
                         최근 통화 기록 상세
                       </span>
                       <button 
                         type="button"
                         onClick={() => setExpandedCallsId(null)}
-                        className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded transition-all select-none cursor-pointer"
+                        className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded transition-all select-none cursor-pointer"
                       >
                         닫기
                       </button>
                     </div>
 
                     {!contact.callHistory || contact.callHistory.length === 0 ? (
-                      <p className="text-center text-slate-500 text-[11px] py-4">등록된 통화기록이 없습니다.</p>
+                      <p className="text-center text-slate-400 text-[11px] py-4">등록된 통화기록이 없습니다.</p>
                     ) : (
-                      <div className="space-y-3 relative pl-4 border-l border-slate-800">
+                      <div className="space-y-3 relative pl-4 border-l border-slate-200">
                         {[...contact.callHistory]
                           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                           .map((record, idx) => {
@@ -682,23 +682,23 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                             return (
                               <div key={record.id || idx} className="relative text-[11px] space-y-1">
                                 {/* 타임라인 동그라미 */}
-                                <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 border-slate-950 ${
+                                <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border-2 border-slate-200 ${
                                   isInc ? 'bg-emerald-500' : isOut ? 'bg-blue-500' : 'bg-rose-500'
                                 }`} />
                                 
-                                <div className="flex items-center justify-between text-slate-400">
-                                  <span className="font-semibold text-slate-300 font-mono">
+                                <div className="flex items-center justify-between text-slate-500">
+                                  <span className="font-semibold text-slate-600 font-mono">
                                     {formatCallDate(record.timestamp)}
                                   </span>
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                    isInc ? 'bg-emerald-500/10 text-emerald-400' : isOut ? 'bg-blue-500/10 text-blue-400' : 'bg-rose-500/10 text-rose-400'
+                                    isInc ? 'bg-emerald-50 text-emerald-600' : isOut ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'
                                   }`}>
                                     {isInc ? '수신' : isOut ? '발신' : '부재중'}
                                   </span>
                                 </div>
                                 
                                 {record.note && (
-                                  <p className="text-slate-200 bg-slate-900/40 p-2 rounded border border-slate-800/40 leading-relaxed font-medium">
+                                  <p className="text-slate-700 bg-slate-100 p-2 rounded border border-slate-200 leading-relaxed font-medium">
                                     {record.note}
                                   </p>
                                 )}
@@ -719,7 +719,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
             <button
               type="button"
               onClick={() => setVisibleCount((prev) => Math.min(prev + 50, contacts.length))}
-              className="flex flex-col items-center justify-center gap-2 bg-slate-900/60 hover:bg-slate-900 border border-dashed border-slate-700 hover:border-indigo-500/50 rounded-2xl w-[85vw] sm:w-[220px] shrink-0 snap-center md:snap-start text-slate-400 hover:text-indigo-300 transition-all"
+              className="flex flex-col items-center justify-center gap-2 bg-slate-100 hover:bg-white border border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl w-[85vw] sm:w-[220px] shrink-0 snap-center md:snap-start text-slate-500 hover:text-indigo-600 transition-all"
             >
               <span className="text-2xl">＋</span>
               <span className="text-xs font-bold">{contacts.length - visibleCount}명 더 보기</span>
@@ -730,13 +730,13 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
 
           {/* 페이지네이션 정보 */}
           <div className="flex flex-col items-center justify-center pt-2 space-y-2">
-            <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-400 shadow-lg">
-              <span className="text-white font-bold">{Math.min(currentIndex + 1, contacts.length)}</span>
+            <div className="flex items-center gap-1.5 bg-white/80 border border-slate-200 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-500 shadow-lg">
+              <span className="text-indigo-600 font-bold">{Math.min(currentIndex + 1, contacts.length)}</span>
               <span className="opacity-50">/</span>
               <span>{contacts.length}</span>
             </div>
             
-            <div className="w-32 h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div className="w-32 h-1 bg-slate-100 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-indigo-500 transition-all duration-300 rounded-full"
                 style={{ width: `${((currentIndex + 1) / contacts.length) * 100}%` }}
