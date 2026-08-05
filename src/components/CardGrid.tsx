@@ -445,12 +445,9 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                   
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent pointer-events-none" />
 
-                  {/* 그룹 뱃지 */}
-                  {group && (
-                    <span className={`absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-sm ${group.color}`}>
-                      {group.name}
-                    </span>
-                  )}
+                  {/* [수정] 그룹 뱃지가 사진 위에 겹쳐있으면, 실제 명함 사진에 찍힌 회사명/로고와
+                  겹쳐서 안 보이는 경우가 많았다(특히 회사명이 카드 왼쪽 위에 있는 경우). 사진
+                  위에 얹는 대신, 아래 본문 텍스트 영역으로 옮겨서 항상 명확하게 보이게 한다. */}
 
                   {/* [수정] 삭제/수정 액션: 기존엔 PC 마우스 호버 시에만 나타났는데, 휴대폰은 "호버" 개념이
                       없어서 이 버튼 자체가 안 보이는 문제가 있었다. 그래서 작은 화면(터치 기기로 간주)에서는
@@ -481,6 +478,13 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                 {/* 카드 본문 내용 */}
                 <div className="p-5 flex-1 flex flex-col justify-start space-y-4">
                   
+                  {/* [추가] 그룹 뱃지 - 사진과 안 겹치도록 여기(본문 맨 위)로 옮김 */}
+                  {group && (
+                    <span className={`self-start px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-sm ${group.color}`}>
+                      {group.name}
+                    </span>
+                  )}
+
                   {/* 이름 & 소속 */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
