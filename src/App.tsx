@@ -308,7 +308,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
       
       {/* 상단 통합 헤더 & 내비게이션 */}
       <Navigation
@@ -504,21 +504,21 @@ export default function App() {
       )}
 
       {/* 하단 저작권 푸터 */}
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500 space-y-2">
+      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400 space-y-2">
         <div className="flex items-center justify-center gap-3">
-          <button onClick={() => setLegalTab('terms')} className="hover:text-slate-300 underline underline-offset-2 transition-colors">이용약관</button>
-          <span className="text-slate-700">|</span>
-          <button onClick={() => setLegalTab('privacy')} className="hover:text-slate-300 underline underline-offset-2 transition-colors">개인정보처리방침</button>
+          <button onClick={() => setLegalTab('terms')} className="hover:text-slate-600 underline underline-offset-2 transition-colors">이용약관</button>
+          <span className="text-slate-300">|</span>
+          <button onClick={() => setLegalTab('privacy')} className="hover:text-slate-600 underline underline-offset-2 transition-colors">개인정보처리방침</button>
         </div>
         {/* [수정] 전자상거래법상 필수 표시 항목: 사업자정보. "[ ]"로 표시된 곳은 실제 정보로 채워야 함 */}
-        <p className="text-[11px] text-slate-600">
+        <p className="text-[11px] text-slate-400">
           상호명: (주)카이저솔루션 · 대표자: 박현용 · 사업자등록번호: 217-81-35654 · 통신판매업신고: [제0000-지역-0000호]
         </p>
-        <p className="text-[11px] text-slate-600">
+        <p className="text-[11px] text-slate-400">
           주소: 경기도 남양주시 순화궁로 272, 519호(동광비즈타워) · 전화: 02-971-0954 · 이메일: hypark@kaisersolution.com
         </p>
         {/* [수정] 정보통신망법상 필수 표시 문구: 전자우편 무단수집 거부 */}
-        <p className="text-[11px] text-slate-600">
+        <p className="text-[11px] text-slate-400">
           본 웹사이트에 게시된 이메일 주소가 전자우편 수집 프로그램이나 그 밖의 기술적 장치를 이용하여
           무단으로 수집되는 것을 거부하며, 이를 위반 시 정보통신망법에 의해 형사처벌됨을 유의하시기 바랍니다.
         </p>
