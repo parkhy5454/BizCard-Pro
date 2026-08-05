@@ -159,16 +159,16 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
   };
 
   return (
-    <div className="fixed inset-0 z-[95] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+    <div className="fixed inset-0 z-[95] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+            <div className="p-2 rounded-xl bg-rose-50 border border-rose-500/20 text-rose-700">
               <Mic className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-slate-100">음성으로 빠르게 등록</h3>
+            <h3 className="text-base font-bold text-slate-800">음성으로 빠르게 등록</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -177,13 +177,13 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
           {!speechSupported ? (
             <div className="py-8 text-center space-y-2">
               <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
-              <p className="text-xs text-slate-400">이 브라우저는 음성 인식을 지원하지 않아요. 크롬 브라우저를 이용해주세요.</p>
+              <p className="text-xs text-slate-500">이 브라우저는 음성 인식을 지원하지 않아요. 크롬 브라우저를 이용해주세요.</p>
             </div>
           ) : saved ? (
             <div className="py-8 flex flex-col items-center gap-2 text-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-400" />
-              <p className="text-sm font-bold text-slate-100">저장됐어요!</p>
-              <p className="text-xs text-slate-500">나중에 명함을 스캔하면 자동으로 완성돼요.</p>
+              <p className="text-sm font-bold text-slate-800">저장됐어요!</p>
+              <p className="text-xs text-slate-400">나중에 명함을 스캔하면 자동으로 완성돼요.</p>
             </div>
           ) : parsed ? (
             <div className="space-y-3">
@@ -195,19 +195,19 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
               )}
               <div className="space-y-2">
                 <div>
-                  <label className="text-[10px] text-slate-500 font-bold">성명</label>
+                  <label className="text-[10px] text-slate-400 font-bold">성명</label>
                   <input
                     value={parsed.name}
                     onChange={(e) => setParsed({ ...parsed, name: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white font-bold focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 font-bold focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-500 font-bold">회사명</label>
+                  <label className="text-[10px] text-slate-400 font-bold">회사명</label>
                   <input
                     value={parsed.company}
                     onChange={(e) => setParsed({ ...parsed, company: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -215,13 +215,13 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                     value={parsed.department}
                     onChange={(e) => setParsed({ ...parsed, department: e.target.value })}
                     placeholder="부서명"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                   />
                   <input
                     value={parsed.title}
                     onChange={(e) => setParsed({ ...parsed, title: e.target.value })}
                     placeholder="직책"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -245,7 +245,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                 </button>
                 <button
                   onClick={startListening}
-                  className="w-full py-2 text-slate-500 hover:text-slate-300 text-[11px]"
+                  className="w-full py-2 text-slate-400 hover:text-slate-600 text-[11px]"
                 >
                   다시 말하기
                 </button>
@@ -264,7 +264,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
               >
                 {isParsing ? <Loader2 className="w-8 h-8 text-white animate-spin" /> : <Mic className="w-8 h-8 text-white" />}
               </button>
-              <p className="text-xs text-slate-400 text-center leading-relaxed">
+              <p className="text-xs text-slate-500 text-center leading-relaxed">
                 {isParsing
                   ? 'AI가 이름/회사를 정리하고 있어요...'
                   : isListening
@@ -272,7 +272,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                   : '버튼을 누르고, 방금 만난 분의 이름과 회사를 말해주세요'}
               </p>
               {transcript && (
-                <p className="text-[11px] text-slate-500 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 w-full text-center">
+                <p className="text-[11px] text-slate-400 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 w-full text-center">
                   "{transcript}"
                 </p>
               )}
