@@ -452,7 +452,14 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                     </div>
                   )}
                   
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent pointer-events-none" />
+                  {/* [수정] 예전엔 사진 위에 얹혀있던 뱃지/아이콘이 밝은 사진 위에서도 잘 보이라고
+                  이 어두운 그라디언트를 항상 깔아뒀는데, 그 아이콘들을 본문 영역으로 옮기면서
+                  더 이상 필요 없어졌다. 흰 배경으로 자동 생성된 명함 이미지가 이 오버레이 때문에
+                  아래쪽이 탁하게 어두워 보이는 문제가 있어서, 뒷면 표시 점(dot)이 실제로 있을
+                  때만 아주 옅게 깔아준다. */}
+                  {contact.backImage && (
+                    <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900/40 to-transparent pointer-events-none" />
+                  )}
 
                   {/* [수정] 그룹 뱃지가 사진 위에 겹쳐있으면, 실제 명함 사진에 찍힌 회사명/로고와
                   겹쳐서 안 보이는 경우가 많았다(특히 회사명이 카드 왼쪽 위에 있는 경우). 사진
