@@ -20,10 +20,10 @@ const STATUS_LABEL: Record<ApprovalStatus, string> = {
 };
 
 const STATUS_STYLE: Record<ApprovalStatus, string> = {
-  draft: 'bg-slate-700/50 text-slate-300 border-slate-600/50',
-  pending: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  approved: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  rejected: 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+  draft: 'bg-slate-200/50 text-slate-600 border-slate-600/50',
+  pending: 'bg-amber-50 text-amber-700 border-amber-500/30',
+  approved: 'bg-emerald-50 text-emerald-700 border-emerald-500/30',
+  rejected: 'bg-rose-50 text-rose-700 border-rose-500/30'
 };
 
 const StatusBadge: React.FC<{ status: ApprovalStatus }> = ({ status }) => (
@@ -152,7 +152,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
     }
   };
 
-  const inputCls = "px-1.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const inputCls = "px-1.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div className={`flex items-center gap-1 ${className || ''}`}>
@@ -171,7 +171,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
         }}
         className={`${inputCls} w-14`}
       />
-      <span className="text-slate-500 text-xs">년</span>
+      <span className="text-slate-400 text-xs">년</span>
       <input
         ref={mRef} type="text" inputMode="numeric" placeholder="MM" value={m}
         autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} name="ymd-month-field"
@@ -187,7 +187,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
         }}
         className={`${inputCls} w-10`}
       />
-      <span className="text-slate-500 text-xs">월</span>
+      <span className="text-slate-400 text-xs">월</span>
       <input
         ref={dRef} type="text" inputMode="numeric" placeholder="DD" value={d}
         autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} name="ymd-day-field"
@@ -202,7 +202,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
         }}
         className={`${inputCls} w-10`}
       />
-      <span className="text-slate-500 text-xs">일</span>
+      <span className="text-slate-400 text-xs">일</span>
     </div>
   );
 };
@@ -333,11 +333,11 @@ const ApprovalLineEditor: React.FC<{
 }> = ({ line, setLine, kind, companyPositions, onSaveAsDefault }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between gap-2">
-      <label className="text-xs font-bold text-slate-300">결재선</label>
+      <label className="text-xs font-bold text-slate-600">결재선</label>
       <button
         type="button"
         onClick={() => onSaveAsDefault(kind, line)}
-        className="text-[10px] px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
+        className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
       >
         우리 회사 기본값으로 저장
       </button>
@@ -348,12 +348,12 @@ const ApprovalLineEditor: React.FC<{
         <div key={idx} className="flex items-center gap-1">
           <input type="text" value={step.role} placeholder={`결재${idx + 1}`} list="company-positions-datalist"
             onChange={(e) => setLine(line.map((s, i) => i === idx ? { ...s, role: e.target.value } : s))}
-            className="w-24 px-2 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className="w-24 px-2 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
           {line.length > 1 && (
             <button
               type="button"
               onClick={() => setLine(line.filter((_, i) => i !== idx))}
-              className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+              className="p-1 text-slate-400 hover:text-rose-400 transition-colors"
               title="이 단계 삭제"
             >
               <X className="w-3.5 h-3.5" />
@@ -364,7 +364,7 @@ const ApprovalLineEditor: React.FC<{
       <button
         type="button"
         onClick={() => setLine([...line, { role: '' }])}
-        className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-slate-700 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50 text-xs font-semibold transition-colors"
+        className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-500/50 text-xs font-semibold transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
         <span>단계 추가</span>
@@ -375,7 +375,7 @@ const ApprovalLineEditor: React.FC<{
         {companyPositions.map((p) => <option key={p} value={p} />)}
       </datalist>
     )}
-    <p className="text-[10px] text-slate-500">
+    <p className="text-[10px] text-slate-400">
       여기 적는 직책이 회원가입 시 등록한 직책과 정확히 일치해야 결재 요청 이메일이 그 사람에게 자동으로 전달됩니다.
       "우리 회사 기본값으로 저장"을 누르면 다음부터 새 문서 작성 시 이 결재선이 자동으로 채워집니다.
     </p>
@@ -1382,7 +1382,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const ApprovalLineMini: React.FC<{ line: ApprovalStep[] }> = ({ line }) => (
     <div className="flex items-center gap-1 flex-wrap">
       {line.map((s, i) => (
-        <span key={i} className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${s.date ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>
+        <span key={i} className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${s.date ? 'bg-emerald-50 text-emerald-700 border-emerald-500/30' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
           {s.role}{s.date ? ` ✓ ${s.date}` : ''}
         </span>
       ))}
@@ -1392,33 +1392,33 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   return (
     <div className="space-y-5">
       {/* 전자결재 하위 탭 */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
         <button
           onClick={() => setActiveApprovalTab('advance')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-            activeApprovalTab === 'advance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+            activeApprovalTab === 'advance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
           }`}
         >
           <Wallet className="w-4 h-4" />
           <span>가지급금 정산서</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-800 text-slate-300 font-mono">{advanceList.length}</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{advanceList.length}</span>
         </button>
         <button
           onClick={() => setActiveApprovalTab('leave')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-            activeApprovalTab === 'leave' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+            activeApprovalTab === 'leave' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
           }`}
         >
           <Plane className="w-4 h-4" />
           <span>휴가 신청서</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-800 text-slate-300 font-mono">{leaveList.length}</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{leaveList.length}</span>
         </button>
       </div>
 
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center space-y-3">
           <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-400">결재 문서를 불러오는 중입니다...</p>
+          <p className="text-sm text-slate-500">결재 문서를 불러오는 중입니다...</p>
         </div>
       ) : activeApprovalTab === 'advance' ? (
         <div className="space-y-4">
@@ -1429,7 +1429,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
           </div>
 
           {advanceList.length === 0 ? (
-            <div className="py-20 text-center text-slate-500 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl">
+            <div className="py-20 text-center text-slate-400 bg-slate-100 border border-dashed border-slate-200 rounded-2xl">
               <Wallet className="w-8 h-8 mx-auto mb-2 text-slate-700" />
               <p className="text-sm">등록된 가지급금 정산서가 없습니다.</p>
             </div>
@@ -1442,14 +1442,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               }).slice(0, visibleAdvanceCount).map(doc => {
                 const total = (doc.items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
                 return (
-                  <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
+                  <div key={doc.id} className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-slate-100 truncate">{doc.companyName} 가지급금 정산서</h3>
+                          <h3 className="font-bold text-slate-800 truncate">{doc.companyName} 가지급금 정산서</h3>
                           <StatusBadge status={doc.status} />
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                        <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                           <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" />{doc.author}</span>
                           <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{doc.department}</span>
                           <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</span>
@@ -1457,21 +1457,21 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         <ApprovalLineMini line={doc.approvalLine || []} />
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => setPreviewAdvanceId(doc.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="출력 미리보기">
+                        <button onClick={() => setPreviewAdvanceId(doc.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-400 transition-colors" title="출력 미리보기">
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button onClick={() => openEditAdvance(doc)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors">
+                        <button onClick={() => openEditAdvance(doc)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-400 transition-colors">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => deleteAdvance(doc.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition-colors">
+                        <button onClick={() => deleteAdvance(doc.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-rose-400 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="text-xs bg-slate-950/50 rounded-xl p-3 flex items-center justify-between">
-                      <span className="text-slate-500">정산 항목 {(doc.items || []).length}건</span>
-                      <span className="font-bold text-slate-200">총 합계 {formatCurrencyInput(total)}원</span>
+                    <div className="text-xs bg-slate-100 rounded-xl p-3 flex items-center justify-between">
+                      <span className="text-slate-400">정산 항목 {(doc.items || []).length}건</span>
+                      <span className="font-bold text-slate-700">총 합계 {formatCurrencyInput(total)}원</span>
                     </div>
 
                     {doc.status === 'pending' && (
@@ -1496,7 +1496,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 <button
                   type="button"
                   onClick={() => setVisibleAdvanceCount((prev) => Math.min(prev + 50, advanceList.length))}
-                  className="flex-none w-[150px] snap-center border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                  className="flex-none w-[150px] snap-center border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-white rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 transition-all"
                 >
                   <span className="text-2xl">＋</span>
                   <span className="text-xs font-bold">{advanceList.length - visibleAdvanceCount}건 더 보기</span>
@@ -1514,7 +1514,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
           </div>
 
           {leaveList.length === 0 ? (
-            <div className="py-20 text-center text-slate-500 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl">
+            <div className="py-20 text-center text-slate-400 bg-slate-100 border border-dashed border-slate-200 rounded-2xl">
               <Plane className="w-8 h-8 mx-auto mb-2 text-slate-700" />
               <p className="text-sm">등록된 휴가 신청서가 없습니다.</p>
             </div>
@@ -1525,37 +1525,37 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 if (byDate !== 0) return byDate;
                 return (b.createdAt || '').localeCompare(a.createdAt || '');
               }).slice(0, visibleLeaveCount).map(doc => (
-                <div key={doc.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
+                <div key={doc.id} className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-slate-100 truncate">{doc.author}님 휴가 신청서</h3>
+                        <h3 className="font-bold text-slate-800 truncate">{doc.author}님 휴가 신청서</h3>
                         <StatusBadge status={doc.status} />
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-500/30">
                           {leaveCategoryDisplay(doc)}
                         </span>
                         {doc.totalAnnualDays ? (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-500/30">
                             누적 {computeAnnualLeaveLabel(doc, leaveList)}
                           </span>
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span className="flex items-center gap-1"><Hash className="w-3 h-3" />{doc.draftNumber}</span>
                         <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{doc.department}</span>
                         <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{doc.startDate} ~ {doc.endDate}{doc.startTime ? ` (${doc.startTime}~${doc.endTime || ''})` : ''} · {doc.days}일</span>
                       </div>
-                      {doc.reason && <p className="text-xs text-slate-500">{doc.reason}</p>}
+                      {doc.reason && <p className="text-xs text-slate-400">{doc.reason}</p>}
                       <ApprovalLineMini line={doc.approvalLine || []} />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => setPreviewLeaveId(doc.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition-colors" title="출력 미리보기">
+                      <button onClick={() => setPreviewLeaveId(doc.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-400 transition-colors" title="출력 미리보기">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button onClick={() => openEditLeave(doc)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors">
+                      <button onClick={() => openEditLeave(doc)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-400 transition-colors">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => deleteLeave(doc.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition-colors">
+                      <button onClick={() => deleteLeave(doc.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-rose-400 transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -1582,7 +1582,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 <button
                   type="button"
                   onClick={() => setVisibleLeaveCount((prev) => Math.min(prev + 50, leaveList.length))}
-                  className="flex-none w-[150px] snap-center border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                  className="flex-none w-[150px] snap-center border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-white rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 transition-all"
                 >
                   <span className="text-2xl">＋</span>
                   <span className="text-xs font-bold">{leaveList.length - visibleLeaveCount}건 더 보기</span>
@@ -1596,13 +1596,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       {/* 가지급금 정산서 작성/수정 모달 */}
       {isAdvanceModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="font-bold text-lg text-slate-100 flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-blue-400" />
                 {editingAdvanceId ? '가지급금 정산서 수정' : '가지급금 정산서 작성'}
               </h2>
-              <button onClick={() => setIsAdvanceModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsAdvanceModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="p-6 space-y-4">
@@ -1610,54 +1610,54 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">회사명</label>
+                  <label className="text-xs font-bold text-slate-600">회사명</label>
                   <input type="text" value={apCompanyName} onChange={(e) => setApCompanyName(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">기안일</label>
+                  <label className="text-xs font-bold text-slate-600">기안일</label>
                   <YMDInput value={apDraftDate} onChange={setApDraftDate} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">부서</label>
+                  <label className="text-xs font-bold text-slate-600">부서</label>
                   <input type="text" value={apDepartment} onChange={(e) => setApDepartment(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">작성자</label>
+                  <label className="text-xs font-bold text-slate-600">작성자</label>
                   <input type="text" value={apAuthor} onChange={(e) => setApAuthor(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">기간 시작</label>
+                  <label className="text-xs font-bold text-slate-600">기간 시작</label>
                   <YMDInput value={apPeriodStart} onChange={setApPeriodStart} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">기간 종료</label>
+                  <label className="text-xs font-bold text-slate-600">기간 종료</label>
                   <YMDInput value={apPeriodEnd} onChange={setApPeriodEnd} />
                 </div>
               </div>
 
               {(apPeriodStart || apPeriodEnd) && (
-                <p className="text-xs text-slate-400 bg-slate-950/50 rounded-xl px-4 py-2.5 -mt-2">
-                  출력 표기: <span className="font-bold text-slate-200">{formatKoreanPeriod(apPeriodStart, apPeriodEnd)}</span>
+                <p className="text-xs text-slate-500 bg-slate-100 rounded-xl px-4 py-2.5 -mt-2">
+                  출력 표기: <span className="font-bold text-slate-700">{formatKoreanPeriod(apPeriodStart, apPeriodEnd)}</span>
                 </p>
               )}
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-300">정산 내역</label>
+                  <label className="text-xs font-bold text-slate-600">정산 내역</label>
                   <div className="flex items-center gap-3">
-                    <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-bold">
+                    <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-600 font-bold">
                       <Download className="w-3.5 h-3.5" /> 업무일지/차량운행일지에서 가져오기
                     </button>
-                    <button type="button" onClick={addApItem} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-bold">
+                    <button type="button" onClick={addApItem} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-600 font-bold">
                       <Plus className="w-3.5 h-3.5" /> 내역 추가
                     </button>
                   </div>
                 </div>
                 {apItems.length === 0 && (
-                  <div className="text-xs text-slate-500 text-center py-4 bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
+                  <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                     정산 내역이 없습니다. "내역 추가"를 눌러 등록해 주세요.
                   </div>
                 )}
@@ -1667,9 +1667,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   {[...apItems]
                     .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
                     .map(item => (
-                    <div key={item.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
+                    <div key={item.id} className="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-500 font-bold shrink-0">날짜</span>
+                        <span className="text-[10px] text-slate-400 font-bold shrink-0">날짜</span>
                         <YMDInput value={item.date} onChange={(v) => updateApItem(item.id, { date: v })} />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1678,33 +1678,33 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                             onChange={(e) => updateApItem(item.id, { project: e.target.value })}
                             onFocus={() => openItemPicker(item.id)}
                             onBlur={() => { setTimeout(() => { setItemPickerForId(prev => prev === item.id ? null : prev); }, 150); }}
-                            className="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            className="w-full px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                           {itemPickerForId === item.id && (
-                            <div className="absolute z-30 mt-1 w-full sm:w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                            <div className="absolute z-30 mt-1 w-full sm:w-80 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
                               {itemPickerLoading ? (
-                                <div className="p-3 text-xs text-slate-400">불러오는 중...</div>
+                                <div className="p-3 text-xs text-slate-500">불러오는 중...</div>
                               ) : (() => {
                                 const q = item.project.trim().toLowerCase();
                                 const filtered = itemPickerRows.filter(r =>
                                   !q || r.project.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
                                 if (filtered.length === 0) {
-                                  return <div className="p-3 text-xs text-slate-500">일치하는 개인카드/현금 사용 내역이 없습니다.</div>;
+                                  return <div className="p-3 text-xs text-slate-400">일치하는 개인카드/현금 사용 내역이 없습니다.</div>;
                                 }
                                 return filtered.map(r => (
                                   <button key={r.id} type="button"
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => applyItemPicker(item.id, r)}
-                                    className="w-full text-left px-3 py-2 hover:bg-slate-800 border-b border-slate-800 last:border-0 transition-colors">
+                                    className="w-full text-left px-3 py-2 hover:bg-slate-100 border-b border-slate-200 last:border-0 transition-colors">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs font-semibold text-blue-300 truncate">{r.project || '(프로젝트 없음)'}</span>
-                                      <span className="text-[10px] text-slate-500 shrink-0">{r.date}</span>
+                                      <span className="text-xs font-semibold text-blue-600 truncate">{r.project || '(프로젝트 없음)'}</span>
+                                      <span className="text-[10px] text-slate-400 shrink-0">{r.date}</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-2 mt-0.5">
-                                      <span className="text-[11px] text-slate-400 truncate">{r.description}</span>
+                                      <span className="text-[11px] text-slate-500 truncate">{r.description}</span>
                                       <div className="flex items-center gap-1.5 shrink-0">
                                         {r.receiptImage && <Camera className="w-3 h-3 text-emerald-400" />}
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{r.payMethodLabel}</span>
-                                        <span className="text-xs font-bold text-slate-200">{formatCurrencyInput(r.amount)}원</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{r.payMethodLabel}</span>
+                                        <span className="text-xs font-bold text-slate-700">{formatCurrencyInput(r.amount)}원</span>
                                       </div>
                                     </div>
                                   </button>
@@ -1714,19 +1714,19 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                           )}
                         </div>
                         <input type="text" placeholder="계정과목" value={item.account} onChange={(e) => updateApItem(item.id, { account: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" placeholder="상호" value={item.companyName} onChange={(e) => updateApItem(item.id, { companyName: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_1fr_36px] gap-2 items-center">
                         <input type="text" placeholder="내용" value={item.description} onChange={(e) => updateApItem(item.id, { description: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" inputMode="numeric" placeholder="금액" value={formatCurrencyInput(item.amount)}
                           onChange={(e) => updateApItem(item.id, { amount: parseCurrencyInput(e.target.value) })}
-                          className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" placeholder="비고" value={item.remark} onChange={(e) => updateApItem(item.id, { remark: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        <button type="button" onClick={() => removeApItem(item.id)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-rose-400 justify-self-center">
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <button type="button" onClick={() => removeApItem(item.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-400 justify-self-center">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1738,7 +1738,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                             src={item.receiptImage}
                             alt="영수증"
                             onClick={() => setEnlargedReceiptUrl(item.receiptImage!)}
-                            className="w-10 h-10 rounded-lg object-cover border border-slate-700 cursor-pointer hover:opacity-80 transition-opacity"
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
                           />
                           <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
                             <Camera className="w-3 h-3" />
@@ -1751,14 +1751,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
               </div>
 
-              <div className="bg-slate-950/50 rounded-xl p-3 text-right text-sm">
-                <span className="text-slate-500 mr-2">총 합계</span>
-                <span className="font-bold text-slate-100">{formatCurrencyInput(apTotal)}원</span>
+              <div className="bg-slate-100 rounded-xl p-3 text-right text-sm">
+                <span className="text-slate-400 mr-2">총 합계</span>
+                <span className="font-bold text-slate-800">{formatCurrencyInput(apTotal)}원</span>
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex items-center justify-end gap-2">
-              <button onClick={() => setIsAdvanceModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-400 hover:bg-slate-800 transition-colors">취소</button>
+            <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2">
+              <button onClick={() => setIsAdvanceModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
               <button onClick={saveAdvance} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
             </div>
           </div>
@@ -1768,28 +1768,28 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       {/* 업무일지/차량운행일지 비용 가져오기 모달 */}
       {isImportModalOpen && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
-            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="font-bold text-lg text-slate-100 flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                 <Download className="w-5 h-5 text-indigo-400" />
                 비용 가져오기
               </h2>
-              <button onClick={() => setIsImportModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsImportModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="px-6 pt-4">
-              <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3 flex-wrap">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => { setImportTab('worklog'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
                     <ClipboardList className="w-3.5 h-3.5" /> 업무일지 비용 ({importWorklogRows.length})
                   </button>
                   <button onClick={() => { setImportTab('vehicle'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
                     <Car className="w-3.5 h-3.5" /> 차량 비용관리 ({importVehicleRows.length})
                   </button>
                   <button onClick={() => { setImportTab('maintenance'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'maintenance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800/60 border border-transparent'}`}>
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'maintenance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
                     <Wrench className="w-3.5 h-3.5" /> 정비일지 비용 ({importMaintenanceRows.length})
                   </button>
                 </div>
@@ -1799,42 +1799,42 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   if (projectNames.length === 0) return null;
                   return (
                     <select value={importProjectFilter} onChange={(e) => setImportProjectFilter(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="all">전체 프로젝트</option>
                       {projectNames.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   );
                 })()}
               </div>
-              <p className="text-[11px] text-slate-500 mt-2">개인카드/현금으로 결제한 항목만 표시됩니다 (법인카드 결제분은 이미 별도 정산되므로 제외).</p>
+              <p className="text-[11px] text-slate-400 mt-2">개인카드/현금으로 결제한 항목만 표시됩니다 (법인카드 결제분은 이미 별도 정산되므로 제외).</p>
             </div>
 
             <div className="p-6 pt-4 space-y-2">
               {importLoading ? (
                 <div className="py-16 flex flex-col items-center justify-center space-y-3">
                   <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs text-slate-400">비용 내역을 불러오는 중입니다...</p>
+                  <p className="text-xs text-slate-500">비용 내역을 불러오는 중입니다...</p>
                 </div>
               ) : (() => {
                 const sourceRows = importTab === 'worklog' ? importWorklogRows : importTab === 'vehicle' ? importVehicleRows : importMaintenanceRows;
                 const rows = sourceRows.filter(r => importProjectFilter === 'all' || r.project === importProjectFilter);
                 return rows.length === 0 ? (
-                  <div className="py-16 text-center text-slate-500 bg-slate-950/40 border border-dashed border-slate-800 rounded-2xl text-xs">
+                  <div className="py-16 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-xs">
                     가져올 수 있는 비용 내역이 없습니다.
                   </div>
                 ) : (
                   rows.map(row => (
-                    <label key={row.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${importSelectedIds.has(row.id) ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-950/50 border-slate-800 hover:bg-slate-800/40'}`}>
+                    <label key={row.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${importSelectedIds.has(row.id) ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-100 border-slate-200 hover:bg-slate-100/40'}`}>
                       <input type="checkbox" checked={importSelectedIds.has(row.id)} onChange={() => toggleImportSelect(row.id)}
-                        className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0" />
+                        className="w-4 h-4 rounded border-slate-200 bg-white text-blue-500 focus:ring-0" />
                       <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs items-center">
-                        <span className="text-slate-400">{row.date}</span>
-                        <span className="text-blue-300 font-semibold truncate">{row.project || '-'}</span>
-                        <span className="text-slate-300 truncate col-span-2 sm:col-span-1">{row.description}</span>
-                        <span className="text-slate-100 font-bold text-right sm:text-left">{formatCurrencyInput(row.amount)}원</span>
+                        <span className="text-slate-500">{row.date}</span>
+                        <span className="text-blue-600 font-semibold truncate">{row.project || '-'}</span>
+                        <span className="text-slate-600 truncate col-span-2 sm:col-span-1">{row.description}</span>
+                        <span className="text-slate-800 font-bold text-right sm:text-left">{formatCurrencyInput(row.amount)}원</span>
                         <span className="flex items-center gap-1 justify-self-start sm:justify-self-end">
                           {row.receiptImage && <Camera className="w-3 h-3 text-emerald-400" title="영수증 첨부됨" />}
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">{row.payMethodLabel}</span>
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">{row.payMethodLabel}</span>
                         </span>
                       </div>
                     </label>
@@ -1843,10 +1843,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
               })()}
             </div>
 
-            <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex items-center justify-between gap-2">
-              <span className="text-xs text-slate-400">{importSelectedIds.size}건 선택됨</span>
+            <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-500">{importSelectedIds.size}건 선택됨</span>
               <div className="flex items-center gap-2">
-                <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-400 hover:bg-slate-800 transition-colors">취소</button>
+                <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
                 <button onClick={applyImportedItems} disabled={importSelectedIds.size === 0} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">선택 항목 가져오기</button>
               </div>
             </div>
@@ -1857,45 +1857,45 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       {/* 휴가 신청서 작성/수정 모달 */}
       {isLeaveModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="font-bold text-lg text-slate-100 flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                 <Plane className="w-5 h-5 text-blue-400" />
                 {editingLeaveId ? '휴가 신청서 수정' : '휴가 신청서 작성'}
               </h2>
-              <button onClick={() => setIsLeaveModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400"><X className="w-5 h-5" /></button>
+              <button onClick={() => setIsLeaveModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="p-6 space-y-4">
               <ApprovalLineEditor line={lvApprovalLine} setLine={setLvApprovalLine} kind="leave" companyPositions={companyPositions} onSaveAsDefault={saveApprovalLineAsCompanyDefault} />
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">기안번호</label>
+                <label className="text-xs font-bold text-slate-600">기안번호</label>
                 <input type="text" value={lvDraftNumber} onChange={(e) => setLvDraftNumber(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm font-mono" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">소속</label>
+                  <label className="text-xs font-bold text-slate-600">소속</label>
                   <input type="text" value={lvDepartment} onChange={(e) => setLvDepartment(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">휴가자</label>
+                  <label className="text-xs font-bold text-slate-600">휴가자</label>
                   <input type="text" value={lvAuthor} onChange={(e) => {
                     const v = e.target.value;
                     setLvAuthor(v);
                     setLvTotalAnnualDays(getStoredTotalAnnualDays(v));
                   }}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
               </div>
 
               {/* 총 연차 일수: 카테고리와 무관하게 항상 보이고, 한 번 입력해두면 이 휴가자 이름으로 자동 저장되어
                   다음에 새 휴가 신청서를 작성할 때도 다시 입력할 필요가 없다. */}
               <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-1.5">
-                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                <label className="text-xs font-bold text-indigo-600 flex items-center gap-1.5">
                   <Hash className="w-3.5 h-3.5" /> 총 연차 일수 (올해 부여된 전체 연차 — 한 번 입력해두면 자동 저장됩니다)
                 </label>
                 <input type="number" min={0} step={0.5} value={lvTotalAnnualDays}
@@ -1904,18 +1904,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     setLvTotalAnnualDays(v);
                     setStoredTotalAnnualDays(lvAuthor, v);
                   }}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 text-sm" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm" />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">휴가 구분</label>
+                <label className="text-xs font-bold text-slate-600">휴가 구분</label>
                 <div className="flex flex-wrap gap-2">
                   {LEAVE_CATEGORY_ORDER.map(c => (
                     c === 'special' ? (
                       <div key={c} className="relative">
                         <button type="button"
                           onClick={() => { setLvCategory('special'); setLvSpecialDropdownOpen(v => !v); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'special' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'special' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
                           <span>
                             특별휴가{lvCategory === 'special' ? ` · ${lvSpecialType === 'custom' ? (lvSpecialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[lvSpecialType]}` : ''}
                           </span>
@@ -1924,11 +1924,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         {lvSpecialDropdownOpen && (
                           <>
                             <div className="fixed inset-0 z-20" onClick={() => setLvSpecialDropdownOpen(false)} />
-                            <div className="absolute z-30 mt-1 left-0 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                            <div className="absolute z-30 mt-1 left-0 w-40 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
                               {SPECIAL_TYPE_ORDER.map(t => (
                                 <button key={t} type="button"
                                   onClick={() => { setLvSpecialType(t); if (t !== 'custom') setLvSpecialDropdownOpen(false); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
-                                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvSpecialType === t ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-300 hover:bg-slate-800'}`}>
+                                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvSpecialType === t ? 'bg-indigo-600/20 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`}>
                                   {SPECIAL_TYPE_LABEL[t]}
                                 </button>
                               ))}
@@ -1944,7 +1944,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                             setLvAnnualDropdownOpen(v => !v);
                             if (lvAnnualType === 'full') { setLvStartTime('09:00'); setLvEndTime('18:00'); }
                           }}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'annual' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'annual' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
                           <span>
                             연차{lvCategory === 'annual' ? ` · ${ANNUAL_TYPE_LABEL[lvAnnualType]}` : ''}
                           </span>
@@ -1953,7 +1953,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         {lvAnnualDropdownOpen && (
                           <>
                             <div className="fixed inset-0 z-20" onClick={() => setLvAnnualDropdownOpen(false)} />
-                            <div className="absolute z-30 mt-1 left-0 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                            <div className="absolute z-30 mt-1 left-0 w-40 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
                               {ANNUAL_TYPE_ORDER.map(t => (
                                 <button key={t} type="button"
                                   onClick={() => {
@@ -1966,7 +1966,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                                       setLvEndTime(addHoursToTime(lvStartTime, ANNUAL_TYPE_HOURS[t]));
                                     }
                                   }}
-                                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvAnnualType === t ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-300 hover:bg-slate-800'}`}>
+                                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvAnnualType === t ? 'bg-indigo-600/20 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`}>
                                   {ANNUAL_TYPE_LABEL[t]}
                                 </button>
                               ))}
@@ -1976,7 +1976,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       </div>
                     ) : (
                       <button key={c} type="button" onClick={() => { setLvCategory(c); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === c ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`}>
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === c ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
                         {LEAVE_CATEGORY_LABEL[c]}
                       </button>
                     )
@@ -1984,23 +1984,23 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 </div>
                 {lvCategory === 'other' && (
                   <input type="text" placeholder="휴가 구분 직접 입력" value={lvCategoryCustom} onChange={(e) => setLvCategoryCustom(e.target.value)}
-                    className="w-full mt-2 px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full mt-2 px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 )}
                 {lvCategory === 'special' && lvSpecialType === 'custom' && (
                   <input type="text" placeholder="특별휴가 종류 직접 입력" value={lvSpecialTypeCustom} onChange={(e) => setLvSpecialTypeCustom(e.target.value)}
-                    className="w-full mt-2 px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full mt-2 px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">사유</label>
+                <label className="text-xs font-bold text-slate-600">사유</label>
                 <textarea rows={2} value={lvReason} onChange={(e) => setLvReason(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm resize-none" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm resize-none" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">시작일</label>
+                  <label className="text-xs font-bold text-slate-600">시작일</label>
                   <YMDInput value={lvStartDate} onChange={(v) => {
                     setLvStartDate(v);
                     const isHalfOrQuarter = lvCategory === 'annual' && (lvAnnualType === 'half' || lvAnnualType === 'quarter');
@@ -2008,7 +2008,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   }} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">종료일</label>
+                  <label className="text-xs font-bold text-slate-600">종료일</label>
                   <YMDInput value={lvEndDate} onChange={(v) => {
                     setLvEndDate(v);
                     const isHalfOrQuarter = lvCategory === 'annual' && (lvAnnualType === 'half' || lvAnnualType === 'quarter');
@@ -2016,7 +2016,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   }} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">시작 시간 (반차 등, 선택)</label>
+                  <label className="text-xs font-bold text-slate-600">시작 시간 (반차 등, 선택)</label>
                   <input type="time" value={lvStartTime} onChange={(e) => {
                     const v = e.target.value;
                     setLvStartTime(v);
@@ -2024,54 +2024,54 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                       setLvEndTime(addHoursToTime(v, ANNUAL_TYPE_HOURS[lvAnnualType]));
                     }
                   }}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">종료 시간 (선택)</label>
+                  <label className="text-xs font-bold text-slate-600">종료 시간 (선택)</label>
                   <input type="time" value={lvEndTime} onChange={(e) => setLvEndTime(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
               </div>
 
-              <div className="text-xs text-slate-400 bg-slate-950/50 rounded-xl px-4 py-2.5">
-                산정된 휴가 일수: <span className="font-bold text-slate-200">{calcLeaveDays(lvStartDate, lvEndDate, lvCategory === 'annual' ? ANNUAL_TYPE_MULTIPLIER[lvAnnualType] : 1)}일</span>
-                {lvCategory === 'annual' && <span className="text-slate-500"> ({ANNUAL_TYPE_LABEL[lvAnnualType]} 기준)</span>}
+              <div className="text-xs text-slate-500 bg-slate-100 rounded-xl px-4 py-2.5">
+                산정된 휴가 일수: <span className="font-bold text-slate-700">{calcLeaveDays(lvStartDate, lvEndDate, lvCategory === 'annual' ? ANNUAL_TYPE_MULTIPLIER[lvAnnualType] : 1)}일</span>
+                {lvCategory === 'annual' && <span className="text-slate-400"> ({ANNUAL_TYPE_LABEL[lvAnnualType]} 기준)</span>}
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">누적 휴가 표기 (총 연차 일수 기준 자동 계산, 필요시 직접 수정)</label>
+                <label className="text-xs font-bold text-slate-600">누적 휴가 표기 (총 연차 일수 기준 자동 계산, 필요시 직접 수정)</label>
                 <input type="text" placeholder="5일/총20일, 잔여 15일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">자택 연락처</label>
+                  <label className="text-xs font-bold text-slate-600">자택 연락처</label>
                   <input type="text" inputMode="numeric" placeholder="02-1234-5678" value={lvHomeContact} onChange={(e) => setLvHomeContact(formatPhoneNumber(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">휴대폰</label>
+                  <label className="text-xs font-bold text-slate-600">휴대폰</label>
                   <input type="text" inputMode="numeric" placeholder="010-1234-5678" value={lvMobileContact} onChange={(e) => setLvMobileContact(formatPhoneNumber(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">직무 대행자</label>
+                  <label className="text-xs font-bold text-slate-600">직무 대행자</label>
                   <input type="text" value={lvActingPerson} onChange={(e) => setLvActingPerson(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">신청일</label>
+                  <label className="text-xs font-bold text-slate-600">신청일</label>
                   <YMDInput value={lvSubmittedDate} onChange={setLvSubmittedDate} />
                 </div>
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex items-center justify-end gap-2">
-              <button onClick={() => setIsLeaveModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-400 hover:bg-slate-800 transition-colors">취소</button>
+            <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2">
+              <button onClick={() => setIsLeaveModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
               <button onClick={saveLeave} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
             </div>
           </div>
@@ -2087,14 +2087,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         const total = previewItems.reduce((s, it) => s + (Number(it.amount) || 0), 0);
         return (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
-            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
-              <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+              <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
                     <Eye className="w-5 h-5" />
                   </div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">가지급금 정산서 출력 미리보기</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">가지급금 정산서 출력 미리보기</h2>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={() => downloadAdvanceToExcel(previewDoc)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
@@ -2103,14 +2103,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <button onClick={handlePrintAdvance} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
                     <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
                   </button>
-                  <button onClick={() => setPreviewAdvanceId(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors">
+                  <button onClick={() => setPreviewAdvanceId(null)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
-              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
+              <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
                 <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
                 <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
                   <div className="text-center mb-6">
@@ -2225,14 +2225,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         const catLabel = previewLeave.leaveCategory === 'other' ? (previewLeave.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[previewLeave.leaveCategory];
         return (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
-            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
-              <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+              <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
                     <Eye className="w-5 h-5" />
                   </div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">휴가 신청서 출력 미리보기</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">휴가 신청서 출력 미리보기</h2>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={() => downloadLeaveToExcel(previewLeave)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
@@ -2241,14 +2241,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                   <button onClick={handlePrintLeave} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
                     <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
                   </button>
-                  <button onClick={() => setPreviewLeaveId(null)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors">
+                  <button onClick={() => setPreviewLeaveId(null)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               {/* 화면에 그대로 보이는 A4 미리보기 종이 영역 */}
-              <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
+              <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
                 <div className="shrink-0" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', paddingTop: '15mm', paddingBottom: '15mm', paddingLeft: '10mm', paddingRight: '10mm', background: '#fff' }}>
                 <div style={{ flex: 1, border: '3px solid #000000', boxSizing: 'border-box' }}>
                 <div className="text-black text-xs font-sans leading-tight" style={{ padding: '10mm', boxSizing: 'border-box' }}>
@@ -2379,12 +2379,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
       {/* [수정] 정산 항목에 딸린 영수증 썸네일 확대보기 라이트박스 */}
       {enlargedReceiptUrl && (
         <div
-          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[110] flex items-center justify-center p-4"
           onClick={() => setEnlargedReceiptUrl(null)}
         >
           <button
             onClick={() => setEnlargedReceiptUrl(null)}
-            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
           >
             닫기
           </button>
@@ -2392,7 +2392,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             src={enlargedReceiptUrl}
             alt="영수증 확대보기"
             onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
           />
         </div>
       )}

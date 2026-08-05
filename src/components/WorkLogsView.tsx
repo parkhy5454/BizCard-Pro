@@ -1696,7 +1696,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     <div className="space-y-3">
       
       {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
-      <div className="flex items-center gap-2 bg-slate-900/60 p-4 border border-slate-800 rounded-3xl backdrop-blur-md">
+      <div className="flex items-center gap-2 bg-slate-100 p-4 border border-slate-200 rounded-3xl backdrop-blur-md">
         {/* [수정] "+ 일일 일지 작성" 버튼을 항상 맨 왼쪽에 고정, 줄어들지 않게 함 */}
         <div className="flex gap-2 shrink-0">
           <button
@@ -1713,7 +1713,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </div>
 
         {/* [수정] 모바일 화면 너비가 좁아도 탭 글자가 줄바꿈되지 않도록, 넘치면 가로 스크롤되게 함 */}
-        <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex-1 min-w-0">
+        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-200 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex-1 min-w-0">
           <button
             onClick={() => {
               setActiveSubTab('daily');
@@ -1724,12 +1724,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'daily'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <FileText className="w-4 h-4" />
             <span>일일 업무일지</span>
-            <span className="px-1.5 py-0.2 text-xs rounded-full bg-slate-800 text-slate-300 font-mono">
+            <span className="px-1.5 py-0.2 text-xs rounded-full bg-slate-100 text-slate-600 font-mono">
               {dailyLogs.length}
             </span>
           </button>
@@ -1744,12 +1744,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'weekly'
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <FileCheck className="w-4 h-4" />
             <span>주간 업무일지</span>
-            <span className="px-1.5 py-0.2 text-xs rounded-full bg-slate-800 text-slate-300 font-mono">
+            <span className="px-1.5 py-0.2 text-xs rounded-full bg-slate-100 text-slate-600 font-mono">
               {weeklyLogs.length}
             </span>
           </button>
@@ -1759,7 +1759,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'monthly'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <Calendar className="w-4 h-4" />
@@ -1771,7 +1771,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeSubTab === 'report'
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <Printer className="w-4 h-4" />
@@ -1784,69 +1784,69 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* 검색 인풋 */}
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="업무 제목, 업무 내용 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm placeholder:text-slate-500 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm placeholder:text-slate-400 transition-all"
           />
         </div>
 
         {/* 프로젝트 필터 */}
         <div className="relative">
-          <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <select
             value={selectedProjectFilter}
             onChange={(e) => setSelectedProjectFilter(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm appearance-none cursor-pointer placeholder:text-slate-500 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm appearance-none cursor-pointer placeholder:text-slate-400 transition-all"
           >
             <option value="all">연관 프로젝트: 전체</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         </div>
 
         {/* 거래처 명함 필터 */}
         <div className="relative">
-          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <select
             value={selectedContactFilter}
             onChange={(e) => setSelectedContactFilter(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm appearance-none cursor-pointer placeholder:text-slate-500 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm appearance-none cursor-pointer placeholder:text-slate-400 transition-all"
           >
             <option value="all">연관 거래처 인맥: 전체</option>
             {contacts.map(c => (
               <option key={c.id} value={c.id}>{c.name} ({c.company})</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         </div>
       </div>
 
       {activeSubTab === 'monthly' ? (
         <div className="space-y-4">
           {/* 월 이동 헤더 */}
-          <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4">
+          <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded-2xl p-4">
             <button
               type="button"
               onClick={() => setMonthCursor((prev) => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d; })}
-              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-sm font-bold"
+              className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-700 text-sm font-bold"
             >
               ‹ 이전달
             </button>
-            <div className="flex items-center gap-2 text-slate-100 font-bold text-base">
+            <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
               <Calendar className="w-4 h-4 text-emerald-400" />
               {monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월
-              <span className="text-[10px] text-slate-500 font-normal ml-2">같은 회사 직원 전체 업무 (일일+주간)</span>
+              <span className="text-[10px] text-slate-400 font-normal ml-2">같은 회사 직원 전체 업무 (일일+주간)</span>
             </div>
             <button
               type="button"
               onClick={() => setMonthCursor((prev) => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d; })}
-              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-sm font-bold"
+              className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-700 text-sm font-bold"
             >
               다음달 ›
             </button>
@@ -1868,10 +1868,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
             return (
-              <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-3">
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3">
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {weekdayLabels.map((w, i) => (
-                    <div key={w} className={`text-center text-[11px] font-bold py-1 ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{w}</div>
+                    <div key={w} className={`text-center text-[11px] font-bold py-1 ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
@@ -1887,18 +1887,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         key={dateStr}
                         onClick={() => setSelectedCalendarDate(dateStr)}
                         className={`text-left p-1.5 rounded-lg border min-h-[64px] transition-all ${
-                          isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-950/60 border-slate-800/60 hover:border-slate-700'
+                          isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-100 border-slate-200 hover:border-slate-200'
                         }`}
                       >
-                        <div className={`text-[11px] font-bold mb-0.5 ${isToday ? 'text-indigo-300' : 'text-slate-400'}`}>{dayNum}</div>
+                        <div className={`text-[11px] font-bold mb-0.5 ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
                         <div className="space-y-0.5">
                           {entries.slice(0, 2).map((en) => (
-                            <div key={en.id} className="text-[9px] leading-tight truncate text-emerald-300 bg-emerald-950/30 rounded px-1 py-0.5">
+                            <div key={en.id} className="text-[9px] leading-tight truncate text-emerald-600 bg-emerald-950/30 rounded px-1 py-0.5">
                               {en.time ? `${en.time} ` : ''}{en.author}
                             </div>
                           ))}
                           {entries.length > 2 && (
-                            <div className="text-[9px] text-slate-500">+{entries.length - 2}건 더</div>
+                            <div className="text-[9px] text-slate-400">+{entries.length - 2}건 더</div>
                           )}
                         </div>
                       </button>
@@ -1910,25 +1910,25 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           })()}
 
           {/* 선택한 날짜 상세 목록 */}
-          <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4 space-y-2">
-            <div className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+          <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2">
+            <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-emerald-400" />
               {selectedCalendarDate} 업무 상세
             </div>
             {getEntriesForDate(selectedCalendarDate).length === 0 ? (
-              <div className="text-xs text-slate-500 py-4 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
+              <div className="text-xs text-slate-400 py-4 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
             ) : (
               <div className="space-y-2">
                 {getEntriesForDate(selectedCalendarDate).map((en) => (
-                  <div key={en.id} className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-3">
+                  <div key={en.id} className="bg-slate-100 border border-slate-200 rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <User className="w-3.5 h-3.5 text-indigo-400" />
-                      <span className="text-xs font-bold text-slate-200">{en.author}</span>
+                      <span className="text-xs font-bold text-slate-700">{en.author}</span>
                       {en.time && <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/30 px-1.5 py-0.5 rounded">{en.time}</span>}
-                      <span className="text-[10px] text-slate-500 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
+                      <span className="text-[10px] text-slate-400 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
                     </div>
-                    <div className="text-[11px] text-slate-400 mb-1">{en.title}</div>
-                    <div className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{en.content}</div>
+                    <div className="text-[11px] text-slate-500 mb-1">{en.title}</div>
+                    <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{en.content}</div>
                   </div>
                 ))}
               </div>
@@ -1938,15 +1938,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       ) : activeSubTab === 'report' ? (
         <div className="space-y-4">
           {/* 리포트 대상 주간 업무 선택 (차량관리의 '인쇄 대상 차량 선택'과 동일한 패턴) */}
-          <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4">
-            <label className="text-xs text-slate-400 font-semibold block mb-1.5">리포트 대상 주간 업무 선택</label>
+          <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4">
+            <label className="text-xs text-slate-500 font-semibold block mb-1.5">리포트 대상 주간 업무 선택</label>
             <select
               value={selectedReportLog?.id || ''}
               onChange={(e) => {
                 const log = weeklyLogs.find((l) => l.id === e.target.value);
                 if (log) handleOpenReportModal(log);
               }}
-              className="w-full sm:w-96 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-indigo-500"
+              className="w-full sm:w-96 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-500"
             >
               <option value="">주간 업무 보고를 선택하세요...</option>
               {weeklyLogs.map((log) => (
@@ -1958,7 +1958,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           </div>
 
           {!selectedReportLog && (
-            <div className="bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl py-16 text-center text-slate-500 text-sm">
+            <div className="bg-slate-100 border border-dashed border-slate-200 rounded-2xl py-16 text-center text-slate-400 text-sm">
               위에서 주간 업무 보고를 선택하면 리포트가 아래에 표시됩니다.
             </div>
           )}
@@ -1973,15 +1973,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         className="touch-pan-y space-y-4"
       >
         {/* 가로 슬라이딩 가이드 팁 */}
-        <div className="flex items-center justify-center gap-2 text-xs text-slate-400 bg-slate-900/40 border border-slate-800/60 py-2.5 px-4 rounded-2xl max-w-sm mx-auto animate-pulse select-none">
+        <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-100 border border-slate-200 py-2.5 px-4 rounded-2xl max-w-sm mx-auto animate-pulse select-none">
           <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
           <span>💡 화면을 좌우로 쓸어넘겨 일일/주간 탭을 전환하세요</span>
         </div>
 
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center space-y-3">
-          <div className="w-10 h-10 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
-          <p className="text-slate-400 text-xs">업무일지 기록을 조회하는 중입니다...</p>
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-slate-500 text-xs">업무일지 기록을 조회하는 중입니다...</p>
         </div>
       ) : (
         <AnimatePresence mode="wait" initial={false}>
@@ -1994,10 +1994,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             className="w-full"
           >
             {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length === 0 ? (
-              <div className="py-16 text-center bg-slate-900/40 border border-slate-800 rounded-3xl">
-                <FileText className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-300 font-bold mb-1">작성된 업무일지가 없습니다</p>
-                <p className="text-slate-500 text-xs">상단의 작성 단추를 눌러 첫 업무 기록을 남겨보세요.</p>
+              <div className="py-16 text-center bg-slate-100 border border-slate-200 rounded-3xl">
+                <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-slate-600 font-bold mb-1">작성된 업무일지가 없습니다</p>
+                <p className="text-slate-400 text-xs">상단의 작성 단추를 눌러 첫 업무 기록을 남겨보세요.</p>
               </div>
             ) : (
         <div className="space-y-4">
@@ -2013,10 +2013,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className={`bg-slate-900 border rounded-3xl overflow-hidden transition-all duration-300 shadow-lg ${
+                  className={`bg-white border rounded-3xl overflow-hidden transition-all duration-300 shadow-lg ${
                     isExpanded 
-                      ? activeSubTab === 'daily' ? 'border-blue-500/40 shadow-blue-500/5 bg-slate-900' : 'border-indigo-500/40 shadow-indigo-500/5 bg-slate-900'
-                      : 'border-slate-800 hover:border-slate-700'
+                      ? activeSubTab === 'daily' ? 'border-blue-500/40 shadow-blue-500/5 bg-white' : 'border-indigo-500/40 shadow-indigo-500/5 bg-white'
+                      : 'border-slate-200 hover:border-slate-200'
                   }`}
                 >
                   {/* 카드 헤더 클릭 시 아코디언 */}
@@ -2028,30 +2028,30 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className={`px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 font-mono ${
                           activeSubTab === 'daily'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-500/20'
+                            : 'bg-indigo-50 text-indigo-700 border border-indigo-500/20'
                         }`}>
                           <Calendar className="w-3 h-3" />
                           {activeSubTab === 'daily' ? log.date : `${log.startDate} ~ ${log.endDate}`}
                         </span>
 
                         {relatedProjects.map(rp => (
-                          <span key={rp.id} className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+                          <span key={rp.id} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
                             <Briefcase className="w-3 h-3 text-indigo-400" />
                             {rp.name}
                           </span>
                         ))}
 
                         {(log.author || log.department) && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/80 flex items-center gap-1.5">
+                          <span className="px-2.5 py-0.5 rounded-full bg-slate-100/80 text-slate-600 border border-slate-200 flex items-center gap-1.5">
                             <User className="w-3 h-3 text-emerald-400" />
                             {log.author && <span className="font-bold">{log.author}</span>}
-                            {log.department && <span className="text-slate-400 text-[11px]">({log.department})</span>}
+                            {log.department && <span className="text-slate-500 text-[11px]">({log.department})</span>}
                           </span>
                         )}
                       </div>
 
-                      <h3 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight truncate">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight truncate">
                         {log.title}
                       </h3>
                     </div>
@@ -2064,7 +2064,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             handleOpenReportModal(log);
                             setActiveSubTab('report');
                           }}
-                          className="p-2 rounded-xl bg-slate-800 hover:bg-indigo-950 text-slate-400 hover:text-indigo-400 border border-slate-700 hover:border-indigo-900 transition-all cursor-pointer"
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-950 text-slate-500 hover:text-indigo-400 border border-slate-200 hover:border-indigo-900 transition-all cursor-pointer"
                           title="주간업무보고서 출력/인쇄"
                         >
                           <Printer className="w-3.5 h-3.5" />
@@ -2076,7 +2076,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           e.stopPropagation();
                           downloadSingleToExcel(log, activeSubTab);
                         }}
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-emerald-950 text-slate-400 hover:text-emerald-400 border border-slate-700 hover:border-emerald-900 transition-all cursor-pointer"
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-950 text-slate-500 hover:text-emerald-400 border border-slate-200 hover:border-emerald-900 transition-all cursor-pointer"
                         title="엑셀 다운로드"
                       >
                         <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -2087,7 +2087,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           e.stopPropagation();
                           handleOpenEditLog(log, activeSubTab);
                         }}
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition-all"
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-all"
                         title="수정하기"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -2095,14 +2095,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       
                       <button
                         onClick={(e) => handleDeleteLog(log.id, activeSubTab, e)}
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 border border-slate-700 hover:border-rose-900 transition-all"
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-rose-950 text-slate-500 hover:text-rose-400 border border-slate-200 hover:border-rose-900 transition-all"
                         title="삭제하기"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
 
-                      <div className={`p-1.5 rounded-xl bg-slate-800 border border-slate-700 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      <div className={`p-1.5 rounded-xl bg-slate-100 border border-slate-200 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                        <ChevronDown className="w-4 h-4 text-slate-500" />
                       </div>
                     </div>
                   </div>
@@ -2114,29 +2114,29 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         initial={{ height: 0 }}
                         animate={{ height: 'auto' }}
                         exit={{ height: 0 }}
-                        className="overflow-hidden border-t border-slate-800/80"
+                        className="overflow-hidden border-t border-slate-200"
                       >
-                        <div className="p-5 sm:p-6 bg-slate-950/40 space-y-5 text-sm sm:text-base">
+                        <div className="p-5 sm:p-6 bg-slate-50 space-y-5 text-sm sm:text-base">
                           {activeSubTab === 'daily' ? (
                             <>
                               {/* 금일 실시 사항 */}
                               <div className="space-y-1.5">
-                                <h4 className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
                                   <CheckCircle className="w-4 h-4 text-blue-400" />
                                   <span>금일 실시 사항</span>
                                 </h4>
-                                <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-300 text-sm leading-relaxed">
+                                <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
                                   {log.tasksToday || '기재된 내용이 없습니다.'}
                                 </div>
                               </div>
 
                               {/* 명일 예정 사항 */}
                               <div className="space-y-1.5">
-                                <h4 className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
                                   <Sparkles className="w-4 h-4 text-emerald-400" />
                                   <span>명일 예정 사항</span>
                                 </h4>
-                                <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-300 text-sm leading-relaxed">
+                                <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
                                   {log.tasksTomorrow || '기재된 내용이 없습니다.'}
                                 </div>
                               </div>
@@ -2148,7 +2148,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                     <AlertCircle className="w-4 h-4" />
                                     <span>미결 및 특이 사항</span>
                                   </h4>
-                                  <div className="bg-rose-500/5 border border-rose-500/10 p-4 rounded-2xl whitespace-pre-line text-rose-300 text-sm leading-relaxed">
+                                  <div className="bg-rose-500/5 border border-rose-500/10 p-4 rounded-2xl whitespace-pre-line text-rose-600 text-sm leading-relaxed">
                                     {log.issues}
                                   </div>
                                 </div>
@@ -2158,7 +2158,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             <>
                               {/* 금주 실시 사항 */}
                               <div className="space-y-2">
-                                <h4 className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
                                   <CheckCircle className="w-4 h-4 text-indigo-400" />
                                   <span>금주 실시 사항 (일별 상세)</span>
                                 </h4>
@@ -2177,8 +2177,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                       const text = log.achievementsByDay[day.key];
                                       if (!text || !text.trim()) return null;
                                       return (
-                                        <div key={day.key} className="border-l-4 border-indigo-500/50 p-3 rounded-r-2xl bg-slate-900/40 text-sm">
-                                          <div className="font-bold text-xs text-slate-400 mb-1 flex items-center gap-1">
+                                        <div key={day.key} className="border-l-4 border-indigo-500/50 p-3 rounded-r-2xl bg-slate-100 text-sm">
+                                          <div className="font-bold text-xs text-slate-500 mb-1 flex items-center gap-1">
                                             <span className={`w-1.5 h-1.5 rounded-full ${
                                               day.key === 'mon' ? 'bg-indigo-400' : 
                                               day.key === 'tue' ? 'bg-blue-400' : 
@@ -2190,7 +2190,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                             }`} />
                                             {day.label}
                                           </div>
-                                          <div className="whitespace-pre-line text-slate-300 leading-relaxed pl-2.5">
+                                          <div className="whitespace-pre-line text-slate-600 leading-relaxed pl-2.5">
                                             {text}
                                           </div>
                                         </div>
@@ -2198,7 +2198,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                     })}
                                   </div>
                                 ) : (
-                                  <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-300 text-sm leading-relaxed">
+                                  <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
                                     {log.achievementsThisWeek || '기재된 내용이 없습니다.'}
                                   </div>
                                 )}
@@ -2206,11 +2206,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                               {/* 차주 예정 사항 */}
                               <div className="space-y-1.5">
-                                <h4 className="font-bold text-slate-200 flex items-center gap-1.5">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
                                   <Sparkles className="w-4 h-4 text-purple-400" />
                                   <span>차주 예정 사항</span>
                                 </h4>
-                                <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-300 text-sm leading-relaxed">
+                                <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
                                   {log.plansNextWeek || '기재된 내용이 없습니다.'}
                                 </div>
                               </div>
@@ -2222,7 +2222,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                     <AlertCircle className="w-4 h-4" />
                                     <span>애로 및 건의 사항 / 피드백</span>
                                   </h4>
-                                  <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-2xl whitespace-pre-line text-amber-300 text-sm leading-relaxed">
+                                  <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-2xl whitespace-pre-line text-amber-600 text-sm leading-relaxed">
                                     {log.feedbacks}
                                   </div>
                                 </div>
@@ -2232,11 +2232,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                           {/* 등록된 지출 비용 표시 */}
                           {log.expenses && log.expenses.length > 0 && (
-                            <div className="pt-3 border-t border-slate-800/60 space-y-2">
-                              <h4 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                            <div className="pt-3 border-t border-slate-200 space-y-2">
+                              <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
                                 <Receipt className="w-3.5 h-3.5 text-emerald-400" />
                                 <span>첨부된 지출 비용 내역</span>
-                                <span className="text-[10px] text-slate-500 font-mono">({log.expenses.length}건, 총 {log.expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0).toLocaleString()}원)</span>
+                                <span className="text-[10px] text-slate-400 font-mono">({log.expenses.length}건, 총 {log.expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0).toLocaleString()}원)</span>
                               </h4>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {log.expenses.map((expense: any) => {
@@ -2264,17 +2264,17 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                   };
 
                                   return (
-                                    <div key={expense.id} className="p-3 rounded-2xl bg-slate-900 border border-slate-850 flex flex-col justify-between space-y-1.5 shadow-sm">
+                                    <div key={expense.id} className="p-3 rounded-2xl bg-white border border-slate-850 flex flex-col justify-between space-y-1.5 shadow-sm">
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
-                                          <span className="text-xs font-bold text-slate-300">
+                                          <span className="text-xs font-bold text-slate-600">
                                             {categoryLabels[expense.category] || expense.category}
                                           </span>
                                           {expense.receiptImage && (
                                             <button
                                               type="button"
                                               onClick={() => setViewingReceiptImage(expense.receiptImage)}
-                                              className="inline-flex items-center gap-0.5 text-[10px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/20 cursor-pointer"
+                                              className="inline-flex items-center gap-0.5 text-[10px] text-indigo-400 hover:text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/20 cursor-pointer"
                                               title="스캔된 영수증 이미지 보기"
                                             >
                                               <Eye className="w-3 h-3" />
@@ -2286,8 +2286,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                           {Number(expense.amount || 0).toLocaleString()}원
                                         </span>
                                       </div>
-                                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                                        <span className="bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-[10px]">
+                                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                                        <span className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 text-[10px]">
                                           {payMethodLabels[expense.payMethod] || expense.payMethod}
                                         </span>
                                         {expense.memo && (
@@ -2311,16 +2311,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                           {/* 연관 명함 거래처 인맥 */}
                           {relatedContacts.length > 0 && (
-                            <div className="pt-2 border-t border-slate-800/60 space-y-1.5">
-                              <h4 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                            <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                              <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
                                 <User className="w-3.5 h-3.5 text-blue-400" />
                                 <span>연관 거래처 인맥</span>
                               </h4>
                               <div className="flex flex-wrap gap-2">
                                 {relatedContacts.map(rc => (
-                                  <span key={rc.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-850 text-xs text-slate-300 shadow-sm font-medium">
+                                  <span key={rc.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-slate-850 text-xs text-slate-600 shadow-sm font-medium">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                    {rc.name} <span className="text-slate-500">({rc.company})</span>
+                                    {rc.name} <span className="text-slate-400">({rc.company})</span>
                                   </span>
                                 ))}
                               </div>
@@ -2340,7 +2340,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             <button
               type="button"
               onClick={() => setVisibleLogCount((prev) => prev + 50)}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/40 hover:bg-slate-900/70 text-slate-400 hover:text-indigo-300 text-xs font-bold transition-all"
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 text-xs font-bold transition-all"
             >
               <span className="text-lg">＋</span>
               <span>{(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length - visibleLogCount}건 더 보기</span>
@@ -2365,7 +2365,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsWriteModalOpen(false)}
-              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
 
             {/* 모달 윈도우 */}
@@ -2374,12 +2374,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 z-10"
+                className="relative w-full max-w-3xl bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 z-10"
               >
                 {/* 닫기 단추 */}
                 <button
                   onClick={() => setIsWriteModalOpen(false)}
-                  className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition-colors"
+                  className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2392,11 +2392,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     }`}>
                       {activeSubTab === 'daily' ? <FileText className="w-5 h-5" /> : <FileCheck className="w-5 h-5" />}
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-slate-100">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
                       {editingLogId ? '업무일지 수정' : activeSubTab === 'daily' ? '일일 업무일지 작성' : '주간 업무일지 작성'}
                     </h2>
                   </div>
-                  <p className="text-xs text-slate-400">명확하고 논리적인 업무 성과 정리를 지원합니다.</p>
+                  <p className="text-xs text-slate-500">명확하고 논리적인 업무 성과 정리를 지원합니다.</p>
                 </div>
 
                 <form onSubmit={handleSaveLog} className="space-y-5">
@@ -2404,7 +2404,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {activeSubTab === 'daily' ? (
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-300">작성 일자</label>
+                        <label className="text-xs font-bold text-slate-600">작성 일자</label>
                         <input
                           type="date"
                           value={formDate}
@@ -2412,13 +2412,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             setFormDate(e.target.value);
                             if (!editingLogId) setFormTitle(`${e.target.value} 일일 업무일지`);
                           }}
-                          className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm font-mono"
+                          className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono"
                         />
                       </div>
                     ) : (
                       <>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-slate-300">시작일</label>
+                          <label className="text-xs font-bold text-slate-600">시작일</label>
                           <input
                             type="date"
                             value={formStartDate}
@@ -2426,11 +2426,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               setFormStartDate(e.target.value);
                               if (!editingLogId) setFormTitle(`${e.target.value} ~ ${formEndDate} 주간 업무일지`);
                             }}
-                            className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 text-sm font-mono"
+                            className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm font-mono"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-slate-300">종료일</label>
+                          <label className="text-xs font-bold text-slate-600">종료일</label>
                           <input
                             type="date"
                             value={formEndDate}
@@ -2438,20 +2438,20 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               setFormEndDate(e.target.value);
                               if (!editingLogId) setFormTitle(`${formStartDate} ~ ${e.target.value} 주간 업무일지`);
                             }}
-                            className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 text-sm font-mono"
+                            className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm font-mono"
                           />
                         </div>
                       </>
                     )}
 
                     <div className={`${activeSubTab === 'daily' ? 'sm:col-span-2' : 'sm:col-span-1'} space-y-1.5`}>
-                      <label className="text-xs font-bold text-slate-300">일지 제목</label>
+                      <label className="text-xs font-bold text-slate-600">일지 제목</label>
                       <input
                         type="text"
                         placeholder="예: 삼성전자 제안 회의 및 후속 협의 건"
                         value={formTitle}
                         onChange={(e) => setFormTitle(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm"
                         required
                       />
                     </div>
@@ -2460,23 +2460,23 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   {/* 작성자 및 부서 정보 */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">작성자</label>
+                      <label className="text-xs font-bold text-slate-600">작성자</label>
                       <input
                         type="text"
                         placeholder="작성자 이름"
                         value={formAuthor}
                         onChange={(e) => setFormAuthor(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">소속 부서</label>
+                      <label className="text-xs font-bold text-slate-600">소속 부서</label>
                       <input
                         type="text"
                         placeholder="예: 영업부, 마케팅팀"
                         value={formDepartment}
                         onChange={(e) => setFormDepartment(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm"
                       />
                     </div>
                   </div>
@@ -2496,11 +2496,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           return (
                             <div className="bg-indigo-950/40 border border-indigo-900/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                               <div className="space-y-1">
-                                <p className="text-slate-200 font-bold flex items-center gap-1.5">
+                                <p className="text-slate-700 font-bold flex items-center gap-1.5">
                                   <Link2 className="w-3.5 h-3.5 text-indigo-400" />
                                   <span>주간 업무 보고와 연동 가능 ({matchedWeekly.startDate} ~ {matchedWeekly.endDate})</span>
                                 </p>
-                                <p className="text-slate-400 text-[11px] leading-normal">
+                                <p className="text-slate-500 text-[11px] leading-normal">
                                   {weeklyText 
                                     ? `해당 주간 보고의 [${dayLabel}] 실적이 존재합니다: "${weeklyText.length > 50 ? weeklyText.slice(0, 50) + '...' : weeklyText}"` 
                                     : `해당 주간 보고의 [${dayLabel}] 실적이 비어 있습니다. 일지 저장 시 주간 보고에도 자동 반영됩니다.`}
@@ -2523,38 +2523,38 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                       {/* 금일 실시 사항 (하루에 여러 건, 각각 시작~종료 시간 지정 가능) */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 text-blue-400" />
                           <span>금일 실시 사항</span>
                         </label>
                         <div className="space-y-2">
                           {todayEntries.length === 0 && (
-                            <div className="text-xs text-slate-500 text-center py-4 bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
+                            <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                               아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
                             </div>
                           )}
                           {todayEntries.map((entry) => (
-                            <div key={entry.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
+                            <div key={entry.id} className="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">시작</label>
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">시작</label>
                                 <input
                                   type="time"
                                   value={entry.startTime || ''}
                                   onChange={(e) => updateTodayEntry(entry.id, { startTime: e.target.value })}
-                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
-                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">종료</label>
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">종료</label>
                                 <input
                                   type="time"
                                   value={entry.endTime || ''}
                                   onChange={(e) => updateTodayEntry(entry.id, { endTime: e.target.value })}
-                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleAiPolish(`tasksToday_${entry.id}`, entry.content, (val) => updateTodayEntry(entry.id, { content: val }))}
                                   disabled={aiPolishingField !== null}
-                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
+                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-blue-400 hover:text-blue-600 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
                                 >
                                   <Sparkles className="w-3 h-3" />
                                   <span>{aiPolishingField === `tasksToday_${entry.id}` ? '정제 중...' : 'AI 정제'}</span>
@@ -2562,7 +2562,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 <button
                                   type="button"
                                   onClick={() => removeTodayEntry(entry.id)}
-                                  className="text-rose-400 hover:text-rose-300 text-xs font-bold px-1.5"
+                                  className="text-rose-400 hover:text-rose-600 text-xs font-bold px-1.5"
                                   title="이 항목 삭제"
                                 >
                                   ✕
@@ -2573,14 +2573,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 placeholder="이 시간대에 한 업무 내용을 입력하세요..."
                                 value={entry.content}
                                 onChange={(e) => updateTodayEntry(entry.id, { content: e.target.value })}
-                                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-200 text-xs placeholder:text-slate-600 leading-relaxed"
+                                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 text-xs placeholder:text-slate-400 leading-relaxed"
                               />
                             </div>
                           ))}
                           <button
                             type="button"
                             onClick={addTodayEntry}
-                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-400 hover:text-white hover:border-blue-500 text-xs font-bold transition-all"
+                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-500 text-xs font-bold transition-all"
                           >
                             + 업무 항목 추가 (시간대별로 여러 건 가능)
                           </button>
@@ -2590,7 +2590,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       {/* 명일 예정 사항 */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                          <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                             <span>명일 예정 사항</span>
                           </label>
@@ -2598,7 +2598,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             type="button"
                             onClick={() => handleAiPolish('tasksTomorrow', formTasksTomorrow, setFormTasksTomorrow)}
                             disabled={aiPolishingField !== null}
-                            className="flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
+                            className="flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-600 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
                           >
                             <Sparkles className="w-3 h-3" />
                             <span>{aiPolishingField === 'tasksTomorrow' ? '정제 중...' : 'AI 업무정제'}</span>
@@ -2609,14 +2609,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           placeholder="다음 영업일 진행 예정인 계획을 적어주세요."
                           value={formTasksTomorrow}
                           onChange={(e) => setFormTasksTomorrow(e.target.value)}
-                          className="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm placeholder:text-slate-600 leading-relaxed"
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
                           required
                         />
                       </div>
 
                       {/* 특이 사항 */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
                           <span>미결 및 특이 사항 (선택)</span>
                         </label>
@@ -2625,16 +2625,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           placeholder="특이 사항이나 부서 간 미결 조율 안건이 있다면 작성해주세요."
                           value={formIssues}
                           onChange={(e) => setFormIssues(e.target.value)}
-                          className="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-200 text-sm placeholder:text-slate-600 leading-relaxed"
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
                         />
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {/* 금주 실시 사항 */}
-                      <div className="space-y-3 bg-slate-950/40 p-4 border border-slate-800/80 rounded-2xl">
+                      <div className="space-y-3 bg-slate-50 p-4 border border-slate-200 rounded-2xl">
                         <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                          <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                             <CheckCircle className="w-3.5 h-3.5 text-indigo-400" />
                             <span>금주 실시 사항 (일별 작성)</span>
                           </label>
@@ -2642,7 +2642,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             <button
                               type="button"
                               onClick={handlePullDailyLogsForWeekly}
-                              className="flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 rounded-xl transition-all"
+                              className="flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-600 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 rounded-xl transition-all"
                             >
                               <Link2 className="w-3.5 h-3.5" />
                               <span>일일 일지 가져오기</span>
@@ -2651,7 +2651,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         </div>
 
                         {/* 요일 탭 선택기 */}
-                        <div className="grid grid-cols-7 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-850">
+                        <div className="grid grid-cols-7 gap-1 bg-slate-50 p-1 rounded-xl border border-slate-850">
                           {([
                             { id: 'mon', label: '월' },
                             { id: 'tue', label: '화' },
@@ -2671,7 +2671,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 className={`relative py-2 text-xs font-bold rounded-lg transition-all ${
                                   isSelected 
                                     ? 'bg-indigo-600 text-white shadow-md' 
-                                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-white'
                                 }`}
                               >
                                 <span>{day.label}</span>
@@ -2686,32 +2686,32 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         {/* 선택된 요일의 업무 항목들 (하루에 여러 건, 각각 시작~종료 시간 지정 가능) */}
                         <div className="space-y-2">
                           {(dayEntries[activeDayTab] || []).length === 0 && (
-                            <div className="text-xs text-slate-500 text-center py-4 bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
+                            <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                               아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
                             </div>
                           )}
                           {(dayEntries[activeDayTab] || []).map((entry) => (
-                            <div key={entry.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
+                            <div key={entry.id} className="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">시작</label>
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">시작</label>
                                 <input
                                   type="time"
                                   value={entry.startTime || ''}
                                   onChange={(e) => updateDayEntry(activeDayTab, entry.id, { startTime: e.target.value })}
-                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                 />
-                                <label className="text-[10px] text-slate-500 font-semibold shrink-0">종료</label>
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">종료</label>
                                 <input
                                   type="time"
                                   value={entry.endTime || ''}
                                   onChange={(e) => updateDayEntry(activeDayTab, entry.id, { endTime: e.target.value })}
-                                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleAiPolish(`achievements_${activeDayTab}_${entry.id}`, entry.content, (val) => updateDayEntry(activeDayTab, entry.id, { content: val }))}
                                   disabled={aiPolishingField !== null}
-                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all"
+                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all"
                                 >
                                   <Sparkles className="w-3 h-3" />
                                   <span>{aiPolishingField === `achievements_${activeDayTab}_${entry.id}` ? '정제 중...' : 'AI 정제'}</span>
@@ -2719,7 +2719,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 <button
                                   type="button"
                                   onClick={() => removeDayEntry(activeDayTab, entry.id)}
-                                  className="text-rose-400 hover:text-rose-300 text-xs font-bold px-1.5"
+                                  className="text-rose-400 hover:text-rose-600 text-xs font-bold px-1.5"
                                   title="이 항목 삭제"
                                 >
                                   ✕
@@ -2730,14 +2730,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 placeholder="이 시간대에 한 업무 내용을 입력하세요..."
                                 value={entry.content}
                                 onChange={(e) => updateDayEntry(activeDayTab, entry.id, { content: e.target.value })}
-                                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-200 text-xs placeholder:text-slate-600 leading-relaxed"
+                                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 text-xs placeholder:text-slate-400 leading-relaxed"
                               />
                             </div>
                           ))}
                           <button
                             type="button"
                             onClick={() => addDayEntry(activeDayTab)}
-                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-400 hover:text-white hover:border-indigo-500 text-xs font-bold transition-all"
+                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-500 text-xs font-bold transition-all"
                           >
                             + 업무 항목 추가 (시간대별로 여러 건 가능)
                           </button>
@@ -2747,7 +2747,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       {/* 차주 예정 사항 */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                          <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5 text-purple-400" />
                             <span>차주 예정 사항</span>
                           </label>
@@ -2755,7 +2755,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             type="button"
                             onClick={() => handleAiPolish('plansNextWeek', formPlansNextWeek, setFormPlansNextWeek)}
                             disabled={aiPolishingField !== null}
-                            className="flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all"
+                            className="flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-600 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all"
                           >
                             <Sparkles className="w-3 h-3" />
                             <span>{aiPolishingField === 'plansNextWeek' ? '정제 중...' : 'AI 업무정제'}</span>
@@ -2766,14 +2766,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           placeholder="다음 주 진행 계획을 세분화하여 입력하세요."
                           value={formPlansNextWeek}
                           onChange={(e) => setFormPlansNextWeek(e.target.value)}
-                          className="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 text-sm placeholder:text-slate-600 leading-relaxed"
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
                           required
                         />
                       </div>
 
                       {/* 애로 및 건의 사항 / 피드백 */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
                           <span>애로 및 건의 사항 / 피드백 (선택)</span>
                         </label>
@@ -2782,19 +2782,19 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           placeholder="비즈니스 지원이 필요하거나 애로 사항이 있는 부분을 적어주세요."
                           value={formFeedbacks}
                           onChange={(e) => setFormFeedbacks(e.target.value)}
-                          className="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 text-sm placeholder:text-slate-600 leading-relaxed"
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
                         />
                       </div>
                     </div>
                   )}
 
                   {/* 비용 지출 추가 영역 */}
-                  <div className="pt-4 border-t border-slate-800/60 space-y-3">
+                  <div className="pt-4 border-t border-slate-200 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Receipt className="w-4 h-4 text-emerald-400" />
-                        <span className="text-sm font-bold text-slate-200 font-sans">비용 지출 추가 (선택)</span>
-                        <span className="text-[10px] text-slate-500 hidden sm:inline">차량 연결 시 비용 관리로 자동 연동</span>
+                        <span className="text-sm font-bold text-slate-700 font-sans">비용 지출 추가 (선택)</span>
+                        <span className="text-[10px] text-slate-400 hidden sm:inline">차량 연결 시 비용 관리로 자동 연동</span>
                       </div>
                       <div className="flex gap-1.5">
                         <button
@@ -2803,15 +2803,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             setScanningExpenseRowId(null);
                             setIsReceiptModalOpen(true);
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 hover:text-indigo-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-50 border border-indigo-500/20 text-indigo-700 hover:text-indigo-700 font-bold text-xs transition-all active:scale-95 cursor-pointer"
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                           <span>AI 영수증 인식 추가</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleAddExpenseRow}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 font-bold text-xs transition-all active:scale-95"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-50 border border-emerald-500/20 text-emerald-700 hover:text-emerald-700 font-bold text-xs transition-all active:scale-95"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>비용 항목 추가</span>
@@ -2820,22 +2820,22 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     </div>
 
                     {formExpenses.length === 0 ? (
-                      <div className="text-center py-4 border border-dashed border-slate-800/80 rounded-2xl bg-slate-950/40">
-                        <p className="text-xs text-slate-500">추가된 비용 지출 내역이 없습니다. (위의 '+ 비용 항목 추가' 버튼을 눌러 추가하세요)</p>
+                      <div className="text-center py-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                        <p className="text-xs text-slate-400">추가된 비용 지출 내역이 없습니다. (위의 '+ 비용 항목 추가' 버튼을 눌러 추가하세요)</p>
                       </div>
                     ) : (
                       <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
                         {formExpenses.map((expense) => (
                           <div
                             key={expense.id}
-                            className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/85 hover:border-slate-700/80 transition-all space-y-3 relative group"
+                            className="p-4 rounded-2xl bg-slate-100 border border-slate-200/85 hover:border-slate-200 transition-all space-y-3 relative group"
                           >
                             <div className="absolute top-4 right-4 flex gap-1.5 z-10">
                               {expense.receiptImage && (
                                 <button
                                   type="button"
                                   onClick={() => setViewingReceiptImage(expense.receiptImage)}
-                                  className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-emerald-400 hover:text-emerald-300 transition-all text-xs flex items-center gap-1 cursor-pointer"
+                                  className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-emerald-400 hover:text-emerald-600 transition-all text-xs flex items-center gap-1 cursor-pointer"
                                   title="영수증 원본 보기"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
@@ -2848,16 +2848,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                   setScanningExpenseRowId(expense.id);
                                   setIsReceiptModalOpen(true);
                                 }}
-                                className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-indigo-500/30 text-indigo-400 hover:text-indigo-300 transition-all text-xs flex items-center gap-1 cursor-pointer"
+                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-indigo-500/30 text-indigo-400 hover:text-indigo-600 transition-all text-xs flex items-center gap-1 cursor-pointer"
                                 title="이 항목에 영수증 스캔/연동"
                               >
-                                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                                 <span className="text-[10px] hidden md:inline">AI 영수증 스캔</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveExpenseRow(expense.id)}
-                                className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-rose-500/30 text-slate-500 hover:text-rose-400 transition-all cursor-pointer"
+                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 transition-all cursor-pointer"
                                 title="삭제"
                               >
                                 <Trash className="w-3.5 h-3.5" />
@@ -2867,11 +2867,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               {/* 1. 카테고리 선택 */}
                               <div className="space-y-1">
-                                <label className="text-[11px] font-semibold text-slate-400">지출 분류</label>
+                                <label className="text-[11px] font-semibold text-slate-500">지출 분류</label>
                                 <select
                                   value={expense.category}
                                   onChange={(e) => handleUpdateExpenseRow(expense.id, { category: e.target.value as any })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
                                   <option value="breakfast">아침식사</option>
                                   <option value="lunch">점심식사</option>
@@ -2887,11 +2887,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                               {/* 2. 결제 수단 선택 */}
                               <div className="space-y-1">
-                                <label className="text-[11px] font-semibold text-slate-400">결제 수단</label>
+                                <label className="text-[11px] font-semibold text-slate-500">결제 수단</label>
                                 <select
                                   value={expense.payMethod}
                                   onChange={(e) => handleUpdateExpenseRow(expense.id, { payMethod: e.target.value as any })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
                                   <option value="company_card">법인(회사)카드</option>
                                   <option value="personal_card">개인카드</option>
@@ -2902,14 +2902,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                               {/* 3. 금액 */}
                               <div className="space-y-1">
-                                <label className="text-[11px] font-semibold text-slate-400">금액 (원)</label>
+                                <label className="text-[11px] font-semibold text-slate-500">금액 (원)</label>
                                 <input
                                   type="text"
                                   inputMode="numeric"
                                   placeholder="금액 입력"
                                   value={expense.amount ? formatCurrencyInput(expense.amount) : ''}
                                   onChange={(e) => handleUpdateExpenseRow(expense.id, { amount: parseCurrencyInput(e.target.value) })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
                                 />
                               </div>
                             </div>
@@ -2919,27 +2919,27 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               {/* 직접 입력일 때 분류 이름 */}
                               {expense.category === 'custom' && (
                                 <div className="space-y-1">
-                                  <label className="text-[11px] font-semibold text-slate-400">지출 분류명 직접 입력</label>
+                                  <label className="text-[11px] font-semibold text-slate-500">지출 분류명 직접 입력</label>
                                   <input
                                     type="text"
                                     placeholder="예: 퀵서비스 비용"
                                     value={expense.categoryCustom || ''}
                                     onChange={(e) => handleUpdateExpenseRow(expense.id, { categoryCustom: e.target.value })}
-                                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                   />
                                 </div>
                               )}
 
                               {/* 차량 연동 선택 */}
                               <div className="space-y-1">
-                                <label className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                                <label className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
                                   <span>통합 차량 관리 연동</span>
                                   <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded">비용관리 연계</span>
                                 </label>
                                 <select
                                   value={expense.vehicleId || ''}
                                   onChange={(e) => handleUpdateExpenseRow(expense.id, { vehicleId: e.target.value || undefined })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
                                   <option value="">차량 미선택 (연동 안 함)</option>
                                   {vehicles.map(v => (
@@ -2952,13 +2952,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                               {/* 메모 */}
                               <div className={`space-y-1 ${expense.category === 'custom' ? '' : 'sm:col-span-2'}`}>
-                                <label className="text-[11px] font-semibold text-slate-400">지출 상세 내용 / 적요</label>
+                                <label className="text-[11px] font-semibold text-slate-500">지출 상세 내용 / 적요</label>
                                 <input
                                   type="text"
                                   placeholder="예: 점심 식대 결제, 소모품 구입 등"
                                   value={expense.memo || ''}
                                   onChange={(e) => handleUpdateExpenseRow(expense.id, { memo: e.target.value })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 />
                               </div>
                             </div>
@@ -2969,16 +2969,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </div>
 
                   {/* 연관 프로젝트 및 거래처 매핑 (CRM 연동) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-800/60">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
                     {/* 연관 프로젝트 멀티플 선택 */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                         <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
                         <span>연관 프로젝트 연결</span>
                       </label>
-                      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 max-h-[120px] overflow-y-auto space-y-2">
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-[120px] overflow-y-auto space-y-2">
                         {projects.length === 0 ? (
-                          <p className="text-xs text-slate-600 text-center py-2">등록된 프로젝트가 없습니다.</p>
+                          <p className="text-xs text-slate-400 text-center py-2">등록된 프로젝트가 없습니다.</p>
                         ) : (
                           projects.map(p => {
                             const isSelected = formProjectIds.includes(p.id);
@@ -2996,7 +2996,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 className={`w-full flex items-center justify-between text-left px-3 py-1.5 rounded-xl text-xs transition-all ${
                                   isSelected 
                                     ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
-                                    : 'bg-slate-900/60 text-slate-400 hover:bg-slate-800'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-100'
                                 }`}
                               >
                                 <span className="truncate pr-2 font-medium">{p.name}</span>
@@ -3010,13 +3010,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                     {/* 연관 거래처 매핑 멀티플 선택 */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-blue-400" />
                         <span>연관 거래처 인맥 연결</span>
                       </label>
-                      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 max-h-[120px] overflow-y-auto space-y-2">
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-[120px] overflow-y-auto space-y-2">
                         {contacts.length === 0 ? (
-                          <p className="text-xs text-slate-600 text-center py-2">등록된 거래처 인맥이 없습니다.</p>
+                          <p className="text-xs text-slate-400 text-center py-2">등록된 거래처 인맥이 없습니다.</p>
                         ) : (
                           contacts.map(c => {
                             const isSelected = formContactIds.includes(c.id);
@@ -3034,10 +3034,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 className={`w-full flex items-center justify-between text-left px-3 py-1.5 rounded-xl text-xs transition-all ${
                                   isSelected 
                                     ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
-                                    : 'bg-slate-900/60 text-slate-400 hover:bg-slate-800'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-100'
                                 }`}
                               >
-                                <span className="truncate pr-2 font-medium">{c.name} <span className="text-[10px] text-slate-500">({c.company})</span></span>
+                                <span className="truncate pr-2 font-medium">{c.name} <span className="text-[10px] text-slate-400">({c.company})</span></span>
                                 {isSelected ? <Check className="w-3.5 h-3.5 flex-shrink-0" /> : null}
                               </button>
                             );
@@ -3048,88 +3048,88 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </div>
 
                   {/* 거래처 인맥 직접 추가 */}
-                  <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3.5 space-y-3 mt-4 text-xs">
+                  <div className="border border-slate-200 bg-slate-50 rounded-xl p-3.5 space-y-3 mt-4 text-xs">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={useDirectContact}
                         onChange={(e) => setUseDirectContact(e.target.checked)}
-                        className="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                        className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                       />
-                      <span className="text-slate-300 font-semibold">새로운 담당자 직접 입력하여 연결 (등록된 거래처가 없을 경우)</span>
+                      <span className="text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결 (등록된 거래처가 없을 경우)</span>
                     </label>
 
                     {useDirectContact && (
                       <div className="grid grid-cols-2 gap-3.5 pt-2 animate-fadeIn">
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">담당자 성함 *</label>
                           <input
                             type="text"
                             value={directContactName}
                             onChange={(e) => setDirectContactName(e.target.value)}
                             placeholder="예: 홍길동"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                             required={useDirectContact}
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">회사/기관명</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">회사/기관명</label>
                           <input
                             type="text"
                             value={directContactCompany}
                             onChange={(e) => setDirectContactCompany(e.target.value)}
                             placeholder="예: 현대건설"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">부서</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">부서</label>
                           <input
                             type="text"
                             value={directContactDept}
                             onChange={(e) => setDirectContactDept(e.target.value)}
                             placeholder="예: 구매팀"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">직책</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">직책</label>
                           <input
                             type="text"
                             value={directContactTitle}
                             onChange={(e) => setDirectContactTitle(e.target.value)}
                             placeholder="예: 과장"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(직장)</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(직장)</label>
                           <input
                             type="text"
                             value={directContactPhoneOffice}
                             onChange={(e) => setDirectContactPhoneOffice(e.target.value)}
                             placeholder="예: 02-1234-5678"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
                           <input
                             type="text"
                             value={directContactPhoneMobile}
                             onChange={(e) => setDirectContactPhoneMobile(e.target.value)}
                             placeholder="예: 010-1234-5678"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">이메일 주소</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일 주소</label>
                           <input
                             type="email"
                             value={directContactEmail}
                             onChange={(e) => setDirectContactEmail(e.target.value)}
                             placeholder="예: buyer@company.com"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                       </div>
@@ -3137,11 +3137,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </div>
 
                   {/* 하단 액션 단추 */}
-                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/60">
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                     <button
                       type="button"
                       onClick={() => setIsWriteModalOpen(false)}
-                      className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-colors"
+                      className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm border border-slate-200 transition-colors"
                     >
                       취소
                     </button>
@@ -3172,16 +3172,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 30 }}
-              className="relative w-full max-w-[215mm] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden"
+              className="relative w-full max-w-[215mm] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden"
             >
               {/* 비인쇄 상단 바 (no-print) */}
-              <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+              <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
                     <Printer className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">
                       주간 업무 보고서 리포트 생성기
                     </h2>
                   </div>
@@ -3204,7 +3204,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </button>
                   <button
                     onClick={() => setSelectedReportLog(null)}
-                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -3212,17 +3212,17 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               </div>
 
               {/* 편집 컨트롤 바 (no-print) */}
-              <div className="no-print p-4 sm:px-6 bg-slate-950/40 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-6 gap-3 text-xs text-slate-300">
+              <div className="no-print p-4 sm:px-6 bg-slate-50 border-b border-slate-200 grid grid-cols-2 sm:grid-cols-6 gap-3 text-xs text-slate-600">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-400">보고서 양식</label>
-                  <div className="flex bg-slate-900 p-0.5 rounded-xl border border-slate-800">
+                  <label className="font-bold text-slate-500">보고서 양식</label>
+                  <div className="flex bg-white p-0.5 rounded-xl border border-slate-200">
                     <button
                       type="button"
                       onClick={() => setReportOption('A')}
                       className={`flex-1 py-1.5 px-2 rounded-lg text-center font-bold text-[11px] transition-all cursor-pointer ${
                         reportOption === 'A'
                           ? 'bg-indigo-600 text-white shadow'
-                          : 'text-slate-400 hover:text-slate-200'
+                          : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       옵션 A
@@ -3233,7 +3233,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       className={`flex-1 py-1.5 px-2 rounded-lg text-center font-bold text-[11px] transition-all cursor-pointer ${
                         reportOption === 'B'
                           ? 'bg-indigo-600 text-white shadow'
-                          : 'text-slate-400 hover:text-slate-200'
+                          : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       옵션 B
@@ -3241,57 +3241,57 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-400">부서명</label>
+                  <label className="font-bold text-slate-500">부서명</label>
                   <input
                     type="text"
                     value={reportDepartment}
                     onChange={(e) => setReportDepartment(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-400">작성자</label>
+                  <label className="font-bold text-slate-500">작성자</label>
                   <input
                     type="text"
                     value={reportAuthor}
                     onChange={(e) => setReportAuthor(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-400">일간 비용 (원)</label>
+                  <label className="font-bold text-slate-500">일간 비용 (원)</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={reportExpenseDaily ? formatCurrencyInput(reportExpenseDaily) : ''}
                     onChange={(e) => setReportExpenseDaily(parseCurrencyInput(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-400">주간 비용 (원)</label>
+                  <label className="font-bold text-slate-500">주간 비용 (원)</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={reportExpenseWeekly ? formatCurrencyInput(reportExpenseWeekly) : ''}
                     onChange={(e) => setReportExpenseWeekly(parseCurrencyInput(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
                   />
                 </div>
                 <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <label className="font-bold text-slate-400">월간 비용 (원)</label>
+                  <label className="font-bold text-slate-500">월간 비용 (원)</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={reportExpenseMonthly ? formatCurrencyInput(reportExpenseMonthly) : ''}
                     onChange={(e) => setReportExpenseMonthly(parseCurrencyInput(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
                   />
                 </div>
               </div>
 
               {/* 주간업무보고 인쇄 프리뷰 종이 영역 (A4 사이즈 모방) */}
-              <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-8 flex justify-center">
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-8 flex justify-center">
                 <div
                   id="report-editor-view"
                   className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans select-text leading-tight"
@@ -3409,12 +3409,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
                               {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
-                              )) : <span className="text-[10px] text-slate-400">-</span>}
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
                             <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
                               {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
-                              )) : <span className="text-[10px] text-slate-400">-</span>}
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
                           </tr>
                         ))}
@@ -3491,12 +3491,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
                               {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
-                              )) : <span className="text-[10px] text-slate-400">-</span>}
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
                             <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
                               {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
-                              )) : <span className="text-[10px] text-slate-400">-</span>}
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
                           </tr>
                         ))}
@@ -3626,11 +3626,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               </div>
 
               {/* 비인쇄 하단 제어 바 (no-print) */}
-              <div className="no-print p-4 sm:p-5 border-t border-slate-800 bg-slate-900/90 flex items-center justify-end gap-3 shrink-0">
+              <div className="no-print p-4 sm:p-5 border-t border-slate-200 bg-white/90 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setSelectedReportLog(null)}
-                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs border border-slate-200 transition-colors cursor-pointer"
                 >
                   닫기
                 </button>
@@ -3678,16 +3678,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               <button
                 type="button"
                 onClick={() => setViewingReceiptImage(null)}
-                className="p-2.5 rounded-full bg-slate-900 border border-slate-700 hover:border-slate-500 text-white transition-all shadow-lg cursor-pointer"
+                className="p-2.5 rounded-full bg-white border border-slate-200 hover:border-slate-500 text-slate-700 transition-all shadow-lg cursor-pointer"
                 title="닫기"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="max-w-3xl max-h-[85vh] overflow-hidden flex items-center justify-center rounded-2xl border border-slate-800 bg-slate-950 p-2 shadow-2xl">
+            <div className="max-w-3xl max-h-[85vh] overflow-hidden flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-2xl">
               <img src={viewingReceiptImage} alt="영수증 원본 이미지" className="max-w-full max-h-[80vh] object-contain rounded-xl" />
             </div>
-            <p className="text-slate-400 text-xs mt-3.5 font-sans">우측 상단 X 단추로 닫을 수 있습니다.</p>
+            <p className="text-slate-500 text-xs mt-3.5 font-sans">우측 상단 X 단추로 닫을 수 있습니다.</p>
           </div>
         )}
       </AnimatePresence>

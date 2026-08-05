@@ -1170,7 +1170,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     <div className="flex flex-col gap-3 animate-fade-in" id="vehicle-management-view">
       
       {/* 서브 탭 탐색 내비게이션 바 */}
-      <div className="flex border-b border-slate-800/60 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex border-b border-slate-200 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex space-x-1 py-1 shrink-0">
           {[
             { id: 'dashboard', label: '대시보드', icon: BarChart3 },
@@ -1189,11 +1189,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 onClick={() => setActiveSubTab(tab.id as any)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                   active 
-                    ? 'bg-slate-800 border-b-2 border-indigo-500 text-indigo-300 shadow-sm' 
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
+                    ? 'bg-slate-100 border-b-2 border-indigo-500 text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-850/50'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${active ? 'text-indigo-400' : 'text-slate-500'}`} />
+                <Icon className={`w-3.5 h-3.5 ${active ? 'text-indigo-400' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -1254,20 +1254,20 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     const isExpired = daysLeft < 0;
 
                     return (
-                      <div key={v.id} className="bg-slate-950/40 border border-slate-850 p-3 rounded-xl flex items-center justify-between text-xs">
+                      <div key={v.id} className="bg-slate-50 border border-slate-850 p-3 rounded-xl flex items-center justify-between text-xs">
                         <div className="space-y-1">
-                          <p className="font-bold text-slate-200">{v.modelName} ({v.carNumber})</p>
-                          <p className="text-[11px] text-slate-400">
+                          <p className="font-bold text-slate-700">{v.modelName} ({v.carNumber})</p>
+                          <p className="text-[11px] text-slate-500">
                             보험사: {v.insuranceCompany || '미지정'} · 만기일: {v.insuranceEndDate}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
                           {isExpired ? (
-                            <span className="px-2 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded text-[11px] font-bold">
+                            <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-500/30 rounded text-[11px] font-bold">
                               만기 {Math.abs(daysLeft)}일 경과
                             </span>
                           ) : (
-                            <span className="px-2 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[11px] font-bold">
+                            <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-500/30 rounded text-[11px] font-bold">
                               D-{daysLeft}
                             </span>
                           )}
@@ -1313,20 +1313,20 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {dueSoonItems.map(({ item, vehicle, kmLeft, daysLeft, isOverdue }) => (
-                    <div key={item.id} className="bg-slate-950/40 border border-slate-850 p-3 rounded-xl flex items-center justify-between text-xs">
+                    <div key={item.id} className="bg-slate-50 border border-slate-850 p-3 rounded-xl flex items-center justify-between text-xs">
                       <div className="space-y-1">
-                        <p className="font-bold text-slate-200">{vehicle ? `${vehicle.modelName} (${vehicle.plateNumber})` : '차량 미지정'}</p>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="font-bold text-slate-700">{vehicle ? `${vehicle.modelName} (${vehicle.plateNumber})` : '차량 미지정'}</p>
+                        <p className="text-[11px] text-slate-500">
                           {item.itemType} · 남은 거리: {Math.max(0, kmLeft).toLocaleString()}km · 남은 일수: {Math.max(0, daysLeft)}일
                         </p>
                       </div>
                       <div className="text-right shrink-0">
                         {isOverdue ? (
-                          <span className="px-2 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded text-[11px] font-bold">
+                          <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-500/30 rounded text-[11px] font-bold">
                             교체 주기 초과
                           </span>
                         ) : (
-                          <span className="px-2 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[11px] font-bold">
+                          <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-500/30 rounded text-[11px] font-bold">
                             점검 임박
                           </span>
                         )}
@@ -1342,34 +1342,34 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* 등록된 차량 */}
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-400">등록된 차량</span>
-                <p className="text-2xl font-bold text-slate-100">{totalVehiclesCount}대</p>
+                <span className="text-xs font-semibold text-slate-500">등록된 차량</span>
+                <p className="text-2xl font-bold text-slate-800">{totalVehiclesCount}대</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-800/40 border border-slate-750 flex items-center justify-center text-slate-400">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-750 flex items-center justify-center text-slate-500">
                 <Car className="w-5.5 h-5.5" />
               </div>
             </div>
 
             {/* 총 운행기록 */}
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-400">총 운행기록</span>
-                <p className="text-2xl font-bold text-slate-100">{totalDrivingLogsCount}건</p>
+                <span className="text-xs font-semibold text-slate-500">총 운행기록</span>
+                <p className="text-2xl font-bold text-slate-800">{totalDrivingLogsCount}건</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-800/40 border border-slate-750 flex items-center justify-center text-slate-400">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-750 flex items-center justify-center text-slate-500">
                 <MapPin className="w-5.5 h-5.5" />
               </div>
             </div>
 
             {/* 총 누적거리 */}
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-400">총 누적거리</span>
-                <p className="text-2xl font-bold text-slate-100">{formatWon(totalDistance)} km</p>
+                <span className="text-xs font-semibold text-slate-500">총 누적거리</span>
+                <p className="text-2xl font-bold text-slate-800">{formatWon(totalDistance)} km</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-800/40 border border-slate-750 flex items-center justify-center text-slate-400">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-750 flex items-center justify-center text-slate-500">
                 <Info className="w-5.5 h-5.5" />
               </div>
             </div>
@@ -1377,10 +1377,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             {/* 총 지출비용 (이미지처럼 연한 크림/연노랑 컬러 배경 효과 적용 가능) */}
             <div className="bg-amber-950/20 border border-amber-800/40 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-amber-300">총 지출비용</span>
+                <span className="text-xs font-semibold text-amber-600">총 지출비용</span>
                 <p className="text-2xl font-bold text-amber-200">{formatWon(totalExpenseSum)} 원</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-500/20 flex items-center justify-center text-amber-700">
                 <Receipt className="w-5.5 h-5.5" />
               </div>
             </div>
@@ -1390,9 +1390,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* 최근 운행 기록 목록 */}
-            <div className="lg:col-span-2 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
-                <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <div className="lg:col-span-2 bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200/50 pb-3">
+                <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-indigo-400" />
                   <span>최근 운행 기록</span>
                 </h3>
@@ -1405,27 +1405,27 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
 
               {recentLogs.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-xs">
+                <div className="py-12 text-center text-slate-400 text-xs">
                   최근 기록된 운행 일지가 없습니다.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-800/50">
+                <div className="divide-y divide-slate-200/50">
                   {recentLogs.map((log) => {
                     const matchedCar = vehicles.find(v => v.id === log.vehicleId);
                     return (
                       <div key={log.id} className="py-3 flex items-center justify-between text-xs gap-4 first:pt-0 last:pb-0">
                         <div className="space-y-1">
-                          <p className="font-semibold text-slate-100">{matchedCar ? matchedCar.modelName : '차량'}</p>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                          <p className="font-semibold text-slate-800">{matchedCar ? matchedCar.modelName : '차량'}</p>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-400">
                             <span>{log.date}</span>
                             <span>•</span>
                             <span>{log.driverName} ({log.purpose})</span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="font-bold text-slate-200 text-sm">{log.distance} km</span>
+                          <span className="font-bold text-slate-700 text-sm">{log.distance} km</span>
                           {log.startPlace && log.endPlace && (
-                            <p className="text-[10px] text-slate-500">
+                            <p className="text-[10px] text-slate-400">
                               {log.startPlace} → {log.endPlace}
                             </p>
                           )}
@@ -1438,10 +1438,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             </div>
 
             {/* 다가오는 정비 일정 & 주유비 비중 간략 분석 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+            <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
-                  <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <div className="flex items-center justify-between border-b border-slate-200/50 pb-3">
+                  <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <Wrench className="w-4 h-4 text-indigo-400" />
                     <span>정비 수리 일정</span>
                   </h3>
@@ -1454,7 +1454,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 {maintenances.filter(m => m.status === 'scheduled').length === 0 ? (
-                  <div className="py-6 text-center text-slate-500 text-[11px] flex flex-col items-center gap-2">
+                  <div className="py-6 text-center text-slate-400 text-[11px] flex flex-col items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                     <p>잡혀있는 예정된 정비가 없습니다.<br />소모품 교환 주기를 추가해 보세요.</p>
                   </div>
@@ -1464,16 +1464,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       .filter(m => m.status === 'scheduled')
                       .slice(0, 3)
                       .map(m => (
-                        <div key={m.id} className="p-3 bg-slate-950/60 border border-slate-850 rounded-xl flex items-start gap-2.5 text-xs">
+                        <div key={m.id} className="p-3 bg-slate-100 border border-slate-850 rounded-xl flex items-start gap-2.5 text-xs">
                           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                           <div className="space-y-0.5 flex-1">
-                            <p className="font-bold text-slate-200">{m.title}</p>
-                            <p className="text-[10px] text-slate-500">{getVehicleModel(m.vehicleId)} | {m.date}</p>
-                            {m.cost > 0 && <p className="text-[10px] text-amber-300">예상비용: {formatWon(m.cost)}원</p>}
+                            <p className="font-bold text-slate-700">{m.title}</p>
+                            <p className="text-[10px] text-slate-400">{getVehicleModel(m.vehicleId)} | {m.date}</p>
+                            {m.cost > 0 && <p className="text-[10px] text-amber-600">예상비용: {formatWon(m.cost)}원</p>}
                           </div>
                           <button 
                             onClick={() => handleCompleteMaint(m.id)}
-                            className="px-2 py-1 rounded bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 text-[10px] font-semibold"
+                            className="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-500/20 text-[10px] font-semibold"
                           >
                             완료 처리
                           </button>
@@ -1484,10 +1484,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
 
               {/* 퀵 팁 */}
-              <div className="pt-4 border-t border-slate-800/50 text-[11px] text-slate-400 leading-relaxed flex items-start gap-1.5 bg-indigo-950/10 p-3 rounded-xl border border-indigo-900/20">
+              <div className="pt-4 border-t border-slate-200/50 text-[11px] text-slate-500 leading-relaxed flex items-start gap-1.5 bg-indigo-950/10 p-3 rounded-xl border border-indigo-900/20">
                 <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                 <p>
-                  <span className="font-bold text-indigo-300">스마트 데이터팁:</span> 모든 사원들이 동일 회사 소속으로 가입하면 본 차량 대시보드 및 지출 운행기록 전산이 전사 동기화됩니다.
+                  <span className="font-bold text-indigo-600">스마트 데이터팁:</span> 모든 사원들이 동일 회사 소속으로 가입하면 본 차량 대시보드 및 지출 운행기록 전산이 전사 동기화됩니다.
                 </p>
               </div>
 
@@ -1510,26 +1510,26 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <span>차량 추가</span>
             </button>
             <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input 
                 type="text" 
                 placeholder="차량명, 번호 검색..." 
                 value={vehicleSearch}
                 onChange={e => setVehicleSearch(e.target.value)}
-                className="w-full bg-slate-900 text-xs text-slate-200 pl-9 pr-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+                className="w-full bg-white text-xs text-slate-700 pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
               />
             </div>
           </div>
 
           {/* 1. 차량 신규 등록 폼 */}
           {showVehicleForm && (
-            <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+            <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Car className="w-4 h-4 text-indigo-400" />
                   <span>신규 차량 등록 대장 기입</span>
                 </h3>
-                <button onClick={() => setShowVehicleForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
+                <button onClick={() => setShowVehicleForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               
               <form onSubmit={handleAddVehicle} className="space-y-6">
@@ -1540,33 +1540,33 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">차량 모델명 *</label>
+                      <label className="text-xs text-slate-500">차량 모델명 *</label>
                       <input 
                         type="text" 
                         placeholder="예: 벤츠 E300 4Matic" 
                         value={newVehicle.modelName}
                         onChange={e => setNewVehicle({ ...newVehicle, modelName: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                         required
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">차량 등록 번호 *</label>
+                      <label className="text-xs text-slate-500">차량 등록 번호 *</label>
                       <input 
                         type="text" 
                         placeholder="예: 12가 3456" 
                         value={newVehicle.plateNumber}
                         onChange={e => setNewVehicle({ ...newVehicle, plateNumber: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                         required
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">기본 유종 *</label>
+                      <label className="text-xs text-slate-500">기본 유종 *</label>
                       <select 
                         value={newVehicle.fuelType}
                         onChange={e => setNewVehicle({ ...newVehicle, fuelType: e.target.value as any })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       >
                         <option value="gasoline">가솔린 (휘발유)</option>
                         <option value="diesel">디젤 (경유)</option>
@@ -1576,68 +1576,68 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">최초 주행거리 (km) *</label>
+                      <label className="text-xs text-slate-500">최초 주행거리 (km) *</label>
                       <input 
                         type="number" 
                         value={newVehicle.initialMileage === 0 ? '' : newVehicle.initialMileage}
                         onChange={e => setNewVehicle({ ...newVehicle, initialMileage: Number(e.target.value) })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                         required
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">년식 (제조년도)</label>
+                      <label className="text-xs text-slate-500">년식 (제조년도)</label>
                       <input 
                         type="text" 
                         placeholder="예: 2024년식" 
                         value={newVehicle.modelYear}
                         onChange={e => setNewVehicle({ ...newVehicle, modelYear: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">색상</label>
+                      <label className="text-xs text-slate-500">색상</label>
                       <input 
                         type="text" 
                         placeholder="예: 블랙 / 화이트" 
                         value={newVehicle.color}
                         onChange={e => setNewVehicle({ ...newVehicle, color: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">담당/전담 운전자</label>
+                      <label className="text-xs text-slate-500">담당/전담 운전자</label>
                       <input 
                         type="text" 
                         value={newVehicle.owner}
                         onChange={e => setNewVehicle({ ...newVehicle, owner: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">구입/렌트 계약일</label>
+                      <label className="text-xs text-slate-500">구입/렌트 계약일</label>
                       <input 
                         type="date" 
                         value={newVehicle.purchaseDate}
                         onChange={e => setNewVehicle({ ...newVehicle, purchaseDate: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* 세션 2: 임차 정보 */}
-                <div className="space-y-3 pt-2 border-t border-slate-800/60">
+                <div className="space-y-3 pt-2 border-t border-slate-200">
                   <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                     <span>•</span> 임차 정보 및 금융 성격
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">임차 구분</label>
+                      <label className="text-xs text-slate-500">임차 구분</label>
                       <select 
                         value={newVehicle.rentalType}
                         onChange={e => setNewVehicle({ ...newVehicle, rentalType: e.target.value as any })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       >
                         <option value="own">자가 (소유 자산)</option>
                         <option value="long_rent">장기렌트</option>
@@ -1647,79 +1647,79 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">월 임차료 (원화 금액)</label>
+                      <label className="text-xs text-slate-500">월 임차료 (원화 금액)</label>
                       <input 
                         type="text" 
                         inputMode="numeric"
                         placeholder="예: 850,000" 
                         value={newVehicle.rentalFee === 0 ? '' : formatCurrencyInput(newVehicle.rentalFee)}
                         onChange={e => setNewVehicle({ ...newVehicle, rentalFee: parseCurrencyInput(e.target.value) })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* 세션 3: 보험 계약 및 만기 정보 */}
-                <div className="space-y-3 pt-2 border-t border-slate-800/60">
+                <div className="space-y-3 pt-2 border-t border-slate-200">
                   <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                     <span>•</span> 가입 법인 보험 정보
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">보험사명</label>
+                      <label className="text-xs text-slate-500">보험사명</label>
                       <input 
                         type="text" 
                         placeholder="예: 삼성화재, 현대해상 등" 
                         value={newVehicle.insuranceCompany}
                         onChange={e => setNewVehicle({ ...newVehicle, insuranceCompany: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">보험 가입일자</label>
+                      <label className="text-xs text-slate-500">보험 가입일자</label>
                       <input 
                         type="date" 
                         value={newVehicle.insuranceStartDate}
                         onChange={e => setNewVehicle({ ...newVehicle, insuranceStartDate: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">보험 만기일자</label>
+                      <label className="text-xs text-slate-500">보험 만기일자</label>
                       <input 
                         type="date" 
                         value={newVehicle.insuranceEndDate}
                         onChange={e => setNewVehicle({ ...newVehicle, insuranceEndDate: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">보험 담당자명</label>
+                      <label className="text-xs text-slate-500">보험 담당자명</label>
                       <input 
                         type="text" 
                         placeholder="예: 홍길동 대리" 
                         value={newVehicle.insuranceAgent}
                         onChange={e => setNewVehicle({ ...newVehicle, insuranceAgent: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs text-slate-400">보험 담당자 연락처</label>
+                      <label className="text-xs text-slate-500">보험 담당자 연락처</label>
                       <input 
                         type="text" 
                         placeholder="예: 010-1234-5678" 
                         value={newVehicle.insuranceContact}
                         onChange={e => setNewVehicle({ ...newVehicle, insuranceContact: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400">운행 허용 상태</label>
+                      <label className="text-xs text-slate-500">운행 허용 상태</label>
                       <select 
                         value={newVehicle.status}
                         onChange={e => setNewVehicle({ ...newVehicle, status: e.target.value as any })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       >
                         <option value="active">운행 가능</option>
                         <option value="maintenance">정비 수리중</option>
@@ -1730,33 +1730,33 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 {/* 비콘 ID 정보 */}
-                <div className="space-y-3 pt-2 border-t border-slate-800/60">
+                <div className="space-y-3 pt-2 border-t border-slate-200">
                   <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                     <span>•</span> 비콘 ID 단말기 정보
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs text-slate-400">비콘 ID (자동 추적 센서 고유번호)</label>
+                      <label className="text-xs text-slate-500">비콘 ID (자동 추적 센서 고유번호)</label>
                       <input 
                         type="text" 
                         placeholder="예: BCON-9876-XYZ" 
                         value={newVehicle.beaconId}
                         onChange={e => setNewVehicle({ ...newVehicle, beaconId: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* 자동차 등록증 첨부 */}
-                <div className="space-y-3 pt-2 border-t border-slate-800/60">
+                <div className="space-y-3 pt-2 border-t border-slate-200">
                   <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                     <span>•</span> 자동차 등록증 첨부
                   </h4>
-                  <div className="p-4 bg-slate-950 rounded-xl border border-slate-850 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-850 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-left">
-                      <p className="text-xs font-bold text-slate-200">자동차 등록증 업로드 (이미지 및 PDF 지원)</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">이미지 및 PDF 파일 모두 업로드 및 전산 증빙 뷰어로 원본 보기가 가능합니다.</p>
+                      <p className="text-xs font-bold text-slate-700">자동차 등록증 업로드 (이미지 및 PDF 지원)</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">이미지 및 PDF 파일 모두 업로드 및 전산 증빙 뷰어로 원본 보기가 가능합니다.</p>
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                       <input 
@@ -1777,7 +1777,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       />
                       <label 
                         htmlFor="reg-doc-upload-tab"
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-755 text-slate-300 border border-slate-700 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-755 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
                       >
                         파일 찾아보기
                       </label>
@@ -1786,18 +1786,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           <CheckCircle2 className="w-3.5 h-3.5" /> 등록 완료!
                         </span>
                       ) : (
-                        <span className="text-[10px] text-slate-500">선택된 파일 없음</span>
+                        <span className="text-[10px] text-slate-400">선택된 파일 없음</span>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* 버튼 대기열 */}
-                <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-800/60">
+                <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                   <button 
                     type="button"
                     onClick={() => setShowVehicleForm(false)}
-                    className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                    className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
                   </button>
@@ -1813,14 +1813,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           )}
 
           {vehicles.length === 0 ? (
-            <div className="bg-slate-900/40 border border-slate-800 rounded-2xl py-12 text-center text-slate-400 text-xs">
+            <div className="bg-slate-100 border border-slate-200 rounded-2xl py-12 text-center text-slate-500 text-xs">
               등록된 차량이 없습니다. 상단 '차량 추가'를 통해 법인 차량을 먼저 기재해 주세요.
             </div>
           ) : (
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-[11px] text-indigo-400 font-medium pb-1">
                 <span className="animate-pulse">◀ Swipe / Scroll 좌우 스크롤 ▶</span>
-                <span className="text-slate-500">등록된 차량 카드를 좌우로 밀어서 편하게 넘겨볼 수 있습니다 (총 {vehicles.length}대)</span>
+                <span className="text-slate-400">등록된 차량 카드를 좌우로 밀어서 편하게 넘겨볼 수 있습니다 (총 {vehicles.length}대)</span>
               </div>
               <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                 {vehicles
@@ -1834,25 +1834,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     const totalCarExpense = expenses.filter(e => e.vehicleId === v.id).reduce((sum, e) => sum + e.amount, 0);
 
                     return (
-                      <div key={v.id} className="w-[320px] sm:w-[360px] shrink-0 snap-start bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all flex flex-col justify-between">
+                      <div key={v.id} className="w-[320px] sm:w-[360px] shrink-0 snap-start bg-white border border-slate-200 rounded-2xl p-5 hover:border-slate-200 transition-all flex flex-col justify-between">
                         <div className="space-y-4">
                           {/* Top Header Row with Title, Plate Number and action icons */}
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="text-base font-bold text-slate-100">{v.modelName}</h3>
-                              <p className="text-xs text-slate-400 font-mono mt-0.5">{v.plateNumber}</p>
+                              <h3 className="text-base font-bold text-slate-800">{v.modelName}</h3>
+                              <p className="text-xs text-slate-500 font-mono mt-0.5">{v.plateNumber}</p>
                             </div>
                             <div className="flex items-center gap-1">
                               <button 
                                 onClick={() => startEditVehicle(v)}
-                                className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
                                 title="차량 정보 수정 (임차/보험 정보 포함)"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button 
                                 onClick={() => handleDeleteVehicle(v.id)}
-                                className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
                                 title="차량 대장 삭제"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1861,15 +1861,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           </div>
 
                           {/* Line-based detail list mimicking the first image */}
-                          <div className="space-y-1 text-xs text-slate-400 pt-1">
+                          <div className="space-y-1 text-xs text-slate-500 pt-1">
                             <p className="flex items-center gap-1.5">
-                              <span className="text-slate-500">·</span>
+                              <span className="text-slate-400">·</span>
                               <span>{v.modelName} ({v.modelYear || '연식 미지정'}) · {v.color || '색상 미지정'}</span>
                             </p>
                             <p className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-slate-500">·</span>
+                              <span className="text-slate-400">·</span>
                               <span>
-                                보험: <strong className="text-slate-300 font-medium">{v.insuranceCompany || '미가입'}</strong>
+                                보험: <strong className="text-slate-600 font-medium">{v.insuranceCompany || '미가입'}</strong>
                                 {v.insuranceEndDate && (() => {
                                   try {
                                     const today = new Date();
@@ -1877,50 +1877,50 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                     const cleanDateStr = v.insuranceEndDate.replace(/\./g, '-');
                                     const endDate = new Date(cleanDateStr);
                                     endDate.setHours(0, 0, 0, 0);
-                                    if (isNaN(endDate.getTime())) return <span className="text-slate-500"> · 만기 {v.insuranceEndDate}</span>;
+                                    if (isNaN(endDate.getTime())) return <span className="text-slate-400"> · 만기 {v.insuranceEndDate}</span>;
                                     const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                                     if (daysLeft < 0) {
                                       return (
-                                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded font-semibold inline-block">
+                                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-rose-50 text-rose-700 border border-rose-500/30 rounded font-semibold inline-block">
                                           만기 도과 (경과: {Math.abs(daysLeft)}일)
                                         </span>
                                       );
                                     } else if (daysLeft <= 30) {
                                       return (
-                                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded font-semibold inline-block">
+                                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-amber-50 text-amber-700 border border-amber-500/30 rounded font-semibold inline-block">
                                           만기 임박 ({daysLeft}일 남음)
                                         </span>
                                       );
                                     } else {
-                                      return <span className="text-slate-500"> · 만기 {v.insuranceEndDate} ({daysLeft}일 남음)</span>;
+                                      return <span className="text-slate-400"> · 만기 {v.insuranceEndDate} ({daysLeft}일 남음)</span>;
                                     }
                                   } catch (_) {
-                                    return <span className="text-slate-500"> · 만기 {v.insuranceEndDate}</span>;
+                                    return <span className="text-slate-400"> · 만기 {v.insuranceEndDate}</span>;
                                   }
                                 })()}
                               </span>
                             </p>
                             <p className="flex items-center gap-1.5">
-                              <span className="text-slate-500">·</span>
-                              <span>비콘 ID: <strong className="text-slate-300 font-medium">{v.beaconId || '미등록'}</strong></span>
+                              <span className="text-slate-400">·</span>
+                              <span>비콘 ID: <strong className="text-slate-600 font-medium">{v.beaconId || '미등록'}</strong></span>
                             </p>
                             <p className="flex items-center gap-1.5">
-                              <span className="text-slate-500">·</span>
-                              <span>담당자: <strong className="text-slate-300 font-medium">{v.owner}</strong> {v.insuranceContact ? `· ${v.insuranceContact}` : ''}</span>
+                              <span className="text-slate-400">·</span>
+                              <span>담당자: <strong className="text-slate-600 font-medium">{v.owner}</strong> {v.insuranceContact ? `· ${v.insuranceContact}` : ''}</span>
                             </p>
                             <p className="flex items-center gap-1.5">
-                              <span className="text-slate-500">·</span>
-                              <span>임차: <strong className="text-slate-300 font-medium">{getRentalTypeKo(v.rentalType)}</strong> {v.rentalFee && v.rentalFee > 0 ? `· ${formatWon(v.rentalFee)}원/월` : ''}</span>
+                              <span className="text-slate-400">·</span>
+                              <span>임차: <strong className="text-slate-600 font-medium">{getRentalTypeKo(v.rentalType)}</strong> {v.rentalFee && v.rentalFee > 0 ? `· ${formatWon(v.rentalFee)}원/월` : ''}</span>
                             </p>
                           </div>
 
                           {/* Divider line before Registration Document */}
-                          <div className="border-t border-slate-800/60 pt-3.5 space-y-1.5">
-                            <span className="text-[11px] font-semibold text-slate-500 block">자동차 등록증</span>
-                            <div className="flex items-center justify-between bg-slate-950/40 border border-slate-850 p-2.5 rounded-xl">
+                          <div className="border-t border-slate-200 pt-3.5 space-y-1.5">
+                            <span className="text-[11px] font-semibold text-slate-400 block">자동차 등록증</span>
+                            <div className="flex items-center justify-between bg-slate-50 border border-slate-850 p-2.5 rounded-xl">
                               <div className="flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-indigo-400" />
-                                <span className="text-xs text-slate-300 font-medium">
+                                <span className="text-xs text-slate-600 font-medium">
                                   {v.registrationDocumentUrl ? '등록증 업로드됨' : '등록증 미등록'}
                                 </span>
                               </div>
@@ -1928,7 +1928,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 {v.registrationDocumentUrl && (
                                   <button 
                                     onClick={() => setViewDocUrl(v.registrationDocumentUrl || null)}
-                                    className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-all"
+                                    className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
                                     title="등록증 사본 보기"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
@@ -1936,7 +1936,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 )}
                                 <button 
                                   onClick={() => document.getElementById(`file-upload-card-${v.id}`)?.click()}
-                                  className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-all"
+                                  className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
                                   title={v.registrationDocumentUrl ? '등록증 재업로드' : '등록증 업로드'}
                                 >
                                   <Upload className="w-3.5 h-3.5" />
@@ -1944,7 +1944,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 {v.registrationDocumentUrl && (
                                   <button 
                                     onClick={() => handleRemoveDocument(v.id)}
-                                    className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                                    className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
                                     title="등록증 삭제"
                                   >
                                     <X className="w-3.5 h-3.5" />
@@ -1964,10 +1964,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         </div>
 
                         {/* 상세 통계 보기 > button aligned at bottom */}
-                        <div className="mt-4 pt-3 border-t border-slate-800/50">
+                        <div className="mt-4 pt-3 border-t border-slate-200/50">
                           <button 
                             onClick={() => setSelectedStatsVehicle(v)}
-                            className="w-full text-left text-xs font-bold text-slate-400 hover:text-indigo-400 transition-all flex items-center justify-between group"
+                            className="w-full text-left text-xs font-bold text-slate-500 hover:text-indigo-400 transition-all flex items-center justify-between group"
                           >
                             <span>상세 통계 보기</span>
                             <span className="group-hover:translate-x-1 transition-transform">&gt;</span>
@@ -2002,7 +2002,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </button>
 
               {/* 기간 필터 버튼 */}
-              <div className="flex flex-wrap items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
                 {(['all', 'today', 'week', 'month', 'year', 'custom'] as const).map(p => {
                   const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '직접 선택';
                   return (
@@ -2012,7 +2012,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                         drivingPeriod === p 
                           ? 'bg-indigo-600 text-white shadow-sm' 
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                       }`}
                     >
                       {label}
@@ -2022,19 +2022,19 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
 
               {drivingPeriod === 'custom' && (
-                <div className="flex items-center gap-2 bg-slate-900 p-1.5 border border-slate-800 rounded-xl">
+                <div className="flex items-center gap-2 bg-white p-1.5 border border-slate-200 rounded-xl">
                   <input 
                     type="date" 
                     value={drivingCustomStart}
                     onChange={e => setDrivingCustomStart(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                    className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
                   />
-                  <span className="text-slate-500 text-xs">~</span>
+                  <span className="text-slate-400 text-xs">~</span>
                   <input 
                     type="date" 
                     value={drivingCustomEnd}
                     onChange={e => setDrivingCustomEnd(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                    className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               )}
@@ -2042,7 +2042,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <select 
                 value={selectedVehicleFilter}
                 onChange={e => setSelectedVehicleFilter(e.target.value)}
-                className="bg-slate-900 text-xs text-slate-300 rounded-xl border border-slate-800 p-2 focus:outline-none focus:border-indigo-500"
+                className="bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
               >
                 <option value="all">모든 차량 운행</option>
                 {vehicles.map(v => (
@@ -2059,13 +2059,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             const uniqueEnds = Array.from(new Map<string, DrivingLog>(drivingLogs.filter((l): l is DrivingLog & { endPlace: string } => !!l.endPlace).map(l => [l.endPlace, l])).values());
 
             return (
-              <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+              <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <MapPin className="w-4 h-4 text-indigo-400" />
                     <span>운행기록 신규 작성</span>
                   </h3>
-                  <button onClick={() => setShowDrivingForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
+                  <button onClick={() => setShowDrivingForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
                 </div>
                 <form onSubmit={handleAddDriving} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="col-span-1 sm:col-span-2 lg:col-span-4 space-y-2">
@@ -2073,7 +2073,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <button
                         type="button"
                         onClick={() => setReceiptCameraTarget('driving')}
-                        className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors"
                       >
                         <Camera className="w-4 h-4" />
                         <span>{isScanningDrivingReceipt ? '영수증 스캔 중...' : '통행료/주차비 등 영수증 촬영 (비용관리에 자동 연동 등록)'}</span>
@@ -2083,16 +2083,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           src={drivingReceiptExpense.receiptImage}
                           alt="영수증"
                           onClick={() => setEnlargedReceiptUrl(drivingReceiptExpense.receiptImage)}
-                          className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                          className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                         />
                       )}
                     </div>
                     {drivingReceiptExpense && (
-                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
                         <select
                           value={drivingReceiptExpense.category}
                           onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, category: e.target.value as VehicleExpense['category'] })}
-                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white"
+                          className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
                         >
                           <option value="toll">통행료</option>
                           <option value="parking">주차비</option>
@@ -2106,7 +2106,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           value={drivingReceiptExpense.merchantName}
                           onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, merchantName: e.target.value })}
                           placeholder="상호명 (인식 안 되면 직접 입력)"
-                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white placeholder:text-slate-600"
+                          className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400"
                         />
                         <input
                           type="text"
@@ -2114,12 +2114,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           value={drivingReceiptExpense.amount ? formatCurrencyInput(drivingReceiptExpense.amount) : ''}
                           onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, amount: parseCurrencyInput(e.target.value) })}
                           placeholder="금액 (원)"
-                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white placeholder:text-slate-600 font-mono"
+                          className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 font-mono"
                         />
                         <select
                           value={drivingReceiptExpense.payMethod}
                           onChange={(e) => setDrivingReceiptExpense({ ...drivingReceiptExpense, payMethod: e.target.value as NonNullable<VehicleExpense['payMethod']> })}
-                          className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white"
+                          className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
                         >
                           <option value="company_card">법인카드</option>
                           <option value="personal_card">개인카드</option>
@@ -2128,7 +2128,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         <button
                           type="button"
                           onClick={() => setDrivingReceiptExpense(null)}
-                          className="text-rose-400 hover:text-rose-300 text-xs font-bold border border-slate-800 rounded-lg"
+                          className="text-rose-400 hover:text-rose-600 text-xs font-bold border border-slate-200 rounded-lg"
                         >
                           영수증 제거
                         </button>
@@ -2136,7 +2136,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">대상 차량 *</label>
+                    <label className="text-xs text-slate-500">대상 차량 *</label>
                     <select 
                       value={newDriving.vehicleId}
                       onChange={e => {
@@ -2157,7 +2157,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           endMileage: recommendedStart
                         });
                       }}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="">선택하세요...</option>
                       {vehicles.map(v => (
@@ -2167,32 +2167,32 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">운전자명 *</label>
+                    <label className="text-xs text-slate-500">운전자명 *</label>
                     <input 
                       type="text" 
                       value={newDriving.driverName}
                       onChange={e => setNewDriving({ ...newDriving, driverName: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">부서명</label>
+                    <label className="text-xs text-slate-500">부서명</label>
                     <input 
                       type="text" 
                       placeholder="예: 영업본부, 개발팀"
                       value={newDriving.department || ''}
                       onChange={e => setNewDriving({ ...newDriving, department: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">연동 프로젝트</label>
+                    <label className="text-xs text-slate-500">연동 프로젝트</label>
                     <select 
                       value={newDriving.projectName || ''}
                       onChange={e => setNewDriving({ ...newDriving, projectName: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="">프로젝트 연동 안함 (없음)</option>
                       {projects.map(p => (
@@ -2202,17 +2202,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">운행 일자</label>
+                    <label className="text-xs text-slate-500">운행 일자</label>
                     <input 
                       type="date" 
                       value={newDriving.date}
                       onChange={e => setNewDriving({ ...newDriving, date: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">운행 목적 대분류</label>
+                    <label className="text-xs text-slate-500">운행 목적 대분류</label>
                     <select
                       value={['출퇴근', '고객사 미팅', '일반 업무', '개인 용도'].includes(newDriving.purpose) ? newDriving.purpose : '직접 입력'}
                       onChange={e => {
@@ -2223,7 +2223,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           setNewDriving({ ...newDriving, purpose: val });
                         }
                       }}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="출퇴근">출퇴근</option>
                       <option value="고객사 미팅">고객사 미팅</option>
@@ -2234,45 +2234,45 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400 font-semibold text-indigo-400">운행 목적 상세 기술 *</label>
+                    <label className="text-xs text-slate-500 font-semibold text-indigo-400">운행 목적 상세 기술 *</label>
                     <input 
                       type="text" 
                       placeholder="예: 출퇴근, 강남구 프로젝트 대면 미팅 등" 
                       value={newDriving.purpose}
                       onChange={e => setNewDriving({ ...newDriving, purpose: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">출발 전 계기판 (km) *</label>
+                    <label className="text-xs text-slate-500">출발 전 계기판 (km) *</label>
                     <input 
                       type="number" 
                       value={newDriving.startMileage === 0 ? '' : newDriving.startMileage}
                       onChange={e => setNewDriving({ ...newDriving, startMileage: Number(e.target.value) })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">도착 후 계기판 (km) *</label>
+                    <label className="text-xs text-slate-500">도착 후 계기판 (km) *</label>
                     <input 
                       type="number" 
                       value={newDriving.endMileage === 0 ? '' : newDriving.endMileage}
                       onChange={e => setNewDriving({ ...newDriving, endMileage: Number(e.target.value) })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
                   </div>
 
                   {/* 출발지 상호명 및 주소 추가 */}
                   <div className="space-y-1.5 relative">
-                    <label className="text-xs text-slate-400">출발지 상호명</label>
+                    <label className="text-xs text-slate-500">출발지 상호명</label>
                     <input 
                       type="text" 
                       placeholder="예: 본사, 판교테크노밸리"
                       value={newDriving.startPlace}
                       onChange={e => setNewDriving({ ...newDriving, startPlace: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                     {uniqueStarts.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1 max-h-[48px] overflow-y-auto">
@@ -2287,7 +2287,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 startAddress: u.startAddress || ''
                               });
                             }}
-                            className="bg-slate-950 text-[10px] text-slate-400 px-1.5 py-0.5 rounded border border-slate-800 hover:text-white"
+                            className="bg-slate-50 text-[10px] text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 hover:text-slate-700"
                           >
                             +{u.startPlace}
                           </button>
@@ -2309,7 +2309,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               key={opt.key}
                               type="button"
                               onClick={() => setNewDriving({ ...newDriving, startPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), startAddress: opt.address })}
-                              className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                              className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
                               title={opt.address}
                             >
                               🏢 {opt.label} 주소로 채우기
@@ -2321,25 +2321,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">출발지 주소 추가</label>
+                    <label className="text-xs text-slate-500">출발지 주소 추가</label>
                     <input 
                       type="text" 
                       placeholder="예: 서울시 강남구 테헤란로 152"
                       value={newDriving.startAddress || ''}
                       onChange={e => setNewDriving({ ...newDriving, startAddress: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   {/* 목적지 상호명 및 주소 추가 */}
                   <div className="space-y-1.5 relative">
-                    <label className="text-xs text-slate-400 font-semibold text-indigo-400">목적지 상호명 *</label>
+                    <label className="text-xs text-slate-500 font-semibold text-indigo-400">목적지 상호명 *</label>
                     <input 
                       type="text" 
                       placeholder="예: 강남파이낸스센터"
                       value={newDriving.endPlace}
                       onChange={e => setNewDriving({ ...newDriving, endPlace: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                     {uniqueEnds.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1 max-h-[48px] overflow-y-auto">
@@ -2354,7 +2354,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 endAddress: u.endAddress || ''
                               });
                             }}
-                            className="bg-slate-950 text-[10px] text-slate-400 px-1.5 py-0.5 rounded border border-slate-800 hover:text-white"
+                            className="bg-slate-50 text-[10px] text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 hover:text-slate-700"
                           >
                             +{u.endPlace}
                           </button>
@@ -2375,7 +2375,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               key={opt.key}
                               type="button"
                               onClick={() => setNewDriving({ ...newDriving, endPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), endAddress: opt.address })}
-                              className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                              className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
                               title={opt.address}
                             >
                               🏢 {opt.label} 주소로 채우기
@@ -2387,36 +2387,36 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">목적지 주소 추가</label>
+                    <label className="text-xs text-slate-500">목적지 주소 추가</label>
                     <input 
                       type="text" 
                       placeholder="예: 경기도 성남시 분당구 삼평동 624"
                       value={newDriving.endAddress || ''}
                       onChange={e => setNewDriving({ ...newDriving, endAddress: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   {/* 메모란 */}
                   <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
-                    <label className="text-xs text-slate-400">운행 관련 상세 특이사항 및 메모</label>
+                    <label className="text-xs text-slate-500">운행 관련 상세 특이사항 및 메모</label>
                     <textarea 
                       rows={2}
                       placeholder="통행 제한 우회, 주차권 분실 등 운행 중 특이사항 기록"
                       value={newDriving.memo || ''}
                       onChange={e => setNewDriving({ ...newDriving, memo: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 resize-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 resize-none"
                     />
                   </div>
 
                   {/* 연관 거래처 담당자 연동 */}
                   <div className="sm:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400 block font-semibold text-indigo-400">연관 거래처 담당자 선택</label>
+                      <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자 선택</label>
                       <select 
                         value={newDriving.contactId || ''}
                         onChange={e => setNewDriving({ ...newDriving, contactId: e.target.value })}
-                        className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2.5 focus:border-indigo-500 focus:outline-none text-slate-300"
+                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:outline-none text-slate-600"
                       >
                         <option value="">연관 담당자 없음</option>
                         {contacts.map(c => (
@@ -2431,94 +2431,94 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           type="checkbox"
                           checked={useDirectContact}
                           onChange={(e) => setUseDirectContact(e.target.checked)}
-                          className="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                          className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                         />
-                        <span className="text-xs text-slate-300 font-semibold">새로운 담당자 직접 입력하여 연결</span>
+                        <span className="text-xs text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결</span>
                       </label>
                     </div>
                   </div>
 
                   {useDirectContact && (
-                    <div className="sm:col-span-2 lg:col-span-4 border border-slate-800/80 bg-slate-950/40 rounded-xl p-3.5 space-y-3 animate-fadeIn">
-                      <div className="text-xs font-semibold text-indigo-400 border-b border-slate-800 pb-1.5">새 담당자 상세 정보 입력</div>
+                    <div className="sm:col-span-2 lg:col-span-4 border border-slate-200 bg-slate-50 rounded-xl p-3.5 space-y-3 animate-fadeIn">
+                      <div className="text-xs font-semibold text-indigo-400 border-b border-slate-200 pb-1.5">새 담당자 상세 정보 입력</div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">담당자 성함 *</label>
                           <input
                             type="text"
                             value={directContactName}
                             onChange={(e) => setDirectContactName(e.target.value)}
                             placeholder="예: 홍길동"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                             required={useDirectContact}
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">회사/기관명</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">회사/기관명</label>
                           <input
                             type="text"
                             value={directContactCompany}
                             onChange={(e) => setDirectContactCompany(e.target.value)}
                             placeholder="예: 현대건설"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">부서</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">부서</label>
                           <input
                             type="text"
                             value={directContactDept}
                             onChange={(e) => setDirectContactDept(e.target.value)}
                             placeholder="예: 구매팀"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">직책</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">직책</label>
                           <input
                             type="text"
                             value={directContactTitle}
                             onChange={(e) => setDirectContactTitle(e.target.value)}
                             placeholder="예: 과장"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(직장)</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(직장)</label>
                           <input
                             type="text"
                             value={directContactPhoneOffice}
                             onChange={(e) => setDirectContactPhoneOffice(e.target.value)}
                             placeholder="예: 02-1234-5678"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
                           <input
                             type="text"
                             value={directContactPhoneMobile}
                             onChange={(e) => setDirectContactPhoneMobile(e.target.value)}
                             placeholder="예: 010-1234-5678"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">이메일 주소</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일 주소</label>
                           <input
                             type="email"
                             value={directContactEmail}
                             onChange={(e) => setDirectContactEmail(e.target.value)}
                             placeholder="예: buyer@company.com"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           />
                         </div>
                       </div>
                     </div>
                   )}
 
-                  <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-800/50 pt-3">
-                    <div className="text-xs text-slate-500 self-center mr-auto font-mono">
+                  <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-200/50 pt-3">
+                    <div className="text-xs text-slate-400 self-center mr-auto font-mono">
                       {newDriving.endMileage > newDriving.startMileage ? (
                         <span className="text-indigo-400 font-semibold">예상 계산 거리: {newDriving.endMileage - newDriving.startMileage} km</span>
                       ) : '도착 계기판은 출발 계기판보다 커야 저장이 가능합니다.'}
@@ -2526,7 +2526,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <button 
                       type="button"
                       onClick={() => setShowDrivingForm(false)}
-                      className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                      className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                     >
                       취소
                     </button>
@@ -2551,7 +2551,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
             if (filteredLogs.length === 0) {
               return (
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl py-12 text-center text-slate-400 text-xs">
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl py-12 text-center text-slate-500 text-xs">
                   선택한 필터 조건에 부합하는 주행 일지가 없습니다. 새 운행 기록을 남겨보세요.
                 </div>
               );
@@ -2559,7 +2559,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
             return (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
                   <span>총 {filteredLogs.length}건의 운행 기록</span>
                   <span className="flex items-center gap-1 text-indigo-400 font-medium">
                     <span>옆으로 밀어서 보기</span>
@@ -2570,47 +2570,47 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
-                      className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-800 bg-slate-900/80 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
+                      className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-200 bg-slate-900/60 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono text-slate-400">{log.date}</span>
-                          <span className="text-xs font-semibold text-slate-200">{log.driverName}</span>
+                          <span className="text-[10px] font-mono text-slate-500">{log.date}</span>
+                          <span className="text-xs font-semibold text-slate-700">{log.driverName}</span>
                         </div>
 
                         <div className="space-y-1">
-                          <div className="font-semibold text-slate-100">{getVehicleModel(log.vehicleId)}</div>
+                          <div className="font-semibold text-slate-800">{getVehicleModel(log.vehicleId)}</div>
                           <div className="flex flex-wrap gap-1">
                             {log.department && (
-                              <span className="bg-slate-950 text-slate-400 border border-slate-800 text-[9px] px-1.5 py-0.5 rounded font-medium">
+                              <span className="bg-slate-50 text-slate-500 border border-slate-200 text-[9px] px-1.5 py-0.5 rounded font-medium">
                                 {log.department}
                               </span>
                             )}
                             {log.projectName && (
-                              <span className="bg-indigo-950 text-indigo-300 border border-indigo-900/40 text-[9px] px-1.5 py-0.5 rounded font-medium">
+                              <span className="bg-indigo-950 text-indigo-600 border border-indigo-900/40 text-[9px] px-1.5 py-0.5 rounded font-medium">
                                 {log.projectName}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        <div className="border-t border-slate-800/80 my-2 pt-2 space-y-1.5 text-xs">
+                        <div className="border-t border-slate-200 my-2 pt-2 space-y-1.5 text-xs">
                           <div className="space-y-0.5">
-                            <span className="text-slate-500 text-[10px]">운행 경로</span>
-                            <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
+                            <span className="text-slate-400 text-[10px]">운행 경로</span>
+                            <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
                               <span>{log.startPlace || '출발지'}</span>
-                              <ArrowRight className="w-3 h-3 text-slate-500 shrink-0" />
+                              <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
                               <span>{log.endPlace}</span>
                             </div>
                             {(log.startAddress || log.endAddress) && (
-                              <p className="text-[10px] text-slate-500 font-mono leading-tight pt-0.5">
+                              <p className="text-[10px] text-slate-400 font-mono leading-tight pt-0.5">
                                 {log.startAddress || '-'} → {log.endAddress || '-'}
                               </p>
                             )}
                             {/* [수정] 명함 상세보기와 동일하게, 목적지 주소가 있으면 바로 내비게이션 앱으로 연결하는 길찾기 버튼 추가 */}
                             {log.endAddress && (
                               <div className="flex flex-wrap items-center gap-1 pt-1">
-                                <span className="text-[9px] text-slate-500 flex items-center gap-0.5 mr-0.5">
+                                <span className="text-[9px] text-slate-400 flex items-center gap-0.5 mr-0.5">
                                   <Navigation className="w-2.5 h-2.5 text-blue-400" />
                                   길찾기:
                                 </span>
@@ -2623,7 +2623,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                       window.open(`https://search.naver.com/search.naver?query=${enc}+길찾기`, '_blank');
                                     }, 500);
                                   }}
-                                  className="text-[9px] px-1.5 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded border border-amber-500/20 font-bold"
+                                  className="text-[9px] px-1.5 py-0.5 bg-amber-50 hover:bg-amber-500/20 text-amber-700 rounded border border-amber-500/20 font-bold"
                                 >
                                   티맵
                                 </button>
@@ -2637,14 +2637,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 <button
                                   type="button"
                                   onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(log.endAddress!)}`, '_blank')}
-                                  className="text-[9px] px-1.5 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded border border-emerald-500/20 font-bold"
+                                  className="text-[9px] px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-500/20 text-emerald-700 rounded border border-emerald-500/20 font-bold"
                                 >
                                   네이버
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(log.endAddress!)}`, '_blank')}
-                                  className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded border border-blue-500/20 font-bold"
+                                  className="text-[9px] px-1.5 py-0.5 bg-blue-50 hover:bg-blue-500/20 text-blue-700 rounded border border-blue-500/20 font-bold"
                                 >
                                   구글맵
                                 </button>
@@ -2653,17 +2653,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           </div>
 
                           <div className="flex justify-between text-[11px] border-t border-slate-850/60 pt-1.5 font-mono">
-                            <span className="text-slate-500 font-sans">계기판 기록</span>
-                            <span className="text-slate-400">
+                            <span className="text-slate-400 font-sans">계기판 기록</span>
+                            <span className="text-slate-500">
                               {formatWon(log.startMileage)} → {formatWon(log.endMileage)} km
                             </span>
                           </div>
 
                           <div className="border-t border-slate-850/60 pt-1.5">
-                            <span className="text-slate-500 text-[10px] block mb-0.5">운행 목적 및 메모</span>
-                            <span className="text-slate-300 block font-medium text-[11px] line-clamp-1">{log.purpose}</span>
+                            <span className="text-slate-400 text-[10px] block mb-0.5">운행 목적 및 메모</span>
+                            <span className="text-slate-600 block font-medium text-[11px] line-clamp-1">{log.purpose}</span>
                             {log.memo && (
-                              <p className="text-[10px] text-slate-500 italic truncate mt-0.5" title={log.memo}>
+                              <p className="text-[10px] text-slate-400 italic truncate mt-0.5" title={log.memo}>
                                 {log.memo}
                               </p>
                             )}
@@ -2671,21 +2671,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 mt-2">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-2">
                         <div className="font-bold text-indigo-400 font-mono text-sm">
                           {log.distance} km 주행
                         </div>
                         <div className="flex items-center gap-1">
                           <button 
                             onClick={() => setEditingDriving(log)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-all"
+                            className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
                             title="운행 기록 수정"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button 
                             onClick={() => handleDeleteDriving(log.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                            className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
                             title="운행 기록 삭제"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -2700,7 +2700,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <button
                       type="button"
                       onClick={() => setVisibleDrivingCount((prev) => Math.min(prev + 50, filteredLogs.length))}
-                      className="flex-none w-[150px] snap-start border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                      className="flex-none w-[150px] snap-start border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-white rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 transition-all"
                     >
                       <span className="text-2xl">＋</span>
                       <span className="text-xs font-bold">{filteredLogs.length - visibleDrivingCount}건 더 보기</span>
@@ -2733,7 +2733,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </button>
 
               {/* 기간 필터 버튼 */}
-              <div className="flex flex-wrap items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
                 {(['all', 'today', 'week', 'month', 'year', 'custom'] as const).map(p => {
                   const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '직접 선택';
                   return (
@@ -2743,7 +2743,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                         expensePeriod === p 
                           ? 'bg-indigo-600 text-white shadow-sm' 
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                       }`}
                     >
                       {label}
@@ -2753,19 +2753,19 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
 
               {expensePeriod === 'custom' && (
-                <div className="flex items-center gap-2 bg-slate-900 p-1.5 border border-slate-800 rounded-xl">
+                <div className="flex items-center gap-2 bg-white p-1.5 border border-slate-200 rounded-xl">
                   <input 
                     type="date" 
                     value={expenseCustomStart}
                     onChange={e => setExpenseCustomStart(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                    className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
                   />
-                  <span className="text-slate-500 text-xs">~</span>
+                  <span className="text-slate-400 text-xs">~</span>
                   <input 
                     type="date" 
                     value={expenseCustomEnd}
                     onChange={e => setExpenseCustomEnd(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                    className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               )}
@@ -2773,7 +2773,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <select 
                 value={selectedVehicleFilter}
                 onChange={e => setSelectedVehicleFilter(e.target.value)}
-                className="bg-slate-900 text-xs text-slate-300 rounded-xl border border-slate-800 p-2 focus:outline-none focus:border-indigo-500"
+                className="bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
               >
                 <option value="all">모든 차량 비용</option>
                 {vehicles.map(v => (
@@ -2784,7 +2784,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <select 
                 value={expenseCategoryFilter}
                 onChange={e => setExpenseCategoryFilter(e.target.value)}
-                className="bg-slate-900 text-xs text-slate-300 rounded-xl border border-slate-800 p-2 focus:outline-none focus:border-indigo-500"
+                className="bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
               >
                 <option value="all">모든 비용 분류</option>
                 <option value="fuel">주유비</option>
@@ -2803,20 +2803,20 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           </div>
 
           {showExpenseForm && (
-            <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+            <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Plus className="w-4 h-4 text-indigo-400" />
                   <span>차량 지출 비용 등록</span>
                 </h3>
-                <button onClick={() => setShowExpenseForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
+                <button onClick={() => setShowExpenseForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setReceiptCameraTarget('expense')}
-                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors"
                   >
                     <Camera className="w-4 h-4" />
                     <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 촬영 (자동으로 아래 항목 채움)'}</span>
@@ -2826,16 +2826,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       src={newExpense.receiptImage}
                       alt="영수증"
                       onClick={() => setEnlargedReceiptUrl(newExpense.receiptImage)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                     />
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">대상 차량 *</label>
+                  <label className="text-xs text-slate-500">대상 차량 *</label>
                   <select 
                     value={newExpense.vehicleId}
                     onChange={e => setNewExpense({ ...newExpense, vehicleId: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   >
                     <option value="">선택하세요...</option>
@@ -2846,22 +2846,22 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">지출 일자</label>
+                  <label className="text-xs text-slate-500">지출 일자</label>
                   <input 
                     type="date" 
                     value={newExpense.date}
                     onChange={e => setNewExpense({ ...newExpense, date: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">비용 분류 *</label>
+                  <label className="text-xs text-slate-500">비용 분류 *</label>
                   <select 
                     value={newExpense.category}
                     onChange={e => setNewExpense({ ...newExpense, category: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="fuel">주유비 (유류대)</option>
                     <option value="toll">통행료 (하이패스)</option>
@@ -2885,18 +2885,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       placeholder="예: 과태료, 세차비"
                       value={newExpense.categoryCustom || ''}
                       onChange={e => setNewExpense({ ...newExpense, categoryCustom: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       required
                     />
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">결제 수단 *</label>
+                  <label className="text-xs text-slate-500">결제 수단 *</label>
                   <select 
                     value={newExpense.payMethod}
                     onChange={e => setNewExpense({ ...newExpense, payMethod: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>
                     <option value="personal_card">개인카드</option>
@@ -2905,48 +2905,48 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">상호명</label>
+                  <label className="text-xs text-slate-500">상호명</label>
                   <input 
                     type="text" 
                     placeholder="예: SK네트웍스 만남주유소"
                     value={newExpense.merchantName || ''}
                     onChange={e => setNewExpense({ ...newExpense, merchantName: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 {newExpense.category === 'fuel' && (
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">주유량 (L)</label>
+                    <label className="text-xs text-slate-500">주유량 (L)</label>
                     <input 
                       type="number" 
                       placeholder="예: 45"
                       value={newExpense.fuelVolume === 0 ? '' : newExpense.fuelVolume}
                       onChange={e => setNewExpense({ ...newExpense, fuelVolume: Number(e.target.value) })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">지출금액 (원) *</label>
+                  <label className="text-xs text-slate-500">지출금액 (원) *</label>
                   <input 
                     type="text" 
                     inputMode="numeric"
                     placeholder="지출 원화 금액 입력"
                     value={newExpense.amount === 0 ? '' : formatCurrencyInput(newExpense.amount)}
                     onChange={e => setNewExpense({ ...newExpense, amount: parseCurrencyInput(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">연동 프로젝트</label>
+                  <label className="text-xs text-slate-500">연동 프로젝트</label>
                   <select 
                     value={newExpense.projectName || ''}
                     onChange={e => setNewExpense({ ...newExpense, projectName: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">프로젝트 연동 안함 (없음)</option>
                     {projects.map(p => (
@@ -2956,24 +2956,24 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
-                  <label className="text-xs text-slate-400">메모 및 상세 지출 내역 기술</label>
+                  <label className="text-xs text-slate-500">메모 및 상세 지출 내역 기술</label>
                   <input 
                     type="text" 
                     placeholder="지출 사유, 동승자, 특이사항 등 자유 기입"
                     value={newExpense.memo || ''}
                     onChange={e => setNewExpense({ ...newExpense, memo: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 {/* 연관 거래처 담당자 연동 */}
-                <div className="sm:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800/60 pt-3">
+                <div className="sm:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-200 pt-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400 block font-semibold text-indigo-400">연관 거래처 담당자 선택</label>
+                    <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자 선택</label>
                     <select 
                       value={newExpense.contactId || ''}
                       onChange={e => setNewExpense({ ...newExpense, contactId: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2.5 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="">연관 담당자 없음</option>
                       {contacts.map(c => (
@@ -2988,97 +2988,97 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         type="checkbox"
                         checked={useDirectContact}
                         onChange={(e) => setUseDirectContact(e.target.checked)}
-                        className="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                        className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                       />
-                      <span className="text-xs text-slate-300 font-semibold">새로운 담당자 직접 입력하여 연결</span>
+                      <span className="text-xs text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결</span>
                     </label>
                   </div>
                 </div>
 
                 {useDirectContact && (
-                  <div className="sm:col-span-2 lg:col-span-4 border border-slate-800/80 bg-slate-950/40 rounded-xl p-3.5 space-y-3 animate-fadeIn">
-                    <div className="text-xs font-semibold text-indigo-400 border-b border-slate-800 pb-1.5">새 담당자 상세 정보 입력</div>
+                  <div className="sm:col-span-2 lg:col-span-4 border border-slate-200 bg-slate-50 rounded-xl p-3.5 space-y-3 animate-fadeIn">
+                    <div className="text-xs font-semibold text-indigo-400 border-b border-slate-200 pb-1.5">새 담당자 상세 정보 입력</div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="block text-slate-400 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                        <label className="block text-slate-500 text-[10px] font-semibold mb-1">담당자 성함 *</label>
                         <input
                           type="text"
                           value={directContactName}
                           onChange={(e) => setDirectContactName(e.target.value)}
                           placeholder="예: 홍길동"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                           required={useDirectContact}
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-400 text-[10px] font-semibold mb-1">회사/기관명</label>
+                        <label className="block text-slate-500 text-[10px] font-semibold mb-1">회사/기관명</label>
                         <input
                           type="text"
                           value={directContactCompany}
                           onChange={(e) => setDirectContactCompany(e.target.value)}
                           placeholder="예: 현대건설"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-400 text-[10px] font-semibold mb-1">부서</label>
+                        <label className="block text-slate-500 text-[10px] font-semibold mb-1">부서</label>
                         <input
                           type="text"
                           value={directContactDept}
                           onChange={(e) => setDirectContactDept(e.target.value)}
                           placeholder="예: 구매팀"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-400 text-[10px] font-semibold mb-1">직책</label>
+                        <label className="block text-slate-500 text-[10px] font-semibold mb-1">직책</label>
                         <input
                           type="text"
                           value={directContactTitle}
                           onChange={(e) => setDirectContactTitle(e.target.value)}
                           placeholder="예: 과장"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(직장)</label>
+                        <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(직장)</label>
                         <input
                           type="text"
                           value={directContactPhoneOffice}
                           onChange={(e) => setDirectContactPhoneOffice(e.target.value)}
                           placeholder="예: 02-1234-5678"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
+                        <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
                         <input
                           type="text"
                           value={directContactPhoneMobile}
                           onChange={(e) => setDirectContactPhoneMobile(e.target.value)}
                           placeholder="예: 010-1234-5678"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-slate-400 text-[10px] font-semibold mb-1">이메일 주소</label>
+                        <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일 주소</label>
                         <input
                           type="email"
                           value={directContactEmail}
                           onChange={(e) => setDirectContactEmail(e.target.value)}
                           placeholder="예: buyer@company.com"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         />
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-800/50 pt-3">
+                <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-200/50 pt-3">
                   <button 
                     type="button"
                     onClick={() => setShowExpenseForm(false)}
-                    className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                    className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
                   </button>
@@ -3103,7 +3103,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
             if (filteredExpenses.length === 0) {
               return (
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl py-12 text-center text-slate-400 text-xs">
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl py-12 text-center text-slate-500 text-xs">
                   선택한 조건에 해당하는 차량 비용 지출 내역이 존재하지 않습니다.
                 </div>
               );
@@ -3111,7 +3111,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
             return (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
                   <span>총 {filteredExpenses.length}건의 지출 내역</span>
                   <span className="flex items-center gap-1 text-indigo-400 font-medium">
                     <span>옆으로 밀어서 보기</span>
@@ -3129,54 +3129,54 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return (
                       <div 
                         key={e.id}
-                        className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-800 bg-slate-900/80 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
+                        className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-200 bg-slate-900/60 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5">
                               <span>{e.date}</span>
                               {isLinkedToWorkLog && (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-extrabold text-emerald-400">
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-500/20 text-[8px] font-extrabold text-emerald-700">
                                   업무일지 연동
                                 </span>
                               )}
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-300">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
                               {getCategoryKo(e.category, e.categoryCustom)}
                             </span>
                           </div>
 
                           <div className="space-y-0.5">
-                            <div className="font-semibold text-slate-100">{getVehicleModel(e.vehicleId)}</div>
+                            <div className="font-semibold text-slate-800">{getVehicleModel(e.vehicleId)}</div>
                             {e.projectName && (
                               <span className="text-[10px] text-indigo-400 block font-medium">📂 {e.projectName}</span>
                             )}
                           </div>
 
-                          <div className="border-t border-slate-800/80 my-2 pt-2 space-y-1 text-xs">
+                          <div className="border-t border-slate-200 my-2 pt-2 space-y-1 text-xs">
                             <div className="flex justify-between">
-                              <span className="text-slate-500">결제 수단</span>
-                              <span className="text-slate-300 font-medium">{payMethodKo}</span>
+                              <span className="text-slate-400">결제 수단</span>
+                              <span className="text-slate-600 font-medium">{payMethodKo}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-500">상호명</span>
-                              <span className="text-slate-300 font-semibold">{e.merchantName || '-'}</span>
+                              <span className="text-slate-400">상호명</span>
+                              <span className="text-slate-600 font-semibold">{e.merchantName || '-'}</span>
                             </div>
                             {e.category === 'fuel' && e.fuelVolume && e.fuelVolume > 0 ? (
                               <div className="flex justify-between">
-                                <span className="text-slate-500">주유량</span>
+                                <span className="text-slate-400">주유량</span>
                                 <span className="text-indigo-400 font-medium font-mono">{e.fuelVolume} L</span>
                               </div>
                             ) : null}
                             {e.memo && (
-                              <div className="border-t border-slate-850/60 mt-1.5 pt-1.5 text-slate-400 text-[11px] line-clamp-2" title={e.memo}>
+                              <div className="border-t border-slate-850/60 mt-1.5 pt-1.5 text-slate-500 text-[11px] line-clamp-2" title={e.memo}>
                                 {e.memo}
                               </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 mt-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-2">
                           <div className="text-right font-bold text-amber-400 font-mono text-base">
                             {formatWon(e.amount)} 원
                           </div>
@@ -3189,14 +3189,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               <>
                                 <button 
                                   onClick={() => setEditingExpense(e)}
-                                  className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-all"
+                                  className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
                                   title="비용 수정"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <button 
                                   onClick={() => handleDeleteExpense(e.id)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                                  className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
                                   title="비용 삭제"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -3213,7 +3213,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <button
                       type="button"
                       onClick={() => setVisibleExpenseCount((prev) => Math.min(prev + 50, filteredExpenses.length))}
-                      className="flex-none w-[150px] snap-start border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                      className="flex-none w-[150px] snap-start border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-white rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 transition-all"
                     >
                       <span className="text-2xl">＋</span>
                       <span className="text-xs font-bold">{filteredExpenses.length - visibleExpenseCount}건 더 보기</span>
@@ -3222,8 +3222,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 {/* 합계 바 */}
-                <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between text-xs mt-2">
-                  <span className="text-slate-400 font-medium">필터링 대상 비용 지출 합계 :</span>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs mt-2">
+                  <span className="text-slate-500 font-medium">필터링 대상 비용 지출 합계 :</span>
                   <span className="font-mono text-indigo-400 text-base font-bold">
                     {formatWon(filteredExpenses.reduce((sum, e) => sum + e.amount, 0))} 원
                   </span>
@@ -3261,20 +3261,20 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
           {/* 정비기록 신규 등록 폼 */}
           {maintSubMode === 'history' && showMaintForm && (
-            <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+            <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Wrench className="w-4 h-4 text-indigo-400" />
                   <span>차량 정비 일지 기록</span>
                 </h3>
-                <button onClick={() => setShowMaintForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
+                <button onClick={() => setShowMaintForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddMaint} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setReceiptCameraTarget('maint')}
-                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-xs font-semibold transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors"
                   >
                     <Camera className="w-4 h-4" />
                     <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 촬영 (자동으로 아래 항목 채움)'}</span>
@@ -3284,16 +3284,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       src={newMaint.receiptImage}
                       alt="영수증"
                       onClick={() => setEnlargedReceiptUrl(newMaint.receiptImage)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                     />
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">대상 차량 *</label>
+                  <label className="text-xs text-slate-500">대상 차량 *</label>
                   <select 
                     value={newMaint.vehicleId}
                     onChange={e => setNewMaint({ ...newMaint, vehicleId: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">선택하세요...</option>
                     {vehicles.map(v => (
@@ -3302,16 +3302,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 일자</label>
+                  <label className="text-xs text-slate-500">정비 일자</label>
                   <input 
                     type="date" 
                     value={newMaint.date}
                     onChange={e => setNewMaint({ ...newMaint, date: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">정비 항목 *</label>
+                  <label className="text-xs text-slate-500 font-semibold text-indigo-400">정비 항목 *</label>
                   <select 
                     value={MAINTENANCE_OPTIONS.includes(newMaint.title) ? newMaint.title : (newMaint.title ? 'custom' : '')}
                     onChange={e => {
@@ -3322,7 +3322,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         setNewMaint({ ...newMaint, title: val });
                       }
                     }}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">선택하세요...</option>
                     {MAINTENANCE_OPTIONS.map(opt => (
@@ -3340,68 +3340,68 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       placeholder="예: 미션 벨트 교환"
                       value={newMaint.title === '직접 입력' ? '' : newMaint.title}
                       onChange={e => setNewMaint({ ...newMaint, title: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
                     />
                   </div>
                 ) : null}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 비용 (원)</label>
+                  <label className="text-xs text-slate-500">정비 비용 (원)</label>
                   <input 
                     type="text" 
                     inputMode="numeric"
                     placeholder="정비 부품 및 공임 합산 금액"
                     value={newMaint.cost === 0 ? '' : formatCurrencyInput(newMaint.cost)}
                     onChange={e => setNewMaint({ ...newMaint, cost: parseCurrencyInput(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 당시 주행거리 (km)</label>
+                  <label className="text-xs text-slate-500">정비 당시 주행거리 (km)</label>
                   <input 
                     type="number" 
                     value={newMaint.mileage === 0 ? '' : newMaint.mileage}
                     onChange={e => setNewMaint({ ...newMaint, mileage: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비소/업체명</label>
+                  <label className="text-xs text-slate-500">정비소/업체명</label>
                   <input 
                     type="text" 
                     placeholder="예: 블루핸즈 역삼점"
                     value={newMaint.shopName}
                     onChange={e => setNewMaint({ ...newMaint, shopName: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비소 연락처</label>
+                  <label className="text-xs text-slate-500">정비소 연락처</label>
                   <input 
                     type="text" 
                     placeholder="예: 02-123-4567"
                     value={newMaint.shopContact || ''}
                     onChange={e => setNewMaint({ ...newMaint, shopContact: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 상태</label>
+                  <label className="text-xs text-slate-500">정비 상태</label>
                   <select 
                     value={newMaint.status}
                     onChange={e => setNewMaint({ ...newMaint, status: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="completed">정비 완료</option>
                     <option value="scheduled">예정 (스케줄러)</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">결제 수단 *</label>
+                  <label className="text-xs text-slate-500">결제 수단 *</label>
                   <select 
                     value={newMaint.payMethod || 'company_card'}
                     onChange={e => setNewMaint({ ...newMaint, payMethod: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>
                     <option value="personal_card">개인카드</option>
@@ -3422,21 +3422,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
           {/* 소모품 점검 주기 신규 등록 폼 */}
           {maintSubMode === 'intervals' && showIntervalForm && (
-            <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+            <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <RefreshCw className="w-4 h-4 text-indigo-400" />
                   <span>소모품 정기 점검 주기 등록</span>
                 </h3>
-                <button onClick={() => setShowIntervalForm(false)} className="text-xs text-slate-500 hover:text-slate-300">닫기</button>
+                <button onClick={() => setShowIntervalForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddInterval} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">차량 선택 *</label>
+                  <label className="text-xs text-slate-500 font-semibold text-indigo-400">차량 선택 *</label>
                   <select 
                     value={newInterval.vehicleId}
                     onChange={e => setNewInterval({ ...newInterval, vehicleId: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   >
                     <option value="">차량 선택...</option>
@@ -3447,7 +3447,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">점검 항목 *</label>
+                  <label className="text-xs text-slate-500 font-semibold text-indigo-400">점검 항목 *</label>
                   <select
                     value={MAINTENANCE_OPTIONS.includes(newInterval.itemType) ? newInterval.itemType : (newInterval.itemType ? 'custom' : '')}
                     onChange={e => {
@@ -3458,7 +3458,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         setNewInterval({ ...newInterval, itemType: val });
                       }
                     }}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   >
                     <option value="">선택하세요...</option>
@@ -3477,84 +3477,84 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       placeholder="예: 미션 벨트 교환"
                       value={newInterval.itemType === '직접 입력' ? '' : newInterval.itemType}
                       onChange={e => setNewInterval({ ...newInterval, itemType: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
                     />
                   </div>
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">km 주기 입력 (예 : 5,000 등 ) *</label>
+                  <label className="text-xs text-slate-500">km 주기 입력 (예 : 5,000 등 ) *</label>
                   <input 
                     type="number" 
                     placeholder="5,000"
                     value={newInterval.intervalKm || ''}
                     onChange={e => setNewInterval({ ...newInterval, intervalKm: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">일 주기 입력(예 :180일 등) *</label>
+                  <label className="text-xs text-slate-500">일 주기 입력(예 :180일 등) *</label>
                   <input 
                     type="number" 
                     placeholder="180"
                     value={newInterval.intervalDays || ''}
                     onChange={e => setNewInterval({ ...newInterval, intervalDays: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">마지막 점검 주행 거리(km)</label>
+                  <label className="text-xs text-slate-500">마지막 점검 주행 거리(km)</label>
                   <input 
                     type="number" 
                     placeholder="0"
                     value={newInterval.lastServiceMileage || ''}
                     onChange={e => setNewInterval({ ...newInterval, lastServiceMileage: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">마지막 점검일 (mm/dd/yy 달력 선택)</label>
+                  <label className="text-xs text-slate-500">마지막 점검일 (mm/dd/yy 달력 선택)</label>
                   <input 
                     type="date" 
                     value={newInterval.lastServiceDate || ''}
                     onChange={e => setNewInterval({ ...newInterval, lastServiceDate: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">알림 기준 (km 전 알림(km 입력))</label>
+                  <label className="text-xs text-slate-500">알림 기준 (km 전 알림(km 입력))</label>
                   <input 
                     type="number" 
                     placeholder="500"
                     value={newInterval.alertKmBefore || ''}
                     onChange={e => setNewInterval({ ...newInterval, alertKmBefore: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">알림 기준 (일 전 알림(일 입력))</label>
+                  <label className="text-xs text-slate-500">알림 기준 (일 전 알림(일 입력))</label>
                   <input 
                     type="number" 
                     placeholder="7"
                     value={newInterval.alertDaysBefore || ''}
                     onChange={e => setNewInterval({ ...newInterval, alertDaysBefore: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                   />
                 </div>
 
-                <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-800/50 pt-3">
+                <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-200/50 pt-3">
                   <button 
                     type="button"
                     onClick={() => setShowIntervalForm(false)}
-                    className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                    className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
                   </button>
@@ -3570,13 +3570,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           )}
 
           {/* 서브 토글 탭 */}
-          <div className="flex border-b border-slate-800 pb-px gap-1">
+          <div className="flex border-b border-slate-200 pb-px gap-1">
             <button
               onClick={() => setMaintSubMode('history')}
               className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
                 maintSubMode === 'history'
                   ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               } rounded-t-xl`}
             >
               🛠️ 정비 내역 대장
@@ -3586,7 +3586,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
                 maintSubMode === 'intervals'
                   ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               } rounded-t-xl`}
             >
               🔄 소모품 점검 주기
@@ -3596,9 +3596,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           {/* 1) 정비 내역 대장 모드 */}
           {maintSubMode === 'history' && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950/20 p-3 rounded-2xl border border-slate-800/60">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/20 p-3 rounded-2xl border border-slate-200">
                 {/* 기간 필터 버튼 */}
-                <div className="flex flex-wrap items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
                   {(['all', 'today', 'week', 'month', 'year', 'custom'] as const).map(p => {
                     const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '직접 선택';
                     return (
@@ -3608,7 +3608,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           maintPeriod === p 
                             ? 'bg-indigo-600 text-white shadow-sm' 
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                         }`}
                       >
                         {label}
@@ -3618,19 +3618,19 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 {maintPeriod === 'custom' && (
-                  <div className="flex items-center gap-2 bg-slate-900 p-1.5 border border-slate-800 rounded-xl">
+                  <div className="flex items-center gap-2 bg-white p-1.5 border border-slate-200 rounded-xl">
                     <input 
                       type="date" 
                       value={maintCustomStart}
                       onChange={e => setMaintCustomStart(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                      className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
                     />
-                    <span className="text-slate-500 text-xs">~</span>
+                    <span className="text-slate-400 text-xs">~</span>
                     <input 
                       type="date" 
                       value={maintCustomEnd}
                       onChange={e => setMaintCustomEnd(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                      className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 )}
@@ -3640,14 +3640,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 const filteredMaint = maintenances.filter(m => isDateInPeriod(m.date, maintPeriod, maintCustomStart, maintCustomEnd));
                 if (filteredMaint.length === 0) {
                   return (
-                    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl py-12 text-center text-slate-400 text-xs">
+                    <div className="bg-slate-100 border border-slate-200 rounded-2xl py-12 text-center text-slate-500 text-xs">
                       기록된 예방 정비 대장이 없거나 필터 조건에 부합하는 내역이 없습니다.
                     </div>
                   );
                 }
                 return (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
                     <span>총 {filteredMaint.length}건의 정비 대장</span>
                     <span className="flex items-center gap-1 text-indigo-400 font-medium">
                       <span>옆으로 밀어서 보기</span>
@@ -3668,38 +3668,38 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             className={`flex-none w-[290px] sm:w-[350px] snap-start border p-4 rounded-2xl space-y-3 flex flex-col justify-between ${
                               m.status === 'scheduled' 
                                 ? 'bg-amber-950/10 border-amber-800/40 shadow-sm' 
-                                : 'bg-slate-900/80 border-slate-800 shadow-sm'
+                                : 'bg-slate-900/60 border-slate-200 shadow-sm'
                             }`}
                           >
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 m.status === 'scheduled' 
-                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
-                                  : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-500/20' 
+                                  : 'bg-indigo-50 text-indigo-700 border border-indigo-500/20'
                               }`}>
                                 {m.status === 'scheduled' ? '정비 예정 (대기중)' : '🔧 정비 완료'}
                               </span>
-                              <span className="text-xs text-slate-500 font-mono">{m.date}</span>
+                              <span className="text-xs text-slate-400 font-mono">{m.date}</span>
                             </div>
 
-                            <h3 className="font-bold text-sm text-slate-100">{m.title}</h3>
+                            <h3 className="font-bold text-sm text-slate-800">{m.title}</h3>
                             
-                            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400 pt-1">
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500 pt-1">
                               <div>
-                                <p className="text-[10px] text-slate-500">대상 차량</p>
-                                <p className="text-slate-300 font-semibold">{getVehicleModel(m.vehicleId)}</p>
+                                <p className="text-[10px] text-slate-400">대상 차량</p>
+                                <p className="text-slate-600 font-semibold">{getVehicleModel(m.vehicleId)}</p>
                               </div>
                               {m.mileage > 0 && (
                                 <div>
-                                  <p className="text-[10px] text-slate-500">정비 시점 주행거리</p>
-                                  <p className="text-slate-300 font-mono">{formatWon(m.mileage)} km</p>
+                                  <p className="text-[10px] text-slate-400">정비 시점 주행거리</p>
+                                  <p className="text-slate-600 font-mono">{formatWon(m.mileage)} km</p>
                                 </div>
                               )}
                               {m.shopName && (
                                 <div>
-                                  <p className="text-[10px] text-slate-500">정비소/업체</p>
-                                  <p className="text-slate-300">
+                                  <p className="text-[10px] text-slate-400">정비소/업체</p>
+                                  <p className="text-slate-600">
                                     {m.shopName}
                                     {m.shopContact && (
                                       <span className="text-indigo-400 block text-[10px] mt-0.5">📞 {m.shopContact}</span>
@@ -3708,35 +3708,35 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 </div>
                               )}
                               <div>
-                                <p className="text-[10px] text-slate-500">결제 수단</p>
-                                <p className="text-slate-300 font-medium">{payMethodKo}</p>
+                                <p className="text-[10px] text-slate-400">결제 수단</p>
+                                <p className="text-slate-600 font-medium">{payMethodKo}</p>
                               </div>
                               <div className="col-span-2 mt-1">
-                                <p className="text-[10px] text-slate-500">비용 공임</p>
+                                <p className="text-[10px] text-slate-400">비용 공임</p>
                                 <p className="text-indigo-400 font-semibold font-mono">{m.cost > 0 ? `${formatWon(m.cost)} 원` : '기록없음/무료'}</p>
                               </div>
                             </div>
 
                             {m.memo && (
-                              <p className="text-[11px] text-slate-500 bg-slate-950/40 p-2 rounded-lg border border-slate-850">
+                              <p className="text-[11px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-850">
                                 메모: {m.memo}
                               </p>
                             )}
                           </div>
 
-                          <div className="pt-2.5 border-t border-slate-800/40 flex items-center justify-between">
+                          <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                               {m.status === 'scheduled' && (
                                 <button 
                                   onClick={() => handleCompleteMaint(m.id)}
-                                  className="px-2.5 py-1 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded font-semibold transition-all"
+                                  className="px-2.5 py-1 text-[10px] bg-amber-50 hover:bg-amber-500/30 text-amber-700 rounded font-semibold transition-all"
                                 >
                                   정비 완료로 변경
                                 </button>
                               )}
                               <button 
                                 onClick={() => setEditingMaint(m)}
-                                className="p-1 text-slate-500 hover:text-indigo-400 hover:bg-slate-800 rounded transition-all"
+                                className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-slate-100 rounded transition-all"
                                 title="정비 기록 수정"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
@@ -3744,7 +3744,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             </div>
                             <button 
                               onClick={() => handleDeleteMaint(m.id)}
-                              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -3757,7 +3757,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <button
                         type="button"
                         onClick={() => setVisibleMaintCount((prev) => Math.min(prev + 50, filteredMaint.length))}
-                        className="flex-none w-[150px] snap-start border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-300 transition-all"
+                        className="flex-none w-[150px] snap-start border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-white rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 transition-all"
                       >
                         <span className="text-2xl">＋</span>
                         <span className="text-xs font-bold">{filteredMaint.length - visibleMaintCount}건 더 보기</span>
@@ -3774,7 +3774,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           {maintSubMode === 'intervals' && (
             <div className="space-y-4">
               {maintenanceIntervals.length === 0 ? (
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl py-12 text-center text-slate-400 text-xs">
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl py-12 text-center text-slate-500 text-xs">
                   등록된 예방 점검 주기가 없습니다. 소모품(엔진오일, 타이어 등)의 수명 한도를 기입하여 교환 시기를 관리하세요.
                 </div>
               ) : (
@@ -3808,10 +3808,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return (
                       <div 
                         key={item.id}
-                        className={`border p-4 rounded-2xl space-y-4 bg-slate-900/80 border-slate-800 flex flex-col justify-between relative overflow-hidden`}
+                        className={`border p-4 rounded-2xl space-y-4 bg-slate-900/60 border-slate-200 flex flex-col justify-between relative overflow-hidden`}
                       >
                         {hasWarning && (
-                          <div className="absolute right-0 top-0 bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-bl border-l border-b border-amber-500/20 flex items-center gap-1">
+                          <div className="absolute right-0 top-0 bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-bl border-l border-b border-amber-500/20 flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3 text-amber-400" />
                             <span>점검 임박</span>
                           </div>
@@ -3819,12 +3819,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                         <div className="space-y-3">
                           <div>
-                            <span className="text-[10px] text-slate-500 block font-semibold">{getVehicleModel(item.vehicleId)}</span>
-                            <h3 className="font-bold text-base text-slate-100">{item.itemType}</h3>
+                            <span className="text-[10px] text-slate-400 block font-semibold">{getVehicleModel(item.vehicleId)}</span>
+                            <h3 className="font-bold text-base text-slate-800">{item.itemType}</h3>
                           </div>
 
                           {/* Progress indicators */}
-                          <div className="space-y-2.5 text-xs text-slate-400 bg-slate-950/40 p-3 rounded-xl border border-slate-850">
+                          <div className="space-y-2.5 text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-850">
                             {/* KM Progress */}
                             <div className="space-y-1">
                               <div className="flex justify-between text-[11px]">
@@ -3833,7 +3833,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                   {formatWon(drivenKm)}km 주행 ({kmProgress.toFixed(0)}%)
                                 </span>
                               </div>
-                              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                 <div 
                                   className={`h-full rounded-full transition-all ${
                                     isKmExceeded ? 'bg-rose-500' : isAlertKm ? 'bg-amber-500' : 'bg-emerald-500'
@@ -3841,20 +3841,20 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                   style={{ width: `${kmProgress}%` }}
                                 ></div>
                               </div>
-                              <p className="text-[10px] text-slate-500">
+                              <p className="text-[10px] text-slate-400">
                                 {kmLeft > 0 ? `교환까지 ${formatWon(kmLeft)}km 남음` : '교환 한계 도과! 즉시 정비 권장'}
                               </p>
                             </div>
 
                             {/* Days Progress */}
-                            <div className="space-y-1 pt-1 border-t border-slate-800/40">
+                            <div className="space-y-1 pt-1 border-t border-slate-200">
                               <div className="flex justify-between text-[11px]">
                                 <span>경과 일수 기준 교환 주기 ({item.intervalDays}일)</span>
                                 <span className={`font-mono font-bold ${isDaysExceeded ? 'text-rose-400' : isAlertDays ? 'text-amber-400' : 'text-emerald-400'}`}>
                                   {daysElapsed}일 경과 ({daysProgress.toFixed(0)}%)
                                 </span>
                               </div>
-                              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                 <div 
                                   className={`h-full rounded-full transition-all ${
                                     isDaysExceeded ? 'bg-rose-500' : isAlertDays ? 'bg-amber-500' : 'bg-emerald-500'
@@ -3862,35 +3862,35 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                   style={{ width: `${daysProgress}%` }}
                                 ></div>
                               </div>
-                              <p className="text-[10px] text-slate-500">
+                              <p className="text-[10px] text-slate-400">
                                 {daysLeft > 0 ? `교환까지 ${daysLeft}일 남음` : '권장 교환 시점 초과! 즉시 정비 권장'}
                               </p>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 pt-1">
+                          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 pt-1">
                             <div>
                               <span>이전 교환 시점 주행거리</span>
-                              <p className="text-slate-300 font-semibold">{formatWon(item.lastServiceMileage)} km</p>
+                              <p className="text-slate-600 font-semibold">{formatWon(item.lastServiceMileage)} km</p>
                             </div>
                             <div>
                               <span>이전 교환 일자</span>
-                              <p className="text-slate-300 font-semibold">{item.lastServiceDate}</p>
+                              <p className="text-slate-600 font-semibold">{item.lastServiceDate}</p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="pt-2.5 border-t border-slate-800/40 flex items-center justify-between">
+                        <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
                           <button
                             onClick={() => setEditingInterval(item)}
-                            className="px-2.5 py-1 text-[10px] bg-slate-800 hover:bg-slate-750 text-slate-300 rounded font-semibold transition-all flex items-center gap-1"
+                            className="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-750 text-slate-600 rounded font-semibold transition-all flex items-center gap-1"
                           >
                             <Pencil className="w-3 h-3" />
                             <span>수정</span>
                           </button>
                           <button 
                             onClick={() => handleDeleteInterval(item.id)}
-                            className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
                             title="점검 주기 삭제"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -4097,10 +4097,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
         return (
           <div className="space-y-4">
-            <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
+            <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                  <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <FileText className="w-4 h-4 text-indigo-400" />
                     <span>국세청(NTS) 제출용 업무용승용차 운행기록부 서식</span>
                   </h2>
@@ -4130,9 +4130,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 )}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-slate-950/40 border border-slate-850 rounded-xl">
+              <div className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-slate-50 border border-slate-850 rounded-xl">
                 <div className="space-y-1.5 flex-1 w-full">
-                  <label className="text-xs text-slate-400">인쇄 대상 차량 선택</label>
+                  <label className="text-xs text-slate-500">인쇄 대상 차량 선택</label>
                   <select 
                     value={reportVehicleId}
                     onChange={e => {
@@ -4145,7 +4145,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         }
                       }
                     }}
-                    className="w-full bg-slate-900 text-xs text-slate-300 rounded-lg border border-slate-800 p-2 focus:outline-none"
+                    className="w-full bg-white text-xs text-slate-600 rounded-lg border border-slate-200 p-2 focus:outline-none"
                   >
                     <option value="">차량 선택...</option>
                     {vehicles.map(v => (
@@ -4155,12 +4155,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5 flex-1 w-full">
-                  <label className="text-xs text-slate-400">조회 월 선택 (연월)</label>
+                  <label className="text-xs text-slate-500">조회 월 선택 (연월)</label>
                   <input 
                     type="month" 
                     value={reportYearMonth}
                     onChange={e => setReportYearMonth(e.target.value)}
-                    className="w-full bg-slate-900 text-xs text-slate-300 rounded-lg border border-slate-800 p-2 focus:outline-none"
+                    className="w-full bg-white text-xs text-slate-600 rounded-lg border border-slate-200 p-2 focus:outline-none"
                   />
                 </div>
               </div>
@@ -4168,13 +4168,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
             {/* 국세청 출력 테이블 폼 시뮬레이션 */}
             {vehicles.length === 0 ? (
-              <div className="p-12 text-center bg-slate-900/20 border border-slate-800 text-slate-400 rounded-2xl text-xs">
+              <div className="p-12 text-center bg-slate-50 border border-slate-200 text-slate-500 rounded-2xl text-xs">
                 등록된 차량이 없습니다. 차량을 먼저 등록해 주세요.
               </div>
             ) : (
               <div className="space-y-4">
                 {/* 안내 메시지 및 좌우 이동 컨트롤 */}
-                <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 print:hidden">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 print:hidden">
                   <span>총 {vehicles.length}대 차량의 NTS 운행기록부</span>
                   <div className="flex items-center gap-3">
                     <button 
@@ -4189,7 +4189,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         }
                       }}
                       disabled={vehicles.findIndex(v => v.id === reportVehicleId) <= 0}
-                      className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent text-slate-400 transition-all cursor-pointer"
+                      className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-500 transition-all cursor-pointer"
                     >
                       ◀
                     </button>
@@ -4209,7 +4209,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         }
                       }}
                       disabled={vehicles.findIndex(v => v.id === reportVehicleId) === vehicles.length - 1}
-                      className="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent text-slate-400 transition-all cursor-pointer"
+                      className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-500 transition-all cursor-pointer"
                     >
                       ▶
                     </button>
@@ -4343,7 +4343,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                 <td className="border border-slate-300 p-2 text-left px-3">{insuranceInfo}</td>
                                 <td className="border border-slate-300 p-2">{getRentalTypeKo(v.rentalType)}</td>
                                 <td className="border border-slate-300 p-2 font-mono text-right pr-4 font-semibold">{v.rentalFee ? formatWon(v.rentalFee) : '0'}</td>
-                                <td className="border border-slate-300 p-2 text-slate-500">{v.color || '-'}</td>
+                                <td className="border border-slate-300 p-2 text-slate-400">{v.color || '-'}</td>
                               </tr>
                             </tbody>
                           </table>
@@ -4405,7 +4405,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                     <td className="p-2 border border-slate-300 text-right font-mono pr-2 text-slate-700">
                                       {fuelVal > 0 ? formatWon(fuelVal) : '-'}
                                     </td>
-                                    <td className="p-2 border border-slate-300 text-left px-2 truncate max-w-[100px] text-slate-500" title={log.projectName}>{log.projectName || '-'}</td>
+                                    <td className="p-2 border border-slate-300 text-left px-2 truncate max-w-[100px] text-slate-400" title={log.projectName}>{log.projectName || '-'}</td>
                                   </tr>
                                 );
                               })}
@@ -4413,7 +4413,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               {/* 데이터가 비었을 때 빈 칸 채우기 */}
                               {carLogs.length === 0 && (
                                 <tr>
-                                  <td colSpan={13} className="p-10 text-center text-slate-400 font-sans">
+                                  <td colSpan={13} className="p-10 text-center text-slate-500 font-sans">
                                     해당 월에 기록된 주행 로그가 존재하지 않습니다.
                                   </td>
                                 </tr>
@@ -4443,7 +4443,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         </div>
 
                         {/* 법적 동의 및 서명부 */}
-                        <div className="mt-8 flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-[11px] text-slate-500 font-sans border-t border-slate-200 pt-4">
+                        <div className="mt-8 flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-[11px] text-slate-400 font-sans border-t border-slate-200 pt-4">
                           <p>※ 소득세법 시행령 제78조의3에 따른 업무용승용차 운행기록부 / 출·퇴근용 + 일반업무용 = 업무사용거리</p>
                           <div className="flex gap-4 self-end sm:self-auto">
                             <span>작성인/대표자: <span className="underline font-bold text-slate-800">{currentUser.name}</span> (인/서명)</span>
@@ -4465,11 +4465,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* 1. 차량별 지출 비중 (가로형 막대그래프) */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-slate-200">🚗 차량별 누적 지출 전산 비중 (KRW)</h3>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+              <h3 className="text-xs font-bold text-slate-700">🚗 차량별 누적 지출 전산 비중 (KRW)</h3>
               
               {vehicles.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-xs">데이터가 부족합니다.</div>
+                <div className="py-12 text-center text-slate-400 text-xs">데이터가 부족합니다.</div>
               ) : (
                 <div className="space-y-4 pt-2">
                   {vehicles.map(v => {
@@ -4480,10 +4480,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return (
                       <div key={v.id} className="space-y-1 text-xs">
                         <div className="flex justify-between text-[11px]">
-                          <span className="font-semibold text-slate-300">{v.modelName} ({v.plateNumber})</span>
+                          <span className="font-semibold text-slate-600">{v.modelName} ({v.plateNumber})</span>
                           <span className="font-bold font-mono text-indigo-400">{formatWon(carExpense)} 원 ({percentage}%)</span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden border border-slate-800">
+                        <div className="w-full h-2 rounded-full bg-slate-50 overflow-hidden border border-slate-200">
                           <div 
                             className="bg-gradient-to-r from-indigo-500 to-indigo-400 h-full rounded-full"
                             style={{ width: `${Math.max(percentage, 2)}%` }}
@@ -4497,11 +4497,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             </div>
 
             {/* 2. 지출 카테고리별 비중 (도넛형 간이 수치 리포트) */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-slate-200">💳 경비 지출 분류 항목 비율</h3>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+              <h3 className="text-xs font-bold text-slate-700">💳 경비 지출 분류 항목 비율</h3>
 
               {expenses.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-xs">비용 정산 내역이 없습니다.</div>
+                <div className="py-12 text-center text-slate-400 text-xs">비용 정산 내역이 없습니다.</div>
               ) : (
                 <div className="space-y-3 pt-2">
                   {(['fuel', 'toll', 'parking', 'maintenance', 'tax_insurance', 'other'] as const).map(cat => {
@@ -4511,11 +4511,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     if (catAmount === 0) return null;
 
                     return (
-                      <div key={cat} className="flex items-center justify-between text-xs p-2.5 bg-slate-950/40 border border-slate-850 rounded-xl">
-                        <span className="font-medium text-slate-300">{getCategoryKo(cat)}</span>
+                      <div key={cat} className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-850 rounded-xl">
+                        <span className="font-medium text-slate-600">{getCategoryKo(cat)}</span>
                         <div className="flex items-center gap-3">
-                          <span className="font-mono text-slate-400">{percentage}%</span>
-                          <span className="font-bold text-slate-100 font-mono">{formatWon(catAmount)} 원</span>
+                          <span className="font-mono text-slate-500">{percentage}%</span>
+                          <span className="font-bold text-slate-800 font-mono">{formatWon(catAmount)} 원</span>
                         </div>
                       </div>
                     );
@@ -4525,13 +4525,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             </div>
 
             {/* 3. 차량별 주행 효율 (누적거리당 비용 등 종합 리포트) */}
-            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-slate-200">📈 보유 차량 전산 자산 효율 비교</h3>
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+              <h3 className="text-xs font-bold text-slate-700">📈 보유 차량 전산 자산 효율 비교</h3>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                <table className="w-full text-left text-xs text-slate-600 border-collapse">
                   <thead>
-                    <tr className="bg-slate-950/40 border-b border-slate-800 text-slate-400 font-semibold">
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
                       <th className="p-3">차량</th>
                       <th className="p-3 text-center">총 운행 횟수</th>
                       <th className="p-3 text-right">총 주행거리 (km)</th>
@@ -4540,7 +4540,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <th className="p-3 text-right">km당 평균 유지비</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-mono">
+                  <tbody className="divide-y divide-slate-200 font-mono">
                     {vehicles.map(v => {
                       const carLogs = drivingLogs.filter(log => log.vehicleId === v.id);
                       const totalCarDistance = carLogs.reduce((sum, log) => sum + log.distance, 0);
@@ -4550,12 +4550,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                       return (
                         <tr key={v.id} className="hover:bg-slate-850/20">
-                          <td className="p-3 font-semibold text-slate-100 font-sans">{v.modelName} ({v.plateNumber})</td>
+                          <td className="p-3 font-semibold text-slate-800 font-sans">{v.modelName} ({v.plateNumber})</td>
                           <td className="p-3 text-center">{carLogs.length}회</td>
                           <td className="p-3 text-right font-bold text-indigo-400">{totalCarDistance} km</td>
                           <td className="p-3 text-right">{maintCount}건</td>
                           <td className="p-3 text-right text-amber-400">{formatWon(totalCarExpense)} 원</td>
-                          <td className="p-3 text-right font-semibold text-slate-300">
+                          <td className="p-3 text-right font-semibold text-slate-600">
                             {costPerKm > 0 ? `${formatWon(costPerKm)} 원/km` : '0 원 (주행거리 없음)'}
                           </td>
                         </tr>
@@ -4574,17 +4574,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 8. 기 등록 차량 정보 수정 오버레이 모달 (임차/보험/비콘 완벽 제어) */}
       {/* ========================================== */}
       {editingVehicle && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-4xl rounded-2xl p-6 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 w-full max-w-4xl rounded-2xl p-6 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                 <Car className="w-4 h-4 text-indigo-400" />
                 <span>차량 기 등록 정보 수정 및 보완</span>
               </h3>
               <button 
                 type="button" 
                 onClick={() => setEditingVehicle(null)} 
-                className="text-xs text-slate-500 hover:text-slate-300"
+                className="text-xs text-slate-400 hover:text-slate-600"
               >
                 닫기
               </button>
@@ -4598,31 +4598,31 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">차량 모델명 *</label>
+                    <label className="text-xs text-slate-500">차량 모델명 *</label>
                     <input 
                       type="text" 
                       value={editingVehicle.modelName}
                       onChange={e => setEditingVehicle({ ...editingVehicle, modelName: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       required
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">차량 등록 번호 *</label>
+                    <label className="text-xs text-slate-500">차량 등록 번호 *</label>
                     <input 
                       type="text" 
                       value={editingVehicle.plateNumber}
                       onChange={e => setEditingVehicle({ ...editingVehicle, plateNumber: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       required
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">기본 유종 *</label>
+                    <label className="text-xs text-slate-500">기본 유종 *</label>
                     <select 
                       value={editingVehicle.fuelType}
                       onChange={e => setEditingVehicle({ ...editingVehicle, fuelType: e.target.value as any })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="gasoline">가솔린 (휘발유)</option>
                       <option value="diesel">디젤 (경유)</option>
@@ -4632,49 +4632,49 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">제조 년식</label>
+                    <label className="text-xs text-slate-500">제조 년식</label>
                     <input 
                       type="text" 
                       value={editingVehicle.modelYear || ''}
                       placeholder="예: 2024년식"
                       onChange={e => setEditingVehicle({ ...editingVehicle, modelYear: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">색상</label>
+                    <label className="text-xs text-slate-500">색상</label>
                     <input 
                       type="text" 
                       value={editingVehicle.color || ''}
                       placeholder="예: 미드나잇 블루"
                       onChange={e => setEditingVehicle({ ...editingVehicle, color: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">전담 관리 사원</label>
+                    <label className="text-xs text-slate-500">전담 관리 사원</label>
                     <input 
                       type="text" 
                       value={editingVehicle.owner}
                       onChange={e => setEditingVehicle({ ...editingVehicle, owner: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">구입 계약 일자</label>
+                    <label className="text-xs text-slate-500">구입 계약 일자</label>
                     <input 
                       type="date" 
                       value={editingVehicle.purchaseDate}
                       onChange={e => setEditingVehicle({ ...editingVehicle, purchaseDate: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">운행 허용 상태</label>
+                    <label className="text-xs text-slate-500">운행 허용 상태</label>
                     <select 
                       value={editingVehicle.status}
                       onChange={e => setEditingVehicle({ ...editingVehicle, status: e.target.value as any })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="active">운행 가능</option>
                       <option value="maintenance">정비 수리중</option>
@@ -4685,17 +4685,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
 
               {/* 세션 2: 임차 정보 */}
-              <div className="space-y-3 pt-2 border-t border-slate-800/60">
+              <div className="space-y-3 pt-2 border-t border-slate-200">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                   <span>•</span> 자산 임차 형태 및 금융비용
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">임차 구분</label>
+                    <label className="text-xs text-slate-500">임차 구분</label>
                     <select 
                       value={editingVehicle.rentalType || 'own'}
                       onChange={e => setEditingVehicle({ ...editingVehicle, rentalType: e.target.value as any })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="own">자가 (소유 자산)</option>
                       <option value="long_rent">장기렌트</option>
@@ -4705,104 +4705,104 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">월 임차 비용 (원화 금액)</label>
+                    <label className="text-xs text-slate-500">월 임차 비용 (원화 금액)</label>
                     <input 
                       type="text" 
                       inputMode="numeric"
                       value={editingVehicle.rentalFee ? formatCurrencyInput(editingVehicle.rentalFee) : ''}
                       placeholder="예: 750,000"
                       onChange={e => setEditingVehicle({ ...editingVehicle, rentalFee: parseCurrencyInput(e.target.value) })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* 세션 3: 법인 보험 계약 정보 */}
-              <div className="space-y-3 pt-2 border-t border-slate-800/60">
+              <div className="space-y-3 pt-2 border-t border-slate-200">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                   <span>•</span> 가입 법인 보험 계약 세부사항
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">법인 자동차 보험사</label>
+                    <label className="text-xs text-slate-500">법인 자동차 보험사</label>
                     <input 
                       type="text" 
                       value={editingVehicle.insuranceCompany || ''}
                       placeholder="예: 현대해상 다이렉트"
                       onChange={e => setEditingVehicle({ ...editingVehicle, insuranceCompany: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">보험 가입일자</label>
+                    <label className="text-xs text-slate-500">보험 가입일자</label>
                     <input 
                       type="date" 
                       value={editingVehicle.insuranceStartDate || ''}
                       onChange={e => setEditingVehicle({ ...editingVehicle, insuranceStartDate: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">보험 만기일자</label>
+                    <label className="text-xs text-slate-500">보험 만기일자</label>
                     <input 
                       type="date" 
                       value={editingVehicle.insuranceEndDate || ''}
                       onChange={e => setEditingVehicle({ ...editingVehicle, insuranceEndDate: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">보험 계약 담당자</label>
+                    <label className="text-xs text-slate-500">보험 계약 담당자</label>
                     <input 
                       type="text" 
                       value={editingVehicle.insuranceAgent || ''}
                       placeholder="예: 홍길동 과장"
                       onChange={e => setEditingVehicle({ ...editingVehicle, insuranceAgent: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div className="space-y-1.5 sm:col-span-4">
-                    <label className="text-xs text-slate-400">보험 지점 연락처</label>
+                    <label className="text-xs text-slate-500">보험 지점 연락처</label>
                     <input 
                       type="text" 
                       value={editingVehicle.insuranceContact || ''}
                       placeholder="예: 02-1234-5678"
                       onChange={e => setEditingVehicle({ ...editingVehicle, insuranceContact: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* 세션 4: 비콘 ID 정보 */}
-              <div className="space-y-3 pt-2 border-t border-slate-800/60">
+              <div className="space-y-3 pt-2 border-t border-slate-200">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                   <span>•</span> 비콘 ID 단말기 정보
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1.5 sm:col-span-2">
-                    <label className="text-xs text-slate-400">비콘 ID (자동 운행 기록 센서)</label>
+                    <label className="text-xs text-slate-500">비콘 ID (자동 운행 기록 센서)</label>
                     <input 
                       type="text" 
                       value={editingVehicle.beaconId || ''}
                       placeholder="예: BCON-ABC-123"
                       onChange={e => setEditingVehicle({ ...editingVehicle, beaconId: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* 세션 5: 등록증 사본 업데이트 */}
-              <div className="space-y-3 pt-2 border-t border-slate-800/60">
+              <div className="space-y-3 pt-2 border-t border-slate-200">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                   <span>•</span> 자동차 등록증 첨부 서류 변경
                 </h4>
-                <div className="p-4 bg-slate-950 rounded-xl border border-slate-850 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-850 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-left">
-                    <p className="text-xs font-bold text-slate-200">기존 첨부문서 대체 / 신규 업로드</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">새 이미지나 PDF를 첨부하면 기 보관 중이던 등록증 원본 사본이 실시간 갱신됩니다.</p>
+                    <p className="text-xs font-bold text-slate-700">기존 첨부문서 대체 / 신규 업로드</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">새 이미지나 PDF를 첨부하면 기 보관 중이던 등록증 원본 사본이 실시간 갱신됩니다.</p>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <input 
@@ -4823,7 +4823,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     />
                     <label 
                       htmlFor="edit-reg-doc-upload"
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-750 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
                     >
                       새 파일 교체하기
                     </label>
@@ -4841,18 +4841,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         </button>
                       </div>
                     ) : (
-                      <span className="text-[10px] text-slate-500">등록된 서류 없음</span>
+                      <span className="text-[10px] text-slate-400">등록된 서류 없음</span>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* 하단 제어 대기열 */}
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-800/60">
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                 <button 
                   type="button"
                   onClick={() => setEditingVehicle(null)}
-                  className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
@@ -4871,12 +4871,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* [수정] 영수증 썸네일 확대보기 라이트박스 */}
       {enlargedReceiptUrl && (
         <div
-          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[110] flex items-center justify-center p-4"
           onClick={() => setEnlargedReceiptUrl(null)}
         >
           <button
             onClick={() => setEnlargedReceiptUrl(null)}
-            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
           >
             닫기
           </button>
@@ -4884,7 +4884,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             src={enlargedReceiptUrl}
             alt="영수증 확대보기"
             onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
           />
         </div>
       )}
@@ -4893,7 +4893,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 9. 자동차 등록증 원본 뷰어 라이트박스 오버레이 모달 */}
       {/* ========================================== */}
       {viewDocUrl && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-4">
           <div className="absolute top-4 right-4 flex items-center gap-3">
             <a 
               href={viewDocUrl}
@@ -4915,13 +4915,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   printWin.print();
                 }
               }}
-              className="px-3 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-750 hover:border-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow"
+              className="px-3 py-1.5 bg-slate-900/60 hover:bg-slate-100 text-slate-700 border border-slate-750 hover:border-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow"
             >
               <Printer className="w-3.5 h-3.5" /> 인쇄하기
             </button>
             <button 
               onClick={() => setViewDocUrl(null)}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
             >
               닫기
             </button>
@@ -4938,11 +4938,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <img 
                 src={viewDocUrl} 
                 alt="자동차 등록증 기 저장 원본 이미지" 
-                className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-slate-800"
+                className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-slate-200"
                 referrerPolicy="no-referrer"
               />
             )}
-            <p className="text-[11px] text-slate-400 font-medium text-center">로컬 브라우저 세션 스토리지에 세무 전산 증빙용으로 격리 보관 중인 {viewDocUrl.startsWith('data:application/pdf') ? 'PDF 서류' : '이미지'} 원본입니다.</p>
+            <p className="text-[11px] text-slate-500 font-medium text-center">로컬 브라우저 세션 스토리지에 세무 전산 증빙용으로 격리 보관 중인 {viewDocUrl.startsWith('data:application/pdf') ? 'PDF 서류' : '이미지'} 원본입니다.</p>
           </div>
         </div>
       )}
@@ -5007,17 +5007,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         });
 
         return (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
               {/* Modal Header */}
-              <div className="p-5 border-b border-slate-800/80 flex justify-between items-start">
+              <div className="p-5 border-b border-slate-200 flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-100">{v.modelName}</h2>
+                  <h2 className="text-xl font-bold text-slate-800">{v.modelName}</h2>
                   <p className="text-xs text-indigo-400 font-mono mt-0.5">{v.plateNumber}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedStatsVehicle(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -5027,34 +5027,34 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                 {/* 2x2 Grid of Stat Cards */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-950/40 border border-slate-850 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-500 font-semibold block">총 운행기록</span>
-                    <p className="text-lg font-bold text-slate-100">{carLogs.length}건</p>
+                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-slate-400 font-semibold block">총 운행기록</span>
+                    <p className="text-lg font-bold text-slate-800">{carLogs.length}건</p>
                   </div>
-                  <div className="bg-slate-950/40 border border-slate-850 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-500 font-semibold block">총 누적거리</span>
-                    <p className="text-lg font-bold text-slate-100">{formatWon(v.currentMileage || 0)} km</p>
+                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-slate-400 font-semibold block">총 누적거리</span>
+                    <p className="text-lg font-bold text-slate-800">{formatWon(v.currentMileage || 0)} km</p>
                   </div>
-                  <div className="bg-slate-950/40 border border-slate-850 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-500 font-semibold block">총 지출비용</span>
-                    <p className="text-lg font-bold text-slate-100">{formatWon(totalCarExpense)}원</p>
+                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-slate-400 font-semibold block">총 지출비용</span>
+                    <p className="text-lg font-bold text-slate-800">{formatWon(totalCarExpense)}원</p>
                   </div>
-                  <div className="bg-slate-950/40 border border-slate-850 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-500 font-semibold block">총 정비비용</span>
-                    <p className="text-lg font-bold text-slate-100">{formatWon(totalMaintExpense)}원</p>
+                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-slate-400 font-semibold block">총 정비비용</span>
+                    <p className="text-lg font-bold text-slate-800">{formatWon(totalMaintExpense)}원</p>
                   </div>
                 </div>
 
                 {/* Timeline History Section */}
                 <div className="space-y-4 pt-2">
-                  <h3 className="text-sm font-bold text-slate-100">타임라인 히스토리</h3>
+                  <h3 className="text-sm font-bold text-slate-800">타임라인 히스토리</h3>
                   
                   {allEvents.length === 0 ? (
-                    <div className="bg-slate-950/20 border border-dashed border-slate-800/80 py-10 rounded-xl text-center text-slate-500 text-xs">
+                    <div className="bg-slate-50/20 border border-dashed border-slate-200 py-10 rounded-xl text-center text-slate-400 text-xs">
                       이 차량의 최근 운행, 지출 또는 정비 기록이 존재하지 않습니다.
                     </div>
                   ) : (
-                    <div className="relative border-l-2 border-slate-800/80 ml-3 pl-6 space-y-6">
+                    <div className="relative border-l-2 border-slate-200 ml-3 pl-6 space-y-6">
                       {allEvents.map((event) => {
                         let badgeColor = '';
                         let badgeText = '';
@@ -5081,25 +5081,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         return (
                           <div key={event.id} className="relative group">
                             {/* Timeline Dot */}
-                            <div className="absolute -left-[32px] top-1.5 w-3 h-3 rounded-full border border-slate-900 bg-indigo-500 group-hover:scale-110 transition-transform"></div>
+                            <div className="absolute -left-[32px] top-1.5 w-3 h-3 rounded-full border border-slate-200 bg-indigo-500 group-hover:scale-110 transition-transform"></div>
 
-                            <div className="bg-slate-950/30 border border-slate-850 hover:border-slate-800/80 p-4 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm transition-all">
+                            <div className="bg-slate-50/30 border border-slate-850 hover:border-slate-200 p-4 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm transition-all">
                               <div className="space-y-1 flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeColor}`}>
                                     {badgeText}
                                   </span>
-                                  <span className="text-xs text-slate-400 font-mono">{formattedDate}</span>
+                                  <span className="text-xs text-slate-500 font-mono">{formattedDate}</span>
                                 </div>
-                                <p className="text-xs font-semibold text-slate-200">{event.title}</p>
+                                <p className="text-xs font-semibold text-slate-700">{event.title}</p>
                                 {event.sub && (
-                                  <p className="text-[11px] text-slate-500 font-normal leading-relaxed">{event.sub}</p>
+                                  <p className="text-[11px] text-slate-400 font-normal leading-relaxed">{event.sub}</p>
                                 )}
                               </div>
 
                               {event.amount && event.amount > 0 && (
                                 <div className="text-right flex md:flex-col justify-between md:justify-center items-center md:items-end border-t md:border-t-0 border-slate-850/60 pt-2 md:pt-0">
-                                  <span className="text-[10px] text-slate-500 md:hidden">금액</span>
+                                  <span className="text-[10px] text-slate-400 md:hidden">금액</span>
                                   <span className="text-xs font-bold text-rose-400 font-mono">
                                     {formatWon(event.amount)}원
                                   </span>
@@ -5115,10 +5115,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
 
               {/* Modal Footer */}
-              <div className="p-4 border-t border-slate-800/60 bg-slate-900 flex justify-end">
+              <div className="p-4 border-t border-slate-200 bg-white flex justify-end">
                 <button 
                   onClick={() => setSelectedStatsVehicle(null)}
-                  className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
                   닫기
                 </button>
@@ -5132,16 +5132,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 11. 운행일지 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingDriving && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
-            <div className="p-5 border-b border-slate-800/80 flex justify-between items-start">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
-                <h2 className="text-base font-bold text-slate-100">운행 기록 수정 보완</h2>
-                <p className="text-xs text-slate-400 mt-0.5">운행 기록의 누락된 상세 정보나 주소를 갱신하세요.</p>
+                <h2 className="text-base font-bold text-slate-800">운행 기록 수정 보완</h2>
+                <p className="text-xs text-slate-500 mt-0.5">운행 기록의 누락된 상세 정보나 주소를 갱신하세요.</p>
               </div>
               <button 
                 onClick={() => setEditingDriving(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-all"
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5150,32 +5150,32 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <form onSubmit={handleUpdateDriving} className="p-5 overflow-y-auto space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">운전자명 *</label>
+                  <label className="text-xs text-slate-500">운전자명 *</label>
                   <input 
                     type="text" 
                     value={editingDriving.driverName}
                     onChange={e => setEditingDriving({ ...editingDriving, driverName: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">부서명</label>
+                  <label className="text-xs text-slate-500">부서명</label>
                   <input 
                     type="text" 
                     value={editingDriving.department || ''}
                     onChange={e => setEditingDriving({ ...editingDriving, department: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">연동 프로젝트</label>
+                  <label className="text-xs text-slate-500">연동 프로젝트</label>
                   <select 
                     value={editingDriving.projectName || ''}
                     onChange={e => setEditingDriving({ ...editingDriving, projectName: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">연동 안함</option>
                     {projects.map(p => (
@@ -5185,45 +5185,45 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">운행 일자</label>
+                  <label className="text-xs text-slate-500">운행 일자</label>
                   <input 
                     type="date" 
                     value={editingDriving.date}
                     onChange={e => setEditingDriving({ ...editingDriving, date: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">출발 전 계기판 (km) *</label>
+                  <label className="text-xs text-slate-500">출발 전 계기판 (km) *</label>
                   <input 
                     type="number" 
                     value={editingDriving.startMileage === 0 ? '' : editingDriving.startMileage}
                     onChange={e => setEditingDriving({ ...editingDriving, startMileage: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">도착 후 계기판 (km) *</label>
+                  <label className="text-xs text-slate-500">도착 후 계기판 (km) *</label>
                   <input 
                     type="number" 
                     value={editingDriving.endMileage === 0 ? '' : editingDriving.endMileage}
                     onChange={e => setEditingDriving({ ...editingDriving, endMileage: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">출발지 상호명</label>
+                  <label className="text-xs text-slate-500">출발지 상호명</label>
                   <input 
                     type="text" 
                     value={editingDriving.startPlace}
                     onChange={e => setEditingDriving({ ...editingDriving, startPlace: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                   {editingDriving.startPlace.trim().length > 0 && (() => {
                     const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.startPlace.trim().toLowerCase())).slice(0, 3);
@@ -5238,7 +5238,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             key={opt.key}
                             type="button"
                             onClick={() => setEditingDriving({ ...editingDriving, startPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), startAddress: opt.address })}
-                            className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                            className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
                             title={opt.address}
                           >
                             🏢 {opt.label} 주소로 채우기
@@ -5250,22 +5250,22 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">출발지 주소</label>
+                  <label className="text-xs text-slate-500">출발지 주소</label>
                   <input 
                     type="text" 
                     value={editingDriving.startAddress || ''}
                     onChange={e => setEditingDriving({ ...editingDriving, startAddress: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">목적지 상호명 *</label>
+                  <label className="text-xs text-slate-500">목적지 상호명 *</label>
                   <input 
                     type="text" 
                     value={editingDriving.endPlace}
                     onChange={e => setEditingDriving({ ...editingDriving, endPlace: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     required
                   />
                   {editingDriving.endPlace.trim().length > 0 && (() => {
@@ -5281,7 +5281,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             key={opt.key}
                             type="button"
                             onClick={() => setEditingDriving({ ...editingDriving, endPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), endAddress: opt.address })}
-                            className="bg-indigo-950/40 text-[10px] text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30 hover:text-white hover:border-indigo-400"
+                            className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
                             title={opt.address}
                           >
                             🏢 {opt.label} 주소로 채우기
@@ -5293,42 +5293,42 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">목적지 주소</label>
+                  <label className="text-xs text-slate-500">목적지 주소</label>
                   <input 
                     type="text" 
                     value={editingDriving.endAddress || ''}
                     onChange={e => setEditingDriving({ ...editingDriving, endAddress: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs text-slate-400">운행 목적 *</label>
+                  <label className="text-xs text-slate-500">운행 목적 *</label>
                   <input 
                     type="text" 
                     value={editingDriving.purpose}
                     onChange={e => setEditingDriving({ ...editingDriving, purpose: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     required
                   />
                 </div>
 
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs text-slate-400">메모란</label>
+                  <label className="text-xs text-slate-500">메모란</label>
                   <textarea 
                     rows={2}
                     value={editingDriving.memo || ''}
                     onChange={e => setEditingDriving({ ...editingDriving, memo: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 resize-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 resize-none"
                   />
                 </div>
 
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs text-slate-400 block font-semibold text-indigo-400">연관 거래처 담당자</label>
+                  <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자</label>
                   <select 
                     value={editingDriving.contactId || ''}
                     onChange={e => setEditingDriving({ ...editingDriving, contactId: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">연관 담당자 없음</option>
                     {contacts.map(c => (
@@ -5338,11 +5338,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-800/60">
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                 <button 
                   type="button"
                   onClick={() => setEditingDriving(null)}
-                  className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
@@ -5362,16 +5362,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 12. 비용 지출 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingExpense && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
-            <div className="p-5 border-b border-slate-800/80 flex justify-between items-start">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
-                <h2 className="text-base font-bold text-slate-100">지출 비용 내역 수정</h2>
-                <p className="text-xs text-slate-400 mt-0.5">상호명, 유량, 수단 등의 결제 상세 정보를 수정합니다.</p>
+                <h2 className="text-base font-bold text-slate-800">지출 비용 내역 수정</h2>
+                <p className="text-xs text-slate-500 mt-0.5">상호명, 유량, 수단 등의 결제 상세 정보를 수정합니다.</p>
               </div>
               <button 
                 onClick={() => setEditingExpense(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-all"
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5381,34 +5381,34 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <div className="space-y-4">
                 {/* [수정] 등록할 때 스캔한 영수증 사진이 수정 화면에는 안 보이던 문제 - 여기에 썸네일로 표시 */}
                 {editingExpense.receiptImage && (
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                     <img
                       src={editingExpense.receiptImage}
                       alt="영수증"
                       onClick={() => setEnlargedReceiptUrl(editingExpense.receiptImage!)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                     />
-                    <span className="text-[11px] text-slate-400">등록된 영수증 (눌러서 크게 보기)</span>
+                    <span className="text-[11px] text-slate-500">등록된 영수증 (눌러서 크게 보기)</span>
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">지출 일자</label>
+                  <label className="text-xs text-slate-500">지출 일자</label>
                   <input 
                     type="date" 
                     value={editingExpense.date}
                     onChange={e => setEditingExpense({ ...editingExpense, date: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">결제 수단 *</label>
+                  <label className="text-xs text-slate-500">결제 수단 *</label>
                   <select 
                     value={editingExpense.payMethod || 'company_card'}
                     onChange={e => setEditingExpense({ ...editingExpense, payMethod: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>
                     <option value="personal_card">개인카드</option>
@@ -5417,11 +5417,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">비용 카테고리 *</label>
+                  <label className="text-xs text-slate-500">비용 카테고리 *</label>
                   <select 
                     value={editingExpense.category}
                     onChange={e => setEditingExpense({ ...editingExpense, category: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="fuel">주유비 (유류대)</option>
                     <option value="toll">통행료 (하이패스)</option>
@@ -5444,48 +5444,48 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       type="text" 
                       value={editingExpense.categoryCustom || ''}
                       onChange={e => setEditingExpense({ ...editingExpense, categoryCustom: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                       required
                     />
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">상호명</label>
+                  <label className="text-xs text-slate-500">상호명</label>
                   <input 
                     type="text" 
                     value={editingExpense.merchantName || ''}
                     onChange={e => setEditingExpense({ ...editingExpense, merchantName: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 {editingExpense.category === 'fuel' && (
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400">주유량 (L)</label>
+                    <label className="text-xs text-slate-500">주유량 (L)</label>
                     <input 
                       type="number" 
                       value={editingExpense.fuelVolume === 0 ? '' : editingExpense.fuelVolume}
                       onChange={e => setEditingExpense({ ...editingExpense, fuelVolume: Number(e.target.value) })}
-                      className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">지출금액 (원) *</label>
+                  <label className="text-xs text-slate-500">지출금액 (원) *</label>
                   <input 
                     type="text" 
                     inputMode="numeric"
                     value={editingExpense.amount === 0 ? '' : formatCurrencyInput(editingExpense.amount)}
                     onChange={e => setEditingExpense({ ...editingExpense, amount: parseCurrencyInput(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">연동 프로젝트</label>
+                  <label className="text-xs text-slate-500 font-semibold text-indigo-400">연동 프로젝트</label>
                   <select 
                     value={projects.some(p => p.name === editingExpense.projectName) ? editingExpense.projectName : (editingExpense.projectName ? 'custom' : '')}
                     onChange={e => {
@@ -5496,7 +5496,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         setEditingExpense({ ...editingExpense, projectName: val });
                       }
                     }}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">프로젝트 연동 안함 (없음)</option>
                     {projects.map(p => (
@@ -5514,28 +5514,28 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       placeholder="예: 강남구 스마트시티 구축 프로젝트"
                       value={editingExpense.projectName === '직접 입력' ? '' : editingExpense.projectName}
                       onChange={e => setEditingExpense({ ...editingExpense, projectName: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
                     />
                   </div>
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">메모 및 상세 사유</label>
+                  <label className="text-xs text-slate-500">메모 및 상세 사유</label>
                   <input 
                     type="text" 
                     value={editingExpense.memo || ''}
                     onChange={e => setEditingExpense({ ...editingExpense, memo: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 block font-semibold text-indigo-400">연관 거래처 담당자</label>
+                  <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자</label>
                   <select 
                     value={editingExpense.contactId || ''}
                     onChange={e => setEditingExpense({ ...editingExpense, contactId: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">연관 담당자 없음</option>
                     {contacts.map(c => (
@@ -5545,11 +5545,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-800/60">
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                 <button 
                   type="button"
                   onClick={() => setEditingExpense(null)}
-                  className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
@@ -5569,16 +5569,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 13. 정비 기록 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingMaint && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
-            <div className="p-5 border-b border-slate-800/80 flex justify-between items-start">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
-                <h2 className="text-base font-bold text-slate-100">정비 일지 내역 보완</h2>
-                <p className="text-xs text-slate-400 mt-0.5">실제 교환된 비용, 주행거리, 정비소 정보를 갱신합니다.</p>
+                <h2 className="text-base font-bold text-slate-800">정비 일지 내역 보완</h2>
+                <p className="text-xs text-slate-500 mt-0.5">실제 교환된 비용, 주행거리, 정비소 정보를 갱신합니다.</p>
               </div>
               <button 
                 onClick={() => setEditingMaint(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-all"
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5587,30 +5587,30 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <form onSubmit={handleUpdateMaint} className="p-5 space-y-4 overflow-y-auto flex-1">
               <div className="space-y-4">
                 {editingMaint.receiptImage && (
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                     <img
                       src={editingMaint.receiptImage}
                       alt="영수증"
                       onClick={() => setEnlargedReceiptUrl(editingMaint.receiptImage!)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                     />
-                    <span className="text-[11px] text-slate-400">등록된 영수증 (눌러서 크게 보기)</span>
+                    <span className="text-[11px] text-slate-500">등록된 영수증 (눌러서 크게 보기)</span>
                   </div>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 일자</label>
+                  <label className="text-xs text-slate-500">정비 일자</label>
                   <input 
                     type="date" 
                     value={editingMaint.date}
                     onChange={e => setEditingMaint({ ...editingMaint, date: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">정비 항목 *</label>
+                  <label className="text-xs text-slate-500 font-semibold text-indigo-400">정비 항목 *</label>
                   <select 
                     value={MAINTENANCE_OPTIONS.includes(editingMaint.title) ? editingMaint.title : (editingMaint.title ? 'custom' : '')}
                     onChange={e => {
@@ -5621,7 +5621,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         setEditingMaint({ ...editingMaint, title: val });
                       }
                     }}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="">선택하세요...</option>
                     {MAINTENANCE_OPTIONS.map(opt => (
@@ -5639,61 +5639,61 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       placeholder="예: 미션 벨트 교환"
                       value={editingMaint.title === '직접 입력' ? '' : editingMaint.title}
                       onChange={e => setEditingMaint({ ...editingMaint, title: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
                     />
                   </div>
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 비용 (원) *</label>
+                  <label className="text-xs text-slate-500">정비 비용 (원) *</label>
                   <input 
                     type="text" 
                     inputMode="numeric"
                     value={editingMaint.cost === 0 ? '' : formatCurrencyInput(editingMaint.cost)}
                     onChange={e => setEditingMaint({ ...editingMaint, cost: parseCurrencyInput(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 당시 주행거리 (km) *</label>
+                  <label className="text-xs text-slate-500">정비 당시 주행거리 (km) *</label>
                   <input 
                     type="number" 
                     value={editingMaint.mileage === 0 ? '' : editingMaint.mileage}
                     onChange={e => setEditingMaint({ ...editingMaint, mileage: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비소/업체명</label>
+                  <label className="text-xs text-slate-500">정비소/업체명</label>
                   <input 
                     type="text" 
                     value={editingMaint.shopName || ''}
                     onChange={e => setEditingMaint({ ...editingMaint, shopName: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비소 연락처</label>
+                  <label className="text-xs text-slate-500">정비소 연락처</label>
                   <input 
                     type="text" 
                     value={editingMaint.shopContact || ''}
                     onChange={e => setEditingMaint({ ...editingMaint, shopContact: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">정비 상태</label>
+                  <label className="text-xs text-slate-500">정비 상태</label>
                   <select 
                     value={editingMaint.status}
                     onChange={e => setEditingMaint({ ...editingMaint, status: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="completed">정비 완료</option>
                     <option value="scheduled">예정 (스케줄러)</option>
@@ -5701,11 +5701,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">결제 수단 *</label>
+                  <label className="text-xs text-slate-500">결제 수단 *</label>
                   <select 
                     value={editingMaint.payMethod || 'company_card'}
                     onChange={e => setEditingMaint({ ...editingMaint, payMethod: e.target.value as any })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>
                     <option value="personal_card">개인카드</option>
@@ -5714,21 +5714,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">메모</label>
+                  <label className="text-xs text-slate-500">메모</label>
                   <input 
                     type="text" 
                     value={editingMaint.memo || ''}
                     onChange={e => setEditingMaint({ ...editingMaint, memo: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-800/60">
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                 <button 
                   type="button"
                   onClick={() => setEditingMaint(null)}
-                  className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
@@ -5748,16 +5748,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 14. 소모품 점검 주기 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingInterval && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
-            <div className="p-5 border-b border-slate-800/80 flex justify-between items-start">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
-                <h2 className="text-base font-bold text-slate-100">소모품 교환 주기 및 알림 기준 수정</h2>
-                <p className="text-xs text-slate-400 mt-0.5">점검 대상 항목의 수명 주기 및 조기 예보 기준을 세팅합니다.</p>
+                <h2 className="text-base font-bold text-slate-800">소모품 교환 주기 및 알림 기준 수정</h2>
+                <p className="text-xs text-slate-500 mt-0.5">점검 대상 항목의 수명 주기 및 조기 예보 기준을 세팅합니다.</p>
               </div>
               <button 
                 onClick={() => setEditingInterval(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-all"
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5766,11 +5766,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <form onSubmit={handleUpdateInterval} className="p-5 space-y-4 overflow-y-auto flex-1">
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">차량 선택 *</label>
+                  <label className="text-xs text-slate-500 font-semibold text-indigo-400">차량 선택 *</label>
                   <select 
                     value={editingInterval.vehicleId}
                     onChange={e => setEditingInterval({ ...editingInterval, vehicleId: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   >
                     <option value="">차량 선택...</option>
@@ -5781,7 +5781,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold text-indigo-400">점검 항목 *</label>
+                  <label className="text-xs text-slate-500 font-semibold text-indigo-400">점검 항목 *</label>
                   <select
                     value={MAINTENANCE_OPTIONS.includes(editingInterval.itemType) ? editingInterval.itemType : (editingInterval.itemType ? 'custom' : '')}
                     onChange={e => {
@@ -5792,7 +5792,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         setEditingInterval({ ...editingInterval, itemType: val });
                       }
                     }}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     required
                   >
                     <option value="">선택하세요...</option>
@@ -5811,85 +5811,85 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       placeholder="예: 미션 벨트 교환"
                       value={editingInterval.itemType === '직접 입력' ? '' : editingInterval.itemType}
                       onChange={e => setEditingInterval({ ...editingInterval, itemType: e.target.value })}
-                      className="w-full bg-slate-950 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                      className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
                     />
                   </div>
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">km 주기 입력 (예 : 5,000 등 ) *</label>
+                  <label className="text-xs text-slate-500">km 주기 입력 (예 : 5,000 등 ) *</label>
                   <input 
                     type="number" 
                     placeholder="5,000"
                     value={editingInterval.intervalKm || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, intervalKm: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">일 주기 입력(예 :180일 등) *</label>
+                  <label className="text-xs text-slate-500">일 주기 입력(예 :180일 등) *</label>
                   <input 
                     type="number" 
                     placeholder="180"
                     value={editingInterval.intervalDays || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, intervalDays: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">마지막 점검 주행 거리(km)</label>
+                  <label className="text-xs text-slate-500">마지막 점검 주행 거리(km)</label>
                   <input 
                     type="number" 
                     placeholder="0"
                     value={editingInterval.lastServiceMileage || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, lastServiceMileage: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">마지막 점검일 (mm/dd/yy 달력 선택)</label>
+                  <label className="text-xs text-slate-500">마지막 점검일 (mm/dd/yy 달력 선택)</label>
                   <input 
                     type="date" 
                     value={editingInterval.lastServiceDate || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, lastServiceDate: e.target.value })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">알림 기준 (km 전 알림(km 입력))</label>
+                  <label className="text-xs text-slate-500">알림 기준 (km 전 알림(km 입력))</label>
                   <input 
                     type="number" 
                     placeholder="500"
                     value={editingInterval.alertKmBefore || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, alertKmBefore: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">알림 기준 (일 전 알림(일 입력))</label>
+                  <label className="text-xs text-slate-500">알림 기준 (일 전 알림(일 입력))</label>
                   <input 
                     type="number" 
                     placeholder="7"
                     value={editingInterval.alertDaysBefore || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, alertDaysBefore: Number(e.target.value) })}
-                    className="w-full bg-slate-950 text-xs border border-slate-800 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-300 font-mono"
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 font-mono"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-800/60">
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                 <button 
                   type="button"
                   onClick={() => setEditingInterval(null)}
-                  className="bg-slate-800 hover:bg-slate-750 text-slate-300 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
