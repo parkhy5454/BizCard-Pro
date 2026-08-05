@@ -1083,6 +1083,31 @@ const loginRateLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 10 * 60 * 1
 // 정상적인 경우도 있어서, 로그인 제한보다는 넉넉하게 잡았다).
 const signupRateLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 60 * 60 * 1000 });
 
+// [추가] 회원가입 화면에서 사업자등록번호를 입력하면, 이미 그 번호로 등록된 회사가 있는지
+// 미리 알려주는 API. 있으면 그 회사가 쓰던 정확한 회사명을 돌려줘서 자동으로 채워준다 —
+// "주식회사 OO"과 "(주)OO"처럼 표기가 갈려서 같은 회사인데 다른 회사로 인식되던 문제를
+// 가입 시점에 원천적으로 막기 위함이다. 로그인 전에도 써야 하니 인증 없이 열어두되,
+// 사업자번호를 마구 훑어보는(enumeration) 걸 막기 위해 IP당 시간당 30회로 제한한다.
+const companyLookupRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60 * 60 * 1000 });
+
+app.get('/api/auth/lookup-company', (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const limit = companyLookupRateLimiter.check(ip);
+  companyLookupRateLimiter.registerAttempt(ip);
+  if (!limit.allowed) {
+    return res.status(429).json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' });
+  }
+
+  const businessNumber = String(req.query.businessNumber || '').trim();
+  if (!businessNumber) return res.json({ found: false });
+
+  const existing = users.find(u => u.type === 'company' && (u.businessNumber || '').trim() === businessNumber);
+  if (!existing) return res.json({ found: false });
+
+  // 이메일/이름 등 개인정보는 노출하지 않고, 회사명만 알려준다.
+  res.json({ found: true, companyName: existing.companyName || '' });
+});
+
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
   const signupIp = req.ip || req.socket.remoteAddress || 'unknown';
@@ -1123,13 +1148,17 @@ app.post('/api/auth/signup', async (req, res) => {
   // 상태로 시작한다. 그 회사 관리자가 승인해야 실제로 명함/프로젝트 등 회사 데이터에
   // 접근할 수 있다 — 이것도 사업자번호를 아는 사람이면 누구나 즉시 회사 데이터를 볼 수
   // 있었던 문제를 막기 위함이다. 그 회사의 최초 가입자는 관리자로서 바로 승인된 상태로 시작한다.
+  // [수정] 예전엔 "회사명 + 사업자번호"가 둘 다 똑같아야 "같은 회사"로 인식했는데, 실제
+  // 데이터 공유 범위(scopeIdForUser)는 사업자번호"만"으로 정해진다. 그래서 같은 회사인데
+  // "주식회사 OO" vs "(주)OO"처럼 표기만 달라도 서로 다른 회사로 인식돼서, 각자 "최초
+  // 가입자(관리자)"가 되어버리는 문제가 있었다 — 실제로는 같은 스코프를 쓰는데도 회원
+  // 디렉토리에는 따로따로 표시되는 버그로 이어졌다. 이제는 사업자번호만으로 판단하고,
+  // 이미 등록된 회사가 있으면 그 회사가 쓰던 회사명으로 강제 통일한다(표기 통일).
   const cName = (companyName || '').trim();
   const bNum = (businessNumber || '').trim();
-  const hasExistingCompanyUser = users.some(u =>
-    u.type === 'company' &&
-    (u.companyName || '').trim() === cName &&
-    (u.businessNumber || '').trim() === bNum
-  );
+  const existingCompanyUser = users.find(u => u.type === 'company' && (u.businessNumber || '').trim() === bNum);
+  const hasExistingCompanyUser = Boolean(existingCompanyUser);
+  const finalCompanyName = existingCompanyUser?.companyName || cName;
   // [수정] role/승인상태 결정 로직 자체는 src/authLogic.ts로 옮겨서 단위 테스트를 붙였다.
   const { role, approvalStatus } = decideSignupRoleAndApproval(type, hasExistingCompanyUser);
 
@@ -1146,7 +1175,7 @@ app.post('/api/auth/signup', async (req, res) => {
     name,
     phone: phone || undefined,
     type,
-    companyName,
+    companyName: type === 'company' ? finalCompanyName : companyName,
     businessNumber,
     position: position || undefined,
     role,
