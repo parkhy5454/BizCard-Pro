@@ -490,9 +490,9 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   <span>{contact.company} {contact.department ? `| ${contact.department}` : ''}</span>
                 </p>
                 <div className="mt-3">
-                  <div className="p-3.5 rounded-2xl bg-slate-900/85 border border-slate-200 text-xs text-slate-700">
+                  <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100 text-xs text-slate-700">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                      <span className="font-bold text-blue-400 text-[10px] uppercase tracking-wider font-mono flex items-center gap-1.5">
+                      <span className="font-bold text-indigo-700 text-[10px] uppercase tracking-wider font-mono flex items-center gap-1.5">
                         🏢 회사 비즈니스 요약 & 전년도 매출
                       </span>
                       {contact.company && (
@@ -509,7 +509,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                             </>
                           ) : (
                             <>
-                              <Sparkles className="w-2.5 h-2.5 text-blue-200 animate-pulse" />
+                              <Sparkles className="w-2.5 h-2.5 text-blue-100 animate-pulse" />
                               <span>AI 매출액/비즈니스 실시간 검색</span>
                             </>
                           )}
@@ -517,11 +517,11 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                       )}
                     </div>
                     {contact.companyInfo ? (
-                      <p className="leading-relaxed text-slate-700 text-xs font-medium bg-blue-950/30 p-2.5 rounded-xl border border-blue-900/40">
+                      <p className="leading-relaxed text-slate-800 text-xs font-medium bg-white p-2.5 rounded-xl border border-indigo-100">
                         {contact.companyInfo}
                       </p>
                     ) : (
-                      <div className="text-center py-3 text-slate-400 text-[11px] bg-slate-100 rounded-xl border border-dashed border-slate-200">
+                      <div className="text-center py-3 text-slate-400 text-[11px] bg-white rounded-xl border border-dashed border-slate-200">
                         회사 정보가 아직 요약되지 않았습니다. 실시간 검색 버튼을 눌러 매출액과 주요 사업을 검색해 보세요.
                       </div>
                     )}
@@ -803,7 +803,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                             </div>
 
                             {record.duration && (
-                              <p className="text-xs text-slate-500 font-mono mb-2 bg-slate-900/60 px-2 py-0.5 rounded inline-block">
+                              <p className="text-xs text-slate-500 font-mono mb-2 bg-slate-100 px-2 py-0.5 rounded inline-block">
                                 통화 시간: {record.duration}
                               </p>
                             )}
