@@ -497,7 +497,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100 text-xs text-slate-700">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                       <span className="font-bold text-indigo-700 text-[10px] uppercase tracking-wider font-mono flex items-center gap-1.5">
-                        🏢 회사 비즈니스 요약 & 전년도 매출
+                        🏢 회사 비즈니스 요약
                       </span>
                       {contact.company && (
                         <button
@@ -514,7 +514,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                           ) : (
                             <>
                               <Sparkles className="w-2.5 h-2.5 text-blue-100 animate-pulse" />
-                              <span>AI 매출액/비즈니스 실시간 검색</span>
+                              <span>AI 회사 비즈니스 요약</span>
                             </>
                           )}
                         </button>
@@ -526,7 +526,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                       </p>
                     ) : (
                       <div className="text-center py-3 text-slate-400 text-[11px] bg-white rounded-xl border border-dashed border-slate-200">
-                        회사 정보가 아직 요약되지 않았습니다. 실시간 검색 버튼을 눌러 매출액과 주요 사업을 검색해 보세요.
+                        회사 정보가 아직 요약되지 않았습니다. 실시간 검색 버튼을 눌러 업종·주요 사업, 매출액, 직원수를 검색해 보세요.
                       </div>
                     )}
                   </div>
