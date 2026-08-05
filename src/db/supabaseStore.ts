@@ -125,6 +125,58 @@ export async function uploadDataUrlImage(
   }
 }
 
+// [추가] uploadDataUrlImage는 image/* 만 처리한다. 미팅 첨부파일(제안서/견적서 등)은
+// PDF·PPT·엑셀·한글(hwp) 등 형식이 다양해서, 이걸 위한 범용 버전을 따로 둔다.
+// 원본 파일명이 있으면 그 확장자를 그대로 쓰고(더 정확함), 없으면 MIME 타입에서 유추한다.
+export async function uploadDataUrlFile(
+  scopeId: string,
+  dataUrl: string,
+  keyHint: string,
+  category: 'cards' | 'receipts' | 'attachments' = 'attachments',
+  originalFileName?: string
+): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+  const match = dataUrl.match(/^data:([\w.+-]+\/[\w.+-]+);base64,(.+)$/);
+  if (!match) return null;
+  const [, mime, base64Data] = match;
+
+  let ext = 'bin';
+  if (originalFileName && originalFileName.includes('.')) {
+    const fromName = originalFileName.split('.').pop() || '';
+    ext = fromName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'bin';
+  } else {
+    const extFromMime = (mime.split('/')[1] || 'bin').split('+')[0].split(';')[0];
+    ext = (extFromMime === 'jpeg' ? 'jpg' : extFromMime).replace(/[^a-z0-9]/gi, '').slice(0, 10) || 'bin';
+  }
+
+  const safeScopeId = scopeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeKeyHint = keyHint.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filePath = `${category}/${safeScopeId}/${safeKeyHint}-${Date.now()}.${ext}`;
+
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    const { error } = await supabase.storage
+      .from(CARD_IMAGES_BUCKET)
+      .upload(filePath, buffer, { contentType: mime, upsert: true });
+    if (error) {
+      console.error(`uploadDataUrlFile(${filePath}) error:`, error);
+      return null;
+    }
+    const TEN_YEARS_IN_SECONDS = 60 * 60 * 24 * 365 * 10;
+    const { data, error: signError } = await supabase.storage
+      .from(CARD_IMAGES_BUCKET)
+      .createSignedUrl(filePath, TEN_YEARS_IN_SECONDS);
+    if (signError) {
+      console.error(`uploadDataUrlFile(${filePath}) 서명 URL 발급 실패:`, signError);
+      return null;
+    }
+    return data?.signedUrl || null;
+  } catch (err) {
+    console.error(`uploadDataUrlFile(${filePath}) exception:`, err);
+    return null;
+  }
+}
+
 // ------------------------------------------------------------------
 // 데이터 모델: Firestore의 scopes/{scopeId}/{collection}/{docId} 구조를
 // Postgres의 scoped_items(scope_id, collection, doc_id, data jsonb) 테이블로
@@ -384,4 +436,115 @@ export async function addUser(user: RegisteredUser): Promise<void> {
     .from('app_users')
     .upsert({ id: user.id, data: user }, { onConflict: 'id' });
   if (error) console.error(`addUser(${user.id}) error:`, error);
+}
+
+// [추가] 회사 가입 승인 거절 시 계정 자체를 삭제하기 위한 함수.
+export async function deleteUser(userId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('app_users').delete().eq('id', userId);
+  if (error) console.error(`deleteUser(${userId}) error:`, error);
+}
+
+// [추가] 회원 탈퇴 시, 개인(individual) 계정은 그 스코프가 곧 "그 사람 데이터 전부"이므로
+// 명함/프로젝트/차량기록 등 scoped_items에 있는 모든 데이터와 scopes 메타 행까지 완전히
+// 지운다. 개인정보처리방침에 "탈퇴 시 지체 없이 파기한다"고 명시했으므로, 실제로 지운다.
+// 회사(company) 계정에는 절대 쓰면 안 된다 — 같은 회사 동료들의 공유 데이터까지 같이
+// 지워지기 때문이다 (회사 계정 탈퇴는 계정만 지우고 회사 데이터는 남겨둔다).
+export async function deleteScopeCompletely(scopeId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error: itemsError } = await supabase.from('scoped_items').delete().eq('scope_id', scopeId);
+  if (itemsError) console.error(`deleteScopeCompletely(${scopeId}) scoped_items error:`, itemsError);
+  const { error: scopeError } = await supabase.from('scopes').delete().eq('scope_id', scopeId);
+  if (scopeError) console.error(`deleteScopeCompletely(${scopeId}) scopes error:`, scopeError);
+}
+
+// ------------------------------------------------------------------
+// 로그인 세션 영구 저장 — 서버 재시작(배포 플랫폼의 cold start 등)에도 로그인이
+// 끊기지 않도록 세션을 메모리가 아니라 여기 DB에 둔다.
+// ------------------------------------------------------------------
+export interface StoredSession {
+  token: string;
+  userId: string;
+  expiresAt: number; // epoch ms
+}
+
+export async function saveSession(token: string, userId: string, expiresAt: number): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('app_sessions').upsert(
+    { token, user_id: userId, expires_at: new Date(expiresAt).toISOString() },
+    { onConflict: 'token' }
+  );
+  if (error) console.error(`saveSession(${token.slice(0, 8)}...) error:`, error);
+}
+
+export async function loadSession(token: string): Promise<StoredSession | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase
+    .from('app_sessions')
+    .select('token, user_id, expires_at')
+    .eq('token', token)
+    .maybeSingle();
+  if (error) {
+    console.error(`loadSession(${token.slice(0, 8)}...) error:`, error);
+    return null;
+  }
+  if (!data) return null;
+  return { token: data.token, userId: data.user_id, expiresAt: new Date(data.expires_at).getTime() };
+}
+
+export async function deleteSession(token: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('app_sessions').delete().eq('token', token);
+  if (error) console.error(`deleteSession(${token.slice(0, 8)}...) error:`, error);
+}
+
+export async function deleteAllSessionsForUser(userId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('app_sessions').delete().eq('user_id', userId);
+  if (error) console.error(`deleteAllSessionsForUser(${userId}) error:`, error);
+}
+
+// ------------------------------------------------------------------
+// 관리자 작업 감사 로그 — 역할 변경, 회사 가입 승인/거절처럼 민감한 관리자 작업을
+// 기록해서 나중에 "누가 언제 무엇을 했는지" 추적할 수 있게 한다.
+// ------------------------------------------------------------------
+export interface AuditLogEntry {
+  scopeId: string;
+  actorUserId: string;
+  actorEmail?: string;
+  action: string;
+  targetUserId?: string;
+  targetEmail?: string;
+  detail?: Record<string, unknown>;
+}
+
+export async function logAudit(entry: AuditLogEntry): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('audit_logs').insert({
+    scope_id: entry.scopeId,
+    actor_user_id: entry.actorUserId,
+    actor_email: entry.actorEmail || null,
+    action: entry.action,
+    target_user_id: entry.targetUserId || null,
+    target_email: entry.targetEmail || null,
+    detail: entry.detail || null
+  });
+  // 감사 로그 기록 실패가 실제 작업(예: 역할 변경) 자체를 막으면 안 되므로, 실패해도
+  // 에러만 남기고 넘어간다.
+  if (error) console.error('logAudit error:', error);
+}
+
+export async function getAuditLogs(scopeId: string, limit = 200): Promise<any[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('*')
+    .eq('scope_id', scopeId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error(`getAuditLogs(${scopeId}) error:`, error);
+    return [];
+  }
+  return data || [];
 }
