@@ -36,6 +36,39 @@ create table if not exists app_users (
 create unique index if not exists idx_app_users_email
   on app_users ((data->>'email'));
 
+-- 4) 로그인 세션 테이블
+-- [추가] 로그인 세션을 서버 메모리에만 두면, 배포 플랫폼(예: Render 무료/기본 요금제)이
+-- 일정 시간 뒤 서버를 재웠다가 다음 요청에 다시 깨울 때(cold start) 메모리가 초기화되면서
+-- 로그인 세션이 전부 끊긴다. 접속이 뜸한 모바일에서 특히 자주 겪게 되는 문제라, 세션을
+-- 여기 DB에 영구 저장해서 서버가 재시작되어도 로그인이 유지되게 한다.
+create table if not exists app_sessions (
+  token text primary key,
+  user_id text not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_app_sessions_user_id
+  on app_sessions (user_id);
+
+-- 5) 관리자 작업 감사 로그
+-- [추가] "누가 언제 누구를 관리자로 바꿨는지, 누구를 승인/거절했는지" 같은 민감한 관리자
+-- 작업을 기록해서 나중에 문제가 생겼을 때 추적할 수 있게 한다.
+create table if not exists audit_logs (
+  id bigserial primary key,
+  scope_id text not null,
+  actor_user_id text not null,
+  actor_email text,
+  action text not null,
+  target_user_id text,
+  target_email text,
+  detail jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_audit_logs_scope
+  on audit_logs (scope_id, created_at desc);
+
 -- ------------------------------------------------------------------
 -- Row Level Security
 -- 이 앱은 서버(server.ts)가 Service Role Key로만 접근하는 구조이므로
@@ -46,6 +79,8 @@ create unique index if not exists idx_app_users_email
 alter table scopes enable row level security;
 alter table scoped_items enable row level security;
 alter table app_users enable row level security;
+alter table app_sessions enable row level security;
+alter table audit_logs enable row level security;
 
 -- anon/authenticated 역할에는 기본적으로 아무 정책도 부여하지 않습니다.
 -- (= Service Role Key가 아니면 접근 불가). 프론트에서 Supabase에 직접
