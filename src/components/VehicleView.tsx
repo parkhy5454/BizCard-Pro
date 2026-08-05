@@ -1338,49 +1338,49 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             );
           })()}
 
-          {/* 4개의 핵심 계량 카드 (이미지 디자인 그대로 완벽 구현) */}
+          {/* 4개의 핵심 계량 카드 - 참고 이미지처럼 진한 단색 배경 + 흰 글씨로 한눈에 구분되게 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* 등록된 차량 */}
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="bg-blue-600 p-5 rounded-2xl flex items-center justify-between shadow-md">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-500">등록된 차량</span>
-                <p className="text-2xl font-bold text-slate-800">{totalVehiclesCount}대</p>
+                <span className="text-xs font-semibold text-white/80">등록된 차량</span>
+                <p className="text-2xl font-bold text-white">{totalVehiclesCount}대</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-200 flex items-center justify-center text-slate-500">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
                 <Car className="w-5.5 h-5.5" />
               </div>
             </div>
 
             {/* 총 운행기록 */}
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="bg-emerald-500 p-5 rounded-2xl flex items-center justify-between shadow-md">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-500">총 운행기록</span>
-                <p className="text-2xl font-bold text-slate-800">{totalDrivingLogsCount}건</p>
+                <span className="text-xs font-semibold text-white/80">총 운행기록</span>
+                <p className="text-2xl font-bold text-white">{totalDrivingLogsCount}건</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-200 flex items-center justify-center text-slate-500">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
                 <MapPin className="w-5.5 h-5.5" />
               </div>
             </div>
 
             {/* 총 누적거리 */}
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="bg-amber-500 p-5 rounded-2xl flex items-center justify-between shadow-md">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-500">총 누적거리</span>
-                <p className="text-2xl font-bold text-slate-800">{formatWon(totalDistance)} km</p>
+                <span className="text-xs font-semibold text-white/80">총 누적거리</span>
+                <p className="text-2xl font-bold text-white">{formatWon(totalDistance)} km</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-200 flex items-center justify-center text-slate-500">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
                 <Info className="w-5.5 h-5.5" />
               </div>
             </div>
 
-            {/* 총 지출비용 (이미지처럼 연한 크림/연노랑 컬러 배경 효과 적용 가능) */}
-            <div className="bg-amber-950/20 border border-amber-800/40 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+            {/* 총 지출비용 */}
+            <div className="bg-purple-500 p-5 rounded-2xl flex items-center justify-between shadow-md">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-amber-600">총 지출비용</span>
-                <p className="text-2xl font-bold text-amber-200">{formatWon(totalExpenseSum)} 원</p>
+                <span className="text-xs font-semibold text-white/80">총 지출비용</span>
+                <p className="text-2xl font-bold text-white">{formatWon(totalExpenseSum)} 원</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-500/20 flex items-center justify-center text-amber-700">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
                 <Receipt className="w-5.5 h-5.5" />
               </div>
             </div>
@@ -5027,21 +5027,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                 {/* 2x2 Grid of Stat Cards */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-400 font-semibold block">총 운행기록</span>
-                    <p className="text-lg font-bold text-slate-800">{carLogs.length}건</p>
+                  <div className="bg-blue-600 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-white/80 font-semibold block">총 운행기록</span>
+                    <p className="text-lg font-bold text-white">{carLogs.length}건</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-400 font-semibold block">총 누적거리</span>
-                    <p className="text-lg font-bold text-slate-800">{formatWon(v.currentMileage || 0)} km</p>
+                  <div className="bg-emerald-500 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-white/80 font-semibold block">총 누적거리</span>
+                    <p className="text-lg font-bold text-white">{formatWon(v.currentMileage || 0)} km</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-400 font-semibold block">총 지출비용</span>
-                    <p className="text-lg font-bold text-slate-800">{formatWon(totalCarExpense)}원</p>
+                  <div className="bg-amber-500 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-white/80 font-semibold block">총 지출비용</span>
+                    <p className="text-lg font-bold text-white">{formatWon(totalCarExpense)}원</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
-                    <span className="text-[11px] text-slate-400 font-semibold block">총 정비비용</span>
-                    <p className="text-lg font-bold text-slate-800">{formatWon(totalMaintExpense)}원</p>
+                  <div className="bg-purple-500 p-4 rounded-xl space-y-2">
+                    <span className="text-[11px] text-white/80 font-semibold block">총 정비비용</span>
+                    <p className="text-lg font-bold text-white">{formatWon(totalMaintExpense)}원</p>
                   </div>
                 </div>
 
