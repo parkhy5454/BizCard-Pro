@@ -129,7 +129,7 @@ export const Navigation: React.FC<Props> = ({
                 <ScanLine className="w-6 h-6 text-white animate-pulse" />
               </div>
               <div>
-                <h1 className="font-bold text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-blue-400 bg-clip-text text-transparent">
+                <h1 className="font-bold text-xl tracking-tight bg-gradient-to-r from-slate-900 via-indigo-700 to-blue-600 bg-clip-text text-transparent">
                   BizCard <span className="text-blue-500 text-xs px-1.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 font-mono">AI Pro</span>
                 </h1>
                 <p className="text-xs text-slate-500 font-medium">스마트 명함 & CRM 네트워크</p>
@@ -249,18 +249,18 @@ export const Navigation: React.FC<Props> = ({
               {/* [수정] 그 달의 모든 지출/영수증을 세무사에게 이메일로 바로 보내는 버튼 (전체 화면에서 접근 가능) */}
               <button
                 onClick={onOpenTaxPackage}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-emerald-300 font-semibold text-xs shadow transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold text-xs shadow transition-all active:scale-95"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                 <span className="hidden sm:inline">세무자료 발송</span>
               </button>
 
               {/* 가입 회원 및 동료 확인 버튼 */}
               <button
                 onClick={onOpenUserDirectory}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-indigo-300 font-semibold text-xs shadow transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold text-xs shadow transition-all active:scale-95"
               >
-                <Users className="w-3.5 h-3.5 text-indigo-400" />
+                <Users className="w-3.5 h-3.5 text-indigo-600" />
                 <span>가입 회원 확인</span>
               </button>
             </div>
@@ -347,9 +347,9 @@ export const Navigation: React.FC<Props> = ({
             {/* [수정] 전시회처럼 손이 바쁠 때, 음성만으로 이름/회사를 빠르게 기록하는 버튼 */}
             <button
               onClick={onOpenVoiceQuickAdd}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-slate-100 hover:bg-rose-950/30 border border-slate-200 hover:border-rose-500/30 text-rose-300 text-xs sm:text-sm transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 text-xs sm:text-sm transition-all active:scale-95"
             >
-              <Mic className="w-4 h-4 text-rose-400" />
+              <Mic className="w-4 h-4 text-rose-600" />
               <span>음성으로 빠르게 등록</span>
             </button>
 
@@ -379,9 +379,9 @@ export const Navigation: React.FC<Props> = ({
 
             <button
               onClick={onOpenShareMyCardModal}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap bg-slate-100 hover:bg-slate-200 border border-slate-200 text-blue-300 transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 transition-all active:scale-95"
             >
-              <Share2 className="w-4 h-4 text-blue-400" />
+              <Share2 className="w-4 h-4 text-blue-600" />
               <span>내 명함 공유</span>
             </button>
 
@@ -447,7 +447,7 @@ export const Navigation: React.FC<Props> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 font-semibold whitespace-nowrap text-xs sm:text-sm transition-all active:scale-95 ${
                     projectsViewMode === 'cards'
                       ? 'bg-blue-600/20 text-blue-400'
-                      : 'bg-slate-100 hover:bg-slate-200 text-indigo-300'
+                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
                   }`}
                 >
                   <ListChecks className="w-4 h-4 text-indigo-400" />
@@ -641,7 +641,7 @@ export const Navigation: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => setFeedbackCategory('bug')}
-                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'bug' ? 'bg-rose-500/15 border-rose-500/40 text-rose-300' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'bug' ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'}`}
                   >
                     <Bug className="w-4 h-4" />
                     버그 신고
@@ -649,7 +649,7 @@ export const Navigation: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => setFeedbackCategory('feature')}
-                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'feature' ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'feature' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'}`}
                   >
                     <Lightbulb className="w-4 h-4" />
                     기능 제안
@@ -657,7 +657,7 @@ export const Navigation: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => setFeedbackCategory('other')}
-                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'other' ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'other' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'}`}
                   >
                     <MessageSquare className="w-4 h-4" />
                     기타 문의
