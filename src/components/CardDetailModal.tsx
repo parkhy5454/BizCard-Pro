@@ -356,7 +356,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
             <div className="grid grid-cols-2 gap-3">
               <a
                 href={contact.phoneMobile ? `tel:${contact.phoneMobile}` : '#'}
-                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm shadow-lg transition-all ${contact.phoneMobile ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-slate-700 hover:from-emerald-500 hover:to-teal-500 active:scale-95' : 'bg-slate-100 text-slate-400 pointer-events-none'}`}
+                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm shadow-lg transition-all ${contact.phoneMobile ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 active:scale-95' : 'bg-slate-100 text-slate-400 pointer-events-none'}`}
               >
                 <Phone className="w-4 h-4" />
                 <span>핸드폰 통화</span>
@@ -364,7 +364,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
 
               <a
                 href={contact.phoneMobile ? `sms:${contact.phoneMobile}` : '#'}
-                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm shadow-lg transition-all ${contact.phoneMobile ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-slate-700 hover:from-blue-500 hover:to-indigo-500 active:scale-95' : 'bg-slate-100 text-slate-400 pointer-events-none'}`}
+                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm shadow-lg transition-all ${contact.phoneMobile ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 active:scale-95' : 'bg-slate-100 text-slate-400 pointer-events-none'}`}
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>문자 보내기</span>

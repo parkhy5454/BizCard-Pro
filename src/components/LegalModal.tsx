@@ -15,14 +15,14 @@ export const LegalModal: React.FC<Props> = ({ initialTab = 'terms', onClose }) =
   const [tab, setTab] = useState<'terms' | 'privacy'>(initialTab);
 
   return (
-    <div className="fixed inset-0 z-[95] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl max-h-[88vh] bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
+    <div className="fixed inset-0 z-[95] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl max-h-[88vh] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             {tab === 'terms' ? <FileText className="w-5 h-5 text-indigo-400" /> : <ShieldCheck className="w-5 h-5 text-emerald-400" />}
-            <h2 className="text-base font-bold text-slate-100">{tab === 'terms' ? '이용약관' : '개인정보처리방침'}</h2>
+            <h2 className="text-base font-bold text-slate-800">{tab === 'terms' ? '이용약관' : '개인정보처리방침'}</h2>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -30,13 +30,13 @@ export const LegalModal: React.FC<Props> = ({ initialTab = 'terms', onClose }) =
         <div className="px-5 pt-3 flex items-center gap-2 shrink-0">
           <button
             onClick={() => setTab('terms')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${tab === 'terms' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${tab === 'terms' ? 'bg-indigo-600/20 text-indigo-600 border border-indigo-500/40' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}
           >
             이용약관
           </button>
           <button
             onClick={() => setTab('privacy')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${tab === 'privacy' ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${tab === 'privacy' ? 'bg-emerald-600/20 text-emerald-600 border border-emerald-500/40' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}
           >
             개인정보처리방침
           </button>
@@ -45,8 +45,8 @@ export const LegalModal: React.FC<Props> = ({ initialTab = 'terms', onClose }) =
         {/* 초안 안내 배너 */}
         <div className="mx-5 mt-3 p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-start gap-2 shrink-0">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-amber-300/90 leading-relaxed">
-            이 문서는 일반적인 초안이며 법률 자문이 아닙니다. <span className="text-amber-200 font-bold">[ ]</span>로 표시된 부분은 실제 운영 정보로 채워야 하고,
+          <p className="text-[11px] text-amber-600/90 leading-relaxed">
+            이 문서는 일반적인 초안이며 법률 자문이 아닙니다. <span className="text-amber-800 font-bold">[ ]</span>로 표시된 부분은 실제 운영 정보로 채워야 하고,
             실제 유료 서비스 운영 전 반드시 변호사 검토를 받으시길 권장합니다.
           </p>
         </div>
@@ -61,14 +61,14 @@ export const LegalModal: React.FC<Props> = ({ initialTab = 'terms', onClose }) =
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="mb-5">
-    <h3 className="text-sm font-bold text-slate-100 mb-1.5">{title}</h3>
-    <div className="text-xs text-slate-400 leading-relaxed space-y-1.5">{children}</div>
+    <h3 className="text-sm font-bold text-slate-800 mb-1.5">{title}</h3>
+    <div className="text-xs text-slate-500 leading-relaxed space-y-1.5">{children}</div>
   </div>
 );
 
 const TermsContent: React.FC = () => (
   <div>
-    <p className="text-[11px] text-slate-500 mb-5">시행일자: [YYYY년 MM월 DD일]</p>
+    <p className="text-[11px] text-slate-400 mb-5">시행일자: [YYYY년 MM월 DD일]</p>
 
     <Section title="제1조 (목적)">
       <p>
@@ -135,18 +135,18 @@ const TermsContent: React.FC = () => (
 
 const PrivacyContent: React.FC = () => (
   <div>
-    <p className="text-[11px] text-slate-500 mb-5">시행일자: [YYYY년 MM월 DD일]</p>
+    <p className="text-[11px] text-slate-400 mb-5">시행일자: [YYYY년 MM월 DD일]</p>
 
-    <p className="text-xs text-slate-400 leading-relaxed mb-5">
+    <p className="text-xs text-slate-500 leading-relaxed mb-5">
       (주)카이저솔루션(이하 "회사")는 개인정보보호법 등 관계 법령상의 개인정보보호 규정을 준수하며,
       이용자의 개인정보 보호에 최선을 다하고 있습니다. 회사는 개인정보처리방침을 통해 이용자가 제공하는
       개인정보가 어떠한 목적과 방식으로 이용되고 있으며, 개인정보 보호를 위해 어떠한 조치가 취해지고 있는지 알려드립니다.
     </p>
 
     <Section title="1. 수집하는 개인정보 항목">
-      <p><span className="text-slate-300 font-semibold">가입 시:</span> 이메일, 비밀번호(암호화 저장), 이름, 핸드폰 번호(선택), 회사명, 사업자등록번호, 직책(선택)</p>
-      <p><span className="text-slate-300 font-semibold">서비스 이용 중:</span> 이용자가 직접 등록/촬영하는 명함 정보(성명, 회사명, 연락처, 이메일, 주소 등 명함 실물에 기재된 정보), 명함·영수증 이미지, 차량 운행/비용/정비 기록, 프로젝트 및 업무일지 내용, 전자결재 문서</p>
-      <p><span className="text-slate-300 font-semibold">자동 수집 정보:</span> 접속 로그, 서비스 이용 기록, 기기 정보</p>
+      <p><span className="text-slate-600 font-semibold">가입 시:</span> 이메일, 비밀번호(암호화 저장), 이름, 핸드폰 번호(선택), 회사명, 사업자등록번호, 직책(선택)</p>
+      <p><span className="text-slate-600 font-semibold">서비스 이용 중:</span> 이용자가 직접 등록/촬영하는 명함 정보(성명, 회사명, 연락처, 이메일, 주소 등 명함 실물에 기재된 정보), 명함·영수증 이미지, 차량 운행/비용/정비 기록, 프로젝트 및 업무일지 내용, 전자결재 문서</p>
+      <p><span className="text-slate-600 font-semibold">자동 수집 정보:</span> 접속 로그, 서비스 이용 기록, 기기 정보</p>
     </Section>
 
     <Section title="2. 개인정보의 수집 및 이용 목적">
@@ -170,24 +170,24 @@ const PrivacyContent: React.FC = () => (
         기재된 정보의 주체는 이용자가 아닌 제3자이며, 이용자는 해당 정보를 정당한 업무 목적(거래처 관리 등) 범위 내에서만
         이용하여야 하고, 관계 법령을 준수할 책임이 있습니다. 회사는 이용자가 등록한 제3자 정보에 대해 저장 공간을
         제공하는 역할을 하며, 그 수집의 적법성에 대한 최종 책임은 이를 등록한 이용자에게 있습니다.
-        <span className="text-amber-300"> [이 조항은 실제 서비스 형태에 맞춰 법률 검토가 특히 필요한 부분입니다.]</span>
+        <span className="text-amber-600"> [이 조항은 실제 서비스 형태에 맞춰 법률 검토가 특히 필요한 부분입니다.]</span>
       </p>
     </Section>
 
     <Section title="5. 개인정보 처리의 위탁">
       <p>회사는 서비스 제공을 위해 아래와 같이 개인정보 처리업무를 외부 업체에 위탁하고 있습니다.</p>
-      <div className="mt-2 border border-slate-800 rounded-xl overflow-hidden">
+      <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-[11px]">
-          <thead className="bg-slate-950">
+          <thead className="bg-slate-50">
             <tr>
-              <th className="p-2 text-left border-b border-slate-800">수탁업체</th>
-              <th className="p-2 text-left border-b border-slate-800">위탁업무 내용</th>
+              <th className="p-2 text-left border-b border-slate-200">수탁업체</th>
+              <th className="p-2 text-left border-b border-slate-200">위탁업무 내용</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td className="p-2 border-b border-slate-800/60">Google (Gemini API)</td>
-              <td className="p-2 border-b border-slate-800/60">명함/영수증 이미지의 AI 텍스트 인식(OCR) 및 정보 추출</td>
+              <td className="p-2 border-b border-slate-200">Google (Gemini API)</td>
+              <td className="p-2 border-b border-slate-200">명함/영수증 이미지의 AI 텍스트 인식(OCR) 및 정보 추출</td>
             </tr>
             <tr>
               <td className="p-2">Supabase Inc.</td>
@@ -215,7 +215,7 @@ const PrivacyContent: React.FC = () => (
 
     <Section title="9. 개인정보 보호책임자">
       <p>회사는 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 이용자의 불만처리 및 피해구제 등을 위하여 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.</p>
-      <div className="mt-2 p-3 bg-slate-950 border border-slate-800 rounded-xl text-[11px]">
+      <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px]">
         <p>성명: 박현용</p>
         <p>연락처: hypark@kaisersolution.com / 02-971-0954</p>
       </div>
