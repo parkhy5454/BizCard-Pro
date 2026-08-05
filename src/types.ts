@@ -22,7 +22,7 @@ export interface BusinessCard {
   address2?: string;   // 보조 주소 (공장/지사 등 주소가 2개인 경우)
   lat?: number;
   lng?: number;
-  groupId: string;
+  groupId?: string; // [수정] 가져오기 등으로 그룹 미지정 상태(전체보기에서만 보임)일 수 있어 옵셔널로 변경
   frontImage?: string; // base64 data url or sample image
   backImage?: string;
   memo?: string;
