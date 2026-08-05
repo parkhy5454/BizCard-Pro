@@ -1190,7 +1190,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                   active 
                     ? 'bg-slate-100 border-b-2 border-indigo-500 text-indigo-600 shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-850/50'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${active ? 'text-indigo-400' : 'text-slate-400'}`} />
@@ -1254,7 +1254,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     const isExpired = daysLeft < 0;
 
                     return (
-                      <div key={v.id} className="bg-slate-50 border border-slate-850 p-3 rounded-xl flex items-center justify-between text-xs">
+                      <div key={v.id} className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs">
                         <div className="space-y-1">
                           <p className="font-bold text-slate-700">{v.modelName} ({v.carNumber})</p>
                           <p className="text-[11px] text-slate-500">
@@ -1313,7 +1313,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {dueSoonItems.map(({ item, vehicle, kmLeft, daysLeft, isOverdue }) => (
-                    <div key={item.id} className="bg-slate-50 border border-slate-850 p-3 rounded-xl flex items-center justify-between text-xs">
+                    <div key={item.id} className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs">
                       <div className="space-y-1">
                         <p className="font-bold text-slate-700">{vehicle ? `${vehicle.modelName} (${vehicle.plateNumber})` : '차량 미지정'}</p>
                         <p className="text-[11px] text-slate-500">
@@ -1347,7 +1347,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <span className="text-xs font-semibold text-slate-500">등록된 차량</span>
                 <p className="text-2xl font-bold text-slate-800">{totalVehiclesCount}대</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-750 flex items-center justify-center text-slate-500">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-200 flex items-center justify-center text-slate-500">
                 <Car className="w-5.5 h-5.5" />
               </div>
             </div>
@@ -1358,7 +1358,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <span className="text-xs font-semibold text-slate-500">총 운행기록</span>
                 <p className="text-2xl font-bold text-slate-800">{totalDrivingLogsCount}건</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-750 flex items-center justify-center text-slate-500">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-200 flex items-center justify-center text-slate-500">
                 <MapPin className="w-5.5 h-5.5" />
               </div>
             </div>
@@ -1369,7 +1369,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <span className="text-xs font-semibold text-slate-500">총 누적거리</span>
                 <p className="text-2xl font-bold text-slate-800">{formatWon(totalDistance)} km</p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-750 flex items-center justify-center text-slate-500">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100/40 border border-slate-200 flex items-center justify-center text-slate-500">
                 <Info className="w-5.5 h-5.5" />
               </div>
             </div>
@@ -1464,7 +1464,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       .filter(m => m.status === 'scheduled')
                       .slice(0, 3)
                       .map(m => (
-                        <div key={m.id} className="p-3 bg-slate-100 border border-slate-850 rounded-xl flex items-start gap-2.5 text-xs">
+                        <div key={m.id} className="p-3 bg-slate-100 border border-slate-200 rounded-xl flex items-start gap-2.5 text-xs">
                           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                           <div className="space-y-0.5 flex-1">
                             <p className="font-bold text-slate-700">{m.title}</p>
@@ -1753,7 +1753,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                     <span>•</span> 자동차 등록증 첨부
                   </h4>
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-850 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-left">
                       <p className="text-xs font-bold text-slate-700">자동차 등록증 업로드 (이미지 및 PDF 지원)</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">이미지 및 PDF 파일 모두 업로드 및 전산 증빙 뷰어로 원본 보기가 가능합니다.</p>
@@ -1777,7 +1777,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       />
                       <label 
                         htmlFor="reg-doc-upload-tab"
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-755 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
                       >
                         파일 찾아보기
                       </label>
@@ -1797,7 +1797,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <button 
                     type="button"
                     onClick={() => setShowVehicleForm(false)}
-                    className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
                   </button>
@@ -1917,7 +1917,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           {/* Divider line before Registration Document */}
                           <div className="border-t border-slate-200 pt-3.5 space-y-1.5">
                             <span className="text-[11px] font-semibold text-slate-400 block">자동차 등록증</span>
-                            <div className="flex items-center justify-between bg-slate-50 border border-slate-850 p-2.5 rounded-xl">
+                            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
                               <div className="flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-indigo-400" />
                                 <span className="text-xs text-slate-600 font-medium">
@@ -2526,7 +2526,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <button 
                       type="button"
                       onClick={() => setShowDrivingForm(false)}
-                      className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                     >
                       취소
                     </button>
@@ -2570,7 +2570,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
-                      className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-200 bg-slate-900/60 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
+                      className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-200 bg-white p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -2652,14 +2652,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             )}
                           </div>
 
-                          <div className="flex justify-between text-[11px] border-t border-slate-850/60 pt-1.5 font-mono">
+                          <div className="flex justify-between text-[11px] border-t border-slate-200/60 pt-1.5 font-mono">
                             <span className="text-slate-400 font-sans">계기판 기록</span>
                             <span className="text-slate-500">
                               {formatWon(log.startMileage)} → {formatWon(log.endMileage)} km
                             </span>
                           </div>
 
-                          <div className="border-t border-slate-850/60 pt-1.5">
+                          <div className="border-t border-slate-200/60 pt-1.5">
                             <span className="text-slate-400 text-[10px] block mb-0.5">운행 목적 및 메모</span>
                             <span className="text-slate-600 block font-medium text-[11px] line-clamp-1">{log.purpose}</span>
                             {log.memo && (
@@ -3078,7 +3078,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <button 
                     type="button"
                     onClick={() => setShowExpenseForm(false)}
-                    className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
                   </button>
@@ -3129,7 +3129,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return (
                       <div 
                         key={e.id}
-                        className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-200 bg-slate-900/60 p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
+                        className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-200 bg-white p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
@@ -3169,7 +3169,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               </div>
                             ) : null}
                             {e.memo && (
-                              <div className="border-t border-slate-850/60 mt-1.5 pt-1.5 text-slate-500 text-[11px] line-clamp-2" title={e.memo}>
+                              <div className="border-t border-slate-200/60 mt-1.5 pt-1.5 text-slate-500 text-[11px] line-clamp-2" title={e.memo}>
                                 {e.memo}
                               </div>
                             )}
@@ -3237,7 +3237,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 5. 정비일지 (Maintenance Tab) */}
       {activeSubTab === 'maintenance' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-start gap-3 border-b border-slate-850 pb-3">
+          <div className="flex items-center justify-start gap-3 border-b border-slate-200 pb-3">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -3554,7 +3554,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <button 
                     type="button"
                     onClick={() => setShowIntervalForm(false)}
-                    className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
                   </button>
@@ -3667,8 +3667,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             key={m.id}
                             className={`flex-none w-[290px] sm:w-[350px] snap-start border p-4 rounded-2xl space-y-3 flex flex-col justify-between ${
                               m.status === 'scheduled' 
-                                ? 'bg-amber-950/10 border-amber-800/40 shadow-sm' 
-                                : 'bg-slate-900/60 border-slate-200 shadow-sm'
+                                ? 'bg-amber-50 border-amber-200 shadow-sm' 
+                                : 'bg-white border-slate-200 shadow-sm'
                             }`}
                           >
                           <div className="space-y-1.5">
@@ -3718,7 +3718,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             </div>
 
                             {m.memo && (
-                              <p className="text-[11px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-850">
+                              <p className="text-[11px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
                                 메모: {m.memo}
                               </p>
                             )}
@@ -3808,7 +3808,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return (
                       <div 
                         key={item.id}
-                        className={`border p-4 rounded-2xl space-y-4 bg-slate-900/60 border-slate-200 flex flex-col justify-between relative overflow-hidden`}
+                        className={`border p-4 rounded-2xl space-y-4 bg-white border-slate-200 flex flex-col justify-between relative overflow-hidden`}
                       >
                         {hasWarning && (
                           <div className="absolute right-0 top-0 bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-bl border-l border-b border-amber-500/20 flex items-center gap-1">
@@ -3824,7 +3824,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           </div>
 
                           {/* Progress indicators */}
-                          <div className="space-y-2.5 text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-850">
+                          <div className="space-y-2.5 text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200">
                             {/* KM Progress */}
                             <div className="space-y-1">
                               <div className="flex justify-between text-[11px]">
@@ -3883,7 +3883,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
                           <button
                             onClick={() => setEditingInterval(item)}
-                            className="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-750 text-slate-600 rounded font-semibold transition-all flex items-center gap-1"
+                            className="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 rounded font-semibold transition-all flex items-center gap-1"
                           >
                             <Pencil className="w-3 h-3" />
                             <span>수정</span>
@@ -4114,14 +4114,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         const activeCar = vehicles.find(v => v.id === reportVehicleId);
                         if (activeCar) handleExportExcel(activeCar);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-550 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5" />
                       <span>현재 차량 엑셀 다운로드</span>
                     </button>
                     <button
                       onClick={() => window.print()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-550 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
                     >
                       <Printer className="w-3.5 h-3.5" />
                       <span>선택 차량 인쇄 (PDF 저장)</span>
@@ -4130,7 +4130,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 )}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-slate-50 border border-slate-850 rounded-xl">
+              <div className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                 <div className="space-y-1.5 flex-1 w-full">
                   <label className="text-xs text-slate-500">인쇄 대상 차량 선택</label>
                   <select 
@@ -4511,7 +4511,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     if (catAmount === 0) return null;
 
                     return (
-                      <div key={cat} className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-850 rounded-xl">
+                      <div key={cat} className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                         <span className="font-medium text-slate-600">{getCategoryKo(cat)}</span>
                         <div className="flex items-center gap-3">
                           <span className="font-mono text-slate-500">{percentage}%</span>
@@ -4549,7 +4549,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       const costPerKm = totalCarDistance > 0 ? Math.round(totalCarExpense / totalCarDistance) : 0;
 
                       return (
-                        <tr key={v.id} className="hover:bg-slate-850/20">
+                        <tr key={v.id} className="hover:bg-slate-100">
                           <td className="p-3 font-semibold text-slate-800 font-sans">{v.modelName} ({v.plateNumber})</td>
                           <td className="p-3 text-center">{carLogs.length}회</td>
                           <td className="p-3 text-right font-bold text-indigo-400">{totalCarDistance} km</td>
@@ -4799,7 +4799,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
                   <span>•</span> 자동차 등록증 첨부 서류 변경
                 </h4>
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-850 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-left">
                     <p className="text-xs font-bold text-slate-700">기존 첨부문서 대체 / 신규 업로드</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">새 이미지나 PDF를 첨부하면 기 보관 중이던 등록증 원본 사본이 실시간 갱신됩니다.</p>
@@ -4823,7 +4823,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     />
                     <label 
                       htmlFor="edit-reg-doc-upload"
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-750 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
                     >
                       새 파일 교체하기
                     </label>
@@ -4852,13 +4852,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <button 
                   type="button"
                   onClick={() => setEditingVehicle(null)}
-                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
                 <button 
                   type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-550 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
                   기 등록 정보 보완 저장
                 </button>
@@ -4898,7 +4898,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <a 
               href={viewDocUrl}
               download={viewDocUrl.startsWith('data:application/pdf') ? 'car_registration.pdf' : 'car_registration.png'}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-550 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow"
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow"
             >
               <Download className="w-3.5 h-3.5" /> 원본 다운로드
             </a>
@@ -4915,7 +4915,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   printWin.print();
                 }
               }}
-              className="px-3 py-1.5 bg-slate-900/60 hover:bg-slate-100 text-slate-700 border border-slate-750 hover:border-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow"
+              className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow"
             >
               <Printer className="w-3.5 h-3.5" /> 인쇄하기
             </button>
@@ -4932,7 +4932,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <iframe 
                 src={viewDocUrl} 
                 title="자동차 등록증 원본 PDF"
-                className="w-full h-full rounded-xl bg-white shadow-2xl border border-slate-850"
+                className="w-full h-full rounded-xl bg-white shadow-2xl border border-slate-200"
               />
             ) : (
               <img 
@@ -5027,19 +5027,19 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                 {/* 2x2 Grid of Stat Cards */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                     <span className="text-[11px] text-slate-400 font-semibold block">총 운행기록</span>
                     <p className="text-lg font-bold text-slate-800">{carLogs.length}건</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                     <span className="text-[11px] text-slate-400 font-semibold block">총 누적거리</span>
                     <p className="text-lg font-bold text-slate-800">{formatWon(v.currentMileage || 0)} km</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                     <span className="text-[11px] text-slate-400 font-semibold block">총 지출비용</span>
                     <p className="text-lg font-bold text-slate-800">{formatWon(totalCarExpense)}원</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-850 p-4 rounded-xl space-y-2">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                     <span className="text-[11px] text-slate-400 font-semibold block">총 정비비용</span>
                     <p className="text-lg font-bold text-slate-800">{formatWon(totalMaintExpense)}원</p>
                   </div>
@@ -5083,7 +5083,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             {/* Timeline Dot */}
                             <div className="absolute -left-[32px] top-1.5 w-3 h-3 rounded-full border border-slate-200 bg-indigo-500 group-hover:scale-110 transition-transform"></div>
 
-                            <div className="bg-slate-50/30 border border-slate-850 hover:border-slate-200 p-4 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm transition-all">
+                            <div className="bg-slate-50/30 border border-slate-200 hover:border-slate-200 p-4 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm transition-all">
                               <div className="space-y-1 flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeColor}`}>
@@ -5098,7 +5098,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               </div>
 
                               {event.amount && event.amount > 0 && (
-                                <div className="text-right flex md:flex-col justify-between md:justify-center items-center md:items-end border-t md:border-t-0 border-slate-850/60 pt-2 md:pt-0">
+                                <div className="text-right flex md:flex-col justify-between md:justify-center items-center md:items-end border-t md:border-t-0 border-slate-200/60 pt-2 md:pt-0">
                                   <span className="text-[10px] text-slate-400 md:hidden">금액</span>
                                   <span className="text-xs font-bold text-rose-400 font-mono">
                                     {formatWon(event.amount)}원
@@ -5118,7 +5118,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <div className="p-4 border-t border-slate-200 bg-white flex justify-end">
                 <button 
                   onClick={() => setSelectedStatsVehicle(null)}
-                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
                   닫기
                 </button>
@@ -5342,7 +5342,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <button 
                   type="button"
                   onClick={() => setEditingDriving(null)}
-                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
@@ -5549,7 +5549,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <button 
                   type="button"
                   onClick={() => setEditingExpense(null)}
-                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
@@ -5728,7 +5728,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <button 
                   type="button"
                   onClick={() => setEditingMaint(null)}
-                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
@@ -5889,7 +5889,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <button 
                   type="button"
                   onClick={() => setEditingInterval(null)}
-                  className="bg-slate-100 hover:bg-slate-750 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
                   수정 취소
                 </button>
