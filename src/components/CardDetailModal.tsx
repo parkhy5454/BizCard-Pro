@@ -694,8 +694,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               </div>
 
               {/* 명함 메모 */}
-              <div className="bg-gradient-to-br from-blue-950/30 to-indigo-950/30 p-4 rounded-2xl border border-blue-900/40">
-                <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">비즈니스 메모 / 요약</h4>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">비즈니스 메모 / 요약</h4>
                 <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{contact.memo || '작성된 비즈니스 메모가 없습니다.'}</p>
               </div>
             </div>

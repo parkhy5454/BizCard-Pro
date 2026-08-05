@@ -21,6 +21,10 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [phone, setPhone] = useState<string>('');
   const [accountType, setAccountType] = useState<'individual' | 'company'>('individual');
   const [companyName, setCompanyName] = useState<string>('');
+  // [추가] 사업자등록번호를 다 입력하면 이미 등록된 회사가 있는지 자동으로 조회해서,
+  // 있으면 그 회사가 쓰던 정확한 회사명으로 자동 채워준다 ("주식회사 OO" vs "(주)OO"처럼
+  // 표기가 갈려서 같은 회사가 다른 회사로 인식되던 문제를 가입 시점에 막기 위함).
+  const [companyLookupStatus, setCompanyLookupStatus] = useState<'idle' | 'checking' | 'found' | 'not-found'>('idle');
   const [businessNumber, setBusinessNumber] = useState<string>('');
   const [position, setPosition] = useState<string>('');
 
@@ -119,6 +123,24 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
       formatted = `${raw.slice(0, 3)}-${raw.slice(3, 5)}-${raw.slice(5, 10)}`;
     }
     setBusinessNumber(formatted);
+
+    // 10자리를 다 입력했을 때만 조회한다 (타이핑 중간에 매번 조회하지 않도록)
+    if (raw.length === 10) {
+      setCompanyLookupStatus('checking');
+      fetch(`/api/auth/lookup-company?businessNumber=${encodeURIComponent(formatted)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.found && data.companyName) {
+            setCompanyName(data.companyName);
+            setCompanyLookupStatus('found');
+          } else {
+            setCompanyLookupStatus('not-found');
+          }
+        })
+        .catch(() => setCompanyLookupStatus('idle'));
+    } else {
+      setCompanyLookupStatus('idle');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -533,22 +555,6 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl space-y-3.5 mt-2"
                   >
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold text-slate-400">공식 회사명</label>
-                      <div className="relative rounded-xl shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                        </div>
-                        <input
-                          type="text"
-                          value={companyName}
-                          onChange={(e) => setCompanyName(e.target.value)}
-                          placeholder="예: (주)대한상사"
-                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
                       <label className="block text-[10px] font-bold text-slate-400">사업자등록번호 (10자리)</label>
                       <div className="relative rounded-xl shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -563,6 +569,36 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                           className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
+                      {/* [추가] 이미 등록된 회사인지 조회 결과 안내 */}
+                      {companyLookupStatus === 'checking' && (
+                        <p className="text-[10px] text-slate-400">등록된 회사인지 확인하는 중...</p>
+                      )}
+                      {companyLookupStatus === 'found' && (
+                        <p className="text-[10px] text-emerald-600 font-medium">✅ 이미 등록된 회사예요. 회사명을 자동으로 채워드렸어요.</p>
+                      )}
+                      {companyLookupStatus === 'not-found' && (
+                        <p className="text-[10px] text-indigo-500">처음 등록하는 사업자번호예요. 아래에 회사명을 입력해주세요.</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-bold text-slate-400">회사명</label>
+                      <div className="relative rounded-xl shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                        </div>
+                        <input
+                          type="text"
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          placeholder="예: (주)대한상사"
+                          readOnly={companyLookupStatus === 'found'}
+                          className={`block w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${companyLookupStatus === 'found' ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
+                        />
+                      </div>
+                      {companyLookupStatus === 'found' && (
+                        <p className="text-[10px] text-slate-400">기존 회사와 동일하게 유지하기 위해 수정할 수 없어요.</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
