@@ -919,7 +919,7 @@ export const ProjectsView: React.FC<Props> = ({
         <span key={idx}>
           {idx > 0 && ', '}
           {name}
-          {phoneDisplay && <span className="text-slate-500"> ({phoneDisplay})</span>}
+          {phoneDisplay && <span className="text-slate-400"> ({phoneDisplay})</span>}
         </span>
       );
     });
@@ -928,7 +928,7 @@ export const ProjectsView: React.FC<Props> = ({
   // 미팅 비용 지출 UI 섹션 (등록/수정 화면 공용)
   const renderExpenseSection = (expenses: MeetingExpenseItem[], setter: React.Dispatch<React.SetStateAction<MeetingExpenseItem[]>>) => (
     <div className="space-y-1.5">
-      <label className="block text-[10px] text-slate-400 font-bold flex items-center gap-1">
+      <label className="block text-[10px] text-slate-500 font-bold flex items-center gap-1">
         <Receipt className="w-3 h-3" /> 비용 지출 (영수증 스캔 가능)
       </label>
 
@@ -936,7 +936,7 @@ export const ProjectsView: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => setReceiptCameraTarget({ setter })}
-          className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 hover:border-emerald-500 text-slate-500 hover:text-emerald-400 text-[11px] font-semibold transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-[11px] font-semibold transition-colors"
         >
           <Camera className="w-3.5 h-3.5" />
           <span>영수증 촬영</span>
@@ -944,7 +944,7 @@ export const ProjectsView: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => addMeetingExpense(setter)}
-          className="px-3 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:text-indigo-400 hover:border-indigo-500 text-[11px] font-semibold transition-colors shrink-0"
+          className="px-3 rounded-xl border border-dashed border-slate-200 text-slate-400 hover:text-indigo-400 hover:border-indigo-500 text-[11px] font-semibold transition-colors shrink-0"
         >
           + 직접 입력
         </button>
@@ -953,21 +953,21 @@ export const ProjectsView: React.FC<Props> = ({
       {expenses.length > 0 && (
         <div className="space-y-2">
           {expenses.map((exp) => (
-            <div key={exp.id} className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
+            <div key={exp.id} className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-1.5">
               <div className="flex items-start gap-2">
                 {exp.receiptImage && (
                   <img
                     src={exp.receiptImage}
                     alt="영수증"
                     onClick={() => setEnlargedReceiptUrl(exp.receiptImage!)}
-                    className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                   />
                 )}
                 <div className="flex-1 grid grid-cols-2 gap-1.5">
                   <select
                     value={exp.category}
                     onChange={(e) => updateMeetingExpense(setter, exp.id, { category: e.target.value as MeetingExpenseItem['category'] })}
-                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white outline-none focus:border-indigo-500"
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                   >
                     <option value="meal">식대</option>
                     <option value="drinks">음료(커피)</option>
@@ -978,7 +978,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <select
                     value={exp.payMethod}
                     onChange={(e) => updateMeetingExpense(setter, exp.id, { payMethod: e.target.value as MeetingExpenseItem['payMethod'] })}
-                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white outline-none focus:border-indigo-500"
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                   >
                     <option value="company_card">법인(회사)카드</option>
                     <option value="personal_card">개인카드</option>
@@ -990,7 +990,7 @@ export const ProjectsView: React.FC<Props> = ({
                       value={exp.categoryCustom || ''}
                       onChange={(e) => updateMeetingExpense(setter, exp.id, { categoryCustom: e.target.value })}
                       placeholder="카테고리명 직접 입력"
-                      className="col-span-2 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                      className="col-span-2 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                     />
                   )}
                   <input
@@ -999,20 +999,20 @@ export const ProjectsView: React.FC<Props> = ({
                     value={exp.amount ? formatCurrencyInput(exp.amount) : ''}
                     onChange={(e) => updateMeetingExpense(setter, exp.id, { amount: parseCurrencyInput(e.target.value) })}
                     placeholder="금액 (원)"
-                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white placeholder:text-slate-600 font-mono outline-none focus:border-indigo-500"
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 placeholder:text-slate-400 font-mono outline-none focus:border-indigo-500"
                   />
                   <input
                     type="text"
                     value={exp.memo || ''}
                     onChange={(e) => updateMeetingExpense(setter, exp.id, { memo: e.target.value })}
                     placeholder="지출 상세 사유/메모"
-                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => removeMeetingExpense(setter, exp.id)}
-                  className="text-rose-400 hover:text-rose-300 font-bold shrink-0 px-1"
+                  className="text-rose-500 hover:text-rose-700 font-bold shrink-0 px-1"
                 >
                   ✕
                 </button>
@@ -1024,7 +1024,7 @@ export const ProjectsView: React.FC<Props> = ({
               )}
             </div>
           ))}
-          <div className="text-right text-[11px] text-slate-400 font-bold">
+          <div className="text-right text-[11px] text-slate-500 font-bold">
             합계: <span className="text-emerald-400 font-mono">{formatCurrencyInput(expenses.reduce((s, e) => s + e.amount, 0))}원</span>
           </div>
         </div>
@@ -1137,10 +1137,10 @@ export const ProjectsView: React.FC<Props> = ({
 
   const getStatusBadge = (st: Project['status']) => {
     switch (st) {
-      case 'opportunity': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30">💡 기회</span>;
-      case 'progress': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">⚡ 진행</span>;
-      case 'completed': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">✅ 완료</span>;
-      case 'failed': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30">❌ 실패</span>;
+      case 'opportunity': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-500/30">💡 기회</span>;
+      case 'progress': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-500/30">⚡ 진행</span>;
+      case 'completed': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-500/30">✅ 완료</span>;
+      case 'failed': return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-500/30">❌ 실패</span>;
     }
   };
 
@@ -1229,7 +1229,7 @@ export const ProjectsView: React.FC<Props> = ({
             return (
               <button
                 onClick={reopenFollowupBanner}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all animate-fadeIn"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 text-xs font-semibold transition-all animate-fadeIn"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>팔로우업 필요 {needyProjs.length}건</span>
@@ -1240,19 +1240,19 @@ export const ProjectsView: React.FC<Props> = ({
             <div className="relative bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 md:p-6 shadow-xl flex items-start gap-4 animate-fadeIn">
               <button
                 onClick={dismissFollowupBannerForToday}
-                className="absolute top-3 right-3 p-1.5 rounded-lg text-rose-300/70 hover:text-rose-200 hover:bg-rose-500/10 transition-colors"
+                className="absolute top-3 right-3 p-1.5 rounded-lg text-rose-400 hover:text-rose-700 hover:bg-rose-100 transition-colors"
                 title="오늘 하루 닫기"
               >
                 <X className="w-4 h-4" />
               </button>
-              <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 shrink-0">
+              <div className="p-2.5 bg-rose-50 text-rose-700 rounded-xl border border-rose-500/30 shrink-0">
                 <AlertTriangle className="w-5 h-5 animate-bounce" />
               </div>
               <div className="space-y-1.5 flex-1 pr-6">
-                <h4 className="text-sm font-bold text-rose-300 flex items-center gap-1.5">
+                <h4 className="text-sm font-bold text-rose-600 flex items-center gap-1.5">
                   <span>신속한 팔로우업이 필요한 활성 프로젝트가 {needyProjs.length}개 있습니다!</span>
                 </h4>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   마지막 미팅 또는 비즈니스 프로젝트 등록 후 <span className="text-rose-400 font-bold">5일 이상</span> 경과하여 연락이 뜸해진 건들입니다. 신속하게 안부 연락이나 차기 미팅 조율을 진행해 보세요.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1.5">
@@ -1262,7 +1262,7 @@ export const ProjectsView: React.FC<Props> = ({
                       <button
                         key={p.id}
                         onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-rose-500 text-white border-rose-400 shadow animate-pulse' : 'bg-slate-950 hover:bg-slate-900 border-rose-500/20 hover:border-rose-500/40 text-rose-300'}`}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-rose-500 text-white border-rose-400 shadow animate-pulse' : 'bg-slate-50 hover:bg-white border-rose-500/20 hover:border-rose-500/40 text-rose-600'}`}
                       >
                         <span className="font-bold">{p.name}</span>
                         <span className="text-[10px] opacity-80 font-mono">({days}일 경과)</span>
@@ -1286,18 +1286,18 @@ export const ProjectsView: React.FC<Props> = ({
       >
         {/* 프로젝트 검색 */}
         <div className="max-w-md mx-auto relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
             placeholder="프로젝트명, 시행사, 시공사로 검색..."
             value={projectSearchQuery}
             onChange={(e) => setProjectSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-200 transition-all placeholder:text-slate-500 shadow-inner"
+            className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
           />
           {projectSearchQuery && (
             <button
               onClick={() => setProjectSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-2 py-1 rounded-lg cursor-pointer"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-lg cursor-pointer"
             >
               지우기
             </button>
@@ -1349,23 +1349,23 @@ export const ProjectsView: React.FC<Props> = ({
               <div className="space-y-5">
                 {/* 핵심 지표 카드 */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-1">
-                    <span className="text-[11px] text-slate-500 font-medium">전체 파이프라인 가치 (기회+진행)</span>
-                    <p className="text-xl font-extrabold text-indigo-300">{formatBudgetDisplay(String(pipelineValue))}</p>
+                  <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-medium">전체 파이프라인 가치 (기회+진행)</span>
+                    <p className="text-xl font-extrabold text-indigo-600">{formatBudgetDisplay(String(pipelineValue))}</p>
                   </div>
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-1">
-                    <span className="text-[11px] text-slate-500 font-medium">이번 달 마감 예정</span>
-                    <p className="text-xl font-extrabold text-amber-300">{dueThisMonth.length}건</p>
+                  <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-medium">이번 달 마감 예정</span>
+                    <p className="text-xl font-extrabold text-amber-600">{dueThisMonth.length}건</p>
                   </div>
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-1">
-                    <span className="text-[11px] text-slate-500 font-medium">성사율 (완료 ÷ 완료+실패)</span>
-                    <p className="text-xl font-extrabold text-emerald-300">{winRate === null ? '집계 전' : `${winRate}%`}</p>
+                  <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-medium">성사율 (완료 ÷ 완료+실패)</span>
+                    <p className="text-xl font-extrabold text-emerald-600">{winRate === null ? '집계 전' : `${winRate}%`}</p>
                   </div>
                 </div>
 
                 {/* 영업 단계별 현황 */}
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-200">영업 단계별 현황</h3>
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-700">영업 단계별 현황</h3>
                   <div className="space-y-2.5">
                     {funnelStages.map((stage) => {
                       const list = byStatus[stage.key];
@@ -1374,11 +1374,11 @@ export const ProjectsView: React.FC<Props> = ({
                         <div key={stage.key} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
                             <span className={`font-bold ${stage.color}`}>{stage.label}</span>
-                            <span className="text-slate-400 font-mono">
+                            <span className="text-slate-500 font-mono">
                               {list.length}건 · {formatBudgetDisplay(String(valueOf(list)))}
                             </span>
                           </div>
-                          <div className="h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                          <div className="h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-200">
                             <div className={`h-full ${stage.barColor} rounded-full transition-all`} style={{ width: `${widthPct}%` }} />
                           </div>
                         </div>
@@ -1388,27 +1388,27 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
 
                 {/* 영업자별 현황 */}
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-200">영업자별 현황</h3>
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-700">영업자별 현황</h3>
                   {repRows.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-4 text-center">등록된 프로젝트가 없습니다.</p>
+                    <p className="text-xs text-slate-400 py-4 text-center">등록된 프로젝트가 없습니다.</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="text-slate-500 border-b border-slate-800">
+                          <tr className="text-slate-400 border-b border-slate-200">
                             <th className="text-left font-bold py-2">영업자</th>
                             <th className="text-right font-bold py-2">담당 건수</th>
                             <th className="text-right font-bold py-2">파이프라인 가치</th>
                             <th className="text-right font-bold py-2">완료 건수</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800/60">
+                        <tbody className="divide-y divide-slate-200">
                           {repRows.map(([rep, stat]) => (
                             <tr key={rep}>
-                              <td className="py-2 font-semibold text-slate-200">{rep}</td>
-                              <td className="py-2 text-right text-slate-400">{stat.count}건</td>
-                              <td className="py-2 text-right text-indigo-300 font-mono">{formatBudgetDisplay(String(stat.value))}</td>
+                              <td className="py-2 font-semibold text-slate-700">{rep}</td>
+                              <td className="py-2 text-right text-slate-500">{stat.count}건</td>
+                              <td className="py-2 text-right text-indigo-600 font-mono">{formatBudgetDisplay(String(stat.value))}</td>
                               <td className="py-2 text-right text-emerald-400">{stat.completed}건</td>
                             </tr>
                           ))}
@@ -1423,7 +1423,7 @@ export const ProjectsView: React.FC<Props> = ({
         ) : viewMode === 'listOutput' ? (
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-slate-200">전체 프로젝트 리스트 ({filteredProjects.length}건)</h3>
+              <h3 className="text-sm font-bold text-slate-700">전체 프로젝트 리스트 ({filteredProjects.length}건)</h3>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1445,25 +1445,25 @@ export const ProjectsView: React.FC<Props> = ({
             </div>
 
             {filteredProjects.length === 0 ? (
-              <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-16 text-center space-y-4">
-                <Briefcase className="w-12 h-12 text-slate-600 mx-auto" />
-                <h3 className="text-lg font-bold text-white">해당하는 프로젝트가 없습니다.</h3>
+              <div className="bg-slate-100 border border-slate-200 rounded-3xl p-16 text-center space-y-4">
+                <Briefcase className="w-12 h-12 text-slate-400 mx-auto" />
+                <h3 className="text-lg font-bold text-slate-800">해당하는 프로젝트가 없습니다.</h3>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-slate-800">
-                <table className="w-full text-xs text-slate-300 whitespace-nowrap">
-                  <thead className="bg-slate-900 text-slate-400">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-xs text-slate-600 whitespace-nowrap">
+                  <thead className="bg-white text-slate-500">
                     <tr>
                       {['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
-                        <th key={h} className="px-3 py-2.5 text-left font-bold border-b border-slate-800">{h}</th>
+                        <th key={h} className="px-3 py-2.5 text-left font-bold border-b border-slate-200">{h}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-slate-200">
                     {filteredProjects.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
-                        <td className="px-3 py-2.5 font-semibold text-slate-100">{p.name}</td>
-                        <td className="px-3 py-2.5 text-indigo-300 font-semibold">{p.salesRep || '-'}</td>
+                      <tr key={p.id} className="hover:bg-slate-100 transition-colors">
+                        <td className="px-3 py-2.5 font-semibold text-slate-800">{p.name}</td>
+                        <td className="px-3 py-2.5 text-indigo-600 font-semibold">{p.salesRep || '-'}</td>
                         <td className="px-3 py-2.5">{STATUS_LABEL_KO[p.status]}</td>
                         <td className="px-3 py-2.5">{PRIORITY_LABEL_KO[p.priority]}</td>
                         <td className="px-3 py-2.5 font-mono">{p.dueDate}</td>
@@ -1484,7 +1484,7 @@ export const ProjectsView: React.FC<Props> = ({
             )}
           </div>
         ) : loading ? (
-          <div className="py-24 text-center text-slate-500 text-sm">프로젝트 히스토리 불러오는 중...</div>
+          <div className="py-24 text-center text-slate-400 text-sm">프로젝트 히스토리 불러오는 중...</div>
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -1496,10 +1496,10 @@ export const ProjectsView: React.FC<Props> = ({
               className="w-full"
             >
               {filteredProjects.length === 0 ? (
-                <div className="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-16 text-center space-y-4">
-                  <Briefcase className="w-12 h-12 text-slate-600 mx-auto" />
-                  <h3 className="text-lg font-bold text-white">해당하는 프로젝트가 없습니다.</h3>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">상단의 '새 프로젝트 등록' 버튼을 눌러 중요한 거래처 영업 및 제안 일정을 새롭게 기록해보세요.</p>
+                <div className="bg-slate-100 border border-slate-200 rounded-3xl p-16 text-center space-y-4">
+                  <Briefcase className="w-12 h-12 text-slate-400 mx-auto" />
+                  <h3 className="text-lg font-bold text-slate-800">해당하는 프로젝트가 없습니다.</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">상단의 '새 프로젝트 등록' 버튼을 눌러 중요한 거래처 영업 및 제안 일정을 새롭게 기록해보세요.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4">
@@ -1522,16 +1522,16 @@ export const ProjectsView: React.FC<Props> = ({
             return (
               <div
                 key={proj.id}
-                className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden hover:border-slate-700 transition-all shadow-xl"
+                className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-slate-200 transition-all shadow-xl"
               >
                 {/* 프로젝트 카드 메인 상단바 */}
                 <div
                   onClick={() => setExpandedId(isExpanded ? null : proj.id)}
-                  className="p-6 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90"
+                  className="p-6 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/90"
                 >
                   <div className="space-y-2 flex-1">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded font-bold ${proj.priority === 'high' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-slate-800 text-slate-400'}`}>
+                      <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded font-bold ${proj.priority === 'high' ? 'bg-red-50 text-red-700 border border-red-500/30' : 'bg-slate-100 text-slate-500'}`}>
                         {proj.priority === 'high' ? '🔥 우선순위 높음' : '보통'}
                       </span>
                       {getStatusBadge(proj.status)}
@@ -1540,7 +1540,7 @@ export const ProjectsView: React.FC<Props> = ({
                           const { days } = getDaysSinceLastActivity(proj);
                           if (days >= 5) {
                             return (
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-1 animate-pulse">
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-500/30 flex items-center gap-1 animate-pulse">
                                 <AlertTriangle className="w-3 h-3" />
                                 <span>팔로우업 필요 ({days}일째)</span>
                               </span>
@@ -1549,33 +1549,33 @@ export const ProjectsView: React.FC<Props> = ({
                         }
                         return null;
                       })()}
-                      <h3 className="text-lg font-bold text-white tracking-tight">{proj.name}</h3>
+                      <h3 className="text-lg font-bold text-slate-900 tracking-tight">{proj.name}</h3>
                     </div>
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      {proj.salesRep && <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-md font-bold">영업자: {proj.salesRep}</span>}
-                      {proj.developer && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">시행: {proj.developer}</span>}
-                      {proj.contractor && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">시공: {proj.contractor}</span>}
-                      {proj.architect && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">건축설계: {proj.architect}</span>}
-                      {proj.interiorDesigner && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">인테리어: {proj.interiorDesigner}</span>}
-                      {proj.electricalDesigner && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">전기설계: {proj.electricalDesigner}</span>}
-                      {proj.mechanicalDesigner && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">기계설계: {proj.mechanicalDesigner}</span>}
-                      {proj.supervisor && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">감리: {proj.supervisor}</span>}
-                      {proj.operator && <span className="text-[10px] bg-slate-800 border border-slate-700/60 text-slate-300 px-2 py-0.5 rounded-md font-medium">운영: {proj.operator}</span>}
+                      {proj.salesRep && <span className="text-[10px] bg-indigo-50 border border-indigo-500/30 text-indigo-700 px-2 py-0.5 rounded-md font-bold">영업자: {proj.salesRep}</span>}
+                      {proj.developer && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">시행: {proj.developer}</span>}
+                      {proj.contractor && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">시공: {proj.contractor}</span>}
+                      {proj.architect && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">건축설계: {proj.architect}</span>}
+                      {proj.interiorDesigner && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">인테리어: {proj.interiorDesigner}</span>}
+                      {proj.electricalDesigner && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">전기설계: {proj.electricalDesigner}</span>}
+                      {proj.mechanicalDesigner && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">기계설계: {proj.mechanicalDesigner}</span>}
+                      {proj.supervisor && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">감리: {proj.supervisor}</span>}
+                      {proj.operator && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">운영: {proj.operator}</span>}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-1 font-mono">
-                      <span className="flex items-center gap-1 text-slate-300">
+                    <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 pt-1 font-mono">
+                      <span className="flex items-center gap-1 text-slate-600">
                         <Calendar className="w-3.5 h-3.5 text-indigo-400" />
                         등록일: {proj.dueDate}
                       </span>
                       {proj.budget && (
-                        <span className="flex items-center gap-1 text-emerald-300">
+                        <span className="flex items-center gap-1 text-emerald-600">
                           <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
                           예산: {/^\d+$/.test(proj.budget) ? `${formatCurrencyInput(proj.budget)}원` : proj.budget}
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-blue-300">
+                      <span className="flex items-center gap-1 text-blue-600">
                         <Users className="w-3.5 h-3.5 text-blue-400" />
                         관련 명함 {relatedContacts.length}명
                       </span>
@@ -1584,7 +1584,7 @@ export const ProjectsView: React.FC<Props> = ({
                           const { days, reason } = getDaysSinceLastActivity(proj);
                           const isOverdue = days >= 5;
                           const iconColor = isOverdue ? 'text-rose-400' : 'text-amber-400';
-                          const textColor = isOverdue ? 'text-rose-300 font-bold' : 'text-slate-400';
+                          const textColor = isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500';
                           return (
                             <span className={`flex items-center gap-1 ${textColor}`}>
                               <Clock className={`w-3.5 h-3.5 ${iconColor}`} />
@@ -1604,7 +1604,7 @@ export const ProjectsView: React.FC<Props> = ({
                     <select
                       value={proj.status}
                       onChange={(e) => handleStatusChange(proj.id, e.target.value as any, e)}
-                      className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-white outline-none focus:border-indigo-500 shadow-inner"
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 shadow-inner"
                     >
                       <option value="opportunity">💡 기회</option>
                       <option value="progress">⚡ 진행</option>
@@ -1625,7 +1625,7 @@ export const ProjectsView: React.FC<Props> = ({
                         setDirectContactPhoneMobile('');
                         setDirectContactEmail('');
                       }}
-                      className="p-2.5 rounded-xl bg-slate-950 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 border border-slate-800 transition-colors"
+                      className="p-2.5 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 border border-slate-200 transition-colors"
                       title="프로젝트 정보 수정"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -1633,13 +1633,13 @@ export const ProjectsView: React.FC<Props> = ({
 
                     <button
                       onClick={(e) => handleDeleteProject(proj.id, e)}
-                      className="p-2.5 rounded-xl bg-slate-950 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-800 transition-colors"
+                      className="p-2.5 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-700 border border-slate-200 transition-colors"
                       title="프로젝트 삭제"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
 
-                    <div onClick={() => setExpandedId(isExpanded ? null : proj.id)} className="p-2.5 rounded-xl bg-slate-800 text-slate-300 cursor-pointer">
+                    <div onClick={() => setExpandedId(isExpanded ? null : proj.id)} className="p-2.5 rounded-xl bg-slate-100 text-slate-600 cursor-pointer">
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </div>
                   </div>
@@ -1647,10 +1647,10 @@ export const ProjectsView: React.FC<Props> = ({
 
                 {/* 전개된 상세 & 팔로우업 노트 섹션 */}
                 {isExpanded && (
-                  <div className="p-6 bg-slate-950 border-t border-slate-800/80 space-y-6 animate-fadeIn">
+                  <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-6 animate-fadeIn">
                     
                     {/* 프로젝트 관계사 / 참여사 정보 */}
-                    <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4 space-y-3">
+                    <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-3">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 uppercase tracking-wider font-mono">
                         <Briefcase className="w-3.5 h-3.5 text-indigo-400" /> 프로젝트 관계사 / 참여사 정보
                       </div>
@@ -1667,18 +1667,18 @@ export const ProjectsView: React.FC<Props> = ({
                         ] as [string, string | undefined][]).map(([label, companyName]) => {
                           const matched = findContactsForCompany(companyName);
                           return (
-                            <div key={label} className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/40">
-                              <div className="text-[10px] text-slate-500 font-semibold mb-0.5">{label}</div>
-                              <div className="text-slate-200 font-medium">{companyName || '-'}</div>
+                            <div key={label} className="bg-slate-100 p-2.5 rounded-xl border border-slate-200">
+                              <div className="text-[10px] text-slate-400 font-semibold mb-0.5">{label}</div>
+                              <div className="text-slate-700 font-medium">{companyName || '-'}</div>
                               {matched.length > 0 && (
-                                <div className="mt-1.5 pt-1.5 border-t border-slate-800/60 space-y-1">
+                                <div className="mt-1.5 pt-1.5 border-t border-slate-200 space-y-1">
                                   {matched.map((c) => (
-                                    <div key={c.id} className="text-[10px] text-indigo-300 leading-relaxed">
+                                    <div key={c.id} className="text-[10px] text-indigo-600 leading-relaxed">
                                       <span className="font-bold text-indigo-200">{c.name}</span>
-                                      {c.department && <span className="text-slate-400"> · {c.department}</span>}
-                                      {c.title && <span className="text-slate-400"> · {c.title}</span>}
-                                      {c.phoneMobile && <div className="text-slate-400 font-mono">{c.phoneMobile}</div>}
-                                      {!c.phoneMobile && c.phoneOffice && <div className="text-slate-400 font-mono">{c.phoneOffice}</div>}
+                                      {c.department && <span className="text-slate-500"> · {c.department}</span>}
+                                      {c.title && <span className="text-slate-500"> · {c.title}</span>}
+                                      {c.phoneMobile && <div className="text-slate-500 font-mono">{c.phoneMobile}</div>}
+                                      {!c.phoneMobile && c.phoneOffice && <div className="text-slate-500 font-mono">{c.phoneOffice}</div>}
                                     </div>
                                   ))}
                                 </div>
@@ -1692,15 +1692,15 @@ export const ProjectsView: React.FC<Props> = ({
                     {/* 1. 연관된 거래처 명함 칩즈 */}
                     {relatedContacts.length > 0 && (
                       <div className="space-y-2">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono flex items-center gap-1.5">
                           <Tag className="w-3.5 h-3.5 text-blue-400" /> 연관 거래처 담당자 명함
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {relatedContacts.map((rc) => (
-                            <div key={rc.id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
+                            <div key={rc.id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700">
                               <span className="font-bold">{rc.name}</span>
-                              <span className="text-[11px] text-slate-400">{rc.company} ({rc.title})</span>
-                              <span className="text-[10px] text-indigo-300 font-mono">{rc.phoneMobile}</span>
+                              <span className="text-[11px] text-slate-500">{rc.company} ({rc.title})</span>
+                              <span className="text-[10px] text-indigo-600 font-mono">{rc.phoneMobile}</span>
                             </div>
                           ))}
                         </div>
@@ -1709,21 +1709,21 @@ export const ProjectsView: React.FC<Props> = ({
 
                     {/* 2. 미팅 및 후속 업무 타임라인 */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                         <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 text-indigo-400" /> 히스토리별 미팅 & 업무 기록 (최초 미팅 ~ N차 미팅)
                         </span>
-                        <span className="text-[11px] text-slate-500">체계적인 미팅 관리</span>
+                        <span className="text-[11px] text-slate-400">체계적인 미팅 관리</span>
                       </div>
 
                       {/* 미팅 입력 폼 */}
-                      <form onSubmit={(e) => handleAddFollowup(proj.id, e)} className="bg-slate-900/50 border border-slate-800 p-4 rounded-2xl space-y-3.5">
-                        <span className="text-xs font-bold text-slate-300 block">📝 새로운 미팅/팔로우업 기록 추가</span>
+                      <form onSubmit={(e) => handleAddFollowup(proj.id, e)} className="bg-slate-100 border border-slate-200 p-4 rounded-2xl space-y-3.5">
+                        <span className="text-xs font-bold text-slate-600 block">📝 새로운 미팅/팔로우업 기록 추가</span>
                         
                         <div className="flex flex-col md:flex-row gap-3">
                           {/* 미팅/팔로우업 차수 (제한 없음, 이미 기록된 차수는 건너뛰고 다음 차수를 자동 선택) */}
                           <div className="w-full md:w-1/4">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
+                            <label className="block text-[10px] text-slate-500 font-bold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
                             <select
                               value={`${meetingDegree}-${meetingType}`}
                               onChange={(e) => {
@@ -1731,7 +1731,7 @@ export const ProjectsView: React.FC<Props> = ({
                                 setMeetingDegree(Number(d));
                                 setMeetingType(t as 'meeting' | 'followup');
                               }}
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500"
                             >
                               <option value="0-meeting">업무 기록 (차수 없음)</option>
                               {buildMeetingSequenceOptions(proj.followUps || []).map((opt) => (
@@ -1744,23 +1744,23 @@ export const ProjectsView: React.FC<Props> = ({
 
                           {/* 미팅일자 */}
                           <div className="w-full md:w-1/4">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-1">미팅일자</label>
+                            <label className="block text-[10px] text-slate-500 font-bold mb-1">미팅일자</label>
                             <input
                               type="date"
                               value={meetingDate}
                               onChange={(e) => setMeetingDate(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500"
                             />
                           </div>
 
                           {/* 우리 회사 담당 직원 */}
                           <div className="w-full md:w-1/4">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-1">담당 직원 (우리 회사)</label>
+                            <label className="block text-[10px] text-slate-500 font-bold mb-1">담당 직원 (우리 회사)</label>
                             {companyStaff.length > 0 ? (
                               <select
                                 value={meetingStaffName}
                                 onChange={(e) => setMeetingStaffName(e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500"
                               >
                                 <option value="">선택 안함</option>
                                 {companyStaff.map((s) => (
@@ -1773,14 +1773,14 @@ export const ProjectsView: React.FC<Props> = ({
                                 value={meetingStaffName}
                                 onChange={(e) => setMeetingStaffName(e.target.value)}
                                 placeholder="담당 직원명"
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-600 font-medium outline-none focus:border-indigo-500"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 font-medium outline-none focus:border-indigo-500"
                               />
                             )}
                           </div>
 
                           {/* 미팅자 */}
                           <div className="flex-1">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
+                            <label className="block text-[10px] text-slate-500 font-bold mb-1 flex items-center justify-between">
                               <span>미팅 참여자 (미팅자)</span>
                               {relatedContacts.length > 0 && <span className="text-[9px] text-indigo-400 font-normal">아래 명함 클릭 시 자동 추가</span>}
                             </label>
@@ -1789,21 +1789,21 @@ export const ProjectsView: React.FC<Props> = ({
                               value={meetingAttendee}
                               onChange={(e) => setMeetingAttendee(e.target.value)}
                               placeholder="예: 홍길동, 김대리(010-9999-8888) — 명함에 없는 분은 이름(전화번호)로 입력"
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium"
                             />
                           </div>
                         </div>
 
                         {/* 미팅자 이름·연락처 직접 입력해서 추가 (명함 연동 없이도 바로 입력 가능) */}
-                        <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3 space-y-2">
-                          <span className="text-[10px] text-slate-400 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
+                        <div className="border border-slate-200 bg-slate-50 rounded-xl p-3 space-y-2">
+                          <span className="text-[10px] text-slate-500 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
                           <div className="flex flex-col md:flex-row gap-2">
                             <input
                               type="text"
                               value={attendeeNameInput}
                               onChange={(e) => setAttendeeNameInput(e.target.value)}
                               placeholder="이름 (필수)"
-                              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                             />
                             <input
                               type="text"
@@ -1811,7 +1811,7 @@ export const ProjectsView: React.FC<Props> = ({
                               value={attendeeOfficeInput}
                               onChange={(e) => setAttendeeOfficeInput(formatPhoneNumber(e.target.value))}
                               placeholder="사무실 전화"
-                              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                             />
                             <input
                               type="text"
@@ -1819,7 +1819,7 @@ export const ProjectsView: React.FC<Props> = ({
                               value={attendeeMobileInput}
                               onChange={(e) => setAttendeeMobileInput(formatPhoneNumber(e.target.value))}
                               placeholder="핸드폰"
-                              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                             />
                             <button
                               type="button"
@@ -1841,7 +1841,7 @@ export const ProjectsView: React.FC<Props> = ({
                         {/* 연관 명함 클릭 추가 */}
                         {relatedContacts.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                            <span className="text-[10px] text-slate-500 mr-1">빠른 미팅자 지정:</span>
+                            <span className="text-[10px] text-slate-400 mr-1">빠른 미팅자 지정:</span>
                             {relatedContacts.map(c => {
                               const isAdded = meetingAttendee.includes(c.name);
                               return (
@@ -1855,7 +1855,7 @@ export const ProjectsView: React.FC<Props> = ({
                                       setMeetingAttendee(prev => prev ? `${prev}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c));
                                     }
                                   }}
-                                  className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${isAdded ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-bold' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
+                                  className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${isAdded ? 'bg-indigo-600/30 text-indigo-600 border-indigo-500/50 font-bold' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-200'}`}
                                 >
                                   + {c.name}
                                 </button>
@@ -1866,7 +1866,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                         {/* 전체 명함(주소록)에서 검색해서 추가 */}
                         <div className="w-full">
-                          <label className="block text-[10px] text-slate-500 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
+                          <label className="block text-[10px] text-slate-400 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
                           <select
                             value=""
                             onChange={(e) => {
@@ -1875,7 +1875,7 @@ export const ProjectsView: React.FC<Props> = ({
                                 setMeetingAttendee((prev) => (prev ? `${prev}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c)));
                               }
                             }}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500"
                           >
                             <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
                             {contacts.map((c) => (
@@ -1888,19 +1888,19 @@ export const ProjectsView: React.FC<Props> = ({
 
                         {/* 미팅 메모 입력 영역 (음성 지원) */}
                         <div className="space-y-1.5">
-                          <label className="block text-[10px] text-slate-400 font-bold">미팅 내용 (타이핑 또는 음성 메모 가능)</label>
-                          <div className="relative bg-slate-950 border border-slate-800 rounded-2xl p-3 focus-within:border-indigo-500 transition-all">
+                          <label className="block text-[10px] text-slate-500 font-bold">미팅 내용 (타이핑 또는 음성 메모 가능)</label>
+                          <div className="relative bg-slate-50 border border-slate-200 rounded-2xl p-3 focus-within:border-indigo-500 transition-all">
                             <textarea
                               value={meetingContent}
                               onChange={(e) => setMeetingContent(e.target.value)}
                               placeholder="오늘 논의된 미팅 상세 안건 및 피드백을 기록하세요..."
                               rows={3}
-                              className="w-full bg-transparent text-xs text-slate-100 outline-none placeholder:text-slate-600 resize-none font-medium leading-relaxed"
+                              className="w-full bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-400 resize-none font-medium leading-relaxed"
                             />
                             
                             {/* 음성 녹음 중 오버레이 */}
                             {isRecording ? (
-                              <div className="absolute inset-0 bg-slate-950/95 rounded-2xl flex items-center justify-between px-5 animate-pulse border border-rose-500/40">
+                              <div className="absolute inset-0 bg-white/95 rounded-2xl flex items-center justify-between px-5 animate-pulse border border-rose-500/40">
                                 <div className="flex items-center gap-2.5">
                                   <div className="relative flex items-center justify-center">
                                     <span className="absolute inline-flex h-4 w-4 rounded-full bg-rose-400 opacity-75 animate-ping"></span>
@@ -1925,7 +1925,7 @@ export const ProjectsView: React.FC<Props> = ({
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-mono text-xs text-slate-300 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                                  <span className="font-mono text-xs text-slate-600 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
                                     {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60) < 10 ? '0' + (recordingSeconds % 60) : (recordingSeconds % 60)}
                                   </span>
                                   <button
@@ -1938,10 +1938,10 @@ export const ProjectsView: React.FC<Props> = ({
                                 </div>
                               </div>
                             ) : voiceAttached ? (
-                              <div className="mt-2 p-2 bg-indigo-950/40 border border-indigo-500/20 rounded-xl flex items-center justify-between text-[11px] text-indigo-300">
+                              <div className="mt-2 p-2 bg-indigo-950/40 border border-indigo-500/20 rounded-xl flex items-center justify-between text-[11px] text-indigo-600">
                                 <div className="flex items-center gap-2">
                                   <Volume2 className="w-3.5 h-3.5 text-indigo-400 animate-pulse animate-duration-1000" />
-                                  <span className="font-semibold text-slate-200">🎤 음성 메모 녹음 첨부됨 ({attachedVoiceDuration})</span>
+                                  <span className="font-semibold text-slate-700">🎤 음성 메모 녹음 첨부됨 ({attachedVoiceDuration})</span>
                                 </div>
                                 <button
                                   type="button"
@@ -1950,7 +1950,7 @@ export const ProjectsView: React.FC<Props> = ({
                                     setAttachedVoiceUrl('');
                                     setAttachedVoiceDuration('');
                                   }}
-                                  className="text-[10px] text-rose-400 hover:text-rose-300 font-bold px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800"
+                                  className="text-[10px] text-rose-500 hover:text-rose-700 font-bold px-1.5 py-0.5 rounded bg-white border border-slate-200"
                                 >
                                   삭제
                                 </button>
@@ -1959,8 +1959,8 @@ export const ProjectsView: React.FC<Props> = ({
 
                             {/* 컨트롤 바 */}
                             {!isRecording && (
-                              <div className="flex items-center justify-between pt-2 border-t border-slate-900 mt-2">
-                                <span className="text-[10px] text-slate-500 font-mono">
+                              <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-2">
+                                <span className="text-[10px] text-slate-400 font-mono">
                                   {meetingContent.length}자 입력됨
                                 </span>
                                 <div className="flex items-center gap-2">
@@ -1970,7 +1970,7 @@ export const ProjectsView: React.FC<Props> = ({
                                       type="button"
                                       onClick={handleSummarizeMeeting}
                                       disabled={isSummarizing}
-                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-indigo-950/30 border border-slate-800 hover:border-indigo-500/30 text-indigo-300 text-[10px] font-semibold transition-colors disabled:opacity-50"
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-950/30 border border-slate-200 hover:border-indigo-500/30 text-indigo-600 text-[10px] font-semibold transition-colors disabled:opacity-50"
                                     >
                                       {isSummarizing ? (
                                         <div className="w-3 h-3 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
@@ -1983,7 +1983,7 @@ export const ProjectsView: React.FC<Props> = ({
                                   <button
                                     type="button"
                                     onClick={startRecording}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-rose-950/30 border border-slate-800 hover:border-rose-900/30 text-rose-400 text-[10px] font-semibold transition-colors"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-rose-950/30 border border-slate-200 hover:border-rose-900/30 text-rose-400 text-[10px] font-semibold transition-colors"
                                   >
                                     <Mic className="w-3 h-3 text-rose-400" />
                                     <span>🎤 음성 메모 녹음</span>
@@ -1997,29 +1997,29 @@ export const ProjectsView: React.FC<Props> = ({
                           {meetingAISuggestion && (
                             <div className="bg-indigo-950/20 border border-indigo-500/30 rounded-2xl p-3.5 space-y-2.5 animate-fadeIn">
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                                <span className="text-[11px] font-bold text-indigo-600 flex items-center gap-1.5">
                                   <Sparkles className="w-3.5 h-3.5" />
                                   AI가 정리한 회의록
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => setMeetingAISuggestion(null)}
-                                  className="text-[10px] text-slate-500 hover:text-slate-300"
+                                  className="text-[10px] text-slate-400 hover:text-slate-600"
                                 >
                                   닫기
                                 </button>
                               </div>
 
-                              <p className="text-xs text-slate-200 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 leading-relaxed whitespace-pre-wrap">
+                              <p className="text-xs text-slate-700 bg-slate-100 p-2.5 rounded-xl border border-slate-200 leading-relaxed whitespace-pre-wrap">
                                 {meetingAISuggestion.summary}
                               </p>
 
                               {meetingAISuggestion.actionItems.length > 0 && (
                                 <div className="space-y-1">
-                                  <span className="text-[10px] font-bold text-slate-400">📌 다음 액션</span>
+                                  <span className="text-[10px] font-bold text-slate-500">📌 다음 액션</span>
                                   <ul className="space-y-0.5">
                                     {meetingAISuggestion.actionItems.map((item, idx) => (
-                                      <li key={idx} className="text-[11px] text-slate-300 flex items-start gap-1.5">
+                                      <li key={idx} className="text-[11px] text-slate-600 flex items-start gap-1.5">
                                         <span className="text-indigo-400">-</span>
                                         <span>{item}</span>
                                       </li>
@@ -2030,14 +2030,14 @@ export const ProjectsView: React.FC<Props> = ({
 
                               {meetingAISuggestion.mentionedAmounts.length > 0 && (
                                 <div className="space-y-1.5">
-                                  <span className="text-[10px] font-bold text-slate-400">💰 언급된 금액 (눌러서 지출로 바로 추가)</span>
+                                  <span className="text-[10px] font-bold text-slate-500">💰 언급된 금액 (눌러서 지출로 바로 추가)</span>
                                   <div className="flex flex-wrap gap-1.5">
                                     {meetingAISuggestion.mentionedAmounts.map((m, idx) => (
                                       <button
                                         key={idx}
                                         type="button"
                                         onClick={() => addSuggestedExpense(m.amount, m.context)}
-                                        className="text-[11px] px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-300 font-semibold transition-colors"
+                                        className="text-[11px] px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-700 font-semibold transition-colors"
                                       >
                                         {formatCurrencyInput(String(m.amount))}원 · {m.context}
                                       </button>
@@ -2059,10 +2059,10 @@ export const ProjectsView: React.FC<Props> = ({
 
                         {/* 첨부파일 (제안서, 견적서, 발송자료 등) */}
                         <div className="space-y-1.5">
-                          <label className="block text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                          <label className="block text-[10px] text-slate-500 font-bold flex items-center gap-1">
                             <Paperclip className="w-3 h-3" /> 첨부파일 (제안서, 견적서, 발송자료 등)
                           </label>
-                          <label className="flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-indigo-500 text-slate-500 hover:text-indigo-400 text-[11px] font-semibold transition-colors">
+                          <label className="flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 cursor-pointer hover:border-indigo-500 text-slate-400 hover:text-indigo-400 text-[11px] font-semibold transition-colors">
                             <Paperclip className="w-3.5 h-3.5" />
                             <span>파일 선택 (여러 개 가능)</span>
                             <input
@@ -2078,16 +2078,16 @@ export const ProjectsView: React.FC<Props> = ({
                           {meetingAttachments.length > 0 && (
                             <div className="space-y-1">
                               {meetingAttachments.map((att) => (
-                                <div key={att.id} className="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px]">
-                                  <span className="flex items-center gap-1.5 text-slate-300 truncate">
+                                <div key={att.id} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px]">
+                                  <span className="flex items-center gap-1.5 text-slate-600 truncate">
                                     <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                                     <span className="truncate">{att.name}</span>
-                                    <span className="text-slate-500 shrink-0">({formatFileSize(att.size)})</span>
+                                    <span className="text-slate-400 shrink-0">({formatFileSize(att.size)})</span>
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => setMeetingAttachments((prev) => prev.filter((x) => x.id !== att.id))}
-                                    className="text-rose-400 hover:text-rose-300 font-bold shrink-0"
+                                    className="text-rose-500 hover:text-rose-700 font-bold shrink-0"
                                   >
                                     ✕
                                   </button>
@@ -2127,21 +2127,21 @@ export const ProjectsView: React.FC<Props> = ({
                             .map((fu) => (
                               <div
                                 key={fu.id}
-                                className="group/meeting p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-200 hover:border-slate-700/80 hover:bg-slate-900/90 transition-all shadow-md relative flex flex-col justify-between space-y-2.5"
+                                className="group/meeting p-4 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:border-slate-200 hover:bg-white/90 transition-all shadow-md relative flex flex-col justify-between space-y-2.5"
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex items-center gap-2.5 flex-wrap">
                                     {/* 차수 뱃지 */}
-                                    <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-bold text-[10px]">
+                                    <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-500/30 font-bold text-[10px]">
                                       {fu.meetingDegree ? buildMeetingSequenceLabel(fu.meetingDegree, fu.meetingType || 'meeting') : '업무 기록'}
                                     </span>
                                     
                                     {/* 미팅 일자 */}
-                                    <span className="text-[10px] font-mono text-slate-400 font-semibold">{fu.date}</span>
+                                    <span className="text-[10px] font-mono text-slate-500 font-semibold">{fu.date}</span>
 
                                     {/* 담당 직원 (우리 회사) */}
                                     {fu.internalStaffName && (
-                                      <span className="text-[11px] text-emerald-300 flex items-center gap-1 font-medium bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">
+                                      <span className="text-[11px] text-emerald-600 flex items-center gap-1 font-medium bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">
                                         <User className="w-3 h-3 text-emerald-400 shrink-0" />
                                         <span className="text-[10px] text-emerald-400/80 mr-0.5">담당:</span> {fu.internalStaffName}
                                       </span>
@@ -2149,15 +2149,15 @@ export const ProjectsView: React.FC<Props> = ({
 
                                     {/* 미팅자 */}
                                     {fu.attendee && (
-                                      <span className="text-[11px] text-slate-300 flex items-center gap-1 font-medium bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">
+                                      <span className="text-[11px] text-slate-600 flex items-center gap-1 font-medium bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                                         <User className="w-3 h-3 text-indigo-400 shrink-0" />
-                                        <span className="text-[10px] text-slate-400 mr-0.5">참석자:</span> {renderAttendeeWithPhone(fu.attendee)}
+                                        <span className="text-[10px] text-slate-500 mr-0.5">참석자:</span> {renderAttendeeWithPhone(fu.attendee)}
                                       </span>
                                     )}
 
                                     {/* 첨부파일 개수 */}
                                     {(fu.attachments || []).length > 0 && (
-                                      <span className="text-[10px] text-indigo-300 flex items-center gap-1 font-bold bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-500/20">
+                                      <span className="text-[10px] text-indigo-600 flex items-center gap-1 font-bold bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-500/20">
                                         <Paperclip className="w-3 h-3" />
                                         첨부 {(fu.attachments || []).length}개
                                       </span>
@@ -2177,7 +2177,7 @@ export const ProjectsView: React.FC<Props> = ({
                                         setEditAttendeeOfficeInput('');
                                         setEditAttendeeMobileInput('');
                                       }}
-                                      className="p-1.5 rounded bg-slate-950 hover:bg-indigo-500/20 text-slate-500 hover:text-indigo-400 border border-slate-800 hover:border-indigo-900/30 transition-all shadow"
+                                      className="p-1.5 rounded bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-700 border border-slate-200 hover:border-indigo-900/30 transition-all shadow"
                                       title="기록 수정"
                                     >
                                       <Edit2 className="w-3.5 h-3.5" />
@@ -2199,7 +2199,7 @@ export const ProjectsView: React.FC<Props> = ({
                                           }
                                         }
                                       }}
-                                      className="p-1.5 rounded bg-slate-950 hover:bg-red-500/20 text-slate-500 hover:text-red-400 border border-slate-800 hover:border-red-900/30 transition-all shadow"
+                                      className="p-1.5 rounded bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-700 border border-slate-200 hover:border-red-900/30 transition-all shadow"
                                       title="기록 삭제"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -2208,8 +2208,8 @@ export const ProjectsView: React.FC<Props> = ({
                                 </div>
 
                                 {/* 미팅 메모 본문 */}
-                                <div className="text-xs text-slate-200 leading-relaxed font-medium whitespace-pre-line pl-1">
-                                  {fu.content || <span className="text-slate-500 italic">내용 메모 없음</span>}
+                                <div className="text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-line pl-1">
+                                  {fu.content || <span className="text-slate-400 italic">내용 메모 없음</span>}
                                 </div>
 
                                 {/* 첨부파일 목록 (제안서, 견적서, 발송자료 등) */}
@@ -2220,7 +2220,7 @@ export const ProjectsView: React.FC<Props> = ({
                                         key={att.id}
                                         href={att.dataUrl}
                                         download={att.name}
-                                        className="flex items-center gap-1.5 bg-slate-950 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 rounded-lg px-2.5 py-1 text-[11px] text-indigo-300 hover:text-indigo-200 font-semibold transition-colors"
+                                        className="flex items-center gap-1.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-lg px-2.5 py-1 text-[11px] text-indigo-600 hover:text-indigo-700 font-semibold transition-colors"
                                       >
                                         <Paperclip className="w-3 h-3" />
                                         <span className="max-w-[160px] truncate">{att.name}</span>
@@ -2240,7 +2240,7 @@ export const ProjectsView: React.FC<Props> = ({
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">
                                       {(fu.expenses || []).map((exp) => (
-                                        <span key={exp.id} className="text-[10px] text-slate-300 bg-slate-950/60 border border-slate-800 rounded-lg px-2 py-1 flex items-center gap-1">
+                                        <span key={exp.id} className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 flex items-center gap-1">
                                           {exp.receiptImage && (
                                             <img
                                               src={exp.receiptImage}
@@ -2250,8 +2250,8 @@ export const ProjectsView: React.FC<Props> = ({
                                             />
                                           )}
                                           <span>{expenseCategoryLabel(exp)}</span>
-                                          <span className="font-mono text-slate-400">{formatCurrencyInput(exp.amount)}원</span>
-                                          <span className="text-slate-500">
+                                          <span className="font-mono text-slate-500">{formatCurrencyInput(exp.amount)}원</span>
+                                          <span className="text-slate-400">
                                             ({exp.payMethod === 'company_card' ? '법인카드' : exp.payMethod === 'personal_card' ? '개인카드' : '현금'})
                                           </span>
                                         </span>
@@ -2262,7 +2262,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                                 {/* 음성메모가 있을 경우 재생 플레이어 렌더링 */}
                                 {fu.hasVoice && (
-                                  <div className="p-3 bg-slate-950/80 border border-slate-800/60 rounded-xl max-w-sm space-y-2 mt-1" onClick={(e) => e.stopPropagation()}>
+                                  <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl max-w-sm space-y-2 mt-1" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center gap-3">
                                       <button
                                         type="button"
@@ -2273,17 +2273,17 @@ export const ProjectsView: React.FC<Props> = ({
                                             setPlayingVoiceId(fu.id);
                                           }
                                         }}
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 shadow-lg ${playingVoiceId === fu.id ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-indigo-400 hover:bg-slate-700'}`}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 shadow-lg ${playingVoiceId === fu.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-indigo-400 hover:bg-slate-200'}`}
                                       >
                                         {playingVoiceId === fu.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
                                       </button>
                                       
                                       <div className="flex-1 space-y-1 overflow-hidden">
                                         <div className="flex items-center justify-between text-[10px]">
-                                          <span className="text-slate-400 font-semibold flex items-center gap-1 truncate">
+                                          <span className="text-slate-500 font-semibold flex items-center gap-1 truncate">
                                             <Headphones className="w-3 h-3 text-indigo-400 shrink-0" /> 음성 메모 녹음본
                                           </span>
-                                          <span className="font-mono text-slate-500 shrink-0">{playingVoiceId === fu.id ? '재생 중' : '정지'} ({fu.voiceDuration || '0:06'})</span>
+                                          <span className="font-mono text-slate-400 shrink-0">{playingVoiceId === fu.id ? '재생 중' : '정지'} ({fu.voiceDuration || '0:06'})</span>
                                         </div>
 
                                         {/* 커스텀 오디오 파형 */}
@@ -2302,7 +2302,7 @@ export const ProjectsView: React.FC<Props> = ({
                                             return (
                                               <div
                                                 key={index}
-                                                className={`flex-1 rounded-t transition-all duration-150 ${isPlayed ? 'bg-indigo-500' : 'bg-slate-800'}`}
+                                                className={`flex-1 rounded-t transition-all duration-150 ${isPlayed ? 'bg-indigo-500' : 'bg-slate-100'}`}
                                                 style={{ height: `${animatedHeight}px` }}
                                               />
                                             );
@@ -2315,7 +2315,7 @@ export const ProjectsView: React.FC<Props> = ({
                               </div>
                             ))
                         ) : (
-                          <div className="py-8 text-center text-xs text-slate-600 bg-slate-900/20 border border-slate-900/60 rounded-2xl">아직 작성된 미팅 기록이 없습니다.</div>
+                          <div className="py-8 text-center text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-2xl">아직 작성된 미팅 기록이 없습니다.</div>
                         )}
                       </div>
                     </div>
@@ -2331,7 +2331,7 @@ export const ProjectsView: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => setVisibleProjectCount((prev) => Math.min(prev + 50, filteredProjects.length))}
-              className="flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-900/40 hover:bg-slate-900/70 text-slate-400 hover:text-indigo-300 text-xs font-bold transition-all"
+              className="flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed border-slate-300 hover:border-indigo-400 bg-slate-100 hover:bg-white text-slate-500 hover:text-indigo-600 text-xs font-bold transition-all"
             >
               <span className="text-lg">＋</span>
               <span>{filteredProjects.length - visibleProjectCount}건 더 보기</span>
@@ -2346,72 +2346,72 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* 모달: 새 프로젝트 생성 */}
       {isNewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-indigo-400" /> 신규 영업/제안 프로젝트 등록
               </h3>
-              <button onClick={() => setIsNewOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+              <button onClick={() => setIsNewOpen(false)} className="text-slate-400 hover:text-slate-800">✕</button>
             </div>
 
             <form onSubmit={handleCreateProject} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">프로젝트 타이틀 *</label>
-                <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 삼성전자 온디바이스 B2B 라이선스 공급 제안" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" required />
+                <label className="block text-slate-600 font-semibold mb-1">프로젝트 타이틀 *</label>
+                <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 삼성전자 온디바이스 B2B 라이선스 공급 제안" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />
               </div>
 
               {/* [수정] 영업자(담당자): 기본값은 등록자 본인 이름이며 직접 수정 가능 */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">영업자(담당자)</label>
-                <input type="text" value={newSalesRep} onChange={(e) => setNewSalesRep(e.target.value)} placeholder="예: 홍길동" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                <label className="block text-slate-600 font-semibold mb-1">영업자(담당자)</label>
+                <input type="text" value={newSalesRep} onChange={(e) => setNewSalesRep(e.target.value)} placeholder="예: 홍길동" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">시행사(발주처)</label>
-                  <input type="text" value={newDeveloper} onChange={(e) => setNewDeveloper(e.target.value)} placeholder="예: 한국디벨로퍼" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
+                  <input type="text" value={newDeveloper} onChange={(e) => setNewDeveloper(e.target.value)} placeholder="예: 한국디벨로퍼" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">시공사</label>
-                  <input type="text" value={newContractor} onChange={(e) => setNewContractor(e.target.value)} placeholder="예: 현대건설" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">시공사</label>
+                  <input type="text" value={newContractor} onChange={(e) => setNewContractor(e.target.value)} placeholder="예: 현대건설" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">건축설계사</label>
-                  <input type="text" value={newArchitect} onChange={(e) => setNewArchitect(e.target.value)} placeholder="예: 희림건축" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">건축설계사</label>
+                  <input type="text" value={newArchitect} onChange={(e) => setNewArchitect(e.target.value)} placeholder="예: 희림건축" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">인테리어설계사</label>
-                  <input type="text" value={newInteriorDesigner} onChange={(e) => setNewInteriorDesigner(e.target.value)} placeholder="예: 원오디자인" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">인테리어설계사</label>
+                  <input type="text" value={newInteriorDesigner} onChange={(e) => setNewInteriorDesigner(e.target.value)} placeholder="예: 원오디자인" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">전기설계사</label>
-                  <input type="text" value={newElectricalDesigner} onChange={(e) => setNewElectricalDesigner(e.target.value)} placeholder="예: 나라설계" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">전기설계사</label>
+                  <input type="text" value={newElectricalDesigner} onChange={(e) => setNewElectricalDesigner(e.target.value)} placeholder="예: 나라설계" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">기계설계사</label>
-                  <input type="text" value={newMechanicalDesigner} onChange={(e) => setNewMechanicalDesigner(e.target.value)} placeholder="예: 우원엠앤이" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">감리사</label>
-                  <input type="text" value={newSupervisor} onChange={(e) => setNewSupervisor(e.target.value)} placeholder="예: 한미글로벌" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">운영사</label>
-                  <input type="text" value={newOperator} onChange={(e) => setNewOperator(e.target.value)} placeholder="예: 에스원" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">기계설계사</label>
+                  <input type="text" value={newMechanicalDesigner} onChange={(e) => setNewMechanicalDesigner(e.target.value)} placeholder="예: 우원엠앤이" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">진행 단계</label>
-                  <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500">
+                  <label className="block text-slate-600 font-semibold mb-1">감리사</label>
+                  <input type="text" value={newSupervisor} onChange={(e) => setNewSupervisor(e.target.value)} placeholder="예: 한미글로벌" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">운영사</label>
+                  <input type="text" value={newOperator} onChange={(e) => setNewOperator(e.target.value)} placeholder="예: 에스원" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
+                  <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                     <option value="opportunity">기회 (Opportunity)</option>
                     <option value="progress">진행 (Progress)</option>
                     <option value="completed">완료 (Completed)</option>
@@ -2420,20 +2420,20 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">프로젝트 등록일</label>
-                  <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
+                  <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
-                  <input type="text" inputMode="numeric" value={newBudget ? formatCurrencyInput(newBudget) : ''} onChange={(e) => setNewBudget(e.target.value.replace(/[^\d]/g, ''))} placeholder="예: 50,000,000" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
+                  <input type="text" inputMode="numeric" value={newBudget ? formatCurrencyInput(newBudget) : ''} onChange={(e) => setNewBudget(e.target.value.replace(/[^\d]/g, ''))} placeholder="예: 50,000,000" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">중요도</label>
-                  <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as any)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500">
+                  <label className="block text-slate-600 font-semibold mb-1">중요도</label>
+                  <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                     <option value="high">🔥 높음</option>
                     <option value="medium">⚡ 보통</option>
                     <option value="low">🌱 낮음</option>
@@ -2443,12 +2443,12 @@ export const ProjectsView: React.FC<Props> = ({
 
               {/* 연관 명함 체크 */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
-                <div className="max-h-36 overflow-y-auto bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-1">
+                <label className="block text-slate-600 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
+                <div className="max-h-36 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1">
                   {contacts.map((c) => {
                     const checked = selectedContacts.includes(c.id);
                     return (
-                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-indigo-600/20 text-white font-bold' : 'text-slate-400 hover:bg-slate-900'}`}>
+                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-white'}`}>
                         <input
                           type="checkbox"
                           checked={checked}
@@ -2456,10 +2456,10 @@ export const ProjectsView: React.FC<Props> = ({
                             if (e.target.checked) setSelectedContacts([...selectedContacts, c.id]);
                             else setSelectedContacts(selectedContacts.filter((id) => id !== c.id));
                           }}
-                          className="rounded border-slate-700 bg-slate-900 text-indigo-500"
+                          className="rounded border-slate-200 bg-white text-indigo-500"
                         />
                         <span>{c.name}</span>
-                        <span className="text-[10px] text-slate-500">{c.company} ({c.title})</span>
+                        <span className="text-[10px] text-slate-400">{c.company} ({c.title})</span>
                       </label>
                     );
                   })}
@@ -2467,98 +2467,98 @@ export const ProjectsView: React.FC<Props> = ({
               </div>
 
               {/* 거래처 인맥 직접 추가 */}
-              <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3.5 space-y-3">
+              <div className="border border-slate-200 bg-slate-50 rounded-xl p-3.5 space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={useDirectContact}
                     onChange={(e) => setUseDirectContact(e.target.checked)}
-                    className="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                    className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                   />
-                  <span className="text-slate-300 font-semibold">새로운 담당자 직접 입력하여 연결</span>
+                  <span className="text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결</span>
                 </label>
 
                 {useDirectContact && (
                   <div className="grid grid-cols-2 gap-3.5 pt-2 animate-fadeIn">
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">담당자 성함 *</label>
                       <input
                         type="text"
                         value={directContactName}
                         onChange={(e) => setDirectContactName(e.target.value)}
                         placeholder="예: 홍길동"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         required={useDirectContact}
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">회사/기관명</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">회사/기관명</label>
                       <input
                         type="text"
                         value={directContactCompany}
                         onChange={(e) => setDirectContactCompany(e.target.value)}
                         placeholder="예: 현대건설"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">부서</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">부서</label>
                       <input
                         type="text"
                         value={directContactDept}
                         onChange={(e) => setDirectContactDept(e.target.value)}
                         placeholder="예: 구매팀"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">직책</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">직책</label>
                       <input
                         type="text"
                         value={directContactTitle}
                         onChange={(e) => setDirectContactTitle(e.target.value)}
                         placeholder="예: 과장"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(직장)</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(직장)</label>
                       <input
                         type="text"
                         inputMode="numeric"
                         value={directContactPhoneOffice}
                         onChange={(e) => setDirectContactPhoneOffice(formatPhoneNumber(e.target.value))}
                         placeholder="예: 02-1234-5678"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
                       <input
                         type="text"
                         inputMode="numeric"
                         value={directContactPhoneMobile}
                         onChange={(e) => setDirectContactPhoneMobile(formatPhoneNumber(e.target.value))}
                         placeholder="예: 010-1234-5678"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">이메일 주소</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일 주소</label>
                       <input
                         type="email"
                         value={directContactEmail}
                         onChange={(e) => setDirectContactEmail(e.target.value)}
                         placeholder="예: buyer@company.com"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
-                <button type="button" onClick={() => setIsNewOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
+                <button type="button" onClick={() => setIsNewOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold">취소</button>
                 <button type="submit" className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30">프로젝트 생성</button>
               </div>
             </form>
@@ -2568,72 +2568,72 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* 모달: 프로젝트 정보 수정 (예산 등 등록 내용 수정) */}
       {editingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-400" /> 프로젝트 정보 수정
               </h3>
-              <button onClick={() => setEditingProject(null)} className="text-slate-400 hover:text-white">✕</button>
+              <button onClick={() => setEditingProject(null)} className="text-slate-400 hover:text-slate-800">✕</button>
             </div>
 
             <form onSubmit={handleUpdateProjectDetails} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">프로젝트 타이틀 *</label>
-                <input type="text" value={editingProject.name} onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" required />
+                <label className="block text-slate-600 font-semibold mb-1">프로젝트 타이틀 *</label>
+                <input type="text" value={editingProject.name} onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />
               </div>
 
               {/* [수정] 영업자(담당자) 수정 가능 */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">영업자(담당자)</label>
-                <input type="text" value={editingProject.salesRep || ''} onChange={(e) => setEditingProject({ ...editingProject, salesRep: e.target.value })} placeholder="예: 홍길동" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                <label className="block text-slate-600 font-semibold mb-1">영업자(담당자)</label>
+                <input type="text" value={editingProject.salesRep || ''} onChange={(e) => setEditingProject({ ...editingProject, salesRep: e.target.value })} placeholder="예: 홍길동" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">시행사(발주처)</label>
-                  <input type="text" value={editingProject.developer || ''} onChange={(e) => setEditingProject({ ...editingProject, developer: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
+                  <input type="text" value={editingProject.developer || ''} onChange={(e) => setEditingProject({ ...editingProject, developer: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">시공사</label>
-                  <input type="text" value={editingProject.contractor || ''} onChange={(e) => setEditingProject({ ...editingProject, contractor: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">시공사</label>
+                  <input type="text" value={editingProject.contractor || ''} onChange={(e) => setEditingProject({ ...editingProject, contractor: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">건축설계사</label>
-                  <input type="text" value={editingProject.architect || ''} onChange={(e) => setEditingProject({ ...editingProject, architect: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">건축설계사</label>
+                  <input type="text" value={editingProject.architect || ''} onChange={(e) => setEditingProject({ ...editingProject, architect: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">인테리어설계사</label>
-                  <input type="text" value={editingProject.interiorDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, interiorDesigner: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">인테리어설계사</label>
+                  <input type="text" value={editingProject.interiorDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, interiorDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">전기설계사</label>
-                  <input type="text" value={editingProject.electricalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, electricalDesigner: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">전기설계사</label>
+                  <input type="text" value={editingProject.electricalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, electricalDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">기계설계사</label>
-                  <input type="text" value={editingProject.mechanicalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, mechanicalDesigner: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">감리사</label>
-                  <input type="text" value={editingProject.supervisor || ''} onChange={(e) => setEditingProject({ ...editingProject, supervisor: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">운영사</label>
-                  <input type="text" value={editingProject.operator || ''} onChange={(e) => setEditingProject({ ...editingProject, operator: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">기계설계사</label>
+                  <input type="text" value={editingProject.mechanicalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, mechanicalDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">진행 단계</label>
-                  <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500">
+                  <label className="block text-slate-600 font-semibold mb-1">감리사</label>
+                  <input type="text" value={editingProject.supervisor || ''} onChange={(e) => setEditingProject({ ...editingProject, supervisor: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">운영사</label>
+                  <input type="text" value={editingProject.operator || ''} onChange={(e) => setEditingProject({ ...editingProject, operator: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
+                  <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                     <option value="opportunity">기회 (Opportunity)</option>
                     <option value="progress">진행 (Progress)</option>
                     <option value="completed">완료 (Completed)</option>
@@ -2642,20 +2642,20 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">프로젝트 등록일</label>
-                  <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
+                  <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
-                  <input type="text" inputMode="numeric" value={editingProject.budget ? formatCurrencyInput(editingProject.budget) : ''} onChange={(e) => setEditingProject({ ...editingProject, budget: e.target.value.replace(/[^\d]/g, '') })} placeholder="예: 50,000,000" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500" />
+                  <label className="block text-slate-600 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
+                  <input type="text" inputMode="numeric" value={editingProject.budget ? formatCurrencyInput(editingProject.budget) : ''} onChange={(e) => setEditingProject({ ...editingProject, budget: e.target.value.replace(/[^\d]/g, '') })} placeholder="예: 50,000,000" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">중요도</label>
-                  <select value={editingProject.priority} onChange={(e) => setEditingProject({ ...editingProject, priority: e.target.value as any })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500">
+                  <label className="block text-slate-600 font-semibold mb-1">중요도</label>
+                  <select value={editingProject.priority} onChange={(e) => setEditingProject({ ...editingProject, priority: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                     <option value="high">🔥 높음</option>
                     <option value="medium">⚡ 보통</option>
                     <option value="low">🌱 낮음</option>
@@ -2665,12 +2665,12 @@ export const ProjectsView: React.FC<Props> = ({
 
               {/* 연관 명함 체크 (등록 화면과 동일하게 수정 가능) */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
-                <div className="max-h-36 overflow-y-auto bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-1">
+                <label className="block text-slate-600 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
+                <div className="max-h-36 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1">
                   {contacts.map((c) => {
                     const checked = (editingProject.contactIds || []).includes(c.id);
                     return (
-                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-indigo-600/20 text-white font-bold' : 'text-slate-400 hover:bg-slate-900'}`}>
+                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-white'}`}>
                         <input
                           type="checkbox"
                           checked={checked}
@@ -2679,10 +2679,10 @@ export const ProjectsView: React.FC<Props> = ({
                             const next = e.target.checked ? [...current, c.id] : current.filter((id) => id !== c.id);
                             setEditingProject({ ...editingProject, contactIds: next });
                           }}
-                          className="rounded border-slate-700 bg-slate-900 text-indigo-500"
+                          className="rounded border-slate-200 bg-white text-indigo-500"
                         />
                         <span>{c.name}</span>
-                        <span className="text-[10px] text-slate-500">{c.company} ({c.title})</span>
+                        <span className="text-[10px] text-slate-400">{c.company} ({c.title})</span>
                       </label>
                     );
                   })}
@@ -2690,98 +2690,98 @@ export const ProjectsView: React.FC<Props> = ({
               </div>
 
               {/* 거래처 인맥 직접 추가 */}
-              <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3.5 space-y-3">
+              <div className="border border-slate-200 bg-slate-50 rounded-xl p-3.5 space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={useDirectContact}
                     onChange={(e) => setUseDirectContact(e.target.checked)}
-                    className="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                    className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                   />
-                  <span className="text-slate-300 font-semibold">새로운 담당자 직접 입력하여 연결</span>
+                  <span className="text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결</span>
                 </label>
 
                 {useDirectContact && (
                   <div className="grid grid-cols-2 gap-3.5 pt-2 animate-fadeIn">
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">담당자 성함 *</label>
                       <input
                         type="text"
                         value={directContactName}
                         onChange={(e) => setDirectContactName(e.target.value)}
                         placeholder="예: 홍길동"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                         required={useDirectContact}
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">회사/기관명</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">회사/기관명</label>
                       <input
                         type="text"
                         value={directContactCompany}
                         onChange={(e) => setDirectContactCompany(e.target.value)}
                         placeholder="예: 현대건설"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">부서</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">부서</label>
                       <input
                         type="text"
                         value={directContactDept}
                         onChange={(e) => setDirectContactDept(e.target.value)}
                         placeholder="예: 구매팀"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">직책</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">직책</label>
                       <input
                         type="text"
                         value={directContactTitle}
                         onChange={(e) => setDirectContactTitle(e.target.value)}
                         placeholder="예: 과장"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(직장)</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(직장)</label>
                       <input
                         type="text"
                         inputMode="numeric"
                         value={directContactPhoneOffice}
                         onChange={(e) => setDirectContactPhoneOffice(formatPhoneNumber(e.target.value))}
                         placeholder="예: 02-1234-5678"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
                       <input
                         type="text"
                         inputMode="numeric"
                         value={directContactPhoneMobile}
                         onChange={(e) => setDirectContactPhoneMobile(formatPhoneNumber(e.target.value))}
                         placeholder="예: 010-1234-5678"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-slate-400 text-[10px] font-semibold mb-1">이메일 주소</label>
+                      <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일 주소</label>
                       <input
                         type="email"
                         value={directContactEmail}
                         onChange={(e) => setDirectContactEmail(e.target.value)}
                         placeholder="예: buyer@company.com"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white outline-none focus:border-indigo-500 text-xs"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
-                <button type="button" onClick={() => setEditingProject(null)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
+                <button type="button" onClick={() => setEditingProject(null)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold">취소</button>
                 <button type="submit" className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30">저장하기</button>
               </div>
             </form>
@@ -2795,26 +2795,26 @@ export const ProjectsView: React.FC<Props> = ({
         const relatedContactsForEdit = targetProject ? contacts.filter((c) => (targetProject.contactIds || []).includes(c.id)) : [];
         const fu = editingFollowup.followup;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+            <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                   <Edit2 className="w-5 h-5 text-indigo-400" /> 미팅 기록 수정
                 </h3>
-                <button onClick={() => setEditingFollowup(null)} className="text-slate-400 hover:text-white">✕</button>
+                <button onClick={() => setEditingFollowup(null)} className="text-slate-400 hover:text-slate-800">✕</button>
               </div>
 
               <form onSubmit={handleUpdateFollowup} className="space-y-4 text-xs">
                 <div className="flex flex-col md:flex-row gap-3">
                   <div className="w-full md:w-1/3">
-                    <label className="block text-slate-300 font-semibold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
+                    <label className="block text-slate-600 font-semibold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
                     <select
                       value={`${fu.meetingDegree || 0}-${fu.meetingType || 'meeting'}`}
                       onChange={(e) => {
                         const [d, t] = e.target.value.split('-');
                         setEditingFollowup({ ...editingFollowup, followup: { ...fu, meetingDegree: Number(d) || undefined, meetingType: t as 'meeting' | 'followup' } });
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500"
                     >
                       <option value="0-meeting">업무 기록 (차수 없음)</option>
                       {buildMeetingSequenceOptions((targetProject?.followUps || []).filter((f) => f.id !== fu.id)).map((opt) => (
@@ -2825,21 +2825,21 @@ export const ProjectsView: React.FC<Props> = ({
                     </select>
                   </div>
                   <div className="w-full md:w-1/3">
-                    <label className="block text-slate-300 font-semibold mb-1">미팅일자</label>
+                    <label className="block text-slate-600 font-semibold mb-1">미팅일자</label>
                     <input
                       type="date"
                       value={fu.date}
                       onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, date: e.target.value } })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div className="w-full md:w-1/3">
-                    <label className="block text-slate-300 font-semibold mb-1">담당 직원 (우리 회사)</label>
+                    <label className="block text-slate-600 font-semibold mb-1">담당 직원 (우리 회사)</label>
                     {companyStaff.length > 0 ? (
                       <select
                         value={fu.internalStaffName || ''}
                         onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, internalStaffName: e.target.value } })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-medium outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500"
                       >
                         <option value="">선택 안함</option>
                         {companyStaff.map((s) => (
@@ -2852,14 +2852,14 @@ export const ProjectsView: React.FC<Props> = ({
                         value={fu.internalStaffName || ''}
                         onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, internalStaffName: e.target.value } })}
                         placeholder="담당 직원명"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 font-medium outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 placeholder:text-slate-400 font-medium outline-none focus:border-indigo-500"
                       />
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1 flex items-center justify-between">
+                  <label className="block text-slate-600 font-semibold mb-1 flex items-center justify-between">
                     <span>미팅 참여자 (미팅자)</span>
                     {relatedContactsForEdit.length > 0 && <span className="text-[10px] text-indigo-400 font-normal">아래 명함 클릭 시 자동 추가/제거</span>}
                   </label>
@@ -2868,19 +2868,19 @@ export const ProjectsView: React.FC<Props> = ({
                     value={fu.attendee || ''}
                     onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: e.target.value } })}
                     placeholder="예: 홍길동, 김대리(010-9999-8888) — 명함에 없는 분은 이름(전화번호)로 입력"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium"
                   />
 
                   {/* 미팅자 이름·연락처 직접 입력해서 추가 */}
-                  <div className="border border-slate-800/80 bg-slate-950/40 rounded-xl p-3 space-y-2 mt-2">
-                    <span className="text-[10px] text-slate-400 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
+                  <div className="border border-slate-200 bg-slate-50 rounded-xl p-3 space-y-2 mt-2">
+                    <span className="text-[10px] text-slate-500 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
                     <div className="flex flex-col md:flex-row gap-2">
                       <input
                         type="text"
                         value={editAttendeeNameInput}
                         onChange={(e) => setEditAttendeeNameInput(e.target.value)}
                         placeholder="이름 (필수)"
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                       />
                       <input
                         type="text"
@@ -2888,7 +2888,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={editAttendeeOfficeInput}
                         onChange={(e) => setEditAttendeeOfficeInput(formatPhoneNumber(e.target.value))}
                         placeholder="사무실 전화"
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                       />
                       <input
                         type="text"
@@ -2896,7 +2896,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={editAttendeeMobileInput}
                         onChange={(e) => setEditAttendeeMobileInput(formatPhoneNumber(e.target.value))}
                         placeholder="핸드폰"
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500"
                       />
                       <button
                         type="button"
@@ -2918,7 +2918,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                   {relatedContactsForEdit.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-2">
-                      <span className="text-[10px] text-slate-500 mr-1">이 프로젝트의 연관 명함:</span>
+                      <span className="text-[10px] text-slate-400 mr-1">이 프로젝트의 연관 명함:</span>
                       {relatedContactsForEdit.map((c) => {
                         const isAdded = (fu.attendee || '').includes(c.name);
                         return (
@@ -2932,7 +2932,7 @@ export const ProjectsView: React.FC<Props> = ({
                                 : (current ? `${current}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c));
                               setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: next } });
                             }}
-                            className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${isAdded ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50 font-bold' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'}`}
+                            className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${isAdded ? 'bg-indigo-600/30 text-indigo-600 border-indigo-500/50 font-bold' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-200'}`}
                           >
                             + {c.name}
                           </button>
@@ -2942,7 +2942,7 @@ export const ProjectsView: React.FC<Props> = ({
                   )}
 
                   <div className="pt-2">
-                    <label className="block text-[10px] text-slate-500 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
+                    <label className="block text-[10px] text-slate-400 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
                     <select
                       value=""
                       onChange={(e) => {
@@ -2952,7 +2952,7 @@ export const ProjectsView: React.FC<Props> = ({
                           setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: fu.attendee ? `${fu.attendee}, ${entry}` : entry } });
                         }
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500"
                     >
                       <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
                       {contacts.map((c) => (
@@ -2965,21 +2965,21 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">미팅 내용</label>
+                  <label className="block text-slate-600 font-semibold mb-1">미팅 내용</label>
                   <textarea
                     value={fu.content}
                     onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, content: e.target.value } })}
                     rows={5}
                     placeholder="미팅 내용을 입력하세요"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder:text-slate-600 outline-none focus:border-indigo-500 font-medium resize-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1">
+                  <label className="block text-slate-600 font-semibold mb-1 flex items-center gap-1">
                     <Paperclip className="w-3.5 h-3.5" /> 첨부파일 (제안서, 견적서, 발송자료 등)
                   </label>
-                  <label className="flex items-center justify-center gap-1.5 border border-dashed border-slate-700 rounded-xl py-2.5 cursor-pointer hover:border-indigo-500 text-slate-500 hover:text-indigo-400 font-semibold transition-colors">
+                  <label className="flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 cursor-pointer hover:border-indigo-500 text-slate-400 hover:text-indigo-400 font-semibold transition-colors">
                     <Paperclip className="w-3.5 h-3.5" />
                     <span>파일 선택 (여러 개 가능)</span>
                     <input
@@ -3003,16 +3003,16 @@ export const ProjectsView: React.FC<Props> = ({
                   {(fu.attachments || []).length > 0 && (
                     <div className="space-y-1 mt-2">
                       {(fu.attachments || []).map((att) => (
-                        <div key={att.id} className="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
-                          <span className="flex items-center gap-1.5 text-slate-300 truncate">
+                        <div key={att.id} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                          <span className="flex items-center gap-1.5 text-slate-600 truncate">
                             <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                             <span className="truncate">{att.name}</span>
-                            <span className="text-slate-500 shrink-0">({formatFileSize(att.size)})</span>
+                            <span className="text-slate-400 shrink-0">({formatFileSize(att.size)})</span>
                           </span>
                           <button
                             type="button"
                             onClick={() => setEditingFollowup({ ...editingFollowup, followup: { ...fu, attachments: (fu.attachments || []).filter((x) => x.id !== att.id) } })}
-                            className="text-rose-400 hover:text-rose-300 font-bold shrink-0"
+                            className="text-rose-500 hover:text-rose-700 font-bold shrink-0"
                           >
                             ✕
                           </button>
@@ -3030,8 +3030,8 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
-                  <button type="button" onClick={() => setEditingFollowup(null)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
+                <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
+                  <button type="button" onClick={() => setEditingFollowup(null)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold">취소</button>
                   <button type="submit" disabled={isSavingFollowup} className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold shadow-lg shadow-indigo-600/30">
                     {isSavingFollowup ? '저장 중...' : '저장하기'}
                   </button>
@@ -3045,12 +3045,12 @@ export const ProjectsView: React.FC<Props> = ({
       {/* [수정] 영수증 썸네일 확대보기 라이트박스 */}
       {enlargedReceiptUrl && (
         <div
-          className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[110] flex items-center justify-center p-4"
           onClick={() => setEnlargedReceiptUrl(null)}
         >
           <button
             onClick={() => setEnlargedReceiptUrl(null)}
-            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-all"
+            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
           >
             닫기
           </button>
@@ -3058,7 +3058,7 @@ export const ProjectsView: React.FC<Props> = ({
             src={enlargedReceiptUrl}
             alt="영수증 확대보기"
             onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
           />
         </div>
       )}
@@ -3112,13 +3112,13 @@ export const ProjectsView: React.FC<Props> = ({
       {/* [수정] 전체 프로젝트 목록 PDF 인쇄/미리보기 모달 */}
       {showProjectsPrintPreview && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
-          <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="no-print p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+          <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
                   <FileText className="w-5 h-5" />
                 </div>
-                <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight">전체 프로젝트 목록 미리보기 (총 {filteredProjects.length}건)</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">전체 프로젝트 목록 미리보기 (총 {filteredProjects.length}건)</h2>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button onClick={handleExportProjectsExcel} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
@@ -3127,13 +3127,13 @@ export const ProjectsView: React.FC<Props> = ({
                 <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
                   <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
                 </button>
-                <button onClick={() => setShowProjectsPrintPreview(false)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 transition-colors">
+                <button onClick={() => setShowProjectsPrintPreview(false)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 bg-slate-950 p-4 sm:p-8 overflow-y-auto flex justify-center">
+            <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
               <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
               <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
                 <div className="text-center mb-6">
