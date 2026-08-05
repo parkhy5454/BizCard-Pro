@@ -211,18 +211,18 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         </div>
 
         {/* 안내 배너 */}
-        <div className="px-5 py-3.5 bg-indigo-950/30 border-b border-slate-200 text-xs text-indigo-600 flex items-start gap-2.5">
+        <div className="px-5 py-3.5 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-900 flex items-start gap-2.5">
           <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="font-semibold text-indigo-200">👥 회사 협업 스코프 작동 원리</p>
-            <p className="leading-relaxed text-slate-500">
-              회원가입 시 <span className="text-slate-700 font-medium">회사 회원</span>으로 선택하고 동일한 <span className="text-indigo-400 font-semibold">회사명</span>과 <span className="text-indigo-400 font-semibold">사업자번호</span>를 등록하면 같은 회사로 묶입니다. 다만 <span className="text-rose-600 font-medium">두 번째 이후 가입자는 관리자가 승인하기 전까지 "승인 대기" 상태</span>이며, 관리자가 아래에서 승인해야 <span className="text-indigo-600 underline font-medium">명함 데이터베이스와 프로젝트, 미팅 팔로우업 기록</span>을 함께 볼 수 있습니다. 이 화면에는 <span className="text-slate-700 font-medium">본인과 같은 회사 소속 동료만</span> 표시되며, 관리자는 승인 대기자를 승인/거절하고 동료를 관리자/일반 사용자로 지정할 수 있습니다.
+            <p className="font-semibold text-indigo-800">👥 회사 협업 스코프 작동 원리</p>
+            <p className="leading-relaxed text-slate-600">
+              회원가입 시 <span className="text-slate-800 font-medium">회사 회원</span>으로 선택하고 동일한 <span className="text-indigo-700 font-semibold">회사명</span>과 <span className="text-indigo-700 font-semibold">사업자번호</span>를 등록하면 같은 회사로 묶입니다. 다만 <span className="text-rose-700 font-medium">두 번째 이후 가입자는 관리자가 승인하기 전까지 "승인 대기" 상태</span>이며, 관리자가 아래에서 승인해야 <span className="text-indigo-700 underline font-medium">명함 데이터베이스와 프로젝트, 미팅 팔로우업 기록</span>을 함께 볼 수 있습니다. 이 화면에는 <span className="text-slate-800 font-medium">본인과 같은 회사 소속 동료만</span> 표시되며, 관리자는 승인 대기자를 승인/거절하고 동료를 관리자/일반 사용자로 지정할 수 있습니다.
             </p>
           </div>
         </div>
 
         {/* 검색 및 필터 바 */}
-        <div className="p-4 bg-slate-50/20 border-b border-slate-200 flex items-center gap-2">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -257,10 +257,10 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         </div>
 
         {roleError && (
-          <div className="px-5 pt-3 text-xs text-rose-400 bg-rose-500/5">{roleError}</div>
+          <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{roleError}</div>
         )}
         {approvalError && (
-          <div className="px-5 pt-3 text-xs text-rose-400 bg-rose-500/5">{approvalError}</div>
+          <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{approvalError}</div>
         )}
 
         {/* 가입자 목록 영역 */}
@@ -292,12 +292,12 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                   <div
                     key={g.key}
                     className={`rounded-2xl border overflow-hidden ${
-                      isMyGroup ? 'border-blue-800/50 bg-blue-950/10' : 'border-slate-200 bg-slate-50/20'
+                      isMyGroup ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'
                     }`}
                   >
                     {/* 그룹(회사) 헤더 */}
                     <div className={`flex items-center justify-between px-4 py-2.5 border-b ${
-                      isMyGroup ? 'border-blue-900/40 bg-blue-950/20' : 'border-slate-200 bg-slate-100'
+                      isMyGroup ? 'border-blue-200 bg-blue-100' : 'border-slate-200 bg-slate-100'
                     }`}>
                       <div className="flex items-center gap-2">
                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
@@ -339,7 +339,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                         const isMe = u.id === currentUser.id;
                         return (
                           <div key={u.id} className={`rounded-xl border p-3 ${
-                            isMe ? 'bg-blue-950/20 border-blue-800/40' : 'bg-slate-100 border-slate-200'
+                            isMe ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
                           }`}>
                             <div className="flex items-start gap-3">
                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
