@@ -234,12 +234,12 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
             }, 0);
             if (lastCall) {
               const daysSince = Math.floor((now - lastCall) / DAY_MS);
-              if (daysSince >= 14) {
+              if (daysSince >= 10) {
                 best = {
                   contact: c,
                   reasonText: '연결된 진행중 프로젝트는 없지만, 통화 기록 기준 연락이 뜸함',
                   daysSince,
-                  urgencyLabel: daysSince >= 30 ? '높음' : '보통',
+                  urgencyLabel: daysSince >= 20 ? '높음' : '보통',
                   score: daysSince
                 };
               }
