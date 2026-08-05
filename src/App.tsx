@@ -369,6 +369,7 @@ export default function App() {
                 }}
                 onDeleteContact={handleDeleteCard}
                 onNavigateToProjects={() => setActiveTab('projects')}
+                onAddCallHistory={handleAddCallHistory}
               />
             )}
 
