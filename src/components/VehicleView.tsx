@@ -1504,7 +1504,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowVehicleForm(!showVehicleForm)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold shrink-0"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>차량 추가</span>
@@ -1803,7 +1803,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </button>
                   <button 
                     type="submit"
-                    className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                   >
                     신규 차량 자산 등록 완료
                   </button>
@@ -1995,7 +1995,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   }
                   setShowDrivingForm(!showDrivingForm);
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>운행 일지 작성</span>
@@ -2532,7 +2532,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     </button>
                     <button 
                       type="submit"
-                      className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                     >
                       운행기록 추가 완료
                     </button>
@@ -2726,7 +2726,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   }
                   setShowExpenseForm(!showExpenseForm);
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>비용 지출 등록</span>
@@ -3084,7 +3084,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </button>
                   <button 
                     type="submit"
-                    className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                   >
                     비용 지출 등록 완료
                   </button>
@@ -3251,7 +3251,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     setShowMaintForm(!showMaintForm);
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-650 hover:bg-indigo-600 text-xs text-white transition-all font-semibold"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{maintSubMode === 'intervals' ? '점검 주기 등록' : '정비 스케줄 등록'}</span>
@@ -3411,7 +3411,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="flex items-end">
                   <button 
                     type="submit"
-                    className="w-full bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     정비기록 추가
                   </button>
@@ -3560,7 +3560,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </button>
                   <button 
                     type="submit"
-                    className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                   >
                     점검 주기 등록
                   </button>
@@ -5348,7 +5348,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </button>
                 <button 
                   type="submit"
-                  className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
                   운행기록 보완 저장
                 </button>
@@ -5555,7 +5555,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </button>
                 <button 
                   type="submit"
-                  className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
                   비용 수정사항 반영
                 </button>
@@ -5734,7 +5734,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </button>
                 <button 
                   type="submit"
-                  className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
                   정비 수정 완료
                 </button>
@@ -5895,7 +5895,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </button>
                 <button 
                   type="submit"
-                  className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
                   점검 주기 수정 반영
                 </button>
