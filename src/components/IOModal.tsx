@@ -212,7 +212,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
               const adrMatch = vc.match(/ADR.*:(.*)/i);
 
               parsedList.push({
-                id: `c-${Date.now()}-${Math.random().toString(36).substr(2,4)}`,
+                id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
                 name: name || '이름없음',
                 company: orgMatch ? orgMatch[1].split(';')[0].trim() : '',
                 department: orgMatch && orgMatch[1].split(';')[1] ? orgMatch[1].split(';')[1].trim() : '',
@@ -236,7 +236,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
             const cols = line.split(',').map((s) => s.replace(/^"|"$/g, '').trim());
             if (cols[0]) {
               parsedList.push({
-                id: `c-${Date.now()}-${Math.random().toString(36).substr(2,4)}`,
+                id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
                 name: cols[0] || '이름없음',
                 company: cols[1] || '',
                 department: cols[2] || '',
@@ -264,16 +264,47 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           ? parsedList.map((c) => ({ ...c, frontImage: generateStandardCardImage(c) || undefined }))
           : parsedList;
 
-        // 서버 벌크 수신 API 전송
-        const res = await fetch('/api/contacts/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ importedContacts: finalList })
-        });
-        const data = await res.json();
-        
-        setImportStatus(`✅ 파일에서 ${finalList.length}건의 명함 데이터를 성공적으로 복원(가져오기)했습니다.${autoGenerateImage ? ' 명함 이미지도 자동으로 만들었어요.' : ''}`);
-        onImportSuccess(data.contacts || finalList);
+        // [수정] 예전에는 수천 건을 통째로 한 번의 요청에 담아 보냈는데, 자동 생성 명함
+        // 이미지까지 붙으면 요청 하나가 수백MB로 불어나서 (특히 아이패드/아이폰에서)
+        // 서버 용량 제한에 걸리거나 메모리 부담으로 실패했다. 그 실패 응답이 JSON이 아닌
+        // 경우, Safari는 이걸 "The string did not match the expected pattern"이라는
+        // 알아보기 힘든 메시지로 표시한다 — 실제로는 "요청이 너무 큼" 문제였던 것.
+        // 이제는 일정 건수씩(배치) 나눠서 순차적으로 보낸다.
+        const BATCH_SIZE = 100;
+        let latestFullContactList: BusinessCard[] = [];
+        let totalSkippedDuplicates = 0;
+        for (let i = 0; i < finalList.length; i += BATCH_SIZE) {
+          const batch = finalList.slice(i, i + BATCH_SIZE);
+          setImportStatus(`⏳ 가져오는 중... (${Math.min(i + BATCH_SIZE, finalList.length)}/${finalList.length}건)`);
+
+          const res = await fetch('/api/contacts/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ importedContacts: batch })
+          });
+
+          // [수정] res.json()을 바로 부르면, 서버가 에러 페이지(HTML/텍스트)를 돌려줬을 때
+          // Safari에서 알아보기 힘든 에러가 난다. 먼저 상태와 응답 형식을 확인해서
+          // 무슨 일이 있었는지 정확한 한글 메시지로 알려준다.
+          const contentType = res.headers.get('content-type') || '';
+          if (!res.ok || !contentType.includes('application/json')) {
+            const bodyText = await res.text().catch(() => '');
+            if (res.status === 413 || /too large|payload/i.test(bodyText)) {
+              throw new Error(`${i + 1}~${i + batch.length}번째 항목 처리 중 요청 용량이 너무 커서 실패했습니다. "명함 이미지 자동 생성" 옵션을 끄고 다시 시도해보세요.`);
+            }
+            throw new Error(`${i + 1}~${i + batch.length}번째 항목 처리 중 서버 오류가 발생했습니다 (상태: ${res.status}).`);
+          }
+
+          // [수정] 이 API는 "이번 배치"가 아니라 "그 시점까지의 전체 명함 목록"을 돌려준다.
+          // 그래서 배치마다 누적(push)하면 안 되고, 마지막 배치의 응답이 곧 최종 전체 목록이다.
+          const data = await res.json();
+          latestFullContactList = data.contacts || latestFullContactList;
+          totalSkippedDuplicates += data.skippedDuplicates || 0;
+        }
+
+        const dupMsg = totalSkippedDuplicates > 0 ? ` (기존과 전화번호/이메일이 같은 ${totalSkippedDuplicates}건은 중복으로 건너뜀)` : '';
+        setImportStatus(`✅ 파일에서 ${finalList.length - totalSkippedDuplicates}건의 명함 데이터를 성공적으로 복원(가져오기)했습니다.${dupMsg}${autoGenerateImage ? ' 명함 이미지도 자동으로 만들었어요.' : ''}`);
+        onImportSuccess(latestFullContactList);
       } catch (err: any) {
         alert('파일 가져오기 실패: ' + err.message);
       }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
@@ -32,6 +32,8 @@ interface Props {
   projects?: Project[];
   currentUser: UserType | null;
   onLogout: () => void;
+  onOpenWithdrawModal: () => void;
+  onOpenSubscriptionModal: () => void;
 }
 
 export const Navigation: React.FC<Props> = ({
@@ -59,7 +61,9 @@ export const Navigation: React.FC<Props> = ({
   setProjectFilterStatus = (_st) => {},
   projects = [],
   currentUser,
-  onLogout
+  onLogout,
+  onOpenWithdrawModal,
+  onOpenSubscriptionModal
 }) => {
   // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -136,11 +140,25 @@ export const Navigation: React.FC<Props> = ({
             {currentUser && (
               <div className="flex items-center gap-2 md:hidden">
                 <button
+                  onClick={onOpenSubscriptionModal}
+                  title="구독 관리"
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-indigo-400 border border-slate-700 transition-colors"
+                >
+                  <CreditCard className="w-4 h-4" />
+                </button>
+                <button
                   onClick={onLogout}
                   title="로그아웃"
                   className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onOpenWithdrawModal}
+                  title="회원 탈퇴"
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-500 hover:text-rose-500 border border-slate-700 transition-colors"
+                >
+                  <UserX className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -202,11 +220,27 @@ export const Navigation: React.FC<Props> = ({
                 </div>
 
                 <button
+                  onClick={onOpenSubscriptionModal}
+                  title="구독 관리"
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-indigo-400 transition-colors hidden md:block"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                </button>
+                <button
                   onClick={onLogout}
                   title="로그아웃"
                   className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors ml-1 hidden md:block"
                 >
                   <LogOut className="w-3.5 h-3.5" />
+                </button>
+                {/* [추가] 회원 탈퇴 — 자주 누를 일이 없는 파괴적 작업이라 로그아웃보다 눈에 덜 띄게,
+                하지만 접근은 가능하게 둔다. */}
+                <button
+                  onClick={onOpenWithdrawModal}
+                  title="회원 탈퇴"
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-700 hover:text-rose-500 transition-colors hidden md:block"
+                >
+                  <UserX className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}

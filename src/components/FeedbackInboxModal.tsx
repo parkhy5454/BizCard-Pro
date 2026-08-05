@@ -469,7 +469,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-slate-400">기능별 전체 사용 빈도</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(stats.featureTotals)
+                    {(Object.entries(stats.featureTotals) as [string, number][])
                       .sort((a, b) => b[1] - a[1])
                       .map(([key, count]) => (
                         <span key={key} className="text-[11px] bg-slate-950 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-full">

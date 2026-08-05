@@ -588,19 +588,22 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // 미팅 기록(팔로우업) 수정 핸들러
+  const [followupSaveError, setFollowupSaveError] = useState<string>('');
+  const [isSavingFollowup, setIsSavingFollowup] = useState<boolean>(false);
   const handleUpdateFollowup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFollowup) return;
     const { projectId, followup } = editingFollowup;
 
-    setProjects(projects.map((p) => {
-      if (p.id !== projectId) return p;
-      return { ...p, followUps: p.followUps.map((f) => (f.id === followup.id ? followup : f)) };
-    }));
-    setEditingFollowup(null);
-
+    // [수정] 예전에는 화면부터 먼저 "저장된 것처럼" 바꾸고 나서 서버로 보냈는데, 서버 저장이
+    // 실패해도(특히 용량 큰 PDF/PPT 첨부 시 자주 실패) 아무 표시가 안 나서 사용자는 저장된
+    // 줄 알고 넘어가고, 새로고침하면 그대로 사라지는 "조용한 데이터 손실"이 있었다. 이제는
+    // 서버 저장이 성공한 뒤에만 화면을 갱신하고 모달을 닫는다. 실패하면 모달은 그대로 열어둬서
+    // 입력한 내용을 잃지 않고, 실패 이유를 명확히 보여준다.
+    setFollowupSaveError('');
+    setIsSavingFollowup(true);
     try {
-      await fetch(`/api/projects/${projectId}/followups/${followup.id}`, {
+      const res = await fetch(`/api/projects/${projectId}/followups/${followup.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -617,8 +620,23 @@ export const ProjectsView: React.FC<Props> = ({
           expenses: followup.expenses || []
         })
       });
-    } catch (err) {
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        if (res.status === 413) {
+          throw new Error('첨부파일 용량이 너무 커서 저장에 실패했습니다. 파일 크기를 줄이거나 나눠서 첨부해주세요.');
+        }
+        throw new Error(`저장에 실패했습니다 (상태: ${res.status}). 잠시 후 다시 시도해주세요.`);
+      }
+
+      const updated = await res.json();
+      setProjects(projects.map((p) => (p.id === projectId ? updated : p)));
+      setEditingFollowup(null);
+    } catch (err: any) {
       console.error('Failed to update followup:', err);
+      setFollowupSaveError(err.message || '저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSavingFollowup(false);
     }
   };
 
@@ -706,7 +724,15 @@ export const ProjectsView: React.FC<Props> = ({
 
   // 파일을 base64로 읽어서 첨부파일 목록에 추가 (제안서, 견적서, 발송자료 등)
   const readFilesAsAttachments = (files: FileList, onAdd: (att: ProjectFollowUpAttachment) => void) => {
+    // [수정] 특히 아이폰/아이패드에서 용량이 큰 PPT/엑셀 파일을 그대로 base64로 읽으면
+    // 메모리 부담으로 브라우저가 멈추거나 업로드가 조용히 실패하는 경우가 있어서,
+    // 20MB가 넘는 파일은 미리 안내하고 건너뛴다.
+    const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
     Array.from(files).forEach((file) => {
+      if (file.size > MAX_ATTACHMENT_SIZE) {
+        alert(`"${file.name}" 파일이 너무 큽니다(${formatFileSize(file.size)}). 20MB 이하 파일만 첨부할 수 있어요.`);
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (ev) => {
         onAdd({
@@ -1035,6 +1061,12 @@ export const ProjectsView: React.FC<Props> = ({
       expenses: meetingExpenses
     };
 
+    // [수정] 예전에는 서버 저장이 실패하면(특히 용량 큰 PDF/PPT 첨부 시) 아무 에러도 없이
+    // 화면에만 로컬로 추가해두고 끝냈다 — 사용자는 저장된 줄 알지만 새로고침하면 사라지는
+    // "조용한 데이터 손실"이었다. 이제는 실패하면 명확히 알리고, 입력 내용은 그대로 남겨서
+    // 사용자가 다시 저장을 시도할 수 있게 한다.
+    setFollowupSaveError('');
+    setIsSavingFollowup(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/followups`, {
         method: 'POST',
@@ -1044,46 +1076,40 @@ export const ProjectsView: React.FC<Props> = ({
         },
         body: JSON.stringify(payload)
       });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        if (res.status === 413) {
+          throw new Error('첨부파일 용량이 너무 커서 저장에 실패했습니다. 파일 크기를 줄이거나 나눠서 첨부해주세요.');
+        }
+        throw new Error(`저장에 실패했습니다 (상태: ${res.status}). 잠시 후 다시 시도해주세요.`);
+      }
+
       const updated = await res.json();
       setProjects(projects.map((p) => (p.id === projectId ? updated : p)));
-    } catch {
-      const target = projects.find((p) => p.id === projectId);
-      if (target) {
-        const newF: ProjectFollowUp = {
-          id: `f-${Date.now()}`,
-          projectId,
-          content: payload.content,
-          date: payload.date,
-          status: 'done',
-          meetingDegree: payload.meetingDegree,
-          meetingType: payload.meetingType,
-          attendee: payload.attendee,
-          internalStaffName: payload.internalStaffName,
-          hasVoice: payload.hasVoice,
-          voiceUrl: payload.voiceUrl,
-          voiceDuration: payload.voiceDuration,
-          attachments: payload.attachments,
-          expenses: payload.expenses
-        };
-        const updated = { ...target, followUps: [newF, ...target.followUps] };
-        setProjects(projects.map((p) => (p.id === projectId ? updated : p)));
-      }
-    }
 
-    setMeetingContent('');
-    setVoiceAttached(false);
-    setAttachedVoiceDuration('');
-    setAttachedVoiceUrl('');
-    setMeetingAttachments([]);
-    setMeetingExpenses([]);
-    // 다음 기록을 위해 차수/구분을 순서대로 한 단계 전진 (1차 미팅 → 1차 팔로우업 → 2차 미팅 → ...)
-    if (meetingDegree > 0) {
-      if (meetingType === 'meeting') {
-        setMeetingType('followup');
-      } else {
-        setMeetingDegree(meetingDegree + 1);
-        setMeetingType('meeting');
+      // [수정] 저장에 성공했을 때만 입력폼을 비우고 차수를 전진시킨다. 실패 시 이 블록까지
+      // 오지 않으므로(위에서 throw), 사용자가 입력했던 내용이 그대로 남아 다시 저장을 시도할 수 있다.
+      setMeetingContent('');
+      setVoiceAttached(false);
+      setAttachedVoiceDuration('');
+      setAttachedVoiceUrl('');
+      setMeetingAttachments([]);
+      setMeetingExpenses([]);
+      // 다음 기록을 위해 차수/구분을 순서대로 한 단계 전진 (1차 미팅 → 1차 팔로우업 → 2차 미팅 → ...)
+      if (meetingDegree > 0) {
+        if (meetingType === 'meeting') {
+          setMeetingType('followup');
+        } else {
+          setMeetingDegree(meetingDegree + 1);
+          setMeetingType('meeting');
+        }
       }
+    } catch (err: any) {
+      console.error('Failed to add followup:', err);
+      alert(`미팅 기록 저장에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
+    } finally {
+      setIsSavingFollowup(false);
     }
   };
 
@@ -2077,9 +2103,10 @@ export const ProjectsView: React.FC<Props> = ({
                         <div className="flex justify-end pt-1">
                           <button
                             type="submit"
-                            className="px-4.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-all active:scale-95"
+                            disabled={isSavingFollowup}
+                            className="px-4.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md transition-all active:scale-95"
                           >
-                            미팅 및 업무 기록 추가
+                            {isSavingFollowup ? '저장 중...' : '미팅 및 업무 기록 추가'}
                           </button>
                         </div>
                       </form>
@@ -2137,8 +2164,10 @@ export const ProjectsView: React.FC<Props> = ({
                                     )}
                                   </div>
 
-                                  {/* 수정/삭제 액션 */}
-                                  <div className="flex items-center gap-1.5 opacity-0 group-hover/meeting:opacity-100 transition-all">
+                                  {/* [수정] 예전에는 opacity-0 + hover에서만 보이게 돼 있어서, 마우스 호버가
+                                  없는 모바일/터치 환경에서는 이 수정/삭제 버튼이 사실상 보이지도 눌리지도
+                                  않았다(그래서 "팔로우업 내용 수정이 안 된다"는 문의가 들어왔다). 항상 보이게 바꾼다. */}
+                                  <div className="flex items-center gap-1.5 transition-all">
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -2995,9 +3024,17 @@ export const ProjectsView: React.FC<Props> = ({
 
                 {renderExpenseSection(fu.expenses || [], editExpensesSetter)}
 
+                {followupSaveError && (
+                  <div className="text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 text-[11px]">
+                    ⚠️ {followupSaveError}
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
                   <button type="button" onClick={() => setEditingFollowup(null)} className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">취소</button>
-                  <button type="submit" className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30">저장하기</button>
+                  <button type="submit" disabled={isSavingFollowup} className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold shadow-lg shadow-indigo-600/30">
+                    {isSavingFollowup ? '저장 중...' : '저장하기'}
+                  </button>
                 </div>
               </form>
             </div>

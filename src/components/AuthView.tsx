@@ -13,6 +13,9 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState<boolean>(true);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  // [추가] "로그인 상태 유지" — 켜져 있으면(기본값) 30일, 끄면 1일짜리 세션을 발급받는다.
+  // 공용 PC 등에서 로그인 흔적을 오래 남기고 싶지 않을 때 끌 수 있게 한다.
+  const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [name, setName] = useState<string>('');
   // [수정] 운영 현황에서 가입자 연락처를 확인할 수 있도록 핸드폰 번호도 받는다 (선택 입력)
   const [phone, setPhone] = useState<string>('');
@@ -150,7 +153,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
       const payload = isLogin 
-        ? { email, password }
+        ? { email, password, rememberMe }
         : {
             email,
             password,
@@ -467,13 +470,24 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 <p className="mt-1 text-[11px] text-slate-500">비밀번호는 8자 이상 입력해주세요.</p>
               )}
               {isLogin && (
-                <button
-                  type="button"
-                  onClick={() => { setScreen('forgot'); setForgotEmail(email); setError(''); setSuccessMsg(''); }}
-                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
-                >
-                  비밀번호를 잊으셨나요?
-                </button>
+                <div className="flex items-center justify-between mt-1">
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 accent-indigo-500"
+                    />
+                    로그인 상태 유지 (30일)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setScreen('forgot'); setForgotEmail(email); setError(''); setSuccessMsg(''); }}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                  >
+                    비밀번호를 잊으셨나요?
+                  </button>
+                </div>
               )}
             </div>
 

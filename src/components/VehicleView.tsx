@@ -399,7 +399,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 크롭이 확정된 영수증 이미지를 AI로 인식해서 해당 화면(운행/비용/정비)의 폼에 반영
   const runReceiptOcr = async (context: 'driving' | 'expense' | 'maint', dataUrl: string) => {
     if (context === 'driving') {
-      setDrivingReceiptExpense((prev) => prev ? { ...prev, receiptImage: dataUrl } : prev);
+      // [수정] 이전에는 prev가 null일 때(=첫 스캔) 업데이트가 무시되는 버그가 있어서,
+      // 운행일지에서 영수증을 찍어도 화면에 안 보이고 저장도 안 됐다. 항상 기본값을
+      // 채운 객체로 만들어서, 첫 스캔이든 재스캔이든 확실히 값이 생기게 한다.
+      setDrivingReceiptExpense((prev) => ({
+        receiptImage: dataUrl,
+        category: prev?.category || 'toll',
+        categoryCustom: prev?.categoryCustom || '',
+        amount: prev?.amount || 0,
+        merchantName: prev?.merchantName || '',
+        memo: prev?.memo || '',
+        payMethod: prev?.payMethod || 'company_card'
+      }));
     } else if (context === 'expense') {
       setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
     } else {
@@ -429,15 +440,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         }
 
         if (context === 'driving') {
-          setDrivingReceiptExpense((prev) => prev ? {
-            ...prev,
-            category: (data.category as VehicleExpense['category']) || prev.category,
-            amount: data.amount || prev.amount,
-            merchantName: data.merchantName || prev.merchantName,
-            memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || prev.payMethod,
-            receiptImage: finalReceiptImage
-          } : prev);
+          // [수정] 여기도 prev가 null이면 무시되던 동일한 버그가 있었다.
+          setDrivingReceiptExpense((prev) => ({
+            receiptImage: finalReceiptImage,
+            category: (data.category as VehicleExpense['category']) || prev?.category || 'toll',
+            categoryCustom: prev?.categoryCustom || '',
+            amount: data.amount || prev?.amount || 0,
+            merchantName: data.merchantName || prev?.merchantName || '',
+            memo: data.memo || prev?.memo || '',
+            payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || prev?.payMethod || 'company_card'
+          }));
         } else if (context === 'expense') {
           setNewExpense((prev) => ({
             ...prev,

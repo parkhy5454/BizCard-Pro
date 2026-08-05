@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
-import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
+import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 

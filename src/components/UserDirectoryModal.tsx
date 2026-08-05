@@ -148,6 +148,45 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     }
   };
 
+  // [추가] 관리자 전용: 승인 대기 중인 가입 신청을 승인/거절한다.
+  const [approvalUpdatingId, setApprovalUpdatingId] = useState<string | null>(null);
+  const [approvalError, setApprovalError] = useState('');
+  const approveMember = async (target: UserType) => {
+    setApprovalError('');
+    setApprovalUpdatingId(target.id);
+    try {
+      const res = await fetch(`/api/auth/pending-members/${target.id}/approve`, {
+        method: 'POST',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || '승인에 실패했습니다.');
+      setUsers(prev => prev.map(u => (u.id === target.id ? { ...u, approvalStatus: 'approved' } : u)));
+    } catch (err: any) {
+      setApprovalError(err.message || '승인 중 오류가 발생했습니다.');
+    } finally {
+      setApprovalUpdatingId(null);
+    }
+  };
+  const rejectMember = async (target: UserType) => {
+    if (!window.confirm(`${target.name}(${target.email})님의 가입 신청을 거절할까요? 계정이 삭제되며 되돌릴 수 없습니다.`)) return;
+    setApprovalError('');
+    setApprovalUpdatingId(target.id);
+    try {
+      const res = await fetch(`/api/auth/pending-members/${target.id}/reject`, {
+        method: 'POST',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || '거절에 실패했습니다.');
+      setUsers(prev => prev.filter(u => u.id !== target.id));
+    } catch (err: any) {
+      setApprovalError(err.message || '거절 중 오류가 발생했습니다.');
+    } finally {
+      setApprovalUpdatingId(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
@@ -177,7 +216,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
           <div className="space-y-1">
             <p className="font-semibold text-indigo-200">👥 회사 협업 스코프 작동 원리</p>
             <p className="leading-relaxed text-slate-400">
-              회원가입 시 <span className="text-slate-200 font-medium">회사 회원</span>으로 선택하고 동일한 <span className="text-indigo-400 font-semibold">회사명</span>과 <span className="text-indigo-400 font-semibold">사업자번호</span>를 등록한 회원들은 별도 설정 없이 <span className="text-indigo-300 underline font-medium">동일한 명함 데이터베이스와 프로젝트, 미팅 팔로우업 기록</span>을 실시간 공유하며 공동 작업할 수 있습니다. 이 화면에는 <span className="text-slate-200 font-medium">본인과 같은 회사 소속 동료만</span> 표시되며, 관리자는 동료를 관리자/일반 사용자로 바로 지정할 수 있습니다.
+              회원가입 시 <span className="text-slate-200 font-medium">회사 회원</span>으로 선택하고 동일한 <span className="text-indigo-400 font-semibold">회사명</span>과 <span className="text-indigo-400 font-semibold">사업자번호</span>를 등록하면 같은 회사로 묶입니다. 다만 <span className="text-rose-300 font-medium">두 번째 이후 가입자는 관리자가 승인하기 전까지 "승인 대기" 상태</span>이며, 관리자가 아래에서 승인해야 <span className="text-indigo-300 underline font-medium">명함 데이터베이스와 프로젝트, 미팅 팔로우업 기록</span>을 함께 볼 수 있습니다. 이 화면에는 <span className="text-slate-200 font-medium">본인과 같은 회사 소속 동료만</span> 표시되며, 관리자는 승인 대기자를 승인/거절하고 동료를 관리자/일반 사용자로 지정할 수 있습니다.
             </p>
           </div>
         </div>
@@ -204,10 +243,24 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
             <Download className="w-3.5 h-3.5" />
             전체 다운로드
           </button>
+          {/* [추가] 가입자 명단이 아니라, 명함/프로젝트/차량 등 실제 데이터 전체를 JSON으로
+          백업받는 버튼. 회사 계정은 관리자만, 개인 계정은 본인 데이터라 누구나 가능
+          (서버에서도 동일하게 권한을 검사한다). */}
+          <a
+            href="/api/backup/export"
+            title="명함/프로젝트/차량 등 전체 데이터를 JSON 파일로 백업"
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 text-xs font-bold whitespace-nowrap transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            데이터 백업(JSON)
+          </a>
         </div>
 
         {roleError && (
           <div className="px-5 pt-3 text-xs text-rose-400 bg-rose-500/5">{roleError}</div>
+        )}
+        {approvalError && (
+          <div className="px-5 pt-3 text-xs text-rose-400 bg-rose-500/5">{approvalError}</div>
         )}
 
         {/* 가입자 목록 영역 */}
@@ -320,6 +373,11 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                                       {u.role === 'admin' ? '관리자' : '일반 사용자'}
                                     </span>
                                   )}
+                                  {u.type === 'company' && u.approvalStatus === 'pending' && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                                      승인 대기
+                                    </span>
+                                  )}
                                 </div>
                                 {u.type === 'company' && u.position && (
                                   <p className="text-[11px] text-slate-500">직책: <span className="text-slate-300">{u.position}</span></p>
@@ -327,8 +385,32 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                               </div>
                             </div>
 
-                            {/* [추가] 관리자 전용: 같은 회사 동료의 역할(관리자/일반 사용자)을 여기서 바로 지정 */}
-                            {canManageRoles && isMyGroup && !isMe && u.type === 'company' && (
+                            {/* [추가] 관리자 전용: 승인 대기 중인 신청은 여기서 바로 승인/거절 */}
+                            {canManageRoles && isMyGroup && !isMe && u.type === 'company' && u.approvalStatus === 'pending' && (
+                              <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-800/60">
+                                <span className="text-[11px] text-slate-500">가입 승인:</span>
+                                <button
+                                  type="button"
+                                  disabled={approvalUpdatingId === u.id}
+                                  onClick={() => approveMember(u)}
+                                  className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  승인
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={approvalUpdatingId === u.id}
+                                  onClick={() => rejectMember(u)}
+                                  className="text-[11px] px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  거절
+                                </button>
+                                {approvalUpdatingId === u.id && <span className="text-[11px] text-slate-500">처리 중...</span>}
+                              </div>
+                            )}
+
+                            {/* [추가] 관리자 전용: 같은 회사 동료의 역할(관리자/일반 사용자)을 여기서 바로 지정 (승인된 회원만) */}
+                            {canManageRoles && isMyGroup && !isMe && u.type === 'company' && u.approvalStatus !== 'pending' && (
                               <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-800/60">
                                 <span className="text-[11px] text-slate-500">권한 지정:</span>
                                 <button
