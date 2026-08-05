@@ -275,7 +275,7 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => setActiveTab('cards')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'cards'
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
