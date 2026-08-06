@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowDownUp, Download, Upload, FileSpreadsheet, FileText, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
+import * as XLSX from 'xlsx';
 
 interface Props {
   contacts: BusinessCard[];
@@ -202,9 +203,65 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
   // 이름 정규화 (공백 제거 + 소문자화) - "김 희중"과 "김희중"을 같은 이름으로 보기 위함
   const normalizeName = (s?: string) => (s || '').replace(/\s+/g, '').toLowerCase();
 
+  // [추가] CSV든 진짜 엑셀 파일이든, "행(row) 배열의 배열"만 넘기면 동일하게 명함 목록으로
+  // 바꿔주는 공용 함수. 컬럼 순서: 이름, 회사, 부서, 직책, 핸드폰, 사무실전화, 팩스, 이메일, 주소, 메모
+  const rowsToContacts = (rows: string[][]): BusinessCard[] => {
+    const list: BusinessCard[] = [];
+    const dataRows = rows.slice(1); // 헤더 제외
+    dataRows.forEach((cols) => {
+      if (cols[0] && String(cols[0]).trim()) {
+        list.push({
+          id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+          name: String(cols[0] ?? '').trim() || '이름없음',
+          company: String(cols[1] ?? '').trim(),
+          department: String(cols[2] ?? '').trim(),
+          title: String(cols[3] ?? '').trim(),
+          phoneMobile: String(cols[4] ?? '').trim(),
+          phoneOffice: String(cols[5] ?? '').trim(),
+          phoneFax: String(cols[6] ?? '').trim(),
+          email: String(cols[7] ?? '').trim(),
+          address: String(cols[8] ?? '').trim(),
+          memo: String(cols[9] ?? '').trim(),
+          createdAt: new Date().toISOString(),
+          callHistory: []
+        });
+      }
+    });
+    return list;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // [수정] 예전엔 .xls/.xlsx도 무조건 텍스트로 읽어서(readAsText) CSV처럼 쉼표로
+    // 쪼갰는데, 엑셀 파일은 실제로는 ZIP 기반의 "이진(바이너리)" 형식이라 텍스트로
+    // 읽으면 글자가 깨진다 — "3.0" 같은 의미 없는 값이 이름으로 들어간 것도 이 문제였다.
+    // 이제는 확장자를 보고 진짜 엑셀 파일이면 SheetJS로 제대로 읽는다.
+    const isRealExcel = /\.xlsx?$/i.test(file.name);
+
+    if (isRealExcel) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const buffer = reader.result as ArrayBuffer;
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          // header:1 -> 각 행을 ["셀1","셀2",...] 배열로 받는다(CSV 파싱과 같은 형태로 통일).
+          // raw:false -> 숫자처럼 보이는 셀도 화면에 표시되는 문자열 그대로 가져온다(예: "3"이 3.0으로 안 바뀜).
+          const rows = XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1, raw: false, defval: '' });
+          const parsedList = rowsToContacts(rows);
+          if (parsedList.length === 0) throw new Error('파싱 가능한 명함 연락처가 없습니다.');
+          await finalizeParsedList(parsedList);
+        } catch (err: any) {
+          alert('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+        }
+      };
+      reader.onerror = () => alert('파일을 읽는 중 오류가 발생했습니다.');
+      reader.readAsArrayBuffer(file);
+      e.target.value = '';
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -214,30 +271,45 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
       try {
         if (file.name.endsWith('.vcf')) {
           // 간이 vCard 파싱
+          // [수정] 예전엔 정규식이 줄 시작에 고정돼 있지 않아서, 예를 들어 모든 vCard에
+          // 항상 있는 "VERSION:3.0"이라는 줄의 뒷부분("N:3.0")이 이름 필드 "N:"으로 잘못
+          // 걸려서, 이름 필드가 따로 없는 연락처(예: "벤츠고객센터"처럼 조직 이름만 있는
+          // 경우)의 이름이 "3.0"으로 잘못 들어가는 버그가 있었다. 이제는 모든 필드를
+          // "줄 맨 앞"에서만 찾도록 고정해서, 다른 줄의 일부가 걸리는 일이 없다.
+          // field(vc, 'N')처럼 부르면, 그 줄("N:..." 또는 파라미터 붙은 "N;CHARSET=...:...")의
+          // 콜론 뒷부분만 뽑아준다. 줄 시작(^)에 고정돼 있어서 다른 줄과 절대 안 헷갈린다.
+          const field = (vc: string, name: string, mustContain?: string): string => {
+            const re = new RegExp(`^${name}[^:\\r\\n]*:(.*)$`, 'im');
+            const lines = vc.split(/\r?\n/).filter((l) => new RegExp(`^${name}(?![A-Z])`, 'i').test(l));
+            const target = mustContain
+              ? lines.find((l) => l.toUpperCase().includes(mustContain.toUpperCase()))
+              : lines[0];
+            if (!target) return '';
+            const m = target.match(re);
+            return m ? m[1] : '';
+          };
+
           const vcards = text.split(/BEGIN:VCARD/i).filter(Boolean);
           vcards.forEach((vc) => {
-            const fnMatch = vc.match(/FN:(.*)/i) || vc.match(/N:(.*)/i);
-            if (fnMatch) {
-              const name = fnMatch[1].replace(/;/g, '').trim();
-              const orgMatch = vc.match(/ORG:(.*)/i);
-              const titleMatch = vc.match(/TITLE:(.*)/i);
-              const cellMatch = vc.match(/TEL.*CELL.*:(.*)/i) || vc.match(/TEL:(.*)/i);
-              const workMatch = vc.match(/TEL.*WORK.*:(.*)/i);
-              const faxMatch = vc.match(/TEL.*FAX.*:(.*)/i);
-              const emailMatch = vc.match(/EMAIL.*:(.*)/i);
-              const adrMatch = vc.match(/ADR.*:(.*)/i);
+            const rawName = field(vc, 'FN') || field(vc, 'N');
+            const name = rawName.replace(/;/g, ' ').replace(/\s+/g, ' ').trim();
+            const org = field(vc, 'ORG');
 
+            // 이름도 조직명도 전혀 없으면 애초에 유효한 연락처가 아니므로 건너뛴다.
+            if (!name && !org) return;
+
+            {
               parsedList.push({
                 id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
                 name: name || '이름없음',
-                company: orgMatch ? orgMatch[1].split(';')[0].trim() : '',
-                department: orgMatch && orgMatch[1].split(';')[1] ? orgMatch[1].split(';')[1].trim() : '',
-                title: titleMatch ? titleMatch[1].trim() : '',
-                phoneMobile: cellMatch ? cellMatch[1].trim() : '',
-                phoneOffice: workMatch ? workMatch[1].trim() : '',
-                phoneFax: faxMatch ? faxMatch[1].trim() : '',
-                email: emailMatch ? emailMatch[1].trim() : '',
-                address: adrMatch ? adrMatch[1].replace(/;/g, ' ').trim() : '',
+                company: org.split(';')[0].trim(),
+                department: org.split(';')[1] ? org.split(';')[1].trim() : '',
+                title: field(vc, 'TITLE').trim(),
+                phoneMobile: (field(vc, 'TEL', 'CELL') || field(vc, 'TEL')).trim(),
+                phoneOffice: field(vc, 'TEL', 'WORK').trim(),
+                phoneFax: field(vc, 'TEL', 'FAX').trim(),
+                email: field(vc, 'EMAIL').trim(),
+                address: field(vc, 'ADR').replace(/;/g, ' ').trim(),
                 // [수정] 예전엔 그룹 목록의 첫 번째 그룹으로 강제 배정했는데, "전체보기"에서만
                 // 보이고 특정 그룹엔 안 걸리도록 그룹을 비워둔다.
                 createdAt: new Date().toISOString(),
@@ -246,34 +318,32 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
             }
           });
         } else {
-          // CSV / 엑셀(.csv) 파싱
+          // 진짜 CSV 파일 파싱 (엑셀 바이너리는 위에서 이미 별도 처리됨)
           const lines = text.split(/\r?\n/).filter(Boolean);
-          const dataLines = lines.slice(1); // 헤더 제외
-          dataLines.forEach((line) => {
-            const cols = line.split(',').map((s) => s.replace(/^"|"$/g, '').trim());
-            if (cols[0]) {
-              parsedList.push({
-                id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-                name: cols[0] || '이름없음',
-                company: cols[1] || '',
-                department: cols[2] || '',
-                title: cols[3] || '',
-                phoneMobile: cols[4] || '',
-                phoneOffice: cols[5] || '',
-                phoneFax: cols[6] || '',
-                email: cols[7] || '',
-                address: cols[8] || '',
-                memo: cols[9] || '',
-                createdAt: new Date().toISOString(),
-                callHistory: []
-              });
-            }
-          });
+          const rows = lines.map((line) => line.split(',').map((s) => s.replace(/^"|"$/g, '').trim()));
+          parsedList.push(...rowsToContacts(rows));
         }
 
         if (parsedList.length === 0) {
           throw new Error('파싱 가능한 명함 연락처가 없습니다.');
         }
+
+        await finalizeParsedList(parsedList);
+      } catch (err: any) {
+        alert('파일 처리 중 오류가 발생했습니다: ' + err.message);
+      }
+    };
+
+    reader.onerror = () => {
+      alert('파일을 읽는 중 오류가 발생했습니다.');
+    };
+
+    reader.readAsText(file);
+  };
+
+  // [추가] 파싱까지 끝난 명함 목록을 이미지 생성 + 이름 충돌 검사까지 진행하는 공용 마무리 단계.
+  // (기존에 handleFileUpload의 onload 안에 있던 후반부 로직을 그대로 옮긴 것)
+  const finalizeParsedList = async (parsedList: BusinessCard[]) => {
 
         // [수정] 옵션이 켜져 있으면, 데이터만 있던 각 연락처에 정형화된 명함 이미지를 만들어 붙인다
         const finalList = autoGenerateImage
@@ -304,11 +374,6 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
         }
 
         await runImport(finalList, autoGenerateImage);
-      } catch (err: any) {
-        alert('파일 가져오기 실패: ' + err.message);
-      }
-    };
-    reader.readAsText(file);
   };
 
   // 이름 충돌 확인 화면에서 사용자가 선택을 마치고 "계속하기"를 눌렀을 때
