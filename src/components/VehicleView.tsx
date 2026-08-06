@@ -525,13 +525,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           const savedContact = await contactRes.json();
           setContacts(prev => [savedContact, ...prev]);
           finalContactId = savedContact.id;
+        } else {
+          throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}).`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        // [수정] 예전엔 실패해도 화면에만 존재하는 가짜 연락처를 만들어서 계속 진행했다 —
+        // 새로고침하면 그 연락처 연결이 사라지는 "가짜 데이터" 문제였다. 이제는 저장 자체를
+        // 중단해서 사용자가 무슨 일이 있었는지 알고 다시 시도할 수 있게 한다.
         console.error('Failed to save direct contact:', err);
-        const fakeContactId = `c-${Date.now()}`;
-        const fakeContact = { id: fakeContactId, ...newCardData, createdAt: new Date().toISOString(), callHistory: [] };
-        setContacts(prev => [fakeContact as any, ...prev]);
-        finalContactId = fakeContactId;
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+        return;
       }
     }
 
@@ -686,13 +689,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           const savedContact = await contactRes.json();
           setContacts(prev => [savedContact, ...prev]);
           finalContactId = savedContact.id;
+        } else {
+          throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}).`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        // [수정] 예전엔 실패해도 화면에만 존재하는 가짜 연락처를 만들어서 계속 진행했다 —
+        // 새로고침하면 그 연락처 연결이 사라지는 "가짜 데이터" 문제였다. 이제는 저장 자체를
+        // 중단해서 사용자가 무슨 일이 있었는지 알고 다시 시도할 수 있게 한다.
         console.error('Failed to save direct contact:', err);
-        const fakeContactId = `c-${Date.now()}`;
-        const fakeContact = { id: fakeContactId, ...newCardData, createdAt: new Date().toISOString(), callHistory: [] };
-        setContacts(prev => [fakeContact as any, ...prev]);
-        finalContactId = fakeContactId;
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+        return;
       }
     }
 
