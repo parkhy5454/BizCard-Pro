@@ -141,10 +141,22 @@ export default function App() {
         },
         body: JSON.stringify(newCard)
       });
+
+      // [수정] 예전에는 서버가 에러를 줘도(예: 세션 문제로 403, 요청 용량 초과로 413 등)
+      // res.json()이 그 에러 객체를 그대로 반환받아서 "저장된 것처럼" 화면에 추가해버렸다.
+      // 심지어 네트워크 자체가 끊겨도 catch에서 로컬에만 조용히 추가해서, 사용자는 성공한
+      // 줄 알지만 서버에는 전혀 저장이 안 되는 문제가 있었다(새로고침하거나 다른 기기에서
+      // 보면 사라짐). 이제는 실패를 명확히 알리고, 로컬에 가짜로 추가하지 않는다.
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        const data = contentType.includes('application/json') ? await res.json().catch(() => null) : null;
+        throw new Error(data?.error || `명함 저장에 실패했습니다 (상태: ${res.status}). 잠시 후 다시 시도해주세요.`);
+      }
+
       const saved = await res.json();
       setContacts(prev => [saved, ...prev]);
-    } catch (err) {
-      setContacts(prev => [newCard, ...prev]);
+    } catch (err: any) {
+      alert(`명함 저장에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -159,12 +171,16 @@ export default function App() {
         },
         body: JSON.stringify(updated)
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        const data = contentType.includes('application/json') ? await res.json().catch(() => null) : null;
+        throw new Error(data?.error || `명함 수정 저장에 실패했습니다 (상태: ${res.status}).`);
+      }
       const data = await res.json();
       setContacts(prev => prev.map(c => c.id === data.id ? data : c));
       setSelectedContactDetail(data);
-    } catch {
-      setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
-      setSelectedContactDetail(updated);
+    } catch (err: any) {
+      alert(`명함 수정 저장에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -198,17 +214,19 @@ export default function App() {
         },
         body: JSON.stringify(record)
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(`상태: ${res.status}`);
+      }
       const updated = await res.json();
       setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
       setSelectedContactDetail(updated);
-    } catch {
-      const target = contacts.find(c => c.id === contactId);
-      if (target) {
-        const newRec = { id: `call-${Date.now()}`, contactId, timestamp: new Date().toISOString(), ...record };
-        const updated = { ...target, callHistory: [newRec, ...target.callHistory] };
-        setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
-        setSelectedContactDetail(updated);
-      }
+    } catch (err) {
+      // [수정] 이 함수는 "통화 기록 직접 저장" 뿐 아니라 전화 버튼을 누를 때마다 조용히
+      // 자동 기록하는 데도 쓰인다. 실패했다고 매번 알림창을 띄우면 통화하러 가는 흐름을
+      // 방해하니, 여기서는 콘솔에만 남긴다. 다만 예전처럼 "서버엔 없는 가짜 기록"을 화면에
+      // 만들어 보여주진 않는다(새로고침하면 사라지는 걸 사용자가 있는 줄 알면 더 헷갈림).
+      console.error('통화 기록 저장 실패:', err);
     }
   };
 
@@ -223,11 +241,14 @@ export default function App() {
         },
         body: JSON.stringify(g)
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(`그룹 생성에 실패했습니다 (상태: ${res.status}).`);
+      }
       const created = await res.json();
       setGroups(prev => [...prev, created]);
-    } catch {
-      const newG = { id: `g-${Date.now()}`, ...g };
-      setGroups(prev => [...prev, newG]);
+    } catch (err: any) {
+      alert(`그룹 생성에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -242,10 +263,14 @@ export default function App() {
         },
         body: JSON.stringify({ name, color })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(`그룹 수정에 실패했습니다 (상태: ${res.status}).`);
+      }
       const updated = await res.json();
       setGroups(prev => prev.map(g => g.id === id ? updated : g));
-    } catch {
-      setGroups(prev => prev.map(g => g.id === id ? { ...g, name, color } : g));
+    } catch (err: any) {
+      alert(`그룹 수정에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
