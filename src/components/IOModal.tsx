@@ -133,18 +133,44 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
         setImportStatus('가져올 명함이 없습니다 (전부 건너뛰기로 선택됨).');
         return;
       }
-      const BATCH_SIZE = 100;
+      // [수정] 자동 이미지 생성을 켜면 각 명함마다 이미지(base64 PNG)가 붙어서 배치 하나가
+      // 훨씬 무거워진다. 100건씩 보내면 서버가 이미지 100장을 업로드 처리하다가 응답이
+      // 오래 걸리거나 실패할 수 있어서, 이미지 생성 시엔 배치를 더 작게(30건) 나눈다.
+      const BATCH_SIZE = autoGenerateImageUsed ? 30 : 100;
+      // [추가] fetch는 기본적으로 타임아웃이 없어서, 서버가 응답을 못 주고 멈추면
+      // "가져오는 중..."에서 화면이 무한정 멈춰있는 것처럼 보였다(실제로 이런 사례가
+      // 있었다). 배치당 90초 넘게 응답이 없으면 타임아웃으로 명확히 실패 처리한다.
+      const BATCH_TIMEOUT_MS = 90_000;
+
       let latestFullContactList: BusinessCard[] = [];
       let totalSkippedDuplicates = 0;
       for (let i = 0; i < finalList.length; i += BATCH_SIZE) {
         const batch = finalList.slice(i, i + BATCH_SIZE);
         setImportStatus(`⏳ 가져오는 중... (${Math.min(i + BATCH_SIZE, finalList.length)}/${finalList.length}건)`);
 
-        const res = await fetch('/api/contacts/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ importedContacts: batch })
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), BATCH_TIMEOUT_MS);
+
+        let res: Response;
+        try {
+          res = await fetch('/api/contacts/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ importedContacts: batch }),
+            signal: controller.signal
+          });
+        } catch (fetchErr: any) {
+          if (fetchErr?.name === 'AbortError') {
+            throw new Error(
+              `${i + 1}~${i + batch.length}번째 항목 처리 중 서버 응답이 90초 넘게 없어서 중단했습니다. ` +
+              `지금까지(${i}건)는 이미 저장됐을 수 있으니 명함 목록을 확인해보시고, ` +
+              `"명함 이미지 자동 생성" 옵션을 끄고 나머지를 다시 가져오기 해보세요.`
+            );
+          }
+          throw fetchErr;
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         // [수정] res.json()을 바로 부르면, 서버가 에러 페이지(HTML/텍스트)를 돌려줬을 때
         // Safari에서 알아보기 힘든 에러가 난다. 먼저 상태와 응답 형식을 확인해서
