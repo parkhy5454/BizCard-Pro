@@ -649,7 +649,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
 
               {/* [추가] 스코프 병합 도구 — 고아 데이터(잘못된 사업자번호로 엉뚱한 곳에 쌓인 데이터)를
                   올바른 스코프로 옮기는 일회성 도구. 위 회사 카드의 단축 버튼으로 채우거나 직접 입력. */}
-              <div className="bg-rose-50 border border-rose-900/40 rounded-2xl p-4 space-y-3">
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-3">
                 <div>
                   <p className="text-xs font-bold text-rose-600">⚠️ 스코프 병합 도구 (되돌릴 수 없음)</p>
                   <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
