@@ -41,48 +41,48 @@ export const WithdrawAccountModal: React.FC<Props> = ({ currentUser, onClose, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-400" />
-            <h2 className="text-sm font-bold text-slate-100">회원 탈퇴</h2>
+            <h2 className="text-sm font-bold text-slate-800">회원 탈퇴</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-800 text-slate-500">
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
-          <div className="text-xs text-slate-400 leading-relaxed bg-rose-500/5 border border-rose-500/20 rounded-xl p-3">
+          <div className="text-xs text-slate-500 leading-relaxed bg-rose-500/5 border border-rose-500/20 rounded-xl p-3">
             {isCompany ? (
               <>
-                탈퇴하면 <b className="text-rose-300">이 계정으로의 로그인만 완전히 삭제</b>됩니다.
+                탈퇴하면 <b className="text-rose-600">이 계정으로의 로그인만 완전히 삭제</b>됩니다.
                 같은 회사 동료들이 공유 중인 명함·프로젝트 등의 데이터는 그대로 남습니다.
                 (본인이 유일한 관리자이고 다른 동료가 남아있다면, 먼저 다른 관리자를 지정해야
                 탈퇴할 수 있습니다.)
               </>
             ) : (
               <>
-                탈퇴하면 <b className="text-rose-300">명함, 프로젝트, 차량기록 등 이 계정의 모든 데이터가
+                탈퇴하면 <b className="text-rose-600">명함, 프로젝트, 차량기록 등 이 계정의 모든 데이터가
                 즉시 영구적으로 삭제</b>되며 복구할 수 없습니다.
               </>
             )}
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">비밀번호 확인</label>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">비밀번호 확인</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="현재 비밀번호"
-              className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
               계속하려면 <span className="text-rose-400 font-bold">탈퇴</span>를 입력하세요
             </label>
             <input
@@ -90,7 +90,7 @@ export const WithdrawAccountModal: React.FC<Props> = ({ currentUser, onClose, on
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="탈퇴"
-              className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
             />
           </div>
 
@@ -99,7 +99,7 @@ export const WithdrawAccountModal: React.FC<Props> = ({ currentUser, onClose, on
           <div className="flex gap-2 pt-1">
             <button
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors"
+              className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
             >
               취소
             </button>

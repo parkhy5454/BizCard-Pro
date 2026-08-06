@@ -552,7 +552,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                                 <button
                                   type="button"
                                   onClick={() => setCameraTarget('front')}
-                                  className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 transition-colors"
+                                  className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
                                 >
                                   <Camera className="w-3.5 h-3.5" />
                                   앞면 재촬영
@@ -593,7 +593,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                                 <button
                                   type="button"
                                   onClick={() => setCameraTarget('back')}
-                                  className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 transition-colors"
+                                  className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
                                 >
                                   <Camera className="w-3.5 h-3.5" />
                                   뒷면 재촬영

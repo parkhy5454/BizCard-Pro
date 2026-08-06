@@ -71,6 +71,10 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
+  // [추가] 사업자번호는 같은데 회사명 표기가 갈린 사례들 (운영자 전용)
+  interface CompanyMismatch { businessNumber: string; variants: { companyName: string; count: number }[]; }
+  const [companyMismatches, setCompanyMismatches] = useState<CompanyMismatch[] | null>(null);
+  const [normalizingBizNum, setNormalizingBizNum] = useState<string | null>(null);
   const [expandedScopeId, setExpandedScopeId] = useState<string | null>(null);
   const [showIndividuals, setShowIndividuals] = useState<boolean>(false);
 
@@ -111,10 +115,37 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
       if (!res.ok) throw new Error('통계 조회 실패');
       const data = await res.json();
       setStats(data);
+
+      // [추가] 통계와 같이 회사명 표기 불일치 목록도 불러온다
+      const mismatchRes = await fetch('/api/admin/company-name-mismatches', { headers });
+      if (mismatchRes.ok) setCompanyMismatches(await mismatchRes.json());
     } catch (err) {
       console.error('운영 현황 조회 실패:', err);
     } finally {
       setStatsLoading(false);
+    }
+  };
+
+  // 표기 하나를 골라서 그 사업자번호에 속한 모든 사용자의 회사명을 그걸로 통일한다
+  const handleNormalizeCompanyName = async (businessNumber: string, canonicalName: string) => {
+    if (!window.confirm(`이 사업자번호(${businessNumber})에 속한 모든 회원의 회사명을 "${canonicalName}"으로 통일할까요?`)) return;
+    setNormalizingBizNum(businessNumber);
+    try {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (currentUser) headers['x-user-id'] = currentUser.id;
+      const res = await fetch('/api/admin/normalize-company-name', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ businessNumber, canonicalName })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '정정에 실패했습니다.');
+      setCompanyMismatches((prev) => (prev || []).filter((m) => m.businessNumber !== businessNumber));
+      alert(`${data.updatedCount}명의 회사명을 "${canonicalName}"으로 통일했습니다.`);
+    } catch (err: any) {
+      alert(err.message || '정정 중 오류가 발생했습니다.');
+    } finally {
+      setNormalizingBizNum(null);
     }
   };
 
@@ -463,6 +494,41 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                   <span className="text-[10px] text-white/80">개인 계정</span>
                 </div>
               </div>
+
+              {/* [추가] 사업자번호는 같은데 회사명 표기가 갈린 사례 (운영자 전용 정정 도구) */}
+              {companyMismatches && companyMismatches.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
+                    ⚠️ 회사명 표기가 갈린 사례 ({companyMismatches.length}건)
+                  </span>
+                  <p className="text-[11px] text-slate-400 -mt-1">
+                    같은 사업자번호인데 회사명 표기가 달라 화면에 별도 회사로 나뉘어 보이는 경우입니다.
+                    실제 데이터는 이미 공유되고 있으니, 아래에서 표기만 하나로 통일해주면 됩니다.
+                  </p>
+                  {companyMismatches.map((m) => (
+                    <div key={m.businessNumber} className="bg-rose-50 border border-rose-100 rounded-2xl p-3.5 space-y-2">
+                      <p className="text-[11px] font-mono text-slate-500">사업자번호: {m.businessNumber}</p>
+                      <div className="space-y-1.5">
+                        {m.variants.map((v) => (
+                          <div key={v.companyName} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                            <span className="text-xs font-semibold text-slate-800">
+                              {v.companyName} <span className="text-slate-400 font-normal">({v.count}명)</span>
+                            </span>
+                            <button
+                              type="button"
+                              disabled={normalizingBizNum === m.businessNumber}
+                              onClick={() => handleNormalizeCompanyName(m.businessNumber, v.companyName)}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[11px] font-bold transition-colors shrink-0"
+                            >
+                              이걸로 통일
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* 기능별 전체 사용 빈도 */}
               {Object.keys(stats.featureTotals).length > 0 && (

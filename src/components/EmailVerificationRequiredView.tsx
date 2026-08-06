@@ -60,31 +60,31 @@ export const EmailVerificationRequiredView: React.FC<Props> = ({ currentUser, on
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-2xl">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-2xl">
         <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-5">
           <MailCheck className="w-7 h-7 text-indigo-400" />
         </div>
 
         {status === 'verifying' && (
           <>
-            <h1 className="text-lg font-bold text-slate-100 mb-2">인증 확인 중...</h1>
-            <p className="text-sm text-slate-400">잠시만 기다려주세요.</p>
+            <h1 className="text-lg font-bold text-slate-800 mb-2">인증 확인 중...</h1>
+            <p className="text-sm text-slate-500">잠시만 기다려주세요.</p>
           </>
         )}
 
         {status === 'verified' && (
           <>
-            <h1 className="text-lg font-bold text-slate-100 mb-2">이메일 인증이 완료됐습니다</h1>
-            <p className="text-sm text-slate-400 mb-6">잠시 후 자동으로 이동합니다.</p>
+            <h1 className="text-lg font-bold text-slate-800 mb-2">이메일 인증이 완료됐습니다</h1>
+            <p className="text-sm text-slate-500 mb-6">잠시 후 자동으로 이동합니다.</p>
           </>
         )}
 
         {(status === 'idle' || status === 'error') && (
           <>
-            <h1 className="text-lg font-bold text-slate-100 mb-2">이메일 인증이 필요합니다</h1>
-            <p className="text-sm text-slate-400 leading-relaxed mb-2">
-              <span className="text-slate-200 font-medium">{currentUser.email}</span>로 보내드린 인증 메일의 링크를 눌러주세요.
+            <h1 className="text-lg font-bold text-slate-800 mb-2">이메일 인증이 필요합니다</h1>
+            <p className="text-sm text-slate-500 leading-relaxed mb-2">
+              <span className="text-slate-700 font-medium">{currentUser.email}</span>로 보내드린 인증 메일의 링크를 눌러주세요.
             </p>
             {status === 'error' && (
               <p className="text-xs text-rose-400 mb-4">{message}</p>
@@ -104,7 +104,7 @@ export const EmailVerificationRequiredView: React.FC<Props> = ({ currentUser, on
 
         <button
           onClick={onLogout}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
           로그아웃

@@ -49,8 +49,12 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     return text.includes(searchTerm.toLowerCase());
   });
 
-  // [추가] 회사별로 묶어서 보여주기 위한 그룹핑. 같은 회사명+사업자번호는 하나의 그룹으로,
-  // 개인 회원은 별도로 "개인 회원" 그룹에 모은다.
+  // [수정] 예전엔 "회사명 + 사업자번호"가 둘 다 같아야 한 그룹으로 묶었는데, 실제 데이터
+  // 공유 범위(서버의 scopeIdForUser)는 사업자번호"만"으로 정해진다. 그래서 "(주)OO"와
+  // "주식회사 OO"처럼 표기만 달라도 실제로는 같은 회사(같은 데이터)인데 화면에는 따로
+  // 나뉘어 보이는 문제가 있었다. 이제 사업자번호만으로 묶어서, 표기가 달라도 항상 하나로
+  // 보이게 한다 (관리자가 회사명을 통일해주기 전까지는, 그 그룹 안에 표기가 다른 이름이
+  // 섞여 보일 수 있는데, 이건 정상이고 "회사명이 다른 동료가 있다"는 신호로 봐도 된다).
   interface DirectoryGroup {
     key: string;
     label: string;
@@ -63,11 +67,14 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     const individualGroup: DirectoryGroup = { key: '__individual__', label: '개인 회원', isIndividualGroup: true, members: [] };
     for (const u of filteredUsers) {
       if (u.type === 'company') {
-        const key = `${(u.companyName || '').trim().toLowerCase()}|${(u.businessNumber || '').trim().toLowerCase()}`;
+        const key = (u.businessNumber || '').trim().toLowerCase() || `__no-biznum__${u.id}`;
         if (!map.has(key)) {
           map.set(key, { key, label: u.companyName || '(회사명 미상)', businessNumber: u.businessNumber, isIndividualGroup: false, members: [] });
         }
-        map.get(key)!.members.push(u);
+        const group = map.get(key)!;
+        group.members.push(u);
+        // 그룹 이름표는 "관리자"가 쓰는 회사명을 우선한다 (가장 대표성 있는 표기로 간주).
+        if (u.role === 'admin' && u.companyName) group.label = u.companyName;
       } else {
         individualGroup.members.push(u);
       }
@@ -77,7 +84,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
   })();
 
   const myGroupKey = currentUser.type === 'company'
-    ? `${(currentUser.companyName || '').trim().toLowerCase()}|${(currentUser.businessNumber || '').trim().toLowerCase()}`
+    ? ((currentUser.businessNumber || '').trim().toLowerCase() || `__no-biznum__${currentUser.id}`)
     : '__individual__';
 
   // [추가] 엑셀(CSV)로 다운로드하는 기능. 별도 라이브러리 없이 브라우저 기능만으로 동작하며,
@@ -376,6 +383,16 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                                   {u.type === 'company' && u.approvalStatus === 'pending' && (
                                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-500/20">
                                       승인 대기
+                                    </span>
+                                  )}
+                                  {/* [추가] 이 사람의 회사명 표기가 그룹 대표 표기와 다르면 알려준다.
+                                  (예: 그룹은 "(주)OO"인데 이 사람만 "주식회사 OO"로 가입한 경우) */}
+                                  {!g.isIndividualGroup && u.companyName && u.companyName !== g.label && (
+                                    <span
+                                      title={`이 회사 대표 표기("${g.label}")와 다른 이름으로 가입돼 있어요: "${u.companyName}"`}
+                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-500/20 cursor-help"
+                                    >
+                                      ⚠️ 표기 다름: {u.companyName}
                                     </span>
                                   )}
                                 </div>
