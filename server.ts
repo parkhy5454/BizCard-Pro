@@ -947,7 +947,8 @@ const PENDING_APPROVAL_ALLOWED_PATHS = new Set([
   '/api/auth/reset-password',
   '/api/auth/verify-email',
   '/api/auth/resend-verification',
-  '/api/auth/withdraw'
+  '/api/auth/withdraw',
+  '/api/auth/lookup-company' // 회원가입 화면에서 로그인 전에도 써야 하는 유일한 공개 API
 ]);
 
 app.use((req, res, next) => {
@@ -956,7 +957,19 @@ app.use((req, res, next) => {
 
   const userId = req.headers['x-user-id'] as string;
   const requester = userId ? users.find(u => u.id === userId) : undefined;
-  if (requester && requester.type === 'company' && requester.approvalStatus === 'pending') {
+
+  // [수정] 심각한 구조적 문제를 막는다: 예전에는 로그인 세션이 없거나 만료돼도 이
+  // 아래 라우트들이 그냥 통과됐고, resolveScopeId()가 조용히 "default"라는 익명
+  // 공유 스코프로 처리해버렸다. 그 상태로 명함을 등록하면 "내 화면(같은 세션)"에는
+  // 보이지만, 실제 내 계정 스코프에는 저장이 안 돼서 다른 기기/새로고침에서는 안
+  // 보이는 문제가 있었다 — 겉으로는 "저장 성공"처럼 보여서 원인 파악이 특히 어려웠다.
+  // 이제는 로그인 확인 API(/api/auth/*) 외의 모든 API는 유효한 로그인 세션이 없으면
+  // 여기서 바로 401로 막는다 — "default" 스코프로 조용히 새어나가는 경로를 원천 차단.
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다. 다시 로그인해주세요.', sessionExpired: true });
+  }
+
+  if (requester.type === 'company' && requester.approvalStatus === 'pending') {
     return res.status(403).json({
       error: '아직 회사 관리자의 승인을 받지 못했습니다. 승인 후 이용할 수 있습니다.',
       pendingApproval: true
@@ -964,7 +977,7 @@ app.use((req, res, next) => {
   }
   // [추가] 이메일 인증도 승인 대기와 같은 방식으로 막는다: 로그인은 되지만(그래야
   // "인증 메일을 확인해주세요" 화면을 보여줄 수 있음) 그 외 API는 다 막는다.
-  if (requester && !isEmailVerified(requester.emailVerified)) {
+  if (!isEmailVerified(requester.emailVerified)) {
     return res.status(403).json({
       error: '이메일 인증이 필요합니다. 받으신 인증 메일의 링크를 눌러주세요.',
       emailVerificationRequired: true
