@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project } from '../types.js';
 
 interface Props {
@@ -17,6 +17,9 @@ interface Props {
   // [추가] "관계 인텔리전스" 패널의 전화 버튼에서도, 눌렀을 때 자동으로 통화 시도 기록을
   // 남기기 위해 필요. 선택값이라, 이 prop을 안 넘겨도 기존처럼 그냥 전화만 걸린다.
   onAddCallHistory?: (contactId: string, record: { type: 'incoming' | 'outgoing' | 'missed'; note?: string }) => void;
+  // [추가] 정렬 방식 — 부모(App.tsx)가 실제 정렬을 처리하고, 여기서는 드롭다운 UI만 보여준다.
+  sortOrder?: 'recent' | 'name';
+  setSortOrder?: (order: 'recent' | 'name') => void;
 }
 
 const formatCallDate = (isoStr: string) => {
@@ -34,7 +37,7 @@ const formatCallDate = (isoStr: string) => {
   }
 };
 
-export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onNavigateToProjects, onAddCallHistory }) => {
+export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -344,8 +347,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
       })()}
 
       {/* 명함 검색 영역 */}
-      <div className="max-w-md mx-auto relative">
-        <div className="relative">
+      <div className="max-w-lg mx-auto flex items-center gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
@@ -363,6 +366,21 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
             </button>
           )}
         </div>
+        {/* [추가] 정렬 방식 선택 - 최신순(기본)/이름순 */}
+        {setSortOrder && (
+          <div className="relative shrink-0">
+            <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'recent' | 'name')}
+              className="pl-8 pr-3 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer shadow-inner"
+              title="명함 정렬 방식"
+            >
+              <option value="recent">최신 등록순</option>
+              <option value="name">이름순</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {contacts.length === 0 ? (
