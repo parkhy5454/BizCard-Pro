@@ -1583,6 +1583,74 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
 });
 
 // 관리자 전용: 최근 관리자 작업 감사 로그 조회 (역할 변경, 승인/거절 등)
+// [추가] 운영자 전용: 사업자번호는 같은데 회사명 표기가 갈려서(예: "(주)OO" vs "주식회사 OO")
+// 화면에 별도 회사로 나뉘어 보이는 사례를 전체 훑어서 찾아준다. 실제 데이터(명함 등)는
+// 사업자번호 기준으로 이미 공유되고 있으니, 여기서는 "표시용 회사명"만 통일하면 된다.
+app.get('/api/admin/company-name-mismatches', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester || requester.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: '접근 권한이 없습니다.' });
+  }
+
+  const byBusinessNumber = new Map<string, { companyName: string; count: number }[]>();
+  for (const u of users) {
+    if (u.type !== 'company' || !u.businessNumber) continue;
+    const bNum = u.businessNumber.trim();
+    const cName = (u.companyName || '').trim();
+    if (!bNum || !cName) continue;
+    const arr = byBusinessNumber.get(bNum) || [];
+    const found = arr.find(x => x.companyName === cName);
+    if (found) found.count++; else arr.push({ companyName: cName, count: 1 });
+    byBusinessNumber.set(bNum, arr);
+  }
+
+  const mismatches = Array.from(byBusinessNumber.entries())
+    .filter(([, names]) => names.length > 1)
+    .map(([businessNumber, names]) => ({ businessNumber, variants: names }));
+
+  res.json(mismatches);
+});
+
+// [추가] 운영자 전용: 특정 사업자번호에 속한 모든 사용자의 회사명 표기를 하나로 통일한다.
+app.post('/api/admin/normalize-company-name', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester || requester.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: '접근 권한이 없습니다.' });
+  }
+
+  const { businessNumber, canonicalName } = req.body;
+  if (!businessNumber || !canonicalName) {
+    return res.status(400).json({ error: 'businessNumber와 canonicalName이 모두 필요합니다.' });
+  }
+
+  const bNum = String(businessNumber).trim();
+  const targets = users.filter(u => u.type === 'company' && (u.businessNumber || '').trim() === bNum);
+  if (targets.length === 0) {
+    return res.status(404).json({ error: '해당 사업자번호로 가입된 사용자가 없습니다.' });
+  }
+
+  let updatedCount = 0;
+  for (const u of targets) {
+    if (u.companyName !== canonicalName) {
+      u.companyName = canonicalName;
+      await addUser(u);
+      updatedCount++;
+    }
+  }
+
+  await logAudit({
+    scopeId: `company:${bNum}`,
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'company_name_normalized',
+    detail: { businessNumber: bNum, canonicalName, updatedCount }
+  });
+
+  res.json({ success: true, updatedCount });
+});
+
 app.get('/api/auth/audit-logs', async (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
