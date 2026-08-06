@@ -1273,10 +1273,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     try {
       if (editingAdvanceId) {
         const res = await fetch(`/api/approvals/advance/${editingAdvanceId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`정산서 저장에 실패했습니다 (상태: ${res.status}).`);
         const updated = await res.json();
         setAdvanceList(prev => prev.map(d => d.id === editingAdvanceId ? updated : d));
       } else {
         const res = await fetch('/api/approvals/advance', { method: 'POST', headers, body: JSON.stringify({ ...payload, status: 'pending' }) });
+        if (!res.ok) throw new Error(`정산서 저장에 실패했습니다 (상태: ${res.status}).`);
         const created = await res.json();
         setAdvanceList(prev => [created, ...prev]);
       }
@@ -1310,10 +1312,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     try {
       if (editingLeaveId) {
         const res = await fetch(`/api/approvals/leave/${editingLeaveId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`휴가신청서 저장에 실패했습니다 (상태: ${res.status}).`);
         const updated = await res.json();
         setLeaveList(prev => prev.map(d => d.id === editingLeaveId ? updated : d));
       } else {
         const res = await fetch('/api/approvals/leave', { method: 'POST', headers, body: JSON.stringify({ ...payload, status: 'pending' }) });
+        if (!res.ok) throw new Error(`휴가신청서 저장에 실패했습니다 (상태: ${res.status}).`);
         const created = await res.json();
         setLeaveList(prev => [created, ...prev]);
       }
@@ -1328,15 +1332,25 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   const deleteAdvance = async (id: string) => {
     if (!currentUser) return;
     if (!confirm('이 정산서를 삭제하시겠습니까?')) return;
-    await fetch(`/api/approvals/advance/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
-    setAdvanceList(prev => prev.filter(d => d.id !== id));
+    try {
+      const res = await fetch(`/api/approvals/advance/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
+      setAdvanceList(prev => prev.filter(d => d.id !== id));
+    } catch (err: any) {
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
   };
 
   const deleteLeave = async (id: string) => {
     if (!currentUser) return;
     if (!confirm('이 휴가 신청서를 삭제하시겠습니까?')) return;
-    await fetch(`/api/approvals/leave/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
-    setLeaveList(prev => prev.filter(d => d.id !== id));
+    try {
+      const res = await fetch(`/api/approvals/leave/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
+      setLeaveList(prev => prev.filter(d => d.id !== id));
+    } catch (err: any) {
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
   };
 
   // 결재선의 다음 미결 단계에 오늘 날짜로 승인 처리 (모든 단계가 끝나면 문서 상태를 승인으로 전환)
@@ -1352,14 +1366,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const allDone = line.every(s => !!s.date);
     const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
     const body = JSON.stringify({ approvalLine: line, status: allDone ? 'approved' : 'pending' });
-    if (kind === 'advance') {
-      const res = await fetch(`/api/approvals/advance/${id}`, { method: 'PUT', headers, body });
-      const updated = await res.json();
-      setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
-    } else {
-      const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
-      const updated = await res.json();
-      setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+    try {
+      if (kind === 'advance') {
+        const res = await fetch(`/api/approvals/advance/${id}`, { method: 'PUT', headers, body });
+        if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
+      } else {
+        const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
+        if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+      }
+    } catch (err: any) {
+      alert(`승인 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1368,14 +1388,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const memo = prompt('반려 사유를 입력해 주세요.') || '';
     const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
     const body = JSON.stringify({ status: 'rejected', approverMemo: memo });
-    if (kind === 'advance') {
-      const res = await fetch(`/api/approvals/advance/${id}`, { method: 'PUT', headers, body });
-      const updated = await res.json();
-      setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
-    } else {
-      const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
-      const updated = await res.json();
-      setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+    try {
+      if (kind === 'advance') {
+        const res = await fetch(`/api/approvals/advance/${id}`, { method: 'PUT', headers, body });
+        if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
+      } else {
+        const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
+        if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+      }
+    } catch (err: any) {
+      alert(`반려 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
   };
 

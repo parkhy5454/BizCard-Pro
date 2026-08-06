@@ -1265,13 +1265,19 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           const savedContact = await contactRes.json();
           setContacts(prev => [savedContact, ...prev]);
           finalContactIds.push(savedContact.id);
+        } else {
+          // [수정] 실패하면 그냥 넘어가지 않고 명확히 알린다 — 이 명함 연결 없이 업무일지만
+          // 저장할지 사용자가 판단할 수 있게, 저장을 중단한다.
+          const errText = await contactRes.text().catch(() => '');
+          throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}). ${errText.slice(0, 100)}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        // [수정] 예전엔 여기서 실패하면 화면에만 존재하는 "가짜 연락처"를 만들어서 마치
+        // 저장된 것처럼 보여줬다 — 새로고침하면 사라지는 유령 데이터였다. 이제는 가짜
+        // 데이터를 만들지 않고, 업무일지 저장 자체를 중단해서 사용자가 다시 시도하게 한다.
         console.error('Failed to save direct contact:', err);
-        const fakeContactId = `c-${Date.now()}`;
-        const fakeContact = { id: fakeContactId, ...newCardData, createdAt: new Date().toISOString(), callHistory: [] };
-        setContacts(prev => [fakeContact as any, ...prev]);
-        finalContactIds.push(fakeContactId);
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n업무일지 저장이 중단되었습니다.`);
+        return;
       }
     }
 
@@ -1292,18 +1298,22 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         };
 
         if (editingLogId) {
-          const res = await fetch(`/api/worklogs/daily/${editingLogId}`, {
+          const rawRes = await fetch(`/api/worklogs/daily/${editingLogId}`, {
             method: 'PUT',
             headers,
             body: JSON.stringify(payload)
-          }).then(r => r.json());
+          });
+          if (!rawRes.ok) throw new Error(`일일업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
           setDailyLogs(prev => prev.map(l => l.id === editingLogId ? res : l));
         } else {
-          const res = await fetch('/api/worklogs/daily', {
+          const rawRes = await fetch('/api/worklogs/daily', {
             method: 'POST',
             headers,
             body: JSON.stringify(payload)
-          }).then(r => r.json());
+          });
+          if (!rawRes.ok) throw new Error(`일일업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
           setDailyLogs(prev => [res, ...prev]);
         }
 
@@ -1342,13 +1352,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             };
 
             try {
-              const weeklyRes = await fetch(`/api/worklogs/weekly/${matchedWeekly.id}`, {
+              const weeklyRawRes = await fetch(`/api/worklogs/weekly/${matchedWeekly.id}`, {
                 method: 'PUT',
                 headers,
                 body: JSON.stringify(weeklyPayload)
-              }).then(r => r.json());
+              });
+              if (!weeklyRawRes.ok) throw new Error(`연동된 주간업무일지 갱신 실패 (상태: ${weeklyRawRes.status})`);
+              const weeklyRes = await weeklyRawRes.json();
               setWeeklyLogs(prev => prev.map(w => w.id === matchedWeekly.id ? weeklyRes : w));
             } catch (err) {
+              // [수정] 이건 부가 기능(일일 저장에 딸려서 자동으로 되는 연동)이라, 실패해도 방금
+              // 저장한 일일업무일지 자체는 이미 정상 저장된 상태다. 그래서 alert로 흐름을
+              // 끊지 않고 콘솔에만 남기되, 최소한 잘못된 데이터로 화면을 덮어쓰지는 않는다.
               console.error('Failed to sync with weekly log:', err);
             }
           }
@@ -1391,18 +1406,22 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         };
 
         if (editingLogId) {
-          const res = await fetch(`/api/worklogs/weekly/${editingLogId}`, {
+          const rawRes = await fetch(`/api/worklogs/weekly/${editingLogId}`, {
             method: 'PUT',
             headers,
             body: JSON.stringify(payload)
-          }).then(r => r.json());
+          });
+          if (!rawRes.ok) throw new Error(`주간업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
           setWeeklyLogs(prev => prev.map(l => l.id === editingLogId ? res : l));
         } else {
-          const res = await fetch('/api/worklogs/weekly', {
+          const rawRes = await fetch('/api/worklogs/weekly', {
             method: 'POST',
             headers,
             body: JSON.stringify(payload)
-          }).then(r => r.json());
+          });
+          if (!rawRes.ok) throw new Error(`주간업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
           setWeeklyLogs(prev => [res, ...prev]);
         }
       }
@@ -1419,18 +1438,20 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     if (!confirm('이 업무일지를 정말로 삭제하시겠습니까? 데이터는 즉시 제거됩니다.')) return;
     
     try {
-      await fetch(`/api/worklogs/${type}/${id}`, {
+      const res = await fetch(`/api/worklogs/${type}/${id}`, {
         method: 'DELETE',
         headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
       });
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       if (type === 'daily') {
         setDailyLogs(prev => prev.filter(l => l.id !== id));
       } else {
         setWeeklyLogs(prev => prev.filter(l => l.id !== id));
       }
       if (expandedLogId === id) setExpandedLogId(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Delete error:', err);
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
   };
 
