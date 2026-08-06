@@ -280,18 +280,37 @@ export async function ensureScopeInitialized(scopeId: string, initialData: {
 }
 
 // 특정 스코프의 컬렉션 전체 조회
+// [수정] Supabase(PostgREST)는 한 번의 조회에 기본적으로 최대 1,000행까지만 돌려준다.
+// 이 함수가 그 이상을 나눠서 더 가져오는 처리 없이 그냥 한 번만 조회했기 때문에, 명함이
+// 1,000건을 넘는 회사/사용자는 실제로는 다 저장돼 있는데도 화면에는 딱 1,000건까지만
+// 보이는 문제가 있었다("2,100건 저장했는데 1,000건만 보임"). 이제는 1,000건씩 끊어서
+// 더 가져올 데이터가 없을 때까지 반복 조회한 뒤 전부 합쳐서 반환한다.
 export async function getScopedCollection<T>(scopeId: string, collectionName: string): Promise<T[]> {
   if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase
-    .from('scoped_items')
-    .select('data')
-    .eq('scope_id', scopeId)
-    .eq('collection', collectionName);
-  if (error) {
-    console.error(`getScopedCollection(${scopeId}, ${collectionName}) error:`, error);
-    return [];
+  const PAGE_SIZE = 1000;
+  const allRows: any[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('scoped_items')
+      .select('data')
+      .eq('scope_id', scopeId)
+      .eq('collection', collectionName)
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error(`getScopedCollection(${scopeId}, ${collectionName}) error:`, error);
+      break;
+    }
+    if (!data || data.length === 0) break;
+
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break; // 이번 페이지가 꽉 안 찼으면 더 가져올 게 없다는 뜻
+    from += PAGE_SIZE;
   }
-  return (data || []).map(row => row.data as T);
+
+  return allRows.map(row => row.data as T);
 }
 
 export async function getScopedDoc<T>(scopeId: string, collectionName: string, docId: string): Promise<T | null> {
@@ -420,14 +439,33 @@ export async function replaceScopedCollection<T extends { id: string }>(scopeId:
 // ------------------------------------------------------------------
 // 사용자(로그인 계정) 관리 — 별도 app_users 테이블 사용
 // ------------------------------------------------------------------
+// [수정] 명함(getScopedCollection)과 같은 이유로, 가입 회원이 1,000명을 넘으면 그 이후
+// 가입한 사람들이 서버 시작 시 메모리에 안 올라와서 로그인 자체가 안 되는 심각한 문제로
+// 이어질 수 있었다. 여기도 1,000건씩 끊어서 전부 가져오도록 고친다.
 export async function getUsers(): Promise<RegisteredUser[]> {
   if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase.from('app_users').select('data');
-  if (error) {
-    console.error('getUsers error:', error);
-    return [];
+  const PAGE_SIZE = 1000;
+  const allRows: any[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('data')
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error('getUsers error:', error);
+      break;
+    }
+    if (!data || data.length === 0) break;
+
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
-  return (data || []).map(row => row.data as RegisteredUser);
+
+  return allRows.map(row => row.data as RegisteredUser);
 }
 
 export async function addUser(user: RegisteredUser): Promise<void> {
