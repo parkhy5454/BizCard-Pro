@@ -79,7 +79,12 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         individualGroup.members.push(u);
       }
     }
-    const companyGroups = Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+    // [수정] 예전엔 회사명 가나다순으로 정렬했는데, 최근에 가입한 회사가 아래로 밀려서
+    // 눈에 잘 안 띄는 문제가 있었다. 이제는 "그 회사에서 가장 최근에 가입한 사람"의
+    // 가입 일시를 기준으로, 최신순(최근 가입자가 있는 회사가 위)으로 정렬한다.
+    const latestJoinTime = (g: DirectoryGroup) =>
+      Math.max(0, ...g.members.map((m) => (m.createdAt ? new Date(m.createdAt).getTime() : 0)));
+    const companyGroups = Array.from(map.values()).sort((a, b) => latestJoinTime(b) - latestJoinTime(a));
     return individualGroup.members.length > 0 ? [...companyGroups, individualGroup] : companyGroups;
   })();
 
