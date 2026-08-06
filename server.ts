@@ -3603,10 +3603,14 @@ app.get('/api/admin/platform-stats', async (req, res) => {
 // "가져올 스코프"의 모든 컬렉션(명함/프로젝트/차량 등)을 "옮길 대상 스코프"로 이동시키고,
 // 예전 스코프는 비운다. 되돌릴 수 없으니 반드시 fromScopeId/toScopeId를 신중히 확인할 것.
 // ------------------------------------------------------------------
+// [수정] myProfile은 다른 컬렉션(contacts, projects 등)과 저장 방식이 다르다 — "항목 여러 개
+// (각자 id 있음)"가 아니라 "스코프당 문서 딱 하나"(doc_id가 항상 'profile' 고정)라서, 아래
+// 목록형 병합 로직(item.id를 doc_id로 써서 저장)에 넣으면 doc_id가 비어서 저장이 실패한다.
+// 그래서 목록에서 빼고 별도로 처리한다.
 const MIGRATABLE_COLLECTIONS = [
   'contacts', 'projects', 'groups', 'vehicles', 'drivingLogs', 'expenses',
   'maintenances', 'maintenanceIntervals', 'dailyLogs', 'weeklyLogs',
-  'advancePayments', 'leaveRequests', 'myProfile'
+  'advancePayments', 'leaveRequests'
 ] as const;
 
 app.post('/api/admin/migrate-scope', async (req, res) => {
@@ -3635,6 +3639,20 @@ app.post('/api/admin/migrate-scope', async (req, res) => {
       await replaceScopedCollection(fromScopeId, name as any, [] as any);
 
       summary[name] = oldItems.length;
+    }
+
+    // [추가] myProfile은 "옮길 대상(to) 스코프의 프로필이 비어있을 때만" 예전(from) 스코프의
+    // 프로필로 채워준다 (to 쪽에 이미 실제 프로필이 있으면 그걸 함부로 덮어쓰지 않는다).
+    const oldProfileList = await getScopedCollection<MyProfile>(fromScopeId, 'myProfile');
+    const oldProfile = oldProfileList[0];
+    if (oldProfile) {
+      const newProfileList = await getScopedCollection<MyProfile>(toScopeId, 'myProfile');
+      const newProfile = newProfileList[0];
+      const toIsEmpty = !newProfile || (!newProfile.name && !newProfile.company && !newProfile.phoneMobile);
+      if (toIsEmpty) {
+        await setScopedProfile(toScopeId, oldProfile);
+        summary['myProfile'] = 1;
+      }
     }
 
     // 메모리 캐시를 지워서, 다음 접근 시 Supabase에서 최신 상태로 다시 불러오게 한다.
