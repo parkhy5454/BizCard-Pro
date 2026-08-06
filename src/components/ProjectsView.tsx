@@ -454,13 +454,16 @@ export const ProjectsView: React.FC<Props> = ({
           const savedContact = await contactRes.json();
           setContacts(prev => [savedContact, ...prev]);
           finalContactIds.push(savedContact.id);
+        } else {
+          throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}).`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        // [수정] 예전엔 실패해도 화면에만 존재하는 가짜 연락처를 만들어서 프로젝트를 계속
+        // 저장했다 — 새로고침하면 그 연락처 연결이 사라지는 문제였다. 이제는 프로젝트
+        // 저장 자체를 중단해서 사용자가 무슨 일이 있었는지 알고 다시 시도할 수 있게 한다.
         console.error('Failed to save direct contact:', err);
-        const fakeContactId = `c-${Date.now()}`;
-        const fakeContact = { id: fakeContactId, ...newCardData, createdAt: new Date().toISOString(), callHistory: [] };
-        setContacts(prev => [fakeContact as any, ...prev]);
-        finalContactIds.push(fakeContactId);
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n프로젝트 저장이 중단되었습니다.`);
+        return;
       }
     }
 
@@ -491,11 +494,16 @@ export const ProjectsView: React.FC<Props> = ({
         },
         body: JSON.stringify(newProj)
       });
+      if (!res.ok) throw new Error(`프로젝트 저장에 실패했습니다 (상태: ${res.status}).`);
       const created = await res.json();
       setProjects([created, ...projects]);
-    } catch {
-      const fake = { id: `p-${Date.now()}`, createdAt: new Date().toISOString(), followUps: [], ...newProj } as Project;
-      setProjects([fake, ...projects]);
+    } catch (err: any) {
+      // [수정] 예전엔 저장 실패해도 화면에만 존재하는 가짜 프로젝트를 만들어서 보여줬다 —
+      // 새로고침하거나 다른 기기에서 보면 사라지는 유령 데이터였다. 이제는 명확히 알리고
+      // 폼 입력값은 그대로 남겨서 다시 시도할 수 있게 한다.
+      console.error('Failed to create project:', err);
+      alert(`프로젝트 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      return;
     }
 
     // 초기화
@@ -574,7 +582,7 @@ export const ProjectsView: React.FC<Props> = ({
     setDirectContactEmail('');
 
     try {
-      await fetch(`/api/projects/${updated.id}`, {
+      const res = await fetch(`/api/projects/${updated.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -582,8 +590,10 @@ export const ProjectsView: React.FC<Props> = ({
         },
         body: JSON.stringify(updated)
       });
-    } catch (err) {
+      if (!res.ok) throw new Error(`프로젝트 수정에 실패했습니다 (상태: ${res.status}).`);
+    } catch (err: any) {
       console.error('Failed to update project:', err);
+      alert(`프로젝트 수정에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니, 새로고침 후 다시 확인해주세요.`);
     }
   };
 
@@ -645,12 +655,18 @@ export const ProjectsView: React.FC<Props> = ({
     e.stopPropagation();
     if (!confirm('이 프로젝트 및 관련 팔로우업 기록을 완전히 삭제하시겠습니까?')) return;
     try {
-      await fetch(`/api/projects/${id}`, { 
+      const res = await fetch(`/api/projects/${id}`, {
         method: 'DELETE',
         headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
       });
-    } finally {
+      // [수정] 예전엔 삭제 요청이 실패해도(finally 블록이라) 무조건 화면에서 지워버렸다 —
+      // 사용자는 지워진 줄 알지만 서버에는 그대로 남아있어서, 새로고침하면 다시 나타나거나
+      // 동료 화면에는 계속 보이는 혼란이 있었다. 이제는 서버 삭제가 실제로 성공했을 때만
+      // 화면에서 지운다.
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       setProjects(projects.filter((p) => p.id !== id));
+    } catch (err: any) {
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
   };
 
@@ -2188,14 +2204,19 @@ export const ProjectsView: React.FC<Props> = ({
                                         e.stopPropagation();
                                         if (confirm('이 미팅 및 팔로우업 기록을 삭제하시겠습니까?')) {
                                           try {
-                                            await fetch(`/api/projects/${proj.id}/followups/${fu.id}`, { method: 'DELETE' });
-                                          } finally {
+                                            const res = await fetch(`/api/projects/${proj.id}/followups/${fu.id}`, {
+                                              method: 'DELETE',
+                                              headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
+                                            });
+                                            if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
                                             setProjects(projects.map(p => {
                                               if (p.id === proj.id) {
                                                 return { ...p, followUps: p.followUps.filter(f => f.id !== fu.id) };
                                               }
                                               return p;
                                             }));
+                                          } catch (err: any) {
+                                            alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
                                           }
                                         }
                                       }}
