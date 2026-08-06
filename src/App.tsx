@@ -46,6 +46,9 @@ export default function App() {
   // 필터 및 검색
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
+  // [추가] 명함 정렬 방식 — 기본값은 예전처럼 "최근 등록순"(서버가 새 명함을 배열
+  // 맨 앞에 추가하는 방식과 동일). 이름순도 고를 수 있게 한다.
+  const [contactSortOrder, setContactSortOrder] = useState<'recent' | 'name'>('recent');
   const [projectFilterStatus, setProjectFilterStatus] = useState<'all' | Project['status']>('all');
 
   // 모달 제어 상태
@@ -305,6 +308,13 @@ export default function App() {
       (c.memo || '').toLowerCase().includes(q)
     );
     return matchGroup && matchQuery;
+  }).sort((a, b) => {
+    // [추가] "최근 등록순"은 서버가 이미 최신순으로 내려주는 원래 배열 순서를 그대로 두고
+    // (별도 정렬 안 함), "이름순"만 여기서 가나다순으로 다시 정렬한다.
+    if (contactSortOrder === 'name') {
+      return a.name.localeCompare(b.name, 'ko');
+    }
+    return 0;
   });
 
   return (
@@ -370,6 +380,8 @@ export default function App() {
                 onDeleteContact={handleDeleteCard}
                 onNavigateToProjects={() => setActiveTab('projects')}
                 onAddCallHistory={handleAddCallHistory}
+                sortOrder={contactSortOrder}
+                setSortOrder={setContactSortOrder}
               />
             )}
 
