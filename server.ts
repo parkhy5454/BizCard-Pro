@@ -1498,7 +1498,8 @@ app.get('/api/auth/users', (req, res) => {
     businessNumber: u.businessNumber,
     position: u.position,
     role: u.role,
-    approvalStatus: u.approvalStatus
+    approvalStatus: u.approvalStatus,
+    createdAt: u.createdAt
   });
 
   // [수정] 개발자(운영자) 계정은 전체 가입 회원(모든 회사 포함)을 다 볼 수 있다.
@@ -3568,6 +3569,12 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     const individualScopeCount = scopeStats.filter(s => s.scopeId.startsWith('individual:')).length;
 
     // 기능별 전체 사용 빈도 (모든 회사 합산) - 어느 기능이 제일 많이 쓰이는지 파악용
+    // [추가] 회사도 개인 가입자와 마찬가지로, 그 회사에서 가장 최근에 가입한 사람 기준으로
+    // 최신순(최근 가입자가 있는 회사가 위) 정렬해서 응답한다.
+    const latestMemberJoin = (c: typeof companies[number]) =>
+      Math.max(0, ...c.members.map((m) => (m.createdAt ? new Date(m.createdAt).getTime() : 0)));
+    companies.sort((a, b) => latestMemberJoin(b) - latestMemberJoin(a));
+
     const featureTotals: Record<string, number> = {};
     for (const s of scopeStats) {
       for (const [collection, count] of Object.entries(s.itemCounts)) {
