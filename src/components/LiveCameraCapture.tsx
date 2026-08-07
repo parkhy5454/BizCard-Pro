@@ -67,11 +67,11 @@ function mapToDisplay(quad: Quad, srcW: number, srcH: number, dispW: number, dis
   return quad.map(([x, y]) => [x * scale + offsetX, y * scale + offsetY]) as Quad;
 }
 
-// (구) 고정 가이드 사각형 기준 크롭 — OpenCV 미지원/미감지 시 안전한 대체 동작
-function fallbackCenterCrop(video: HTMLVideoElement, container: HTMLDivElement | null, aspect: number): string {
+// [추가] 화면에 보이는 가이드 사각형이, 실제 촬영되는 영상(video) 좌표계에서 어디에
+// 해당하는지 계산한다. fallbackCenterCrop과 아래 검증 로직이 똑같은 계산을 공유한다.
+function getGuideBoundsInVideoSpace(video: HTMLVideoElement, container: HTMLDivElement | null, aspect: number) {
   const cw = container?.clientWidth || video.clientWidth || video.videoWidth;
   const ch = container?.clientHeight || video.clientHeight || video.videoHeight;
-  // [수정] 8% -> 4%: StaticGuideOverlay와 동일하게 맞춰, 화면에 보이는 가이드 박스와 실제 잘리는 영역이 일치하도록 함
   const marginRatio = 0.04;
   let w = cw * (1 - marginRatio * 2);
   let h = w / aspect;
@@ -94,10 +94,12 @@ function fallbackCenterCrop(video: HTMLVideoElement, container: HTMLDivElement |
     scale = videoW / cw;
     offsetY = (videoH - ch * scale) / 2;
   }
-  const sx = offsetX + x * scale;
-  const sy = offsetY + y * scale;
-  const sw = w * scale;
-  const sh = h * scale;
+  return { x: offsetX + x * scale, y: offsetY + y * scale, w: w * scale, h: h * scale };
+}
+
+// (구) 고정 가이드 사각형 기준 크롭 — OpenCV 미지원/미감지 시 안전한 대체 동작
+function fallbackCenterCrop(video: HTMLVideoElement, container: HTMLDivElement | null, aspect: number): string {
+  const { x: sx, y: sy, w: sw, h: sh } = getGuideBoundsInVideoSpace(video, container, aspect);
 
   const outScale = Math.max(sw, sh) > OUTPUT_LONG_SIDE ? OUTPUT_LONG_SIDE / Math.max(sw, sh) : 1;
   const canvas = document.createElement('canvas');
@@ -281,6 +283,31 @@ export const LiveCameraCapture: React.FC<Props> = ({
             // 정밀 재감지가 실패한 경우에만, 실시간 감지 때 찾았던 좌표를 확대해서 대체 사용
             const { quad, detectW, detectH } = lastRawQuadRef.current;
             quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
+          }
+
+          if (quadToUse) {
+            // [추가] 자동 감지는 화면 전체에서 "사각형처럼 보이는 것"을 찾는 방식이라, 조명이나
+            // 배경(책상 무늬, 다른 물건 등) 때문에 실제 명함 경계보다 훨씬 크게(가이드 박스
+            // 밖까지) 잡히는 경우가 있었다. 화면에 보여준 가이드 박스와 동떨어진 결과라면
+            // 신뢰하지 않고, 사용자가 실제로 맞춘 가이드 박스 그대로 잘라내는 안전한 방식으로
+            // 대체한다 — "가이드 안에 들어온 부분만 정확히" 잘리는 걸 보장하기 위함이다.
+            const guideBounds = getGuideBoundsInVideoSpace(video, containerRef.current, guideAspectRatio);
+            const qxs = quadToUse.map((p) => p[0]);
+            const qys = quadToUse.map((p) => p[1]);
+            const qMinX = Math.min(...qxs), qMaxX = Math.max(...qxs);
+            const qMinY = Math.min(...qys), qMaxY = Math.max(...qys);
+            // 가이드 박스 크기의 12%까지는 여유를 두고(명함이 가이드보다 살짝 크게 잡힌 정상
+            // 상황도 있으므로), 그 이상 벗어나면 신뢰하지 않는다.
+            const tolX = guideBounds.w * 0.12;
+            const tolY = guideBounds.h * 0.12;
+            const withinGuide =
+              qMinX >= guideBounds.x - tolX &&
+              qMaxX <= guideBounds.x + guideBounds.w + tolX &&
+              qMinY >= guideBounds.y - tolY &&
+              qMaxY <= guideBounds.y + guideBounds.h + tolY;
+            if (!withinGuide) {
+              quadToUse = null;
+            }
           }
 
           if (quadToUse) {
