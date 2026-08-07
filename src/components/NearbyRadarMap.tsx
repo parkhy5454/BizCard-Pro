@@ -205,7 +205,8 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       const res = await fetch('/api/contacts/regeocode', { method: 'POST' });
       if (!res.ok) throw new Error(`재계산에 실패했습니다 (상태: ${res.status}).`);
       const data = await res.json();
-      alert(`좌표 재계산 완료: 총 ${data.totalWithAddress}건 중 ${data.updated}건 성공, ${data.failed}건 실패.\n화면을 새로고침해서 결과를 반영합니다.`);
+      const reasonMsg = data.failed > 0 && data.firstError ? `\n(실패 사유: ${data.firstError})` : '';
+      alert(`좌표 재계산 완료: 총 ${data.totalWithAddress}건 중 ${data.updated}건 성공, ${data.failed}건 실패.${reasonMsg}\n화면을 새로고침해서 결과를 반영합니다.`);
       window.location.reload();
     } catch (err: any) {
       alert(`좌표 재계산에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
