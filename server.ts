@@ -802,8 +802,13 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   // 컬렉션 하나가 느려지거나(DB 타임아웃 등) 응답이 없어도, 다른 화면(예: 내 명함 공유)이
   // 같이 멈추지 않도록 각 컬렉션 조회에 개별 타임아웃을 둡니다. 타임아웃난 컬렉션이 있으면
   // 이번 요청은 빈 목록으로 우선 응답하되, 전체 결과는 캐싱하지 않아 다음 요청에서 다시 시도합니다.
+  // [수정] 명함 등 데이터가 1,000건을 넘으면 Supabase 조회 자체가 페이지 단위(1,000건씩)로
+  // 여러 번 왕복하게 되면서, 예전 15초 타임아웃으로는 부족해지는 경우가 생겼다(예: 2,100건
+  // 짜리 명함 목록은 3번 왕복 필요). 그 결과 "로그인하면 0개로 보이다가, 로그아웃 후 다시
+  // 로그인하면 정상적으로 다 보이는"(재시도 때는 운 좋게 시간 안에 끝남) 혼란스러운 증상이
+  // 있었다. 데이터가 많을수록 왕복이 늘어나는 걸 감안해 타임아웃을 넉넉하게 늘린다.
   let hadTimeout = false;
-  const withTimeout = <T>(promise: Promise<T[]>, label: string, ms = 15000): Promise<T[]> => {
+  const withTimeout = <T>(promise: Promise<T[]>, label: string, ms = 40000): Promise<T[]> => {
     let timer: ReturnType<typeof setTimeout>;
     const timeoutPromise = new Promise<T[]>((resolve) => {
       timer = setTimeout(() => {
