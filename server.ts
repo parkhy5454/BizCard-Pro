@@ -1017,34 +1017,51 @@ app.use(async (req, res, next) => {
 const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const result = await geocodeAddressWithDiagnostics(address);
+  return result.coords;
+}
+
+// [추가] 재계산 버튼을 눌렀는데 전부 실패하는 경우, 서버 로그를 따로 안 봐도 화면에서
+// 바로 원인을 알 수 있도록 실패 사유를 같이 돌려준다 (예: 키 미설정, 401 인증 오류 등).
+async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords: { lat: number; lng: number } | null; error?: string }> {
   const trimmed = (address || '').trim();
-  if (!trimmed) return null;
+  if (!trimmed) return { coords: null, error: '주소가 비어있음' };
   if (!KAKAO_REST_API_KEY) {
-    console.warn('KAKAO_REST_API_KEY가 설정되지 않아 주소를 좌표로 변환할 수 없습니다.');
-    return null;
+    return { coords: null, error: 'KAKAO_REST_API_KEY 환경변수가 설정되지 않음' };
   }
 
   const headers = { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` };
   try {
-    // 1차: 정확한 주소 검색
     const addrRes = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(trimmed)}`, { headers });
     if (addrRes.ok) {
       const addrData: any = await addrRes.json();
       const doc = addrData?.documents?.[0];
-      if (doc) return { lat: parseFloat(doc.y), lng: parseFloat(doc.x) };
+      if (doc) return { coords: { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } };
+    } else {
+      const bodyText = await addrRes.text().catch(() => '');
+      console.error(`카카오 주소 검색 API 오류 (상태 ${addrRes.status}):`, bodyText.slice(0, 300));
+      // 401/403이면 키 자체가 잘못됐거나 활성화가 안 된 것 -> 두 번째(키워드) 시도도
+      // 똑같이 실패할 게 뻔하니, 바로 원인을 리턴해서 헛수고를 줄인다.
+      if (addrRes.status === 401 || addrRes.status === 403) {
+        return { coords: null, error: `카카오 API 인증 실패 (상태 ${addrRes.status}) - REST API 키가 잘못됐거나, 로컬 API 사용 설정이 안 돼있을 수 있습니다.` };
+      }
     }
 
-    // 2차: 정확한 주소로 못 찾으면(오타, 건물명만 있는 경우 등) 장소 키워드 검색으로 재시도
     const keywordRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(trimmed)}`, { headers });
     if (keywordRes.ok) {
       const keywordData: any = await keywordRes.json();
       const doc = keywordData?.documents?.[0];
-      if (doc) return { lat: parseFloat(doc.y), lng: parseFloat(doc.x) };
+      if (doc) return { coords: { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } };
+      return { coords: null, error: '주소/키워드 검색 결과 없음' };
+    } else {
+      const bodyText = await keywordRes.text().catch(() => '');
+      console.error(`카카오 키워드 검색 API 오류 (상태 ${keywordRes.status}):`, bodyText.slice(0, 300));
+      return { coords: null, error: `카카오 API 오류 (상태 ${keywordRes.status})` };
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('주소 지오코딩 중 오류:', err);
+    return { coords: null, error: err.message || '네트워크 오류' };
   }
-  return null;
 }
 
 
@@ -2160,12 +2177,13 @@ app.post('/api/contacts/regeocode', async (req, res) => {
   const targets = dbData.contacts.filter(c => (c.address || '').trim());
   let updated = 0;
   let failed = 0;
+  let firstError: string | undefined;
   const CONCURRENCY = 5;
 
   for (let i = 0; i < targets.length; i += CONCURRENCY) {
     const batch = targets.slice(i, i + CONCURRENCY);
     await Promise.all(batch.map(async (c) => {
-      const coords = await geocodeAddress(c.address || '');
+      const { coords, error } = await geocodeAddressWithDiagnostics(c.address || '');
       if (coords) {
         c.lat = coords.lat;
         c.lng = coords.lng;
@@ -2173,11 +2191,12 @@ app.post('/api/contacts/regeocode', async (req, res) => {
         updated++;
       } else {
         failed++;
+        if (!firstError && error) firstError = error;
       }
     }));
   }
 
-  res.json({ success: true, totalWithAddress: targets.length, updated, failed });
+  res.json({ success: true, totalWithAddress: targets.length, updated, failed, firstError });
 });
 
 app.get('/api/contacts', (req, res) => {
