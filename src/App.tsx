@@ -334,12 +334,17 @@ export default function App() {
     );
     return matchGroup && matchQuery;
   }).sort((a, b) => {
-    // [추가] "최근 등록순"은 서버가 이미 최신순으로 내려주는 원래 배열 순서를 그대로 두고
-    // (별도 정렬 안 함), "이름순"만 여기서 가나다순으로 다시 정렬한다.
+    // [수정] "최근 등록순"이 서버가 주는 배열 순서에 그냥 의존했었는데, 명함이 1,000건을
+    // 넘어 페이지 단위로 나눠 가져오게 되면서 그 순서 보장이 깨졌다(Supabase가 정렬 기준
+    // 없이 여러 페이지를 나눠 주면, 합쳤을 때 등록순이라는 보장이 없다). 이제는 각 명함이
+    // 갖고 있는 실제 등록 시각(createdAt)으로 직접 비교해서 정렬하므로, 서버가 어떤
+    // 순서로 데이터를 주든 항상 정확하게 최신순/이름순이 나온다.
     if (contactSortOrder === 'name') {
       return a.name.localeCompare(b.name, 'ko');
     }
-    return 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    return bTime - aTime;
   });
 
   return (
