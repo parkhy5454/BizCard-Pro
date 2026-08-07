@@ -6,6 +6,7 @@ import {
   Upload, X, Paperclip, RefreshCw, Camera, Sparkles, Navigation
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
+import { ContactSearchSelect } from './ContactPicker.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -2527,16 +2528,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <div className="sm:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자 선택</label>
-                      <select 
+                      <ContactSearchSelect
+                        contacts={contacts}
                         value={newDriving.contactId || ''}
-                        onChange={e => setNewDriving({ ...newDriving, contactId: e.target.value })}
-                        className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:outline-none text-slate-600"
-                      >
-                        <option value="">연관 담당자 없음</option>
-                        {contacts.map(c => (
-                          <option key={c.id} value={c.id}>{c.name} ({c.company} · {c.title})</option>
-                        ))}
-                      </select>
+                        onChange={(id) => setNewDriving({ ...newDriving, contactId: id })}
+                      />
                     </div>
 
                     <div className="flex items-end pb-2.5">
@@ -3084,16 +3080,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="sm:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-200 pt-3">
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자 선택</label>
-                    <select 
+                    <ContactSearchSelect
+                      contacts={contacts}
                       value={newExpense.contactId || ''}
-                      onChange={e => setNewExpense({ ...newExpense, contactId: e.target.value })}
-                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:outline-none text-slate-600"
-                    >
-                      <option value="">연관 담당자 없음</option>
-                      {contacts.map(c => (
-                        <option key={c.id} value={c.id}>{c.name} ({c.company} · {c.title})</option>
-                      ))}
-                    </select>
+                      onChange={(id) => setNewExpense({ ...newExpense, contactId: id })}
+                    />
                   </div>
 
                   <div className="flex items-end pb-2.5">
@@ -5439,16 +5430,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자</label>
-                  <select 
+                  <ContactSearchSelect
+                    contacts={contacts}
                     value={editingDriving.contactId || ''}
-                    onChange={e => setEditingDriving({ ...editingDriving, contactId: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                  >
-                    <option value="">연관 담당자 없음</option>
-                    {contacts.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.company} · {c.title})</option>
-                    ))}
-                  </select>
+                    onChange={(id) => setEditingDriving({ ...editingDriving, contactId: id })}
+                  />
                 </div>
 
                 {/* [추가] 이 운행기록에 연결된 영수증(통행료/주차비/식대 등)을 여기서도 볼 수 있고,
@@ -5697,16 +5683,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자</label>
-                  <select 
+                  <ContactSearchSelect
+                    contacts={contacts}
                     value={editingExpense.contactId || ''}
-                    onChange={e => setEditingExpense({ ...editingExpense, contactId: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                  >
-                    <option value="">연관 담당자 없음</option>
-                    {contacts.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.company} · {c.title})</option>
-                    ))}
-                  </select>
+                    onChange={(id) => setEditingExpense({ ...editingExpense, contactId: id })}
+                  />
                 </div>
               </div>
 

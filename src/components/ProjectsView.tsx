@@ -6,6 +6,7 @@ import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCor
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
+import { ContactMultiSearchSelect } from './ContactPicker.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -2465,26 +2466,11 @@ export const ProjectsView: React.FC<Props> = ({
               {/* 연관 명함 체크 */}
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
-                <div className="max-h-36 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1">
-                  {contacts.map((c) => {
-                    const checked = selectedContacts.includes(c.id);
-                    return (
-                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-white'}`}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedContacts([...selectedContacts, c.id]);
-                            else setSelectedContacts(selectedContacts.filter((id) => id !== c.id));
-                          }}
-                          className="rounded border-slate-200 bg-white text-indigo-500"
-                        />
-                        <span>{c.name}</span>
-                        <span className="text-[10px] text-slate-400">{c.company} ({c.title})</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <ContactMultiSearchSelect
+                  contacts={contacts}
+                  value={selectedContacts}
+                  onChange={setSelectedContacts}
+                />
               </div>
 
               {/* 거래처 인맥 직접 추가 */}
@@ -2687,27 +2673,11 @@ export const ProjectsView: React.FC<Props> = ({
               {/* 연관 명함 체크 (등록 화면과 동일하게 수정 가능) */}
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
-                <div className="max-h-36 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1">
-                  {contacts.map((c) => {
-                    const checked = (editingProject.contactIds || []).includes(c.id);
-                    return (
-                      <label key={c.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-white'}`}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            const current = editingProject.contactIds || [];
-                            const next = e.target.checked ? [...current, c.id] : current.filter((id) => id !== c.id);
-                            setEditingProject({ ...editingProject, contactIds: next });
-                          }}
-                          className="rounded border-slate-200 bg-white text-indigo-500"
-                        />
-                        <span>{c.name}</span>
-                        <span className="text-[10px] text-slate-400">{c.company} ({c.title})</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <ContactMultiSearchSelect
+                  contacts={contacts}
+                  value={editingProject.contactIds || []}
+                  onChange={(ids) => setEditingProject({ ...editingProject, contactIds: ids })}
+                />
               </div>
 
               {/* 거래처 인맥 직접 추가 */}

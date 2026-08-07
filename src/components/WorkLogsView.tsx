@@ -6,6 +6,7 @@ import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
+import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -1832,20 +1833,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </div>
 
         {/* 거래처 명함 필터 */}
-        <div className="relative">
-          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <select
-            value={selectedContactFilter}
-            onChange={(e) => setSelectedContactFilter(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm appearance-none cursor-pointer placeholder:text-slate-400 transition-all"
-          >
-            <option value="all">연관 거래처 인맥: 전체</option>
-            {contacts.map(c => (
-              <option key={c.id} value={c.id}>{c.name} ({c.company})</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-        </div>
+        <ContactSearchSelect
+          contacts={contacts}
+          value={selectedContactFilter === 'all' ? '' : selectedContactFilter}
+          onChange={(id) => setSelectedContactFilter(id || 'all')}
+          placeholder="연관 거래처 인맥: 전체"
+          noneLabel="연관 거래처 인맥: 전체"
+        />
       </div>
 
       {activeSubTab === 'monthly' ? (
@@ -3035,36 +3029,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <User className="w-3.5 h-3.5 text-blue-400" />
                         <span>연관 거래처 인맥 연결</span>
                       </label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-[120px] overflow-y-auto space-y-2">
-                        {contacts.length === 0 ? (
-                          <p className="text-xs text-slate-400 text-center py-2">등록된 거래처 인맥이 없습니다.</p>
-                        ) : (
-                          contacts.map(c => {
-                            const isSelected = formContactIds.includes(c.id);
-                            return (
-                              <button
-                                type="button"
-                                key={c.id}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    setFormContactIds(prev => prev.filter(id => id !== c.id));
-                                  } else {
-                                    setFormContactIds(prev => [...prev, c.id]);
-                                  }
-                                }}
-                                className={`w-full flex items-center justify-between text-left px-3 py-1.5 rounded-xl text-xs transition-all ${
-                                  isSelected 
-                                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
-                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-100'
-                                }`}
-                              >
-                                <span className="truncate pr-2 font-medium">{c.name} <span className="text-[10px] text-slate-400">({c.company})</span></span>
-                                {isSelected ? <Check className="w-3.5 h-3.5 flex-shrink-0" /> : null}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
+                      <ContactMultiSearchSelect
+                        contacts={contacts}
+                        value={formContactIds}
+                        onChange={setFormContactIds}
+                      />
                     </div>
                   </div>
 
