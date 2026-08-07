@@ -297,6 +297,11 @@ export async function getScopedCollection<T>(scopeId: string, collectionName: st
       .select('data')
       .eq('scope_id', scopeId)
       .eq('collection', collectionName)
+      // [수정] 정렬 기준 없이 .range()로만 페이지를 나누면, Postgres가 페이지마다 다른
+      // 순서로 행을 돌려줄 수 있어서 두 페이지 사이에 같은 행이 중복되거나 반대로 어떤
+      // 행은 아예 빠지는 문제가 생길 수 있다. doc_id로 고정 정렬해야 페이지가 서로
+      // 안 겹치는 게 보장된다.
+      .order('doc_id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) {
@@ -452,6 +457,8 @@ export async function getUsers(): Promise<RegisteredUser[]> {
     const { data, error } = await supabase
       .from('app_users')
       .select('data')
+      // [수정] 위와 같은 이유로 정렬 기준을 고정해서 페이지 간 중복/누락을 방지한다.
+      .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) {
