@@ -67,7 +67,11 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
     loadOpenCv().catch(() => {});
   }, []);
 
-  const defaultGroupId = groups[0]?.id || 'g-client';
+  // [수정] 예전엔 그룹을 안 고르면 목록의 첫 번째 그룹(대체로 VIP 거래처)으로 자동
+  // 배정됐는데, 그러면 사용자가 의도치 않게 엉뚱한 그룹에 명함이 들어가는 문제가 있었다.
+  // 이제는 기본값을 "미지정"으로 둬서 "전체보기"에서만 보이게 하고, 나중에 사용자가
+  // 직접 그룹을 지정해야만 그 그룹에 들어가게 한다.
+  const defaultGroupId = '';
 
   // 입력 폼 (단일 스캔 모드)
   const [form, setForm] = useState<Partial<BusinessCard>>(emptyForm(defaultGroupId));
@@ -487,6 +491,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                     onChange={(e) => setBatchGroupId(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 font-medium outline-none focus:border-indigo-500"
                   >
+                    <option value="">그룹 미지정 (전체보기에서만 표시)</option>
                     {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 </div>
@@ -817,6 +822,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                     <div>
                       <label className="text-xs text-slate-500 block mb-1 font-medium">그룹 지정</label>
                       <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:border-blue-500">
+                        <option value="">그룹 미지정 (전체보기에서만 표시)</option>
                         {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                       </select>
                     </div>
