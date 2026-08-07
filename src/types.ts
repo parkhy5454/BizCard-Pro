@@ -252,6 +252,9 @@ export interface VehicleExpense {
   createdAt: string;
   contactId?: string;    // 연관 거래처 담당자 ID
   receiptImage?: string; // 영수증 이미지 (base64)
+  // [추가] 운행기록 작성 중 스캔한 영수증인 경우, 어느 운행기록에서 나온 지출인지 연결.
+  // 이 값이 있으면 운행기록 수정 화면에서 "이미 등록된 영수증 목록"으로 다시 불러와 보여줄 수 있다.
+  drivingLogId?: string;
 }
 
 export interface VehicleMaintenance {
