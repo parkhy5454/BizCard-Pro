@@ -477,7 +477,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const outlineColor = quadDisplay ? (isStable && allQualityOk ? '#22c55e' : allQualityOk ? '#facc15' : '#f87171') : '#f87171';
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black flex flex-col">
+    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
       <div className="flex items-center justify-between p-4 bg-slate-950/80 backdrop-blur-sm">
         <div>
           <h3 className="text-sm font-bold text-white">{title || `${docLabel}을(를) 화면 안에 비춰주세요`}</h3>

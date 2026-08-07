@@ -595,7 +595,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const polygonPoints = corners ? corners.map((p) => `${p.x},${p.y}`).join(' ') : '';
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-slate-800">
           <div>
