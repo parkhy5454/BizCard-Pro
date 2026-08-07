@@ -1007,17 +1007,46 @@ app.use(async (req, res, next) => {
 });
 
 
-// 간단 좌표 계산 유틸 (주소 키워드나 기본 한강 인접 좌표 부여)
-function assignCoords(address: string): { lat: number; lng: number } {
-  if (address.includes('강남') || address.includes('테헤란')) return { lat: 37.4981 + (Math.random() - 0.5)*0.02, lng: 127.0276 + (Math.random() - 0.5)*0.02 };
-  if (address.includes('서초')) return { lat: 37.4912 + (Math.random() - 0.5)*0.02, lng: 127.0076 + (Math.random() - 0.5)*0.02 };
-  if (address.includes('판교') || address.includes('분당') || address.includes('성남')) return { lat: 37.3948 + (Math.random() - 0.5)*0.02, lng: 127.1112 + (Math.random() - 0.5)*0.02 };
-  if (address.includes('마곡') || address.includes('강서')) return { lat: 37.5612 + (Math.random() - 0.5)*0.02, lng: 126.8354 + (Math.random() - 0.5)*0.02 };
-  if (address.includes('여의도') || address.includes('영등포')) return { lat: 37.5219 + (Math.random() - 0.5)*0.02, lng: 126.9242 + (Math.random() - 0.5)*0.02 };
-  if (address.includes('을지로') || address.includes('중구') || address.includes('종로')) return { lat: 37.5665 + (Math.random() - 0.5)*0.02, lng: 126.9780 + (Math.random() - 0.5)*0.02 };
-  // 기본 서울 광화문 주변 랜덤
-  return { lat: 37.5665 + (Math.random() - 0.5)*0.08, lng: 126.9780 + (Math.random() - 0.5)*0.08 };
+// [수정] 예전엔 "강남", "판교" 같은 몇 개 동네 이름이 주소에 포함되는지만 보고 좌표를
+// 대충 찍었다(그마저 안 걸리면 광화문 주변 랜덤 좌표). 그러다 보니 실제 위치와 무관한
+// 좌표가 찍혀서, "주변 레이더 지도"에서 진짜 가까운 사람도 안 보이는 문제가 있었다.
+// 이제는 카카오 로컬 API(주소 검색)로 실제 주소를 진짜 좌표로 변환한다. 정확한 주소로
+// 못 찾으면, 조금 더 너그러운 "키워드 검색"으로 한 번 더 시도한다. 그래도 못 찾으면
+// 억지로 아무 좌표나 채우지 않고 undefined로 둔다 — 틀린 좌표를 보여주는 것보다,
+// "이 명함은 아직 위치 정보가 없다"고 정직하게 비워두는 게 낫다.
+const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
+
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const trimmed = (address || '').trim();
+  if (!trimmed) return null;
+  if (!KAKAO_REST_API_KEY) {
+    console.warn('KAKAO_REST_API_KEY가 설정되지 않아 주소를 좌표로 변환할 수 없습니다.');
+    return null;
+  }
+
+  const headers = { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` };
+  try {
+    // 1차: 정확한 주소 검색
+    const addrRes = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(trimmed)}`, { headers });
+    if (addrRes.ok) {
+      const addrData: any = await addrRes.json();
+      const doc = addrData?.documents?.[0];
+      if (doc) return { lat: parseFloat(doc.y), lng: parseFloat(doc.x) };
+    }
+
+    // 2차: 정확한 주소로 못 찾으면(오타, 건물명만 있는 경우 등) 장소 키워드 검색으로 재시도
+    const keywordRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(trimmed)}`, { headers });
+    if (keywordRes.ok) {
+      const keywordData: any = await keywordRes.json();
+      const doc = keywordData?.documents?.[0];
+      if (doc) return { lat: parseFloat(doc.y), lng: parseFloat(doc.x) };
+    }
+  } catch (err) {
+    console.error('주소 지오코딩 중 오류:', err);
+  }
+  return null;
 }
+
 
 // API Routes
 
@@ -2122,6 +2151,35 @@ app.post('/api/auth/pending-members/:targetId/reject', async (req, res) => {
 });
 
 // 📁 Scoped CRUD APIs
+// [추가] 예전 가짜 좌표 배정 방식으로 이미 저장된 기존 명함들을 실제 좌표로 다시 계산한다.
+// 주소가 있는 명함만 대상으로, 몇 개씩 동시에 처리해서 너무 느려지지 않게 한다.
+app.post('/api/contacts/regeocode', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+
+  const targets = dbData.contacts.filter(c => (c.address || '').trim());
+  let updated = 0;
+  let failed = 0;
+  const CONCURRENCY = 5;
+
+  for (let i = 0; i < targets.length; i += CONCURRENCY) {
+    const batch = targets.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (c) => {
+      const coords = await geocodeAddress(c.address || '');
+      if (coords) {
+        c.lat = coords.lat;
+        c.lng = coords.lng;
+        await setScopedDoc(scopeId, 'contacts', c);
+        updated++;
+      } else {
+        failed++;
+      }
+    }));
+  }
+
+  res.json({ success: true, totalWithAddress: targets.length, updated, failed });
+});
+
 app.get('/api/contacts', (req, res) => {
   const dbData = getScopedData(req);
   const requesterId = req.headers['x-user-id'] as string;
@@ -2145,11 +2203,13 @@ app.post('/api/contacts', async (req, res) => {
   newCard.addedByUserId = requesterId || newCard.addedByUserId;
   newCard.addedByUserName = requester?.name || newCard.addedByUserName;
   
-  // 좌표가 없으면 주소 기반 부여
+  // 좌표가 없으면 실제 주소로 지오코딩해서 부여 (실패하면 좌표 없이 그대로 둠)
   if (!newCard.lat || !newCard.lng) {
-    const coords = assignCoords(newCard.address || '');
-    newCard.lat = coords.lat;
-    newCard.lng = coords.lng;
+    const coords = await geocodeAddress(newCard.address || '');
+    if (coords) {
+      newCard.lat = coords.lat;
+      newCard.lng = coords.lng;
+    }
   }
 
   // [수정] 명함 사진을 DB에 base64로 통째로 넣지 않고 Storage에 업로드 후 URL만 저장
@@ -2169,9 +2229,11 @@ app.put('/api/contacts/:id', async (req, res) => {
   
   const updated = { ...dbData.contacts[idx], ...req.body };
   if (req.body.address && req.body.address !== dbData.contacts[idx].address) {
-    const coords = assignCoords(req.body.address);
-    updated.lat = coords.lat;
-    updated.lng = coords.lng;
+    const coords = await geocodeAddress(req.body.address);
+    if (coords) {
+      updated.lat = coords.lat;
+      updated.lng = coords.lng;
+    }
   }
 
   // [수정] 재스캔 등으로 사진이 새로 바뀐 경우에만 업로드 (이미 URL이면 그대로 재사용, 불필요한 재업로드 방지)
@@ -2663,11 +2725,11 @@ app.post('/api/contacts/import', async (req, res) => {
     if (c.groupId && !dbData.groups.some(g => g.id === c.groupId)) {
       c.groupId = undefined;
     }
-    if (!c.lat || !c.lng) {
-      const coords = assignCoords(c.address || '');
-      c.lat = coords.lat;
-      c.lng = coords.lng;
-    }
+    // [수정] 가져오기는 한 번에 수백~수천 건이 될 수 있어서, 건마다 실시간으로 지오코딩
+    // API를 부르면 너무 느려지고(가져오기 자체가 타임아웃 날 위험) 카카오 API 사용량
+    // 제한에도 쉽게 걸린다. 그래서 가져온 명함은 좌표를 비워둔 채로 저장하고(주변 레이더
+    // 지도엔 안 보임), 나중에 그 명함을 한 번 수정해서 저장하면 그때 실제 좌표가 채워진다.
+    // 틀린 좌표를 억지로 채우는 것보다, 정직하게 비워두는 쪽을 택했다.
     // [수정] 가져온 연락처에 자동 생성된 명함 이미지(base64)가 붙어있는 경우, 다른 명함 등록
     // 경로와 동일하게 Storage에 업로드하고 URL만 저장한다 (DB에 원본 base64를 그대로
     // 넣으면 용량이 커지고, 다른 경로로 등록된 명함들과 저장 방식이 달라져버린다).
