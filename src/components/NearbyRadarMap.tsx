@@ -196,6 +196,24 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
     setOptimizedOrder(optimizeVisitOrder(myLat, myLng, stops));
   };
 
+  const [regeocoding, setRegeocoding] = useState<boolean>(false);
+
+  const handleRegeocode = async () => {
+    if (!confirm('주소가 등록된 모든 명함의 위치 좌표를 실제 주소 기준으로 다시 계산합니다.\n명함 수에 따라 시간이 걸릴 수 있습니다. 계속할까요?')) return;
+    setRegeocoding(true);
+    try {
+      const res = await fetch('/api/contacts/regeocode', { method: 'POST' });
+      if (!res.ok) throw new Error(`재계산에 실패했습니다 (상태: ${res.status}).`);
+      const data = await res.json();
+      alert(`좌표 재계산 완료: 총 ${data.totalWithAddress}건 중 ${data.updated}건 성공, ${data.failed}건 실패.\n화면을 새로고침해서 결과를 반영합니다.`);
+      window.location.reload();
+    } catch (err: any) {
+      alert(`좌표 재계산에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } finally {
+      setRegeocoding(false);
+    }
+  };
+
   const activeContact = activeContactId ? contacts.find((c) => c.id === activeContactId) : null;
 
   return (
@@ -211,7 +229,17 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+          <button
+            onClick={handleRegeocode}
+            disabled={regeocoding}
+            title="기존 명함들이 예전 방식(부정확)으로 좌표가 찍혀있다면, 실제 주소 기준으로 다시 계산합니다"
+            className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
+          >
+            <MapPin className={`w-3.5 h-3.5 ${regeocoding ? 'animate-pulse' : ''}`} />
+            <span>{regeocoding ? '좌표 재계산 중...' : '기존 명함 좌표 다시 계산'}</span>
+          </button>
+
           <button
             onClick={handleGetMyGPS}
             disabled={gpsLoading}
