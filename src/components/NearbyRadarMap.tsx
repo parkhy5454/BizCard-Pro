@@ -217,17 +217,23 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
     let totalFailed = 0;
     let lastError: string | undefined;
     try {
-      // [수정] 한 번의 거대한 요청 대신, "가져오기" 때처럼 서버가 한 번에 처리 가능한
-      // 만큼만 처리하고 남은 건수를 알려주면, 남은 게 있는 동안 자동으로 이어서 호출한다.
-      // 이러면 명함이 아무리 많아도 요청 하나가 오래 걸려서 타임아웃(502)나는 일이 없다.
-      let remaining = 1; // 최초 1회는 무조건 실행되도록 임의의 양수로 시작
+      // [수정] 예전엔 "남은 개수"로 반복 여부를 판단했는데, retryFailed 모드에서 이 값이
+      // 실제 진행 상황과 안 맞아서 무한 반복되는 심각한 버그가 있었다. 이제는 서버가
+      // 알려주는 offset(몇 번째까지 봤는지)을 그대로 다음 요청에 넘겨주고, 서버가 명시
+      // 하는 done 신호로만 종료 여부를 판단한다. 혹시 모를 예외 상황을 대비해 최대
+      // 반복 횟수도 안전장치로 걸어둔다(명함이 아무리 많아도 이 정도면 충분하다).
+      let offset = 0;
+      let done = false;
       let stoppedByAuthError = false;
-      while (remaining > 0) {
+      let safetyCounter = 0;
+      const MAX_ITERATIONS = 500;
+      while (!done && safetyCounter < MAX_ITERATIONS) {
+        safetyCounter++;
         setRegeocodeProgress(`좌표 재계산 중... (지금까지 성공 ${totalUpdated}건 · 실패 ${totalFailed}건)`);
         const res = await fetch('/api/contacts/regeocode', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ retryFailed })
+          body: JSON.stringify({ retryFailed, offset })
         });
         if (!res.ok) throw new Error(`재계산에 실패했습니다 (상태: ${res.status}).`);
         const data = await res.json();
@@ -235,7 +241,11 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         totalFailed += data.failed;
         if (data.firstError) lastError = data.firstError;
         if (data.authError) stoppedByAuthError = true;
-        remaining = data.remaining || 0;
+        offset = data.nextOffset;
+        done = Boolean(data.done);
+      }
+      if (safetyCounter >= MAX_ITERATIONS && !done) {
+        console.error('좌표 재계산이 안전장치(최대 반복 횟수)에 걸려 중단되었습니다.');
       }
 
       const reasonMsg = totalFailed > 0 && lastError ? `\n(실패 사유: ${lastError})` : '';
