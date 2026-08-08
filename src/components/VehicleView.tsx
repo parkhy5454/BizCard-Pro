@@ -111,6 +111,22 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     setVisibleExpenseCount(50);
   }, [selectedVehicleFilter, expenseCategoryFilter, expensePeriod]);
 
+  // [추가] "부서명"을 매번 새로 입력하는 게 번거롭다는 의견이 있어서, 본인(로그인한
+  // 사용자)이 가장 최근에 작성한 운행기록의 부서명을 자동으로 불러와 채워준다. 이미
+  // 뭔가 입력돼 있으면(사용자가 이미 손댔으면) 건드리지 않고, 비어있을 때만 채운다.
+  // drivingLogs가 아직 안 불러와진 초기 렌더 시점엔 아무 것도 안 하다가, 데이터가
+  // 로드되는 순간 한 번 채워준다.
+  useEffect(() => {
+    if (newDriving.department) return; // 이미 값이 있으면(직접 입력했거나 이미 채워졌으면) 안 건드림
+    const myLastLog = drivingLogs
+      .filter((log) => log.driverName === currentUser.name && log.department)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    if (myLastLog?.department) {
+      setNewDriving((prev) => (prev.department ? prev : { ...prev, department: myLastLog.department! }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drivingLogs]);
+
   // 신규 등록용 폼 상태들
   // 1. 차량등록 폼
   const [newVehicle, setNewVehicle] = useState({
@@ -743,7 +759,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           endMileage: 0,
           startPlace: '본사',
           endPlace: '',
-          department: '영업기획팀',
+          // [수정] 방금 사용한 부서명을 다음 새 운행기록에도 그대로 이어서 채워준다
+          // (매번 새로 입력하는 번거로움을 줄이기 위함).
+          department: newDriving.department,
           projectName: '',
           startAddress: '서울특별시 서초구 서초대로 396',
           endAddress: '',
@@ -2349,7 +2367,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">부서명</label>
+                    <label className="text-xs text-slate-500">부서명 <span className="text-[10px] text-indigo-500 font-normal">(마지막에 쓴 값 자동 입력됨)</span></label>
                     <input 
                       type="text" 
                       placeholder="예: 영업본부, 개발팀"
