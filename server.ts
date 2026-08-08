@@ -1031,17 +1031,20 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
   // 넘으면 앞부분만 잘라서 보낸다(뒤쪽 상세 동/호수 정보는 위치 계산엔 크게 중요하지
   // 않다).
   let cleaned = (address || '').trim();
-  // [추가] "521\, Teheran-ro\, Gangnam-gu\, Seoul\, 06164 Korea"처럼, vCard 가져오기
-  // 과정에서 이스케이프 문자(백슬래시)가 안 지워진 채로 이미 저장된 기존 주소들이 있었다.
-  // (원인 자체는 IOModal.tsx의 vCard 파싱 로직에서 고쳤지만, 이미 저장된 데이터에는
-  // 소급 적용이 안 되므로 여기서도 한 번 더 정리해서 기존 주소도 검색이 되게 한다.)
-  cleaned = cleaned.replace(/\\,/g, ',').replace(/\\;/g, ';');
+  // [추가] "521\, Teheran-ro\, ..."처럼, vCard 가져오기 과정에서 이스케이프 문자(백슬래시)가
+  // 안 지워진 채로 이미 저장된 기존 주소들이 있었다. (원인 자체는 IOModal.tsx의 vCard
+  // 파싱 로직에서 고쳤지만, 이미 저장된 데이터에는 소급 적용이 안 되므로 여기서도 한 번
+  // 더 정리해서 기존 주소도 검색이 되게 한다.) "\n"(줄바꿈 이스케이프)도 같은 문제였는데
+  // 처음엔 놓쳤다가, 실제 사례("...23\n서울특별시...")를 보고 추가했다.
+  cleaned = cleaned.replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\n/gi, ' ');
   // [수정] 우편번호나 "대한민국" 같은 국가명이 주소 맨 끝뿐 아니라 문장 중간에도 끼어있는
   // 경우가 실제로 있었다(예: "...4층), 05630 서울시   대한민국" — 우편번호 뒤에 시/도명과
   // 국가명이 또 붙는 뒤죽박죽 형태). 명함 OCR이나 다른 시스템에서 복사해올 때 생기는 흔한
   // 오염 패턴이라, 위치에 상관없이 이런 조각들을 다 제거하고 검색한다.
   cleaned = cleaned
-    .replace(/대한민국|South\s*Korea|Republic\s*of\s*Korea/gi, ' ') // 국가명 (카카오는 국내 검색만 되므로 불필요)
+    // [수정] "한국"만 있는 짧은 표기도 국가명으로 추가 인식(단, "한국00빌딩"처럼 다른 단어의
+    // 일부로 쓰인 경우까지 잘못 지우지 않도록 앞뒤가 공백/문장경계일 때만 매치되게 한다).
+    .replace(/대한민국|South\s*Korea|Republic\s*of\s*Korea|(?<![가-힣])한국(?![가-힣])/gi, ' ')
     .replace(/,?\s*\b\d{5}\b/g, ' ') // 신규 우편번호(5자리 숫자)
     .replace(/,?\s*\b\d{3}-\d{3}\b/g, ' ') // 구 우편번호(123-456 형식)
     .replace(/\s{2,}/g, ' ') // 여러 조각을 지우고 남은 중복 공백 정리
@@ -1082,6 +1085,23 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
       const keywordData: any = await keywordRes.json();
       const doc = keywordData?.documents?.[0];
       if (doc) return { coords: { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } };
+      // [추가] 여기까지도 못 찾았으면, 마지막으로 "건물명·층수·괄호 설명" 같은 세부사항을
+      // 뗀 핵심 도로명 주소만으로 한 번 더 시도해본다. 예를 들어 "덕양구 삼성로
+      // 12(원흥동) 반도 유스퀘어 9층"처럼, 뒤에 붙은 건물명이 검색을 방해하는 경우가
+      // 있어서 "덕양구 삼성로 12"만으로 좁혀서 재시도하면 찾아지는 경우가 있다.
+      const coreAddress = trimmed
+        .replace(/\([^)]*\)/g, ' ') // 괄호 안 내용(동명 등 부가설명) 제거
+        .replace(/\d+\s*층.*$/, '') // "9층" 이후(보통 건물명/층수) 제거
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      if (coreAddress && coreAddress !== trimmed && coreAddress.length >= 4) {
+        const coreRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(coreAddress)}`, { headers });
+        if (coreRes.ok) {
+          const coreData: any = await coreRes.json();
+          const coreDoc = coreData?.documents?.[0];
+          if (coreDoc) return { coords: { lat: parseFloat(coreDoc.y), lng: parseFloat(coreDoc.x) } };
+        }
+      }
       return { coords: null, error: '주소/키워드 검색 결과 없음' };
     } else {
       const bodyText = await keywordRes.text().catch(() => '');
