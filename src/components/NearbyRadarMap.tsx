@@ -66,7 +66,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   const [myLat, setMyLat] = useState<number>(37.5665);
   const [myLng, setMyLng] = useState<number>(126.9780);
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
   // [추가] 주소 지오코딩이 안 된 명함이나 너무 먼 명함까지 다 나열되면 실제로 쓸모 있는
   // "지금 갈 수 있는 근처 사람"을 찾기 어려웠다. 반경 필터를 추가해서, 기본값을 5km로
   // 두고 필요하면 더 좁히거나 넓힐 수 있게 한다.
@@ -106,7 +105,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   };
 
   const filteredAndSortedContacts = contacts
-    .filter((c) => selectedGroupFilter === 'all' || c.groupId === selectedGroupFilter)
     .map((c) => {
       const dist = (c.lat && c.lng) ? getDistanceKM(myLat, myLng, c.lat, c.lng) : 9999;
       return { ...c, distanceKm: dist };
@@ -301,17 +299,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
             <option value={5}>5km 이내</option>
             <option value={10}>10km 이내</option>
             <option value={0}>거리 제한 없음(전체)</option>
-          </select>
-
-          <select
-            value={selectedGroupFilter}
-            onChange={(e) => setSelectedGroupFilter(e.target.value)}
-            className="bg-slate-100 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 font-medium"
-          >
-            <option value="all">전체 그룹 보기</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
           </select>
         </div>
       </div>
