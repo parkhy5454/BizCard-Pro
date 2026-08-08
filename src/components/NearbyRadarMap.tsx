@@ -220,6 +220,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       // 만큼만 처리하고 남은 건수를 알려주면, 남은 게 있는 동안 자동으로 이어서 호출한다.
       // 이러면 명함이 아무리 많아도 요청 하나가 오래 걸려서 타임아웃(502)나는 일이 없다.
       let remaining = 1; // 최초 1회는 무조건 실행되도록 임의의 양수로 시작
+      let stoppedByAuthError = false;
       while (remaining > 0) {
         setRegeocodeProgress(`좌표 재계산 중... (지금까지 성공 ${totalUpdated}건 · 실패 ${totalFailed}건)`);
         const res = await fetch('/api/contacts/regeocode', { method: 'POST' });
@@ -228,11 +229,13 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         totalUpdated += data.updated;
         totalFailed += data.failed;
         if (data.firstError) lastError = data.firstError;
+        if (data.authError) stoppedByAuthError = true;
         remaining = data.remaining || 0;
       }
 
       const reasonMsg = totalFailed > 0 && lastError ? `\n(실패 사유: ${lastError})` : '';
-      alert(`좌표 재계산 완료: 성공 ${totalUpdated}건, 실패 ${totalFailed}건.${reasonMsg}`);
+      const authNote = stoppedByAuthError ? '\n\n⚠️ 카카오 API 인증 문제로 중단됐습니다. 설정을 확인하신 뒤 다시 눌러주세요 (이 명함들은 재시도 대상으로 남아있습니다).' : '';
+      alert(`좌표 재계산 완료: 성공 ${totalUpdated}건, 실패 ${totalFailed}건.${reasonMsg}${authNote}`);
 
       // [수정] 예전엔 여기서 페이지 전체를 새로고침(window.location.reload())했는데, 그러면
       // 앱이 처음 화면(명함 메인)으로 리셋돼서 방금까지 보고 있던 레이더 지도 화면을 잃어
