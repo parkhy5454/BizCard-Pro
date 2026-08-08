@@ -582,7 +582,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     setApCompanyName(myProfile?.company || '');
     setApPeriodStart(todayStr());
     setApPeriodEnd(todayStr());
-    setApDepartment(myProfile?.department || '');
+    // [수정] 프로필에 부서명이 없으면, 본인이 최근에 작성한 정산서에 남아있는 부서명을
+    // 대신 찾아서 채워준다(운행기록/업무일지와 같은 방식으로 통일).
+    if (myProfile?.department) {
+      setApDepartment(myProfile.department);
+    } else {
+      const myName = myProfile?.name || currentUser?.name || '';
+      const myLast = advanceList
+        .filter((d) => d.author === myName && d.department)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+      setApDepartment(myLast?.department || '');
+    }
     setApAuthor(myProfile?.name || currentUser?.name || '');
     setApDraftDate(todayStr());
     setApItems([]);
@@ -593,7 +603,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
   const resetLeaveForm = () => {
     setLvDraftNumber(makeDraftNumber(leaveList.map(l => l.draftNumber || '')));
-    setLvDepartment(myProfile?.department || '');
+    // [수정] 위와 동일하게, 프로필에 없으면 본인의 최근 휴가신청서 부서명으로 대체한다.
+    if (myProfile?.department) {
+      setLvDepartment(myProfile.department);
+    } else {
+      const myName = myProfile?.name || currentUser?.name || '';
+      const myLast = leaveList
+        .filter((d) => d.author === myName && d.department)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+      setLvDepartment(myLast?.department || '');
+    }
     const resolvedAuthor = myProfile?.name || currentUser?.name || '';
     setLvAuthor(resolvedAuthor);
     setLvCategory('annual');

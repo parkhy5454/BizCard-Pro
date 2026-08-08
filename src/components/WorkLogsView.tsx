@@ -282,7 +282,17 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     
     // 프로필 정보가 있으면 기본값으로 주입
     setFormAuthor(myProfile?.name || currentUser?.name || '');
-    setFormDepartment(myProfile?.department || '');
+    // [수정] 예전엔 프로필에 부서명이 없으면 그냥 빈 칸으로 남았다. 프로필에 없으면,
+    // 본인이 최근에 작성한 일지에 남아있는 부서명을 대신 찾아서 채워준다(운행기록에
+    // 적용한 것과 같은 방식으로 통일).
+    if (myProfile?.department) {
+      setFormDepartment(myProfile.department);
+    } else {
+      const myName = myProfile?.name || currentUser?.name || '';
+      const allMyLogs = [...dailyLogs, ...weeklyLogs].filter((log) => log.author === myName && log.department);
+      const myLastDept = allMyLogs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0]?.department;
+      setFormDepartment(myLastDept || '');
+    }
     
     setTodayEntries([]);
     setFormTasksTomorrow('');
