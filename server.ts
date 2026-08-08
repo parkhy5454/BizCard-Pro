@@ -2285,6 +2285,17 @@ app.post('/api/vehicles/estimate-distance', async (req, res) => {
   }
 });
 
+// [추가] 주소는 있는데 좌표를 못 구한 명함들을 목록으로 확인할 수 있게 한다. "실패 356건"
+// 처럼 숫자만 보여주던 걸, 실제로 어떤 명함들인지(이름/회사/주소) 볼 수 있게 해서 어떤
+// 패턴으로 실패하는지 파악하고 필요하면 주소를 직접 고칠 수 있게 하기 위함이다.
+app.get('/api/contacts/geocode-failures', (req, res) => {
+  const dbData = getScopedData(req);
+  const failures = dbData.contacts
+    .filter(c => (c.address || '').trim() && c.isRealGeocoded && (!c.lat || !c.lng))
+    .map(c => ({ id: c.id, name: c.name, company: c.company, address: c.address }));
+  res.json({ failures, count: failures.length });
+});
+
 app.post('/api/contacts/regeocode', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
