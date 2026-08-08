@@ -424,6 +424,7 @@ export default function App() {
                   setDetailModalTab('info');
                   setSelectedContactDetail(c);
                 }}
+                onContactsRefresh={setContacts}
               />
             )}
 
