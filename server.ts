@@ -1169,6 +1169,12 @@ const signupRateLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 60 * 60 * 
 // 사업자번호를 마구 훑어보는(enumeration) 걸 막기 위해 IP당 시간당 30회로 제한한다.
 const companyLookupRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60 * 60 * 1000 });
 
+// [추가] 명함/영수증 스캔은 Gemini API를 호출하는데, 이건 호출할 때마다 실제 비용이
+// 든다. 버그로 인한 무한 반복 호출이나 남용을 막기 위해, 로그인 계정당 10분에 100회
+// (전시회/네트워킹 행사에서 명함을 수십 장 연속 촬영하는 정상적인 사용은 충분히
+// 허용하면서, 비정상적인 폭주만 막는 수준)로 제한한다.
+const aiScanRateLimiter = new RateLimiter({ maxAttempts: 100, windowMs: 10 * 60 * 1000 });
+
 app.get('/api/auth/lookup-company', (req, res) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const limit = companyLookupRateLimiter.check(ip);
@@ -2402,6 +2408,13 @@ app.post('/api/contacts/:id/history', async (req, res) => {
 // Gemini Vision 명함 OCR API
 app.post('/api/scan-card', async (req, res) => {
   try {
+    const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
+    const scanLimit = aiScanRateLimiter.check(scanUserId);
+    if (!scanLimit.allowed) {
+      return res.status(429).json({ error: '명함 스캔 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' });
+    }
+    aiScanRateLimiter.registerAttempt(scanUserId);
+
     const { frontImage, backImage } = req.body;
     if (!frontImage && !backImage) {
       return res.status(400).json({ error: '명함 이미지가 전송되지 않았습니다.' });
@@ -2637,6 +2650,13 @@ app.post('/api/parse-voice-contact', async (req, res) => {
 // Gemini Vision 영수증 OCR API
 app.post('/api/scan-receipt', async (req, res) => {
   try {
+    const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
+    const scanLimit = aiScanRateLimiter.check(scanUserId);
+    if (!scanLimit.allowed) {
+      return res.status(429).json({ error: '영수증 스캔 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' });
+    }
+    aiScanRateLimiter.registerAttempt(scanUserId);
+
     const { image } = req.body;
     if (!image) {
       return res.status(400).json({ error: '영수증 이미지가 전송되지 않았습니다.' });
