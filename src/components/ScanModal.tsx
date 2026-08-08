@@ -60,6 +60,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const [frontImg, setFrontImg] = useState<string>('');
   const [backImg, setBackImg] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const scanGenerationRef = React.useRef<number>(0);
   const [scanDone, setScanDone] = useState<boolean>(false);
 
   // [수정] 사용자가 "카메라로 촬영" 버튼을 누르는 그 순간이 아니라, 이 스캔 화면이 열리자마자
@@ -114,6 +115,12 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       alert('스캔할 명함 앞면 또는 뒷면 이미지를 업로드해주세요.');
       return;
     }
+    // [수정] 스캔 도중 재촬영 등으로 handleStartOCR가 또 호출되면, 먼저 보낸 요청과
+    // 나중에 보낸 요청 중 어느 게 먼저 끝나느냐에 따라 화면에 엉뚱한(오래된) 결과가
+    // 나중에 덮어써질 수 있었다. "이번이 몇 번째 요청인지"를 세대 번호로 남겨서,
+    // 지금 가장 최근에 보낸 요청의 결과만 화면에 반영되게 한다(오래된 요청이 늦게
+    // 응답해도 무시됨).
+    const myGeneration = ++scanGenerationRef.current;
 
     setIsScanning(true);
     setScanDone(false);
@@ -125,6 +132,9 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         body: JSON.stringify({ frontImage: frontImg, backImage: backImg })
       });
       const data = await res.json();
+
+      // 이 응답을 받는 사이에 더 최신 스캔이 시작됐다면, 이 결과는 이미 낡은 것이니 버린다.
+      if (myGeneration !== scanGenerationRef.current) return;
 
       if (data.error) {
         throw new Error(data.error);
@@ -168,9 +178,15 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
       setScanDone(true);
     } catch (err: any) {
-      alert(err.message || '스캔 중 오류 발생');
+      if (myGeneration === scanGenerationRef.current) {
+        alert(err.message || '스캔 중 오류 발생');
+      }
     } finally {
-      setIsScanning(false);
+      // 이 요청이 이미 낡은(더 최신 요청이 진행 중인) 상태라면, 로딩 상태를 건드리지 않는다
+      // — 안 그러면 최신 스캔이 한창 진행 중인데 갑자기 "스캔 중" 표시가 사라져버린다.
+      if (myGeneration === scanGenerationRef.current) {
+        setIsScanning(false);
+      }
     }
   };
 
