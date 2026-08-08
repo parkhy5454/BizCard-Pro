@@ -2174,11 +2174,22 @@ app.post('/api/contacts/regeocode', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
 
-  const targets = dbData.contacts.filter(c => (c.address || '').trim());
+  // [수정] "아직 좌표가 없는 명함 전부"를 한 번의 요청으로 다 처리하려니, 명함이 많으면
+  // (특히 재시도할 때도 실패한 것들이 여전히 많이 남아있으면) 처리 시간이 Render의 요청
+  // 타임아웃을 넘겨서 502 에러가 났다. 이제는 "가져오기" 때처럼 한 번 요청에 최대
+  // LIMIT_PER_CALL건만 처리하고, 남은 건수를 알려준다 — 클라이언트가 남은 게 있으면
+  // 이어서 반복 호출하는 방식으로 바꿔서, 명함이 아무리 많아도 타임아웃 걱정이 없다.
+  const LIMIT_PER_CALL = 150;
+  const targets = dbData.contacts
+    .filter(c => (c.address || '').trim() && (!c.lat || !c.lng))
+    .slice(0, LIMIT_PER_CALL);
+
+  const totalRemainingBefore = dbData.contacts.filter(c => (c.address || '').trim() && (!c.lat || !c.lng)).length;
+
   let updated = 0;
   let failed = 0;
   let firstError: string | undefined;
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 6;
 
   for (let i = 0; i < targets.length; i += CONCURRENCY) {
     const batch = targets.slice(i, i + CONCURRENCY);
@@ -2196,7 +2207,8 @@ app.post('/api/contacts/regeocode', async (req, res) => {
     }));
   }
 
-  res.json({ success: true, totalWithAddress: targets.length, updated, failed, firstError });
+  const remaining = Math.max(0, totalRemainingBefore - targets.length);
+  res.json({ success: true, processedThisCall: targets.length, updated, failed, remaining, firstError });
 });
 
 app.get('/api/contacts', (req, res) => {
