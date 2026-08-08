@@ -282,7 +282,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
             <Compass className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">주변 사람 지도 (가까운 거리순 정렬 · 방문 동선)</h2>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">주변 사람 지도</h2>
           </div>
         </div>
 
