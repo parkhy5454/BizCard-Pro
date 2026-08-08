@@ -1031,6 +1031,11 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
   // 넘으면 앞부분만 잘라서 보낸다(뒤쪽 상세 동/호수 정보는 위치 계산엔 크게 중요하지
   // 않다).
   let cleaned = (address || '').trim();
+  // [추가] "521\, Teheran-ro\, Gangnam-gu\, Seoul\, 06164 Korea"처럼, vCard 가져오기
+  // 과정에서 이스케이프 문자(백슬래시)가 안 지워진 채로 이미 저장된 기존 주소들이 있었다.
+  // (원인 자체는 IOModal.tsx의 vCard 파싱 로직에서 고쳤지만, 이미 저장된 데이터에는
+  // 소급 적용이 안 되므로 여기서도 한 번 더 정리해서 기존 주소도 검색이 되게 한다.)
+  cleaned = cleaned.replace(/\\,/g, ',').replace(/\\;/g, ';');
   // [수정] 우편번호나 "대한민국" 같은 국가명이 주소 맨 끝뿐 아니라 문장 중간에도 끼어있는
   // 경우가 실제로 있었다(예: "...4층), 05630 서울시   대한민국" — 우편번호 뒤에 시/도명과
   // 국가명이 또 붙는 뒤죽박죽 형태). 명함 OCR이나 다른 시스템에서 복사해올 때 생기는 흔한
