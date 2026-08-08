@@ -6,6 +6,7 @@ import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
 import { getContactGroupIds } from '../groupUtils.js';
+import { getContactImageProxyUrl } from '../imageProxy.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
 
 interface Props {
@@ -330,7 +331,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
             >
               {cardSide === 'front' ? (
                 (activeTab === 'edit' ? editForm.frontImage : contact.frontImage) ? (
-                  <img src={activeTab === 'edit' ? editForm.frontImage : contact.frontImage} alt="명함 앞면" className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-105 select-none" draggable={false} />
+                  <img src={activeTab === 'edit' ? editForm.frontImage : getContactImageProxyUrl(contact, 'front')} alt="명함 앞면" className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-105 select-none" draggable={false} />
                 ) : (
                   <div className="text-center p-6 text-slate-400">
                     <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -339,7 +340,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                 )
               ) : (
                 contact.backImage ? (
-                  <img src={contact.backImage} alt="명함 뒷면" className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-105 select-none" draggable={false} />
+                  <img src={getContactImageProxyUrl(contact, 'back')} alt="명함 뒷면" className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-105 select-none" draggable={false} />
                 ) : (
                   <div className="text-center p-6 text-slate-400">
                     <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />

@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
+import { getContactImageProxyUrl } from '../imageProxy.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -409,7 +410,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                 >
                   {(() => {
                     const side = cardImageSide[contact.id] || 'front';
-                    const shownImage = side === 'back' && contact.backImage ? contact.backImage : contact.frontImage;
+                    const useBack = side === 'back' && !!contact.backImage;
+                    const shownImage = useBack ? getContactImageProxyUrl(contact, 'back') : getContactImageProxyUrl(contact, 'front');
                     return shownImage ? (
                       <img
                         src={shownImage}

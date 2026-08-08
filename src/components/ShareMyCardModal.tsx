@@ -541,7 +541,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                           <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
                             {scanImg ? (
                               <>
-                                <img src={scanImg} alt="앞면 미리보기" className="w-full h-full object-cover" />
+                                <img src={scanImg.startsWith('data:') ? scanImg : '/api/img/my-profile/front'} alt="앞면 미리보기" className="w-full h-full object-cover" />
                                 <button
                                   type="button"
                                   onClick={() => setScanImg('')}
@@ -582,7 +582,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                           <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
                             {scanImgBack ? (
                               <>
-                                <img src={scanImgBack} alt="뒷면 미리보기" className="w-full h-full object-cover" />
+                                <img src={scanImgBack.startsWith('data:') ? scanImgBack : '/api/img/my-profile/back'} alt="뒷면 미리보기" className="w-full h-full object-cover" />
                                 <button
                                   type="button"
                                   onClick={() => setScanImgBack('')}
