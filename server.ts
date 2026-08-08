@@ -2179,36 +2179,57 @@ app.post('/api/contacts/regeocode', async (req, res) => {
   // 타임아웃을 넘겨서 502 에러가 났다. 이제는 "가져오기" 때처럼 한 번 요청에 최대
   // LIMIT_PER_CALL건만 처리하고, 남은 건수를 알려준다 — 클라이언트가 남은 게 있으면
   // 이어서 반복 호출하는 방식으로 바꿔서, 명함이 아무리 많아도 타임아웃 걱정이 없다.
+  // [수정] 예전엔 "좌표가 있는지 없는지"로 이미 처리됐는지 판단했는데, 예전 가짜 좌표
+  // 시스템 시절 저장된 명함들은 실패해도 예전 가짜 좌표값이 그대로 남아있어서 "이미
+  // 처리됨"으로 잘못 판단해 건너뛰는 문제가 있었다. 이제는 "실제 API로 확인된 좌표인지"
+  // (isRealGeocoded)만 기준으로 판단한다.
+  const isPending = (c: BusinessCard) => (c.address || '').trim() && !c.isRealGeocoded;
   const LIMIT_PER_CALL = 150;
-  const targets = dbData.contacts
-    .filter(c => (c.address || '').trim() && (!c.lat || !c.lng))
-    .slice(0, LIMIT_PER_CALL);
+  const targets = dbData.contacts.filter(isPending).slice(0, LIMIT_PER_CALL);
 
-  const totalRemainingBefore = dbData.contacts.filter(c => (c.address || '').trim() && (!c.lat || !c.lng)).length;
+  const totalRemainingBefore = dbData.contacts.filter(isPending).length;
 
   let updated = 0;
   let failed = 0;
   let firstError: string | undefined;
+  let authError = false;
   const CONCURRENCY = 6;
 
   for (let i = 0; i < targets.length; i += CONCURRENCY) {
+    // [추가] API 키 자체가 잘못됐다면(401/403) 이 명함 저 명함 할 것 없이 전부 똑같이
+    // 실패한다. 그런데 이 경우엔 isRealGeocoded를 남기지 않아서(설정 고치면 재시도되게
+    // 하려고), remaining이 줄어들지 않아 클라이언트가 무한정 재호출을 반복할 위험이
+    // 있다. 인증 오류를 감지하면 남은 처리를 즉시 멈추고, 클라이언트에게 "이건 설정
+    // 문제니 재시도해도 소용없다"고 명확히 알린다.
+    if (authError) break;
+
     const batch = targets.slice(i, i + CONCURRENCY);
     await Promise.all(batch.map(async (c) => {
       const { coords, error } = await geocodeAddressWithDiagnostics(c.address || '');
       if (coords) {
         c.lat = coords.lat;
         c.lng = coords.lng;
+        c.isRealGeocoded = true;
         await setScopedDoc(scopeId, 'contacts', c);
         updated++;
       } else {
+        // [수정] "주소를 진짜 못 찾은 경우"만 isRealGeocoded를 true로 남겨서 다음 번에
+        // 또 시도하지 않게 한다. 반면 API 키 문제나 네트워크 오류처럼 "나중에 설정을
+        // 고치면 다시 시도했을 때 성공할 수도 있는" 경우는 표시를 남기지 않아서, 나중에
+        // 재계산 버튼을 다시 누르면 자동으로 재시도 대상에 포함되게 한다.
+        if (error === '주소/키워드 검색 결과 없음') {
+          c.isRealGeocoded = true;
+          await setScopedDoc(scopeId, 'contacts', c);
+        }
         failed++;
         if (!firstError && error) firstError = error;
+        if (error && error.includes('인증 실패')) authError = true;
       }
     }));
   }
 
-  const remaining = Math.max(0, totalRemainingBefore - targets.length);
-  res.json({ success: true, processedThisCall: targets.length, updated, failed, remaining, firstError });
+  const remaining = authError ? 0 : Math.max(0, totalRemainingBefore - targets.length);
+  res.json({ success: true, processedThisCall: targets.length, updated, failed, remaining, firstError, authError });
 });
 
 app.get('/api/contacts', (req, res) => {
@@ -2240,6 +2261,7 @@ app.post('/api/contacts', async (req, res) => {
     if (coords) {
       newCard.lat = coords.lat;
       newCard.lng = coords.lng;
+      newCard.isRealGeocoded = true;
     }
   }
 
@@ -2264,6 +2286,7 @@ app.put('/api/contacts/:id', async (req, res) => {
     if (coords) {
       updated.lat = coords.lat;
       updated.lng = coords.lng;
+      updated.isRealGeocoded = true;
     }
   }
 
