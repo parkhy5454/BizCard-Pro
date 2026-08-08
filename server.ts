@@ -1051,6 +1051,28 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
     .replace(/,\s*,/g, ',') // 쉼표가 연달아 남은 경우 정리
     .replace(/,\s*$/, '') // 맨 끝에 쉼표만 남은 경우 제거
     .trim();
+
+  // [추가] "용산구 용산동 용산고길 23 서울특별시"처럼, 시/도 이름이 맨 앞이 아니라
+  // 뒤쪽(심지어 맨 끝)에 붙어있는 주소가 실제로 많았다. 한국 주소는 "시/도 → 구 → 동 →
+  // 도로명" 순서로 맨 앞에 시/도가 와야 카카오가 정확히 인식하므로, 시/도 이름이 뒤에
+  // 있으면 찾아서 맨 앞으로 옮겨준다.
+  const PROVINCE_NAMES = [
+    '서울특별시', '서울시', '서울', '부산광역시', '부산시', '부산', '대구광역시', '대구시', '대구',
+    '인천광역시', '인천시', '인천', '광주광역시', '광주시', '광주', '대전광역시', '대전시', '대전',
+    '울산광역시', '울산시', '울산', '세종특별자치시', '세종시', '세종', '경기도', '경기',
+    '강원특별자치도', '강원도', '강원', '충청북도', '충북', '충청남도', '충남',
+    '전북특별자치도', '전라북도', '전북', '전라남도', '전남', '경상북도', '경북', '경상남도', '경남',
+    '제주특별자치도', '제주도', '제주'
+  ];
+  for (const province of PROVINCE_NAMES) {
+    const idx = cleaned.indexOf(province);
+    // 이미 맨 앞(0~2번째 글자 이내)에 있으면 그대로 두고, 뒤쪽에 있을 때만 앞으로 옮긴다.
+    if (idx > 2) {
+      cleaned = `${province} ${cleaned.slice(0, idx)}${cleaned.slice(idx + province.length)}`.replace(/\s{2,}/g, ' ').trim();
+      break;
+    }
+  }
+
   const trimmed = cleaned.slice(0, 100);
   if (!trimmed) return { coords: null, error: '주소가 비어있음' };
   if (!KAKAO_REST_API_KEY) {
