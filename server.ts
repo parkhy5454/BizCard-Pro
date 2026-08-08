@@ -1024,7 +1024,13 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 // [추가] 재계산 버튼을 눌렀는데 전부 실패하는 경우, 서버 로그를 따로 안 봐도 화면에서
 // 바로 원인을 알 수 있도록 실패 사유를 같이 돌려준다 (예: 키 미설정, 401 인증 오류 등).
 async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords: { lat: number; lng: number } | null; error?: string }> {
-  const trimmed = (address || '').trim();
+  // [수정] 카카오 로컬 API는 검색어(query)를 100자까지만 받는다({"code":-2,"msg":"Max
+  // (query) length 100"}). 이보다 긴 주소(상세 동/호수, 건물명까지 다 붙어서 100자를
+  // 넘는 경우)를 그대로 보내면 무조건 400 에러가 났다. 한국 주소는 보통 "시/도 → 구 →
+  // 동 → 번지" 순으로, 위치를 특정하는 데 중요한 정보가 앞쪽에 있으므로, 100자를
+  // 넘으면 앞부분만 잘라서 보낸다(뒤쪽 상세 동/호수 정보는 위치 계산엔 크게 중요하지
+  // 않다).
+  const trimmed = (address || '').trim().slice(0, 100);
   if (!trimmed) return { coords: null, error: '주소가 비어있음' };
   if (!KAKAO_REST_API_KEY) {
     return { coords: null, error: 'KAKAO_REST_API_KEY 환경변수가 설정되지 않음' };
