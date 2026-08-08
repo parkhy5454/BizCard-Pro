@@ -1030,7 +1030,12 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
   // 동 → 번지" 순으로, 위치를 특정하는 데 중요한 정보가 앞쪽에 있으므로, 100자를
   // 넘으면 앞부분만 잘라서 보낸다(뒤쪽 상세 동/호수 정보는 위치 계산엔 크게 중요하지
   // 않다).
-  const trimmed = (address || '').trim().slice(0, 100);
+  let cleaned = (address || '').trim();
+  // [추가] 우편번호 일부가 잘려서 ", 056"처럼 끝에 의미 없는 조각이 붙어있는 경우가 실제로
+  // 있었다(명함 OCR이나 복사 과정에서 생기는 흔한 오염 패턴). 이런 꼬리표는 검색만
+  // 방해하니 미리 떼어낸다.
+  cleaned = cleaned.replace(/,\s*\d{2,5}\s*$/, '').trim();
+  const trimmed = cleaned.slice(0, 100);
   if (!trimmed) return { coords: null, error: '주소가 비어있음' };
   if (!KAKAO_REST_API_KEY) {
     return { coords: null, error: 'KAKAO_REST_API_KEY 환경변수가 설정되지 않음' };
