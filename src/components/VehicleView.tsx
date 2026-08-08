@@ -173,6 +173,57 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 작성 화면처럼 "저장" 버튼을 눌러야 반영되는 임시 상태가 아님).
   const [isScanningEditReceipt, setIsScanningEditReceipt] = useState<boolean>(false);
 
+  // [추가] 목적지가 명함에 없을 때(처음 방문하는 곳 등) 카카오 장소 검색으로 찾아 쓰는 기능.
+  interface PlaceSearchResult { name: string; address: string; lat: number; lng: number; }
+  const [placeSearchResults, setPlaceSearchResults] = useState<PlaceSearchResult[]>([]);
+  const [isSearchingPlace, setIsSearchingPlace] = useState<boolean>(false);
+  const [isEstimatingDistance, setIsEstimatingDistance] = useState<boolean>(false);
+
+  const handleSearchPlace = async (query: string) => {
+    if (!query.trim()) return;
+    setIsSearchingPlace(true);
+    setPlaceSearchResults([]);
+    try {
+      const res = await fetch(`/api/places/search?query=${encodeURIComponent(query.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '장소 검색에 실패했습니다.');
+      setPlaceSearchResults(data.places || []);
+      if ((data.places || []).length === 0) {
+        alert('검색 결과가 없습니다. 주소를 직접 입력해주세요.');
+      }
+    } catch (err: any) {
+      alert(`장소 검색에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } finally {
+      setIsSearchingPlace(false);
+    }
+  };
+
+  // [추가] 출발지·목적지 주소로 예상 주행거리를 계산해서, 도착 거리(km)에 "출발거리 + 예상
+  // 거리"를 자동으로 채워준다. 실제 도로 거리가 아니라 직선거리 기반 근사치라 "예상"이라고
+  // 표시하고, 계기판 실측값과 다르면 언제든 직접 수정할 수 있다(값을 잠그지 않는다).
+  const handleEstimateDistance = async () => {
+    if (!newDriving.startAddress || !newDriving.endAddress) {
+      alert('출발지 주소와 목적지 주소를 먼저 입력해주세요.');
+      return;
+    }
+    setIsEstimatingDistance(true);
+    try {
+      const res = await fetch('/api/vehicles/estimate-distance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startAddress: newDriving.startAddress, endAddress: newDriving.endAddress })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '거리 계산에 실패했습니다.');
+      const start = Number(newDriving.startMileage) || 0;
+      setNewDriving((prev) => ({ ...prev, endMileage: Math.round(start + data.estimatedKm) }));
+    } catch (err: any) {
+      alert(`예상 거리 계산에 실패했습니다.\n${err.message || '도착 거리를 직접 입력해주세요.'}`);
+    } finally {
+      setIsEstimatingDistance(false);
+    }
+  };
+
   // 3. 지출비용 폼
   const [newExpense, setNewExpense] = useState({
     vehicleId: '',
@@ -2259,7 +2310,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         const targetVh = vehicles.find(v => v.id === vehId);
                         
                         // 기등록 주행 기록 중 가장 최신의 도착 계기판(endMileage) 불러오기
-                        const vehLogs = drivingLogs.filter(log => log.vehicleId === vehId);
+                        // [수정] 예전엔 정렬 없이 그냥 배열의 첫 번째 항목을 썼는데, 이건
+                        // "등록한 순서"일 뿐이라 "실제로 가장 많이 주행한(=가장 최근) 기록"과
+                        // 다를 수 있었다(예: 지난주 운행을 오늘 뒤늦게 입력한 경우). 도착
+                        // 거리가 가장 큰 것을 실제 최신 기록으로 보고 정렬해서 찾는다.
+                        const vehLogs = drivingLogs
+                          .filter(log => log.vehicleId === vehId)
+                          .sort((a, b) => (b.endMileage || 0) - (a.endMileage || 0));
                         let recommendedStart = targetVh ? targetVh.currentMileage : 0;
                         if (vehLogs.length > 0) {
                           recommendedStart = vehLogs[0].endMileage;
@@ -2370,13 +2427,27 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">도착 후 계기판 (km) *</label>
+                    <label className="text-xs text-slate-500 flex items-center justify-between">
+                      <span>도착 후 계기판 (km) *</span>
+                      {/* [추가] 출발지·목적지 주소로 예상 주행거리를 계산해서 자동으로 채워준다.
+                      직선거리 기반 근사치라 실제 계기판과 다를 수 있으니, 계산 후에도 이 칸을
+                      바로 직접 수정할 수 있다(값이 잠기지 않음). */}
+                      <button
+                        type="button"
+                        onClick={handleEstimateDistance}
+                        disabled={isEstimatingDistance}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold disabled:opacity-50"
+                      >
+                        {isEstimatingDistance ? '계산 중...' : '📍 예상 거리 자동계산'}
+                      </button>
+                    </label>
                     <input 
                       type="number" 
                       value={newDriving.endMileage === 0 ? '' : newDriving.endMileage}
                       onChange={e => setNewDriving({ ...newDriving, endMileage: Number(e.target.value) })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
+                    <p className="text-[10px] text-slate-400">자동계산은 직선거리 기반 예상치입니다. 실제 계기판 값과 다르면 직접 고쳐주세요.</p>
                   </div>
 
                   {/* 출발지 상호명 및 주소 추가 */}
@@ -2499,6 +2570,36 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         </div>
                       ) : null;
                     })()}
+                    {/* [추가] 명함에 없는 곳(처음 방문하는 거래처 등)은 카카오 실시간 장소
+                    검색으로 찾아서 쓸 수 있게 한다. */}
+                    {newDriving.endPlace.trim().length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSearchPlace(newDriving.endPlace)}
+                        disabled={isSearchingPlace}
+                        className="mt-1 text-[10px] px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-semibold disabled:opacity-50"
+                      >
+                        {isSearchingPlace ? '검색 중...' : `🔍 "${newDriving.endPlace}" 카카오에서 실시간 검색`}
+                      </button>
+                    )}
+                    {placeSearchResults.length > 0 && (
+                      <div className="mt-1.5 bg-white border border-amber-200 rounded-xl overflow-hidden shadow-lg">
+                        {placeSearchResults.map((p, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setNewDriving({ ...newDriving, endPlace: p.name, endAddress: p.address });
+                              setPlaceSearchResults([]);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-amber-50 border-b border-slate-100 last:border-0"
+                          >
+                            <span className="font-semibold text-slate-700">{p.name}</span>
+                            <span className="block text-[10px] text-slate-400 mt-0.5">{p.address}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -2657,7 +2758,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               const matchVeh = selectedVehicleFilter === 'all' || log.vehicleId === selectedVehicleFilter;
               const matchPer = isDateInPeriod(log.date, drivingPeriod, drivingCustomStart, drivingCustomEnd);
               return matchVeh && matchPer;
-            });
+            })
+              // [수정] 예전엔 서버가 등록해준 순서 그대로 보여줬는데, 그러면 "등록한 순서"와
+              // "실제 운행한 순서"가 다를 때(예: 며칠 지나서 지난 운행을 입력) 헷갈렸다.
+              // 이제는 "도착 거리(누적 km)"가 큰 것부터 보여준다 — 누적 계기판 거리가 클수록
+              // 실제로 더 나중에 운행한 기록이라, 이게 곧 진짜 최신순이다.
+              .sort((a, b) => (b.endMileage || 0) - (a.endMileage || 0));
 
             if (filteredLogs.length === 0) {
               return (
