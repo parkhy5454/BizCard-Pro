@@ -206,6 +206,28 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
 
   const [regeocoding, setRegeocoding] = useState<boolean>(false);
   const [regeocodeProgress, setRegeocodeProgress] = useState<string>('');
+  // [추가] "주소는 있는데 좌표를 못 구한" 명함 목록을 실제로 눈으로 확인할 수 있게 한다.
+  interface GeocodeFailure { id: string; name: string; company: string; address: string; }
+  const [failureList, setFailureList] = useState<GeocodeFailure[] | null>(null);
+  const [isLoadingFailures, setIsLoadingFailures] = useState<boolean>(false);
+
+  const handleShowFailures = async () => {
+    if (failureList) {
+      setFailureList(null); // 이미 열려있으면 다시 눌렀을 때 닫기
+      return;
+    }
+    setIsLoadingFailures(true);
+    try {
+      const res = await fetch('/api/contacts/geocode-failures');
+      if (!res.ok) throw new Error(`목록을 불러오지 못했습니다 (상태: ${res.status}).`);
+      const data = await res.json();
+      setFailureList(data.failures || []);
+    } catch (err: any) {
+      alert(`실패 목록을 불러오는 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } finally {
+      setIsLoadingFailures(false);
+    }
+  };
 
   const handleRegeocode = async (retryFailed: boolean = false) => {
     const confirmMsg = retryFailed
@@ -310,6 +332,18 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
             <span>실패했던 것만 다시 시도</span>
           </button>
 
+          {/* [추가] 실패 건수만 숫자로 보여주던 걸, 실제로 어떤 명함들인지(이름/회사/주소)
+          목록으로 볼 수 있게 한다. 어떤 패턴으로 실패하는지 파악하고 필요하면 그 명함의
+          주소를 직접 고칠 수 있다. */}
+          <button
+            onClick={handleShowFailures}
+            disabled={isLoadingFailures}
+            className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함 목록 보기'}</span>
+          </button>
+
           <button
             onClick={handleGetMyGPS}
             disabled={gpsLoading}
@@ -332,6 +366,39 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           </select>
         </div>
       </div>
+
+      {/* [추가] 좌표 없는 명함 목록 - 이름/회사/주소를 보여줘서 어떤 패턴으로 실패하는지
+      파악하고, 상세보기로 바로 이동해서 주소를 고칠 수 있게 한다. */}
+      {failureList && (
+        <div className="bg-white border border-rose-200 rounded-3xl p-5 shadow-xl">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold text-rose-600">📍 좌표 없는 명함 ({failureList.length}건)</span>
+            <span className="text-[11px] text-slate-400">주소를 고친 뒤, 위의 "실패했던 것만 다시 시도"를 다시 눌러주세요.</span>
+          </div>
+          {failureList.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-6">좌표 없는 명함이 없습니다. 전부 정상 계산됐어요.</p>
+          ) : (
+            <div className="max-h-72 overflow-y-auto space-y-1.5">
+              {failureList.map((f) => {
+                const fullContact = contacts.find((c) => c.id === f.id);
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => fullContact && onSelectContact(fullContact)}
+                    className="w-full text-left flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors"
+                  >
+                    <div className="min-w-0 shrink-0 w-32">
+                      <p className="text-xs font-bold text-slate-800 truncate">{f.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{f.company || '회사 미등록'}</p>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate flex-1">{f.address}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
