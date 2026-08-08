@@ -65,6 +65,7 @@ export function generateStandardCardImage(c: BusinessCard): string {
   const lineHeight = 48;
   if (c.phoneMobile) { ctx.fillText(`M   ${c.phoneMobile}`, 68, y); y += lineHeight; }
   if (c.phoneOffice) { ctx.fillText(`T   ${c.phoneOffice}`, 68, y); y += lineHeight; }
+  if (c.phoneFax) { ctx.fillText(`F   ${c.phoneFax}`, 68, y); y += lineHeight; }
   if (c.email) { ctx.fillText(`E   ${c.email}`, 68, y); y += lineHeight; }
   if (c.address) {
     ctx.font = '21px "Malgun Gothic", sans-serif';
