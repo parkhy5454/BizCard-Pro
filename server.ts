@@ -953,7 +953,13 @@ const PENDING_APPROVAL_ALLOWED_PATHS = new Set([
   '/api/auth/verify-email',
   '/api/auth/resend-verification',
   '/api/auth/withdraw',
-  '/api/auth/lookup-company' // 회원가입 화면에서 로그인 전에도 써야 하는 유일한 공개 API
+  '/api/auth/lookup-company', // 회원가입 화면에서 로그인 전에도 써야 하는 유일한 공개 API
+  // [수정] 아래 둘은 로그인한 "사용자"가 아니라 외부 크론 서비스가 주기적으로 호출하는
+  // 엔드포인트다. 각자 CRON_SECRET 헤더로 자체적으로 보호하고 있으니(값 모르면 401),
+  // 로그인 세션 요구 게이트에서는 예외로 통과시켜준다 — 안 그러면 크론이 애초에 호출을
+  // 못 해서(사람이 로그인한 세션이 없으니) 아무 때도 자동으로 못 돈다.
+  '/api/billing/run-scheduled',
+  '/api/admin/run-company-summary-batch'
 ]);
 
 app.use((req, res, next) => {
@@ -2155,15 +2161,123 @@ setInterval(() => {
 // 환경에서도, 외부에서 이 주소를 정기적으로 때려주면 결제가 안정적으로 돌아간다.
 // CRON_SECRET 환경변수를 설정해두면, 그 값을 아는 요청만 실행할 수 있다(아무나 못 누르게).
 app.post('/api/billing/run-scheduled', async (req, res) => {
+  // [수정] 이 라우트는 로그인 게이트를 우회하도록 예외 처리돼 있는데(외부 크론이 호출해야
+  // 하니까), CRON_SECRET을 아예 설정 안 해두면 "아무나 인증 없이 결제를 강제 실행"할 수
+  // 있는 심각한 구멍이 생긴다. CRON_SECRET이 없을 땐 최소한 운영자(ADMIN_EMAIL) 로그인
+  // 세션이라도 있어야 실행되게 막는다.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
-    return res.status(401).json({ error: 'unauthorized' });
+  if (cronSecret) {
+    if (req.headers['x-cron-secret'] !== cronSecret) return res.status(401).json({ error: 'unauthorized' });
+  } else {
+    const requesterId = req.headers['x-user-id'] as string;
+    const requester = users.find(u => u.id === requesterId);
+    if (!requester || requester.email !== ADMIN_EMAIL) return res.status(401).json({ error: 'unauthorized' });
   }
   try {
     const result = await runScheduledBilling();
     res.json({ success: true, ...result });
   } catch (err: any) {
     res.status(500).json({ error: err.message || '스케줄 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 🤖 회사 비즈니스 요약 자동 채우기 (매일, 무료 할당량 안에서)
+// [추가] "AI 회사 비즈니스 요약" 버튼을 사용자가 직접 눌러야만 채워지던 걸, 아직 요약이
+// 없는 회사들을 매일 자동으로 조금씩 채워주는 배치 작업으로 보완한다. Gemini 무료
+// 할당량(하루 요청 수 제한)을 넘기지 않도록, 하루에 처리할 개수를 제한해서 실행한다.
+// ------------------------------------------------------------------
+
+// 하루에 자동으로 채워줄 회사 개수 상한. 쓰는 Gemini 모델의 무료 일일 할당량에 맞춰
+// GEMINI_DAILY_SUMMARY_QUOTA 환경변수로 조절할 수 있다(기본값은 안전하게 보수적으로 잡음).
+const DAILY_SUMMARY_QUOTA = Number(process.env.GEMINI_DAILY_SUMMARY_QUOTA) || 50;
+
+async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; companiesUpdated: number; failed: number }> {
+  if (!process.env.GEMINI_API_KEY) {
+    console.log('[회사요약 자동배치] GEMINI_API_KEY가 없어 건너뜁니다.');
+    return { scopesChecked: 0, companiesUpdated: 0, failed: 0 };
+  }
+
+  const scopeStats = await getPlatformStats();
+  // [수정] 최근에 활동이 있었던(=명함이 최근에 추가/수정된) 스코프부터 먼저 처리한다.
+  // 하루 할당량이 부족해서 다 못 돌더라도, 최근에 활발히 쓰는 회사가 우선적으로 채워지게 하기 위함.
+  const sortedScopes = scopeStats
+    .filter((s) => s.scopeId.startsWith('company:') || s.scopeId.startsWith('individual:'))
+    .sort((a, b) => (b.lastActivity || '').localeCompare(a.lastActivity || ''));
+
+  let quotaRemaining = DAILY_SUMMARY_QUOTA;
+  let companiesUpdated = 0;
+  let failed = 0;
+  let scopesChecked = 0;
+
+  for (const scope of sortedScopes) {
+    if (quotaRemaining <= 0) break;
+    scopesChecked++;
+
+    const contacts = await getScopedCollection<BusinessCard>(scope.scopeId, 'contacts');
+    // 회사명은 있는데 요약이 아직 없는 명함들을, 회사명 기준으로 묶는다(같은 회사 명함
+    // 여러 장이 있어도 그 회사는 한 번만 검색하고 전부에 같이 적용하기 위함).
+    const byCompany = new Map<string, BusinessCard[]>();
+    for (const c of contacts) {
+      const company = (c.company || '').trim();
+      if (!company || c.companyInfo) continue;
+      if (!byCompany.has(company)) byCompany.set(company, []);
+      byCompany.get(company)!.push(c);
+    }
+
+    for (const [company, group] of byCompany) {
+      if (quotaRemaining <= 0) break;
+      try {
+        const companyInfo = await generateCompanySummary(company);
+        quotaRemaining--;
+        for (const c of group) {
+          c.companyInfo = companyInfo;
+          await setScopedDoc(scope.scopeId, 'contacts', c);
+        }
+        companiesUpdated++;
+      } catch (err) {
+        console.error(`[회사요약 자동배치] "${company}" 요약 실패:`, err);
+        failed++;
+        quotaRemaining--; // 실패도 API 호출 자체는 소비했을 수 있으니 할당량에서 뺀다
+      }
+    }
+
+    // 메모리 캐시가 있다면 갱신된 내용을 다음 요청에서 다시 읽어오도록 비운다.
+    delete db[scope.scopeId];
+  }
+
+  console.log(`[회사요약 자동배치] 완료: 스코프 ${scopesChecked}개 확인, 회사 ${companiesUpdated}곳 갱신, 실패 ${failed}건`);
+  return { scopesChecked, companiesUpdated, failed };
+}
+
+// 서버가 켜져 있는 동안, 1시간마다 "오늘 이미 실행했는지" 확인해서 하루에 한 번만 돈다.
+let lastCompanySummaryRunDate: string | null = null;
+setInterval(() => {
+  const todayKey = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  if (lastCompanySummaryRunDate === todayKey) return;
+  lastCompanySummaryRunDate = todayKey;
+  runDailyCompanySummaryBatch().catch((err) => console.error('runDailyCompanySummaryBatch 실패:', err));
+}, 60 * 60 * 1000);
+
+// [추가] 서버가 잠들었다 깨어나는 배포 환경(Render 등)에서도 안정적으로 매일 한 번은
+// 돌 수 있도록, 외부 크론 서비스가 정기적으로 호출할 수 있는 엔드포인트도 열어둔다.
+// CRON_SECRET을 설정해두면 그 값을 아는 요청만 실행할 수 있다.
+app.post('/api/admin/run-company-summary-batch', async (req, res) => {
+  // [수정] 위 결제 크론과 같은 이유로, CRON_SECRET이 없으면 운영자 로그인 세션을 요구한다.
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    if (req.headers['x-cron-secret'] !== cronSecret) return res.status(401).json({ error: 'unauthorized' });
+  } else {
+    const requesterId = req.headers['x-user-id'] as string;
+    const requester = users.find(u => u.id === requesterId);
+    if (!requester || requester.email !== ADMIN_EMAIL) return res.status(401).json({ error: 'unauthorized' });
+  }
+  try {
+    const result = await runDailyCompanySummaryBatch();
+    lastCompanySummaryRunDate = new Date().toISOString().slice(0, 10);
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || '배치 처리 중 오류가 발생했습니다.' });
   }
 });
 
@@ -2909,35 +3023,39 @@ app.post('/api/scan-receipt', async (req, res) => {
 });
 
 // 회사 비즈니스 및 전년도 매출 규모 실시간 AI 검색 API
+// [수정] 회사 요약을 만드는 로직 자체를 공용 함수로 뺐다. 사용자가 수동으로 누르는 버튼
+// (아래 /api/company/search-summary)과, 매일 자동으로 도는 배치 작업이 똑같은 로직을
+// 공유해서 쓴다.
+async function generateCompanySummary(company: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    // API Key가 없는 경우 테스트를 위해 그럴듯한 모의 데이터 생성해서 전달
+    return `${company}은(는) 혁신 비즈니스를 영위하고 있는 기업입니다. (전년도 매출액 규모: 약 1,250억원, 직원수: 약 210명 수준 / 실시간 AI 검색 결과를 보시려면 GEMINI_API_KEY를 등록하세요)`;
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const prompt = `회사명 "${company}"의 업종, 주요 비즈니스 요약, 실시간 구글 검색(googleSearch)을 통해 파악한 전년도 매출액 규모(가장 최근의 연 매출 규모 정보, 예: '매출액 약 5,000억원', 구체적 검색이 어려울 경우 '매출 정보 확인 어려움' 등으로 명시), 그리고 직원수(파악 가능한 가장 최근 규모, 예: '직원수 약 150명', 확인이 어려우면 '직원수 확인 어려움')를 포함하여 1~2줄의 완성도 높은 한 문장으로 비즈니스 요약을 작성해줘.\n` +
+    `예시 포맷: "인공지능 기반 B2B DX 및 스마트 비즈니스 솔루션 기업 (전년도 매출액 약 320억원, 직원수 약 85명)"\n` +
+    `마크다운 백틱 이나 불필요한 서술 없이 최종 요약 문장 하나만 바로 반환해줘.`;
+
+  const response = await generateContentWithRetry(ai, {
+    model: 'gemini-3.5-flash',
+    contents: prompt,
+    config: {
+      tools: [{ googleSearch: {} }]
+    }
+  });
+
+  return (response.text || '').trim().replace(/^"/, '').replace(/"$/, '');
+}
+
 app.post('/api/company/search-summary', async (req, res) => {
   try {
     const { company } = req.body;
     if (!company) {
       return res.status(400).json({ error: '회사명이 필요합니다.' });
     }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      // API Key가 없는 경우 테스트를 위해 그럴듯한 모의 데이터 생성해서 전달
-      return res.json({
-        companyInfo: `${company}은(는) 혁신 비즈니스를 영위하고 있는 기업입니다. (전년도 매출액 규모: 약 1,250억원, 직원수: 약 210명 수준 / 실시간 AI 검색 결과를 보시려면 GEMINI_API_KEY를 등록하세요)`
-      });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = `회사명 "${company}"의 업종, 주요 비즈니스 요약, 실시간 구글 검색(googleSearch)을 통해 파악한 전년도 매출액 규모(가장 최근의 연 매출 규모 정보, 예: '매출액 약 5,000억원', 구체적 검색이 어려울 경우 '매출 정보 확인 어려움' 등으로 명시), 그리고 직원수(파악 가능한 가장 최근 규모, 예: '직원수 약 150명', 확인이 어려우면 '직원수 확인 어려움')를 포함하여 1~2줄의 완성도 높은 한 문장으로 비즈니스 요약을 작성해줘.\n` +
-      `예시 포맷: "인공지능 기반 B2B DX 및 스마트 비즈니스 솔루션 기업 (전년도 매출액 약 320억원, 직원수 약 85명)"\n` +
-      `마크다운 백틱 이나 불필요한 서술 없이 최종 요약 문장 하나만 바로 반환해줘.`;
-
-    const response = await generateContentWithRetry(ai, {
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
-    });
-
-    const companyInfo = (response.text || '').trim().replace(/^"/, '').replace(/"$/, '');
+    const companyInfo = await generateCompanySummary(company);
     res.json({ companyInfo });
   } catch (error: any) {
     console.error('Company search summary error:', error);
