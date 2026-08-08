@@ -2538,6 +2538,28 @@ app.post('/api/contacts/regeocode', async (req, res) => {
   });
 });
 
+// [추가] 명함 사진은 실제로는 Supabase Storage의 길고 복잡한 서명 URL(토큰 포함)에
+// 저장돼 있다. 이 URL을 <img src>에 그대로 쓰면, iOS/Android에서 사진을 길게 눌렀을 때
+// 뜨는 "저장/공유/복사" 메뉴 위에 저 긴 URL이 그대로 노출돼서 지저분해 보이는 문제가
+// 있었다. 그래서 대신 우리 서버의 짧고 깔끔한 주소로 접근하게 하고, 서버가 실제
+// Supabase 주소로 302 리다이렉트해준다 — 화면(브라우저)에 <img src>로 남는 값은 항상
+// 이 짧은 주소이기 때문에, 길게 눌렀을 때 보이는 URL도 이 짧은 주소가 된다.
+app.get('/api/img/contacts/:contactId/:side', (req, res) => {
+  const dbData = getScopedData(req);
+  const contact = dbData.contacts.find(c => c.id === req.params.contactId);
+  if (!contact) return res.status(404).send('Not found');
+  const url = req.params.side === 'back' ? contact.backImage : contact.frontImage;
+  if (!url) return res.status(404).send('Not found');
+  res.redirect(url);
+});
+
+app.get('/api/img/my-profile/:side', (req, res) => {
+  const dbData = getScopedData(req);
+  const url = req.params.side === 'back' ? dbData.myProfile?.backImage : dbData.myProfile?.frontImage;
+  if (!url) return res.status(404).send('Not found');
+  res.redirect(url);
+});
+
 app.get('/api/contacts', (req, res) => {
   const dbData = getScopedData(req);
   const requesterId = req.headers['x-user-id'] as string;
