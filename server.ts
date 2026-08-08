@@ -2198,17 +2198,16 @@ app.post('/api/contacts/regeocode', async (req, res) => {
   // 시스템 시절 저장된 명함들은 실패해도 예전 가짜 좌표값이 그대로 남아있어서 "이미
   // 처리됨"으로 잘못 판단해 건너뛰는 문제가 있었다. 이제는 "실제 API로 확인된 좌표인지"
   // (isRealGeocoded)만 기준으로 판단한다.
-  // [추가] 다만 그 판단 기준 자체가 문제될 때가 있다 — 예를 들어 이번처럼 "카카오 API
-  // 검색어 100자 제한" 같은 버그 때문에 실패한 건들도 "이 주소는 원래 못 찾는 주소"로
-  // 오해해서 완료 처리해버렸는데, 그 버그를 고친 뒤에는 다시 시도하면 성공할 수 있는
-  // 것들이었다. retryFailed=true로 요청하면, 이미 "완료 처리"됐지만 실제로는 좌표를
-  // 못 구했던(실패한) 것들도 재시도 대상에 포함시킨다.
+  // [추가] 다만 예전 가짜 좌표 시스템 시절 저장된 명함들은, 실패해도 그 예전 가짜
+  // 좌표값이 남아있어서 "좌표 유무"로는 성공/실패를 구분할 수 없었다. retryFailed=true로
+  // 요청하면, 안전하게 "주소가 있는 모든 명함"을 다시 검사 대상으로 삼는다 — 이미 정확히
+  // 계산된 것도 다시 확인하게 돼서 API 호출이 좀 더 들지만, 오염된 예전 데이터를
+  // 확실하게 걸러낼 수 있는 유일하게 신뢰할 수 있는 방법이다.
   const retryFailed = req.body?.retryFailed === true;
   const isPending = (c: BusinessCard) => {
     if (!(c.address || '').trim()) return false;
-    if (!c.isRealGeocoded) return true;
-    if (retryFailed && (!c.lat || !c.lng)) return true;
-    return false;
+    if (retryFailed) return true;
+    return !c.isRealGeocoded;
   };
   const LIMIT_PER_CALL = 150;
   const targets = dbData.contacts.filter(isPending).slice(0, LIMIT_PER_CALL);
@@ -2246,6 +2245,13 @@ app.post('/api/contacts/regeocode', async (req, res) => {
         // 재계산 버튼을 다시 누르면 재시도 대상에 남아있게 한다.
         const isRetryableError = !error || error.includes('인증 실패') || error.includes('환경변수') || error.startsWith('네트워크 오류');
         if (!isRetryableError) {
+          // [수정] 예전 가짜 좌표 시스템 시절 저장된 명함은, 이번에 실패해도 그 예전 가짜
+          // 좌표값이 그대로 남아있었다. 그러면 "좌표가 있으니 이미 성공한 건가 보다"로
+          // 착각해서, "실패한 것만 다시 시도" 기능이 이 명함을 놓치는 문제가 있었다.
+          // 실패로 확정되면 좌표를 확실히 비워서, "좌표 없음 = 진짜 지오코딩 실패"라는
+          // 걸 항상 믿을 수 있게 한다.
+          c.lat = undefined;
+          c.lng = undefined;
           c.isRealGeocoded = true;
           await setScopedDoc(scopeId, 'contacts', c);
         }
