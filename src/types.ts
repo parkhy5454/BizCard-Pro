@@ -21,6 +21,11 @@ export interface BusinessCard {
   address: string;
   address2?: string;   // 보조 주소 (공장/지사 등 주소가 2개인 경우)
   lat?: number;
+  // [추가] 예전엔 주소를 "강남/판교" 같은 동네 이름 몇 개로 대충 찍어서(가짜) 좌표를 항상
+  // 채워뒀었다. 그래서 "좌표가 있는지 없는지"만으로는 진짜 지오코딩(카카오 API)으로
+  // 정확히 계산된 건지, 예전 가짜값이 그대로 남아있는 건지 구분할 수 없었다. 이 값이
+  // true여야 "실제 API로 확인된 정확한 좌표"라는 뜻이다.
+  isRealGeocoded?: boolean;
   lng?: number;
   groupId?: string; // [수정] 가져오기 등으로 그룹 미지정 상태(전체보기에서만 보임)일 수 있어 옵셔널로 변경
   frontImage?: string; // base64 data url or sample image
