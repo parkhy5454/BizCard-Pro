@@ -2191,6 +2191,83 @@ app.post('/api/auth/pending-members/:targetId/reject', async (req, res) => {
 // 📁 Scoped CRUD APIs
 // [추가] 예전 가짜 좌표 배정 방식으로 이미 저장된 기존 명함들을 실제 좌표로 다시 계산한다.
 // 주소가 있는 명함만 대상으로, 몇 개씩 동시에 처리해서 너무 느려지지 않게 한다.
+// [추가] 운행기록의 "목적지"를 입력할 때, 명함에 없는 곳(처음 방문하는 거래처 등)은
+// 카카오 키워드 검색으로 실제 장소를 찾아서 골라 쓸 수 있게 한다. 상위 5개까지만
+// 후보로 보여준다.
+app.get('/api/places/search', async (req, res) => {
+  const query = String(req.query.query || '').trim().slice(0, 100);
+  if (!query) return res.json({ places: [] });
+  if (!KAKAO_REST_API_KEY) {
+    return res.status(500).json({ error: 'KAKAO_REST_API_KEY 환경변수가 설정되지 않았습니다.', places: [] });
+  }
+
+  try {
+    const kakaoRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=5`, {
+      headers: { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` }
+    });
+    if (!kakaoRes.ok) {
+      const bodyText = await kakaoRes.text().catch(() => '');
+      return res.status(kakaoRes.status).json({ error: `카카오 장소 검색 오류: ${bodyText.slice(0, 200)}`, places: [] });
+    }
+    const data: any = await kakaoRes.json();
+    const places = (data.documents || []).map((d: any) => ({
+      name: d.place_name,
+      address: d.road_address_name || d.address_name,
+      lat: parseFloat(d.y),
+      lng: parseFloat(d.x)
+    }));
+    res.json({ places });
+  } catch (err: any) {
+    console.error('장소 검색 중 오류:', err);
+    res.status(500).json({ error: err.message || '장소 검색 중 오류가 발생했습니다.', places: [] });
+  }
+});
+
+// [추가] 출발지/도착지 주소 두 개를 받아서 "직선거리 기준 예상 주행거리"를 계산해준다.
+// 실제 도로 경로 거리(카카오 모빌리티 길찾기 API)를 쓰면 더 정확하겠지만, 그건 별도
+// 상품 계약이 필요한 경우가 많아서, 대신 직선거리에 "왕복/우회를 감안한 보정 계수"를
+// 곱해 근사치를 낸다. 어디까지나 "제안값"이라, 화면에서 사용자가 실제 계기판 값으로
+// 언제든 직접 고칠 수 있다.
+const ROAD_DISTANCE_CORRECTION_FACTOR = 1.3;
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLng = (lng2 - lng1) * (Math.PI / 180);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+app.post('/api/vehicles/estimate-distance', async (req, res) => {
+  const { startAddress, endAddress, startLat, startLng, endLat, endLng } = req.body;
+
+  try {
+    // 좌표가 이미 넘어왔으면(예: 명함에 저장된 좌표) 그걸 쓰고, 없으면 주소로 새로 지오코딩한다.
+    let sLat = startLat, sLng = startLng, eLat = endLat, eLng = endLng;
+
+    if (!sLat || !sLng) {
+      const startCoords = await geocodeAddress(startAddress || '');
+      if (!startCoords) return res.status(422).json({ error: '출발지 주소의 좌표를 찾지 못했습니다.' });
+      sLat = startCoords.lat;
+      sLng = startCoords.lng;
+    }
+    if (!eLat || !eLng) {
+      const endCoords = await geocodeAddress(endAddress || '');
+      if (!endCoords) return res.status(422).json({ error: '목적지 주소의 좌표를 찾지 못했습니다.' });
+      eLat = endCoords.lat;
+      eLng = endCoords.lng;
+    }
+
+    const straightLineKm = haversineKm(sLat, sLng, eLat, eLng);
+    const estimatedRoadKm = Math.round(straightLineKm * ROAD_DISTANCE_CORRECTION_FACTOR * 10) / 10;
+
+    res.json({ success: true, estimatedKm: estimatedRoadKm, straightLineKm: Math.round(straightLineKm * 10) / 10 });
+  } catch (err: any) {
+    console.error('예상 거리 계산 중 오류:', err);
+    res.status(500).json({ error: err.message || '거리 계산 중 오류가 발생했습니다.' });
+  }
+});
+
 app.post('/api/contacts/regeocode', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
