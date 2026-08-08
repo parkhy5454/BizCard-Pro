@@ -143,44 +143,6 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
 
   return (
     <div className="space-y-3">
-      {/* [추가] 참고하신 병원 근무표 앱처럼, 화면 맨 위에 한눈에 들어오는 요약 통계 카드를 둔다.
-      다크 테마는 그대로 유지하면서(전체 톤 통일성 위해), 카드마다 포인트 컬러를 줘서
-      정보가 한눈에 구분되게 했다. */}
-      {(() => {
-        const now = new Date();
-        const thisMonthCount = contacts.filter((c) => {
-          if (!c.createdAt) return false;
-          const d = new Date(c.createdAt);
-          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-        }).length;
-        const companyCount = new Set(contacts.map((c) => (c.company || '').trim()).filter(Boolean)).size;
-        const privateCount = contacts.filter((c) => c.isPrivate).length;
-
-        const stats = [
-          { label: '전체 명함', value: contacts.length, color: 'indigo' as const },
-          { label: '이번달 신규', value: thisMonthCount, color: 'emerald' as const },
-          { label: '소속 회사 수', value: companyCount, color: 'amber' as const },
-          { label: '나만 보기', value: privateCount, color: 'rose' as const }
-        ];
-        const colorClasses: Record<string, string> = {
-          indigo: 'bg-blue-600 text-white',
-          emerald: 'bg-emerald-500 text-white',
-          amber: 'bg-amber-500 text-white',
-          rose: 'bg-purple-500 text-white'
-        };
-
-        return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {stats.map((s) => (
-              <div key={s.label} className={`rounded-2xl p-3.5 shadow-md ${colorClasses[s.color]}`}>
-                <p className="text-2xl font-extrabold leading-none">{s.value.toLocaleString()}</p>
-                <p className="text-[11px] font-semibold mt-1.5 opacity-90">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
-
       {/* 🧠 관계 인텔리전스: 명함 + 프로젝트 + 팔로우업 + 통화기록을 엮어서
           "지금 누구를 챙겨야 하는지, 왜"까지 알려주는 패널 */}
       {(() => {
