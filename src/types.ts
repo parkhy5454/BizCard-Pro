@@ -27,7 +27,11 @@ export interface BusinessCard {
   // true여야 "실제 API로 확인된 정확한 좌표"라는 뜻이다.
   isRealGeocoded?: boolean;
   lng?: number;
-  groupId?: string; // [수정] 가져오기 등으로 그룹 미지정 상태(전체보기에서만 보임)일 수 있어 옵셔널로 변경
+  groupId?: string; // [구버전 호환용] 예전에는 그룹 하나만 저장했다. 기존 데이터 호환을 위해 남겨둠.
+  // [추가] 명함 하나가 여러 그룹에 동시에 속할 수 있도록 배열로 변경. 새로 저장되는 데이터는
+  // 이 필드를 쓴다. groupId(단수)만 있는 예전 데이터는 화면에서 자동으로 [groupId] 취급한다
+  // (src/groupUtils.ts의 getContactGroupIds 참고).
+  groupIds?: string[];
   frontImage?: string; // base64 data url or sample image
   backImage?: string;
   memo?: string;

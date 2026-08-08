@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BusinessCard, ContactGroup, Project, User } from './types.js';
+import { getContactGroupIds, contactHasGroup } from './groupUtils.js';
 import { Navigation } from './components/Navigation.js';
 import { CardGrid } from './components/CardGrid.js';
 import { CardDetailModal } from './components/CardDetailModal.js';
@@ -276,7 +277,6 @@ export default function App() {
 
   // 7. 그룹 삭제
   const handleDeleteGroup = async (id: string) => {
-    const defaultGid = groups[0]?.id || '';
     try {
       await fetch(`/api/groups/${id}`, { 
         method: 'DELETE',
@@ -284,7 +284,13 @@ export default function App() {
       });
     } finally {
       setGroups(prev => prev.filter(g => g.id !== id));
-      setContacts(prev => prev.map(c => c.groupId === id ? { ...c, groupId: defaultGid } : c));
+      // [수정] 예전엔 그룹 하나만 저장했어서, 그 그룹이 삭제되면 "기본 그룹"으로 강제
+      // 재배정했다. 이제는 명함이 여러 그룹에 동시에 속할 수 있어서, 삭제된 그룹만 배열
+      // 에서 빼주고 나머지 그룹 소속은 그대로 유지한다 (다른 그룹에도 속해있었을 수 있음).
+      setContacts(prev => prev.map(c => {
+        const ids = getContactGroupIds(c).filter((gid) => gid !== id);
+        return { ...c, groupId: ids[0] || '', groupIds: ids };
+      }));
       if (selectedGroupFilter === id) setSelectedGroupFilter('all');
     }
   };
@@ -323,7 +329,7 @@ export default function App() {
 
   // 검색 및 그룹 칩 필터링 적용된 명함 목록
   const filteredContacts = contacts.filter(c => {
-    const matchGroup = selectedGroupFilter === 'all' || c.groupId === selectedGroupFilter;
+    const matchGroup = selectedGroupFilter === 'all' || contactHasGroup(c, selectedGroupFilter);
     const q = searchQuery.toLowerCase().trim();
     const matchQuery = !q || (
       c.name.toLowerCase().includes(q) ||
