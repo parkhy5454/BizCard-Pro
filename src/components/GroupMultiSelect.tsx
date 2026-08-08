@@ -59,9 +59,11 @@ export const GroupMultiSelect: React.FC<Props> = ({ groups, value, onChange, cla
         />
       </div>
 
-      <div className="max-h-40 overflow-y-auto flex flex-wrap gap-1.5 content-start">
+      {/* [수정] 옆으로 wrap되는 칩 그리드 대신, 한 줄씩 세로로 나열되는 목록으로 바꿨다.
+      항목이 많아도 위에서 아래로 훑어보기 편하고, 그룹 색상은 이름 앞 동그란 점으로 표시한다. */}
+      <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
         {filteredGroups.length === 0 ? (
-          <p className="text-[11px] text-slate-400 py-1">
+          <p className="text-[11px] text-slate-400 py-3 text-center">
             {q ? '검색 결과가 없습니다.' : '선택 가능한 그룹이 더 없습니다.'}
           </p>
         ) : (
@@ -70,8 +72,9 @@ export const GroupMultiSelect: React.FC<Props> = ({ groups, value, onChange, cla
               type="button"
               key={g.id}
               onClick={() => toggle(g.id)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 transition-all"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors text-left"
             >
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${g.color.split(' ').find((c) => c.startsWith('bg-')) || 'bg-slate-300'}`} />
               {g.name}
             </button>
           ))

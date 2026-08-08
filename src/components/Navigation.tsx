@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
-import { GroupFilterDropdown } from './GroupFilterDropdown.js';
 
 interface Props {
   activeTab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals';
@@ -400,15 +399,34 @@ export const Navigation: React.FC<Props> = ({
           </div>
           )}
 
-          {/* [수정] 그룹이 많아지면 옆으로 계속 늘어나서 다 보려면 스크롤해야 했다.
-          버튼 하나로 열고 검색해서 고르는 드롭다운으로 바꿔서, 그룹이 몇 개든 깔끔하게
-          유지되게 한다. */}
+          {/* 명함 목록 탭일 때 우측 그룹 칩 필터링 */}
           {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
-            <GroupFilterDropdown
-              groups={groups}
-              selectedGroup={selectedGroup}
-              setSelectedGroup={setSelectedGroup}
-            />
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full">
+              <span className="text-xs text-slate-500 mr-1 hidden lg:inline">그룹필터:</span>
+              <button
+                onClick={() => setSelectedGroup('all')}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                  selectedGroup === 'all'
+                    ? 'bg-slate-100 text-slate-900 shadow font-bold'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+                }`}
+              >
+                전체보기
+              </button>
+              {groups.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => setSelectedGroup(g.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                    selectedGroup === g.id
+                      ? `${g.color} ring-2 ring-white/30 font-bold scale-105`
+                      : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* 프로젝트 탭일 때: 새 프로젝트 등록 버튼 (상태필터 위) */}
