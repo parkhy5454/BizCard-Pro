@@ -1124,7 +1124,12 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
           if (coreDoc) return { coords: { lat: parseFloat(coreDoc.y), lng: parseFloat(coreDoc.x) } };
         }
       }
-      return { coords: null, error: '주소/키워드 검색 결과 없음' };
+      // [수정] "검색 결과 없음"이라고만 하면, 우리 쪽 정리 로직(백슬래시 제거, 시/도 재배치
+      // 등)이 실제로 뭘로 바꿔서 보냈는지 알 수가 없어서, 그 정리 로직 자체가 제대로
+      // 작동하는지 확인할 방법이 없었다. 실제로 카카오에 보낸 검색어를 메시지에 그대로
+      // 넣어서, "정리는 됐는데 그래도 못 찾는 건지" "정리 자체가 안 된 건지"를 바로
+      // 눈으로 구분할 수 있게 한다.
+      return { coords: null, error: `주소/키워드 검색 결과 없음 (실제 보낸 검색어: "${trimmed}")` };
     } else {
       const bodyText = await keywordRes.text().catch(() => '');
       console.error(`카카오 키워드 검색 API 오류 (상태 ${keywordRes.status}, 주소: "${trimmed}"):`, bodyText.slice(0, 300));
