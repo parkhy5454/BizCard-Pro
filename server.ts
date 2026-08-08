@@ -2245,17 +2245,21 @@ app.post('/api/vehicles/estimate-distance', async (req, res) => {
     // 좌표가 이미 넘어왔으면(예: 명함에 저장된 좌표) 그걸 쓰고, 없으면 주소로 새로 지오코딩한다.
     let sLat = startLat, sLng = startLng, eLat = endLat, eLng = endLng;
 
+    // [수정] 예전엔 geocodeAddress()의 결과(성공/실패)만 보고 "좌표를 찾지 못했습니다"라는
+    // 뭉뚱그린 메시지만 보여줬다. 실제로는 API 키 문제, 100자 초과, 검색 결과 없음 등
+    // 원인이 다양한데 구분이 안 돼서, 화면만 봐서는 뭘 고쳐야 할지 알 수 없었다. 이제는
+    // 실제 실패 사유(geocodeAddressWithDiagnostics가 주는 상세 메시지)를 그대로 보여준다.
     if (!sLat || !sLng) {
-      const startCoords = await geocodeAddress(startAddress || '');
-      if (!startCoords) return res.status(422).json({ error: '출발지 주소의 좌표를 찾지 못했습니다.' });
-      sLat = startCoords.lat;
-      sLng = startCoords.lng;
+      const { coords, error } = await geocodeAddressWithDiagnostics(startAddress || '');
+      if (!coords) return res.status(422).json({ error: `출발지 주소의 좌표를 찾지 못했습니다. (${error || '알 수 없는 이유'})` });
+      sLat = coords.lat;
+      sLng = coords.lng;
     }
     if (!eLat || !eLng) {
-      const endCoords = await geocodeAddress(endAddress || '');
-      if (!endCoords) return res.status(422).json({ error: '목적지 주소의 좌표를 찾지 못했습니다.' });
-      eLat = endCoords.lat;
-      eLng = endCoords.lng;
+      const { coords, error } = await geocodeAddressWithDiagnostics(endAddress || '');
+      if (!coords) return res.status(422).json({ error: `목적지 주소의 좌표를 찾지 못했습니다. (${error || '알 수 없는 이유'})` });
+      eLat = coords.lat;
+      eLng = coords.lng;
     }
 
     const straightLineKm = haversineKm(sLat, sLng, eLat, eLng);
