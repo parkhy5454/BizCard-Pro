@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Navigation, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { MapPin, Navigation, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 
 interface Props {
@@ -207,8 +207,11 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   const [regeocoding, setRegeocoding] = useState<boolean>(false);
   const [regeocodeProgress, setRegeocodeProgress] = useState<string>('');
 
-  const handleRegeocode = async () => {
-    if (!confirm('주소가 등록된 모든 명함의 위치 좌표를 실제 주소 기준으로 다시 계산합니다.\n명함 수에 따라 시간이 걸릴 수 있습니다. 계속할까요?')) return;
+  const handleRegeocode = async (retryFailed: boolean = false) => {
+    const confirmMsg = retryFailed
+      ? '이전에 실패로 처리됐던 명함들도 다시 시도합니다 (버그 수정 등으로 이번엔 성공할 수도 있는 것들).\n계속할까요?'
+      : '주소가 등록된 모든 명함의 위치 좌표를 실제 주소 기준으로 다시 계산합니다.\n명함 수에 따라 시간이 걸릴 수 있습니다. 계속할까요?';
+    if (!confirm(confirmMsg)) return;
     setRegeocoding(true);
     let totalUpdated = 0;
     let totalFailed = 0;
@@ -221,7 +224,11 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       let stoppedByAuthError = false;
       while (remaining > 0) {
         setRegeocodeProgress(`좌표 재계산 중... (지금까지 성공 ${totalUpdated}건 · 실패 ${totalFailed}건)`);
-        const res = await fetch('/api/contacts/regeocode', { method: 'POST' });
+        const res = await fetch('/api/contacts/regeocode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ retryFailed })
+        });
         if (!res.ok) throw new Error(`재계산에 실패했습니다 (상태: ${res.status}).`);
         const data = await res.json();
         totalUpdated += data.updated;
@@ -271,13 +278,26 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
 
         <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
           <button
-            onClick={handleRegeocode}
+            onClick={() => handleRegeocode(false)}
             disabled={regeocoding}
             title="기존 명함들이 예전 방식(부정확)으로 좌표가 찍혀있다면, 실제 주소 기준으로 다시 계산합니다"
             className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
           >
             <MapPin className={`w-3.5 h-3.5 ${regeocoding ? 'animate-pulse' : ''}`} />
             <span>{regeocoding ? (regeocodeProgress || '좌표 재계산 중...') : '기존 명함 좌표 다시 계산'}</span>
+          </button>
+
+          {/* [추가] 예전엔 실패한 명함들이 "완료 처리"로 저장돼서, 나중에 원인(예: 검색어
+          100자 제한)을 고쳐도 다시 시도가 안 되는 문제가 있었다. 이 버튼을 누르면 그렇게
+          "완료 처리됐지만 실제로는 실패했던" 것들만 골라서 강제로 다시 시도한다. */}
+          <button
+            onClick={() => handleRegeocode(true)}
+            disabled={regeocoding}
+            title="이전에 실패로 처리된 명함들만 다시 시도합니다 (원인을 고친 뒤 다시 시도할 때 사용)"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${regeocoding ? 'animate-spin' : ''}`} />
+            <span>실패했던 것만 다시 시도</span>
           </button>
 
           <button
