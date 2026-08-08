@@ -1039,11 +1039,17 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
       if (doc) return { coords: { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } };
     } else {
       const bodyText = await addrRes.text().catch(() => '');
-      console.error(`카카오 주소 검색 API 오류 (상태 ${addrRes.status}):`, bodyText.slice(0, 300));
+      console.error(`카카오 주소 검색 API 오류 (상태 ${addrRes.status}, 주소: "${trimmed}"):`, bodyText.slice(0, 300));
       // 401/403이면 키 자체가 잘못됐거나 활성화가 안 된 것 -> 두 번째(키워드) 시도도
       // 똑같이 실패할 게 뻔하니, 바로 원인을 리턴해서 헛수고를 줄인다.
       if (addrRes.status === 401 || addrRes.status === 403) {
         return { coords: null, error: `카카오 API 인증 실패 (상태 ${addrRes.status}) - REST API 키가 잘못됐거나, 로컬 API 사용 설정이 안 돼있을 수 있습니다.` };
+      }
+      // [수정] 상태 코드만으로는 원인을 알 수 없어서(예: 400은 "잘못된 요청"이라는 뜻일
+      // 뿐, 정확히 뭐가 문제인지는 카카오가 돌려주는 본문 메시지를 봐야 안다), 실제 에러
+      // 본문을 화면까지 그대로 노출한다.
+      if (addrRes.status === 400) {
+        return { coords: null, error: `카카오 API 400 오류 (주소: "${trimmed.slice(0, 40)}") - ${bodyText.slice(0, 200)}` };
       }
     }
 
@@ -1055,12 +1061,15 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
       return { coords: null, error: '주소/키워드 검색 결과 없음' };
     } else {
       const bodyText = await keywordRes.text().catch(() => '');
-      console.error(`카카오 키워드 검색 API 오류 (상태 ${keywordRes.status}):`, bodyText.slice(0, 300));
-      return { coords: null, error: `카카오 API 오류 (상태 ${keywordRes.status})` };
+      console.error(`카카오 키워드 검색 API 오류 (상태 ${keywordRes.status}, 주소: "${trimmed}"):`, bodyText.slice(0, 300));
+      return { coords: null, error: `카카오 API 오류 (상태 ${keywordRes.status}) - ${bodyText.slice(0, 200)}` };
     }
   } catch (err: any) {
     console.error('주소 지오코딩 중 오류:', err);
-    return { coords: null, error: err.message || '네트워크 오류' };
+    // 실제 예외 메시지(err.message)는 케이스마다 제각각이라 문자열로 정확히 판별하기
+    // 어려우니, 재시도 판별에 안정적으로 쓸 수 있게 항상 같은 문구로 통일해서 돌려준다.
+    // 원본 메시지는 서버 로그에 이미 남겨뒀다.
+    return { coords: null, error: `네트워크 오류: ${err.message || '알 수 없음'}` };
   }
 }
 
@@ -2213,11 +2222,13 @@ app.post('/api/contacts/regeocode', async (req, res) => {
         await setScopedDoc(scopeId, 'contacts', c);
         updated++;
       } else {
-        // [수정] "주소를 진짜 못 찾은 경우"만 isRealGeocoded를 true로 남겨서 다음 번에
-        // 또 시도하지 않게 한다. 반면 API 키 문제나 네트워크 오류처럼 "나중에 설정을
-        // 고치면 다시 시도했을 때 성공할 수도 있는" 경우는 표시를 남기지 않아서, 나중에
-        // 재계산 버튼을 다시 누르면 자동으로 재시도 대상에 포함되게 한다.
-        if (error === '주소/키워드 검색 결과 없음') {
+        // [수정] "주소를 못 찾음"뿐 아니라 400 오류 등 "이 주소 자체의 문제로 보이는"
+        // 실패도 완료 처리해야 한다. 그렇지 않으면 매번 같은 주소들이 다시 뽑혀서
+        // 무한정 반복 호출될 위험이 있다. 반대로 API 키 미설정/인증 실패/네트워크
+        // 오류처럼 "설정을 고치면 나중에 성공할 수 있는" 경우만 표시를 남기지 않아서
+        // 재계산 버튼을 다시 누르면 재시도 대상에 남아있게 한다.
+        const isRetryableError = !error || error.includes('인증 실패') || error.includes('환경변수') || error.startsWith('네트워크 오류');
+        if (!isRetryableError) {
           c.isRealGeocoded = true;
           await setScopedDoc(scopeId, 'contacts', c);
         }
