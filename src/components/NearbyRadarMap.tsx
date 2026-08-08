@@ -6,6 +6,9 @@ interface Props {
   contacts: BusinessCard[];
   groups: ContactGroup[];
   onSelectContact: (contact: BusinessCard) => void;
+  // [추가] 좌표 재계산 등으로 명함 데이터가 서버에서 바뀌었을 때, 페이지 전체를 새로고침
+  // 하지 않고도 최신 데이터를 반영할 수 있도록 부모(App.tsx)의 contacts 상태를 갱신하는 콜백.
+  onContactsRefresh?: (contacts: BusinessCard[]) => void;
 }
 
 // 하버사인 공식(Haversine formula)으로 두 좌표 간 거리(km) 계산
@@ -59,7 +62,7 @@ declare global {
   }
 }
 
-export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectContact }) => {
+export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectContact, onContactsRefresh }) => {
   const [myLat, setMyLat] = useState<number>(37.5665);
   const [myLng, setMyLng] = useState<number>(126.9780);
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
@@ -213,8 +216,19 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       if (!res.ok) throw new Error(`재계산에 실패했습니다 (상태: ${res.status}).`);
       const data = await res.json();
       const reasonMsg = data.failed > 0 && data.firstError ? `\n(실패 사유: ${data.firstError})` : '';
-      alert(`좌표 재계산 완료: 총 ${data.totalWithAddress}건 중 ${data.updated}건 성공, ${data.failed}건 실패.${reasonMsg}\n화면을 새로고침해서 결과를 반영합니다.`);
-      window.location.reload();
+      alert(`좌표 재계산 완료: 총 ${data.totalWithAddress}건 중 ${data.updated}건 성공, ${data.failed}건 실패.${reasonMsg}`);
+
+      // [수정] 예전엔 여기서 페이지 전체를 새로고침(window.location.reload())했는데, 그러면
+      // 앱이 처음 화면(명함 메인)으로 리셋돼서 방금까지 보고 있던 레이더 지도 화면을 잃어
+      //버렸다. 이제는 페이지를 새로고침하지 않고, 명함 목록만 서버에서 다시 받아와 화면에
+      // 반영한다 — 지금 이 화면에 계속 머무른 채로 갱신된 좌표가 바로 보인다.
+      if (onContactsRefresh) {
+        const refreshRes = await fetch('/api/contacts');
+        if (refreshRes.ok) {
+          const refreshedContacts = await refreshRes.json();
+          onContactsRefresh(refreshedContacts);
+        }
+      }
     } catch (err: any) {
       alert(`좌표 재계산에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     } finally {
