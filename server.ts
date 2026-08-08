@@ -1113,23 +1113,50 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
       const keywordData: any = await keywordRes.json();
       const doc = keywordData?.documents?.[0];
       if (doc) return { coords: { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } };
-      // [추가] 여기까지도 못 찾았으면, 마지막으로 "건물명·층수·괄호 설명" 같은 세부사항을
-      // 뗀 핵심 도로명 주소만으로 한 번 더 시도해본다. 예를 들어 "덕양구 삼성로
-      // 12(원흥동) 반도 유스퀘어 9층"처럼, 뒤에 붙은 건물명이 검색을 방해하는 경우가
-      // 있어서 "덕양구 삼성로 12"만으로 좁혀서 재시도하면 찾아지는 경우가 있다.
+
+      // [수정] 티맵/카카오내비 등 지도 앱은 사람이 결과를 눈으로 보면서 "이 정도면 됐다"고
+      // 판단하는 여유가 있어서, 주소가 살짝 부정확해도 그럴듯한 후보를 잘 찾아준다. 반면
+      // 우리는 사람 확인 없이 자동으로 정확히 하나를 찾아야 해서 훨씬 엄격했다. 이 격차를
+      // 좁히기 위해, 검색이 실패하면 사람이 검색창에서 뒷부분을 하나씩 지워가며 다시
+      // 시도하는 것처럼, 주소를 점점 단순하게 줄여가며 재시도한다.
+      const candidateQueries: string[] = [];
+
+      // 1단계: 괄호 안 설명(동명 등)과 "9층" 이후(건물명/층수)를 뗀 핵심 도로명 주소
       const coreAddress = trimmed
-        .replace(/\([^)]*\)/g, ' ') // 괄호 안 내용(동명 등 부가설명) 제거
-        .replace(/\d+\s*층.*$/, '') // "9층" 이후(보통 건물명/층수) 제거
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\d+\s*층.*$/, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
       if (coreAddress && coreAddress !== trimmed && coreAddress.length >= 4) {
-        const coreRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(coreAddress)}`, { headers });
-        if (coreRes.ok) {
-          const coreData: any = await coreRes.json();
-          const coreDoc = coreData?.documents?.[0];
-          if (coreDoc) return { coords: { lat: parseFloat(coreDoc.y), lng: parseFloat(coreDoc.x) } };
+        candidateQueries.push(coreAddress);
+      }
+
+      // 2단계: 그래도 안 되면, 뒤에서부터 단어를 하나씩 지워가며 점점 짧게 만든다
+      // (예: "용산구 용산동 용산고길 23 반도 유스퀘어" -> "...용산고길 23 반도" -> "...용산고길 23"
+      // -> "...용산고길" -> "용산구 용산동" 순으로 점점 범위를 넓혀가며 재시도).
+      // 시/도 + 구/군 정도(최소 2단어)까지만 줄이고 그 이하로는 너무 부정확해지므로 멈춘다.
+      const base = coreAddress || trimmed;
+      const tokens = base.split(' ').filter(Boolean);
+      for (let cut = tokens.length - 1; cut >= 2; cut--) {
+        const candidate = tokens.slice(0, cut).join(' ');
+        if (candidate.length >= 4 && !candidateQueries.includes(candidate)) {
+          candidateQueries.push(candidate);
         }
       }
+
+      for (const candidate of candidateQueries) {
+        try {
+          const candRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(candidate)}`, { headers });
+          if (candRes.ok) {
+            const candData: any = await candRes.json();
+            const candDoc = candData?.documents?.[0];
+            if (candDoc) return { coords: { lat: parseFloat(candDoc.y), lng: parseFloat(candDoc.x) } };
+          }
+        } catch {
+          // 이 후보 하나가 네트워크 오류로 실패해도, 다음 후보(더 단순한 주소)로 계속 시도한다.
+        }
+      }
+
       // [수정] "검색 결과 없음"이라고만 하면, 우리 쪽 정리 로직(백슬래시 제거, 시/도 재배치
       // 등)이 실제로 뭘로 바꿔서 보냈는지 알 수가 없어서, 그 정리 로직 자체가 제대로
       // 작동하는지 확인할 방법이 없었다. 실제로 카카오에 보낸 검색어를 메시지에 그대로
