@@ -5,6 +5,8 @@ import { formatPhoneNumber } from '../phoneFormat.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal } from './CropAdjustModal.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
+import { getContactGroupIds } from '../groupUtils.js';
+import { GroupMultiSelect } from './GroupMultiSelect.js';
 
 interface Props {
   contact: BusinessCard | null;
@@ -111,7 +113,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     setRescanCameraTarget(null);
   };
 
-  const group = groups.find((g) => g.id === contact.groupId);
+  const contactGroups = getContactGroupIds(contact).map((gid) => groups.find((g) => g.id === gid)).filter((g): g is ContactGroup => Boolean(g));
 
   const handleSearchCompanySummary = async () => {
     if (!contact.company) return;
@@ -470,7 +472,9 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               <div>
                 <div className="flex items-center gap-3">
                   <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{contact.name}</h2>
-                  {group && <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${group.color}`}>{group.name}</span>}
+                  {contactGroups.map((g) => (
+                    <span key={g.id} className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${g.color}`}>{g.name}</span>
+                  ))}
                   {/* [수정] 팀/부서별 공유 범위: 이 명함을 등록한 본인만 켜고 끌 수 있는 "나만 보기(비공개)" 토글 */}
                   {canTogglePrivacy && (
                     <button
@@ -837,12 +841,15 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   <label className="text-xs text-slate-500 block mb-1 font-medium">성명 *</label>
                   <input type="text" required value={editForm.name} onChange={e=>setEditForm({...editForm, name:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                 </div>
-                <div>
-                  <label className="text-xs text-slate-500 block mb-1 font-medium">그룹 선택</label>
-                  <select value={editForm.groupId} onChange={e=>setEditForm({...editForm, groupId:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500">
-                    {groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
-                  </select>
-                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-500 block mb-1 font-medium">그룹 선택 <span className="text-[10px] text-slate-400 font-normal">(여러 개 선택 가능)</span></label>
+                <GroupMultiSelect
+                  groups={groups}
+                  value={editForm.groupIds || (editForm.groupId ? [editForm.groupId] : [])}
+                  onChange={(ids) => setEditForm({ ...editForm, groupIds: ids, groupId: ids[0] || '' })}
+                />
               </div>
 
               {/* [추가] "가져오기"로 등록된 명함 중, 이 기능이 생기기 전에 가져온 것들은 이름을 고쳐도

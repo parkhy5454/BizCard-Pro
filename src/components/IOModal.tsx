@@ -3,6 +3,7 @@ import { ArrowDownUp, Download, Upload, FileSpreadsheet, FileText, CheckCircle2,
 import { BusinessCard, ContactGroup } from '../types.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
 import * as XLSX from 'xlsx';
+import { contactHasGroup } from '../groupUtils.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -44,7 +45,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
   // 필터링된 대상 리스트
   const targetContacts = contacts.filter((c) => {
     if (exportScope === 'all') return true;
-    if (exportScope === 'group') return c.groupId === selectedGid;
+    if (exportScope === 'group') return contactHasGroup(c, selectedGid);
     if (exportScope === 'single') return c.id === selectedCid;
     return true;
   });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Navigation, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
+import { getContactGroupIds } from '../groupUtils.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -664,7 +665,7 @@ const VirtualRadar: React.FC<{
         const top = 50 - Math.sin(angle) * radius;
         const left = 50 + Math.cos(angle) * radius;
 
-        const g = groups.find((grp) => grp.id === c.groupId);
+        const g = groups.find((grp) => getContactGroupIds(c).includes(grp.id));
         const isSelected = activeContactId === c.id;
         const isPinNearTop = top < 40;
         const isPinNearLeft = left < 30;

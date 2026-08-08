@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FolderTree, Plus, Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
 import { ContactGroup, BusinessCard } from '../types.js';
+import { contactHasGroup } from '../groupUtils.js';
 
 interface Props {
   groups: ContactGroup[];
@@ -107,7 +108,7 @@ export const GroupModal: React.FC<Props> = ({ groups, contacts, onCreateGroup, o
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {groups.map((g) => {
-              const count = contacts.filter((c) => c.groupId === g.id).length;
+              const count = contacts.filter((c) => contactHasGroup(c, g.id)).length;
               const isEditing = editingGid === g.id;
 
               return (

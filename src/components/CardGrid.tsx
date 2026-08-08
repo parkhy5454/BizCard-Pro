@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project } from '../types.js';
+import { getContactGroupIds } from '../groupUtils.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -431,7 +432,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {visibleContacts.map((contact) => {
-            const group = groups.find((g) => g.id === contact.groupId);
+            const contactGroups = getContactGroupIds(contact).map((gid) => groups.find((g) => g.id === gid)).filter((g): g is ContactGroup => Boolean(g));
             return (
               <div
                 key={contact.id}
@@ -512,11 +513,16 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                 {/* 카드 본문 내용 */}
                 <div className="p-5 flex-1 flex flex-col justify-start space-y-4">
                   
-                  {/* [추가] 그룹 뱃지 - 사진과 안 겹치도록 여기(본문 맨 위)로 옮김 */}
-                  {group && (
-                    <span className={`self-start px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-sm ${group.color}`}>
-                      {group.name}
-                    </span>
+                  {/* [수정] 명함 하나가 여러 그룹에 속할 수 있게 되면서, 뱃지도 여러 개
+                  나란히 보여준다. */}
+                  {contactGroups.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {contactGroups.map((g) => (
+                        <span key={g.id} className={`self-start px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-sm ${g.color}`}>
+                          {g.name}
+                        </span>
+                      ))}
+                    </div>
                   )}
 
                   {/* 이름 & 소속 */}
