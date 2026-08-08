@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Check, Search, X } from 'lucide-react';
 import { ContactGroup } from '../types.js';
 
@@ -9,12 +9,21 @@ interface Props {
   className?: string;
 }
 
-// [수정] 그룹이 몇 개 안 될 땐 전부 나열해도 괜찮았지만, 그룹이 20~30개를 넘어가면
-// 화면을 뒤덮어서 오히려 원하는 그룹을 찾기 어려워졌다. 검색창을 추가해서 타이핑하면
-// 걸러지게 하고, 이미 선택한 그룹은 검색어와 무관하게 위에 계속 보이게 해서 선택
-// 상태를 잃어버리지 않게 한다.
+// [수정] 검색 목록을 항상 펼쳐서 보여주던 방식(고정 리스트) 대신, 검색창을 누르면 그
+// 아래에 드롭다운으로 목록이 뜨고, 바깥을 누르면 닫히는 방식으로 바꿨다(ContactSearchSelect와
+// 동일한 동작 방식). 평소엔 검색창 한 줄만 차지해서 화면이 훨씬 깔끔하다.
 export const GroupMultiSelect: React.FC<Props> = ({ groups, value, onChange, className }) => {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   const toggle = (id: string) => {
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
@@ -26,11 +35,11 @@ export const GroupMultiSelect: React.FC<Props> = ({ groups, value, onChange, cla
 
   const selectedGroups = groups.filter((g) => value.includes(g.id));
   const q = query.trim().toLowerCase();
-  const filteredGroups = groups.filter((g) => !value.includes(g.id) && (!q || g.name.toLowerCase().includes(q)));
+  const filteredGroups = groups.filter((g) => !q || g.name.toLowerCase().includes(q));
 
   return (
-    <div className={`space-y-2 ${className || ''}`}>
-      {/* 이미 선택한 그룹 - 검색어와 무관하게 항상 위에 표시 */}
+    <div ref={wrapRef} className={`space-y-2 ${className || ''}`}>
+      {/* 이미 선택한 그룹 - 검색창과 별개로 항상 위에 표시 */}
       {selectedGroups.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {selectedGroups.map((g) => (
@@ -49,35 +58,41 @@ export const GroupMultiSelect: React.FC<Props> = ({ groups, value, onChange, cla
       )}
 
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 z-10" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
           placeholder="그룹 이름으로 검색..."
           className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
         />
-      </div>
 
-      {/* [수정] 옆으로 wrap되는 칩 그리드 대신, 한 줄씩 세로로 나열되는 목록으로 바꿨다.
-      항목이 많아도 위에서 아래로 훑어보기 편하고, 그룹 색상은 이름 앞 동그란 점으로 표시한다. */}
-      <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
-        {filteredGroups.length === 0 ? (
-          <p className="text-[11px] text-slate-400 py-3 text-center">
-            {q ? '검색 결과가 없습니다.' : '선택 가능한 그룹이 더 없습니다.'}
-          </p>
-        ) : (
-          filteredGroups.map((g) => (
-            <button
-              type="button"
-              key={g.id}
-              onClick={() => toggle(g.id)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors text-left"
-            >
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${g.color.split(' ').find((c) => c.startsWith('bg-')) || 'bg-slate-300'}`} />
-              {g.name}
-            </button>
-          ))
+        {/* [수정] 검색창을 누르기 전엔 안 보이다가, 누르면 바로 아래에 드롭다운으로 뜬다. */}
+        {open && (
+          <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl divide-y divide-slate-100">
+            {filteredGroups.length === 0 ? (
+              <p className="text-[11px] text-slate-400 py-3 text-center">
+                {q ? '검색 결과가 없습니다.' : '등록된 그룹이 없습니다.'}
+              </p>
+            ) : (
+              filteredGroups.map((g) => {
+                const checked = value.includes(g.id);
+                return (
+                  <button
+                    type="button"
+                    key={g.id}
+                    onClick={() => toggle(g.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left transition-colors ${checked ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${g.color.split(' ').find((c) => c.startsWith('bg-')) || 'bg-slate-300'}`} />
+                    <span className="flex-1 truncate">{g.name}</span>
+                    {checked && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
         )}
       </div>
     </div>
