@@ -64,6 +64,10 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   const [myLng, setMyLng] = useState<number>(126.9780);
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
+  // [추가] 주소 지오코딩이 안 된 명함이나 너무 먼 명함까지 다 나열되면 실제로 쓸모 있는
+  // "지금 갈 수 있는 근처 사람"을 찾기 어려웠다. 반경 필터를 추가해서, 기본값을 5km로
+  // 두고 필요하면 더 좁히거나 넓힐 수 있게 한다.
+  const [radiusKm, setRadiusKm] = useState<number>(5);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +108,9 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       const dist = (c.lat && c.lng) ? getDistanceKM(myLat, myLng, c.lat, c.lng) : 9999;
       return { ...c, distanceKm: dist };
     })
+    // radiusKm이 0이면 "전체보기"로 취급해서 거리 제한 없이 다 보여준다.
+    // 좌표가 없는 명함(distanceKm 9999)은 반경 필터를 걸어두면 자동으로 걸러진다.
+    .filter((c) => radiusKm === 0 || c.distanceKm <= radiusKm)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   useEffect(() => {
@@ -251,6 +258,18 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           </button>
 
           <select
+            value={radiusKm}
+            onChange={(e) => setRadiusKm(Number(e.target.value))}
+            className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 font-bold"
+          >
+            <option value={1}>1km 이내</option>
+            <option value={2}>2km 이내</option>
+            <option value={5}>5km 이내</option>
+            <option value={10}>10km 이내</option>
+            <option value={0}>거리 제한 없음(전체)</option>
+          </select>
+
+          <select
             value={selectedGroupFilter}
             onChange={(e) => setSelectedGroupFilter(e.target.value)}
             className="bg-slate-100 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 font-medium"
@@ -361,7 +380,9 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
 
           <div className="flex-1 overflow-y-auto space-y-3 pr-1">
             {filteredAndSortedContacts.length === 0 ? (
-              <p className="text-xs text-slate-400 py-10 text-center">조건에 맞는 명함이 없습니다.</p>
+              <p className="text-xs text-slate-400 py-10 text-center px-4">
+                {radiusKm > 0 ? `${radiusKm}km 이내에 해당하는 명함이 없습니다. 반경을 넓혀보세요.` : '조건에 맞는 명함이 없습니다.'}
+              </p>
             ) : (
               filteredAndSortedContacts.map((c) => {
                 const distStr = c.distanceKm >= 9999 ? '좌표 미측정' : c.distanceKm < 1 ? `${Math.round(c.distanceKm * 1000)}m` : `${c.distanceKm.toFixed(1)}km`;
