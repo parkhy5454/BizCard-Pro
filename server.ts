@@ -2189,30 +2189,24 @@ app.post('/api/contacts/regeocode', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
 
-  // [수정] "아직 좌표가 없는 명함 전부"를 한 번의 요청으로 다 처리하려니, 명함이 많으면
-  // (특히 재시도할 때도 실패한 것들이 여전히 많이 남아있으면) 처리 시간이 Render의 요청
-  // 타임아웃을 넘겨서 502 에러가 났다. 이제는 "가져오기" 때처럼 한 번 요청에 최대
-  // LIMIT_PER_CALL건만 처리하고, 남은 건수를 알려준다 — 클라이언트가 남은 게 있으면
-  // 이어서 반복 호출하는 방식으로 바꿔서, 명함이 아무리 많아도 타임아웃 걱정이 없다.
-  // [수정] 예전엔 "좌표가 있는지 없는지"로 이미 처리됐는지 판단했는데, 예전 가짜 좌표
-  // 시스템 시절 저장된 명함들은 실패해도 예전 가짜 좌표값이 그대로 남아있어서 "이미
-  // 처리됨"으로 잘못 판단해 건너뛰는 문제가 있었다. 이제는 "실제 API로 확인된 좌표인지"
-  // (isRealGeocoded)만 기준으로 판단한다.
-  // [추가] 다만 예전 가짜 좌표 시스템 시절 저장된 명함들은, 실패해도 그 예전 가짜
-  // 좌표값이 남아있어서 "좌표 유무"로는 성공/실패를 구분할 수 없었다. retryFailed=true로
-  // 요청하면, 안전하게 "주소가 있는 모든 명함"을 다시 검사 대상으로 삼는다 — 이미 정확히
-  // 계산된 것도 다시 확인하게 돼서 API 호출이 좀 더 들지만, 오염된 예전 데이터를
-  // 확실하게 걸러낼 수 있는 유일하게 신뢰할 수 있는 방법이다.
+  // [수정] 예전엔 "아직 처리 안 된 것"을 매번 다시 필터링해서 판단했는데, retryFailed
+  // 모드(주소 있는 것 전부 대상)에서는 이 필터가 "이미 처리했는지"를 구분 못 해서, 몇
+  // 번을 호출해도 "남은 개수"가 전혀 줄지 않아 클라이언트가 끝없이 반복 호출하는
+  // 심각한 버그가 있었다(실제로 명함 1,326개인데 5,700건 넘게 처리된 것으로 잘못
+  // 집계된 사례가 있었다). 이제는 "몇 번째까지 처리했는지"(offset)를 클라이언트가
+  // 명시적으로 넘겨주고, 서버는 그 위치부터 딱 LIMIT_PER_CALL개만 처리한 뒤 다음
+  // 시작 위치를 알려주는 방식으로 바꿨다 — 전체 개수 대비 진행 위치로만 판단하니
+  // 무한반복이 구조적으로 불가능하다.
   const retryFailed = req.body?.retryFailed === true;
-  const isPending = (c: BusinessCard) => {
-    if (!(c.address || '').trim()) return false;
-    if (retryFailed) return true;
-    return !c.isRealGeocoded;
-  };
-  const LIMIT_PER_CALL = 150;
-  const targets = dbData.contacts.filter(isPending).slice(0, LIMIT_PER_CALL);
+  const offset = Number(req.body?.offset) || 0;
 
-  const totalRemainingBefore = dbData.contacts.filter(isPending).length;
+  const hasAddress = (c: BusinessCard) => Boolean((c.address || '').trim());
+  const candidates = retryFailed
+    ? dbData.contacts.filter(hasAddress)
+    : dbData.contacts.filter((c) => hasAddress(c) && !c.isRealGeocoded);
+
+  const LIMIT_PER_CALL = 150;
+  const targets = candidates.slice(offset, offset + LIMIT_PER_CALL);
 
   let updated = 0;
   let failed = 0;
@@ -2222,10 +2216,8 @@ app.post('/api/contacts/regeocode', async (req, res) => {
 
   for (let i = 0; i < targets.length; i += CONCURRENCY) {
     // [추가] API 키 자체가 잘못됐다면(401/403) 이 명함 저 명함 할 것 없이 전부 똑같이
-    // 실패한다. 그런데 이 경우엔 isRealGeocoded를 남기지 않아서(설정 고치면 재시도되게
-    // 하려고), remaining이 줄어들지 않아 클라이언트가 무한정 재호출을 반복할 위험이
-    // 있다. 인증 오류를 감지하면 남은 처리를 즉시 멈추고, 클라이언트에게 "이건 설정
-    // 문제니 재시도해도 소용없다"고 명확히 알린다.
+    // 실패한다. 이 경우 더 처리해봐야 의미가 없으니, 감지되면 이번 호출은 즉시 멈추고
+    // 클라이언트에게 "이건 설정 문제니 재시도해도 소용없다"고 알린다.
     if (authError) break;
 
     const batch = targets.slice(i, i + CONCURRENCY);
@@ -2238,23 +2230,12 @@ app.post('/api/contacts/regeocode', async (req, res) => {
         await setScopedDoc(scopeId, 'contacts', c);
         updated++;
       } else {
-        // [수정] "주소를 못 찾음"뿐 아니라 400 오류 등 "이 주소 자체의 문제로 보이는"
-        // 실패도 완료 처리해야 한다. 그렇지 않으면 매번 같은 주소들이 다시 뽑혀서
-        // 무한정 반복 호출될 위험이 있다. 반대로 API 키 미설정/인증 실패/네트워크
-        // 오류처럼 "설정을 고치면 나중에 성공할 수 있는" 경우만 표시를 남기지 않아서
-        // 재계산 버튼을 다시 누르면 재시도 대상에 남아있게 한다.
-        const isRetryableError = !error || error.includes('인증 실패') || error.includes('환경변수') || error.startsWith('네트워크 오류');
-        if (!isRetryableError) {
-          // [수정] 예전 가짜 좌표 시스템 시절 저장된 명함은, 이번에 실패해도 그 예전 가짜
-          // 좌표값이 그대로 남아있었다. 그러면 "좌표가 있으니 이미 성공한 건가 보다"로
-          // 착각해서, "실패한 것만 다시 시도" 기능이 이 명함을 놓치는 문제가 있었다.
-          // 실패로 확정되면 좌표를 확실히 비워서, "좌표 없음 = 진짜 지오코딩 실패"라는
-          // 걸 항상 믿을 수 있게 한다.
-          c.lat = undefined;
-          c.lng = undefined;
-          c.isRealGeocoded = true;
-          await setScopedDoc(scopeId, 'contacts', c);
-        }
+        // [수정] 실패로 확정되면 예전 가짜 좌표가 남아있지 않도록 확실히 비운다.
+        // "좌표 없음 = 진짜 지오코딩 실패"라는 걸 항상 믿을 수 있게 하기 위함이다.
+        c.lat = undefined;
+        c.lng = undefined;
+        c.isRealGeocoded = true;
+        await setScopedDoc(scopeId, 'contacts', c);
         failed++;
         if (!firstError && error) firstError = error;
         if (error && error.includes('인증 실패')) authError = true;
@@ -2262,8 +2243,22 @@ app.post('/api/contacts/regeocode', async (req, res) => {
     }));
   }
 
-  const remaining = authError ? 0 : Math.max(0, totalRemainingBefore - targets.length);
-  res.json({ success: true, processedThisCall: targets.length, updated, failed, remaining, firstError, authError });
+  // [수정] "이번 호출로 이 위치까지는 다 봤다"는 사실 하나만으로 다음 시작 위치와
+  // 종료 여부를 정한다 — 목록 상태가 어떻게 바뀌든(성공/실패 관계없이) offset은
+  // 항상 앞으로만 나아가므로 무한반복이 원천적으로 불가능하다.
+  const nextOffset = offset + targets.length;
+  const done = authError || nextOffset >= candidates.length;
+  res.json({
+    success: true,
+    processedThisCall: targets.length,
+    updated,
+    failed,
+    done,
+    nextOffset,
+    totalCandidates: candidates.length,
+    firstError,
+    authError
+  });
 });
 
 app.get('/api/contacts', (req, res) => {
