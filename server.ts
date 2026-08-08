@@ -1031,10 +1031,18 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
   // 넘으면 앞부분만 잘라서 보낸다(뒤쪽 상세 동/호수 정보는 위치 계산엔 크게 중요하지
   // 않다).
   let cleaned = (address || '').trim();
-  // [추가] 우편번호 일부가 잘려서 ", 056"처럼 끝에 의미 없는 조각이 붙어있는 경우가 실제로
-  // 있었다(명함 OCR이나 복사 과정에서 생기는 흔한 오염 패턴). 이런 꼬리표는 검색만
-  // 방해하니 미리 떼어낸다.
-  cleaned = cleaned.replace(/,\s*\d{2,5}\s*$/, '').trim();
+  // [수정] 우편번호나 "대한민국" 같은 국가명이 주소 맨 끝뿐 아니라 문장 중간에도 끼어있는
+  // 경우가 실제로 있었다(예: "...4층), 05630 서울시   대한민국" — 우편번호 뒤에 시/도명과
+  // 국가명이 또 붙는 뒤죽박죽 형태). 명함 OCR이나 다른 시스템에서 복사해올 때 생기는 흔한
+  // 오염 패턴이라, 위치에 상관없이 이런 조각들을 다 제거하고 검색한다.
+  cleaned = cleaned
+    .replace(/대한민국|South\s*Korea|Republic\s*of\s*Korea/gi, ' ') // 국가명 (카카오는 국내 검색만 되므로 불필요)
+    .replace(/,?\s*\b\d{5}\b/g, ' ') // 신규 우편번호(5자리 숫자)
+    .replace(/,?\s*\b\d{3}-\d{3}\b/g, ' ') // 구 우편번호(123-456 형식)
+    .replace(/\s{2,}/g, ' ') // 여러 조각을 지우고 남은 중복 공백 정리
+    .replace(/,\s*,/g, ',') // 쉼표가 연달아 남은 경우 정리
+    .replace(/,\s*$/, '') // 맨 끝에 쉼표만 남은 경우 제거
+    .trim();
   const trimmed = cleaned.slice(0, 100);
   if (!trimmed) return { coords: null, error: '주소가 비어있음' };
   if (!KAKAO_REST_API_KEY) {
