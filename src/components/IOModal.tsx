@@ -278,6 +278,20 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           // "줄 맨 앞"에서만 찾도록 고정해서, 다른 줄의 일부가 걸리는 일이 없다.
           // field(vc, 'N')처럼 부르면, 그 줄("N:..." 또는 파라미터 붙은 "N;CHARSET=...:...")의
           // 콜론 뒷부분만 뽑아준다. 줄 시작(^)에 고정돼 있어서 다른 줄과 절대 안 헷갈린다.
+          // [수정] vCard 표준(RFC 6350)에서는 필드 값 안에 쉼표(,)나 세미콜론(;)이 실제로
+          // 들어가야 할 때 "\," "\;" 처럼 백슬래시를 붙여서 이스케이프 처리한다. 그런데
+          // 우리 파서는 이 이스케이프를 원래 문자로 복원(un-escape)하지 않고 있어서, 예를
+          // 들어 "521\, Teheran-ro\, Gangnam-gu\, Seoul\, 06164 Korea"처럼 백슬래시가
+          // 그대로 주소에 남아있는 문제가 있었다. 이게 카카오 검색을 방해해서 실패의
+          // 상당수 원인이 됐을 걸로 보인다. 모든 필드에 공통으로 적용해서 복원한다.
+          const unescapeVCardValue = (v: string): string =>
+            v
+              .replace(/\\,/g, ',')
+              .replace(/\\;/g, ';')
+              .replace(/\\n/gi, ' ')
+              .replace(/\\\\/g, '\\')
+              .trim();
+
           const field = (vc: string, name: string, mustContain?: string): string => {
             const re = new RegExp(`^${name}[^:\\r\\n]*:(.*)$`, 'im');
             const lines = vc.split(/\r?\n/).filter((l) => new RegExp(`^${name}(?![A-Z])`, 'i').test(l));
@@ -286,7 +300,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
               : lines[0];
             if (!target) return '';
             const m = target.match(re);
-            return m ? m[1] : '';
+            return m ? unescapeVCardValue(m[1]) : '';
           };
 
           const vcards = text.split(/BEGIN:VCARD/i).filter(Boolean);
