@@ -207,20 +207,36 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   };
 
   const [regeocoding, setRegeocoding] = useState<boolean>(false);
+  const [regeocodeProgress, setRegeocodeProgress] = useState<string>('');
 
   const handleRegeocode = async () => {
     if (!confirm('주소가 등록된 모든 명함의 위치 좌표를 실제 주소 기준으로 다시 계산합니다.\n명함 수에 따라 시간이 걸릴 수 있습니다. 계속할까요?')) return;
     setRegeocoding(true);
+    let totalUpdated = 0;
+    let totalFailed = 0;
+    let lastError: string | undefined;
     try {
-      const res = await fetch('/api/contacts/regeocode', { method: 'POST' });
-      if (!res.ok) throw new Error(`재계산에 실패했습니다 (상태: ${res.status}).`);
-      const data = await res.json();
-      const reasonMsg = data.failed > 0 && data.firstError ? `\n(실패 사유: ${data.firstError})` : '';
-      alert(`좌표 재계산 완료: 총 ${data.totalWithAddress}건 중 ${data.updated}건 성공, ${data.failed}건 실패.${reasonMsg}`);
+      // [수정] 한 번의 거대한 요청 대신, "가져오기" 때처럼 서버가 한 번에 처리 가능한
+      // 만큼만 처리하고 남은 건수를 알려주면, 남은 게 있는 동안 자동으로 이어서 호출한다.
+      // 이러면 명함이 아무리 많아도 요청 하나가 오래 걸려서 타임아웃(502)나는 일이 없다.
+      let remaining = 1; // 최초 1회는 무조건 실행되도록 임의의 양수로 시작
+      while (remaining > 0) {
+        setRegeocodeProgress(`좌표 재계산 중... (지금까지 성공 ${totalUpdated}건 · 실패 ${totalFailed}건)`);
+        const res = await fetch('/api/contacts/regeocode', { method: 'POST' });
+        if (!res.ok) throw new Error(`재계산에 실패했습니다 (상태: ${res.status}).`);
+        const data = await res.json();
+        totalUpdated += data.updated;
+        totalFailed += data.failed;
+        if (data.firstError) lastError = data.firstError;
+        remaining = data.remaining || 0;
+      }
+
+      const reasonMsg = totalFailed > 0 && lastError ? `\n(실패 사유: ${lastError})` : '';
+      alert(`좌표 재계산 완료: 성공 ${totalUpdated}건, 실패 ${totalFailed}건.${reasonMsg}`);
 
       // [수정] 예전엔 여기서 페이지 전체를 새로고침(window.location.reload())했는데, 그러면
       // 앱이 처음 화면(명함 메인)으로 리셋돼서 방금까지 보고 있던 레이더 지도 화면을 잃어
-      //버렸다. 이제는 페이지를 새로고침하지 않고, 명함 목록만 서버에서 다시 받아와 화면에
+      // 버렸다. 이제는 페이지를 새로고침하지 않고, 명함 목록만 서버에서 다시 받아와 화면에
       // 반영한다 — 지금 이 화면에 계속 머무른 채로 갱신된 좌표가 바로 보인다.
       if (onContactsRefresh) {
         const refreshRes = await fetch('/api/contacts');
@@ -230,9 +246,10 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         }
       }
     } catch (err: any) {
-      alert(`좌표 재계산에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`좌표 재계산 중 오류가 발생했습니다 (지금까지 성공 ${totalUpdated}건).\n${err.message || '다시 시도해주세요.'}\n\n버튼을 다시 누르면 실패한 것들부터 이어서 계속됩니다.`);
     } finally {
       setRegeocoding(false);
+      setRegeocodeProgress('');
     }
   };
 
@@ -259,7 +276,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
             className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
           >
             <MapPin className={`w-3.5 h-3.5 ${regeocoding ? 'animate-pulse' : ''}`} />
-            <span>{regeocoding ? '좌표 재계산 중...' : '기존 명함 좌표 다시 계산'}</span>
+            <span>{regeocoding ? (regeocodeProgress || '좌표 재계산 중...') : '기존 명함 좌표 다시 계산'}</span>
           </button>
 
           <button
