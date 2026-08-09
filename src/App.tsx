@@ -164,6 +164,11 @@ export default function App() {
   // 2. 명함 수정
   const handleUpdateCard = async (updated: BusinessCard) => {
     try {
+      // [임시 진단용] 홈페이지 필드가 저장 안 되는 문제를 확인하기 위해 잠깐 넣어둔 코드.
+      // 원인 확인되면 제거할 예정.
+      if ('website' in updated) {
+        console.log('[진단] 저장 요청 시 website 값:', JSON.stringify(updated.website));
+      }
       const res = await fetch(`/api/contacts/${updated.id}`, {
         method: 'PUT',
         headers: { 
@@ -178,6 +183,10 @@ export default function App() {
         throw new Error(data?.error || `명함 수정 저장에 실패했습니다 (상태: ${res.status}).`);
       }
       const data = await res.json();
+      // [임시 진단용]
+      if ('website' in updated) {
+        alert(`[진단] 보낸 값: "${updated.website}"\n서버가 돌려준 값: "${data.website}"`);
+      }
       setContacts(prev => prev.map(c => c.id === data.id ? data : c));
       setSelectedContactDetail(data);
     } catch (err: any) {
