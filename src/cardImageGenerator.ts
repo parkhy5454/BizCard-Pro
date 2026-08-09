@@ -90,15 +90,5 @@ export function generateStandardCardImage(c: BusinessCard): string {
   ctx.fillText('가져온 연락처 · 사진 없음', W - 40, H - 30);
   ctx.textAlign = 'left';
 
-  // [임시 진단용] 최신 이 파일이 실제로 배포/실행되고 있는지 명함 사진 자체에 눈에 띄게
-  // 표시해서 확인하기 위함. 확인되면 제거할 예정.
-  ctx.fillStyle = '#ff0000';
-  ctx.fillRect(0, H - 60, W, 60);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px "Malgun Gothic", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🔴 진단마커 v3 - 이 빨간 줄이 보이면 최신 코드입니다', W / 2, H - 22);
-  ctx.textAlign = 'left';
-
   return canvas.toDataURL('image/png');
 }
