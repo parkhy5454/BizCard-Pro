@@ -20,6 +20,9 @@ export interface BusinessCard {
   email: string;
   address: string;
   address2?: string;   // 보조 주소 (공장/지사 등 주소가 2개인 경우)
+  // [추가] 회사 주소(본사/공장 등)와는 별개로 관리한다. 개인정보라서, 명함 이미지(공유될
+  // 수 있는 사진)에는 절대 그려 넣지 않고, 상세보기 화면의 텍스트 정보에만 표시한다.
+  homeAddress?: string;
   website?: string;    // 홈페이지 주소
   lat?: number;
   // [추가] 예전엔 주소를 "강남/판교" 같은 동네 이름 몇 개로 대충 찍어서(가짜) 좌표를 항상
