@@ -157,6 +157,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         email: data.email || prev.email || '',
         address: data.address || prev.address || '',
         address2: data.address2 || prev.address2 || '',
+        website: data.website || prev.website || '',
         memo: data.memo || prev.memo || ''
       }));
 
@@ -224,6 +225,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       email: form.email || '',
       address: form.address || '',
       address2: form.address2 || '',
+      website: form.website || '',
       groupId: form.groupId || defaultGroupId,
       groupIds: form.groupIds && form.groupIds.length > 0 ? form.groupIds : (form.groupId ? [form.groupId] : []),
       // [수정] 실제 촬영한 명함 사진이 없으면(이름/연락처만 직접 입력한 경우), "가져오기"
@@ -914,6 +916,11 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                       <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded">분리 인식</span>
                     </label>
                     <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-500 block mb-1">홈페이지</label>
+                    <input type="text" placeholder="예: www.company.com" value={form.website || ''} onChange={(e) => setForm({ ...form, website: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>

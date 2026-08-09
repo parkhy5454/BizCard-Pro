@@ -52,7 +52,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
   // 1. CSV 생성 문자열
   const generateCSV = (list: BusinessCard[]) => {
-    const headers = ['이름', '회사명', '부서', '직책', '핸드폰', '사무실전화', '팩스', '이메일', '주소', '메모', '생성일'];
+    const headers = ['이름', '회사명', '부서', '직책', '핸드폰', '사무실전화', '팩스', '이메일', '주소', '홈페이지', '메모', '생성일'];
     const rows = list.map((c) => [
       `"${c.name || ''}"`,
       `"${c.company || ''}"`,
@@ -63,6 +63,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
       `"${c.phoneFax || ''}"`,
       `"${c.email || ''}"`,
       `"${c.address || ''}"`,
+      `"${c.website || ''}"`,
       `"${(c.memo || '').replace(/"/g, '""')}"`,
       `"${c.createdAt || ''}"`
     ]);
@@ -84,6 +85,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
         c.phoneFax ? `TEL;TYPE=FAX:${c.phoneFax}` : '',
         c.email ? `EMAIL;TYPE=PREF,INTERNET:${c.email}` : '',
         c.address ? `ADR;TYPE=WORK:;;${c.address};;;;` : '',
+        c.website ? `URL:${c.website.startsWith('http') ? c.website : `https://${c.website}`}` : '',
         c.memo ? `NOTE:${c.memo}` : '',
         'END:VCARD'
       ].filter(Boolean).join('\r\n');
@@ -205,7 +207,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
   const normalizeName = (s?: string) => (s || '').replace(/\s+/g, '').toLowerCase();
 
   // [추가] CSV든 진짜 엑셀 파일이든, "행(row) 배열의 배열"만 넘기면 동일하게 명함 목록으로
-  // 바꿔주는 공용 함수. 컬럼 순서: 이름, 회사, 부서, 직책, 핸드폰, 사무실전화, 팩스, 이메일, 주소, 메모
+  // 바꿔주는 공용 함수. 컬럼 순서: 이름, 회사, 부서, 직책, 핸드폰, 사무실전화, 팩스, 이메일, 주소, 홈페이지, 메모
   const rowsToContacts = (rows: string[][]): BusinessCard[] => {
     const list: BusinessCard[] = [];
     const dataRows = rows.slice(1); // 헤더 제외
@@ -222,7 +224,11 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           phoneFax: String(cols[6] ?? '').trim(),
           email: String(cols[7] ?? '').trim(),
           address: String(cols[8] ?? '').trim(),
-          memo: String(cols[9] ?? '').trim(),
+          // [수정] 내보내기 열 순서에 "홈페이지"가 새로 추가돼서(주소 다음, 메모 앞), 여기도
+          // 같이 맞추지 않으면 가져올 때 "메모"였던 값이 실제로는 옛 "생성일" 자리로 밀리는
+          // 등 열이 어긋나는 문제가 생긴다.
+          website: String(cols[9] ?? '').trim(),
+          memo: String(cols[10] ?? '').trim(),
           createdAt: new Date().toISOString(),
           callHistory: []
         });
@@ -325,6 +331,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
                 phoneFax: field(vc, 'TEL', 'FAX').trim(),
                 email: field(vc, 'EMAIL').trim(),
                 address: field(vc, 'ADR').replace(/;/g, ' ').trim(),
+                website: field(vc, 'URL').trim(),
                 // [수정] 예전엔 그룹 목록의 첫 번째 그룹으로 강제 배정했는데, "전체보기"에서만
                 // 보이고 특정 그룹엔 안 걸리도록 그룹을 비워둔다.
                 createdAt: new Date().toISOString(),

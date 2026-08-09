@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock } from 'lucide-react';
+import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
@@ -43,6 +43,7 @@ function generateContactVCardText(contact: BusinessCard): string {
     contact.phoneFax ? `TEL;TYPE=FAX:${contact.phoneFax}` : '',
     contact.email ? `EMAIL;TYPE=PREF,INTERNET:${contact.email}` : '',
     contact.address ? `ADR;TYPE=WORK:;;${contact.address};;;;` : '',
+    contact.website ? `URL:${contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}` : '',
     contact.memo ? `NOTE:${contact.memo}` : '',
     photoLine,
     'END:VCARD'
@@ -577,6 +578,24 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   </div>
                 </div>
 
+                {contact.website && (
+                  <div className="flex items-start gap-3 bg-slate-100 p-3.5 rounded-xl border border-slate-200">
+                    <Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-500 font-medium">홈페이지</p>
+                      <a
+                        href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-mono font-medium text-sky-600 hover:underline break-all"
+                      >
+                        {contact.website}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-start gap-3 bg-slate-100 p-3.5 rounded-xl border border-slate-200">
                   <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
@@ -936,6 +955,11 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded font-mono">분리 인식</span>
                 </label>
                 <input type="text" value={editForm.address2 || ''} onChange={e=>setEditForm({...editForm, address2:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-500 block mb-1 font-medium">홈페이지</label>
+                <input type="text" placeholder="예: www.company.com" value={editForm.website || ''} onChange={e=>setEditForm({...editForm, website:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
               </div>
 
               <div>
