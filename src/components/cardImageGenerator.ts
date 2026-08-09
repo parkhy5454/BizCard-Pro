@@ -73,7 +73,11 @@ export function generateStandardCardImage(c: BusinessCard): string {
     ctx.fillText(`A   ${c.address.length > 42 ? c.address.slice(0, 42) + '…' : c.address}`, 68, y);
     y += 34;
   }
+  // [수정] 주소가 없는 명함이면 y가 증가되지 않은 채로 홈페이지를 그려서, 바로 위 줄
+  // (이메일 등)과 겹쳐 사실상 안 보이는 버그가 있었다. "주소가 있었을 때"와 동일한
+  // 간격만큼 항상 내려가도록 고쳤다.
   if (c.website) {
+    if (!c.address) y += 6; // 주소 줄이 없으면 살짝만 더 띄워서 바로 위 줄과 안 붙게 함
     ctx.font = '21px "Malgun Gothic", sans-serif';
     ctx.fillStyle = '#6b7280';
     ctx.fillText(`W   ${c.website}`, 68, y);
