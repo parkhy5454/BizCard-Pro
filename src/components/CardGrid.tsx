@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
@@ -543,6 +543,21 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                       <div className="flex items-center gap-2 truncate text-slate-500 pt-1">
                         <Mail className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                         <span className="truncate">{contact.email}</span>
+                      </div>
+                    )}
+
+                    {contact.website && (
+                      <div className="flex items-center gap-2 truncate text-sky-600 pt-1">
+                        <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <a
+                          href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="truncate hover:underline"
+                        >
+                          {contact.website}
+                        </a>
                       </div>
                     )}
 
