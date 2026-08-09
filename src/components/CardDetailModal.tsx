@@ -578,10 +578,10 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 bg-slate-100 p-3.5 rounded-xl border border-slate-200">
+                <div className="flex items-start gap-3 bg-yellow-200 p-3.5 rounded-xl border-4 border-red-500">
                   <Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <p className="text-xs text-slate-500 font-medium">홈페이지</p>
+                    <p className="text-xs text-red-600 font-black">🔴 진단표시 v2 - 홈페이지: {JSON.stringify(contact.website)}</p>
                     {contact.website ? (
                       <a
                         href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}
