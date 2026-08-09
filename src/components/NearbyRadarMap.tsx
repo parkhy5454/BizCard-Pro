@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Navigation, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw } from 'lucide-react';
+import { MapPin, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 
@@ -230,11 +230,13 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
     }
   };
 
-  const handleRegeocode = async (retryFailed: boolean = false) => {
-    const confirmMsg = retryFailed
-      ? '이전에 실패로 처리됐던 명함들도 다시 시도합니다 (버그 수정 등으로 이번엔 성공할 수도 있는 것들).\n계속할까요?'
-      : '주소가 등록된 모든 명함의 위치 좌표를 실제 주소 기준으로 다시 계산합니다.\n명함 수에 따라 시간이 걸릴 수 있습니다. 계속할까요?';
-    if (!confirm(confirmMsg)) return;
+  const handleRegeocode = async (retryFailed: boolean = false, silent: boolean = false) => {
+    if (!silent) {
+      const confirmMsg = retryFailed
+        ? '이전에 실패로 처리됐던 명함들도 다시 시도합니다 (버그 수정 등으로 이번엔 성공할 수도 있는 것들).\n계속할까요?'
+        : '주소가 등록된 모든 명함의 위치 좌표를 실제 주소 기준으로 다시 계산합니다.\n명함 수에 따라 시간이 걸릴 수 있습니다. 계속할까요?';
+      if (!confirm(confirmMsg)) return;
+    }
     setRegeocoding(true);
     let totalUpdated = 0;
     let totalFailed = 0;
@@ -271,15 +273,21 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         console.error('좌표 재계산이 안전장치(최대 반복 횟수)에 걸려 중단되었습니다.');
       }
 
-      const reasonMsg = totalFailed > 0 && lastError ? `\n(실패 사유: ${lastError})` : '';
-      const authNote = stoppedByAuthError ? '\n\n⚠️ 카카오 API 인증 문제로 중단됐습니다. 설정을 확인하신 뒤 다시 눌러주세요 (이 명함들은 재시도 대상으로 남아있습니다).' : '';
-      alert(`좌표 재계산 완료: 성공 ${totalUpdated}건, 실패 ${totalFailed}건.${reasonMsg}${authNote}`);
+      // [수정] silent(자동 백그라운드 실행)일 땐 알림창을 띄우지 않는다 — 화면 들어올
+      // 때마다 팝업이 뜨면 오히려 방해가 된다. 콘솔 로그로만 조용히 남긴다.
+      if (silent) {
+        console.log(`[주변 지도] 자동 좌표 정리: 성공 ${totalUpdated}건, 실패 ${totalFailed}건${lastError ? ` (사유: ${lastError})` : ''}`);
+      } else {
+        const reasonMsg = totalFailed > 0 && lastError ? `\n(실패 사유: ${lastError})` : '';
+        const authNote = stoppedByAuthError ? '\n\n⚠️ 카카오 API 인증 문제로 중단됐습니다. 설정을 확인하신 뒤 다시 눌러주세요 (이 명함들은 재시도 대상으로 남아있습니다).' : '';
+        alert(`좌표 재계산 완료: 성공 ${totalUpdated}건, 실패 ${totalFailed}건.${reasonMsg}${authNote}`);
+      }
 
       // [수정] 예전엔 여기서 페이지 전체를 새로고침(window.location.reload())했는데, 그러면
       // 앱이 처음 화면(명함 메인)으로 리셋돼서 방금까지 보고 있던 레이더 지도 화면을 잃어
       // 버렸다. 이제는 페이지를 새로고침하지 않고, 명함 목록만 서버에서 다시 받아와 화면에
       // 반영한다 — 지금 이 화면에 계속 머무른 채로 갱신된 좌표가 바로 보인다.
-      if (onContactsRefresh) {
+      if (onContactsRefresh && totalUpdated > 0) {
         const refreshRes = await fetch('/api/contacts');
         if (refreshRes.ok) {
           const refreshedContacts = await refreshRes.json();
@@ -287,12 +295,39 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         }
       }
     } catch (err: any) {
-      alert(`좌표 재계산 중 오류가 발생했습니다 (지금까지 성공 ${totalUpdated}건).\n${err.message || '다시 시도해주세요.'}\n\n버튼을 다시 누르면 실패한 것들부터 이어서 계속됩니다.`);
+      if (!silent) {
+        alert(`좌표 재계산 중 오류가 발생했습니다 (지금까지 성공 ${totalUpdated}건).\n${err.message || '다시 시도해주세요.'}\n\n버튼을 다시 누르면 실패한 것들부터 이어서 계속됩니다.`);
+      } else {
+        console.error('[주변 지도] 자동 좌표 정리 중 오류:', err);
+      }
     } finally {
       setRegeocoding(false);
       setRegeocodeProgress('');
     }
   };
+
+  // [추가] 화면에 들어올 때마다 매번 좌표 재계산을 돌리면, 명함이 많을 때 시간이 오래
+  // 걸리고 카카오 API 호출도 낭비된다. 대신 "오늘 이미 한 번 돌았는지"를 브라우저에 기억해
+  // 뒀다가, 하루에 한 번만 조용히 백그라운드로 실행한다(기본 재계산 → 실패했던 것 재시도
+  // 순서로 이어서).
+  const [isAutoRegeocoding, setIsAutoRegeocoding] = useState<boolean>(false);
+  useEffect(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const lastRunKey = 'bizcard_radar_last_autoregeocode';
+    if (localStorage.getItem(lastRunKey) === todayKey) return; // 오늘 이미 돌았으면 건너뜀
+
+    (async () => {
+      setIsAutoRegeocoding(true);
+      try {
+        await handleRegeocode(false, true);
+        await handleRegeocode(true, true);
+        localStorage.setItem(lastRunKey, todayKey);
+      } finally {
+        setIsAutoRegeocoding(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeContact = activeContactId ? contacts.find((c) => c.id === activeContactId) : null;
 
@@ -310,32 +345,17 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-          <button
-            onClick={() => handleRegeocode(false)}
-            disabled={regeocoding}
-            title="기존 명함들이 예전 방식(부정확)으로 좌표가 찍혀있다면, 실제 주소 기준으로 다시 계산합니다"
-            className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
-          >
-            <MapPin className={`w-3.5 h-3.5 ${regeocoding ? 'animate-pulse' : ''}`} />
-            <span>{regeocoding ? (regeocodeProgress || '좌표 재계산 중...') : '기존 명함 좌표 다시 계산'}</span>
-          </button>
+          {/* [수정] "기존 명함 좌표 다시 계산" / "실패했던 것만 다시 시도" / "내 GPS 위치 갱신"
+          버튼은 화면에서 뺐다. 대신 이 화면에 들어오면 자동으로(단, 하루에 한 번만) 조용히
+          백그라운드에서 좌표 재계산을 돌리고, GPS는 항상 자동으로 갱신한다. 사용자에게는
+          "주변 사람 지도 / 거리 선택 / 좌표 없는 명함 목록 보기"만 보이게 해서 훨씬 단순해졌다. */}
+          {isAutoRegeocoding && (
+            <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              좌표 정리 중...
+            </span>
+          )}
 
-          {/* [추가] 예전엔 실패한 명함들이 "완료 처리"로 저장돼서, 나중에 원인(예: 검색어
-          100자 제한)을 고쳐도 다시 시도가 안 되는 문제가 있었다. 이 버튼을 누르면 그렇게
-          "완료 처리됐지만 실제로는 실패했던" 것들만 골라서 강제로 다시 시도한다. */}
-          <button
-            onClick={() => handleRegeocode(true)}
-            disabled={regeocoding}
-            title="이전에 실패로 처리된 명함들만 다시 시도합니다 (원인을 고친 뒤 다시 시도할 때 사용)"
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${regeocoding ? 'animate-spin' : ''}`} />
-            <span>실패했던 것만 다시 시도</span>
-          </button>
-
-          {/* [추가] 실패 건수만 숫자로 보여주던 걸, 실제로 어떤 명함들인지(이름/회사/주소)
-          목록으로 볼 수 있게 한다. 어떤 패턴으로 실패하는지 파악하고 필요하면 그 명함의
-          주소를 직접 고칠 수 있다. */}
           <button
             onClick={handleShowFailures}
             disabled={isLoadingFailures}
@@ -343,15 +363,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           >
             <MapPin className="w-3.5 h-3.5" />
             <span>{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함 목록 보기'}</span>
-          </button>
-
-          <button
-            onClick={handleGetMyGPS}
-            disabled={gpsLoading}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-blue-600 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
-          >
-            <Navigation className={`w-3.5 h-3.5 ${gpsLoading ? 'animate-spin' : ''}`} />
-            <span>{gpsLoading ? '위치 측정 중...' : '내 GPS 위치 갱신'}</span>
           </button>
 
           <select
@@ -367,39 +378,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           </select>
         </div>
       </div>
-
-      {/* [추가] 좌표 없는 명함 목록 - 이름/회사/주소를 보여줘서 어떤 패턴으로 실패하는지
-      파악하고, 상세보기로 바로 이동해서 주소를 고칠 수 있게 한다. */}
-      {failureList && (
-        <div className="bg-white border border-rose-200 rounded-3xl p-5 shadow-xl">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold text-rose-600">📍 좌표 없는 명함 ({failureList.length}건)</span>
-            <span className="text-[11px] text-slate-400">주소를 고친 뒤, 위의 "실패했던 것만 다시 시도"를 다시 눌러주세요.</span>
-          </div>
-          {failureList.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6">좌표 없는 명함이 없습니다. 전부 정상 계산됐어요.</p>
-          ) : (
-            <div className="max-h-72 overflow-y-auto space-y-1.5">
-              {failureList.map((f) => {
-                const fullContact = contacts.find((c) => c.id === f.id);
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => fullContact && onSelectContact(fullContact)}
-                    className="w-full text-left flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors"
-                  >
-                    <div className="min-w-0 shrink-0 w-32">
-                      <p className="text-xs font-bold text-slate-800 truncate">{f.name}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{f.company || '회사 미등록'}</p>
-                    </div>
-                    <p className="text-xs text-slate-500 truncate flex-1">{f.address}</p>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -550,6 +528,38 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         </div>
 
       </div>
+
+      {/* [수정] "좌표 없는 명함 목록"을 예전엔 지도 위쪽에 뒀는데, 지도를 먼저 보고 나서
+      필요할 때만 아래로 펼쳐보는 흐름이 더 자연스러워서 지도+목록 아래로 옮겼다. */}
+      {failureList && (
+        <div className="bg-white border border-rose-200 rounded-3xl p-5 shadow-xl">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold text-rose-600">📍 좌표 없는 명함 ({failureList.length}건)</span>
+          </div>
+          {failureList.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-6">좌표 없는 명함이 없습니다. 전부 정상 계산됐어요.</p>
+          ) : (
+            <div className="max-h-72 overflow-y-auto space-y-1.5">
+              {failureList.map((f) => {
+                const fullContact = contacts.find((c) => c.id === f.id);
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => fullContact && onSelectContact(fullContact)}
+                    className="w-full text-left flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors"
+                  >
+                    <div className="min-w-0 shrink-0 w-32">
+                      <p className="text-xs font-bold text-slate-800 truncate">{f.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{f.company || '회사 미등록'}</p>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate flex-1">{f.address}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
