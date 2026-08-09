@@ -58,8 +58,16 @@ async function generateContentWithRetry(
     } catch (err: any) {
       lastErr = err;
       const message = String(err?.message || err || '');
+      // [수정] "RESOURCE_EXHAUSTED"(429, 할당량 완전 소진)를 "UNAVAILABLE"(503, 일시적
+      // 서버 과부하)과 같은 걸로 취급해서 재시도하고 있었다. 하지만 할당량 소진은 몇 초
+      // 기다린다고 풀리는 게 아니라서, 재시도해봐야 100% 또 실패하고 시간과 호출 횟수만
+      // 낭비된다(실제로 매일 자동배치가 회사 하나당 쓸데없이 2번씩 더 재시도하며 시간을
+      // 끄는 문제가 있었다). 할당량 소진은 재시도 없이 바로 실패시켜서 빠르게 포기하고,
+      // 일시적 과부하(503)만 재시도한다.
+      const isQuotaExhausted = err?.status === 429 || err?.code === 429 || /RESOURCE_EXHAUSTED/i.test(message);
+      if (isQuotaExhausted) throw err;
       const isTransient = err?.status === 503 || err?.code === 503 ||
-        /UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i.test(message);
+        /UNAVAILABLE|high demand|overloaded/i.test(message);
       if (!isTransient || attempt === maxRetries) throw err;
       const delayMs = 800 * (attempt + 1); // 800ms, 1600ms ... 점점 늘려가며 재시도
       console.warn(`[Gemini] 일시적 오류로 ${delayMs}ms 후 재시도 (${attempt + 1}/${maxRetries}):`, message.slice(0, 200));
@@ -2236,9 +2244,14 @@ async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; c
   let companiesUpdated = 0;
   let failed = 0;
   let scopesChecked = 0;
+  // [추가] Gemini 쪽 할당량 자체가 완전히 소진된 경우(429 RESOURCE_EXHAUSTED), 남은 회사를
+  // 계속 돌아봐야 전부 똑같이 실패할 뿐이다. 이걸 감지하면 남은 스코프/회사를 다 뒤지지
+  // 않고 이번 배치를 즉시 멈춰서, 서버 로그가 똑같은 실패로 도배되고 시간을 낭비하는 걸
+  // 막는다(다음 실행 때 다시 시도하면 됨 — 하루 지나면 할당량이 초기화되니까).
+  let quotaExhaustedByGemini = false;
 
   for (const scope of sortedScopes) {
-    if (quotaRemaining <= 0) break;
+    if (quotaRemaining <= 0 || quotaExhaustedByGemini) break;
     scopesChecked++;
 
     const contacts = await getScopedCollection<BusinessCard>(scope.scopeId, 'contacts');
@@ -2253,7 +2266,7 @@ async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; c
     }
 
     for (const [company, group] of byCompany) {
-      if (quotaRemaining <= 0) break;
+      if (quotaRemaining <= 0 || quotaExhaustedByGemini) break;
       try {
         const companyInfo = await generateCompanySummary(company);
         quotaRemaining--;
@@ -2262,7 +2275,13 @@ async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; c
           await setScopedDoc(scope.scopeId, 'contacts', c);
         }
         companiesUpdated++;
-      } catch (err) {
+      } catch (err: any) {
+        const msg = String(err?.message || err || '');
+        if (err?.status === 429 || /RESOURCE_EXHAUSTED/i.test(msg)) {
+          console.error(`[회사요약 자동배치] Gemini 할당량이 소진되어 이번 배치를 중단합니다 ("${company}"에서 감지).`);
+          quotaExhaustedByGemini = true;
+          break;
+        }
         console.error(`[회사요약 자동배치] "${company}" 요약 실패:`, err);
         failed++;
         quotaRemaining--; // 실패도 API 호출 자체는 소비했을 수 있으니 할당량에서 뺀다
@@ -2273,7 +2292,7 @@ async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; c
     delete db[scope.scopeId];
   }
 
-  console.log(`[회사요약 자동배치] 완료: 스코프 ${scopesChecked}개 확인, 회사 ${companiesUpdated}곳 갱신, 실패 ${failed}건`);
+  console.log(`[회사요약 자동배치] 완료: 스코프 ${scopesChecked}개 확인, 회사 ${companiesUpdated}곳 갱신, 실패 ${failed}건${quotaExhaustedByGemini ? ' (Gemini 할당량 소진으로 조기 종료)' : ''}`);
   return { scopesChecked, companiesUpdated, failed };
 }
 
