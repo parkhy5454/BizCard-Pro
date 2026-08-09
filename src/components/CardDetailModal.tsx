@@ -878,6 +878,10 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               사진이 자동으로 안 바뀐다(사진 속 텍스트가 예전 이름 그대로 남아있음). 그런 경우를 위해
               언제든 수동으로 지금 입력된 정보로 사진을 다시 그릴 수 있는 버튼을 둔다. 실제로 촬영/스캔한
               사진에는 의미가 없는 기능이라, 안내 문구로 구분해서 보여준다. */}
+              {/* [임시 진단용] editForm.website에 실제로 뭐가 들어있는지 확인하기 위한 표시 */}
+              <p className="text-[11px] text-red-600 font-bold bg-red-50 border border-red-300 rounded-lg px-2 py-1">
+                🔴 진단: editForm.website = {JSON.stringify(editForm.website)}
+              </p>
               <button
                 type="button"
                 onClick={() => {
