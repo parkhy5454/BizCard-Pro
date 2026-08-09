@@ -578,11 +578,11 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   </div>
                 </div>
 
-                {contact.website && (
-                  <div className="flex items-start gap-3 bg-slate-100 p-3.5 rounded-xl border border-slate-200">
-                    <Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500 font-medium">홈페이지</p>
+                <div className="flex items-start gap-3 bg-slate-100 p-3.5 rounded-xl border border-slate-200">
+                  <Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500 font-medium">홈페이지</p>
+                    {contact.website ? (
                       <a
                         href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}
                         target="_blank"
@@ -592,9 +592,11 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                       >
                         {contact.website}
                       </a>
-                    </div>
+                    ) : (
+                      <p className="font-mono font-medium text-slate-400">미등록</p>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <div className="flex items-start gap-3 bg-slate-100 p-3.5 rounded-xl border border-slate-200">
                   <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
