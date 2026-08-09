@@ -2792,6 +2792,7 @@ app.post('/api/scan-card', async (req, res) => {
       '  "email": "이메일 주소",\n' +
       '  "address": "회사 첫 번째/기본/본사 주소",\n' +
       '  "address2": "회사 두 번째/지사/공장/보조 주소 (명함 내 주소가 2개 존재하는 경우에만 작성, 1개일 경우 빈 문자열 \"\")",\n' +
+      '  "website": "홈페이지 주소 (명함에 적혀있는 경우에만 기재, 없으면 빈 문자열 \"\")",\n' +
       '  "memo": "명함에 적힌 슬로건이나 주요 비즈니스 요약",\n' +
       '  "frontCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n' +
       '  "backCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}}\n' +
