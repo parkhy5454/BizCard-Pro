@@ -263,6 +263,22 @@ export const Navigation: React.FC<Props> = ({
                 <Users className="w-3.5 h-3.5 text-indigo-600" />
                 <span>가입 회원 확인</span>
               </button>
+
+              {/* [수정] 화면 위에 항상 떠있는 동그란 플로팅 버튼이었는데, 특히 모바일에서
+              화면을 가리고 걸리적거린다는 의견이 있었다. "가입 회원 확인"과 똑같이 헤더
+              안의 일반 버튼으로 옮겨서, 운영자 계정에게만 보이는 건 그대로 유지하면서
+              화면을 안 가리게 했다. */}
+              {isDeveloperAccount && (
+                <button
+                  type="button"
+                  onClick={() => setIsFeedbackInboxOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-semibold text-xs shadow transition-all active:scale-95"
+                  title="문의함 (관리자 전용)"
+                >
+                  <Inbox className="w-3.5 h-3.5" />
+                  <span>문의함</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -574,20 +590,6 @@ export const Navigation: React.FC<Props> = ({
         </div>
       </div>
     </header>
-
-    {/* [수정] 개발자(운영자) 계정에서만 보이는 "문의함" 버튼. 회사 전체를 통틀어 모이는 데이터라
-        일반 사용자에게는 노출하지 않는다. 이메일 알림이 SMTP 연결 문제로 불안정할 수 있어,
-        앱 안에서 직접 확인할 수 있는 화면을 별도로 마련했다. */}
-    {isDeveloperAccount && (
-      <button
-        type="button"
-        onClick={() => setIsFeedbackInboxOpen(true)}
-        className="fixed bottom-24 right-5 z-40 w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 shadow-xl flex items-center justify-center transition-all active:scale-95"
-        title="문의함 (관리자 전용)"
-      >
-        <Inbox className="w-5 h-5" />
-      </button>
-    )}
 
     {isFeedbackInboxOpen && (
       <FeedbackInboxModal currentUser={currentUser} onClose={() => setIsFeedbackInboxOpen(false)} />
