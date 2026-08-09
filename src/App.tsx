@@ -336,6 +336,8 @@ export default function App() {
       c.company.toLowerCase().includes(q) ||
       c.department.toLowerCase().includes(q) ||
       c.phoneMobile.includes(q) ||
+      (c.address || '').toLowerCase().includes(q) ||
+      (c.address2 || '').toLowerCase().includes(q) ||
       (c.memo || '').toLowerCase().includes(q)
     );
     return matchGroup && matchQuery;
