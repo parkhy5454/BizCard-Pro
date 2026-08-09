@@ -20,6 +20,7 @@ export interface BusinessCard {
   email: string;
   address: string;
   address2?: string;   // 보조 주소 (공장/지사 등 주소가 2개인 경우)
+  website?: string;    // 홈페이지 주소
   lat?: number;
   // [추가] 예전엔 주소를 "강남/판교" 같은 동네 이름 몇 개로 대충 찍어서(가짜) 좌표를 항상
   // 채워뒀었다. 그래서 "좌표가 있는지 없는지"만으로는 진짜 지오코딩(카카오 API)으로
