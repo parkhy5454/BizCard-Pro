@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe } from 'lucide-react';
+import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
@@ -598,6 +598,16 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   </div>
                 </div>
 
+                {contact.homeAddress && (
+                  <div className="flex items-start gap-3 bg-amber-50 p-3.5 rounded-xl border border-amber-200">
+                    <Home className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-amber-600 font-medium">집 주소 <span className="font-normal opacity-70">(개인정보)</span></p>
+                      <p className="font-mono font-medium text-slate-700 break-all">{contact.homeAddress}</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-start gap-3 bg-slate-100 p-3.5 rounded-xl border border-slate-200">
                   <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
@@ -962,6 +972,14 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               <div>
                 <label className="text-xs text-slate-500 block mb-1 font-medium">홈페이지</label>
                 <input type="text" placeholder="예: www.company.com" value={editForm.website || ''} onChange={e=>setEditForm({...editForm, website:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
+                  <span>집 주소</span>
+                  <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded font-mono">개인정보 · 명함 이미지엔 안 나옴</span>
+                </label>
+                <input type="text" placeholder="필요한 경우에만 입력 (회사 주소와 별도 관리)" value={editForm.homeAddress || ''} onChange={e=>setEditForm({...editForm, homeAddress:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
               </div>
 
               <div>

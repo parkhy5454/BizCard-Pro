@@ -226,6 +226,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       address: form.address || '',
       address2: form.address2 || '',
       website: form.website || '',
+      homeAddress: form.homeAddress || '',
       groupId: form.groupId || defaultGroupId,
       groupIds: form.groupIds && form.groupIds.length > 0 ? form.groupIds : (form.groupId ? [form.groupId] : []),
       // [수정] 실제 촬영한 명함 사진이 없으면(이름/연락처만 직접 입력한 경우), "가져오기"
@@ -921,6 +922,14 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1">홈페이지</label>
                     <input type="text" placeholder="예: www.company.com" value={form.website || ''} onChange={(e) => setForm({ ...form, website: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
+                      <span>집 주소</span>
+                      <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded">개인정보 · 명함 이미지엔 안 나옴</span>
+                    </label>
+                    <input type="text" placeholder="필요한 경우에만 입력 (회사 주소와 별도 관리)" value={form.homeAddress || ''} onChange={(e) => setForm({ ...form, homeAddress: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>
