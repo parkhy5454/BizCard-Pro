@@ -400,13 +400,13 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
               <div
                 key={contact.id}
                 onClick={() => onSelectContact(contact)}
-                className="group relative bg-white rounded-2xl border border-slate-200 hover:border-blue-400 shadow-md overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 flex flex-col justify-between w-[85vw] sm:w-[380px] shrink-0 snap-center md:snap-start"
+                onTouchStart={handleImageSwipeStart}
+                onTouchEnd={handleImageSwipeEnd(contact.id, !!contact.backImage)}
+                className="group relative bg-white rounded-2xl border border-slate-200 hover:border-blue-400 shadow-md overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 flex flex-col justify-between w-[85vw] sm:w-[380px] shrink-0 snap-center md:snap-start touch-pan-y"
               >
                 {/* 카드 상단 배너 & 사진 프리뷰 배경 (명함 비율에 맞춰 전체가 보이도록, 뒷면 있으면 좌우로 밀어서 전환) */}
                 <div
-                  className="aspect-[1.586/1] relative overflow-hidden bg-slate-100 border-b border-slate-200 touch-pan-y"
-                  onTouchStart={handleImageSwipeStart}
-                  onTouchEnd={handleImageSwipeEnd(contact.id, !!contact.backImage)}
+                  className="aspect-[1.586/1] relative overflow-hidden bg-slate-100 border-b border-slate-200"
                 >
                   {(() => {
                     const side = cardImageSide[contact.id] || 'front';
