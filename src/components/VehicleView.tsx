@@ -193,7 +193,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     endMileage: 0,
     startPlace: '본사',
     endPlace: '',
-    department: '영업기획팀',
+    // [수정] 예전엔 여기 "영업기획팀"이 하드코딩된 기본값으로 들어있었다. 그러면 위의
+    // "운전자명 기준으로 최근 부서 자동 조회" 로직이 "이미 부서가 채워져 있다"고 판단해서
+    // 아예 실행되지 않는 문제가 있었다(자동입력이 항상 막혀 있었던 셈). 이제 빈 값으로
+    // 시작해서, 마운트 시 운전자명 기준 자동 조회(또는 브라우저 마지막 값)가 정상적으로
+    // 작동하도록 한다.
+    department: '',
     projectName: '',
     startAddress: '서울특별시 서초구 서초대로 396',
     endAddress: '',
