@@ -494,9 +494,18 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
     }
 
     if (dragEdge !== null && lastPointerRef.current) {
-      const dx = e.clientX - lastPointerRef.current.x;
-      const dy = e.clientY - lastPointerRef.current.y;
+      const rawDx = e.clientX - lastPointerRef.current.x;
+      const rawDy = e.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      // [수정] 예전엔 손가락/마우스가 움직인 방향(dx, dy) 그대로를 두 꼭짓점 모두에 적용해서,
+      // 위/아래 변을 잡고 옆으로 살짝만 삐뚤게 움직여도 그 변의 양쪽 꼭짓점이 옆으로도 같이
+      // 밀려버렸다(그러면 사각형이 아니라 마름모/사다리꼴처럼 일그러진다). 이제는 변의
+      // 방향에 맞는 축으로만 이동을 제한한다: 위/아래 변(edgeIdx 0,2)은 위아래로만,
+      // 좌/우 변(edgeIdx 1,3)은 좌우로만 움직이게 해서, 반대쪽 두 꼭짓점은 그 축 방향으로는
+      // 절대 안 움직이고 정확히 그 변만 늘었다 줄었다 한다.
+      const isHorizontalEdge = dragEdge === 0 || dragEdge === 2; // 위/아래 변 -> 세로로만 이동
+      const dx = isHorizontalEdge ? 0 : rawDx;
+      const dy = isHorizontalEdge ? rawDy : 0;
       setCorners((prev) => {
         if (!prev) return prev;
         const idxs = EDGE_POINT_INDEXES[dragEdge];

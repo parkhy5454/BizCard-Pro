@@ -138,7 +138,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const cvRef = useRef<any>(null);
   const quadHistoryRef = useRef<{ quad: Quad; t: number }[]>([]);
   const stableSinceRef = useRef<number | null>(null);
-  const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number } | null>(null);
+  const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number; rotated: boolean } | null>(null);
   const autoCapturedRef = useRef(false);
   const isProcessingRef = useRef(false);
   const detectIntervalRef = useRef<number | null>(null);
@@ -276,13 +276,19 @@ export const LiveCameraCapture: React.FC<Props> = ({
           // 사각형을 한 번 더 정밀하게 재감지해서 훨씬 정확한 경계로 잘라낸다.
           const preciseQuad = detectQuad(cv, srcMat, guideAspectRatio);
           let quadToUse: Quad | null = null;
+          // [추가] 감지된 사각형이 "폰을 세로로 들고 찍는 등"의 이유로 90도 돌아간 형태로
+          // 잡혔는지 여부. 이 값에 따라 아래에서 가이드 박스 검증과 최종 출력 크기를 모두
+          // 가로/세로 반대로 적용해야, 카드 내용이 찌그러지지 않고 올바르게 나온다.
+          let quadRotated = false;
 
           if (preciseQuad) {
             quadToUse = preciseQuad.points;
+            quadRotated = preciseQuad.rotated;
           } else if (lastRawQuadRef.current) {
             // 정밀 재감지가 실패한 경우에만, 실시간 감지 때 찾았던 좌표를 확대해서 대체 사용
-            const { quad, detectW, detectH } = lastRawQuadRef.current;
+            const { quad, detectW, detectH, rotated } = lastRawQuadRef.current;
             quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
+            quadRotated = rotated;
           }
 
           if (quadToUse) {
@@ -291,7 +297,12 @@ export const LiveCameraCapture: React.FC<Props> = ({
             // 밖까지) 잡히는 경우가 있었다. 화면에 보여준 가이드 박스와 동떨어진 결과라면
             // 신뢰하지 않고, 사용자가 실제로 맞춘 가이드 박스 그대로 잘라내는 안전한 방식으로
             // 대체한다 — "가이드 안에 들어온 부분만 정확히" 잘리는 걸 보장하기 위함이다.
-            const guideBounds = getGuideBoundsInVideoSpace(video, containerRef.current, guideAspectRatio);
+            // [수정] quadRotated인 경우, 실제 카드는 세로로 길게 잡힌 것이므로 가이드 박스도
+            // 가로/세로를 바꿔서 비교해야 정상적으로 통과한다.
+            const rawGuideBounds = getGuideBoundsInVideoSpace(video, containerRef.current, guideAspectRatio);
+            const guideBounds = quadRotated
+              ? { x: rawGuideBounds.x, y: rawGuideBounds.y, w: rawGuideBounds.h, h: rawGuideBounds.w }
+              : rawGuideBounds;
             const qxs = quadToUse.map((p) => p[0]);
             const qys = quadToUse.map((p) => p[1]);
             const qMinX = Math.min(...qxs), qMaxX = Math.max(...qxs);
@@ -313,9 +324,13 @@ export const LiveCameraCapture: React.FC<Props> = ({
           if (quadToUse) {
             autoDetected = true;
             quadToUse = shrinkQuadInward(quadToUse);
+            // [수정] 감지된 카드가 회전된 형태(폰을 세로로 들고 찍는 등)였다면, 출력 이미지의
+            // 가로/세로도 서로 바꿔서 잘라야 카드 내용이 찌그러지지 않고 올바른 방향(가로로
+            // 긴 명함 모양)으로 저장된다.
+            const effectiveAspect = quadRotated ? 1 / guideAspectRatio : guideAspectRatio;
             let outW: number, outH: number;
-            if (guideAspectRatio >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / guideAspectRatio); }
-            else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * guideAspectRatio); }
+            if (effectiveAspect >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / effectiveAspect); }
+            else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * effectiveAspect); }
 
             const warped = warpToRect(cv, srcMat, quadToUse, outW, outH);
             const enhanced = enhanceMat(cv, warped);
@@ -417,7 +432,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const brightOk = brightness >= 35 && brightness <= 250;
       const glareOk = glare <= 0.13;
 
-      lastRawQuadRef.current = { quad: found.points, detectW, detectH };
+      lastRawQuadRef.current = { quad: found.points, detectW, detectH, rotated: found.rotated };
 
       const now = performance.now();
       quadHistoryRef.current.push({ quad: found.points, t: now });
