@@ -111,21 +111,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     setVisibleExpenseCount(50);
   }, [selectedVehicleFilter, expenseCategoryFilter, expensePeriod]);
 
-  // [추가] "부서명"을 매번 새로 입력하는 게 번거롭다는 의견이 있어서, 본인(로그인한
-  // 사용자)이 가장 최근에 작성한 운행기록의 부서명을 자동으로 불러와 채워준다. 이미
-  // 뭔가 입력돼 있으면(사용자가 이미 손댔으면) 건드리지 않고, 비어있을 때만 채운다.
-  // drivingLogs가 아직 안 불러와진 초기 렌더 시점엔 아무 것도 안 하다가, 데이터가
-  // 로드되는 순간 한 번 채워준다.
+  // [수정] 예전엔 "이 브라우저로 로그인한 사용자 이름 == 운행기록의 운전자명"이 일치하는
+  // 지난 기록을 찾아서 부서를 불러왔다. 그런데 관리자가 여러 운전자를 대신 입력하는
+  // 경우처럼, 로그인한 사람과 실제 운전자명이 다를 때는 매칭이 안 돼서 부서가 전혀
+  // 자동으로 안 채워지는 문제가 있었다. 이제는 "이 브라우저(=지금 입력하는 사람)가
+  // 마지막으로 직접 입력한 부서명"을 브라우저에 저장해뒀다가 그대로 불러온다 — 누가
+  // 운전했는지와 무관하게, 입력하는 사람 기준으로 항상 정확하게 작동한다.
+  const DRIVING_DEPARTMENT_STORAGE_KEY = 'bizcard_last_driving_department';
   useEffect(() => {
     if (newDriving.department) return; // 이미 값이 있으면(직접 입력했거나 이미 채워졌으면) 안 건드림
-    const myLastLog = drivingLogs
-      .filter((log) => log.driverName === currentUser.name && log.department)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-    if (myLastLog?.department) {
-      setNewDriving((prev) => (prev.department ? prev : { ...prev, department: myLastLog.department! }));
+    const lastUsed = localStorage.getItem(DRIVING_DEPARTMENT_STORAGE_KEY);
+    if (lastUsed) {
+      setNewDriving((prev) => (prev.department ? prev : { ...prev, department: lastUsed }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drivingLogs]);
+  }, []);
 
   // 신규 등록용 폼 상태들
   // 1. 차량등록 폼
@@ -644,6 +644,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     }
 
     const dist = endNum - startNum;
+
+    // 지금 입력한 부서명을 브라우저에 기억해뒀다가, 다음에 새 운행기록 작성할 때 자동으로 불러온다.
+    if (newDriving.department?.trim()) {
+      localStorage.setItem(DRIVING_DEPARTMENT_STORAGE_KEY, newDriving.department.trim());
+    }
 
     let finalContactId = newDriving.contactId;
 
