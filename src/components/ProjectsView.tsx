@@ -214,11 +214,6 @@ export const ProjectsView: React.FC<Props> = ({
     console.log('[DEBUG] meetingAttendee 상태 변경 ->', JSON.stringify(meetingAttendee));
   }, [meetingAttendee]);
 
-  // [DEBUG] 임시 디버그: editingFollowup(팔로우업 수정 모달) attendee 변경 추적
-  useEffect(() => {
-    console.log('[DEBUG] editingFollowup.attendee ->', JSON.stringify(editingFollowup?.followup?.attendee));
-  }, [editingFollowup?.followup?.attendee]);
-
   // 프로젝트 카드가 확장될 때 미팅 폼 초기 설정 자동화
   // [수정] 예전엔 의존성 배열에 projects/contacts까지 들어있어서, 카드를 펼친 채로 다른
   // 동작(예: 다른 팔로우업 저장, 명함 추가 등)이 일어나 projects나 contacts 배열이
@@ -431,6 +426,11 @@ export const ProjectsView: React.FC<Props> = ({
   const [editAttendeeNameInput, setEditAttendeeNameInput] = useState<string>('');
   const [editAttendeeOfficeInput, setEditAttendeeOfficeInput] = useState<string>('');
   const [editAttendeeMobileInput, setEditAttendeeMobileInput] = useState<string>('');
+
+  // [DEBUG] 임시 디버그: editingFollowup(팔로우업 수정 모달) attendee 변경 추적
+  useEffect(() => {
+    console.log('[DEBUG] editingFollowup.attendee ->', JSON.stringify(editingFollowup?.followup?.attendee));
+  }, [editingFollowup?.followup?.attendee]);
 
   // 거래처 직접 입력 상태
   const [useDirectContact, setUseDirectContact] = useState<boolean>(false);
