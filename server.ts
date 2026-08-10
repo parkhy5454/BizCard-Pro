@@ -3144,20 +3144,42 @@ app.post('/api/contacts/import', async (req, res) => {
   // 항목끼리도 서로 걸러지도록, 처리하면서 계속 채워나간다.
   const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
   const existingKeys = new Set<string>();
+  // [추가] "0건 가져옴, N건 중복 건너뜀"이라고만 알려주면, 사용자가 그 기존 명함을
+  // 이름/회사가 다르게 저장돼 있어서 못 찾는 경우 답답해했다. 어느 전화번호/이메일이
+  // 어떤 기존 명함(이름)과 겹쳤는지 같이 돌려줘서, 결과 메시지에서 바로 확인할 수 있게 한다.
+  const keyToExistingContact = new Map<string, { id: string; name: string }>();
   for (const c of dbData.contacts) {
-    if (c.phoneMobile) existingKeys.add(`phone:${normalizePhone(c.phoneMobile)}`);
-    if (c.email) existingKeys.add(`email:${c.email.trim().toLowerCase()}`);
+    if (c.phoneMobile) {
+      const k = `phone:${normalizePhone(c.phoneMobile)}`;
+      existingKeys.add(k);
+      if (!keyToExistingContact.has(k)) keyToExistingContact.set(k, { id: c.id, name: c.name || '(이름 없음)' });
+    }
+    if (c.email) {
+      const k = `email:${c.email.trim().toLowerCase()}`;
+      existingKeys.add(k);
+      if (!keyToExistingContact.has(k)) keyToExistingContact.set(k, { id: c.id, name: c.name || '(이름 없음)' });
+    }
   }
 
   const toInsert: any[] = [];
   let skippedDuplicates = 0;
+  const skippedDetails: { importedName: string; matchedField: 'phone' | 'email'; existingContactId: string; existingContactName: string }[] = [];
 
   for (const c of importedContacts as any[]) {
     const phoneKey = c.phoneMobile && normalizePhone(c.phoneMobile) ? `phone:${normalizePhone(c.phoneMobile)}` : null;
     const emailKey = c.email && c.email.trim() ? `email:${c.email.trim().toLowerCase()}` : null;
-    const isDuplicate = Boolean((phoneKey && existingKeys.has(phoneKey)) || (emailKey && existingKeys.has(emailKey)));
-    if (isDuplicate) {
+    const matchedKey = (phoneKey && existingKeys.has(phoneKey)) ? phoneKey : (emailKey && existingKeys.has(emailKey)) ? emailKey : null;
+    if (matchedKey) {
       skippedDuplicates += 1;
+      const existing = keyToExistingContact.get(matchedKey);
+      if (existing) {
+        skippedDetails.push({
+          importedName: c.name || '(이름 없음)',
+          matchedField: matchedKey.startsWith('phone:') ? 'phone' : 'email',
+          existingContactId: existing.id,
+          existingContactName: existing.name
+        });
+      }
       continue;
     }
 
@@ -3190,7 +3212,7 @@ app.post('/api/contacts/import', async (req, res) => {
   }
 
   await setScopedDocs(scopeId, 'contacts', toInsert);
-  res.json({ count: toInsert.length, skippedDuplicates, contacts: dbData.contacts });
+  res.json({ count: toInsert.length, skippedDuplicates, skippedDetails, contacts: dbData.contacts });
 });
 
 // 내 명함 프로필 API
