@@ -331,11 +331,18 @@ export default function App() {
   const filteredContacts = contacts.filter(c => {
     const matchGroup = selectedGroupFilter === 'all' || contactHasGroup(c, selectedGroupFilter);
     const q = searchQuery.toLowerCase().trim();
+    // [수정] 예전엔 전화번호를 저장된 문자열 그대로("010-3063-0826")와 검색어를 단순 포함
+    // 여부로만 비교했다. 그러면 검색어를 하이픈 없이("01030630826") 입력하면 매칭이 안 되고,
+    // 반대로 저장된 번호가 하이픈 없이 저장돼 있는데 하이픈 넣어 검색해도 안 됐다. 이제
+    // 숫자만 남긴 값끼리도 같이 비교해서, 하이픈 포함/미포함 어느 쪽으로 검색해도 잡히게 한다.
+    const qDigits = q.replace(/\D/g, '');
     const matchQuery = !q || (
       c.name.toLowerCase().includes(q) ||
       c.company.toLowerCase().includes(q) ||
       c.department.toLowerCase().includes(q) ||
       c.phoneMobile.includes(q) ||
+      (qDigits.length > 0 && c.phoneMobile.replace(/\D/g, '').includes(qDigits)) ||
+      (qDigits.length > 0 && (c.phoneOffice || '').replace(/\D/g, '').includes(qDigits)) ||
       (c.address || '').toLowerCase().includes(q) ||
       (c.address2 || '').toLowerCase().includes(q) ||
       (c.memo || '').toLowerCase().includes(q)
