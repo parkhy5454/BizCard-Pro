@@ -29,7 +29,15 @@ export const AttendeeContactSearchAdd: React.FC<Props> = ({ contacts, isAdded, o
   }, []);
 
   const q = query.trim().toLowerCase();
-  const filtered = contacts.filter((c) => !q || c.name.toLowerCase().includes(q) || (c.company || '').toLowerCase().includes(q)).slice(0, 50);
+  // [수정] 예전엔 검색어가 비어있어도(포커스만 줘도) 전체 명함 중 최대 50건을 그대로 목록에
+  // 보여줬다. 그런데 한 명 추가한 뒤 검색어를 자동으로 비우게 만들면서, 필터링된 1~2건짜리
+  // 짧은 목록이 갑자기 50건짜리 긴 목록으로 확 바뀌는 리플로우가 매번 발생했다. 이 순간
+  // 방금 클릭한 화면 위치에 다른 항목(혹은 같은 항목)이 걸리면서, 사용자가 "반응이 없다"고
+  // 느껴 한 번 더 클릭 → 방금 추가한 사람이 다시 토글되어 빠지는 버그로 이어졌다.
+  // 이제 검색어를 최소 1글자 이상 입력했을 때만 목록을 보여줘서, 추가 후 검색어가 비워지면
+  // 목록 자체가 사라지고 다음 검색을 시작하기 전까지는 리플로우가 일어나지 않게 한다.
+  const showList = open && q.length > 0;
+  const filtered = q ? contacts.filter((c) => c.name.toLowerCase().includes(q) || (c.company || '').toLowerCase().includes(q)).slice(0, 50) : [];
 
   return (
     <div ref={wrapRef} className="relative">
@@ -46,7 +54,7 @@ export const AttendeeContactSearchAdd: React.FC<Props> = ({ contacts, isAdded, o
         />
       </div>
 
-      {open && (
+      {showList && (
         <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl divide-y divide-slate-100">
           {filtered.length === 0 ? (
             <p className="text-[11px] text-slate-400 text-center py-4">검색 결과가 없습니다.</p>
@@ -59,12 +67,9 @@ export const AttendeeContactSearchAdd: React.FC<Props> = ({ contacts, isAdded, o
                   key={c.id}
                   onClick={() => {
                     onToggle(c);
-                    // [수정] 한 명 추가한 뒤 검색어가 그대로 남아있으면 목록이 방금 고른
-                    // 사람으로만 필터된 채라서, 다음 참여자를 검색하려면 매번 손으로 지워야
-                    // 했다. 추가/제거할 때마다 검색어를 비우고 목록을 다시 열어둔 채로
-                    // 포커스를 인풋에 되돌려서, 이어서 바로 다음 이름을 타이핑할 수 있게 한다.
+                    // 추가/제거 후 검색어를 비워서, 목록이 사라지고(위 showList 조건) 다음
+                    // 이름을 바로 이어서 타이핑할 수 있게 한다. 포커스는 인풋에 유지.
                     setQuery('');
-                    setOpen(true);
                     inputRef.current?.focus();
                   }}
                   className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${added ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
