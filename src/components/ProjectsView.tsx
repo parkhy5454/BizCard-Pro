@@ -208,6 +208,17 @@ export const ProjectsView: React.FC<Props> = ({
     return () => clearInterval(playTimer);
   }, [playingVoiceId]);
 
+  // [DEBUG] 임시 디버그: meetingAttendee가 바뀔 때마다 무슨 값으로 바뀌는지 콘솔에 기록.
+  // 원인 파악 후 제거 예정.
+  useEffect(() => {
+    console.log('[DEBUG] meetingAttendee 상태 변경 ->', JSON.stringify(meetingAttendee));
+  }, [meetingAttendee]);
+
+  // [DEBUG] 임시 디버그: editingFollowup(팔로우업 수정 모달) attendee 변경 추적
+  useEffect(() => {
+    console.log('[DEBUG] editingFollowup.attendee ->', JSON.stringify(editingFollowup?.followup?.attendee));
+  }, [editingFollowup?.followup?.attendee]);
+
   // 프로젝트 카드가 확장될 때 미팅 폼 초기 설정 자동화
   // [수정] 예전엔 의존성 배열에 projects/contacts까지 들어있어서, 카드를 펼친 채로 다른
   // 동작(예: 다른 팔로우업 저장, 명함 추가 등)이 일어나 projects나 contacts 배열이
@@ -218,6 +229,7 @@ export const ProjectsView: React.FC<Props> = ({
   // 실행되도록 의존성을 좁혔다. projects/contacts는 effect 실행 시점의 최신값을 그대로
   // 참조하면 되고, 값이 바뀔 때마다 재실행될 필요는 없다.
   useEffect(() => {
+    console.log('[DEBUG] 초기화 effect 실행됨. expandedId =', expandedId);
     if (expandedId) {
       const proj = projects.find(p => p.id === expandedId);
       if (proj) {
@@ -227,6 +239,7 @@ export const ProjectsView: React.FC<Props> = ({
         // 관련 거래처 담당자명을 미팅참석자(미팅자) 기본값으로 입력
         const related = contacts.filter((c) => (proj.contactIds || []).includes(c.id));
         const names = related.map(r => r.name).join(', ');
+        console.log('[DEBUG] meetingAttendee를 기본값으로 리셋:', names);
         setMeetingAttendee(names);
         
         setMeetingDate(new Date().toISOString().split('T')[0]);
