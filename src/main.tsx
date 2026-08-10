@@ -55,3 +55,15 @@ createRoot(document.getElementById('root')!).render(
     </Sentry.ErrorBoundary>
   </StrictMode>,
 );
+
+// [추가] PWA 서비스워커 등록. 이게 있어야 브라우저(특히 Android/Chrome)가 "홈 화면에
+// 추가" 설치를 제안해준다. 실패해도(구형 브라우저 등) 앱 자체 동작에는 영향 없으므로
+// 조용히 무시한다.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('[PWA] 서비스워커 등록 실패:', err);
+    });
+  });
+}
+
