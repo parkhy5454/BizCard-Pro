@@ -334,23 +334,28 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   return (
     <div className="max-w-7xl mx-auto space-y-6">
 
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-200 animate-pulse">
-            <Compass className="w-6 h-6" />
+      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="p-2 md:p-3 bg-rose-50 text-rose-600 rounded-xl md:rounded-2xl border border-rose-200 animate-pulse">
+            <Compass className="w-4 h-4 md:w-6 md:h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">주변 사람 지도</h2>
+            <h2 className="text-base md:text-xl font-bold text-slate-900 tracking-tight">주변 사람 지도</h2>
           </div>
+          {isAutoRegeocoding && (
+            <span className="text-[10px] text-slate-400 flex items-center gap-1 md:hidden">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              정리 중
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-          {/* [수정] "기존 명함 좌표 다시 계산" / "실패했던 것만 다시 시도" / "내 GPS 위치 갱신"
-          버튼은 화면에서 뺐다. 대신 이 화면에 들어오면 자동으로(단, 하루에 한 번만) 조용히
-          백그라운드에서 좌표 재계산을 돌리고, GPS는 항상 자동으로 갱신한다. 사용자에게는
-          "주변 사람 지도 / 거리 선택 / 좌표 없는 명함 목록 보기"만 보이게 해서 훨씬 단순해졌다. */}
+        {/* [수정] 모바일에서 이 영역이 세로로 다 늘어서서 화면을 너무 많이 차지했다.
+        버튼/드롭다운을 가로로 나란히 붙이고 크기를 줄여서, 지도가 스크롤 없이 최대한
+        빨리 보이게 압축했다. */}
+        <div className="flex items-center gap-1.5 md:gap-2 w-full md:w-auto">
           {isAutoRegeocoding && (
-            <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <span className="hidden md:flex text-[11px] text-slate-400 items-center gap-1.5">
               <RefreshCw className="w-3 h-3 animate-spin" />
               좌표 정리 중...
             </span>
@@ -359,22 +364,22 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           <button
             onClick={handleShowFailures}
             disabled={isLoadingFailures}
-            className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 disabled:opacity-50"
+            className="flex-1 md:flex-initial px-2.5 md:px-4 py-1.5 md:py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg md:rounded-xl text-[11px] md:text-xs font-semibold flex items-center justify-center gap-1 md:gap-1.5 transition-all active:scale-95 disabled:opacity-50"
           >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함 목록 보기'}</span>
+            <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
+            <span className="truncate">{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함'}</span>
           </button>
 
           <select
             value={radiusKm}
             onChange={(e) => setRadiusKm(Number(e.target.value))}
-            className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 font-bold"
+            className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] md:text-xs rounded-lg md:rounded-xl px-2 md:px-3 py-1.5 md:py-2 focus:outline-none focus:border-indigo-500 font-bold"
           >
             <option value={1}>1km 이내</option>
             <option value={2}>2km 이내</option>
             <option value={5}>5km 이내</option>
             <option value={10}>10km 이내</option>
-            <option value={0}>거리 제한 없음(전체)</option>
+            <option value={0}>전체</option>
           </select>
         </div>
       </div>
