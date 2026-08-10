@@ -208,12 +208,6 @@ export const ProjectsView: React.FC<Props> = ({
     return () => clearInterval(playTimer);
   }, [playingVoiceId]);
 
-  // [DEBUG] 임시 디버그: meetingAttendee가 바뀔 때마다 무슨 값으로 바뀌는지 콘솔에 기록.
-  // 원인 파악 후 제거 예정.
-  useEffect(() => {
-    console.log('[DEBUG] meetingAttendee 상태 변경 ->', JSON.stringify(meetingAttendee));
-  }, [meetingAttendee]);
-
   // 프로젝트 카드가 확장될 때 미팅 폼 초기 설정 자동화
   // [수정] 예전엔 의존성 배열에 projects/contacts까지 들어있어서, 카드를 펼친 채로 다른
   // 동작(예: 다른 팔로우업 저장, 명함 추가 등)이 일어나 projects나 contacts 배열이
@@ -224,7 +218,6 @@ export const ProjectsView: React.FC<Props> = ({
   // 실행되도록 의존성을 좁혔다. projects/contacts는 effect 실행 시점의 최신값을 그대로
   // 참조하면 되고, 값이 바뀔 때마다 재실행될 필요는 없다.
   useEffect(() => {
-    console.log('[DEBUG] 초기화 effect 실행됨. expandedId =', expandedId);
     if (expandedId) {
       const proj = projects.find(p => p.id === expandedId);
       if (proj) {
@@ -234,7 +227,6 @@ export const ProjectsView: React.FC<Props> = ({
         // 관련 거래처 담당자명을 미팅참석자(미팅자) 기본값으로 입력
         const related = contacts.filter((c) => (proj.contactIds || []).includes(c.id));
         const names = related.map(r => r.name).join(', ');
-        console.log('[DEBUG] meetingAttendee를 기본값으로 리셋:', names);
         setMeetingAttendee(names);
         
         setMeetingDate(new Date().toISOString().split('T')[0]);
@@ -426,11 +418,6 @@ export const ProjectsView: React.FC<Props> = ({
   const [editAttendeeNameInput, setEditAttendeeNameInput] = useState<string>('');
   const [editAttendeeOfficeInput, setEditAttendeeOfficeInput] = useState<string>('');
   const [editAttendeeMobileInput, setEditAttendeeMobileInput] = useState<string>('');
-
-  // [DEBUG] 임시 디버그: editingFollowup(팔로우업 수정 모달) attendee 변경 추적
-  useEffect(() => {
-    console.log('[DEBUG] editingFollowup.attendee ->', JSON.stringify(editingFollowup?.followup?.attendee));
-  }, [editingFollowup?.followup?.attendee]);
 
   // 거래처 직접 입력 상태
   const [useDirectContact, setUseDirectContact] = useState<boolean>(false);
@@ -933,10 +920,31 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // "이름(전화번호)" 형식이면 이름과 직접입력 전화번호를 분리해서 반환
+  // [수정] 예전엔 정규식 `/^(.+?)\s*\(([^)]*)\)\s*$/`으로 파싱했는데, `[^)]*`가 괄호 중첩을
+  // 허용하지 않아서 "주현우((주)와고코리아, 010-...)"처럼 회사명 자체에 괄호가 들어간 경우
+  // (한국 회사명에 흔한 "(주)" 표기) 매칭이 아예 실패했다. 그러면 이름을 못 뽑아내고 전체
+  // 문자열을 통째로 "이름"으로 취급해버려서, "이미 추가됐는지" 비교가 항상 실패하고 —
+  // 화면에 체크 표시/칩이 안 뜨고, 클릭할 때마다 중복으로 계속 추가되는 버그로 이어졌다.
+  // 이제 문자열 끝에서부터 괄호 깊이를 세어, 맨 끝 ")"와 짝이 맞는 가장 바깥쪽 "("을 찾는
+  // 방식으로 파싱해서, 괄호가 중첩돼 있어도 이름만 정확히 분리한다.
   const parseAttendeeEntry = (entry: string): { name: string; manualPhone: string | null } => {
-    const match = entry.match(/^(.+?)\s*\(([^)]*)\)\s*$/);
-    if (match) return { name: match[1].trim(), manualPhone: match[2].trim() };
-    return { name: entry.trim(), manualPhone: null };
+    const trimmed = entry.trim();
+    if (!trimmed.endsWith(')')) return { name: trimmed, manualPhone: null };
+    let depth = 0;
+    let openIdx = -1;
+    for (let i = trimmed.length - 1; i >= 0; i--) {
+      const ch = trimmed[i];
+      if (ch === ')') depth++;
+      else if (ch === '(') {
+        depth--;
+        if (depth === 0) { openIdx = i; break; }
+      }
+    }
+    if (openIdx <= 0) return { name: trimmed, manualPhone: null };
+    const name = trimmed.slice(0, openIdx).trim();
+    const phone = trimmed.slice(openIdx + 1, trimmed.length - 1).trim();
+    if (!name) return { name: trimmed, manualPhone: null };
+    return { name, manualPhone: phone };
   };
 
   // 미팅자 문자열에서 특정 명함 이름의 항목을 제거 (괄호 안 전화번호 포함해서 통째로 제거)
