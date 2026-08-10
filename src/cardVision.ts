@@ -15,6 +15,10 @@ export type Quad = [Point, Point, Point, Point]; // [좌상, 우상, 우하, 좌
 export interface DetectedQuad {
   points: Quad;
   areaRatio: number; // 프레임 전체 넓이 대비 감지된 사각형 넓이 비율 (0~1)
+  // [추가] 감지된 사각형이 목표 비율(targetAspect)이 아니라 그 역수(90도 돌아간 형태)에
+  // 더 가까웠으면 true. 이 경우 출력 이미지의 가로/세로를 서로 바꿔서 잘라야, 카드 내용이
+  // 찌그러지지 않고 올바른 방향으로 나온다(폰을 세로로 들고 찍었을 때 등).
+  rotated: boolean;
 }
 
 let openCvPromise: Promise<any> | null = null;
@@ -160,7 +164,7 @@ function detectQuadOnce(
   srcMat: any,
   targetAspect: number,
   strategy: DetectionStrategy
-): { quad: Quad; score: number; areaRatio: number } | null {
+): { quad: Quad; score: number; areaRatio: number; rotated: boolean } | null {
   const gray = new cv.Mat();
   const blurred = new cv.Mat();
   const edges = new cv.Mat();
@@ -170,7 +174,7 @@ function detectQuadOnce(
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
 
-  let best: { quad: Quad; score: number; areaRatio: number } | null = null;
+  let best: { quad: Quad; score: number; areaRatio: number; rotated: boolean } | null = null;
   // [수정] 영수증처럼 얇은 종이는 살짝 휘거나 구겨져 있어서 윤곽선이 "정확히 꼭짓점 4개"로
   // 딱 떨어지지 않는 경우가 많다. 그런 경우를 위해, 화면에서 가장 큰 덩어리를 감싸는
   // 최소 회전 사각형(minAreaRect)을 마지막 안전장치로 준비해둔다.
@@ -244,7 +248,15 @@ function detectQuadOnce(
             }
             const ordered = orderQuadPoints(pts);
             const aspect = quadAspectRatio(ordered);
-            const aspectDiff = Math.min(Math.abs(aspect - targetAspect) / targetAspect, 1);
+            // [수정] 예전엔 targetAspect(예: 명함 가로:세로 1.586) 하나만 기준으로 판정해서,
+            // 사용자가 폰을 세로로 들고 찍을 때처럼 카드가 화면 안에서 "세로로 길게"(비율의
+            // 역수에 가깝게) 잡히는 경우, 실제로는 카드가 맞게 잡혔는데도 비율이 안 맞는다고
+            // 오판해서 마름모/삼각형처럼 이상한 도형이 대신 선택되는 문제가 있었다. 목표
+            // 비율과 그 역수(90도 돌아간 경우) 중 더 가까운 쪽을 기준으로 판정해서, 폰을
+            // 가로로 들든 세로로 들든 항상 정확한 사각형을 찾도록 한다.
+            const aspectDiffNormal = Math.abs(aspect - targetAspect) / targetAspect;
+            const aspectDiffRotated = Math.abs(aspect - 1 / targetAspect) / (1 / targetAspect);
+            const aspectDiff = Math.min(aspectDiffNormal, aspectDiffRotated, 1);
 
             // 사용자가 화면 중앙에 문서를 놓는다고 가정하고, 중앙에서 먼 후보(책상 모서리, 문틀 등 배경
             // 요소가 크기/비율만으로 우연히 점수가 높게 나오는 경우)는 불리하게 만든다.
@@ -256,7 +268,7 @@ function detectQuadOnce(
 
             const score = areaRatio * (1 - aspectDiff * 0.5) * (1 - centerDist * 0.6);
             if (!best || score > best.score) {
-              best = { quad: ordered, score, areaRatio };
+              best = { quad: ordered, score, areaRatio, rotated: aspectDiffRotated < aspectDiffNormal };
             }
           }
           approx.delete();
@@ -270,7 +282,10 @@ function detectQuadOnce(
     // 정확히 4점으로 떨어지는 윤곽선을 하나도 못 찾았다면(휘거나 구겨진 영수증 등),
     // 가장 큰 덩어리를 감싸는 최소 사각형을 대신 사용한다.
     if (!best && fallback) {
-      best = { quad: fallback.quad, score: fallback.areaRatio, areaRatio: fallback.areaRatio };
+      const fbAspect = quadAspectRatio(fallback.quad);
+      const fbDiffNormal = Math.abs(fbAspect - targetAspect) / targetAspect;
+      const fbDiffRotated = Math.abs(fbAspect - 1 / targetAspect) / (1 / targetAspect);
+      best = { quad: fallback.quad, score: fallback.areaRatio, areaRatio: fallback.areaRatio, rotated: fbDiffRotated < fbDiffNormal };
     }
   } finally {
     gray.delete();
@@ -292,7 +307,7 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number): Detected
   for (const strategy of DETECTION_STRATEGY_LADDER) {
     const best = detectQuadOnce(cv, srcMat, targetAspect, strategy);
     if (best) {
-      return { points: best.quad, areaRatio: best.areaRatio };
+      return { points: best.quad, areaRatio: best.areaRatio, rotated: best.rotated };
     }
   }
   return null;
