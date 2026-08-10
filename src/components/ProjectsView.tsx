@@ -690,8 +690,17 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // 팔로우업 노트 및 미팅 정보 추가
-  // 미팅자 문자열은 이름만 콤마로 저장합니다 (전화번호는 표시할 때 명함에서 실시간으로 찾아 붙입니다)
-  const formatAttendeeEntry = (c: BusinessCard): string => c.name;
+  // [수정] 명함 검색해서 미팅자를 추가할 때, 예전엔 이름만 저장하고 전화번호는 화면에 표시할 때만
+  // 명함에서 실시간으로 찾아 붙였다. 이제는 추가하는 시점에 회사명·전화번호(핸드폰 우선, 없으면
+  // 사무실)를 함께 텍스트로 채워 넣는다. 예) "주현우(와고코리아, 010-0000-0000)".
+  // 전화번호가 없으면 회사명만, 회사명도 없으면 이름만 저장한다.
+  const formatAttendeeEntry = (c: BusinessCard): string => {
+    const parts: string[] = [];
+    if (c.company) parts.push(c.company);
+    const phone = c.phoneMobile || c.phoneOffice;
+    if (phone) parts.push(phone);
+    return parts.length ? `${c.name.trim()}(${parts.join(', ')})` : c.name.trim();
+  };
 
   // 미팅/팔로우업 차수 시퀀스: 1차 미팅 → 1차 팔로우업 → 2차 미팅 → 2차 팔로우업 → ... 순서로 값을 만들고,
   // 이미 기록된 차수/구분은 건너뛰어 "다음에 기록해야 할 차수"를 계산합니다.
@@ -914,6 +923,15 @@ export const ProjectsView: React.FC<Props> = ({
     return entries
       .filter((entry) => parseAttendeeEntry(entry).name !== c.name)
       .join(', ');
+  };
+
+  // [수정] 특정 명함이 이미 미팅자로 추가돼 있는지 확인. 예전엔 `attendee.includes(c.name)`처럼
+  // 전체 문자열에 대한 단순 부분 문자열 포함 여부로 판단해서, 다른 참여자 이름/전화번호 안에
+  // 우연히 같은 글자가 들어있으면 잘못 "추가됨"으로 표시되는 버그가 있었다. 이제 콤마로 분리한
+  // 항목 단위로, 이름이 정확히 일치하는지 확인한다 (전화번호로 직접 입력한 참여자도 포함해서 비교).
+  const isAttendeeAdded = (current: string, c: BusinessCard): boolean => {
+    if (!current) return false;
+    return splitAttendeeEntries(current).some((entry) => parseAttendeeEntry(entry).name === c.name);
   };
 
   // 읽기 전용 화면에 미팅자를 표시할 때, 각 참여자마다:
@@ -1807,9 +1825,9 @@ export const ProjectsView: React.FC<Props> = ({
                             </label>
                             <AttendeeContactSearchAdd
                               contacts={contacts}
-                              isAdded={(c) => meetingAttendee.includes(c.name)}
+                              isAdded={(c) => isAttendeeAdded(meetingAttendee, c)}
                               onToggle={(c) => {
-                                if (meetingAttendee.includes(c.name)) {
+                                if (isAttendeeAdded(meetingAttendee, c)) {
                                   setMeetingAttendee((prev) => removeAttendeeEntry(prev, c));
                                 } else {
                                   setMeetingAttendee((prev) => (prev ? `${prev}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c)));
@@ -1868,7 +1886,7 @@ export const ProjectsView: React.FC<Props> = ({
                           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                             <span className="text-[10px] text-slate-400 mr-1">빠른 미팅자 지정:</span>
                             {relatedContacts.map(c => {
-                              const isAdded = meetingAttendee.includes(c.name);
+                              const isAdded = isAttendeeAdded(meetingAttendee, c);
                               return (
                                 <button
                                   type="button"
@@ -2845,10 +2863,10 @@ export const ProjectsView: React.FC<Props> = ({
                   맨 위로 옮겼다 — 명함에 없는 분은 아래 "이름·연락처 입력해서 추가" 칸을 쓴다. */}
                   <AttendeeContactSearchAdd
                     contacts={contacts}
-                    isAdded={(c) => (fu.attendee || '').includes(c.name)}
+                    isAdded={(c) => isAttendeeAdded(fu.attendee || '', c)}
                     onToggle={(c) => {
                       const current = fu.attendee || '';
-                      const next = current.includes(c.name)
+                      const next = isAttendeeAdded(current, c)
                         ? removeAttendeeEntry(current, c)
                         : (current ? `${current}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c));
                       setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: next } });
@@ -2904,7 +2922,7 @@ export const ProjectsView: React.FC<Props> = ({
                     <div className="flex flex-wrap items-center gap-1.5 pt-2">
                       <span className="text-[10px] text-slate-400 mr-1">이 프로젝트의 연관 명함:</span>
                       {relatedContactsForEdit.map((c) => {
-                        const isAdded = (fu.attendee || '').includes(c.name);
+                        const isAdded = isAttendeeAdded(fu.attendee || '', c);
                         return (
                           <button
                             type="button"

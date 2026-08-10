@@ -18,6 +18,7 @@ export const AttendeeContactSearchAdd: React.FC<Props> = ({ contacts, isAdded, o
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
@@ -35,6 +36,7 @@ export const AttendeeContactSearchAdd: React.FC<Props> = ({ contacts, isAdded, o
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 z-10" />
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -55,7 +57,16 @@ export const AttendeeContactSearchAdd: React.FC<Props> = ({ contacts, isAdded, o
                 <button
                   type="button"
                   key={c.id}
-                  onClick={() => onToggle(c)}
+                  onClick={() => {
+                    onToggle(c);
+                    // [수정] 한 명 추가한 뒤 검색어가 그대로 남아있으면 목록이 방금 고른
+                    // 사람으로만 필터된 채라서, 다음 참여자를 검색하려면 매번 손으로 지워야
+                    // 했다. 추가/제거할 때마다 검색어를 비우고 목록을 다시 열어둔 채로
+                    // 포커스를 인풋에 되돌려서, 이어서 바로 다음 이름을 타이핑할 수 있게 한다.
+                    setQuery('');
+                    setOpen(true);
+                    inputRef.current?.focus();
+                  }}
                   className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${added ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
                 >
                   <span className="flex-1 truncate">{c.name} <span className="text-slate-400 font-normal">· {c.company}</span></span>
