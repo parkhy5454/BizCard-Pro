@@ -118,14 +118,32 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 마지막으로 직접 입력한 부서명"을 브라우저에 저장해뒀다가 그대로 불러온다 — 누가
   // 운전했는지와 무관하게, 입력하는 사람 기준으로 항상 정확하게 작동한다.
   const DRIVING_DEPARTMENT_STORAGE_KEY = 'bizcard_last_driving_department';
+  // [수정] 운전자명 칸이 처음부터 로그인한 내 이름(currentUser.name)으로 미리 채워져
+  // 있다 보니, 사용자가 그 칸을 직접 클릭했다 나가지(포커스 아웃) 않으면 아래
+  // fillDrivingDepartmentForDriver가 한 번도 불리지 않는 문제가 있었다 — "이미 작성된
+  // 기록에서 부서를 가져오기"가 실제로는 운전자명 칸을 직접 건드렸을 때만 동작했다.
+  // 이제 드라이빙 로그가 로드된 뒤, 지금 채워져 있는 운전자명(기본값 포함) 기준으로
+  // 먼저 최근 기록의 부서를 찾아보고, 없으면 브라우저에 저장해둔 마지막 값으로
+  // 대신 채운다. drivingLogs가 비동기로 나중에 도착하므로 의존성 배열에 넣어 로드
+  // 완료 후에도 다시 시도되게 한다.
   useEffect(() => {
     if (newDriving.department) return; // 이미 값이 있으면(직접 입력했거나 이미 채워졌으면) 안 건드림
+    const trimmed = newDriving.driverName.trim();
+    if (trimmed) {
+      const matches = drivingLogs
+        .filter((log) => log.driverName === trimmed && log.department)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      if (matches[0]?.department) {
+        setNewDriving((prev) => (prev.department ? prev : { ...prev, department: matches[0].department }));
+        return;
+      }
+    }
     const lastUsed = localStorage.getItem(DRIVING_DEPARTMENT_STORAGE_KEY);
     if (lastUsed) {
       setNewDriving((prev) => (prev.department ? prev : { ...prev, department: lastUsed }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [drivingLogs]);
 
   // [추가] 위의 "브라우저 마지막 입력값" 기본값과는 별개로, 운전자명 칸에 이름을 입력하고
   // 다른 칸으로 넘어가면(포커스 아웃) 그 사람이 예전에 운행일지에 직접 적었던 부서를 찾아서
