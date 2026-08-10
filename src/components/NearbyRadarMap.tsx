@@ -334,26 +334,28 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   return (
     <div className="max-w-7xl mx-auto space-y-6">
 
-      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="p-2 md:p-3 bg-rose-50 text-rose-600 rounded-xl md:rounded-2xl border border-rose-200 animate-pulse">
-            <Compass className="w-4 h-4 md:w-6 md:h-6" />
+      {/* [수정] 모바일에서 제목/버튼/드롭다운이 두 줄로 나뉘어 있었다(제목 줄, 그 아래
+      버튼+드롭다운 줄). 폰 화면 폭에 맞춰 글자·아이콘·여백을 더 줄이고 항상 가로 한 줄로
+      배치해서, "주변 사람 지도" 제목 + "좌표 없는 명함" 버튼 + 거리 선택이 한 줄에 다 들어오게
+      했다. 제목은 min-w-0 + truncate로 넘치면 줄임표 처리되고, 버튼/드롭다운은 shrink-0으로
+      찌그러지지 않게 고정했다. */}
+      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-2.5 md:p-6 shadow-xl flex flex-row items-center justify-between gap-2 md:gap-4">
+        <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+          <div className="p-1.5 md:p-3 bg-rose-50 text-rose-600 rounded-lg md:rounded-2xl border border-rose-200 animate-pulse shrink-0">
+            <Compass className="w-3.5 h-3.5 md:w-6 md:h-6" />
           </div>
-          <div>
-            <h2 className="text-base md:text-xl font-bold text-slate-900 tracking-tight">주변 사람 지도</h2>
+          <div className="min-w-0">
+            <h2 className="text-[13px] md:text-xl font-bold text-slate-900 tracking-tight truncate">주변 사람 지도</h2>
           </div>
           {isAutoRegeocoding && (
-            <span className="text-[10px] text-slate-400 flex items-center gap-1 md:hidden">
-              <RefreshCw className="w-3 h-3 animate-spin" />
+            <span className="text-[9px] text-slate-400 flex items-center gap-1 md:hidden shrink-0">
+              <RefreshCw className="w-2.5 h-2.5 animate-spin" />
               정리 중
             </span>
           )}
         </div>
 
-        {/* [수정] 모바일에서 이 영역이 세로로 다 늘어서서 화면을 너무 많이 차지했다.
-        버튼/드롭다운을 가로로 나란히 붙이고 크기를 줄여서, 지도가 스크롤 없이 최대한
-        빨리 보이게 압축했다. */}
-        <div className="flex items-center gap-1.5 md:gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
           {isAutoRegeocoding && (
             <span className="hidden md:flex text-[11px] text-slate-400 items-center gap-1.5">
               <RefreshCw className="w-3 h-3 animate-spin" />
@@ -364,16 +366,16 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           <button
             onClick={handleShowFailures}
             disabled={isLoadingFailures}
-            className="flex-1 md:flex-initial px-2.5 md:px-4 py-1.5 md:py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg md:rounded-xl text-[11px] md:text-xs font-semibold flex items-center justify-center gap-1 md:gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+            className="shrink-0 px-2 md:px-4 py-1.5 md:py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold flex items-center justify-center gap-1 md:gap-1.5 whitespace-nowrap transition-all active:scale-95 disabled:opacity-50"
           >
             <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
-            <span className="truncate">{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함'}</span>
+            <span>{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함'}</span>
           </button>
 
           <select
             value={radiusKm}
             onChange={(e) => setRadiusKm(Number(e.target.value))}
-            className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] md:text-xs rounded-lg md:rounded-xl px-2 md:px-3 py-1.5 md:py-2 focus:outline-none focus:border-indigo-500 font-bold"
+            className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] md:text-xs rounded-lg md:rounded-xl px-1.5 md:px-3 py-1.5 md:py-2 focus:outline-none focus:border-indigo-500 font-bold"
           >
             <option value={1}>1km 이내</option>
             <option value={2}>2km 이내</option>
