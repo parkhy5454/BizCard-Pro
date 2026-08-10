@@ -3367,11 +3367,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           )}
 
           {(() => {
+            // [수정] 예전엔 서버가 등록해준 순서(=입력한 순서) 그대로 보여줬다. 그래서
+            // 8/8 지출을 8/10 지출보다 나중에 입력하면, 실제 지출 날짜는 8/8이 더 과거인데도
+            // 화면 맨 앞(가장 눈에 띄는 자리)에 8/8이 뜨는 문제가 있었다. 이제 지출 "날짜"
+            // 기준으로 최신 날짜가 먼저 오도록 정렬해서, 언제 입력했는지와 상관없이 항상
+            // 8/10 → 8/9 → 8/8 → 8/7 순으로 보이게 한다.
             const filteredExpenses = expenses.filter(e => {
               const passVh = selectedVehicleFilter === 'all' || e.vehicleId === selectedVehicleFilter;
               const passCat = expenseCategoryFilter === 'all' || e.category === expenseCategoryFilter;
               const passPer = isDateInPeriod(e.date, expensePeriod, expenseCustomStart, expenseCustomEnd);
               return passVh && passCat && passPer;
+            }).sort((a, b) => {
+              const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+              if (dateDiff !== 0) return dateDiff;
+              // 같은 날짜끼리는 나중에 입력한 것을 위로
+              return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
             });
 
             if (filteredExpenses.length === 0) {
