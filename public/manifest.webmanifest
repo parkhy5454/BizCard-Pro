@@ -1,0 +1,19 @@
+{
+  "name": "BizCard Pro AI",
+  "short_name": "BizCard Pro",
+  "description": "스마트 명함 & CRM 네트워크",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0B0C11",
+  "theme_color": "#6247DD",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icon-16.png", "sizes": "16x16", "type": "image/png" },
+    { "src": "/icon-32.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
