@@ -258,9 +258,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   };
 
   // 모달 열기 핸들러 (새 일지 작성)
-  const handleOpenNewLog = () => {
+  // [수정] 캘린더에서 "이 날짜에 새 일정 추가"를 누르면 오늘 날짜가 아니라 캘린더에서
+  // 선택한 날짜로 바로 채워서 열리도록 presetDate를 받을 수 있게 했다.
+  const handleOpenNewLog = (presetDate?: string) => {
     setEditingLogId(null);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = presetDate || new Date().toISOString().split('T')[0];
     
     // 주간 기본 범위 (이번주 월~금)
     const today = new Date();
@@ -369,6 +371,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setIsWriteModalOpen(true);
   };
 
+  // [추가] 캘린더에서 항목을 클릭하면, 그 항목이 들어있는 원본 업무일지(일일/주간)를
+  // 그대로 수정 모달로 연다. activeSubTab도 해당 종류로 맞춰줘야 모달이 일일/주간 중
+  // 맞는 필드 구성으로 렌더링된다.
+  const handleOpenEntryFromCalendar = (entry: CalendarEntry) => {
+    setActiveSubTab(entry.source);
+    handleOpenEditLog(entry.log, entry.source);
+  };
+
   // 주간보고서 도우미 및 상태 매핑 함수
   const getOffsetDateString = (baseDateStr: string, offsetDays: number): string => {
     try {
@@ -453,7 +463,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
   // 특정 날짜(YYYY-MM-DD)에 해당하는 모든 업무 내용(일일 일지 + 주간 일지의 요일별 항목들)을
   // 같은 회사 직원 전체 기준으로 모아서 반환 (월간 달력에서 사용). 하루에 여러 건이면 각각 별도 항목으로 표시됩니다.
-  type CalendarEntry = { id: string; author: string; time?: string; title: string; content: string; source: 'daily' | 'weekly' };
+  // [수정] 캘린더는 원래 일일/주간 업무일지에서 항목을 "읽어서 보여주기만" 하는 화면이었다.
+  // 캘린더에서 직접 일정을 만들거나 캘린더에서 클릭해서 고칠 방법이 없다 보니, 캘린더와
+  // 업무일지가 서로 다른 걸로 느껴졌다. 실제로는 캘린더 항목 = 업무일지의 각 업무 항목,
+  // 완전히 "같은 데이터"이므로, 원본 로그(log)와 종류(source)를 함께 담아서 캘린더에서
+  // 클릭하면 그 항목이 들어있는 업무일지를 그대로 수정 모달로 열 수 있게 한다. 수정 모달은
+  // dailyLogs/weeklyLogs 원본 배열을 직접 갱신하므로, 캘린더에서 고치든 업무일지 목록에서
+  // 고치든 같은 데이터가 바뀌는 것이라 자동으로 양쪽 다 반영된다(별도 동기화 로직 불필요).
+  type CalendarEntry = { id: string; author: string; time?: string; title: string; content: string; source: 'daily' | 'weekly'; log: DailyWorkLog | WeeklyWorkLog };
   const getEntriesForDate = (dateStr: string): CalendarEntry[] => {
     const entries: CalendarEntry[] = [];
 
@@ -469,7 +486,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
               title: l.title,
               content: task.content,
-              source: 'daily'
+              source: 'daily',
+              log: l
             });
           });
         } else if (l.tasksToday && l.tasksToday.trim()) {
@@ -478,7 +496,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             author: l.author || '작성자 미지정',
             title: l.title,
             content: l.tasksToday,
-            source: 'daily'
+            source: 'daily',
+            log: l
           });
         }
       });
@@ -504,7 +523,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
               title: wl.title,
               content: task.content,
-              source: 'weekly'
+              source: 'weekly',
+              log: wl
             });
           });
         } else {
@@ -516,7 +536,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               author: wl.author || '작성자 미지정',
               title: wl.title,
               content: legacyContent,
-              source: 'weekly'
+              source: 'weekly',
+              log: wl
             });
           }
         }
@@ -1936,25 +1957,46 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
           {/* 선택한 날짜 상세 목록 */}
           <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2">
-            <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-emerald-400" />
-              {selectedCalendarDate} 업무 상세
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-emerald-400" />
+                {selectedCalendarDate} 업무 상세
+              </div>
+              {/* [추가] 캘린더에서 바로 이 날짜에 새 일정(일일 업무일지)을 만들 수 있는
+              버튼. 업무일지 목록 쪽 "새로 작성" 버튼과 동일한 모달을 열되, 날짜만 지금
+              보고 있는 날짜로 미리 채워서 연다. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubTab('daily');
+                  handleOpenNewLog(selectedCalendarDate);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shrink-0"
+              >
+                <Plus className="w-3 h-3" /> 이 날짜에 일정 추가
+              </button>
             </div>
             {getEntriesForDate(selectedCalendarDate).length === 0 ? (
               <div className="text-xs text-slate-400 py-4 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
             ) : (
               <div className="space-y-2">
                 {getEntriesForDate(selectedCalendarDate).map((en) => (
-                  <div key={en.id} className="bg-slate-100 border border-slate-200 rounded-xl p-3">
+                  <button
+                    type="button"
+                    key={en.id}
+                    onClick={() => handleOpenEntryFromCalendar(en)}
+                    className="w-full text-left bg-slate-100 border border-slate-200 hover:border-emerald-500/40 hover:bg-white rounded-xl p-3 transition-colors"
+                  >
                     <div className="flex items-center gap-2 mb-1">
                       <User className="w-3.5 h-3.5 text-indigo-400" />
                       <span className="text-xs font-bold text-slate-700">{en.author}</span>
                       {en.time && <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/30 px-1.5 py-0.5 rounded">{en.time}</span>}
                       <span className="text-[10px] text-slate-400 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
+                      <Edit2 className="w-3 h-3 text-slate-400" />
                     </div>
                     <div className="text-[11px] text-slate-500 mb-1">{en.title}</div>
                     <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{en.content}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
