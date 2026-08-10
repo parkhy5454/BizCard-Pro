@@ -27,6 +27,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     return d;
   });
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  // [추가] 예전엔 캘린더에서 날짜를 클릭하면 선택만 되고, 상세 목록은 화면 맨 아래
+  // 별도 영역에 떠서 스크롤해서 내려가야 보였다. 이제 날짜를 클릭하면 그 자리에서 바로
+  // 팝업(모달)으로 상세 목록이 뜨도록 바꿔서, 스크롤 없이 바로 확인·작성할 수 있게 한다.
+  const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   
   // 검색 및 필터 상태
@@ -1946,7 +1950,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       <button
                         type="button"
                         key={dateStr}
-                        onClick={() => setSelectedCalendarDate(dateStr)}
+                        onClick={() => { setSelectedCalendarDate(dateStr); setIsDayDetailModalOpen(true); }}
                         className={`text-left p-1.5 rounded-lg border min-h-[64px] transition-all ${
                           isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-100 border-slate-200 hover:border-slate-200'
                         }`}
@@ -1970,52 +1974,78 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             );
           })()}
 
-          {/* 선택한 날짜 상세 목록 */}
-          <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-emerald-400" />
-                {selectedCalendarDate} 업무 상세
-              </div>
-              {/* [추가] 캘린더에서 바로 이 날짜에 새 일정(일일 업무일지)을 만들 수 있는
-              버튼. 업무일지 목록 쪽 "새로 작성" 버튼과 동일한 모달을 열되, 날짜만 지금
-              보고 있는 날짜로 미리 채워서 연다. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSubTab('daily');
-                  handleOpenNewLog(selectedCalendarDate);
-                }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shrink-0"
-              >
-                <Plus className="w-3 h-3" /> 이 날짜에 일정 추가
-              </button>
-            </div>
-            {getEntriesForDate(selectedCalendarDate).length === 0 ? (
-              <div className="text-xs text-slate-400 py-4 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
-            ) : (
-              <div className="space-y-2">
-                {getEntriesForDate(selectedCalendarDate).map((en) => (
+          {/* [수정] 아래 "선택한 날짜 상세" 패널을, 화면 맨 아래 고정 영역이 아니라 날짜를
+          클릭한 그 자리에서 바로 뜨는 팝업(모달)으로 바꿨다. isDayDetailModalOpen이 true일
+          때만 렌더링되며, 위 달력 그리드에서 날짜를 클릭하면 열린다. */}
+          {isDayDetailModalOpen && (
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              {/* 배경 */}
+              <div
+                onClick={() => setIsDayDetailModalOpen(false)}
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              {/* 팝업 본문 */}
+              <div className="flex min-h-screen items-center justify-center p-4">
+                <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-5 shadow-2xl space-y-3 z-10 max-h-[85vh] overflow-y-auto">
                   <button
-                    type="button"
-                    key={en.id}
-                    onClick={() => handleOpenEntryFromCalendar(en)}
-                    className="w-full text-left bg-slate-100 border border-slate-200 hover:border-emerald-500/40 hover:bg-white rounded-xl p-3 transition-colors"
+                    onClick={() => setIsDayDetailModalOpen(false)}
+                    className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors"
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <User className="w-3.5 h-3.5 text-indigo-400" />
-                      <span className="text-xs font-bold text-slate-700">{en.author}</span>
-                      {en.time && <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/30 px-1.5 py-0.5 rounded">{en.time}</span>}
-                      <span className="text-[10px] text-slate-400 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
-                      <Edit2 className="w-3 h-3 text-slate-400" />
-                    </div>
-                    <div className="text-[11px] text-slate-500 mb-1">{en.title}</div>
-                    <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{en.content}</div>
+                    <X className="w-4 h-4" />
                   </button>
-                ))}
+
+                  <div className="flex items-center justify-between gap-2 pr-8">
+                    <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                      {selectedCalendarDate} 업무 상세
+                    </div>
+                    {/* [추가] 캘린더에서 바로 이 날짜에 새 일정(일일 업무일지)을 만들 수 있는
+                    버튼. 업무일지 목록 쪽 "새로 작성" 버튼과 동일한 모달을 열되, 날짜만 지금
+                    보고 있는 날짜로 미리 채워서 연다. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDayDetailModalOpen(false);
+                        setActiveSubTab('daily');
+                        handleOpenNewLog(selectedCalendarDate);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shrink-0"
+                    >
+                      <Plus className="w-3 h-3" /> 일정 추가
+                    </button>
+                  </div>
+
+                  {getEntriesForDate(selectedCalendarDate).length === 0 ? (
+                    <div className="text-xs text-slate-400 py-8 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {getEntriesForDate(selectedCalendarDate).map((en) => (
+                        <button
+                          type="button"
+                          key={en.id}
+                          onClick={() => {
+                            setIsDayDetailModalOpen(false);
+                            handleOpenEntryFromCalendar(en);
+                          }}
+                          className="w-full text-left bg-slate-100 border border-slate-200 hover:border-emerald-500/40 hover:bg-white rounded-xl p-3 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <User className="w-3.5 h-3.5 text-indigo-400" />
+                            <span className="text-xs font-bold text-slate-700">{en.author}</span>
+                            {en.time && <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/30 px-1.5 py-0.5 rounded">{en.time}</span>}
+                            <span className="text-[10px] text-slate-400 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
+                            <Edit2 className="w-3 h-3 text-slate-400" />
+                          </div>
+                          <div className="text-[11px] text-slate-500 mb-1">{en.title}</div>
+                          <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{en.content}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       ) : activeSubTab === 'report' ? (
         <div className="space-y-4">
