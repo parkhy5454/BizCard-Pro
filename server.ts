@@ -3139,11 +3139,15 @@ app.post('/api/contacts/import', async (req, res) => {
   const { importedContacts } = req.body;
   if (!Array.isArray(importedContacts)) return res.status(400).json({ error: 'Invalid data' });
 
-  // [추가] 같은 사람을 여러 번 가져오면 중복 명함이 쌓이는 문제가 있었다. 전화번호(숫자만
-  // 비교) 또는 이메일이 이미 있는 명함과 같으면 건너뛴다. 이번 요청 안에서 중복되는
-  // 항목끼리도 서로 걸러지도록, 처리하면서 계속 채워나간다.
+  // [수정] 예전엔 "전화번호 같음 OR 이메일 같음" 둘 중 하나만 겹쳐도 무조건 중복으로
+  // 봤다. 그런데 회사 대표 이메일 하나를 여러 직원이 같이 쓰는 경우(나래디엔에이 등),
+  // 전화번호가 서로 다른 별개 인물인데도 이메일만 같다는 이유로 가져오기가 막히는
+  // 문제가 있었다. 이제는 전화번호를 1순위 기준으로 삼는다 — 가져오는 명함에 전화번호가
+  // 있으면 전화번호만으로 중복을 판단하고(이메일이 같아도 전화번호가 다르면 별개 인물로
+  // 보고 가져온다), 전화번호가 아예 없는 경우에만 이메일을 보조 기준으로 쓴다.
   const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
-  const existingKeys = new Set<string>();
+  const existingPhoneKeys = new Set<string>();
+  const existingEmailKeys = new Set<string>();
   // [추가] "0건 가져옴, N건 중복 건너뜀"이라고만 알려주면, 사용자가 그 기존 명함을
   // 이름/회사가 다르게 저장돼 있어서 못 찾는 경우 답답해했다. 어느 전화번호/이메일이
   // 어떤 기존 명함(이름)과 겹쳤는지 같이 돌려줘서, 결과 메시지에서 바로 확인할 수 있게 한다.
@@ -3151,12 +3155,12 @@ app.post('/api/contacts/import', async (req, res) => {
   for (const c of dbData.contacts) {
     if (c.phoneMobile) {
       const k = `phone:${normalizePhone(c.phoneMobile)}`;
-      existingKeys.add(k);
+      existingPhoneKeys.add(k);
       if (!keyToExistingContact.has(k)) keyToExistingContact.set(k, { id: c.id, name: c.name || '(이름 없음)' });
     }
     if (c.email) {
       const k = `email:${c.email.trim().toLowerCase()}`;
-      existingKeys.add(k);
+      existingEmailKeys.add(k);
       if (!keyToExistingContact.has(k)) keyToExistingContact.set(k, { id: c.id, name: c.name || '(이름 없음)' });
     }
   }
@@ -3168,7 +3172,10 @@ app.post('/api/contacts/import', async (req, res) => {
   for (const c of importedContacts as any[]) {
     const phoneKey = c.phoneMobile && normalizePhone(c.phoneMobile) ? `phone:${normalizePhone(c.phoneMobile)}` : null;
     const emailKey = c.email && c.email.trim() ? `email:${c.email.trim().toLowerCase()}` : null;
-    const matchedKey = (phoneKey && existingKeys.has(phoneKey)) ? phoneKey : (emailKey && existingKeys.has(emailKey)) ? emailKey : null;
+    // 전화번호가 있으면 전화번호만으로 판단(이메일은 무시), 전화번호가 없을 때만 이메일로 판단
+    const matchedKey = phoneKey
+      ? (existingPhoneKeys.has(phoneKey) ? phoneKey : null)
+      : (emailKey && existingEmailKeys.has(emailKey) ? emailKey : null);
     if (matchedKey) {
       skippedDuplicates += 1;
       const existing = keyToExistingContact.get(matchedKey);
@@ -3207,8 +3214,8 @@ app.post('/api/contacts/import', async (req, res) => {
     dbData.contacts.unshift(c);
     toInsert.push(c);
 
-    if (phoneKey) existingKeys.add(phoneKey);
-    if (emailKey) existingKeys.add(emailKey);
+    if (phoneKey) existingPhoneKeys.add(phoneKey);
+    if (emailKey) existingEmailKeys.add(emailKey);
   }
 
   await setScopedDocs(scopeId, 'contacts', toInsert);
