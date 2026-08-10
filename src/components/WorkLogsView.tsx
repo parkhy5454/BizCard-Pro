@@ -257,6 +257,21 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     }
   };
 
+  // [추가] 작성자 이름을 입력하고 다른 칸으로 넘어가면(포커스 아웃), 그 사람이 예전에
+  // 작성했던 업무일지 중 가장 최근 것의 부서를 찾아서 자동으로 채워준다. "새 일지 작성"
+  // 열 때 내 프로필 기준으로 기본값을 채우는 것과 별개로, 작성자 이름을 다른 사람으로
+  // 바꿔 입력해도 그 사람 기준 부서를 찾아주기 위한 것이다. 일치하는 기록이 없으면
+  // 아무것도 건드리지 않는다(기존에 입력해둔 부서를 지우지 않음).
+  const fillDepartmentForAuthor = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const allMyLogs = [...dailyLogs, ...weeklyLogs]
+      .filter((log) => log.author === trimmed && log.department)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    const dept = allMyLogs[0]?.department;
+    if (dept) setFormDepartment(dept);
+  };
+
   // 모달 열기 핸들러 (새 일지 작성)
   // [수정] 캘린더에서 "이 날짜에 새 일정 추가"를 누르면 오늘 날짜가 아니라 캘린더에서
   // 선택한 날짜로 바로 채워서 열리도록 presetDate를 받을 수 있게 했다.
@@ -2533,6 +2548,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         placeholder="작성자 이름"
                         value={formAuthor}
                         onChange={(e) => setFormAuthor(e.target.value)}
+                        onBlur={(e) => fillDepartmentForAuthor(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm"
                       />
                     </div>

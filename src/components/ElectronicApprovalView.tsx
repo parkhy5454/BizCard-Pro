@@ -578,6 +578,28 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
+  // [추가] 작성자 이름 칸에 입력하고 다른 칸으로 넘어가면(포커스 아웃), 그 사람이 예전에
+  // 작성했던 문서 중 가장 최근 것의 부서를 찾아서 자동으로 채운다. 위의 resetAdvanceForm/
+  // resetLeaveForm은 "새 문서 열 때 내 프로필 기준" 기본값만 채우므로, 작성자를 다른
+  // 사람으로 바꿔 입력하는 경우까지 다루려면 이 헬퍼가 따로 필요하다. 일치하는 기록이
+  // 없으면 기존에 입력된 부서를 지우지 않고 그대로 둔다.
+  const fillAdvanceDepartmentForAuthor = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const match = advanceList
+      .filter((d) => d.author === trimmed && d.department)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+    if (match?.department) setApDepartment(match.department);
+  };
+  const fillLeaveDepartmentForAuthor = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const match = leaveList
+      .filter((d) => d.author === trimmed && d.department)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+    if (match?.department) setLvDepartment(match.department);
+  };
+
   const resetAdvanceForm = () => {
     setApCompanyName(myProfile?.company || '');
     setApPeriodStart(todayStr());
@@ -1671,6 +1693,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-600">작성자</label>
                   <input type="text" value={apAuthor} onChange={(e) => setApAuthor(e.target.value)}
+                    onBlur={(e) => fillAdvanceDepartmentForAuthor(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
                 <div className="space-y-1.5">
@@ -1933,6 +1956,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                     setLvAuthor(v);
                     setLvTotalAnnualDays(getStoredTotalAnnualDays(v));
                   }}
+                    onBlur={(e) => fillLeaveDepartmentForAuthor(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
               </div>

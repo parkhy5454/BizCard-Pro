@@ -127,6 +127,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // [추가] 위의 "브라우저 마지막 입력값" 기본값과는 별개로, 운전자명 칸에 이름을 입력하고
+  // 다른 칸으로 넘어가면(포커스 아웃) 그 사람이 예전에 운행일지에 직접 적었던 부서를 찾아서
+  // 자동으로 채운다. 예: 관리자가 여러 사람의 운행일지를 대신 입력할 때도, 운전자명만
+  // 정확히 입력하면 그 사람 기준 부서가 맞게 들어온다. 일치하는 기록이 없으면 건드리지 않음.
+  const fillDrivingDepartmentForDriver = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const matches = drivingLogs
+      .filter((log) => log.driverName === trimmed && log.department)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    const dept = matches[0]?.department;
+    if (dept) setNewDriving((prev) => ({ ...prev, department: dept }));
+  };
+
+
   // 신규 등록용 폼 상태들
   // 1. 차량등록 폼
   const [newVehicle, setNewVehicle] = useState({
@@ -2367,6 +2382,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       type="text" 
                       value={newDriving.driverName}
                       onChange={e => setNewDriving({ ...newDriving, driverName: e.target.value })}
+                      onBlur={e => fillDrivingDepartmentForDriver(e.target.value)}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
@@ -5389,6 +5405,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     type="text" 
                     value={editingDriving.driverName}
                     onChange={e => setEditingDriving({ ...editingDriving, driverName: e.target.value })}
+                    onBlur={e => {
+                      const trimmed = e.target.value.trim();
+                      if (!trimmed) return;
+                      const matches = drivingLogs
+                        .filter((log) => log.driverName === trimmed && log.department && log.id !== editingDriving.id)
+                        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+                      const dept = matches[0]?.department;
+                      if (dept) setEditingDriving((prev) => prev ? { ...prev, department: dept } : prev);
+                    }}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     required
                   />
