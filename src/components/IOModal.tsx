@@ -148,6 +148,10 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
       let latestFullContactList: BusinessCard[] = [];
       let totalSkippedDuplicates = 0;
+      // [추가] 중복으로 건너뛴 항목이 "어느 기존 명함"과 겹쳤는지 모아뒀다가, 결과 메시지에
+      // 이름을 같이 보여준다. 예전엔 "N건 중복 건너뜀"이라고만 나와서, 기존 명함이 이름이나
+      // 회사가 다르게 저장돼 있으면 검색으로 못 찾아 답답한 경우가 있었다.
+      const allSkippedDetails: { importedName: string; matchedField: 'phone' | 'email'; existingContactId: string; existingContactName: string }[] = [];
       for (let i = 0; i < finalList.length; i += BATCH_SIZE) {
         const batch = finalList.slice(i, i + BATCH_SIZE);
         setImportStatus(`⏳ 가져오는 중... (${Math.min(i + BATCH_SIZE, finalList.length)}/${finalList.length}건)`);
@@ -193,9 +197,20 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
         const data = await res.json();
         latestFullContactList = data.contacts || latestFullContactList;
         totalSkippedDuplicates += data.skippedDuplicates || 0;
+        if (Array.isArray(data.skippedDetails)) allSkippedDetails.push(...data.skippedDetails);
       }
 
-      const dupMsg = totalSkippedDuplicates > 0 ? ` (기존과 전화번호/이메일이 같은 ${totalSkippedDuplicates}건은 중복으로 건너뜀)` : '';
+      let dupMsg = '';
+      if (totalSkippedDuplicates > 0) {
+        // 최대 5건까지만 예시로 보여주고, 그 이상은 "외 N건"으로 축약해서 메시지가 너무
+        // 길어지지 않게 한다.
+        const shown = allSkippedDetails.slice(0, 5).map((d) => {
+          const fieldLabel = d.matchedField === 'phone' ? '전화번호' : '이메일';
+          return `"${d.importedName}" → 기존 명함 "${d.existingContactName}"과(와) ${fieldLabel} 중복`;
+        });
+        const more = allSkippedDetails.length > 5 ? ` 외 ${allSkippedDetails.length - 5}건` : '';
+        dupMsg = ` (기존과 전화번호/이메일이 같은 ${totalSkippedDuplicates}건은 중복으로 건너뜀: ${shown.join(', ')}${more})`;
+      }
       setImportStatus(`✅ ${finalList.length - totalSkippedDuplicates}건의 명함 데이터를 성공적으로 복원(가져오기)했습니다.${dupMsg}${autoGenerateImageUsed ? ' 명함 이미지도 자동으로 만들었어요.' : ''}`);
       onImportSuccess(latestFullContactList);
     } catch (err: any) {
