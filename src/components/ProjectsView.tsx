@@ -7,6 +7,7 @@ import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { ContactMultiSearchSelect } from './ContactPicker.js';
+import { AttendeeContactSearchAdd } from './AttendeeContactSearchAdd.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -1795,18 +1796,25 @@ export const ProjectsView: React.FC<Props> = ({
                             )}
                           </div>
 
-                          {/* 미팅자 */}
+                          {/* [수정] 예전엔 여기 "미팅 참여자" 텍스트 칸이 따로 있었는데, 아래
+                          "전체 명함에서 검색해서 추가"와 역할이 겹쳤다. 이제는 검색해서 여러 명을
+                          연속으로 추가하는 칸을 여기(맨 위)로 옮겼다 — 명함에 없는 분은 이 아래
+                          "이름·연락처 입력해서 추가" 칸을 쓰면 된다. */}
                           <div className="flex-1">
                             <label className="block text-[10px] text-slate-500 font-bold mb-1 flex items-center justify-between">
-                              <span>미팅 참여자 (미팅자)</span>
+                              <span>미팅 참여자 (미팅자) — 명함 검색</span>
                               {relatedContacts.length > 0 && <span className="text-[9px] text-indigo-400 font-normal">아래 명함 클릭 시 자동 추가</span>}
                             </label>
-                            <input
-                              type="text"
-                              value={meetingAttendee}
-                              onChange={(e) => setMeetingAttendee(e.target.value)}
-                              placeholder="예: 홍길동, 김대리(010-9999-8888) — 명함에 없는 분은 이름(전화번호)로 입력"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium"
+                            <AttendeeContactSearchAdd
+                              contacts={contacts}
+                              isAdded={(c) => meetingAttendee.includes(c.name)}
+                              onToggle={(c) => {
+                                if (meetingAttendee.includes(c.name)) {
+                                  setMeetingAttendee((prev) => removeAttendeeEntry(prev, c));
+                                } else {
+                                  setMeetingAttendee((prev) => (prev ? `${prev}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c)));
+                                }
+                              }}
                             />
                           </div>
                         </div>
@@ -1880,28 +1888,6 @@ export const ProjectsView: React.FC<Props> = ({
                             })}
                           </div>
                         )}
-
-                        {/* 전체 명함(주소록)에서 검색해서 추가 */}
-                        <div className="w-full">
-                          <label className="block text-[10px] text-slate-400 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
-                          <select
-                            value=""
-                            onChange={(e) => {
-                              const c = contacts.find((x) => x.id === e.target.value);
-                              if (c && !meetingAttendee.includes(c.name)) {
-                                setMeetingAttendee((prev) => (prev ? `${prev}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c)));
-                              }
-                            }}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500"
-                          >
-                            <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
-                            {contacts.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} · {c.company}{c.department ? ` (${c.department})` : ''}{c.phoneMobile ? ` — H.${c.phoneMobile}` : ''}{c.phoneOffice ? ` O.${c.phoneOffice}` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
 
                         {/* 미팅 메모 입력 영역 (음성 지원) */}
                         <div className="space-y-1.5">
@@ -2851,15 +2837,22 @@ export const ProjectsView: React.FC<Props> = ({
 
                 <div>
                   <label className="block text-slate-600 font-semibold mb-1 flex items-center justify-between">
-                    <span>미팅 참여자 (미팅자)</span>
+                    <span>미팅 참여자 (미팅자) — 명함 검색</span>
                     {relatedContactsForEdit.length > 0 && <span className="text-[10px] text-indigo-400 font-normal">아래 명함 클릭 시 자동 추가/제거</span>}
                   </label>
-                  <input
-                    type="text"
-                    value={fu.attendee || ''}
-                    onChange={(e) => setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: e.target.value } })}
-                    placeholder="예: 홍길동, 김대리(010-9999-8888) — 명함에 없는 분은 이름(전화번호)로 입력"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium"
+                  {/* [수정] 예전엔 여기 직접 타이핑하는 텍스트 칸이 있었는데, 아래 "전체 명함
+                  검색" 칸과 역할이 겹쳤다. 이제는 검색해서 여러 명을 연속으로 추가하는 칸을
+                  맨 위로 옮겼다 — 명함에 없는 분은 아래 "이름·연락처 입력해서 추가" 칸을 쓴다. */}
+                  <AttendeeContactSearchAdd
+                    contacts={contacts}
+                    isAdded={(c) => (fu.attendee || '').includes(c.name)}
+                    onToggle={(c) => {
+                      const current = fu.attendee || '';
+                      const next = current.includes(c.name)
+                        ? removeAttendeeEntry(current, c)
+                        : (current ? `${current}, ${formatAttendeeEntry(c)}` : formatAttendeeEntry(c));
+                      setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: next } });
+                    }}
                   />
 
                   {/* 미팅자 이름·연락처 직접 입력해서 추가 */}
@@ -2931,28 +2924,6 @@ export const ProjectsView: React.FC<Props> = ({
                       })}
                     </div>
                   )}
-
-                  <div className="pt-2">
-                    <label className="block text-[10px] text-slate-400 mb-1">전체 명함(주소록)에서 찾아 추가 — 이 프로젝트에 연결 안 된 분도 검색 가능</label>
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        const c = contacts.find((x) => x.id === e.target.value);
-                        if (c && !(fu.attendee || '').includes(c.name)) {
-                          const entry = formatAttendeeEntry(c);
-                          setEditingFollowup({ ...editingFollowup, followup: { ...fu, attendee: fu.attendee ? `${fu.attendee}, ${entry}` : entry } });
-                        }
-                      }}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500"
-                    >
-                      <option value="">명함 검색해서 선택하면 자동 추가됩니다...</option>
-                      {contacts.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} · {c.company}{c.department ? ` (${c.department})` : ''}{c.phoneMobile ? ` — H.${c.phoneMobile}` : ''}{c.phoneOffice ? ` O.${c.phoneOffice}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
 
                 <div>
