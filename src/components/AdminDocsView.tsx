@@ -92,7 +92,19 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       { id: `li-${Date.now()}-10`, label: '지방소득세', amount: 0 }
     ],
     rates: loadSavedRates()
-  } : undefined
+  } : undefined,
+  // [추가] 월별 자금 현황 기본값. 통장 하나를 빈 줄로 미리 하나 넣어두고, "계좌 추가"로
+  // 늘릴 수 있게 한다. periodStart/End는 선택한 date의 월 시작~끝으로 기본값을 잡는다.
+  cashflow: category === 'monthly_cashflow' ? (() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    return {
+      periodStart: start,
+      periodEnd: end,
+      accounts: [{ id: `acc-${Date.now()}`, name: '', broughtForward: 0, deposit: 0, withdrawal: 0, note: '' }]
+    };
+  })() : undefined
 });
 
 // 급여명세서 지급/공제 내역 합계 계산
@@ -242,6 +254,26 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
   const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
 
+  // [추가] 월별 자금 현황 - 통장(계좌) 줄 추가·삭제·수정
+  const updateCashflowAccounts = (updater: (accounts: NonNullable<AdminDoc['cashflow']>['accounts']) => NonNullable<AdminDoc['cashflow']>['accounts']) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const cashflow = prev.cashflow || { accounts: [] };
+      return { ...prev, cashflow: { ...cashflow, accounts: updater(cashflow.accounts || []) } };
+    });
+  };
+  const addCashflowAccount = () => {
+    updateCashflowAccounts((accounts) => [...accounts, { id: `acc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '', broughtForward: 0, deposit: 0, withdrawal: 0, note: '' }]);
+  };
+  const removeCashflowAccount = (id: string) => {
+    updateCashflowAccounts((accounts) => accounts.filter((a) => a.id !== id));
+  };
+  const updateCashflowAccount = (id: string, patch: Partial<NonNullable<AdminDoc['cashflow']>['accounts'][number]>) => {
+    updateCashflowAccounts((accounts) => accounts.map((a) => a.id === id ? { ...a, ...patch } : a));
+  };
+  // 통장잔액 = 이월금 + 입금 - 출금
+  const accountBalance = (a: { broughtForward: number; deposit: number; withdrawal: number }) => a.broughtForward + a.deposit - a.withdrawal;
+
   const handleSave = async () => {
     if (!editingDoc || !editingDoc.title?.trim()) {
       alert('제목을 입력해주세요.');
@@ -257,6 +289,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       if (payload.category === 'payslip' && payload.payslip) {
         const net = sumItems(payload.payslip.payItems) - sumItems(payload.payslip.deductionItems);
         payload.amount = String(net);
+      }
+      // [추가] 월별 자금 현황은 통장잔액 합계를 amount 칸에 표시해서, 목록 화면에서 바로
+      // 전체 잔액 규모를 볼 수 있게 한다.
+      if (payload.category === 'monthly_cashflow' && payload.cashflow) {
+        const totalBalance = payload.cashflow.accounts.reduce((sum, a) => sum + accountBalance(a), 0);
+        payload.amount = String(totalBalance);
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -370,6 +408,69 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 월별 자금 현황 인쇄용 화면. 공유해주신 "N월 자금현황" 표 양식(NO/구분/이월금/
+  // 입금/출금/통장잔액/비고 + 합계)을 그대로 재현한다.
+  const renderPrintableCashflow = () => {
+    if (!printingDoc || !printingDoc.cashflow) return null;
+    const c = printingDoc.cashflow;
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const monthLabel = printingDoc.cashflow.periodStart ? `${Number(printingDoc.cashflow.periodStart.split('-')[1])}월` : printingDoc.title;
+    const totals = c.accounts.reduce((acc, a) => ({
+      broughtForward: acc.broughtForward + a.broughtForward,
+      deposit: acc.deposit + a.deposit,
+      withdrawal: acc.withdrawal + a.withdrawal,
+      balance: acc.balance + accountBalance(a)
+    }), { broughtForward: 0, deposit: 0, withdrawal: 0, balance: 0 });
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '24px', fontWeight: 700, textDecoration: 'underline', marginBottom: '6px' }}>
+          {monthLabel} 자 금 현 황
+        </h1>
+        {c.periodStart && c.periodEnd && (
+          <p style={{ textAlign: 'center', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}>
+            ({c.periodStart.replace(/-/g, '.')}~{c.periodEnd.slice(5).replace('-', '.')})
+          </p>
+        )}
+        <p style={{ textAlign: 'center', fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>&lt;통장 잔액&gt;</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px', width: '5%' }}>NO.</td>
+              <td style={{ border: '1px solid #000', padding: '6px', width: '28%' }}>구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>이월금(원)</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>입금(원)</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>출금(원)</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>통장잔액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {c.accounts.map((a, i) => (
+              <tr key={a.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{a.name}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.broughtForward)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.deposit)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.withdrawal)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(accountBalance(a))}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', color: '#c00', fontSize: '11px' }}>{a.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }} colSpan={2}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.broughtForward)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.deposit)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.withdrawal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.balance)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <>
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
@@ -463,13 +564,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   <p className="text-[10px] text-slate-300 mt-2">{d.createdByUserName ? `${d.createdByUserName} 등록` : ''}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {/* [추가] 급여명세서만 인쇄 버튼 제공 - 회사에서 흔히 쓰는 지급/공제 내역
-                  표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {d.category === 'payslip' && d.payslip && (
+                  {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
+                  쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
-                      title="급여명세서 인쇄"
+                      title="인쇄"
                     >
                       <Printer className="w-3.5 h-3.5" />
                     </button>
@@ -756,7 +857,111 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && (
+                {/* [추가] 월별 자금 현황 전용 구조화 입력: 통장(계좌)별 이월금/입금/출금을
+                입력하면 통장잔액은 자동 계산되고, 맨 아래 합계도 자동으로 더해진다. */}
+                {activeCategory === 'monthly_cashflow' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 시작일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.cashflow?.periodStart || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, cashflow: { ...(editingDoc.cashflow || { accounts: [] }), periodStart: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 종료일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.cashflow?.periodEnd || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, cashflow: { ...(editingDoc.cashflow || { accounts: [] }), periodEnd: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">통장 잔액</label>
+                        <button type="button" onClick={addCashflowAccount} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 계좌 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.cashflow?.accounts || []).map((a) => (
+                          <div key={a.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={a.name}
+                                onChange={(e) => updateCashflowAccount(a.id, { name: e.target.value })}
+                                placeholder="예: 하나(13004)_급여/외화송금/카드대금"
+                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => removeCashflowAccount(a.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">이월금</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={a.broughtForward ? formatCurrencyInput(a.broughtForward) : ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { broughtForward: parseCurrencyInput(e.target.value) })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">입금</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={a.deposit ? formatCurrencyInput(a.deposit) : ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { deposit: parseCurrencyInput(e.target.value) })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">출금</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={a.withdrawal ? formatCurrencyInput(a.withdrawal) : ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { withdrawal: parseCurrencyInput(e.target.value) })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              value={a.note || ''}
+                              onChange={(e) => updateCashflowAccount(a.id, { note: e.target.value })}
+                              placeholder="비고 (예: *은민_만기 08.28)"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                            />
+                            <p className="text-right text-[11px] text-slate-500">통장잔액: <b className="text-emerald-600">{formatCurrencyInput(accountBalance(a))}원</b></p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600 space-y-0.5">
+                      <p className="flex justify-between"><span>이월금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.broughtForward, 0))}원</b></p>
+                      <p className="flex justify-between"><span>입금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.deposit, 0))}원</b></p>
+                      <p className="flex justify-between"><span>출금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.withdrawal, 0))}원</b></p>
+                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>통장잔액 합계</span><span>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + accountBalance(a), 0))}원</span></p>
+                    </div>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
@@ -841,8 +1046,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             인쇄 / PDF 저장
           </button>
         </div>
-        <div className="bg-white shadow-2xl mx-auto" style={{ width: '210mm' }}>
-          {renderPrintablePayslip()}
+        <div className="bg-white shadow-2xl mx-auto" style={{ width: printingDoc.category === 'monthly_cashflow' ? '297mm' : '210mm' }}>
+          {printingDoc.category === 'monthly_cashflow' ? renderPrintableCashflow() : renderPrintablePayslip()}
         </div>
       </div>
     )}
@@ -850,7 +1055,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     {/* 실제 인쇄 시에는 위 미리보기 대신 앱 트리 밖의 #print-root에 그려진 내용만 단독으로
     인쇄된다 (다른 화면 요소의 영향을 받지 않기 위함). */}
     {typeof document !== 'undefined' && document.getElementById('print-root') &&
-      createPortal(renderPrintablePayslip(), document.getElementById('print-root')!)}
+      createPortal(printingDoc?.category === 'monthly_cashflow' ? renderPrintableCashflow() : renderPrintablePayslip(), document.getElementById('print-root')!)}
     </>
   );
 };
