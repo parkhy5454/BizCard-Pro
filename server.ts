@@ -82,7 +82,7 @@ import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './
 import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -786,6 +786,7 @@ const db: { [scopeId: string]: {
   weeklyLogs: WeeklyWorkLog[];
   advancePayments: AdvancePaymentSettlement[];
   leaveRequests: LeaveRequest[];
+  adminDocs: AdminDoc[];
 } } = {};
 
 // 동시에 여러 요청이 같은 스코프를 불러오려고 하면(예: 페이지 로딩 시 여러 화면이 동시에 호출),
@@ -872,6 +873,7 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   const weeklyLogs = await withTimeout(getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs'), 'weeklyLogs');
   const advancePayments = await withTimeout(getScopedCollection<AdvancePaymentSettlement>(scopeId, 'advancePayments'), 'advancePayments');
   const leaveRequests = await withTimeout(getScopedCollection<LeaveRequest>(scopeId, 'leaveRequests'), 'leaveRequests');
+  const adminDocs = await withTimeout(getScopedCollection<AdminDoc>(scopeId, 'adminDocs'), 'adminDocs');
   const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
   const myProfile = profileList.find(p => p.email === 'parkyl5454@gmail.com') || profileList[0] || initialMyProfile;
@@ -889,7 +891,8 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
     dailyLogs,
     weeklyLogs,
     advancePayments,
-    leaveRequests
+    leaveRequests,
+    adminDocs
   };
 
   if (hadTimeout) {
@@ -941,7 +944,8 @@ function getScopedData(req: express.Request): any {
     dailyLogs: [],
     weeklyLogs: [],
     advancePayments: [],
-    leaveRequests: []
+    leaveRequests: [],
+    adminDocs: []
   };
 }
 
@@ -1902,7 +1906,8 @@ app.get('/api/backup/export', async (req, res) => {
       dailyLogs: dbData.dailyLogs,
       weeklyLogs: dbData.weeklyLogs,
       advancePayments: dbData.advancePayments,
-      leaveRequests: dbData.leaveRequests
+      leaveRequests: dbData.leaveRequests,
+      adminDocs: dbData.adminDocs
     }
   };
 
@@ -4849,7 +4854,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
 const MIGRATABLE_COLLECTIONS = [
   'contacts', 'projects', 'groups', 'vehicles', 'drivingLogs', 'expenses',
   'maintenances', 'maintenanceIntervals', 'dailyLogs', 'weeklyLogs',
-  'advancePayments', 'leaveRequests'
+  'advancePayments', 'leaveRequests', 'adminDocs'
 ] as const;
 
 app.post('/api/admin/migrate-scope', async (req, res) => {
@@ -5096,6 +5101,76 @@ app.delete('/api/approvals/leave/:id', async (req, res) => {
   dbData.leaveRequests = dbData.leaveRequests || [];
   dbData.leaveRequests = dbData.leaveRequests.filter((d: LeaveRequest) => d.id !== req.params.id);
   await deleteScopedDoc(scopeId, 'leaveRequests', req.params.id);
+  res.json({ success: true });
+});
+
+// ------------------------------------------------------------------
+// 📁 경영지원 / 회계관리 - 관리자만 접근 가능한 회사 서류·장부 보관함
+// [추가] 근로계약서, 급여명세서 등 12개 서류 종류를 하나의 공용 데이터(AdminDoc)로 다루고,
+// category 필드로만 구분한다. 이 API 전체는 회사(company) 계정의 관리자(role: 'admin')만
+// 쓸 수 있다 — 일반 직원은 물론, 같은 회사라도 관리자가 아니면 절대 접근할 수 없다.
+// ------------------------------------------------------------------
+function requireAdmin(req: express.Request, res: express.Response): RegisteredUser | null {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = userId ? users.find(u => u.id === userId) : undefined;
+  if (!requester || requester.role !== 'admin') {
+    res.status(403).json({ error: '관리자만 접근할 수 있는 화면입니다.' });
+    return null;
+  }
+  return requester;
+}
+
+app.get('/api/admin-docs', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+  res.json(dbData.adminDocs || []);
+});
+
+app.post('/api/admin-docs', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  const doc: AdminDoc = req.body;
+  if (!doc.id) doc.id = `adoc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+  doc.createdByUserId = requester.id;
+  doc.createdByUserName = requester.name;
+  doc.attachments = await persistAttachmentsInArray(scopeId, doc.attachments, `admindoc-${doc.id}`);
+
+  dbData.adminDocs = dbData.adminDocs || [];
+  dbData.adminDocs.unshift(doc);
+  await setScopedDoc(scopeId, 'adminDocs', doc);
+  res.status(201).json(doc);
+});
+
+app.put('/api/admin-docs/:id', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.adminDocs = dbData.adminDocs || [];
+  const idx = dbData.adminDocs.findIndex((d: AdminDoc) => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Document not found' });
+
+  const updated: AdminDoc = { ...dbData.adminDocs[idx], ...req.body, id: req.params.id };
+  if (updated.attachments) {
+    updated.attachments = await persistAttachmentsInArray(scopeId, updated.attachments, `admindoc-${updated.id}`);
+  }
+  dbData.adminDocs[idx] = updated;
+  await setScopedDoc(scopeId, 'adminDocs', updated);
+  res.json(updated);
+});
+
+app.delete('/api/admin-docs/:id', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.adminDocs = dbData.adminDocs || [];
+  dbData.adminDocs = dbData.adminDocs.filter((d: AdminDoc) => d.id !== req.params.id);
+  await deleteScopedDoc(scopeId, 'adminDocs', req.params.id);
   res.json({ success: true });
 });
 
