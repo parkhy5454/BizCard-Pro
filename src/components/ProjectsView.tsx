@@ -408,6 +408,10 @@ export const ProjectsView: React.FC<Props> = ({
   // [수정] "마감 기한" 대신 "프로젝트 등록일" 개념으로 변경 - 기본값을 오늘 날짜로
   const [newDueDate, setNewDueDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [newBudget, setNewBudget] = useState<string>('');
+  // [추가] 새 프로젝트 등록 시 메모를 남길 수 있는 칸. Project 타입에는 description
+  // 필드가 이미 있었는데, 등록 폼에는 입력 칸이 빠져 있어서 등록할 때 메모를 못 남기고
+  // 있었다.
+  const [newDescription, setNewDescription] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
 
   // 프로젝트 정보 수정용 상태
@@ -480,6 +484,7 @@ export const ProjectsView: React.FC<Props> = ({
 
     const newProj: Partial<Project> = {
       name: newName,
+      description: newDescription,
       salesRep: newSalesRep,
       developer: newDeveloper,
       contractor: newContractor,
@@ -519,6 +524,7 @@ export const ProjectsView: React.FC<Props> = ({
 
     // 초기화
     setNewName('');
+    setNewDescription('');
     setNewSalesRep(currentUser?.name || '');
     setNewDueDate(new Date().toISOString().split('T')[0]);
     setNewDeveloper('');
@@ -2569,6 +2575,18 @@ export const ProjectsView: React.FC<Props> = ({
                 <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 삼성전자 온디바이스 B2B 라이선스 공급 제안" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />
               </div>
 
+              {/* [추가] 등록 시 바로 메모를 남길 수 있는 칸 */}
+              <div>
+                <label className="block text-slate-600 font-semibold mb-1">메모</label>
+                <textarea
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="이 프로젝트에 대한 참고사항, 배경, 진행 메모 등을 자유롭게 적어주세요."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
               {/* [수정] 영업자(담당자): 기본값은 등록자 본인 이름이며 직접 수정 가능 */}
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">영업자(담당자)</label>
@@ -2774,6 +2792,18 @@ export const ProjectsView: React.FC<Props> = ({
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">프로젝트 타이틀 *</label>
                 <input type="text" value={editingProject.name} onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />
+              </div>
+
+              {/* [추가] 등록 폼과 동일하게, 여기서도 메모를 남기거나 고칠 수 있게 */}
+              <div>
+                <label className="block text-slate-600 font-semibold mb-1">메모</label>
+                <textarea
+                  value={editingProject.description || ''}
+                  onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                  placeholder="이 프로젝트에 대한 참고사항, 배경, 진행 메모 등을 자유롭게 적어주세요."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500 resize-none"
+                />
               </div>
 
               {/* [수정] 영업자(담당자) 수정 가능 */}
