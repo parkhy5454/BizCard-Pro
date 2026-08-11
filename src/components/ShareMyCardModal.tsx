@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, CheckCircle2 } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
 import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
@@ -19,9 +19,8 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [scanImgBack, setScanImgBack] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | null>(null);
-  // [수정] 명함 등록 화면처럼 앞/뒤를 좌우로 넘겨보는 캐러셀을 위한 상태
+  // [수정] 명함 등록/수정 화면과 통일된 앞면/뒷면 토글 상태
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
-  const swipeStartXRef = React.useRef<number | null>(null);
   const [cropTarget, setCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const galleryFileInputRef = React.useRef<HTMLInputElement>(null);
   const galleryFileInputBackRef = React.useRef<HTMLInputElement>(null);
@@ -222,19 +221,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // 같은 파일 재선택도 가능하도록 초기화
-  };
-
-  // 캐러셀 좌우 스와이프로 앞면/뒷면 전환
-  const handleCarouselPointerDown = (e: React.PointerEvent) => {
-    swipeStartXRef.current = e.clientX;
-  };
-  const handleCarouselPointerUp = (e: React.PointerEvent) => {
-    if (swipeStartXRef.current === null) return;
-    const dx = e.clientX - swipeStartXRef.current;
-    swipeStartXRef.current = null;
-    const threshold = 40;
-    if (dx > threshold) setActiveSide('front');
-    else if (dx < -threshold) setActiveSide('back');
   };
 
   // 업로드한 내 명함 사진(앞/뒤)을 AI로 인식해서 입력 폼에 자동 반영
@@ -490,138 +476,107 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                   <span>내 명함 사진으로 자동 채우기</span>
                 </div>
 
+                {/* [수정] 좌우로 미는 캐러셀(점 표시기 + 화살표) 방식을, 명함 등록/수정
+                화면과 통일된 "앞면 | 뒷면" 토글 버튼 방식으로 바꿨다. 스타일을 앱 전체에서
+                일관되게 맞추고, 한 번에 한 면만 보여줘서 화면도 더 깔끔해진다. */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-semibold">
-                      {activeSide === 'front' ? '① 앞면' : '② 뒷면 (선택)'}
-                    </span>
-                    <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 font-semibold">내 명함 사진</span>
+                    <div className="flex bg-white rounded-lg p-1 border border-slate-200 text-xs">
                       <button
                         type="button"
                         onClick={() => setActiveSide('front')}
-                        aria-label="앞면 보기"
-                        className={`w-1.5 h-1.5 rounded-full transition-colors ${activeSide === 'front' ? 'bg-blue-400' : 'bg-slate-200'}`}
-                      />
+                        className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all ${activeSide === 'front' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        앞면{scanImg && <CheckCircle2 className="w-3 h-3" />}
+                      </button>
                       <button
                         type="button"
                         onClick={() => setActiveSide('back')}
-                        aria-label="뒷면 보기"
-                        className={`w-1.5 h-1.5 rounded-full transition-colors ${activeSide === 'back' ? 'bg-blue-400' : 'bg-slate-200'}`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setActiveSide('front')}
-                      className="absolute left-1 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-slate-50/70 hover:bg-white text-slate-600 hover:text-slate-700 transition-colors"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSide('back')}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-slate-50/70 hover:bg-white text-slate-600 hover:text-slate-700 transition-colors"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-
-                    <div
-                      className="overflow-hidden rounded-xl touch-pan-y"
-                      onPointerDown={handleCarouselPointerDown}
-                      onPointerUp={handleCarouselPointerUp}
-                    >
-                      <div
-                        className="flex transition-transform duration-300 ease-out"
-                        style={{ width: '200%', transform: activeSide === 'front' ? 'translateX(0%)' : 'translateX(-50%)' }}
+                        className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all ${activeSide === 'back' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
                       >
-                        {/* 앞면 슬라이드 */}
-                        <div style={{ width: '50%' }} className="px-0.5">
-                          <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
-                            {scanImg ? (
-                              <>
-                                <img src={scanImg.startsWith('data:') ? scanImg : '/api/img/my-profile/front'} alt="앞면 미리보기" className="w-full h-full object-cover" />
-                                <button
-                                  type="button"
-                                  onClick={() => setScanImg('')}
-                                  className="absolute top-1.5 right-1.5 bg-slate-900/60 hover:bg-rose-600 rounded-full p-1 transition-colors"
-                                >
-                                  <X className="w-3.5 h-3.5 text-white" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setCameraTarget('front')}
-                                  className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
-                                >
-                                  <Camera className="w-3.5 h-3.5" />
-                                  앞면 재촬영
-                                </button>
-                              </>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setCameraTarget('front')}
-                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors"
-                                >
-                                  <Camera className="w-3 h-3" />
-                                  촬영
-                                </button>
-                                <label className="text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
-                                  갤러리
-                                  <input ref={galleryFileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleScanImageUpload(e, 'front')} />
-                                </label>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 뒷면 슬라이드 */}
-                        <div style={{ width: '50%' }} className="px-0.5">
-                          <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
-                            {scanImgBack ? (
-                              <>
-                                <img src={scanImgBack.startsWith('data:') ? scanImgBack : '/api/img/my-profile/back'} alt="뒷면 미리보기" className="w-full h-full object-cover" />
-                                <button
-                                  type="button"
-                                  onClick={() => setScanImgBack('')}
-                                  className="absolute top-1.5 right-1.5 bg-slate-900/60 hover:bg-rose-600 rounded-full p-1 transition-colors"
-                                >
-                                  <X className="w-3.5 h-3.5 text-white" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setCameraTarget('back')}
-                                  className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
-                                >
-                                  <Camera className="w-3.5 h-3.5" />
-                                  뒷면 재촬영
-                                </button>
-                              </>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setCameraTarget('back')}
-                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors"
-                                >
-                                  <Camera className="w-3 h-3" />
-                                  촬영
-                                </button>
-                                <label className="text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
-                                  갤러리
-                                  <input ref={galleryFileInputBackRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleScanImageUpload(e, 'back')} />
-                                </label>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        뒷면{scanImgBack && <CheckCircle2 className="w-3 h-3" />}
+                      </button>
                     </div>
                   </div>
 
-                  <p className="text-center text-[10px] text-slate-400">좌우로 밀어서 앞면 · 뒷면을 확인하고, 보이는 면에서 바로 재촬영할 수 있어요</p>
+                  {activeSide === 'front' ? (
+                    <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
+                      {scanImg ? (
+                        <>
+                          <img src={scanImg.startsWith('data:') ? scanImg : '/api/img/my-profile/front'} alt="앞면 미리보기" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setScanImg('')}
+                            className="absolute top-1.5 right-1.5 bg-slate-900/60 hover:bg-rose-600 rounded-full p-1 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5 text-white" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCameraTarget('front')}
+                            className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            앞면 재촬영
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2">
+                          <button
+                            type="button"
+                            onClick={() => setCameraTarget('front')}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors"
+                          >
+                            <Camera className="w-3 h-3" />
+                            촬영
+                          </button>
+                          <label className="text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
+                            갤러리
+                            <input ref={galleryFileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleScanImageUpload(e, 'front')} />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
+                      {scanImgBack ? (
+                        <>
+                          <img src={scanImgBack.startsWith('data:') ? scanImgBack : '/api/img/my-profile/back'} alt="뒷면 미리보기" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setScanImgBack('')}
+                            className="absolute top-1.5 right-1.5 bg-slate-900/60 hover:bg-rose-600 rounded-full p-1 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5 text-white" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCameraTarget('back')}
+                            className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            뒷면 재촬영
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2">
+                          <button
+                            type="button"
+                            onClick={() => setCameraTarget('back')}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors"
+                          >
+                            <Camera className="w-3 h-3" />
+                            촬영
+                          </button>
+                          <label className="text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
+                            갤러리
+                            <input ref={galleryFileInputBackRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleScanImageUpload(e, 'back')} />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
 
