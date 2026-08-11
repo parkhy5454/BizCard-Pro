@@ -205,17 +205,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     updatePayslipItems(kind, (items) => items.map((it) => it.id === id ? { ...it, ...patch } : it));
   };
 
-  // [추가] 지금 입력된 지급 내역과 공제율을 기준으로 4대보험료 등을 자동으로 계산해서
-  // 공제 내역 금액을 채워 넣는다. 소득세는 계산 대상이 아니라 직접 입력해야 하고, 지방소득세는
-  // 그 소득세 값을 기준으로 계산된다(소득세를 먼저 입력한 뒤 자동 계산을 눌러야 정확하다).
-  const handleAutoCalcDeductions = () => {
-    setEditingDoc((prev) => {
-      if (!prev || !prev.payslip) return prev;
-      const rates = prev.payslip.rates || DEFAULT_RATES;
-      const newDeductions = calcDeductions(prev.payslip.payItems || [], prev.payslip.deductionItems || [], rates);
-      return { ...prev, payslip: { ...prev.payslip, deductionItems: newDeductions } };
-    });
-  };
+  // [수정] 예전엔 이 버튼을 눌러야만 계산됐지만, 이제는 아래 useEffect가 지급 내역/공제율이
+  // 바뀔 때마다 자동으로 재계산한다(더 아래 참고). 이 함수는 더 이상 쓰이지 않는다.
 
   const updateRate = (key: keyof typeof DEFAULT_RATES, value: number) => {
     setEditingDoc((prev) => {
@@ -228,6 +219,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   };
 
   const [showRateSettings, setShowRateSettings] = useState(false);
+
+  // [추가] 예전엔 "자동 계산" 버튼을 직접 눌러야만 계산됐는데, 지급 내역이나 공제율을 바꿀
+  // 때마다 매번 버튼 누르는 게 번거로워서, 바뀌는 즉시 자동으로 다시 계산되게 한다.
+  // 소득세 금액이 바뀌어도(지방소득세가 소득세에 딸려있으므로) 다시 계산한다.
+  // 실제로 계산 결과가 달라질 때만 상태를 갱신해서 무한 재실행을 막는다.
+  const payItemsKey = editingDoc?.payslip?.payItems?.map((it) => `${it.amount}_${it.taxable !== false}`).join('|') || '';
+  const ratesKey = JSON.stringify(editingDoc?.payslip?.rates || {});
+  const incomeTaxAmount = editingDoc?.payslip?.deductionItems?.find((it) => it.label.replace(/\s/g, '') === '소득세')?.amount || 0;
+  useEffect(() => {
+    if (!editingDoc || editingDoc.category !== 'payslip' || !editingDoc.payslip) return;
+    const rates = editingDoc.payslip.rates || DEFAULT_RATES;
+    const current = editingDoc.payslip.deductionItems || [];
+    const recalculated = calcDeductions(editingDoc.payslip.payItems || [], current, rates);
+    const isSame = recalculated.length === current.length && recalculated.every((it, i) => it.amount === current[i].amount);
+    if (!isSame) {
+      setEditingDoc((prev) => prev && prev.payslip ? { ...prev, payslip: { ...prev.payslip, deductionItems: recalculated } } : prev);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payItemsKey, ratesKey, incomeTaxAmount, editingDoc?.category]);
 
   // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
   const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
@@ -700,14 +710,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleAutoCalcDeductions}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition-colors"
-                    >
-                      <Calculator className="w-3.5 h-3.5" />
-                      위 공제율로 4대보험료 자동 계산 (소득세는 직접 입력)
-                    </button>
+                    <p className="flex items-center gap-1.5 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-2">
+                      <Calculator className="w-3.5 h-3.5 shrink-0" />
+                      지급 내역이나 공제율을 바꾸면 4대보험료가 자동으로 다시 계산됩니다. (소득세는 직접 입력 — 입력하면 지방소득세도 자동 계산)
+                    </p>
 
                     {/* 공제 내역 */}
                     <div>
