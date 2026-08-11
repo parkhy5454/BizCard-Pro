@@ -186,11 +186,12 @@ export interface AdminDoc {
   bankLedger?: {
     accounts: {
       id: string;
-      accountName: string;    // 화면/인쇄에 보여줄 통장 이름 (예: "기업(011)", "하나(13004)")
-      // [추가] 월별 자금 현황과 같은 은행/계좌 기준으로 자동 합산하기 위한 식별 필드.
-      // accountName은 사람이 보기 좋은 이름이고, 이 둘은 매칭용 "키" 역할이다.
+      // [수정] 예전엔 표시 이름(accountName) + 은행/계좌번호가 따로 있어서 입력이 두 번
+      // 겹쳤다. 월별 자금 현황과 완전히 똑같이 은행/계좌번호/구분 3칸으로 통일한다 —
+      // 이러면 화면 구조도 똑같아지고, 자금 현황과 매칭시킬 때도 헷갈릴 일이 없다.
       bankName?: string;      // 은행 (예: "하나은행")
       accountNumber?: string; // 계좌번호
+      subCategory?: string;   // 구분/용도 (예: "급여/외화송금/카드대금")
       entries: {
         id: string;
         date: string;         // 일자 (YYYY-MM-DD)
