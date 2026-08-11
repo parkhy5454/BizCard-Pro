@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator } from 'lucide-react';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
@@ -102,7 +102,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     return {
       periodStart: start,
       periodEnd: end,
-      accounts: [{ id: `acc-${Date.now()}`, name: '', broughtForward: 0, deposit: 0, withdrawal: 0, note: '' }]
+      accounts: [{ id: `acc-${Date.now()}`, bankName: '', accountNumber: '', subCategory: '', broughtForward: 0, deposit: 0, withdrawal: 0, note: '' }]
     };
   })() : undefined,
   // [추가] 통장 출금/입금 내역 기본값 - 두 카테고리 공용. 계좌 하나에 빈 거래 한 줄을
@@ -111,6 +111,8 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     accounts: [{
       id: `bacc-${Date.now()}`,
       accountName: '',
+      bankName: '',
+      accountNumber: '',
       entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
     }]
   } : undefined
@@ -119,6 +121,39 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
 // 급여명세서 지급/공제 내역 합계 계산
 function sumItems(items?: AdminDocLineItem[]): number {
   return (items || []).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+}
+
+// [추가] "은행+계좌번호"가 일치하는 통장 입금/출금 내역 문서를 전체 목록(docs)에서 찾아,
+// 지정한 기간(periodStart~periodEnd)에 해당하는 거래 금액만 더한다. 월별 자금 현황의
+// 입금/출금 칸을 실제 입금/출금 내역과 자동으로 맞추기 위한 함수 — 은행명·계좌번호는
+// 공백을 없애고 비교해서, "하나은행"과 "하나은행 " 같은 사소한 표기 차이로 안 맞는
+// 일이 없게 한다.
+function sumLedgerByAccount(
+  allDocs: AdminDoc[],
+  category: 'bank_deposit' | 'bank_withdrawal',
+  bankName: string,
+  accountNumber: string,
+  periodStart?: string,
+  periodEnd?: string
+): number {
+  const norm = (s: string) => s.replace(/\s/g, '');
+  const targetBank = norm(bankName);
+  const targetAcc = norm(accountNumber);
+  if (!targetBank || !targetAcc) return 0;
+
+  let total = 0;
+  for (const doc of allDocs) {
+    if (doc.category !== category || !doc.bankLedger) continue;
+    for (const acc of doc.bankLedger.accounts) {
+      if (norm(acc.bankName || '') !== targetBank || norm(acc.accountNumber || '') !== targetAcc) continue;
+      for (const e of acc.entries) {
+        if (periodStart && e.date < periodStart) continue;
+        if (periodEnd && e.date > periodEnd) continue;
+        total += Number(e.amount) || 0;
+      }
+    }
+  }
+  return total;
 }
 
 // [추가] 4대보험료 등을 요율에 맞춰 자동 계산한다. 소득세는 국세청 근로소득 간이세액표
@@ -297,6 +332,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     updateBankAccounts((accounts) => [...accounts, {
       id: `bacc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       accountName: '',
+      bankName: '',
+      accountNumber: '',
       entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
     }]);
   };
@@ -305,6 +342,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   };
   const updateBankAccountName = (accId: string, accountName: string) => {
     updateBankAccounts((accounts) => accounts.map((a) => a.id === accId ? { ...a, accountName } : a));
+  };
+  const updateBankAccountField = (accId: string, patch: Partial<Pick<BankAccount, 'bankName' | 'accountNumber'>>) => {
+    updateBankAccounts((accounts) => accounts.map((a) => a.id === accId ? { ...a, ...patch } : a));
   };
   const addBankEntry = (accId: string) => {
     updateBankAccounts((accounts) => accounts.map((a) => a.id === accId
@@ -462,6 +502,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
   // [추가] 월별 자금 현황 인쇄용 화면. 공유해주신 "N월 자금현황" 표 양식(NO/구분/이월금/
   // 입금/출금/통장잔액/비고 + 합계)을 그대로 재현한다.
+  // [추가] 은행명+계좌번호+구분을 "하나(13004)_급여/외화송금/카드대금"처럼 사람이 보기
+  // 좋은 한 줄로 합쳐준다. 인쇄 화면의 "구분" 칸에 쓰인다.
+  const cashflowAccountLabel = (a: { bankName?: string; accountNumber?: string; subCategory?: string }) => {
+    const parts = [a.bankName, a.accountNumber].filter(Boolean).join(' ');
+    return [parts, a.subCategory].filter(Boolean).join('_') || '(계좌 미입력)';
+  };
+
   const renderPrintableCashflow = () => {
     if (!printingDoc || !printingDoc.cashflow) return null;
     const c = printingDoc.cashflow;
@@ -501,7 +548,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             {c.accounts.map((a, i) => (
               <tr key={a.id}>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{i + 1}</td>
-                <td style={{ border: '1px solid #000', padding: '6px' }}>{a.name}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{cashflowAccountLabel(a)}</td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.broughtForward)}</td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.deposit)}</td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.withdrawal)}</td>
@@ -1017,19 +1064,47 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         </button>
                       </div>
                       <div className="space-y-1.5">
-                        {(editingDoc.cashflow?.accounts || []).map((a) => (
+                        {(editingDoc.cashflow?.accounts || []).map((a) => {
+                          // [추가] 같은 은행+계좌번호를 쓰는 입금/출금 내역 문서가 있으면, 이
+                          // 계좌의 집계 기간(periodStart~periodEnd)에 해당하는 거래만 뽑아
+                          // 합산한 금액을 미리 보여준다. 자동 불러오기 버튼을 누르면 그
+                          // 값을 입금/출금 칸에 그대로 채워 넣어서, 세 문서(자금현황/입금
+                          // 내역/출금내역)의 숫자가 항상 일치하도록 맞출 수 있다.
+                          const matched = a.bankName && a.accountNumber
+                            ? {
+                                deposit: sumLedgerByAccount(docs, 'bank_deposit', a.bankName, a.accountNumber, editingDoc.cashflow?.periodStart, editingDoc.cashflow?.periodEnd),
+                                withdrawal: sumLedgerByAccount(docs, 'bank_withdrawal', a.bankName, a.accountNumber, editingDoc.cashflow?.periodStart, editingDoc.cashflow?.periodEnd)
+                              }
+                            : null;
+                          return (
                           <div key={a.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
-                            <div className="flex items-center gap-1.5">
+                            <div className="grid grid-cols-3 gap-1.5">
                               <input
                                 type="text"
-                                value={a.name}
-                                onChange={(e) => updateCashflowAccount(a.id, { name: e.target.value })}
-                                placeholder="예: 하나(13004)_급여/외화송금/카드대금"
-                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                value={a.bankName || ''}
+                                onChange={(e) => updateCashflowAccount(a.id, { bankName: e.target.value })}
+                                placeholder="은행 (예: 하나은행)"
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                               />
-                              <button type="button" onClick={() => removeCashflowAccount(a.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+                              <input
+                                type="text"
+                                value={a.accountNumber || ''}
+                                onChange={(e) => updateCashflowAccount(a.id, { accountNumber: e.target.value })}
+                                placeholder="계좌번호"
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  value={a.subCategory || ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { subCategory: e.target.value })}
+                                  placeholder="구분 (예: 급여/카드대금)"
+                                  className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                                <button type="button" onClick={() => removeCashflowAccount(a.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                             <div className="grid grid-cols-3 gap-1.5">
                               <div>
@@ -1066,6 +1141,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 />
                               </div>
                             </div>
+                            {matched && (matched.deposit > 0 || matched.withdrawal > 0) && (
+                              <button
+                                type="button"
+                                onClick={() => updateCashflowAccount(a.id, { deposit: matched.deposit, withdrawal: matched.withdrawal })}
+                                className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-bold"
+                              >
+                                <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3" /> 입금/출금 내역에서 불러오기</span>
+                                <span>입금 {formatCurrencyInput(matched.deposit)} · 출금 {formatCurrencyInput(matched.withdrawal)}</span>
+                              </button>
+                            )}
                             <input
                               type="text"
                               value={a.note || ''}
@@ -1075,7 +1160,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             />
                             <p className="text-right text-[11px] text-slate-500">통장잔액: <b className="text-emerald-600">{formatCurrencyInput(accountBalance(a))}원</b></p>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -1107,7 +1193,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             type="text"
                             value={acc.accountName}
                             onChange={(e) => updateBankAccountName(acc.id, e.target.value)}
-                            placeholder="예: 기업(011), 하나(13004)"
+                            placeholder="표시 이름 (예: 기업(011), 하나(13004))"
                             className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                           />
                           {(editingDoc.bankLedger?.accounts.length || 0) > 1 && (
@@ -1115,6 +1201,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
+                        </div>
+                        {/* [추가] 은행명·계좌번호를 별도로 입력해두면, 월별 자금 현황에서
+                        같은 은행+계좌를 쓰는 계좌와 자동으로 매칭해서 입금/출금 합계를
+                        맞춰볼 수 있다. */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={acc.bankName || ''}
+                            onChange={(e) => updateBankAccountField(acc.id, { bankName: e.target.value })}
+                            placeholder="은행 (예: 하나은행)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={acc.accountNumber || ''}
+                            onChange={(e) => updateBankAccountField(acc.id, { accountNumber: e.target.value })}
+                            placeholder="계좌번호"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                          />
                         </div>
 
                         <div className="space-y-1.5">
