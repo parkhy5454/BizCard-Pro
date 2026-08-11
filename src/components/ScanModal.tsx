@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft } from 'lucide-react';
+import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
@@ -85,6 +85,10 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   // 크롭 조정 모달 상태: 어느 면(front/back)의 사진을 조정 중인지 + 원본 데이터
   const [cropTarget, setCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const [cameraTarget, setCameraTarget] = useState<'front' | 'back' | null>(null);
+  // [추가] 예전엔 앞면/뒷면 업로드 칸이 위아래로 나란히 있었다. 폰처럼 화면이 좁으면 두
+  // 칸을 다 보여주느라 세로로 길어지고 스크롤이 늘어났다. 수정 화면(CardDetailModal)의
+  // 앞면/뒷면 토글 방식과 통일해서, 한 번에 한 면만 보여주고 버튼으로 전환하게 한다.
+  const [scanSide, setScanSide] = useState<'front' | 'back'>('front');
   const fallbackFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // [수정] 중복 명함 감지: 저장 직전에 확인하는 팝업 상태 (단일 스캔 모드)
@@ -730,75 +734,99 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   명함이 여러 장이면 연속 촬영 모드
                 </button>
 
-                <div className="space-y-4">
-                  {/* 앞면 스캔 업로드 */}
-                  <div>
-                    <span className="text-xs font-bold text-slate-500 block mb-1.5 font-mono">① 명함 앞면 (Front Side)</span>
-                    <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-500/60 bg-slate-100 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
-                      {frontImg ? (
-                        <>
-                          <img src={frontImg} alt="앞면 미리보기" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => setFrontImg('')}
-                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/60 text-rose-400 hover:text-white"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center w-full h-full p-4 gap-2.5">
-                          <Upload className="w-7 h-7 text-slate-400" />
-                          <button
-                            type="button"
-                            onClick={() => setCameraTarget('front')}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
-                          >
-                            <Camera className="w-3.5 h-3.5" />
-                            카메라로 촬영
-                          </button>
-                          <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
-                            갤러리에서 사진 선택
-                            <input type="file" accept="image/*" onChange={(e) => handleImageFile(e, 'front')} className="hidden" />
-                          </label>
-                        </div>
-                      )}
+                <div className="space-y-3">
+                  {/* [수정] 앞면/뒷면을 위아래로 나란히 보여주던 것을, 수정 화면과 통일된
+                  토글 방식으로 바꿨다. 한 번에 한 면만 보여주고 버튼으로 전환한다 — 폰
+                  화면처럼 세로 공간이 좁을 때 스크롤이 줄어든다. */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 font-mono">명함 스캔</span>
+                    <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setScanSide('front')}
+                        className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all ${scanSide === 'front' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        앞면{frontImg && <Check className="w-3 h-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setScanSide('back')}
+                        className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all ${scanSide === 'back' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        뒷면{backImg && <Check className="w-3 h-3" />}
+                      </button>
                     </div>
                   </div>
 
-                  {/* 뒷면 스캔 업로드 */}
-                  <div>
-                    <span className="text-xs font-bold text-slate-500 block mb-1.5 font-mono">② 명함 뒷면 (Back Side - 선택사항)</span>
-                    <div className="aspect-[2.5/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-600 bg-white/30 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
-                      {backImg ? (
-                        <>
-                          <img src={backImg} alt="뒷면 미리보기" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => setBackImg('')}
-                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/60 text-rose-400 hover:text-white"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <div className="flex items-center justify-center w-full h-full p-3 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setCameraTarget('back')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold transition-colors"
-                          >
-                            <Camera className="w-3.5 h-3.5" />
-                            카메라로 촬영
-                          </button>
-                          <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
-                            갤러리에서 선택
-                            <input type="file" accept="image/*" onChange={(e) => handleImageFile(e, 'back')} className="hidden" />
-                          </label>
-                        </div>
-                      )}
+                  {scanSide === 'front' ? (
+                    <div>
+                      <span className="text-[11px] text-slate-400 block mb-1.5 font-mono">명함 앞면 (Front Side)</span>
+                      <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-500/60 bg-slate-100 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
+                        {frontImg ? (
+                          <>
+                            <img src={frontImg} alt="앞면 미리보기" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setFrontImg('')}
+                              className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/60 text-rose-400 hover:text-white"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center w-full h-full p-4 gap-2.5">
+                            <Upload className="w-7 h-7 text-slate-400" />
+                            <button
+                              type="button"
+                              onClick={() => setCameraTarget('front')}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              카메라로 촬영
+                            </button>
+                            <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
+                              갤러리에서 사진 선택
+                              <input type="file" accept="image/*" onChange={(e) => handleImageFile(e, 'front')} className="hidden" />
+                            </label>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <span className="text-[11px] text-slate-400 block mb-1.5 font-mono">명함 뒷면 (Back Side - 선택사항)</span>
+                      <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-600 bg-white/30 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
+                        {backImg ? (
+                          <>
+                            <img src={backImg} alt="뒷면 미리보기" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setBackImg('')}
+                              className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/60 text-rose-400 hover:text-white"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center w-full h-full p-4 gap-2.5">
+                            <Upload className="w-7 h-7 text-slate-400" />
+                            <button
+                              type="button"
+                              onClick={() => setCameraTarget('back')}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              카메라로 촬영
+                            </button>
+                            <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
+                              갤러리에서 선택
+                              <input type="file" accept="image/*" onChange={(e) => handleImageFile(e, 'back')} className="hidden" />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1001,6 +1029,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           onConfirm={(cropped) => {
             if (cropTarget.side === 'front') setFrontImg(cropped);
             else setBackImg(cropped);
+            // 방금 찍은/고른 쪽 탭이 바로 보이도록 전환해서, 확인 화면이 즉시 눈에 띄게 한다
+            setScanSide(cropTarget.side);
             setCropTarget(null);
           }}
           onCancel={() => setCropTarget(null)}
@@ -1020,6 +1050,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
               const resized = await resizeDataUrl(dataUrl);
               if (side === 'front') setFrontImg(resized);
               else setBackImg(resized);
+              // 방금 찍은 쪽 탭이 바로 보이도록 전환
+              setScanSide(side);
             } else {
               setCropTarget({ side, rawImage: dataUrl });
             }
