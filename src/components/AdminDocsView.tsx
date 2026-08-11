@@ -28,7 +28,8 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'monthly_cashflow', label: '월별 자금 현황', personLabel: '작성자', showAmount: true },
     { id: 'bank_withdrawal', label: '통장 출금 내역', personLabel: '거래처/적요', showAmount: true },
     { id: 'bank_deposit', label: '통장 입금 내역', personLabel: '거래처/적요', showAmount: true },
-    { id: 'loan_repayment', label: '대출 현황', personLabel: '금융기관', showAmount: true }
+    { id: 'loan_repayment', label: '대출 현황', personLabel: '금융기관', showAmount: true },
+    { id: 'card_usage', label: '카드사용내역', personLabel: '카드 소지자', showAmount: true }
   ]
 };
 
@@ -134,6 +135,17 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       withdrawBank: '',
       withdrawAccount: '',
       isRepaid: false
+    }]
+  } : undefined,
+  // [추가] 법인카드 사용내역 기본값. 카드 하나에 빈 사용 내역 한 줄을 미리 넣어두고,
+  // "카드 추가"/"내역 추가"로 늘릴 수 있게 한다.
+  cardUsage: category === 'card_usage' ? {
+    cards: [{
+      id: `card-${Date.now()}`,
+      cardName: '',
+      cardNumber: '',
+      holder: '',
+      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: new Date().toISOString().split('T')[0], project: '', user: '', note: '' }]
     }]
   } : undefined
 });
@@ -403,6 +415,44 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   };
   const loanPaymentTotal = (l: LoanEntry) => (Number(l.principalPaid) || 0) + (Number(l.interestPaid) || 0);
 
+  // [추가] 법인카드 사용내역 - 카드·사용내역 줄 추가·삭제·수정 (통장 출금/입금 내역과 같은 패턴)
+  type CardGroup = NonNullable<AdminDoc['cardUsage']>['cards'][number];
+  type CardEntry = CardGroup['entries'][number];
+  const updateCards = (updater: (cards: CardGroup[]) => CardGroup[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const cardUsage = prev.cardUsage || { cards: [] };
+      return { ...prev, cardUsage: { ...cardUsage, cards: updater(cardUsage.cards || []) } };
+    });
+  };
+  const addCard = () => {
+    updateCards((cards) => [...cards, {
+      id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      cardName: '', cardNumber: '', holder: '',
+      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: new Date().toISOString().split('T')[0], project: '', user: '', note: '' }]
+    }]);
+  };
+  const removeCard = (cardId: string) => {
+    updateCards((cards) => cards.filter((c) => c.id !== cardId));
+  };
+  const updateCardField = (cardId: string, patch: Partial<Pick<CardGroup, 'cardName' | 'cardNumber' | 'holder'>>) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId ? { ...c, ...patch } : c));
+  };
+  const addCardEntry = (cardId: string) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId
+      ? { ...c, entries: [...c.entries, { id: `cue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, amount: 0, date: new Date().toISOString().split('T')[0], project: '', user: '', note: '' }] }
+      : c));
+  };
+  const removeCardEntry = (cardId: string, entryId: string) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c));
+  };
+  const updateCardEntry = (cardId: string, entryId: string, patch: Partial<CardEntry>) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId
+      ? { ...c, entries: c.entries.map((e) => e.id === entryId ? { ...e, ...patch } : e) }
+      : c));
+  };
+  const cardGroupTotal = (c: CardGroup) => c.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
   const handleSave = async () => {
     if (!editingDoc || !editingDoc.title?.trim()) {
       alert('제목을 입력해주세요.');
@@ -433,6 +483,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       // [추가] 대출이자 및 원금 상환 내역은 이번 출금(원금+이자) 합계를 amount 칸에 표시한다.
       if (payload.category === 'loan_repayment' && payload.loanRepayment) {
         const total = payload.loanRepayment.loans.reduce((sum, l) => sum + loanPaymentTotal(l), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 법인카드 사용내역은 전체 사용 금액 합계를 amount 칸에 표시한다.
+      if (payload.category === 'card_usage' && payload.cardUsage) {
+        const total = payload.cardUsage.cards.reduce((sum, c) => sum + c.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0), 0);
         payload.amount = String(total);
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
@@ -698,9 +753,18 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       total: acc.total + loanPaymentTotal(l)
     }), { balance: 0, principalPaid: 0, interestPaid: 0, total: 0 });
 
+    // [추가] "대출잔액" 칸 폭을, 그 아래로 이어지는 원금+이자+계 세 칸을 합친 폭과 같게
+    // 맞춰서 큰 금액도 잘리지 않고 잘 보이게 한다.
+    const colWidths = ['3%', '9%', '9%', '7%', '5%', '5%', '6%', '6%', '5%', '15%', '5%', '5%', '5%', '8%', '7%'];
+    const colGroup = (
+      <colgroup>
+        {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+      </colgroup>
+    );
+
     const headerRow = (
       <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
-        <td style={{ border: '1px solid #000', padding: '5px', width: '3%' }}>NO.</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>NO.</td>
         <td style={{ border: '1px solid #000', padding: '5px' }}>대출 명</td>
         <td style={{ border: '1px solid #000', padding: '5px' }}>대출 계좌</td>
         <td style={{ border: '1px solid #000', padding: '5px' }}>대출 금액(원)</td>
@@ -728,7 +792,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     return (
       <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
         <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>대출 현황</h1>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000', tableLayout: 'fixed' }}>
+          {colGroup}
           <thead>
             {headerRow}
             {subHeaderRow}
@@ -788,6 +853,89 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 법인카드 사용내역 인쇄용 화면. 공유해주신 양식대로 카드(소지자)별로 묶어서
+  // 사용 내역을 나열하고, 카드마다 소계 행, 맨 아래에 총계 행을 넣는다. 왼쪽 끝 "구분"
+  // 칸(카드명/카드번호/소지자)은 그 카드의 사용내역+소계 행 전체에 걸쳐 하나로 병합한다.
+  const renderPrintableCardUsage = () => {
+    if (!printingDoc || !printingDoc.cardUsage) return null;
+    const cardUsage = printingDoc.cardUsage;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const grandTotal = cardUsage.cards.reduce((s, c) => s + cardGroupTotal(c), 0);
+
+    return (
+      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>법인 카드 사용내역</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <colgroup>
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '25%' }} />
+          </colgroup>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>구분</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드명</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드번호</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>소지자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용 금액(원)</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용일자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>프로젝트명</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {cardUsage.cards.map((c, cardIdx) => (
+              <React.Fragment key={c.id}>
+                {c.entries.map((e, i) => (
+                  <tr key={e.id}>
+                    {i === 0 && (
+                      <>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700 }} rowSpan={c.entries.length + 1}>
+                          {cardIdx + 1}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={c.entries.length + 1}>
+                          {c.cardName}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={c.entries.length + 1}>
+                          {c.cardNumber}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={c.entries.length + 1}>
+                          {c.holder}
+                        </td>
+                      </>
+                    )}
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{e.date ? e.date.slice(5).replace('-', '월 ') + '일' : ''}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.project}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{e.user}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.note}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>합계</td>
+                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(cardGroupTotal(c))}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}></td>
+                </tr>
+              </React.Fragment>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }} colSpan={4}>총계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={4}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
   const renderActivePrintable = () => {
@@ -796,6 +944,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'monthly_cashflow') return renderPrintableCashflow();
     if (printingDoc.category === 'bank_withdrawal' || printingDoc.category === 'bank_deposit') return renderPrintableBankLedger();
     if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
+    if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     return null;
   };
 
@@ -894,7 +1043,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -1638,7 +1787,112 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && (
+                {/* [추가] 법인카드 사용내역 전용 구조화 입력. 카드(소지자)별로 묶어서 여러
+                사용 내역(금액/일자/프로젝트명/사용자/비고)을 입력하고, 카드마다 소계, 맨
+                아래 총계가 자동으로 표시된다. 통장 출금/입금 내역과 같은 구조다. */}
+                {activeCategory === 'card_usage' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600">카드별 사용 내역</label>
+                      <button type="button" onClick={addCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 카드 추가
+                      </button>
+                    </div>
+
+                    {(editingDoc.cardUsage?.cards || []).map((c) => (
+                      <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <input
+                            type="text"
+                            value={c.cardName}
+                            onChange={(e) => updateCardField(c.id, { cardName: e.target.value })}
+                            placeholder="카드명 (예: 국민카드)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.cardNumber || ''}
+                            onChange={(e) => updateCardField(c.id, { cardNumber: e.target.value })}
+                            placeholder="카드번호"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={c.holder}
+                              onChange={(e) => updateCardField(c.id, { holder: e.target.value })}
+                              placeholder="소지자"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            {(editingDoc.cardUsage?.cards.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeCard(c.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {c.entries.map((e) => (
+                            <div key={e.id} className="grid grid-cols-12 gap-1">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="사용금액"
+                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { date: ev.target.value })}
+                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={e.project || ''}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { project: ev.target.value })}
+                                placeholder="프로젝트명"
+                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={e.user || ''}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { user: ev.target.value })}
+                                placeholder="사용자"
+                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={e.note || ''}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { note: ev.target.value })}
+                                placeholder="비고"
+                                className="col-span-3 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => removeCardEntry(c.id, e.id)} className="col-span-1 flex items-center justify-center text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <button type="button" onClick={() => addCardEntry(c.id)} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" /> 사용내역 추가
+                          </button>
+                          <p className="text-[11px] text-slate-500">소계: <b className="text-slate-700">{formatCurrencyInput(cardGroupTotal(c))}원</b></p>
+                        </div>
+                      </div>
+                    ))}
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      총계: {formatCurrencyInput((editingDoc.cardUsage?.cards || []).reduce((s, c) => s + cardGroupTotal(c), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
