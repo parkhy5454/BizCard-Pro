@@ -110,9 +110,9 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   bankLedger: (category === 'bank_withdrawal' || category === 'bank_deposit') ? {
     accounts: [{
       id: `bacc-${Date.now()}`,
-      accountName: '',
       bankName: '',
       accountNumber: '',
+      subCategory: '',
       entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
     }]
   } : undefined
@@ -331,19 +331,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const addBankAccount = () => {
     updateBankAccounts((accounts) => [...accounts, {
       id: `bacc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      accountName: '',
       bankName: '',
       accountNumber: '',
+      subCategory: '',
       entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
     }]);
   };
   const removeBankAccount = (accId: string) => {
     updateBankAccounts((accounts) => accounts.filter((a) => a.id !== accId));
   };
-  const updateBankAccountName = (accId: string, accountName: string) => {
-    updateBankAccounts((accounts) => accounts.map((a) => a.id === accId ? { ...a, accountName } : a));
-  };
-  const updateBankAccountField = (accId: string, patch: Partial<Pick<BankAccount, 'bankName' | 'accountNumber'>>) => {
+  const updateBankAccountField = (accId: string, patch: Partial<Pick<BankAccount, 'bankName' | 'accountNumber' | 'subCategory'>>) => {
     updateBankAccounts((accounts) => accounts.map((a) => a.id === accId ? { ...a, ...patch } : a));
   };
   const addBankEntry = (accId: string) => {
@@ -502,9 +499,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
   // [추가] 월별 자금 현황 인쇄용 화면. 공유해주신 "N월 자금현황" 표 양식(NO/구분/이월금/
   // 입금/출금/통장잔액/비고 + 합계)을 그대로 재현한다.
-  // [추가] 은행명+계좌번호+구분을 "하나(13004)_급여/외화송금/카드대금"처럼 사람이 보기
-  // 좋은 한 줄로 합쳐준다. 인쇄 화면의 "구분" 칸에 쓰인다.
-  const cashflowAccountLabel = (a: { bankName?: string; accountNumber?: string; subCategory?: string }) => {
+  // [수정] 은행명+계좌번호+구분을 "하나(13004)_급여/외화송금/카드대금"처럼 사람이 보기
+  // 좋은 한 줄로 합쳐준다. 자금 현황과 통장 출금/입금 내역이 이제 같은 구조(은행/계좌번호/
+  // 구분)를 쓰므로, 인쇄 화면에서 둘 다 이 함수 하나를 공용으로 쓴다.
+  const accountLabel = (a: { bankName?: string; accountNumber?: string; subCategory?: string }) => {
     const parts = [a.bankName, a.accountNumber].filter(Boolean).join(' ');
     return [parts, a.subCategory].filter(Boolean).join('_') || '(계좌 미입력)';
   };
@@ -548,7 +546,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             {c.accounts.map((a, i) => (
               <tr key={a.id}>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{i + 1}</td>
-                <td style={{ border: '1px solid #000', padding: '6px' }}>{cashflowAccountLabel(a)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{accountLabel(a)}</td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.broughtForward)}</td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.deposit)}</td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.withdrawal)}</td>
@@ -608,14 +606,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                     <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.note}</td>
                     {i === 0 && (
                       <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700 }} rowSpan={acc.entries.length + 1}>
-                        {acc.accountName}
+                        {accountLabel(acc)}
                       </td>
                     )}
                   </tr>
                 ))}
                 <tr style={{ background: '#f2f2f2', fontWeight: 700 }}>
                   <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'center' }} colSpan={2}>
-                    {acc.accountName} {isWithdrawal ? '출금' : '입금'} 합계({accIdx + 1})
+                    {accountLabel(acc)} {isWithdrawal ? '출금' : '입금'} 합계({accIdx + 1})
                   </td>
                   <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'right' }}>{fmt(bankAccountTotal(acc))}</td>
                   <td style={{ border: '1px solid #000', padding: '5px 6px' }} colSpan={2}></td>
@@ -1188,38 +1186,38 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                     {(editingDoc.bankLedger?.accounts || []).map((acc) => (
                       <div key={acc.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={acc.accountName}
-                            onChange={(e) => updateBankAccountName(acc.id, e.target.value)}
-                            placeholder="표시 이름 (예: 기업(011), 하나(13004))"
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                          {(editingDoc.bankLedger?.accounts.length || 0) > 1 && (
-                            <button type="button" onClick={() => removeBankAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                        {/* [추가] 은행명·계좌번호를 별도로 입력해두면, 월별 자금 현황에서
-                        같은 은행+계좌를 쓰는 계좌와 자동으로 매칭해서 입금/출금 합계를
-                        맞춰볼 수 있다. */}
-                        <div className="grid grid-cols-2 gap-1.5">
+                        {/* [수정] 자금 현황과 완전히 똑같은 구조(은행/계좌번호/구분)로
+                        통일했다. 표시 이름을 따로 안 만들어도, 인쇄/목록에서는 이 세 값을
+                        합쳐서 "하나은행(13004)_급여" 같은 형태로 자동으로 보여준다. */}
+                        <div className="grid grid-cols-3 gap-1.5">
                           <input
                             type="text"
                             value={acc.bankName || ''}
                             onChange={(e) => updateBankAccountField(acc.id, { bankName: e.target.value })}
                             placeholder="은행 (예: 하나은행)"
-                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <input
                             type="text"
                             value={acc.accountNumber || ''}
                             onChange={(e) => updateBankAccountField(acc.id, { accountNumber: e.target.value })}
                             placeholder="계좌번호"
-                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={acc.subCategory || ''}
+                              onChange={(e) => updateBankAccountField(acc.id, { subCategory: e.target.value })}
+                              placeholder="구분 (예: 급여/카드대금)"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            {(editingDoc.bankLedger?.accounts.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeBankAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         <div className="space-y-1.5">
