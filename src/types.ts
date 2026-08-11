@@ -201,6 +201,12 @@ export interface RegisteredUser extends User {
   //   토스 정책상 한 번 발급되면 다시 조회할 수 없으므로, 발급 즉시 안전하게 저장해야 한다.
   tossCustomerKey?: string;
   tossBillingKey?: string;
+  // [추가] 애플 캘린더(아이폰/아이패드/맥) 구독 연동용 토큰. 캘린더 앱은 로그인 세션 없이
+  // 그냥 URL 하나로 주기적으로 GET 요청만 보내기 때문에, x-user-id 헤더 같은 일반
+  // 인증 방식을 못 쓴다. 대신 추측 불가능한 무작위 토큰을 URL에 담아서 그 사람(회사
+  // 스코프)을 식별한다. 최초로 "Apple 캘린더 연동" 기능을 켤 때 한 번 생성되고, 이후
+  // 계속 재사용된다.
+  calendarFeedToken?: string;
 }
 
 // === 통합 차량 관리 (Vehicle Management) ===
