@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer } from 'lucide-react';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
@@ -37,6 +37,30 @@ const SECTION_LABEL: Record<AdminDocSection, string> = {
   accounting: '회계관리'
 };
 
+// [추가] 4대보험·지방소득세 공제율 기본값 (2026년 기준, 근로자 부담분). 국세청/공단 요율은
+// 매년 바뀌기 때문에, 이 값은 어디까지나 "처음 열었을 때 채워지는 기본값"일 뿐이고 화면에서
+// 언제든 직접 고쳐서 쓸 수 있다. 마지막으로 쓴 값은 브라우저(localStorage)에 저장해뒀다가
+// 다음에 급여명세서를 새로 만들 때 그대로 불러온다.
+const DEFAULT_RATES = {
+  pensionRate: 4.75,
+  healthRate: 3.595,
+  ltcRate: 13.14,
+  employmentRate: 0.9,
+  localTaxRate: 10
+};
+const RATES_STORAGE_KEY = 'bizcard_payslip_rates';
+
+function loadSavedRates(): typeof DEFAULT_RATES {
+  try {
+    const raw = localStorage.getItem(RATES_STORAGE_KEY);
+    if (!raw) return DEFAULT_RATES;
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_RATES, ...parsed };
+  } catch {
+    return DEFAULT_RATES;
+  }
+}
+
 const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   category,
   title: '',
@@ -48,14 +72,16 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   // [추가] 급여명세서용 기본값. 다른 서류에서는 그냥 안 쓰이고 무시된다.
   // 지급/공제 내역은 회사에서 거의 항상 쓰는 항목들을 미리 깔아두고, 필요하면 "항목 추가"로
   // 더 늘리거나 X로 지워서 쓸 수 있게 한다 — 매번 기본급부터 손으로 다 치는 걸 줄여준다.
+  // 식대·차량유지비는 비과세 항목이라 4대보험 계산 기준(과세 대상 급여)에서 빠지도록
+  // taxable: false로 시작한다.
   payslip: category === 'payslip' ? {
     payMonth: new Date().toISOString().slice(0, 7),
     paymentDate: new Date().toISOString().split('T')[0],
     payItems: [
-      { id: `li-${Date.now()}-1`, label: '기본급', amount: 0 },
-      { id: `li-${Date.now()}-2`, label: '연장수당', amount: 0 },
-      { id: `li-${Date.now()}-3`, label: '식대', amount: 0 },
-      { id: `li-${Date.now()}-4`, label: '차량유지비', amount: 0 }
+      { id: `li-${Date.now()}-1`, label: '기본급', amount: 0, taxable: true },
+      { id: `li-${Date.now()}-2`, label: '연장수당', amount: 0, taxable: true },
+      { id: `li-${Date.now()}-3`, label: '식대', amount: 0, taxable: false },
+      { id: `li-${Date.now()}-4`, label: '차량유지비', amount: 0, taxable: false }
     ],
     deductionItems: [
       { id: `li-${Date.now()}-5`, label: '국민연금', amount: 0 },
@@ -64,13 +90,43 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       { id: `li-${Date.now()}-8`, label: '고용보험', amount: 0 },
       { id: `li-${Date.now()}-9`, label: '소득세', amount: 0 },
       { id: `li-${Date.now()}-10`, label: '지방소득세', amount: 0 }
-    ]
+    ],
+    rates: loadSavedRates()
   } : undefined
 });
 
 // 급여명세서 지급/공제 내역 합계 계산
 function sumItems(items?: AdminDocLineItem[]): number {
   return (items || []).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+}
+
+// [추가] 4대보험료 등을 요율에 맞춰 자동 계산한다. 소득세는 국세청 근로소득 간이세액표
+// (부양가족 수 등에 따라 달라짐)를 따로 봐야 해서 자동 계산 대상에서 제외하고 직접
+// 입력한 값을 그대로 쓴다 — 대신 지방소득세는 "소득세 × 지방소득세율"로 정확히 계산된다.
+function calcDeductions(
+  payItems: AdminDocLineItem[],
+  currentDeductions: AdminDocLineItem[],
+  rates: { pensionRate: number; healthRate: number; ltcRate: number; employmentRate: number; localTaxRate: number }
+): AdminDocLineItem[] {
+  // 과세 대상 급여(비과세 항목 제외) 합계
+  const taxableBase = payItems.filter((it) => it.taxable !== false).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+  const round = (n: number) => Math.round(n);
+
+  const findIncomeTax = currentDeductions.find((it) => it.label.replace(/\s/g, '') === '소득세')?.amount || 0;
+  const healthAmount = round(taxableBase * (rates.healthRate / 100));
+
+  const computed: Record<string, number> = {
+    '국민연금': round(taxableBase * (rates.pensionRate / 100)),
+    '건강보험': healthAmount,
+    '장기요양보험료': round(healthAmount * (rates.ltcRate / 100)),
+    '고용보험': round(taxableBase * (rates.employmentRate / 100)),
+    '지방소득세': round(findIncomeTax * (rates.localTaxRate / 100))
+  };
+
+  return currentDeductions.map((it) => {
+    const key = it.label.replace(/\s/g, '');
+    return key in computed ? { ...it, amount: computed[key] } : it;
+  });
 }
 
 export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
@@ -148,6 +204,30 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const updatePayslipItem = (kind: 'payItems' | 'deductionItems', id: string, patch: Partial<AdminDocLineItem>) => {
     updatePayslipItems(kind, (items) => items.map((it) => it.id === id ? { ...it, ...patch } : it));
   };
+
+  // [추가] 지금 입력된 지급 내역과 공제율을 기준으로 4대보험료 등을 자동으로 계산해서
+  // 공제 내역 금액을 채워 넣는다. 소득세는 계산 대상이 아니라 직접 입력해야 하고, 지방소득세는
+  // 그 소득세 값을 기준으로 계산된다(소득세를 먼저 입력한 뒤 자동 계산을 눌러야 정확하다).
+  const handleAutoCalcDeductions = () => {
+    setEditingDoc((prev) => {
+      if (!prev || !prev.payslip) return prev;
+      const rates = prev.payslip.rates || DEFAULT_RATES;
+      const newDeductions = calcDeductions(prev.payslip.payItems || [], prev.payslip.deductionItems || [], rates);
+      return { ...prev, payslip: { ...prev.payslip, deductionItems: newDeductions } };
+    });
+  };
+
+  const updateRate = (key: keyof typeof DEFAULT_RATES, value: number) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const payslip = prev.payslip || { payItems: [], deductionItems: [] };
+      const rates = { ...(payslip.rates || DEFAULT_RATES), [key]: value };
+      try { localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify(rates)); } catch { /* 저장 실패해도 무시 */ }
+      return { ...prev, payslip: { ...payslip, rates } };
+    });
+  };
+
+  const [showRateSettings, setShowRateSettings] = useState(false);
 
   // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
   const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
@@ -562,6 +642,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                               placeholder="0"
                               className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
                             />
+                            {/* [추가] 비과세 항목(식대·차량유지비 등)은 4대보험 자동계산 기준
+                            (과세 대상 급여)에서 빼야 해서, 항목별로 직접 체크할 수 있게 한다. */}
+                            <label className="flex items-center gap-1 text-[10px] text-slate-500 whitespace-nowrap shrink-0" title="체크 해제하면 비과세 처리되어 4대보험 자동계산에서 제외됩니다">
+                              <input
+                                type="checkbox"
+                                checked={it.taxable !== false}
+                                onChange={(e) => updatePayslipItem('payItems', it.id, { taxable: e.target.checked })}
+                                className="w-3 h-3"
+                              />
+                              과세
+                            </label>
                             <button type="button" onClick={() => removePayslipItem('payItems', it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -570,6 +661,53 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                       </div>
                       <p className="text-right text-[11px] text-slate-500 mt-1.5">지급액 계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.payslip?.payItems))}원</b></p>
                     </div>
+
+                    {/* [추가] 4대보험 등 공제율 설정. 요율은 매년 바뀌므로 여기서 직접 고칠 수
+                    있게 하고, "자동 계산"을 누르면 지급 내역(비과세 항목 제외) 합계에 이 요율을
+                    곱해서 공제 내역 금액을 채운다. 소득세만 국세청 간이세액표 기준이라 자동
+                    계산이 안 되니 직접 입력해야 하고, 지방소득세는 그 소득세의 10%(조정 가능)로
+                    계산된다. */}
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowRateSettings((v) => !v)}
+                        className="w-full flex items-center justify-between px-2.5 py-2 bg-white text-[11px] font-bold text-slate-600"
+                      >
+                        <span className="flex items-center gap-1"><Percent className="w-3 h-3" /> 공제율 설정 (매년 변경될 수 있음)</span>
+                        <span className="text-slate-400">{showRateSettings ? '접기' : '펼치기'}</span>
+                      </button>
+                      {showRateSettings && (
+                        <div className="p-2.5 bg-white border-t border-slate-200 grid grid-cols-2 gap-2">
+                          {([
+                            ['pensionRate', '국민연금 (%)'],
+                            ['healthRate', '건강보험 (%)'],
+                            ['ltcRate', '장기요양보험료 (건강보험료 대비 %)'],
+                            ['employmentRate', '고용보험 (%)'],
+                            ['localTaxRate', '지방소득세 (소득세 대비 %)']
+                          ] as [keyof typeof DEFAULT_RATES, string][]).map(([key, label]) => (
+                            <div key={key}>
+                              <label className="block text-[10px] text-slate-500 mb-0.5">{label}</label>
+                              <input
+                                type="number"
+                                step="0.001"
+                                value={editingDoc.payslip?.rates?.[key] ?? DEFAULT_RATES[key]}
+                                onChange={(e) => updateRate(key, Number(e.target.value))}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAutoCalcDeductions}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition-colors"
+                    >
+                      <Calculator className="w-3.5 h-3.5" />
+                      위 공제율로 4대보험료 자동 계산 (소득세는 직접 입력)
+                    </button>
 
                     {/* 공제 내역 */}
                     <div>
