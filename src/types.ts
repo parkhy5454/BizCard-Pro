@@ -91,6 +91,42 @@ export interface ProjectFollowUpAttachment {
   size?: number;      // 바이트 단위 파일 크기 (표시용)
 }
 
+// [추가] "경영지원"/"회계관리" 탭 - 관리자만 볼 수 있는 회사 서류·장부 보관함.
+// 서류 종류(근로계약서, 급여명세서 등)마다 필요한 항목이 조금씩 다르지만, 실제로는
+// "제목 + 날짜 + 관련자 + 금액(있으면) + 메모 + 첨부파일" 정도로 충분히 다 담을 수 있어서,
+// 12개 종류를 전부 따로 만들지 않고 하나의 공용 구조에 category만 다르게 저장한다.
+export type AdminDocSection = 'management' | 'accounting';
+export type AdminDocCategory =
+  // 경영지원
+  | 'labor_contract'      // 근로계약서
+  | 'salary_agreement'    // 연봉협약서
+  | 'employment_cert'     // 재직증명서
+  | 'office_supplies'     // 사무실 비품 관리
+  | 'sales_contract'      // 영업 계약
+  | 'corp_card'           // 법인카드 관리
+  // 회계관리
+  | 'payslip'             // 급여명세서
+  | 'severance'           // 퇴직금 정산
+  | 'monthly_cashflow'    // 월별 자금 현황
+  | 'bank_withdrawal'     // 통장 출금 내역
+  | 'bank_deposit'        // 통장 입금 내역
+  | 'loan_repayment';     // 대출이자 및 원금 상환 내역
+
+export interface AdminDoc {
+  id: string;
+  section: AdminDocSection;
+  category: AdminDocCategory;
+  title: string;          // 제목 (예: "2026년 홍길동 근로계약서")
+  date: string;            // 기준 날짜 (YYYY-MM-DD) - 계약일, 지급일, 거래일 등
+  personName?: string;     // 관련자/거래처명 (직원명, 카드 소지자, 거래처 등)
+  amount?: string;         // 금액 (있는 경우) - 문자열로 저장, 표시할 때 콤마 포맷팅
+  memo?: string;
+  attachments?: ProjectFollowUpAttachment[]; // 계약서/명세서 등 첨부파일(PDF, 이미지 등)
+  createdByUserId?: string;
+  createdByUserName?: string;
+  createdAt: string;
+}
+
 export interface MeetingExpenseItem {
   id: string;
   category: 'meal' | 'drinks' | 'purchase' | 'service_fee' | 'custom'; // 식대 / 음료(커피) / 물품 구입 / 식사 서비스 비용 / 직접 입력

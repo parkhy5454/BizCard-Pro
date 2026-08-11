@@ -26,6 +26,7 @@ import { UserDirectoryModal } from './components/UserDirectoryModal.js';
 import { VehicleView } from './components/VehicleView.js';
 import { WorkLogsView } from './components/WorkLogsView.js';
 import { ElectronicApprovalView } from './components/ElectronicApprovalView.js';
+import { AdminDocsView } from './components/AdminDocsView.js';
 import { LegalModal } from './components/LegalModal.js';
 
 export default function App() {
@@ -36,7 +37,7 @@ export default function App() {
   });
 
   // 메인 내비게이션 탭 상태
-  const [activeTab, setActiveTab] = useState<'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals'>('cards');
+  const [activeTab, setActiveTab] = useState<'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -528,6 +529,22 @@ export default function App() {
             {/* 탭 8: 전자결재 (가지급금 정산서 / 휴가 신청서) 뷰 */}
             {activeTab === 'approvals' && (
               <ElectronicApprovalView 
+                currentUser={currentUser}
+              />
+            )}
+
+            {/* 탭 9/10: 경영지원 / 회계관리 - 관리자만 접근 가능. Navigation에서도 관리자에게만
+            탭 자체가 보이지만, 직접 URL 조작 등으로 우회하는 경우를 대비해 화면 진입 시점에도
+            한 번 더 권한을 확인한다. */}
+            {activeTab === 'management' && currentUser?.role === 'admin' && (
+              <AdminDocsView
+                section="management"
+                currentUser={currentUser}
+              />
+            )}
+            {activeTab === 'accounting' && currentUser?.role === 'admin' && (
+              <AdminDocsView
+                section="accounting"
                 currentUser={currentUser}
               />
             )}
