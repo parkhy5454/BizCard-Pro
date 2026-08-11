@@ -967,7 +967,14 @@ const PENDING_APPROVAL_ALLOWED_PATHS = new Set([
   // 로그인 세션 요구 게이트에서는 예외로 통과시켜준다 — 안 그러면 크론이 애초에 호출을
   // 못 해서(사람이 로그인한 세션이 없으니) 아무 때도 자동으로 못 돈다.
   '/api/billing/run-scheduled',
-  '/api/admin/run-company-summary-batch'
+  '/api/admin/run-company-summary-batch',
+  // [추가] 애플 캘린더(아이폰/아이패드/맥) 구독 피드. 캘린더 앱은 로그인 세션 없이
+  // URL 하나만 주기적으로 GET 요청하는 방식이라, x-user-id 로그인 세션 헤더를 절대
+  // 보내지 않는다. 이 라우트는 URL에 담긴 무작위 토큰으로 자체적으로 사용자를 식별하고
+  // 있으니(server.ts의 app.get('/api/worklogs/calendar.ics', ...) 참고), 로그인 세션
+  // 요구 게이트에서는 예외로 통과시켜야 한다 — 안 그러면 항상 401(sessionExpired)로
+  // 막혀서 캘린더 앱이 절대 내용을 받아올 수 없다.
+  '/api/worklogs/calendar.ics'
 ]);
 
 app.use((req, res, next) => {
