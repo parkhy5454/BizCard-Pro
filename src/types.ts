@@ -167,10 +167,16 @@ export interface AdminDoc {
     periodEnd?: string;   // 집계 종료일 (YYYY-MM-DD)
     accounts: {
       id: string;
-      name: string;         // 구분 (예: "하나(13004)_급여/외화송금/카드대금")
+      // [수정] 예전엔 "구분" 한 칸에 은행/계좌/용도를 다 합쳐서 문자열로 적었는데, 이러면
+      // 통장 입금/출금 내역과 "같은 통장"인지 프로그램이 알아볼 방법이 없었다. 은행명·
+      // 계좌번호를 별도 필드로 분리해서, 같은 은행+계좌를 쓰는 입금/출금 내역과 자동으로
+      // 매칭해 금액을 맞출 수 있게 한다.
+      bankName?: string;      // 은행 (예: "하나은행")
+      accountNumber?: string; // 계좌번호 (예: "110-123-456789")
+      subCategory?: string;   // 구분/용도 (예: "급여/외화송금/카드대금")
       broughtForward: number; // 이월금(원) - 전월에서 넘어온 잔액
-      deposit: number;        // 입금(원)
-      withdrawal: number;     // 출금(원)
+      deposit: number;        // 입금(원) - 직접 입력하거나 "자동 불러오기"로 입금내역에서 합산
+      withdrawal: number;     // 출금(원) - 직접 입력하거나 "자동 불러오기"로 출금내역에서 합산
       note?: string;           // 비고
     }[];
   };
@@ -180,7 +186,11 @@ export interface AdminDoc {
   bankLedger?: {
     accounts: {
       id: string;
-      accountName: string; // 출금(입금)통장 (예: "기업(011)", "하나(13004)")
+      accountName: string;    // 화면/인쇄에 보여줄 통장 이름 (예: "기업(011)", "하나(13004)")
+      // [추가] 월별 자금 현황과 같은 은행/계좌 기준으로 자동 합산하기 위한 식별 필드.
+      // accountName은 사람이 보기 좋은 이름이고, 이 둘은 매칭용 "키" 역할이다.
+      bankName?: string;      // 은행 (예: "하나은행")
+      accountNumber?: string; // 계좌번호
       entries: {
         id: string;
         date: string;         // 일자 (YYYY-MM-DD)
