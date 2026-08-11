@@ -4,8 +4,8 @@ import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
-  activeTab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals';
-  setActiveTab: (tab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals') => void;
+  activeTab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting';
+  setActiveTab: (tab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting') => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedGroup: string;
@@ -347,6 +347,35 @@ export const Navigation: React.FC<Props> = ({
               <FileSignature className="w-4 h-4 text-indigo-400" />
               <span>전자결재</span>
             </button>
+
+            {/* [추가] 경영지원 / 회계관리 - 관리자(role: 'admin')만 보이는 탭. 회사 서류·장부는
+            민감한 정보라서, 관리자가 아닌 일반 직원에게는 탭 자체를 아예 노출하지 않는다. */}
+            {currentUser?.role === 'admin' && (
+              <>
+                <button
+                  onClick={() => setActiveTab('management')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                    activeTab === 'management'
+                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4 text-indigo-400" />
+                  <span>경영지원</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('accounting')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                    activeTab === 'accounting'
+                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4 text-indigo-400" />
+                  <span>회계관리</span>
+                </button>
+              </>
+            )}
           </nav>
 
           {/* 명함 등록 / 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (전체 명함과 이 줄에서 이동하는 탭들에서 계속 노출) */}
