@@ -417,28 +417,55 @@ export async function deleteScopedDoc(scopeId: string, collectionName: string, d
 }
 
 // 컬렉션 전체를 통째로 교체 (필터/일괄재계산 후 한 번에 반영할 때 사용: 예) 업무일지-차량비용 동기화)
+// [수정] 예전엔 "그 스코프+컬렉션의 모든 행을 삭제한 다음, 새 목록을 통째로 insert"하는
+// 방식이었다. 그런데 같은 컬렉션(예: expenses)에 대해 거의 동시에 두 번 호출되면(예:
+// 사용자가 두 번 연속 저장을 누르거나, 서로 다른 요청이 겹치면), 한쪽이 delete를 마치고
+// insert하는 사이에 다른 쪽도 자기 목록을 insert하려다가 "이미 존재하는 doc_id"에
+// 걸려서 23505(duplicate key) 에러로 죽는 경우가 있었다.
+// insert 대신 upsert(onConflict)를 쓰면, 이미 같은 doc_id의 행이 있어도 에러 없이
+// 최신 값으로 덮어써서 이 크래시 자체가 나지 않는다. 그리고 "완전히 삭제된 항목"만
+// 별도로 지워서(새 목록에 없는 doc_id만 delete), 저장 도중 겹치는 창(delete~insert
+// 사이 시간)을 최소화한다.
 export async function replaceScopedCollection<T extends { id: string }>(scopeId: string, collectionName: string, items: T[]): Promise<void> {
   if (!isSupabaseConfigured) return;
+
+  if (items.length === 0) {
+    // 새 목록이 완전히 비었으면 그 스코프+컬렉션의 기존 행을 전부 지운다.
+    const { error: deleteError } = await supabase
+      .from('scoped_items')
+      .delete()
+      .eq('scope_id', scopeId)
+      .eq('collection', collectionName);
+    if (deleteError) console.error(`replaceScopedCollection delete-all(${scopeId}, ${collectionName}) error:`, deleteError);
+    return;
+  }
+
+  // 새 목록에 없는(=삭제된) 기존 항목만 지운다. 살아있는 항목은 지웠다가 다시 넣지
+  // 않고 upsert로 그 자리에서 갱신하므로, delete~insert 사이에 다른 요청이 끼어들
+  // 여지가 줄어든다.
+  const currentIds = items.map((item) => item.id);
   const { error: deleteError } = await supabase
     .from('scoped_items')
     .delete()
     .eq('scope_id', scopeId)
-    .eq('collection', collectionName);
+    .eq('collection', collectionName)
+    .not('doc_id', 'in', `(${currentIds.map((id) => `"${String(id).replace(/"/g, '\\"')}"`).join(',')})`);
   if (deleteError) {
-    console.error(`replaceScopedCollection delete(${scopeId}, ${collectionName}) error:`, deleteError);
+    console.error(`replaceScopedCollection delete-stale(${scopeId}, ${collectionName}) error:`, deleteError);
     return;
   }
-  if (items.length) {
-    const rows = items.map(item => ({
-      scope_id: scopeId,
-      collection: collectionName,
-      doc_id: item.id,
-      data: item,
-      updated_at: new Date().toISOString()
-    }));
-    const { error: insertError } = await supabase.from('scoped_items').insert(rows);
-    if (insertError) console.error(`replaceScopedCollection insert(${scopeId}, ${collectionName}) error:`, insertError);
-  }
+
+  const rows = items.map(item => ({
+    scope_id: scopeId,
+    collection: collectionName,
+    doc_id: item.id,
+    data: item,
+    updated_at: new Date().toISOString()
+  }));
+  const { error: upsertError } = await supabase
+    .from('scoped_items')
+    .upsert(rows, { onConflict: 'scope_id,collection,doc_id' });
+  if (upsertError) console.error(`replaceScopedCollection upsert(${scopeId}, ${collectionName}) error:`, upsertError);
 }
 
 // ------------------------------------------------------------------
