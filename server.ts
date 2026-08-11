@@ -3800,6 +3800,126 @@ function syncWorkLogExpenses(dbData: any, logId: string, logDate: string, logTit
   });
 }
 
+// [추가] 애플 캘린더(아이폰/아이패드/맥) 연동용 API.
+// 1) POST로 이 사용자(회사 스코프)의 구독용 토큰 URL을 발급/조회한다 (로그인 세션 필요).
+// 2) GET .ics 피드는 애플 캘린더 앱이 로그인 없이 주기적으로 그냥 URL만 불러가므로,
+//    x-user-id 헤더 대신 URL에 담긴 토큰으로 스코프를 식별한다.
+app.post('/api/worklogs/calendar-token', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const user = userId ? users.find(u => u.id === userId) : undefined;
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  if (!user.calendarFeedToken) {
+    user.calendarFeedToken = crypto.randomBytes(24).toString('hex');
+    await addUser(user);
+  }
+
+  const host = req.get('host');
+  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+  res.json({
+    token: user.calendarFeedToken,
+    feedUrl: `${protocol}://${host}/api/worklogs/calendar.ics?token=${user.calendarFeedToken}`,
+    // webcal:// 스킴은 아이폰/아이패드/맥에서 링크를 누르면 캘린더 앱이 바로 "구독 추가"
+    // 화면을 띄워준다 (https 링크는 그냥 브라우저에서 텍스트로 열려버림).
+    webcalUrl: `webcal://${host}/api/worklogs/calendar.ics?token=${user.calendarFeedToken}`
+  });
+});
+
+// [추가] 실제 .ics(iCalendar) 피드. 업무일지(일일/주간)에 적힌 항목들을 일정으로 변환한다.
+// 캘린더 탭에서 보여주는 것과 같은 항목(회사 전체 업무일지)을 그대로 담아서, 앱 화면과
+// 애플 캘린더에 보이는 내용이 서로 다르지 않게 한다.
+function icsEscape(text: string): string {
+  return (text || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+function icsDateTime(dateStr: string, timeStr?: string): string {
+  // timeStr("HH:MM")가 있으면 그 시각으로, 없으면 해당 날짜 자정(00:00)으로 표기한다.
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [hh, mm] = (timeStr || '00:00').split(':').map(Number);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${y}${pad(m)}${pad(d)}T${pad(hh || 0)}${pad(mm || 0)}00`;
+}
+
+app.get('/api/worklogs/calendar.ics', (req, res) => {
+  const token = req.query.token as string;
+  const user = token ? users.find(u => u.calendarFeedToken === token) : undefined;
+  if (!user) return res.status(404).send('유효하지 않은 캘린더 구독 링크입니다.');
+
+  const scopeId = scopeIdForUser(user);
+  const dbData = db[scopeId] || { dailyLogs: [], weeklyLogs: [] };
+
+  const events: string[] = [];
+  const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+  for (const l of dbData.dailyLogs || []) {
+    const entries = (l.taskEntriesToday && l.taskEntriesToday.length > 0)
+      ? l.taskEntriesToday
+      : (l.tasksToday && l.tasksToday.trim() ? [{ id: 'legacy', content: l.tasksToday }] : []);
+    for (const t of entries) {
+      if (!t.content || !t.content.trim()) continue;
+      const start = icsDateTime(l.date, t.startTime);
+      const end = icsDateTime(l.date, t.endTime || t.startTime);
+      events.push([
+        'BEGIN:VEVENT',
+        `UID:daily-${l.id}-${t.id}@bizcard-pro`,
+        `DTSTAMP:${now}`,
+        `DTSTART:${start}`,
+        `DTEND:${end}`,
+        `SUMMARY:${icsEscape(`[업무일지] ${l.author || ''} ${t.content}`.trim())}`,
+        `DESCRIPTION:${icsEscape(t.content)}`,
+        'END:VEVENT'
+      ].join('\r\n'));
+    }
+  }
+
+  const dayKeys: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  for (const wl of dbData.weeklyLogs || []) {
+    if (!wl.startDate) continue;
+    const start = new Date(wl.startDate);
+    dayKeys.forEach((key, offset) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + offset);
+      const dateStr = d.toISOString().split('T')[0];
+
+      const structured = wl.achievementEntriesByDay?.[key];
+      const entries = (structured && structured.length > 0)
+        ? structured
+        : (wl.achievementsByDay?.[key]?.trim() ? [{ id: 'legacy', content: wl.achievementsByDay![key]! }] : []);
+
+      for (const t of entries) {
+        if (!t.content || !t.content.trim()) return;
+        const s = icsDateTime(dateStr, t.startTime);
+        const e = icsDateTime(dateStr, t.endTime || t.startTime);
+        events.push([
+          'BEGIN:VEVENT',
+          `UID:weekly-${wl.id}-${key}-${t.id}@bizcard-pro`,
+          `DTSTAMP:${now}`,
+          `DTSTART:${s}`,
+          `DTEND:${e}`,
+          `SUMMARY:${icsEscape(`[업무일지] ${wl.author || ''} ${t.content}`.trim())}`,
+          `DESCRIPTION:${icsEscape(t.content)}`,
+          'END:VEVENT'
+        ].join('\r\n'));
+      }
+    });
+  }
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//BizCard Pro AI//WorkLogs Calendar//KO',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:BizCard Pro 업무일지',
+    'X-WR-TIMEZONE:Asia/Seoul',
+    ...events,
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', 'inline; filename="bizcard-pro-worklogs.ics"');
+  res.send(ics);
+});
+
 // 일일 업무일지 CRUD
 app.get('/api/worklogs/daily', (req, res) => {
   const dbData = getScopedData(req);
