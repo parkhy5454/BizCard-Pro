@@ -275,6 +275,30 @@ export default function App() {
     }
   };
 
+  // [추가] 그룹 공개 설정 토글. 명함 하나하나에 있던 "나만 보기(비공개)"를 그룹 단위로도
+  // 걸 수 있게 한다 — 그룹을 비공개로 켜면, 그룹 자체(필터 칩/그룹 관리 목록)와 그 안에
+  // 속한 명함이 다른 사람에게 함께 숨겨진다(서버 /api/contacts, /api/groups에서 필터링).
+  const handleToggleGroupPrivate = async (id: string, isPrivate: boolean) => {
+    try {
+      const res = await fetch(`/api/groups/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify({ isPrivate })
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        throw new Error(`그룹 공개 설정 변경에 실패했습니다 (상태: ${res.status}).`);
+      }
+      const updated = await res.json();
+      setGroups(prev => prev.map(g => g.id === id ? updated : g));
+    } catch (err: any) {
+      alert(`그룹 공개 설정 변경에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    }
+  };
+
   // 7. 그룹 삭제
   const handleDeleteGroup = async (id: string) => {
     try {
@@ -448,9 +472,11 @@ export default function App() {
               <GroupModal
                 groups={groups}
                 contacts={contacts}
+                currentUser={currentUser}
                 onCreateGroup={handleCreateGroup}
                 onUpdateGroup={handleUpdateGroup}
                 onDeleteGroup={handleDeleteGroup}
+                onTogglePrivate={handleToggleGroupPrivate}
               />
             )}
 

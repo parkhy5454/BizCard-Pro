@@ -58,6 +58,14 @@ export interface ContactGroup {
   name: string;
   color: string;
   count?: number;
+  // [추가] 그룹 자체를 "나만 보기(비공개)"로 설정할 수 있게 한다. 예전엔 명함 하나하나에만
+  // 공개/비공개를 정할 수 있어서, 그룹에 새로 들어오는 명함마다 매번 손으로 다시 비공개
+  // 처리해야 했고, 그룹 이름 자체(필터 칩, 그룹 관리 목록)는 항상 회사 전체에 보였다.
+  // 그룹에 공개 설정을 두면 그룹 자체도 숨길 수 있고, 그 안에 속한 명함도 함께 숨겨진다
+  // (명함 각각의 개별 isPrivate 설정과 별개로, 그룹 비공개가 우선 적용된다).
+  createdByUserId?: string;
+  createdByUserName?: string;
+  isPrivate?: boolean; // true면 "나만 보기(비공개)" - 만든 본인에게만 보임
 }
 
 export interface ScanCardResult {
