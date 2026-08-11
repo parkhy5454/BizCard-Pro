@@ -174,6 +174,23 @@ export interface AdminDoc {
       note?: string;           // 비고
     }[];
   };
+  // [추가] 통장 출금/입금 내역(category: 'bank_withdrawal' | 'bank_deposit') 공용 구조화
+  // 필드. 두 카테고리가 "통장(계좌)별로 날짜/프로젝트/금액/거래내용/비고가 여러 줄, 계좌마다
+  // 소계, 맨 아래 총합계" 구조로 완전히 똑같아서 하나의 타입을 같이 쓴다.
+  bankLedger?: {
+    accounts: {
+      id: string;
+      accountName: string; // 출금(입금)통장 (예: "기업(011)", "하나(13004)")
+      entries: {
+        id: string;
+        date: string;         // 일자 (YYYY-MM-DD)
+        project: string;      // 프로젝트
+        amount: number;       // 금액(원)
+        description: string;  // 거래내용
+        note?: string;         // 비고
+      }[];
+    }[];
+  };
 }
 
 export interface MeetingExpenseItem {
