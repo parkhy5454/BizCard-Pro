@@ -755,7 +755,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
                           >
                             <Camera className="w-3.5 h-3.5" />
-                            카메라로 촬영 (가이드 자동맞춤)
+                            카메라로 촬영
                           </button>
                           <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
                             갤러리에서 사진 선택
