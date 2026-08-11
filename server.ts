@@ -2619,7 +2619,7 @@ app.post('/api/contacts', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const newCard: BusinessCard = req.body;
-  if (!newCard.id) newCard.id = `c-${Date.now()}`;
+  if (!newCard.id) newCard.id = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!newCard.createdAt) newCard.createdAt = new Date().toISOString();
   if (!newCard.callHistory) newCard.callHistory = [];
 
@@ -2689,7 +2689,7 @@ app.get('/api/groups', (req, res) => {
 app.post('/api/groups', async (req, res) => {
   const dbData = getScopedData(req);
   const g: ContactGroup = req.body;
-  if (!g.id) g.id = `g-${Date.now()}`;
+  if (!g.id) g.id = `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!g.color) g.color = 'bg-slate-700 text-white border-slate-600';
   dbData.groups.push(g);
   await setScopedDoc((req as any).scopeId, 'groups', g);
@@ -3370,7 +3370,7 @@ app.get('/api/projects', (req, res) => {
 app.post('/api/projects', async (req, res) => {
   const dbData = getScopedData(req);
   const p: Project = req.body;
-  if (!p.id) p.id = `p-${Date.now()}`;
+  if (!p.id) p.id = `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!p.createdAt) p.createdAt = new Date().toISOString();
   if (!p.followUps) p.followUps = [];
   if (!p.contactIds) p.contactIds = [];
@@ -3506,7 +3506,7 @@ app.get('/api/vehicles', (req, res) => {
 app.post('/api/vehicles', async (req, res) => {
   const dbData = getScopedData(req);
   const v: Vehicle = req.body;
-  if (!v.id) v.id = `vh-${Date.now()}`;
+  if (!v.id) v.id = `vh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!v.createdAt) v.createdAt = new Date().toISOString();
   if (v.currentMileage === undefined) v.currentMileage = v.initialMileage || 0;
   
@@ -3551,7 +3551,7 @@ app.post('/api/vehicles/driving', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const log: DrivingLog = req.body;
-  if (!log.id) log.id = `log-${Date.now()}`;
+  if (!log.id) log.id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!log.createdAt) log.createdAt = new Date().toISOString();
   
   dbData.drivingLogs.unshift(log);
@@ -3589,7 +3589,12 @@ app.post('/api/vehicles/expenses', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const exp: VehicleExpense = req.body;
-  if (!exp.id) exp.id = `exp-${Date.now()}`;
+  // [수정] 예전엔 서버가 id를 자동으로 채울 때 `exp-${Date.now()}`처럼 밀리초 타임스탬프만
+  // 썼다. 운행일지 하나에 영수증을 여러 개 연달아 등록하거나, 같은 요청이 겹치는 경우
+  // 같은 밀리초에 두 건이 만들어지면 id가 완전히 같아져서, DB에 저장할 때
+  // "duplicate key" 에러로 저장이 실패하는 문제가 있었다. 다른 곳(ProjectsView의 미팅
+  // 비용 등)에서 이미 쓰던 것과 같이 무작위 문자열을 붙여서 충돌 가능성을 없앤다.
+  if (!exp.id) exp.id = `exp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!exp.createdAt) exp.createdAt = new Date().toISOString();
   exp.receiptImage = await persistImageField(scopeId, exp.receiptImage, `vehicle-expense-${exp.id}`, 'receipts');
   
@@ -3615,7 +3620,7 @@ app.post('/api/vehicles/maintenances', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const maint: VehicleMaintenance = req.body;
-  if (!maint.id) maint.id = `maint-${Date.now()}`;
+  if (!maint.id) maint.id = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!maint.createdAt) maint.createdAt = new Date().toISOString();
   maint.receiptImage = await persistImageField(scopeId, maint.receiptImage, `vehicle-maint-${maint.id}`, 'receipts');
   
@@ -3689,7 +3694,7 @@ app.get('/api/vehicles/intervals', (req, res) => {
 app.post('/api/vehicles/intervals', async (req, res) => {
   const dbData = getScopedData(req);
   const interval: MaintenanceInterval = req.body;
-  if (!interval.id) interval.id = `int-${Date.now()}`;
+  if (!interval.id) interval.id = `int-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!interval.createdAt) interval.createdAt = new Date().toISOString();
   dbData.maintenanceIntervals = dbData.maintenanceIntervals || [];
   dbData.maintenanceIntervals.unshift(interval);
@@ -3930,7 +3935,7 @@ app.post('/api/worklogs/daily', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const log: DailyWorkLog = req.body;
-  if (!log.id) log.id = `dl-${Date.now()}`;
+  if (!log.id) log.id = `dl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!log.createdAt) log.createdAt = new Date().toISOString();
   if (!log.projectIds) log.projectIds = [];
   if (!log.contactIds) log.contactIds = [];
@@ -4000,7 +4005,7 @@ app.post('/api/worklogs/weekly', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const log: WeeklyWorkLog = req.body;
-  if (!log.id) log.id = `wl-${Date.now()}`;
+  if (!log.id) log.id = `wl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!log.createdAt) log.createdAt = new Date().toISOString();
   if (!log.projectIds) log.projectIds = [];
   if (!log.contactIds) log.contactIds = [];
@@ -4483,7 +4488,7 @@ app.post('/api/approvals/advance', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const doc: AdvancePaymentSettlement = req.body;
-  if (!doc.id) doc.id = `ap-${Date.now()}`;
+  if (!doc.id) doc.id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
   if (!doc.items) doc.items = [];
   if (!doc.status) doc.status = 'pending';
@@ -4533,7 +4538,7 @@ app.post('/api/approvals/leave', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const doc: LeaveRequest = req.body;
-  if (!doc.id) doc.id = `lv-${Date.now()}`;
+  if (!doc.id) doc.id = `lv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
   if (!doc.status) doc.status = 'pending';
 
