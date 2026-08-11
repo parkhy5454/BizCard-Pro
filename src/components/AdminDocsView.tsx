@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert } from 'lucide-react';
-import { AdminDoc, AdminDocCategory, AdminDocSection, ProjectFollowUpAttachment, User } from '../types.js';
+import { createPortal } from 'react-dom';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer } from 'lucide-react';
+import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 interface Props {
@@ -43,8 +44,20 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   personName: '',
   amount: '',
   memo: '',
-  attachments: []
+  attachments: [],
+  // [추가] 급여명세서용 기본값. 다른 서류에서는 그냥 안 쓰이고 무시된다.
+  payslip: category === 'payslip' ? {
+    payMonth: new Date().toISOString().slice(0, 7),
+    paymentDate: new Date().toISOString().split('T')[0],
+    payItems: [{ id: `li-${Date.now()}-1`, label: '기본급', amount: 0 }],
+    deductionItems: [{ id: `li-${Date.now()}-2`, label: '국민연금', amount: 0 }]
+  } : undefined
 });
+
+// 급여명세서 지급/공제 내역 합계 계산
+function sumItems(items?: AdminDocLineItem[]): number {
+  return (items || []).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+}
 
 export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const categories = CATEGORY_CONFIG[section];
@@ -103,6 +116,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     setEditingDoc((prev) => prev ? { ...prev, attachments: (prev.attachments || []).filter((a) => a.id !== attId) } : prev);
   };
 
+  // [추가] 급여명세서 지급/공제 내역 줄 추가·삭제·수정. payItems/deductionItems 둘 다
+  // 같은 모양(label + amount)이라 kind로 어느 쪽인지만 구분해서 공용으로 처리한다.
+  const updatePayslipItems = (kind: 'payItems' | 'deductionItems', updater: (items: AdminDocLineItem[]) => AdminDocLineItem[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const payslip = prev.payslip || { payItems: [], deductionItems: [] };
+      return { ...prev, payslip: { ...payslip, [kind]: updater(payslip[kind] || []) } };
+    });
+  };
+  const addPayslipItem = (kind: 'payItems' | 'deductionItems') => {
+    updatePayslipItems(kind, (items) => [...items, { id: `li-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: '', amount: 0 }]);
+  };
+  const removePayslipItem = (kind: 'payItems' | 'deductionItems', id: string) => {
+    updatePayslipItems(kind, (items) => items.filter((it) => it.id !== id));
+  };
+  const updatePayslipItem = (kind: 'payItems' | 'deductionItems', id: string, patch: Partial<AdminDocLineItem>) => {
+    updatePayslipItems(kind, (items) => items.map((it) => it.id === id ? { ...it, ...patch } : it));
+  };
+
+  // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
+  const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
+
   const handleSave = async () => {
     if (!editingDoc || !editingDoc.title?.trim()) {
       alert('제목을 입력해주세요.');
@@ -113,6 +148,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     try {
       const isNew = !editingDoc.id;
       const payload: Partial<AdminDoc> = { ...editingDoc, section };
+      // [추가] 급여명세서는 지급/공제 내역 합계로 차인지급액(실수령액)을 계산해서, 목록/검색
+      // 화면에서 다른 서류들과 똑같이 amount 칸에 표시되게 한다.
+      if (payload.category === 'payslip' && payload.payslip) {
+        const net = sumItems(payload.payslip.payItems) - sumItems(payload.payslip.deductionItems);
+        payload.amount = String(net);
+      }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
@@ -156,7 +197,77 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   }
 
+  // [추가] 급여명세서 인쇄용 화면. 앱 트리 밖의 #print-root 포털에 그려서, 다른 화면
+  // 요소(메뉴, 여백 등)와 완전히 분리된 채로 이미지로 공유해주신 양식과 최대한 비슷하게
+  // 인쇄되도록 한다.
+  const renderPrintablePayslip = () => {
+    if (!printingDoc || !printingDoc.payslip) return null;
+    const p = printingDoc.payslip;
+    const payTotal = sumItems(p.payItems);
+    const deductionTotal = sumItems(p.deductionItems);
+    const net = payTotal - deductionTotal;
+    const [year, month] = (p.payMonth || '').split('-');
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    const maxRows = Math.max(p.payItems.length, p.deductionItems.length, 8);
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '20mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, marginBottom: '18px' }}>
+          {year && month ? `${year}년 ${month}월분 급여명세서` : printingDoc.title}
+        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px' }}>
+          <span>회사명 : {p.companyName || ''}</span>
+          <span>지 급 일 : {p.paymentDate || printingDoc.date}</span>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <tbody>
+            <tr style={{ background: '#f2f2f2' }}>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>사원코드 : {p.employeeCode || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>사 원 명 : {printingDoc.personName || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>입 사 일 : {p.hireDate || ''}</td>
+            </tr>
+            <tr style={{ background: '#f2f2f2' }}>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>부 서 : {p.department || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>직 위 : {p.position || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>호 봉 : {p.salaryGrade || ''}</td>
+            </tr>
+            <tr style={{ background: '#e8e8e8', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지 급 내 역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지 급 액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>공 제 내 역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}>공 제 액</td>
+            </tr>
+            {Array.from({ length: maxRows }).map((_, i) => {
+              const pay = p.payItems[i];
+              const ded = p.deductionItems[i];
+              return (
+                <tr key={i}>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px', height: '22px' }}>{pay?.label || ''}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px', textAlign: 'right' }}>{pay ? fmt(pay.amount) : ''}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px' }}>{ded?.label || ''}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px', textAlign: 'right' }} colSpan={3}>{ded ? fmt(ded.amount) : ''}</td>
+                </tr>
+              );
+            })}
+            <tr style={{ fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px 8px' }}>지 급 액 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'right' }}>{fmt(payTotal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px' }}>공 제 액 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'right' }} colSpan={3}>{fmt(deductionTotal)}</td>
+            </tr>
+            <tr style={{ fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px 8px' }} colSpan={2} align="center">차 인 지 급 액</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'right' }} colSpan={4}>{fmt(net)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ fontSize: '12px', marginTop: '14px' }}>귀하의 노고에 감사드립니다.</p>
+      </div>
+    );
+  };
+
   return (
+    <>
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-slate-900">{SECTION_LABEL[section]}</h2>
@@ -248,6 +359,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   <p className="text-[10px] text-slate-300 mt-2">{d.createdByUserName ? `${d.createdByUserName} 등록` : ''}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {/* [추가] 급여명세서만 인쇄 버튼 제공 - 회사에서 흔히 쓰는 지급/공제 내역
+                  표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
+                  {d.category === 'payslip' && d.payslip && (
+                    <button
+                      onClick={() => setPrintingDoc(d)}
+                      className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
+                      title="급여명세서 인쇄"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button
                     onClick={() => setEditingDoc(d)}
                     className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
@@ -320,7 +442,163 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 </div>
 
-                {activeConfig.showAmount && (
+                {/* [추가] 급여명세서 전용 구조화 입력: 회사에서 실제로 쓰는 양식(사원코드/입사일/
+                부서/직위/호봉 + 지급내역·공제내역 여러 줄)을 그대로 입력받는다. 다른 서류
+                종류에서는 이 블록 자체가 안 보인다. */}
+                {activeCategory === 'payslip' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">회사명</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.companyName || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), companyName: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">지급월</label>
+                        <input
+                          type="month"
+                          value={editingDoc.payslip?.payMonth || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), payMonth: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">지급일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.payslip?.paymentDate || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), paymentDate: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">사원코드</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.employeeCode || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), employeeCode: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">입사일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.payslip?.hireDate || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), hireDate: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">부서</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.department || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), department: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">직위</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.position || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), position: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">호봉</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.salaryGrade || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), salaryGrade: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 지급 내역 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">지급 내역</label>
+                        <button type="button" onClick={() => addPayslipItem('payItems')} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.payslip?.payItems || []).map((it) => (
+                          <div key={it.id} className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={it.label}
+                              onChange={(e) => updatePayslipItem('payItems', it.id, { label: e.target.value })}
+                              placeholder="예: 기본급"
+                              className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={it.amount ? formatCurrencyInput(it.amount) : ''}
+                              onChange={(e) => updatePayslipItem('payItems', it.id, { amount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removePayslipItem('payItems', it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-right text-[11px] text-slate-500 mt-1.5">지급액 계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.payslip?.payItems))}원</b></p>
+                    </div>
+
+                    {/* 공제 내역 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">공제 내역</label>
+                        <button type="button" onClick={() => addPayslipItem('deductionItems')} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.payslip?.deductionItems || []).map((it) => (
+                          <div key={it.id} className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={it.label}
+                              onChange={(e) => updatePayslipItem('deductionItems', it.id, { label: e.target.value })}
+                              placeholder="예: 국민연금"
+                              className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={it.amount ? formatCurrencyInput(it.amount) : ''}
+                              onChange={(e) => updatePayslipItem('deductionItems', it.id, { amount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removePayslipItem('deductionItems', it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-right text-[11px] text-slate-500 mt-1.5">공제액 계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.payslip?.deductionItems))}원</b></p>
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      차인지급액: {formatCurrencyInput(sumItems(editingDoc.payslip?.payItems) - sumItems(editingDoc.payslip?.deductionItems))}원
+                    </p>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
@@ -386,5 +664,35 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         </div>
       )}
     </div>
+
+    {/* 인쇄 전 미리보기 + 인쇄 실행 바 (화면에는 보이지만 인쇄될 때는 안 보임) */}
+    {printingDoc && (
+      <div className="fixed inset-0 z-50 bg-slate-900/70 overflow-y-auto py-8 print:hidden">
+        <div className="max-w-3xl mx-auto flex items-center justify-end gap-2 mb-3 px-4">
+          <button
+            onClick={() => setPrintingDoc(null)}
+            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
+          >
+            닫기
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
+          >
+            <Printer className="w-4 h-4" />
+            인쇄 / PDF 저장
+          </button>
+        </div>
+        <div className="bg-white shadow-2xl mx-auto" style={{ width: '210mm' }}>
+          {renderPrintablePayslip()}
+        </div>
+      </div>
+    )}
+
+    {/* 실제 인쇄 시에는 위 미리보기 대신 앱 트리 밖의 #print-root에 그려진 내용만 단독으로
+    인쇄된다 (다른 화면 요소의 영향을 받지 않기 위함). */}
+    {typeof document !== 'undefined' && document.getElementById('print-root') &&
+      createPortal(renderPrintablePayslip(), document.getElementById('print-root')!)}
+    </>
   );
 };
