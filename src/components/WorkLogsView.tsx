@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye } from 'lucide-react';
+import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
 import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,6 +31,30 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 별도 영역에 떠서 스크롤해서 내려가야 보였다. 이제 날짜를 클릭하면 그 자리에서 바로
   // 팝업(모달)으로 상세 목록이 뜨도록 바꿔서, 스크롤 없이 바로 확인·작성할 수 있게 한다.
   const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState<boolean>(false);
+  // [추가] 애플 캘린더(아이폰/아이패드/맥) 구독 연동. 링크를 발급받아서 안내 모달에
+  // 보여준다.
+  const [isLoadingCalendarFeed, setIsLoadingCalendarFeed] = useState<boolean>(false);
+  const [calendarFeedInfo, setCalendarFeedInfo] = useState<{ feedUrl: string; webcalUrl: string } | null>(null);
+  const [calendarFeedCopied, setCalendarFeedCopied] = useState<boolean>(false);
+  const handleOpenCalendarFeed = async () => {
+    if (!currentUser) return;
+    setIsLoadingCalendarFeed(true);
+    try {
+      const res = await fetch('/api/worklogs/calendar-token', {
+        method: 'POST',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      if (!res.ok) throw new Error(`연동 링크 생성에 실패했습니다 (상태: ${res.status}).`);
+      const data = await res.json();
+      setCalendarFeedInfo({ feedUrl: data.feedUrl, webcalUrl: data.webcalUrl });
+    } catch (err: any) {
+      console.error('Failed to get calendar feed:', err);
+      alert(`연동 링크 생성에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } finally {
+      setIsLoadingCalendarFeed(false);
+    }
+  };
+
   const [loading, setLoading] = useState<boolean>(true);
   
   // 검색 및 필터 상태
@@ -1917,6 +1941,22 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             </button>
           </div>
 
+          {/* [추가] 이 캘린더(업무일지 항목)를 아이폰/아이패드/맥 캘린더 앱에 구독으로
+          연동할 수 있는 버튼. 구독 링크는 사람마다(정확히는 계정마다) 발급되는 고유
+          토큰이 담겨 있어서, 그 링크만 있으면 로그인 없이도 애플 캘린더 앱이 주기적으로
+          최신 내용을 불러갈 수 있다. */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleOpenCalendarFeed}
+              disabled={isLoadingCalendarFeed}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50"
+            >
+              <CalendarPlus className="w-3.5 h-3.5" />
+              <span>{isLoadingCalendarFeed ? '연동 링크 생성 중...' : 'Apple 캘린더(아이폰/아이패드/맥) 연동'}</span>
+            </button>
+          </div>
+
           {/* 달력 그리드 */}
           {(() => {
             const year = monthCursor.getFullYear();
@@ -2042,6 +2082,73 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* [추가] 애플 캘린더 연동 링크 안내 모달 */}
+          {calendarFeedInfo && (
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              <div
+                onClick={() => { setCalendarFeedInfo(null); setCalendarFeedCopied(false); }}
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              <div className="flex min-h-screen items-center justify-center p-4">
+                <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-5 shadow-2xl space-y-4 z-10">
+                  <button
+                    onClick={() => { setCalendarFeedInfo(null); setCalendarFeedCopied(false); }}
+                    className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-center gap-2 pr-8">
+                    <CalendarPlus className="w-5 h-5 text-indigo-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Apple 캘린더 연동</h3>
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    아래 버튼을 아이폰·아이패드·맥에서 누르면 캘린더 앱이 바로 "구독 추가" 화면을 띄워줍니다.
+                    업무일지에 새로 작성한 일정이 자동으로 애플 캘린더에 반영됩니다 (반대 방향, 즉 애플 캘린더에서
+                    수정한 내용이 이 앱으로 오는 건 아직 지원하지 않습니다).
+                  </p>
+
+                  <a
+                    href={calendarFeedInfo.webcalUrl}
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all active:scale-95"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    아이폰/아이패드/맥에서 캘린더에 추가
+                  </a>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-500">또는 링크를 복사해서 직접 등록 (구글 캘린더 등도 가능)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={calendarFeedInfo.feedUrl}
+                        onFocus={(e) => e.target.select()}
+                        className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] text-slate-600 font-mono outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(calendarFeedInfo.feedUrl).then(() => {
+                            setCalendarFeedCopied(true);
+                            setTimeout(() => setCalendarFeedCopied(false), 2000);
+                          });
+                        }}
+                        className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold border border-slate-200"
+                      >
+                        {calendarFeedCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        {calendarFeedCopied ? '복사됨' : '복사'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      이 링크는 회사(계정) 고유 링크입니다. 다른 사람에게 공유하지 마세요.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
