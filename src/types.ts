@@ -160,6 +160,20 @@ export interface AdminDoc {
     payItems: AdminDocLineItem[];        // 지급 내역 (기본급, 연장수당, 식대 등)
     deductionItems: AdminDocLineItem[];  // 공제 내역 (국민연금, 건강보험, 소득세 등)
   };
+  // [추가] 월별 자금 현황(category: 'monthly_cashflow') 전용 구조화 필드. 통장(계좌)별
+  // 이월금/입금/출금을 각각 입력하면 통장잔액은 자동 계산되고, 합계도 자동으로 더해진다.
+  cashflow?: {
+    periodStart?: string; // 집계 시작일 (YYYY-MM-DD)
+    periodEnd?: string;   // 집계 종료일 (YYYY-MM-DD)
+    accounts: {
+      id: string;
+      name: string;         // 구분 (예: "하나(13004)_급여/외화송금/카드대금")
+      broughtForward: number; // 이월금(원) - 전월에서 넘어온 잔액
+      deposit: number;        // 입금(원)
+      withdrawal: number;     // 출금(원)
+      note?: string;           // 비고
+    }[];
+  };
 }
 
 export interface MeetingExpenseItem {

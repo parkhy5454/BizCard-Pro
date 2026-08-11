@@ -134,6 +134,16 @@ body {
     size: A4 portrait;
     margin: 0;
   }
+  /* [추가] 월별 자금 현황처럼 표가 가로로 넓은 문서는 세로(portrait)로 인쇄하면 잘려서
+  나온다. 인쇄할 내용에 이 클래스가 붙어있으면 그 페이지만 가로(landscape)로 인쇄되도록
+  이름 붙은 페이지 규칙을 별도로 둔다(다른 인쇄물에는 영향 없음). */
+  @page cashflow-landscape {
+    size: A4 landscape;
+    margin: 0;
+  }
+  .print-landscape {
+    page: cashflow-landscape;
+  }
   body {
     margin: 0 !important;
     padding: 0 !important;
