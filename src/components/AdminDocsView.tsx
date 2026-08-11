@@ -46,11 +46,25 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   memo: '',
   attachments: [],
   // [추가] 급여명세서용 기본값. 다른 서류에서는 그냥 안 쓰이고 무시된다.
+  // 지급/공제 내역은 회사에서 거의 항상 쓰는 항목들을 미리 깔아두고, 필요하면 "항목 추가"로
+  // 더 늘리거나 X로 지워서 쓸 수 있게 한다 — 매번 기본급부터 손으로 다 치는 걸 줄여준다.
   payslip: category === 'payslip' ? {
     payMonth: new Date().toISOString().slice(0, 7),
     paymentDate: new Date().toISOString().split('T')[0],
-    payItems: [{ id: `li-${Date.now()}-1`, label: '기본급', amount: 0 }],
-    deductionItems: [{ id: `li-${Date.now()}-2`, label: '국민연금', amount: 0 }]
+    payItems: [
+      { id: `li-${Date.now()}-1`, label: '기본급', amount: 0 },
+      { id: `li-${Date.now()}-2`, label: '연장수당', amount: 0 },
+      { id: `li-${Date.now()}-3`, label: '식대', amount: 0 },
+      { id: `li-${Date.now()}-4`, label: '차량유지비', amount: 0 }
+    ],
+    deductionItems: [
+      { id: `li-${Date.now()}-5`, label: '국민연금', amount: 0 },
+      { id: `li-${Date.now()}-6`, label: '건강보험', amount: 0 },
+      { id: `li-${Date.now()}-7`, label: '장기요양보험료', amount: 0 },
+      { id: `li-${Date.now()}-8`, label: '고용보험', amount: 0 },
+      { id: `li-${Date.now()}-9`, label: '소득세', amount: 0 },
+      { id: `li-${Date.now()}-10`, label: '지방소득세', amount: 0 }
+    ]
   } : undefined
 });
 
