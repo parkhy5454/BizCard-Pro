@@ -110,7 +110,8 @@ export type AdminDocCategory =
   | 'monthly_cashflow'    // 월별 자금 현황
   | 'bank_withdrawal'     // 통장 출금 내역
   | 'bank_deposit'        // 통장 입금 내역
-  | 'loan_repayment';     // 대출이자 및 원금 상환 내역
+  | 'loan_repayment'      // 대출 현황
+  | 'card_usage';         // 법인카드 사용내역
 
 export interface AdminDocLineItem {
   id: string;
@@ -229,6 +230,25 @@ export interface AdminDoc {
       repaidDate?: string;     // 상환일 (상환완료인 경우)
       repaidFee?: string;      // 상환수수료 등 메모 (선택)
       note?: string;
+    }[];
+  };
+  // [추가] 법인카드 사용내역(category: 'card_usage') 전용 구조화 필드. 카드(소지자)별로
+  // 묶어서 여러 사용 내역(금액/일자/프로젝트명/사용자/비고)을 입력하고, 카드마다 소계,
+  // 맨 아래 총계가 자동으로 계산된다. 통장 출금/입금 내역과 구조가 같다.
+  cardUsage?: {
+    cards: {
+      id: string;
+      cardName: string;   // 카드명 (예: "국민카드", "하나카드")
+      cardNumber?: string; // 카드번호
+      holder: string;      // 소지자
+      entries: {
+        id: string;
+        amount: number;    // 사용 금액(원)
+        date: string;       // 사용일자 (YYYY-MM-DD)
+        project?: string;   // 프로젝트명
+        user?: string;      // 사용자 (소지자와 다를 수 있음, 예: 법인카드 대여)
+        note?: string;       // 비고
+      }[];
     }[];
   };
 }
