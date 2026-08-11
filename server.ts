@@ -5174,6 +5174,102 @@ app.delete('/api/admin-docs/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] "카드사용내역"이 통합 차량 관리(운행기록/비용관리/정비일지), 프로젝트,
+// 업무일지(일일/주간)와 연동되도록 - 이 다섯 곳에 이미 "법인카드" 결제로 기록된 지출들을
+// 전부 찾아서 한 목록으로 모아준다. 운행기록 자체엔 결제수단 항목이 없지만, 운행 중 스캔한
+// 영수증은 비용관리(VehicleExpense)에 drivingLogId로 연결되어 저장되므로 비용관리를
+// 훑으면 자연히 포함된다. 화면에서 이 목록 중 골라서 "카드사용내역"으로 가져올 수 있다.
+app.get('/api/admin-docs/card-usage-candidates', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+
+  const candidates: {
+    sourceKey: string;
+    sourceLabel: string;
+    date: string;
+    amount: number;
+    project?: string;
+    memo?: string;
+    personName?: string;
+  }[] = [];
+
+  // 1) 통합 차량 관리 - 비용관리 (운행 중 스캔한 영수증도 여기 포함됨)
+  for (const e of (dbData.expenses || [])) {
+    if (e.payMethod !== 'company_card') continue;
+    candidates.push({
+      sourceKey: `vehicle_expense:${e.id}`,
+      sourceLabel: '차량 비용관리',
+      date: e.date,
+      amount: e.amount,
+      project: e.projectName,
+      memo: e.merchantName || e.categoryCustom || e.category
+    });
+  }
+
+  // 2) 통합 차량 관리 - 정비일지
+  for (const m of (dbData.maintenances || [])) {
+    if (m.payMethod !== 'company_card') continue;
+    candidates.push({
+      sourceKey: `vehicle_maintenance:${m.id}`,
+      sourceLabel: '차량 정비일지',
+      date: m.date,
+      amount: m.cost,
+      memo: `${m.title}${m.shopName ? ` (${m.shopName})` : ''}`
+    });
+  }
+
+  // 3) 프로젝트 - 미팅/팔로우업 지출
+  for (const p of (dbData.projects || [])) {
+    for (const f of (p.followUps || [])) {
+      for (const ex of (f.expenses || [])) {
+        if (ex.payMethod !== 'company_card') continue;
+        candidates.push({
+          sourceKey: `project_expense:${ex.id}`,
+          sourceLabel: '프로젝트',
+          date: f.date,
+          amount: ex.amount,
+          project: p.name,
+          memo: ex.memo || ex.categoryCustom || ex.category
+        });
+      }
+    }
+  }
+
+  // 4) 업무일지(일일)
+  for (const l of (dbData.dailyLogs || [])) {
+    for (const ex of (l.expenses || [])) {
+      if (ex.payMethod !== 'company_card') continue;
+      candidates.push({
+        sourceKey: `worklog_daily_expense:${ex.id}`,
+        sourceLabel: '업무일지(일일)',
+        date: l.date,
+        amount: ex.amount,
+        memo: ex.memo || ex.categoryCustom || ex.category,
+        personName: l.author
+      });
+    }
+  }
+
+  // 5) 업무일지(주간)
+  for (const l of (dbData.weeklyLogs || [])) {
+    for (const ex of (l.expenses || [])) {
+      if (ex.payMethod !== 'company_card') continue;
+      candidates.push({
+        sourceKey: `worklog_weekly_expense:${ex.id}`,
+        sourceLabel: '업무일지(주간)',
+        date: l.startDate,
+        amount: ex.amount,
+        memo: ex.memo || ex.categoryCustom || ex.category,
+        personName: l.author
+      });
+    }
+  }
+
+  candidates.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  res.json(candidates);
+});
+
 // AI 업무일지 정제 (AI Polish) API
 app.post('/api/worklogs/ai-polish', async (req, res) => {
   try {
