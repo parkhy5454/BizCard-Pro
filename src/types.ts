@@ -205,20 +205,29 @@ export interface AdminDoc {
   // [추가] 대출이자 및 원금 상환 내역(category: 'loan_repayment') 전용 구조화 필드.
   // 대출 건별로 대출금액/이자율/만기/대출잔액/이번 출금(원금+이자)/출금통장을 입력하고,
   // 상환이 끝난 대출은 isRepaid로 표시해서 "상환완료" 구역에 따로 모아 보여준다.
+  // [수정] 실제로 회사에서 쓰시는 "대출 현황" 양식에 맞춰 항목을 더 세분화했다: 대출명과
+  // 대출계좌를 분리, 이자율을 최초/현재로 분리, 대출일을 추가, 만기일과 납기일을 분리,
+  // 출금통장도 은행/계좌로 분리 - 자금현황·통장내역과 동일하게 은행/계좌를 나누는 방식을
+  // 따른다.
   loanRepayment?: {
     loans: {
       id: string;
-      description: string;   // 구분(최초대출금액_이자율) 예: "우리은행_중진직대출_2.6억_28년11월중료(2805-3885-018723)"
-      initialAmount: number; // 대출 금액(원) - 최초 대출 원금
-      interestRate: number;  // 이자율(%)
-      maturityDate?: string; // 만기(납기일) YYYY-MM-DD
-      balance: number;       // 대출잔액(원) - 현재 남은 원금
-      principalPaid: number; // 이번 출금 - 원금
-      interestPaid: number;  // 이번 출금 - 이자 (원금+이자 = 계, 자동 계산)
-      bankAccount: string;   // 출금통장 (예: "하나(13004)")
-      isRepaid: boolean;     // 상환완료 여부 - 켜면 "상환완료" 구역으로 분류
-      repaidDate?: string;   // 상환일 (상환완료인 경우)
-      repaidFee?: string;    // 상환수수료 등 메모 (선택)
+      loanName: string;        // 대출 명 (예: "우리은행_중진직대출")
+      loanAccount?: string;    // 대출 계좌
+      initialAmount: number;   // 대출 금액(원) - 최초 대출 원금
+      initialRate: number;     // 최초 이자율(%)
+      currentRate: number;     // 현재 이자율(%)
+      loanDate?: string;       // 대출일 (YYYY-MM-DD)
+      maturityDate?: string;   // 만기일 (YYYY-MM-DD)
+      paymentDay?: string;     // 납기일 (예: "29일")
+      balance: number;         // 대출잔액(원) - 현재 남은 원금
+      principalPaid: number;   // 출금 금액 - 원금
+      interestPaid: number;    // 출금 금액 - 이자 (원금+이자 = 계, 자동 계산)
+      withdrawBank?: string;   // 출금 은행
+      withdrawAccount?: string; // 출금 계좌
+      isRepaid: boolean;       // 상환완료 여부 - 켜면 "상환완료" 구역으로 분류
+      repaidDate?: string;     // 상환일 (상환완료인 경우)
+      repaidFee?: string;      // 상환수수료 등 메모 (선택)
       note?: string;
     }[];
   };
