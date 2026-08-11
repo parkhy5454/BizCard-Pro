@@ -3975,6 +3975,17 @@ function requireCalDavAuth(req: express.Request, res: express.Response): Registe
 const caldavRouter = express.Router();
 caldavRouter.use(express.text({ type: () => true, limit: '5mb' })); // XML/ICS 원문을 문자열 그대로 받는다
 
+// [추가] 실제 캘린더 앱(아이폰/맥)은 CORS 대상이 아니라 이 헤더가 필요 없지만, 브라우저
+// 기반 진단/테스트 도구(예: 문제 확인용 테스트 페이지)에서 이 API를 두드려볼 수 있도록
+// 허용해둔다. Basic Auth로 어차피 계정별 접근이 걸려있어서 위험이 낮다.
+caldavRouter.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, REPORT, MKCALENDAR, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Depth, If-Match, If-None-Match');
+  res.setHeader('Access-Control-Expose-Headers', 'ETag, DAV');
+  next();
+});
+
 caldavRouter.use((req, res, next) => {
   // OPTIONS는 클라이언트가 로그인 화면 뜨기 전에 서버 능력을 먼저 확인하려고 인증 없이
   // 보내는 경우가 있어서, 인증 요구 없이 바로 답해준다.
