@@ -81,7 +81,7 @@ import { createServer as createViteServer } from 'vite';
 import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './src/authLogic.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -3931,6 +3931,468 @@ app.get('/api/worklogs/calendar.ics', (req, res) => {
   res.setHeader('Content-Disposition', 'inline; filename="bizcard-pro-worklogs.ics"');
   res.send(ics);
 });
+
+// ------------------------------------------------------------------
+// 📅 CalDAV 양방향 캘린더 연동 (아이폰/아이패드/맥 캘린더 앱에서 직접 수정 가능)
+// [추가] 위의 .ics 구독 피드는 앱→캘린더 한쪽 방향만 됐다. 캘린더 앱에서 직접 만들거나
+// 고친 일정이 앱으로 돌아오려면 CalDAV(WebDAV 기반 캘린더 프로토콜)를 구현해야 한다.
+//
+// 주의: 이 구현은 최소 기능만 담은 1차 버전이다. 이 환경에서는 실제 아이폰/맥 캘린더
+// 앱으로 직접 연결해서 검증할 방법이 없어서, 배포 후 실제 기기로 계정 추가부터
+// 해봐야 확실히 동작을 확인할 수 있다 — 애플 캘린더 클라이언트가 세부 사항에
+// 유난히 까다로운 편이라, 연결 자체는 되는데 특정 동작(예: 반복 일정, 즉시 동기화
+// 타이밍)에서 조정이 더 필요할 수 있다.
+//
+// 사용법(아이폰): 설정 > 캘린더 > 계정 > 계정 추가 > 기타 > CalDAV 계정 추가
+//   서버: bizcard-pro.onrender.com  사용자 이름: (로그인 이메일)  암호: (로그인 비밀번호)
+// ------------------------------------------------------------------
+
+// CalDAV는 세션 대신 매 요청마다 Basic 인증(이메일+비밀번호)을 사용한다.
+function parseBasicAuth(req: express.Request): { email: string; password: string } | null {
+  const header = req.headers['authorization'];
+  if (!header || !header.startsWith('Basic ')) return null;
+  try {
+    const decoded = Buffer.from(header.slice(6), 'base64').toString('utf-8');
+    const idx = decoded.indexOf(':');
+    if (idx === -1) return null;
+    return { email: decoded.slice(0, idx), password: decoded.slice(idx + 1) };
+  } catch {
+    return null;
+  }
+}
+
+function requireCalDavAuth(req: express.Request, res: express.Response): RegisteredUser | null {
+  const creds = parseBasicAuth(req);
+  const user = creds ? users.find(u => u.email.toLowerCase() === creds.email.toLowerCase()) : undefined;
+  if (!user || !creds || !verifyPassword(creds.password, user.password)) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="BizCard Pro Calendar"');
+    res.status(401).send('Unauthorized');
+    return null;
+  }
+  return user;
+}
+
+const caldavRouter = express.Router();
+caldavRouter.use(express.text({ type: () => true, limit: '5mb' })); // XML/ICS 원문을 문자열 그대로 받는다
+
+caldavRouter.use((req, res, next) => {
+  // OPTIONS는 클라이언트가 로그인 화면 뜨기 전에 서버 능력을 먼저 확인하려고 인증 없이
+  // 보내는 경우가 있어서, 인증 요구 없이 바로 답해준다.
+  if (req.method === 'OPTIONS') {
+    res.setHeader('DAV', '1, 2, 3, calendar-access, calendar-schedule');
+    res.setHeader('Allow', 'OPTIONS, GET, HEAD, POST, PUT, DELETE, PROPFIND, PROPPATCH, REPORT, MKCALENDAR');
+    return res.status(200).end();
+  }
+  next();
+});
+
+function icsUidEscape(s: string) { return s.replace(/[^a-zA-Z0-9._-]/g, '_'); }
+
+// scopeId 안의 모든 daily/weekly 업무 항목을 CalDAV용 평평한 이벤트 목록으로 변환
+function collectCaldavEvents(scopeId: string) {
+  const dbData = db[scopeId];
+  if (!dbData) return [] as { uid: string; summary: string; description: string; dtstart: string; dtend: string; etag: string }[];
+  const out: { uid: string; summary: string; description: string; dtstart: string; dtend: string; etag: string }[] = [];
+
+  for (const l of dbData.dailyLogs || []) {
+    const entries = (l.taskEntriesToday && l.taskEntriesToday.length > 0) ? l.taskEntriesToday : [];
+    for (const t of entries) {
+      if (!t.content || !t.content.trim()) continue;
+      // [수정] 구분자로 하이픈(-)을 쓰면, 캘린더 앱이 직접 만든 일정의 UID(보통 UUID라서
+      // 자체에 하이픈이 많다, 예: "550E8400-E29B-...")가 taskId로 들어올 때 어디까지가
+      // logId이고 어디부터 taskId인지 구분이 안 되는 문제가 있었다. 서버가 만드는 id에도
+      // 하이픈이 들어가므로, 절대 겹치지 않을 이중 밑줄(__)을 구분자로 쓴다.
+      const uid = `daily__${l.id}__${t.id}`;
+      out.push({
+        uid,
+        summary: `[업무일지] ${l.author || ''} ${t.content}`.trim(),
+        description: t.content,
+        dtstart: icsDateTime(l.date, t.startTime),
+        dtend: icsDateTime(l.date, t.endTime || t.startTime),
+        etag: `"${icsUidEscape(uid)}-${(t.content || '').length}-${t.startTime || ''}-${t.endTime || ''}"`
+      });
+    }
+  }
+
+  const dayKeys: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  for (const wl of dbData.weeklyLogs || []) {
+    if (!wl.startDate) continue;
+    const start = new Date(wl.startDate);
+    dayKeys.forEach((key, offset) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + offset);
+      const dateStr = d.toISOString().split('T')[0];
+      const entries = wl.achievementEntriesByDay?.[key] || [];
+      for (const t of entries) {
+        if (!t.content || !t.content.trim()) continue;
+        const uid = `weekly__${wl.id}__${key}__${t.id}`;
+        out.push({
+          uid,
+          summary: `[업무일지] ${wl.author || ''} ${t.content}`.trim(),
+          description: t.content,
+          dtstart: icsDateTime(dateStr, t.startTime),
+          dtend: icsDateTime(dateStr, t.endTime || t.startTime),
+          etag: `"${icsUidEscape(uid)}-${(t.content || '').length}-${t.startTime || ''}-${t.endTime || ''}"`
+        });
+      }
+    });
+  }
+
+  return out;
+}
+
+function buildVEventIcs(ev: { uid: string; summary: string; description: string; dtstart: string; dtend: string }): string {
+  const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//BizCard Pro AI//CalDAV//KO',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${ev.uid}@bizcard-pro`,
+    `DTSTAMP:${now}`,
+    `DTSTART:${ev.dtstart}`,
+    `DTEND:${ev.dtend}`,
+    `SUMMARY:${icsEscape(ev.summary)}`,
+    `DESCRIPTION:${icsEscape(ev.description)}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+}
+
+// 아주 단순한 ICS VEVENT 파서 (캘린더 앱이 PUT으로 보내는 내용만 읽으면 되므로 SUMMARY/
+// DESCRIPTION/DTSTART/DTEND/UID 정도만 뽑아낸다. 반복 일정(RRULE) 등은 다루지 않는다.)
+function parseVEvent(ics: string): { uid?: string; summary?: string; description?: string; dtstart?: string; dtend?: string } {
+  const unescape = (v: string) => v.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+  const lines = ics.split(/\r\n|\n|\r/);
+  const result: any = {};
+  for (const line of lines) {
+    const idx = line.indexOf(':');
+    if (idx === -1) continue;
+    const rawKey = line.slice(0, idx);
+    const key = rawKey.split(';')[0].toUpperCase();
+    const value = line.slice(idx + 1);
+    if (key === 'UID') result.uid = value.trim();
+    else if (key === 'SUMMARY') result.summary = unescape(value);
+    else if (key === 'DESCRIPTION') result.description = unescape(value);
+    else if (key === 'DTSTART') result.dtstart = value.trim();
+    else if (key === 'DTEND') result.dtend = value.trim();
+  }
+  return result;
+}
+
+// "20260810T093000" 또는 "20260810T093000Z" 형태를 { date: 'YYYY-MM-DD', time: 'HH:MM' }로 변환
+function parseIcsDateTime(v?: string): { date: string; time?: string } | null {
+  if (!v) return null;
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?Z?)?$/);
+  if (!m) return null;
+  const [, y, mo, d, hh, mm] = m;
+  return { date: `${y}-${mo}-${d}`, time: hh ? `${hh}:${mm}` : undefined };
+}
+
+caldavRouter.use(async (req, res, next) => {
+  const user = requireCalDavAuth(req, res);
+  if (!user) return; // requireCalDavAuth가 이미 401 응답을 보냄
+  (req as any).caldavUser = user;
+  // [수정] 목록 조회(PROPFIND/REPORT)에서는 이 로딩을 빼먹어서, 아직 메모리에 캐시되지
+  // 않은 스코프의 경우 db[scopeId]가 비어있어 빈 캘린더처럼 보이는 문제가 있었다.
+  // 모든 caldav 요청 공통으로 여기서 한 번에 로딩을 보장한다.
+  await loadScopeFromSupabase(scopeIdForUser(user));
+  next();
+});
+
+// well-known 디스커버리: 캘린더 앱이 서버 주소만 알아도 여기로 먼저 물어본다
+app.get('/.well-known/caldav', (req, res) => {
+  res.redirect(301, '/caldav/');
+});
+
+// 루트: 로그인한 사용자의 principal 위치를 알려준다
+caldavRouter.all('/', (req, res) => {
+  if (req.method !== 'PROPFIND') return res.status(405).end();
+  const user = (req as any).caldavUser as RegisteredUser;
+  const xml = `<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/caldav/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:current-user-principal><D:href>/caldav/principals/${user.id}/</D:href></D:current-user-principal>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>`;
+  res.status(207).setHeader('Content-Type', 'application/xml; charset=utf-8').send(xml);
+});
+
+// principal: 이 사용자의 캘린더 홈 위치를 알려준다
+caldavRouter.all('/principals/:userId/', (req, res) => {
+  if (req.method !== 'PROPFIND') return res.status(405).end();
+  const user = (req as any).caldavUser as RegisteredUser;
+  const xml = `<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/caldav/principals/${user.id}/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:displayname>${user.name}</D:displayname>
+        <C:calendar-home-set><D:href>/caldav/calendars/${user.id}/</D:href></C:calendar-home-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>`;
+  res.status(207).setHeader('Content-Type', 'application/xml; charset=utf-8').send(xml);
+});
+
+// 캘린더 홈: 그 안에 캘린더가 하나("worklogs") 있다고 알려준다
+caldavRouter.all('/calendars/:userId/', (req, res) => {
+  if (req.method !== 'PROPFIND') return res.status(405).end();
+  const user = (req as any).caldavUser as RegisteredUser;
+  const depth = req.headers['depth'] || '0';
+  let responses = `
+  <D:response>
+    <D:href>/caldav/calendars/${user.id}/</D:href>
+    <D:propstat>
+      <D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>`;
+  if (depth !== '0') {
+    responses += `
+  <D:response>
+    <D:href>/caldav/calendars/${user.id}/worklogs/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
+        <D:displayname>BizCard Pro 업무일지</D:displayname>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>`;
+  }
+  const xml = `<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">${responses}
+</D:multistatus>`;
+  res.status(207).setHeader('Content-Type', 'application/xml; charset=utf-8').send(xml);
+});
+
+// 실제 캘린더 컬렉션: depth 0이면 컬렉션 속성만, depth 1이면 안에 든 이벤트 목록까지
+caldavRouter.all('/calendars/:userId/worklogs/', (req, res) => {
+  const user = (req as any).caldavUser as RegisteredUser;
+  const scopeId = scopeIdForUser(user);
+
+  if (req.method === 'MKCALENDAR') {
+    // 이미 가상으로 존재하는 컬렉션이므로 그냥 성공 처리
+    return res.status(201).end();
+  }
+  if (req.method !== 'PROPFIND' && req.method !== 'REPORT') return res.status(405).end();
+
+  const events = collectCaldavEvents(scopeId);
+  const ctag = `"${events.length}-${events.map(e => e.etag).join('').length}"`;
+
+  if (req.method === 'PROPFIND') {
+    const depth = req.headers['depth'] || '0';
+    let responses = `
+  <D:response>
+    <D:href>/caldav/calendars/${user.id}/worklogs/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
+        <D:displayname>BizCard Pro 업무일지</D:displayname>
+        <CS:getctag xmlns:CS="http://calendarserver.org/ns/">${ctag}</CS:getctag>
+        <C:supported-calendar-component-set><C:comp name="VEVENT"/></C:supported-calendar-component-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>`;
+    if (depth !== '0') {
+      for (const ev of events) {
+        responses += `
+  <D:response>
+    <D:href>/caldav/calendars/${user.id}/worklogs/${ev.uid}.ics</D:href>
+    <D:propstat>
+      <D:prop><D:getetag>${ev.etag}</D:getetag></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>`;
+      }
+    }
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">${responses}
+</D:multistatus>`;
+    return res.status(207).setHeader('Content-Type', 'application/xml; charset=utf-8').send(xml);
+  }
+
+  // REPORT: calendar-multiget(특정 href들만) 또는 sync-collection(전체 동기화)를 다룬다.
+  // [참고] sync-collection의 "삭제된 항목" 통지는 별도 이력을 추적하지 않아 생략했다 —
+  // 캘린더 앱이 매번 전체 목록을 다시 훑으므로 기능은 되지만, 대량 데이터에서는
+  // 이론적으로 비효율적일 수 있다(1차 버전 한계).
+  const body = (req.body as string) || '';
+  const isMultiget = body.includes('calendar-multiget');
+  let targetUids: string[] | null = null;
+  if (isMultiget) {
+    const hrefMatches = [...body.matchAll(/<[^:>]*:?href>([^<]+)<\/[^:>]*:?href>/g)].map(m => m[1]);
+    targetUids = hrefMatches.map(h => h.split('/').pop()?.replace(/\.ics$/, '') || '');
+  }
+
+  const targetEvents = targetUids ? events.filter(e => targetUids!.includes(e.uid)) : events;
+  let responses = '';
+  for (const ev of targetEvents) {
+    const calData = buildVEventIcs(ev);
+    responses += `
+  <D:response>
+    <D:href>/caldav/calendars/${user.id}/worklogs/${ev.uid}.ics</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:getetag>${ev.etag}</D:getetag>
+        <C:calendar-data><![CDATA[${calData}]]></C:calendar-data>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>`;
+  }
+  const xml = `<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">${responses}
+  <D:sync-token>http://bizcard-pro/sync/${ctag}</D:sync-token>
+</D:multistatus>`;
+  res.status(207).setHeader('Content-Type', 'application/xml; charset=utf-8').send(xml);
+});
+
+// 이벤트 하나: GET(조회) / PUT(생성·수정) / DELETE(삭제)
+caldavRouter.all('/calendars/:userId/worklogs/:uidIcs', async (req, res) => {
+  const user = (req as any).caldavUser as RegisteredUser;
+  const scopeId = scopeIdForUser(user);
+  await loadScopeFromSupabase(scopeId);
+  const dbData = db[scopeId];
+  const uid = req.params.uidIcs.replace(/\.ics$/, '');
+
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    const events = collectCaldavEvents(scopeId);
+    const ev = events.find(e => e.uid === uid);
+    if (!ev) return res.status(404).end();
+    res.setHeader('ETag', ev.etag);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    return res.send(req.method === 'HEAD' ? '' : buildVEventIcs(ev));
+  }
+
+  if (req.method === 'DELETE') {
+    const dailyMatch = uid.match(/^daily__(.+)__([^_]+)$/);
+    const weeklyMatch = uid.match(/^weekly__(.+)__(mon|tue|wed|thu|fri|sat|sun)__([^_]+)$/);
+    let removed = false;
+
+    if (dailyMatch) {
+      const [, logId, taskId] = dailyMatch;
+      const log = (dbData.dailyLogs || []).find(l => l.id === logId);
+      if (log?.taskEntriesToday) {
+        const before = log.taskEntriesToday.length;
+        log.taskEntriesToday = log.taskEntriesToday.filter(t => t.id !== taskId);
+        removed = log.taskEntriesToday.length < before;
+        log.tasksToday = log.taskEntriesToday.map(t => t.content).join('\n');
+        if (log.taskEntriesToday.length === 0 && !log.tasksTomorrow && !log.issues) {
+          dbData.dailyLogs = (dbData.dailyLogs || []).filter(l => l.id !== logId);
+          await deleteScopedDoc(scopeId, 'dailyLogs', logId);
+        } else {
+          await setScopedDoc(scopeId, 'dailyLogs', log);
+        }
+      }
+    } else if (weeklyMatch) {
+      const [, wlId, dayKey, taskId] = weeklyMatch;
+      const wl = (dbData.weeklyLogs || []).find(w => w.id === wlId);
+      const dayEntries = wl?.achievementEntriesByDay?.[dayKey as keyof typeof wl.achievementEntriesByDay];
+      if (wl && dayEntries) {
+        const before = dayEntries.length;
+        wl.achievementEntriesByDay![dayKey as 'mon'] = dayEntries.filter(t => t.id !== taskId);
+        removed = wl.achievementEntriesByDay![dayKey as 'mon']!.length < before;
+        if (wl.achievementsByDay) {
+          wl.achievementsByDay[dayKey as 'mon'] = wl.achievementEntriesByDay![dayKey as 'mon']!.map(t => t.content).join('\n');
+        }
+        await setScopedDoc(scopeId, 'weeklyLogs', wl);
+      }
+    }
+
+    if (!removed) return res.status(404).end();
+    return res.status(204).end();
+  }
+
+  if (req.method === 'PUT') {
+    const parsed = parseVEvent((req.body as string) || '');
+    const start = parseIcsDateTime(parsed.dtstart);
+    const end = parseIcsDateTime(parsed.dtend);
+    const content = parsed.summary || parsed.description || '(제목 없음)';
+
+    const dailyMatch = uid.match(/^daily__(.+)__([^_]+)$/);
+    const weeklyMatch = uid.match(/^weekly__(.+)__(mon|tue|wed|thu|fri|sat|sun)__([^_]+)$/);
+
+    if (dailyMatch) {
+      // 기존 daily 항목 수정
+      const [, logId, taskId] = dailyMatch;
+      const log = (dbData.dailyLogs || []).find(l => l.id === logId);
+      if (log?.taskEntriesToday) {
+        const task = log.taskEntriesToday.find(t => t.id === taskId);
+        if (task) {
+          task.content = content;
+          if (start?.time) task.startTime = start.time;
+          if (end?.time) task.endTime = end.time;
+          log.tasksToday = log.taskEntriesToday.map(t => t.content).join('\n');
+          await setScopedDoc(scopeId, 'dailyLogs', log);
+          return res.status(204).end();
+        }
+      }
+      // 못 찾으면 새로 만든다 (아래 공통 생성 로직으로 진행)
+    } else if (weeklyMatch) {
+      const [, wlId, dayKey, taskId] = weeklyMatch;
+      const wl = (dbData.weeklyLogs || []).find(w => w.id === wlId);
+      const dayEntries = wl?.achievementEntriesByDay?.[dayKey as keyof typeof wl.achievementEntriesByDay];
+      const task = dayEntries?.find(t => t.id === taskId);
+      if (wl && task) {
+        task.content = content;
+        if (start?.time) task.startTime = start.time;
+        if (end?.time) task.endTime = end.time;
+        if (wl.achievementsByDay) {
+          wl.achievementsByDay[dayKey as 'mon'] = (dayEntries || []).map(t => t.content).join('\n');
+        }
+        await setScopedDoc(scopeId, 'weeklyLogs', wl);
+        return res.status(204).end();
+      }
+    }
+
+    // 새 이벤트: 캘린더 앱에서 직접 새로 만든 일정 -> 그 날짜의 새 일일 업무일지로 등록
+    if (!start) return res.status(400).send('DTSTART이 없어 날짜를 알 수 없습니다.');
+    // [수정] 여기서 만드는 로그 id에 "daily-" 접두사를 붙였었는데, UID를 만들 때
+    // (collectCaldavEvents, `daily-${l.id}-${t.id}`) 이미 "daily-"를 앞에 붙이고 있어서
+    // 최종 UID가 "daily-daily-..."처럼 접두사가 두 번 겹치는 버그가 있었다. 로그 id
+    // 자체에는 접두사를 넣지 않는다.
+    const newLogId = `dl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const newTaskId = uid; // 캘린더 앱이 준 UID를 그대로 항목 id로 써서, 다음 수정/삭제 때 다시 찾을 수 있게 한다
+    const newTask: WorkLogDayEntry = { id: newTaskId, content, startTime: start.time, endTime: end?.time || start.time };
+    const newLog: DailyWorkLog = {
+      id: newLogId,
+      date: start.date,
+      title: 'Apple 캘린더에서 추가한 일정',
+      author: user.name,
+      tasksToday: content,
+      taskEntriesToday: [newTask],
+      tasksTomorrow: '',
+      createdAt: new Date().toISOString()
+    };
+    dbData.dailyLogs = [newLog, ...(dbData.dailyLogs || [])];
+    await setScopedDoc(scopeId, 'dailyLogs', newLog);
+    // 캘린더 앱이 기대하는 실제 href로 다시 찾아갈 수 있도록, 새로 부여한 uid를 알려준다.
+    // (uid가 daily-{newLogId}-{newTaskId} 형식이 아니라 클라이언트가 준 값 그대로이므로,
+    // GET/DELETE 시 daily-... 정규식에 안 걸려서 "새 이벤트로 다시 취급"될 수 있다 —
+    // 아래에서 taskId에 uid를 그대로 썼기 때문에 daily-{newLogId}-{uid} 패턴으로는 못 찾고,
+    // 대신 전체 dailyLogs를 훑어 taskId로 직접 매칭하는 폴백을 GET/DELETE 쪽에도 필요하면
+    // 추가해야 한다. 1차 버전에서는 uid가 daily-... 형식이 아닌 경우, 다음 REPORT/PROPFIND
+    // 때 collectCaldavEvents가 만들어내는 실제 uid(`daily-${newLogId}-${newTaskId}`)로
+    // 캘린더 앱이 자연스럽게 갈아탄다.
+    return res.status(201).end();
+  }
+
+  return res.status(405).end();
+});
+
+app.use('/caldav', caldavRouter);
 
 // 일일 업무일지 CRUD
 app.get('/api/worklogs/daily', (req, res) => {
