@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { FolderTree, Plus, Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
-import { ContactGroup, BusinessCard } from '../types.js';
+import { FolderTree, Plus, Trash2, Edit2, Check, X, ShieldAlert, Lock, Unlock } from 'lucide-react';
+import { ContactGroup, BusinessCard, User } from '../types.js';
 import { contactHasGroup } from '../groupUtils.js';
 
 interface Props {
   groups: ContactGroup[];
   contacts: BusinessCard[];
+  currentUser?: User | null;
   onCreateGroup: (g: { name: string; color: string }) => void;
   onUpdateGroup: (id: string, name: string, color: string) => void;
   onDeleteGroup: (id: string) => void;
+  onTogglePrivate?: (id: string, isPrivate: boolean) => void;
 }
 
 const COLOR_PALETTES = [
@@ -21,7 +23,7 @@ const COLOR_PALETTES = [
   { label: '다크 슬레이트', cls: 'bg-slate-700 text-white border-slate-600' }
 ];
 
-export const GroupModal: React.FC<Props> = ({ groups, contacts, onCreateGroup, onUpdateGroup, onDeleteGroup }) => {
+export const GroupModal: React.FC<Props> = ({ groups, contacts, currentUser, onCreateGroup, onUpdateGroup, onDeleteGroup, onTogglePrivate }) => {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupColor, setNewGroupColor] = useState(COLOR_PALETTES[0].cls);
   const [editingGid, setEditingGid] = useState<string | null>(null);
@@ -146,6 +148,25 @@ export const GroupModal: React.FC<Props> = ({ groups, contacts, onCreateGroup, o
                           명함 {count}명
                         </span>
                       </div>
+
+                      {/* [추가] 그룹 공개 설정. 명함 하나하나에 있던 "나만 보기(비공개)"를
+                      그룹 단위로도 걸 수 있게 한다. 그룹을 만든 본인만 켜고 끌 수 있고,
+                      켜면 그룹 자체와 그 안에 속한 명함이 다른 사람에게 함께 숨겨진다. */}
+                      {onTogglePrivate && (!g.createdByUserId || g.createdByUserId === currentUser?.id) && (
+                        <button
+                          type="button"
+                          onClick={() => onTogglePrivate(g.id, !g.isPrivate)}
+                          title={g.isPrivate ? '비공개 상태 - 눌러서 회사 전체에 공개하기' : '눌러서 나만 보기(비공개)로 전환'}
+                          className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                            g.isPrivate
+                              ? 'bg-amber-50 text-amber-700 border-amber-500/30 hover:bg-amber-500/20'
+                              : 'bg-white text-slate-400 border-slate-200 hover:text-slate-600'
+                          }`}
+                        >
+                          {g.isPrivate ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                          <span>{g.isPrivate ? '나만 보기 (그룹 전체 비공개)' : '회사 전체 공개'}</span>
+                        </button>
+                      )}
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-xs text-slate-500">
                         <span className="text-[11px] text-slate-400 truncate max-w-[60%]">ID: {g.id}</span>
