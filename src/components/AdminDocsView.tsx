@@ -453,6 +453,87 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   };
   const cardGroupTotal = (c: CardGroup) => c.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
+  // [추가] "자동 불러오기" - 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에
+  // 이미 "법인카드" 결제로 기록된 지출들을 서버에서 모아와서, 그중 원하는 것만 골라 지금
+  // 편집 중인 카드 그룹에 항목으로 채워 넣는다. 이미 가져온 적 있는 항목(sourceKey로 판단)은
+  // 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
+  type CardImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; project?: string; memo?: string; personName?: string };
+  const [cardImportCandidates, setCardImportCandidates] = useState<CardImportCandidate[]>([]);
+  const [showCardImportPanel, setShowCardImportPanel] = useState(false);
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
+  const [selectedImportKeys, setSelectedImportKeys] = useState<Set<string>>(new Set());
+  const [importTargetCardId, setImportTargetCardId] = useState<string>('');
+
+  // 이미 어딘가(저장된 문서든, 지금 편집 중인 폼이든)에 가져와져 있는 sourceKey 모음
+  const alreadyImportedKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'card_usage' || !d.cardUsage) continue;
+    for (const c of d.cardUsage.cards) {
+      for (const e of c.entries) {
+        if (e.sourceKey) alreadyImportedKeys.add(e.sourceKey);
+      }
+    }
+  }
+  for (const c of (editingDoc?.cardUsage?.cards || [])) {
+    for (const e of c.entries) {
+      if (e.sourceKey) alreadyImportedKeys.add(e.sourceKey);
+    }
+  }
+
+  const handleOpenCardImportPanel = async () => {
+    if (!currentUser) return;
+    setShowCardImportPanel(true);
+    setIsLoadingCandidates(true);
+    // 가져올 대상 카드를 기본으로 첫 번째 카드로 잡아둔다
+    if (!importTargetCardId && editingDoc?.cardUsage?.cards?.length) {
+      setImportTargetCardId(editingDoc.cardUsage.cards[0].id);
+    }
+    try {
+      const res = await fetch('/api/admin-docs/card-usage-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: CardImportCandidate[] = await res.json();
+      setCardImportCandidates(data);
+    } catch (err: any) {
+      alert(`법인카드 사용 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowCardImportPanel(false);
+    } finally {
+      setIsLoadingCandidates(false);
+    }
+  };
+
+  const toggleImportKey = (key: string) => {
+    setSelectedImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportSelected = () => {
+    if (!importTargetCardId || selectedImportKeys.size === 0) return;
+    const toImport = cardImportCandidates.filter((c) => selectedImportKeys.has(c.sourceKey));
+    updateCards((cards) => cards.map((c) => c.id === importTargetCardId
+      ? {
+          ...c,
+          entries: [
+            ...c.entries,
+            ...toImport.map((cand) => ({
+              id: `cue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              amount: cand.amount,
+              date: cand.date,
+              project: cand.project || '',
+              user: cand.personName || '',
+              note: cand.memo || '',
+              sourceKey: cand.sourceKey,
+              sourceLabel: cand.sourceLabel
+            }))
+          ]
+        }
+      : c));
+    setSelectedImportKeys(new Set());
+    setShowCardImportPanel(false);
+  };
+
   const handleSave = async () => {
     if (!editingDoc || !editingDoc.title?.trim()) {
       alert('제목을 입력해주세요.');
@@ -1794,10 +1875,90 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between">
                       <label className="text-[11px] font-bold text-slate-600">카드별 사용 내역</label>
-                      <button type="button" onClick={addCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
-                        <Plus className="w-3 h-3" /> 카드 추가
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenCardImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 카드 추가
+                        </button>
+                      </div>
                     </div>
+
+                    {/* [추가] 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에서
+                    법인카드 결제로 이미 기록된 지출들을 모아 보여주고, 고른 것만 선택한 카드에
+                    항목으로 채워 넣는다. */}
+                    {showCardImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">차량·프로젝트·업무일지에서 법인카드 지출 불러오기</span>
+                          <button type="button" onClick={() => setShowCardImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">가져올 대상 카드</label>
+                          <select
+                            value={importTargetCardId}
+                            onChange={(e) => setImportTargetCardId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          >
+                            {(editingDoc.cardUsage?.cards || []).map((c) => (
+                              <option key={c.id} value={c.id}>{c.cardName || '(카드명 미입력)'} {c.holder ? `- ${c.holder}` : ''}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {isLoadingCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = cardImportCandidates.filter((c) => !alreadyImportedKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 법인카드 지출이 없습니다 (전부 이미 가져왔거나, 법인카드로 결제된 기록이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="max-h-56 overflow-y-auto space-y-1 border-t border-slate-100 pt-2">
+                                  {available.map((c) => (
+                                    <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedImportKeys.has(c.sourceKey)}
+                                        onChange={() => toggleImportKey(c.sourceKey)}
+                                        className="w-3.5 h-3.5 mt-0.5"
+                                      />
+                                      <span className="flex-1">
+                                        <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
+                                        <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                        <span className="text-slate-400 mx-1">·</span>
+                                        <span>{c.date}</span>
+                                        {c.project && <span className="text-slate-400"> · {c.project}</span>}
+                                        {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        {c.personName && <span className="text-slate-400"> · {c.personName}</span>}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportSelected}
+                              disabled={selectedImportKeys.size === 0 || !importTargetCardId}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {(editingDoc.cardUsage?.cards || []).map((c) => (
                       <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
@@ -1834,7 +1995,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                         <div className="space-y-1.5">
                           {c.entries.map((e) => (
-                            <div key={e.id} className="grid grid-cols-12 gap-1">
+                            <div key={e.id} className="space-y-0.5">
+                              {e.sourceLabel && (
+                                <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                                  <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                                </span>
+                              )}
+                              <div className="grid grid-cols-12 gap-1">
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -1873,6 +2040,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                               <button type="button" onClick={() => removeCardEntry(c.id, e.id)} className="col-span-1 flex items-center justify-center text-slate-400 hover:text-rose-500">
                                 <X className="w-3.5 h-3.5" />
                               </button>
+                              </div>
                             </div>
                           ))}
                         </div>
