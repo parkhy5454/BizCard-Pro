@@ -79,6 +79,7 @@ async function generateContentWithRetry(
 
 import { createServer as createViteServer } from 'vite';
 import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './src/authLogic.js';
+import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
 import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord } from './src/types.js';
@@ -2618,7 +2619,17 @@ app.get('/api/contacts', (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   // [수정] "나만 보기(비공개)"로 설정된 명함은 등록한 본인 것만 내려주고, 다른 사람에게는 숨긴다.
   // addedByUserId가 아예 없는(기존 데이터) 명함은 예전처럼 회사 전체에 그대로 보인다.
-  const visible = dbData.contacts.filter(c => !c.isPrivate || !c.addedByUserId || c.addedByUserId === requesterId);
+  // [추가] 명함 자체는 공개여도, 그 명함이 속한 그룹 중 하나가 "비공개 그룹"이고 내가 그
+  // 그룹을 만든 사람이 아니면 역시 숨긴다 — 그룹을 비공개로 만든 의미가 있으려면, 그
+  // 그룹에 들어있는 명함도 함께 안 보여야 한다.
+  const privateGroupIds = new Set(
+    dbData.groups.filter(g => g.isPrivate && g.createdByUserId && g.createdByUserId !== requesterId).map(g => g.id)
+  );
+  const visible = dbData.contacts.filter(c => {
+    if (c.isPrivate && c.addedByUserId && c.addedByUserId !== requesterId) return false;
+    if (privateGroupIds.size > 0 && getContactGroupIds(c).some(gid => privateGroupIds.has(gid))) return false;
+    return true;
+  });
   res.json(visible);
 });
 
@@ -2690,7 +2701,11 @@ app.delete('/api/contacts/:id', async (req, res) => {
 // 그룹 CRUD
 app.get('/api/groups', (req, res) => {
   const dbData = getScopedData(req);
-  res.json(dbData.groups);
+  const requesterId = req.headers['x-user-id'] as string;
+  // [수정] "나만 보기(비공개)"로 설정된 그룹은 만든 본인에게만 보이고, 다른 사람에게는
+  // 목록/필터 칩 자체에서 숨긴다. 명함의 isPrivate와 동일한 방식.
+  const visible = dbData.groups.filter(g => !g.isPrivate || !g.createdByUserId || g.createdByUserId === requesterId);
+  res.json(visible);
 });
 
 app.post('/api/groups', async (req, res) => {
@@ -2698,6 +2713,12 @@ app.post('/api/groups', async (req, res) => {
   const g: ContactGroup = req.body;
   if (!g.id) g.id = `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!g.color) g.color = 'bg-slate-700 text-white border-slate-600';
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = requesterId ? users.find(u => u.id === requesterId) : undefined;
+  if (requester) {
+    g.createdByUserId = requester.id;
+    g.createdByUserName = requester.name;
+  }
   dbData.groups.push(g);
   await setScopedDoc((req as any).scopeId, 'groups', g);
   res.status(201).json(g);
