@@ -313,30 +313,32 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               </span>
               
               {/* 앞면/뒷면 전환 버튼 */}
-              {contact.backImage && (
-                <div className="flex bg-white rounded-lg p-1 border border-slate-200 text-xs">
-                  <button
-                    onClick={() => setCardSide('front')}
-                    className={`px-3 py-1 rounded-md font-medium transition-all ${cardSide === 'front' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
-                  >
-                    앞면
-                  </button>
-                  <button
-                    onClick={() => setCardSide('back')}
-                    className={`px-3 py-1 rounded-md font-medium transition-all ${cardSide === 'back' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
-                  >
-                    뒷면
-                  </button>
-                </div>
-              )}
+              {/* [수정] 예전엔 뒷면 이미지가 이미 있을 때만 이 버튼이 보였다. 그러면 아직
+              뒷면을 한 번도 스캔한 적 없는 명함은 "뒷면" 모드로 전환할 방법 자체가 없어서
+              뒷면을 처음 스캔하는 게 불가능했다. 이제 뒷면 이미지 유무와 상관없이 항상
+              전환 버튼을 보여줘서, 뒷면이 없는 상태에서도 "뒷면"으로 넘어가 처음 스캔할
+              수 있게 한다. */}
+              <div className="flex bg-white rounded-lg p-1 border border-slate-200 text-xs">
+                <button
+                  onClick={() => setCardSide('front')}
+                  className={`px-3 py-1 rounded-md font-medium transition-all ${cardSide === 'front' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                >
+                  앞면
+                </button>
+                <button
+                  onClick={() => setCardSide('back')}
+                  className={`px-3 py-1 rounded-md font-medium transition-all ${cardSide === 'back' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                >
+                  뒷면
+                </button>
+              </div>
             </div>
 
-            {/* 카드 액자 (명함 비율에 맞춰 전체가 잘리지 않게 표시, 뒷면 있으면 좌우로 밀어도 전환됨) */}
+            {/* 카드 액자 (명함 비율에 맞춰 전체가 잘리지 않게 표시, 좌우로 밀어도 전환됨) */}
             <div
               className="aspect-[1.586/1] w-full rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-2xl relative group/img flex items-center justify-center touch-pan-y"
               onTouchStart={(e) => { cardSwipeStartX.current = e.touches[0].clientX; }}
               onTouchEnd={(e) => {
-                if (!contact.backImage) return;
                 const deltaX = e.changedTouches[0].clientX - cardSwipeStartX.current;
                 if (Math.abs(deltaX) < 40) return;
                 setCardSide((prev) => (prev === 'front' ? 'back' : 'front'));
@@ -371,14 +373,16 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               )}
             </div>
 
-            {/* 현재 보고 있는 면(앞/뒤)을 카메라 가이드로 다시 스캔 */}
+            {/* 현재 보고 있는 면(앞/뒤)을 카메라 가이드로 다시 스캔.
+            뒷면 이미지가 아직 없어도 cardSide를 '뒷면'으로 전환한 뒤 이 버튼을 누르면
+            뒷면을 처음 스캔할 수 있다(위 앞면/뒷면 버튼이 이제 항상 보이므로 가능해졌다). */}
             <button
               type="button"
               onClick={() => setRescanCameraTarget(cardSide)}
               className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 hover:text-indigo-800 text-xs font-bold transition-colors"
             >
               <Camera className="w-3.5 h-3.5" />
-              {cardSide === 'front' ? '앞면 재스캔 및 테두리 조정' : '뒷면 재스캔 및 테두리 조정'}
+              {cardSide === 'front' ? '앞면 재스캔' : '뒷면 재스캔'}
             </button>
           </div>
 
