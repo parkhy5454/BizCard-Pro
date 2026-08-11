@@ -115,6 +115,22 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       subCategory: '',
       entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
     }]
+  } : undefined,
+  // [추가] 대출이자 및 원금 상환 내역 기본값. 대출 하나를 빈 줄로 미리 넣어두고,
+  // "대출 추가"로 늘릴 수 있게 한다.
+  loanRepayment: category === 'loan_repayment' ? {
+    loans: [{
+      id: `loan-${Date.now()}`,
+      description: '',
+      initialAmount: 0,
+      interestRate: 0,
+      maturityDate: '',
+      balance: 0,
+      principalPaid: 0,
+      interestPaid: 0,
+      bankAccount: '',
+      isRepaid: false
+    }]
   } : undefined
 });
 
@@ -358,6 +374,30 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   };
   const bankAccountTotal = (a: BankAccount) => a.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
+  // [추가] 대출이자 및 원금 상환 내역 - 대출 줄 추가·삭제·수정
+  type LoanEntry = NonNullable<AdminDoc['loanRepayment']>['loans'][number];
+  const updateLoans = (updater: (loans: LoanEntry[]) => LoanEntry[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const loanRepayment = prev.loanRepayment || { loans: [] };
+      return { ...prev, loanRepayment: { ...loanRepayment, loans: updater(loanRepayment.loans || []) } };
+    });
+  };
+  const addLoan = () => {
+    updateLoans((loans) => [...loans, {
+      id: `loan-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      description: '', initialAmount: 0, interestRate: 0, maturityDate: '', balance: 0,
+      principalPaid: 0, interestPaid: 0, bankAccount: '', isRepaid: false
+    }]);
+  };
+  const removeLoan = (id: string) => {
+    updateLoans((loans) => loans.filter((l) => l.id !== id));
+  };
+  const updateLoan = (id: string, patch: Partial<LoanEntry>) => {
+    updateLoans((loans) => loans.map((l) => l.id === id ? { ...l, ...patch } : l));
+  };
+  const loanPaymentTotal = (l: LoanEntry) => (Number(l.principalPaid) || 0) + (Number(l.interestPaid) || 0);
+
   const handleSave = async () => {
     if (!editingDoc || !editingDoc.title?.trim()) {
       alert('제목을 입력해주세요.');
@@ -383,6 +423,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       // [추가] 통장 출금/입금 내역은 전체 거래 합계를 amount 칸에 표시한다.
       if ((payload.category === 'bank_withdrawal' || payload.category === 'bank_deposit') && payload.bankLedger) {
         const total = payload.bankLedger.accounts.reduce((sum, a) => sum + a.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 대출이자 및 원금 상환 내역은 이번 출금(원금+이자) 합계를 amount 칸에 표시한다.
+      if (payload.category === 'loan_repayment' && payload.loanRepayment) {
+        const total = payload.loanRepayment.loans.reduce((sum, l) => sum + loanPaymentTotal(l), 0);
         payload.amount = String(total);
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
@@ -633,6 +678,99 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 대출이자 및 원금 상환 내역 인쇄용 화면. 공유해주신 양식대로 진행 중인 대출과
+  // 상환완료된 대출을 구역을 나눠서 보여준다.
+  const renderPrintableLoanRepayment = () => {
+    if (!printingDoc || !printingDoc.loanRepayment) return null;
+    const loans = printingDoc.loanRepayment.loans;
+    const active = loans.filter((l) => !l.isRepaid);
+    const repaid = loans.filter((l) => l.isRepaid);
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const totals = active.reduce((acc, l) => ({
+      balance: acc.balance + l.balance,
+      principalPaid: acc.principalPaid + l.principalPaid,
+      interestPaid: acc.interestPaid + l.interestPaid,
+      total: acc.total + loanPaymentTotal(l)
+    }), { balance: 0, principalPaid: 0, interestPaid: 0, total: 0 });
+
+    const headerRow = (
+      <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+        <td style={{ border: '1px solid #000', padding: '5px', width: '4%' }}>NO.</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>구분(최초대출금액_이자율)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출 금액(원)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>이자율(%)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>만기(납기일)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출잔액</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}>출금 금액(원)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>출금통장</td>
+      </tr>
+    );
+    const subHeaderRow = (
+      <tr style={{ background: '#fff7cc', fontWeight: 700, textAlign: 'center', fontSize: '10px' }}>
+        <td style={{ border: '1px solid #000', padding: '3px' }} colSpan={6}></td>
+        <td style={{ border: '1px solid #000', padding: '3px' }}>원금</td>
+        <td style={{ border: '1px solid #000', padding: '3px' }}>이자</td>
+        <td style={{ border: '1px solid #000', padding: '3px' }}>계</td>
+        <td style={{ border: '1px solid #000', padding: '3px' }}></td>
+      </tr>
+    );
+
+    return (
+      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>&lt;대출이자 및 원금상환 내역&gt;</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', border: '1px solid #000' }}>
+          <thead>
+            {headerRow}
+            {subHeaderRow}
+          </thead>
+          <tbody>
+            {active.map((l, i) => (
+              <tr key={l.id}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.description}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.initialAmount)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.interestRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.maturityDate || ''}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.balance)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.principalPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.interestPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(loanPaymentTotal(l))}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.bankAccount}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={2}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}></td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.balance)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.principalPaid)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.interestPaid)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.total)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}></td>
+            </tr>
+            {repaid.map((l, i) => (
+              <tr key={l.id} style={{ background: '#e5e5e5' }}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700 }}>상환완료 {i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.description}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.initialAmount)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.interestRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', color: '#c00' }}>
+                  {l.repaidDate ? `${l.repaidDate} 상환${l.repaidFee ? ` (${l.repaidFee})` : ''}` : ''}
+                </td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', color: '#c00', fontWeight: 700 }}>
+                  상환완료{l.repaidDate ? ` ${l.repaidDate}` : ''}
+                </td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.principalPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.interestPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(loanPaymentTotal(l))}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.bankAccount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
   const renderActivePrintable = () => {
@@ -640,6 +778,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'payslip') return renderPrintablePayslip();
     if (printingDoc.category === 'monthly_cashflow') return renderPrintableCashflow();
     if (printingDoc.category === 'bank_withdrawal' || printingDoc.category === 'bank_deposit') return renderPrintableBankLedger();
+    if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
     return null;
   };
 
@@ -738,7 +877,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -1280,7 +1419,157 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && (
+                {/* [추가] 대출이자 및 원금 상환 내역 전용 구조화 입력. 대출 건별로 입력하고,
+                "상환완료" 체크를 켜면 상환일/메모 칸이 추가로 나타난다. */}
+                {activeCategory === 'loan_repayment' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600">대출 목록</label>
+                      <button type="button" onClick={addLoan} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 대출 추가
+                      </button>
+                    </div>
+
+                    {(editingDoc.loanRepayment?.loans || []).map((l) => (
+                      <div key={l.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={l.description}
+                            onChange={(e) => updateLoan(l.id, { description: e.target.value })}
+                            placeholder="구분 (예: 우리은행_중진직대출_2.6억_28년11월중료)"
+                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <button type="button" onClick={() => removeLoan(l.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">대출 금액</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.initialAmount ? formatCurrencyInput(l.initialAmount) : ''}
+                              onChange={(e) => updateLoan(l.id, { initialAmount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">이자율(%)</label>
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={l.interestRate || ''}
+                              onChange={(e) => updateLoan(l.id, { interestRate: Number(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">만기(납기일)</label>
+                            <input
+                              type="date"
+                              value={l.maturityDate || ''}
+                              onChange={(e) => updateLoan(l.id, { maturityDate: e.target.value })}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">대출잔액</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.balance ? formatCurrencyInput(l.balance) : ''}
+                              onChange={(e) => updateLoan(l.id, { balance: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">이번 출금 - 원금</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.principalPaid ? formatCurrencyInput(l.principalPaid) : ''}
+                              onChange={(e) => updateLoan(l.id, { principalPaid: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">이번 출금 - 이자</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.interestPaid ? formatCurrencyInput(l.interestPaid) : ''}
+                              onChange={(e) => updateLoan(l.id, { interestPaid: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금통장</label>
+                            <input
+                              type="text"
+                              value={l.bankAccount}
+                              onChange={(e) => updateLoan(l.id, { bankAccount: e.target.value })}
+                              placeholder="예: 하나(13004)"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-right text-[11px] text-slate-500">이번 출금 계: <b className="text-slate-700">{formatCurrencyInput(loanPaymentTotal(l))}원</b></p>
+
+                        <label className="flex items-center gap-1.5 text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                          <input
+                            type="checkbox"
+                            checked={l.isRepaid}
+                            onChange={(e) => updateLoan(l.id, { isRepaid: e.target.checked })}
+                            className="w-3.5 h-3.5"
+                          />
+                          상환완료
+                        </label>
+                        {l.isRepaid && (
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-0.5">상환일</label>
+                              <input
+                                type="date"
+                                value={l.repaidDate || ''}
+                                onChange={(e) => updateLoan(l.id, { repaidDate: e.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-0.5">비고 (상환수수료 등)</label>
+                              <input
+                                type="text"
+                                value={l.repaidFee || ''}
+                                onChange={(e) => updateLoan(l.id, { repaidFee: e.target.value })}
+                                placeholder="예: 상환수수료 16,593원"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600 space-y-0.5">
+                      <p className="flex justify-between"><span>대출 잔액 합계</span><b>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).filter((l) => !l.isRepaid).reduce((s, l) => s + l.balance, 0))}원</b></p>
+                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>이번 출금 총 합계</span><span>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).reduce((s, l) => s + loanPaymentTotal(l), 0))}원</span></p>
+                    </div>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
