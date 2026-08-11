@@ -1924,26 +1924,43 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 법인카드 지출이 없습니다 (전부 이미 가져왔거나, 법인카드로 결제된 기록이 없습니다).</p>;
                               }
                               return (
-                                <div className="max-h-56 overflow-y-auto space-y-1 border-t border-slate-100 pt-2">
-                                  {available.map((c) => (
-                                    <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedImportKeys.has(c.sourceKey)}
-                                        onChange={() => toggleImportKey(c.sourceKey)}
-                                        className="w-3.5 h-3.5 mt-0.5"
-                                      />
-                                      <span className="flex-1">
-                                        <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
-                                        <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
-                                        <span className="text-slate-400 mx-1">·</span>
-                                        <span>{c.date}</span>
-                                        {c.project && <span className="text-slate-400"> · {c.project}</span>}
-                                        {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
-                                        {c.personName && <span className="text-slate-400"> · {c.personName}</span>}
-                                      </span>
-                                    </label>
-                                  ))}
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.project && <span className="text-slate-400"> · {c.project}</span>}
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                          {c.personName && <span className="text-slate-400"> · {c.personName}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
                                 </div>
                               );
                             })()}
