@@ -116,6 +116,10 @@ export interface AdminDocLineItem {
   id: string;
   label: string;
   amount: number;
+  // [추가] 4대보험 공제액 자동계산 기준(과세 대상 급여)에 포함할지 여부. 식대·차량유지비처럼
+  // 비과세 항목(일정 한도까지 세금·보험료 계산에서 제외되는 항목)은 false로 둔다.
+  // 지급 내역에서만 의미가 있고, 공제 내역에는 안 쓰인다.
+  taxable?: boolean;
 }
 
 export interface AdminDoc {
@@ -143,6 +147,16 @@ export interface AdminDoc {
     department?: string;    // 부서
     position?: string;      // 직위
     salaryGrade?: string;   // 호봉
+    // [추가] 4대보험 등 공제율(%). 매년 바뀌는 값이라 화면에서 직접 조정할 수 있게 하고,
+    // 이 급여명세서를 저장할 때 그 시점에 쓴 값을 그대로 남겨서, 나중에 요율이 바뀌어도
+    // 예전에 발급한 명세서의 계산 근거가 그대로 유지되게 한다(소급 재계산되지 않음).
+    rates?: {
+      pensionRate: number;     // 국민연금 (기본 4.75%)
+      healthRate: number;      // 건강보험 (기본 3.595%)
+      ltcRate: number;         // 장기요양보험료 - 건강보험료에 곱하는 비율 (기본 13.14%)
+      employmentRate: number;  // 고용보험 (기본 0.9%)
+      localTaxRate: number;    // 지방소득세 - 소득세에 곱하는 비율 (기본 10%)
+    };
     payItems: AdminDocLineItem[];        // 지급 내역 (기본급, 연장수당, 식대 등)
     deductionItems: AdminDocLineItem[];  // 공제 내역 (국민연금, 건강보험, 소득세 등)
   };
