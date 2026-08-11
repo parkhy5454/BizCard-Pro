@@ -3379,6 +3379,42 @@ app.post('/api/projects', async (req, res) => {
   res.status(201).json(p);
 });
 
+// [추가] 엑셀(특약점 프로젝트 파이프라인 등)에서 정리해둔 여러 프로젝트를 한 번에 등록하는
+// 일괄 가져오기. 한 건씩 등록해야 했던 기존 방식과 달리, 프론트에서 엑셀을 읽어 이 형식의
+// 배열로 만들어 보내면 한 번에 저장한다. 단건 등록(app.post('/api/projects'))과 동일한
+// 기본값 채우기 규칙을 그대로 따른다.
+app.post('/api/projects/import', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  const importedProjects = req.body.importedProjects;
+  if (!Array.isArray(importedProjects)) {
+    return res.status(400).json({ error: 'importedProjects 배열이 필요합니다.' });
+  }
+
+  const toInsert: Project[] = [];
+  for (const raw of importedProjects as any[]) {
+    const p: Project = {
+      id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      name: raw.name || '(이름 없음)',
+      description: raw.description || '',
+      salesRep: raw.salesRep || '',
+      developer: raw.developer || '',
+      status: raw.status || 'opportunity',
+      priority: raw.priority || 'medium',
+      dueDate: raw.dueDate || '',
+      contactIds: [],
+      budget: raw.budget || '',
+      followUps: [],
+      createdAt: new Date().toISOString()
+    };
+    dbData.projects.unshift(p);
+    toInsert.push(p);
+  }
+
+  await setScopedDocs(scopeId, 'projects', toInsert);
+  res.status(201).json({ count: toInsert.length, projects: dbData.projects });
+});
+
 app.put('/api/projects/:id', async (req, res) => {
   const dbData = getScopedData(req);
   const idx = dbData.projects.findIndex(p => p.id === req.params.id);
