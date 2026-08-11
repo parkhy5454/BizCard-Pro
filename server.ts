@@ -4101,9 +4101,30 @@ caldavRouter.use(async (req, res, next) => {
   next();
 });
 
-// well-known 디스커버리: 캘린더 앱이 서버 주소만 알아도 여기로 먼저 물어본다
-app.get('/.well-known/caldav', (req, res) => {
+// well-known 디스커버리: 캘린더 앱이 서버 주소만 알아도 여기로 먼저 물어본다.
+// [수정] 예전엔 GET만 처리했는데, 아이폰이 PROPFIND로 바로 이 경로를 두드리는 경우가
+// 있어서 모든 메서드에 응답하도록 넓혔다.
+app.all('/.well-known/caldav', (req, res) => {
   res.redirect(301, '/caldav/');
+});
+
+// [추가] 아이폰/맥이 "서버 주소"란에 경로 없이 도메인만 입력하면, well-known을 거치지
+// 않고 곧바로 루트(/)에 PROPFIND나 OPTIONS를 보내 캘린더(WebDAV) 지원 여부를 확인하는
+// 경우가 있다. 루트는 원래 웹앱 화면(SPA)이 GET으로 응답하는 자리라 이 요청들에 응답할
+// 게 없어서, 클라이언트가 "SSL로 연결할 수 없음" 같은 애매한 에러를 띄우는 원인이 됐다.
+// GET/HEAD(=웹앱 화면 요청)는 그대로 SPA로 흘려보내고, PROPFIND/OPTIONS/REPORT만
+// 여기서 가로채 "캘린더 있는 위치는 /caldav/ 다"라고 안내해서 자동 탐색이 이어지게 한다.
+app.all('/', (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  if (req.method === 'OPTIONS') {
+    res.setHeader('DAV', '1, 2, 3, calendar-access, calendar-schedule');
+    res.setHeader('Allow', 'OPTIONS, GET, HEAD, PROPFIND');
+    return res.status(200).end();
+  }
+  if (req.method === 'PROPFIND') {
+    return res.redirect(301, '/caldav/');
+  }
+  next();
 });
 
 // 루트: 로그인한 사용자의 principal 위치를 알려준다
