@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
@@ -1268,7 +1268,141 @@ export const ProjectsView: React.FC<Props> = ({
     document.body.removeChild(link);
   };
 
-  // [수정] "새 프로젝트 등록"과 같은 위치(Navigation 상단바)의 엑셀/PDF 버튼에서 신호가 오면 실행
+  // [추가] "OO 특약점 프로젝트 파이프라인" 엑셀 일괄 가져오기 상태/입력 참조
+  const projectImportInputRef = useRef<HTMLInputElement>(null);
+  const [isImportingProjects, setIsImportingProjects] = useState(false);
+
+  // [추가] 엑셀(특약점 프로젝트 파이프라인 형식)을 읽어서 프로젝트를 한 번에 여러 건
+  // 등록한다. 예전엔 이런 표에 정리해둔 프로젝트도 하나하나 "새 프로젝트 등록" 폼을
+  // 열어 손으로 옮겨 적어야 했다.
+  //
+  // 이 템플릿의 열 구성(A~N): 번호 | 프로젝트명 | 최종고객 | 현장/지역 | 제품군 | 주요
+  // 품목·사양 | 예상 수주금액 | 예상 수주시기 | 성사확률(%) | 가중 예상금액(자동계산, 무시) |
+  // 진행단계 | 경쟁사 | ABB 지원요청 | 비고.
+  //
+  // 매핑 규칙(사용자와 상의해서 정함):
+  // - 최종고객 -> 시행사(발주처) 칸(developer)
+  // - 진행단계: 발굴/견적/보류 -> 진행중(opportunity), 협상/수주예정 -> progress
+  //   (앱의 상태값에는 "보류"에 해당하는 값이 없어서, 아직 살아있는 건이라는 의미로
+  //   opportunity로 분류하기로 함)
+  // - 성사확률(%) -> 우선순위(priority): 70% 이상 high, 40~69% medium, 그 미만 low
+  // - "예상 수주시기"는 "2026 Q3", "미정"처럼 실제 날짜가 아니어서 마감일(dueDate,
+  //   날짜 선택 칸)에 넣으면 나중에 수정 화면에서 빈칸처럼 보인다. 그래서 dueDate는
+  //   비워두고, 현장/지역·제품군·주요품목·예상시기·성사확률·경쟁사·지원요청·비고를
+  //   모두 설명(description)에 정리해서 넣어 정보 손실 없이 보존한다.
+  const mapPipelineStageToStatus = (stage: string): Project['status'] => {
+    const s = (stage || '').toLowerCase();
+    if (s.includes('negotiation') || s.includes('협상')) return 'progress';
+    if (s.includes('closing') || s.includes('수주예정')) return 'progress';
+    // 발굴(Lead), 견적(Quotation), 보류(Hold), 그 외 알 수 없는 값은 모두 진행중으로 분류
+    return 'opportunity';
+  };
+
+  const mapWinPctToPriority = (winPct: number | null): Project['priority'] => {
+    if (winPct === null || isNaN(winPct)) return 'medium';
+    if (winPct >= 70) return 'high';
+    if (winPct >= 40) return 'medium';
+    return 'low';
+  };
+
+  const handleImportProjectsExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // 같은 파일을 다시 선택해도 onChange가 다시 발생하도록 초기화
+
+    setIsImportingProjects(true);
+    try {
+      const XLSX = await import('xlsx');
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      // header:1 -> 각 행을 배열로, 셀 병합/서식과 무관하게 값만 뽑아온다.
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+
+      // 헤더 행("프로젝트명"이 B열에 있는 행)을 찾아서, 그 다음부터를 데이터로 본다.
+      // 행 번호를 고정으로 가정하지 않고 라벨로 찾아서, 파일마다 위쪽 안내문 줄 수가
+      // 살짝 달라져도 안정적으로 동작하게 한다.
+      const headerRowIdx = rows.findIndex((r) => typeof r[1] === 'string' && r[1].includes('프로젝트명'));
+      if (headerRowIdx === -1) {
+        alert('엑셀에서 "프로젝트명" 열을 찾지 못했습니다. "특약점 프로젝트 파이프라인" 형식의 파일인지 확인해주세요.');
+        return;
+      }
+
+      // 작성자(있으면) 기본 영업자로 사용 - 상단 안내 영역 어딘가에 "작성자" 라벨과 함께 있음
+      let defaultSalesRep = '';
+      for (const r of rows.slice(0, headerRowIdx)) {
+        const idx = r.findIndex((v) => typeof v === 'string' && v.replace(/\s/g, '') === '작성자');
+        if (idx !== -1 && typeof r[idx + 1] === 'string') { defaultSalesRep = r[idx + 1]; break; }
+      }
+
+      const dataRows = rows.slice(headerRowIdx + 2); // 헤더 다음 줄은 "예시" 행이라 건너뜀
+      const toImport: Partial<Project>[] = [];
+      for (const r of dataRows) {
+        const name = typeof r[1] === 'string' ? r[1].trim() : '';
+        if (!name) continue; // 프로젝트명이 빈 행은 빈 템플릿 줄이므로 건너뜀
+
+        const endCustomer = (r[2] ?? '').toString().trim();
+        const site = (r[3] ?? '').toString().trim();
+        const productGroup = (r[4] ?? '').toString().trim();
+        const mainItems = (r[5] ?? '').toString().trim();
+        const expectedValue = r[6];
+        const timing = (r[7] ?? '').toString().trim();
+        const winPctRaw = r[8];
+        const winPct = typeof winPctRaw === 'number' ? winPctRaw : (winPctRaw ? parseFloat(String(winPctRaw)) : null);
+        const stage = (r[10] ?? '').toString().trim();
+        const competitor = (r[11] ?? '').toString().trim();
+        const supportNeeded = (r[12] ?? '').toString().trim();
+        const remarks = (r[13] ?? '').toString().trim();
+
+        const descLines = [
+          site && `현장/지역: ${site}`,
+          productGroup && `제품군: ${productGroup}`,
+          mainItems && `주요 품목·사양: ${mainItems}`,
+          timing && `예상 수주시기: ${timing}`,
+          winPct !== null && !isNaN(winPct) && `성사확률: ${winPct}%`,
+          competitor && `경쟁사: ${competitor}`,
+          supportNeeded && `지원요청: ${supportNeeded}`,
+          remarks && `비고: ${remarks}`
+        ].filter(Boolean);
+
+        toImport.push({
+          name,
+          developer: endCustomer,
+          description: descLines.join('\n'),
+          salesRep: defaultSalesRep,
+          status: mapPipelineStageToStatus(stage),
+          priority: mapWinPctToPriority(winPct),
+          dueDate: '',
+          budget: typeof expectedValue === 'number' ? String(expectedValue) : (expectedValue ? String(expectedValue) : '')
+        });
+      }
+
+      if (toImport.length === 0) {
+        alert('가져올 프로젝트가 없습니다. 엑셀에 작성된 프로젝트명이 있는지 확인해주세요.');
+        return;
+      }
+
+      const res = await fetch('/api/projects/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify({ importedProjects: toImport })
+      });
+      if (!res.ok) throw new Error(`가져오기에 실패했습니다 (상태: ${res.status}).`);
+      const data = await res.json();
+      setProjects(data.projects || projects);
+      alert(`✅ ${data.count}건의 프로젝트를 성공적으로 가져왔습니다.`);
+    } catch (err: any) {
+      console.error('Failed to import projects excel:', err);
+      alert(`엑셀 가져오기에 실패했습니다.\n${err.message || '파일 형식을 확인하고 다시 시도해주세요.'}`);
+    } finally {
+      setIsImportingProjects(false);
+    }
+  };
+
+
   useEffect(() => {
     if (triggerExcelExport) handleExportProjectsExcel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1499,6 +1633,24 @@ export const ProjectsView: React.FC<Props> = ({
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>엑셀 다운로드</span>
                 </button>
+                {/* [추가] "OO 특약점 프로젝트 파이프라인" 형식의 엑셀을 올리면, 한 건씩 등록할
+                필요 없이 안에 있는 프로젝트를 한 번에 전부 등록한다. */}
+                <button
+                  type="button"
+                  onClick={() => projectImportInputRef.current?.click()}
+                  disabled={isImportingProjects}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <ArrowDownUp className="w-3.5 h-3.5" />
+                  <span>{isImportingProjects ? '가져오는 중...' : '엑셀로 프로젝트 가져오기'}</span>
+                </button>
+                <input
+                  ref={projectImportInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleImportProjectsExcel}
+                  className="hidden"
+                />
                 <button
                   type="button"
                   onClick={() => setShowProjectsPrintPreview(true)}
