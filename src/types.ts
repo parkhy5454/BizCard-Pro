@@ -112,6 +112,12 @@ export type AdminDocCategory =
   | 'bank_deposit'        // 통장 입금 내역
   | 'loan_repayment';     // 대출이자 및 원금 상환 내역
 
+export interface AdminDocLineItem {
+  id: string;
+  label: string;
+  amount: number;
+}
+
 export interface AdminDoc {
   id: string;
   section: AdminDocSection;
@@ -125,6 +131,21 @@ export interface AdminDoc {
   createdByUserId?: string;
   createdByUserName?: string;
   createdAt: string;
+  // [추가] 급여명세서(category: 'payslip') 전용 구조화 필드. 실제 회사 급여명세서 양식
+  // (사원코드/입사일/부서/직위/호봉 + 지급내역·공제내역 각각 여러 줄)을 그대로 담기 위해
+  // 다른 서류들과 별도로 필드를 둔다. 급여명세서가 아닌 다른 서류에서는 안 쓰인다.
+  payslip?: {
+    companyName?: string;
+    payMonth?: string;      // 예: "2026-07" (몇 월분 급여인지)
+    paymentDate?: string;   // 지급일 (YYYY-MM-DD)
+    employeeCode?: string;  // 사원코드
+    hireDate?: string;      // 입사일
+    department?: string;    // 부서
+    position?: string;      // 직위
+    salaryGrade?: string;   // 호봉
+    payItems: AdminDocLineItem[];        // 지급 내역 (기본급, 연장수당, 식대 등)
+    deductionItems: AdminDocLineItem[];  // 공제 내역 (국민연금, 건강보험, 소득세 등)
+  };
 }
 
 export interface MeetingExpenseItem {
