@@ -28,7 +28,7 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'monthly_cashflow', label: '월별 자금 현황', personLabel: '작성자', showAmount: true },
     { id: 'bank_withdrawal', label: '통장 출금 내역', personLabel: '거래처/적요', showAmount: true },
     { id: 'bank_deposit', label: '통장 입금 내역', personLabel: '거래처/적요', showAmount: true },
-    { id: 'loan_repayment', label: '대출이자 및 원금 상환 내역', personLabel: '금융기관', showAmount: true }
+    { id: 'loan_repayment', label: '대출 현황', personLabel: '금융기관', showAmount: true }
   ]
 };
 
@@ -116,19 +116,23 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
     }]
   } : undefined,
-  // [추가] 대출이자 및 원금 상환 내역 기본값. 대출 하나를 빈 줄로 미리 넣어두고,
-  // "대출 추가"로 늘릴 수 있게 한다.
+  // [추가] 대출 현황 기본값. 대출 하나를 빈 줄로 미리 넣어두고, "대출 추가"로 늘릴 수 있게 한다.
   loanRepayment: category === 'loan_repayment' ? {
     loans: [{
       id: `loan-${Date.now()}`,
-      description: '',
+      loanName: '',
+      loanAccount: '',
       initialAmount: 0,
-      interestRate: 0,
+      initialRate: 0,
+      currentRate: 0,
+      loanDate: '',
       maturityDate: '',
+      paymentDay: '',
       balance: 0,
       principalPaid: 0,
       interestPaid: 0,
-      bankAccount: '',
+      withdrawBank: '',
+      withdrawAccount: '',
       isRepaid: false
     }]
   } : undefined
@@ -386,8 +390,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const addLoan = () => {
     updateLoans((loans) => [...loans, {
       id: `loan-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      description: '', initialAmount: 0, interestRate: 0, maturityDate: '', balance: 0,
-      principalPaid: 0, interestPaid: 0, bankAccount: '', isRepaid: false
+      loanName: '', loanAccount: '', initialAmount: 0, initialRate: 0, currentRate: 0,
+      loanDate: '', maturityDate: '', paymentDay: '', balance: 0,
+      principalPaid: 0, interestPaid: 0, withdrawBank: '', withdrawAccount: '', isRepaid: false
     }]);
   };
   const removeLoan = (id: string) => {
@@ -695,30 +700,35 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
     const headerRow = (
       <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
-        <td style={{ border: '1px solid #000', padding: '5px', width: '4%' }}>NO.</td>
-        <td style={{ border: '1px solid #000', padding: '5px' }}>구분(최초대출금액_이자율)</td>
+        <td style={{ border: '1px solid #000', padding: '5px', width: '3%' }}>NO.</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출 명</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출 계좌</td>
         <td style={{ border: '1px solid #000', padding: '5px' }}>대출 금액(원)</td>
-        <td style={{ border: '1px solid #000', padding: '5px' }}>이자율(%)</td>
-        <td style={{ border: '1px solid #000', padding: '5px' }}>만기(납기일)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>최초 이자율(%)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>현재 이자율(%)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출일</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>만기일</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>납기일</td>
         <td style={{ border: '1px solid #000', padding: '5px' }}>대출잔액</td>
         <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}>출금 금액(원)</td>
-        <td style={{ border: '1px solid #000', padding: '5px' }}>출금통장</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>출금 은행</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>출금 계좌</td>
       </tr>
     );
     const subHeaderRow = (
       <tr style={{ background: '#fff7cc', fontWeight: 700, textAlign: 'center', fontSize: '10px' }}>
-        <td style={{ border: '1px solid #000', padding: '3px' }} colSpan={6}></td>
+        <td style={{ border: '1px solid #000', padding: '3px' }} colSpan={10}></td>
         <td style={{ border: '1px solid #000', padding: '3px' }}>원금</td>
         <td style={{ border: '1px solid #000', padding: '3px' }}>이자</td>
         <td style={{ border: '1px solid #000', padding: '3px' }}>계</td>
-        <td style={{ border: '1px solid #000', padding: '3px' }}></td>
+        <td style={{ border: '1px solid #000', padding: '3px' }} colSpan={2}></td>
       </tr>
     );
 
     return (
-      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
-        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>&lt;대출이자 및 원금상환 내역&gt;</h1>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', border: '1px solid #000' }}>
+      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>대출 현황</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
           <thead>
             {headerRow}
             {subHeaderRow}
@@ -727,42 +737,49 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             {active.map((l, i) => (
               <tr key={l.id}>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{i + 1}</td>
-                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.description}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanName}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanAccount}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.initialAmount)}</td>
-                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.interestRate}</td>
-                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.maturityDate || ''}</td>
-                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.balance)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.initialRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700 }}>{l.currentRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.loanDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.maturityDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.paymentDay}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 700 }}>{fmt(l.balance)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.principalPaid)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.interestPaid)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(loanPaymentTotal(l))}</td>
-                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.bankAccount}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawBank}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawAccount}</td>
               </tr>
             ))}
             <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
-              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={2}>합 계</td>
-              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}></td>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={9}>합 계</td>
               <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.balance)}</td>
               <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.principalPaid)}</td>
               <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.interestPaid)}</td>
               <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.total)}</td>
-              <td style={{ border: '1px solid #000', padding: '5px' }}></td>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={2}></td>
             </tr>
             {repaid.map((l, i) => (
               <tr key={l.id} style={{ background: '#e5e5e5' }}>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700 }}>상환완료 {i + 1}</td>
-                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.description}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanName}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanAccount}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.initialAmount)}</td>
-                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.interestRate}</td>
-                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', color: '#c00' }}>
-                  {l.repaidDate ? `${l.repaidDate} 상환${l.repaidFee ? ` (${l.repaidFee})` : ''}` : ''}
-                </td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.initialRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.currentRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.loanDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.maturityDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.paymentDay}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', color: '#c00', fontWeight: 700 }}>
-                  상환완료{l.repaidDate ? ` ${l.repaidDate}` : ''}
+                  {l.repaidDate ? `${l.repaidDate} 상환${l.repaidFee ? ` (${l.repaidFee})` : ''}` : '상환완료'}
                 </td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.principalPaid)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.interestPaid)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(loanPaymentTotal(l))}</td>
-                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.bankAccount}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawBank}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawAccount}</td>
               </tr>
             ))}
           </tbody>
@@ -1432,17 +1449,26 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                     {(editingDoc.loanRepayment?.loans || []).map((l) => (
                       <div key={l.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="grid grid-cols-2 gap-1.5">
                           <input
                             type="text"
-                            value={l.description}
-                            onChange={(e) => updateLoan(l.id, { description: e.target.value })}
-                            placeholder="구분 (예: 우리은행_중진직대출_2.6억_28년11월중료)"
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            value={l.loanName}
+                            onChange={(e) => updateLoan(l.id, { loanName: e.target.value })}
+                            placeholder="대출 명 (예: 우리은행_중진직대출)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
-                          <button type="button" onClick={() => removeLoan(l.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={l.loanAccount || ''}
+                              onChange={(e) => updateLoan(l.id, { loanAccount: e.target.value })}
+                              placeholder="대출 계좌"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeLoan(l.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-4 gap-1.5">
@@ -1458,23 +1484,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-slate-400 mb-0.5">이자율(%)</label>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">최초 이자율(%)</label>
                             <input
                               type="number"
                               step="0.001"
-                              value={l.interestRate || ''}
-                              onChange={(e) => updateLoan(l.id, { interestRate: Number(e.target.value) })}
+                              value={l.initialRate || ''}
+                              onChange={(e) => updateLoan(l.id, { initialRate: Number(e.target.value) })}
                               placeholder="0"
                               className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-slate-400 mb-0.5">만기(납기일)</label>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">현재 이자율(%)</label>
                             <input
-                              type="date"
-                              value={l.maturityDate || ''}
-                              onChange={(e) => updateLoan(l.id, { maturityDate: e.target.value })}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              type="number"
+                              step="0.001"
+                              value={l.currentRate || ''}
+                              onChange={(e) => updateLoan(l.id, { currentRate: Number(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
                             />
                           </div>
                           <div>
@@ -1492,7 +1520,38 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                         <div className="grid grid-cols-3 gap-1.5">
                           <div>
-                            <label className="block text-[10px] text-slate-400 mb-0.5">이번 출금 - 원금</label>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">대출일</label>
+                            <input
+                              type="date"
+                              value={l.loanDate || ''}
+                              onChange={(e) => updateLoan(l.id, { loanDate: e.target.value })}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">만기일</label>
+                            <input
+                              type="date"
+                              value={l.maturityDate || ''}
+                              onChange={(e) => updateLoan(l.id, { maturityDate: e.target.value })}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">납기일</label>
+                            <input
+                              type="text"
+                              value={l.paymentDay || ''}
+                              onChange={(e) => updateLoan(l.id, { paymentDay: e.target.value })}
+                              placeholder="예: 29일"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 - 원금</label>
                             <input
                               type="text"
                               inputMode="numeric"
@@ -1503,7 +1562,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-slate-400 mb-0.5">이번 출금 - 이자</label>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 - 이자</label>
                             <input
                               type="text"
                               inputMode="numeric"
@@ -1514,18 +1573,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-slate-400 mb-0.5">출금통장</label>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 은행</label>
                             <input
                               type="text"
-                              value={l.bankAccount}
-                              onChange={(e) => updateLoan(l.id, { bankAccount: e.target.value })}
-                              placeholder="예: 하나(13004)"
+                              value={l.withdrawBank || ''}
+                              onChange={(e) => updateLoan(l.id, { withdrawBank: e.target.value })}
+                              placeholder="예: 하나은행"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 계좌</label>
+                            <input
+                              type="text"
+                              value={l.withdrawAccount || ''}
+                              onChange={(e) => updateLoan(l.id, { withdrawAccount: e.target.value })}
+                              placeholder="계좌번호"
                               className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                             />
                           </div>
                         </div>
 
-                        <p className="text-right text-[11px] text-slate-500">이번 출금 계: <b className="text-slate-700">{formatCurrencyInput(loanPaymentTotal(l))}원</b></p>
+                        <p className="text-right text-[11px] text-slate-500">출금 계: <b className="text-slate-700">{formatCurrencyInput(loanPaymentTotal(l))}원</b></p>
 
                         <label className="flex items-center gap-1.5 text-[11px] text-slate-600 pt-1 border-t border-slate-100">
                           <input
@@ -1564,7 +1633,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                     <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600 space-y-0.5">
                       <p className="flex justify-between"><span>대출 잔액 합계</span><b>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).filter((l) => !l.isRepaid).reduce((s, l) => s + l.balance, 0))}원</b></p>
-                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>이번 출금 총 합계</span><span>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).reduce((s, l) => s + loanPaymentTotal(l), 0))}원</span></p>
+                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>출금 총 합계</span><span>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).reduce((s, l) => s + loanPaymentTotal(l), 0))}원</span></p>
                     </div>
                   </div>
                 )}
