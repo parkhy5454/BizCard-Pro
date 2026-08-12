@@ -3680,7 +3680,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">결제 수단 *</label>
+                  <label className="text-xs text-slate-500">결제 수단</label>
                   <select 
                     value={newMaint.payMethod || 'company_card'}
                     onChange={e => setNewMaint({ ...newMaint, payMethod: e.target.value as any })}
@@ -3689,6 +3689,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <option value="company_card">법인(회사)카드</option>
                     <option value="personal_card">개인카드</option>
                     <option value="cash">현금</option>
+                    {/* [추가] 워런티(보증) 수리 등 비용이 0원인 경우를 위한 선택지 */}
+                    <option value="none">해당없음 (무료/보증수리)</option>
                   </select>
                 </div>
                 <div className="flex items-end">
@@ -3944,6 +3946,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         let payMethodKo = '법인(회사)카드';
                         if (m.payMethod === 'personal_card') payMethodKo = '개인카드';
                         if (m.payMethod === 'cash') payMethodKo = '현금';
+                        if (m.payMethod === 'none') payMethodKo = '해당없음';
 
                         return (
                           <div 
@@ -6034,7 +6037,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">결제 수단 *</label>
+                  <label className="text-xs text-slate-500">결제 수단</label>
                   <select 
                     value={editingMaint.payMethod || 'company_card'}
                     onChange={e => setEditingMaint({ ...editingMaint, payMethod: e.target.value as any })}
@@ -6043,6 +6046,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <option value="company_card">법인(회사)카드</option>
                     <option value="personal_card">개인카드</option>
                     <option value="cash">현금</option>
+                    <option value="none">해당없음 (무료/보증수리)</option>
                   </select>
                 </div>
 
