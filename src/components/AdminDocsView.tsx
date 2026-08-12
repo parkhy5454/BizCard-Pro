@@ -2161,7 +2161,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             닫기
           </button>
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
+              // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
+              // 인쇄가 끝나면(취소해도) 바로 원래대로 되돌린다.
+              document.body.classList.add('print-portal-mode');
+              window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+              window.print();
+            }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
           >
             <Printer className="w-4 h-4" />

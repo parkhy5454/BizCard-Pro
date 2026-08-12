@@ -984,7 +984,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     URL.revokeObjectURL(url);
   };
 
-  const handlePrintAdvance = () => { window.print(); };
+  // [수정] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에 print-portal-mode를
+  // 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
+  const handlePrintAdvance = () => {
+    document.body.classList.add('print-portal-mode');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+    window.print();
+  };
 
   // 인쇄 전용 정적 렌더러: #print-root 포털에 렌더링되어 화면 미리보기와 별개로 단독 인쇄됨
   const renderPrintableAdvance = (doc: AdvancePaymentSettlement | undefined) => {
@@ -1087,7 +1093,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     );
   };
 
-  const handlePrintLeave = () => { window.print(); };
+  // [수정] 이 인쇄도 #print-root 포털 내용을 쓰므로 위 handlePrintAdvance와 동일하게 처리.
+  const handlePrintLeave = () => {
+    document.body.classList.add('print-portal-mode');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+    window.print();
+  };
 
   // 화면에 보이는 휴가 신청서 양식 그대로 엑셀(.xls)로 다운로드
   const downloadLeaveToExcel = (doc: LeaveRequest) => {

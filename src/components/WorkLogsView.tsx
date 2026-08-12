@@ -847,6 +847,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     }));
   };
   const handlePrintReport = () => {
+    // [수정] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
+    // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
+    document.body.classList.add('print-portal-mode');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
     window.print();
   };
 
