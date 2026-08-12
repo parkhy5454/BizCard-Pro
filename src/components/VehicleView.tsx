@@ -3634,7 +3634,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     type="text" 
                     inputMode="numeric"
                     placeholder="정비 부품 및 공임 합산 금액"
-                    value={newMaint.cost === 0 ? '' : formatCurrencyInput(newMaint.cost)}
+                    value={formatCurrencyInput(newMaint.cost)}
                     onChange={e => setNewMaint({ ...newMaint, cost: parseCurrencyInput(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
@@ -6004,7 +6004,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <input 
                     type="text" 
                     inputMode="numeric"
-                    value={editingMaint.cost === 0 ? '' : formatCurrencyInput(editingMaint.cost)}
+                    value={formatCurrencyInput(editingMaint.cost)}
                     onChange={e => setEditingMaint({ ...editingMaint, cost: parseCurrencyInput(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
                     required
