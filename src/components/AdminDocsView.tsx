@@ -1184,7 +1184,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">날짜</label>
                     <input
@@ -1210,7 +1210,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 종류에서는 이 블록 자체가 안 보인다. */}
                 {activeCategory === 'payslip' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">회사명</label>
                         <input
@@ -1346,7 +1346,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         <span className="text-slate-400">{showRateSettings ? '접기' : '펼치기'}</span>
                       </button>
                       {showRateSettings && (
-                        <div className="p-2.5 bg-white border-t border-slate-200 grid grid-cols-2 gap-2">
+                        <div className="p-2.5 bg-white border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {([
                             ['pensionRate', '국민연금 (%)'],
                             ['healthRate', '건강보험 (%)'],
@@ -1419,7 +1419,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 입력하면 통장잔액은 자동 계산되고, 맨 아래 합계도 자동으로 더해진다. */}
                 {activeCategory === 'monthly_cashflow' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 시작일</label>
                         <input
@@ -1462,7 +1462,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             : null;
                           return (
                           <div key={a.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
-                            <div className="grid grid-cols-3 gap-1.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                               <input
                                 type="text"
                                 value={a.bankName || ''}
@@ -1490,7 +1490,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 </button>
                               </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-1.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                               <div>
                                 <label className="block text-[10px] text-slate-400 mb-0.5">이월금</label>
                                 <input
@@ -1575,7 +1575,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         {/* [수정] 자금 현황과 완전히 똑같은 구조(은행/계좌번호/구분)로
                         통일했다. 표시 이름을 따로 안 만들어도, 인쇄/목록에서는 이 세 값을
                         합쳐서 "하나은행(13004)_급여" 같은 형태로 자동으로 보여준다. */}
-                        <div className="grid grid-cols-3 gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                           <input
                             type="text"
                             value={acc.bankName || ''}
@@ -1608,19 +1608,23 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                         <div className="space-y-1.5">
                           {acc.entries.map((e) => (
-                            <div key={e.id} className="grid grid-cols-12 gap-1">
+                            // [수정] grid-cols-12로 6개 칸을 욱여넣었더니, 폰처럼 화면이 좁으면
+                            // 칸 하나하나가 너무 좁아져서 글자가 겹쳐 보이고 입력할 수 없었다.
+                            // flex-wrap으로 바꿔서, 좁은 화면에서는 자연스럽게 여러 줄로
+                            // 줄바꿈되고 넓은 화면에서는 한 줄로 붙어 보이게 한다.
+                            <div key={e.id} className="flex flex-wrap items-center gap-1">
                               <input
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateBankEntry(acc.id, e.id, { date: ev.target.value })}
-                                className="col-span-3 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
                                 value={e.project}
                                 onChange={(ev) => updateBankEntry(acc.id, e.id, { project: ev.target.value })}
                                 placeholder="프로젝트"
-                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
@@ -1628,23 +1632,23 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 value={e.amount ? formatCurrencyInput(e.amount) : ''}
                                 onChange={(ev) => updateBankEntry(acc.id, e.id, { amount: parseCurrencyInput(ev.target.value) })}
                                 placeholder="금액"
-                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
                                 value={e.description}
                                 onChange={(ev) => updateBankEntry(acc.id, e.id, { description: ev.target.value })}
                                 placeholder="거래내용"
-                                className="col-span-3 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
                                 value={e.note || ''}
                                 onChange={(ev) => updateBankEntry(acc.id, e.id, { note: ev.target.value })}
                                 placeholder="비고"
-                                className="col-span-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[70px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
-                              <button type="button" onClick={() => removeBankEntry(acc.id, e.id)} className="col-span-1 flex items-center justify-center text-slate-400 hover:text-rose-500">
+                              <button type="button" onClick={() => removeBankEntry(acc.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
                                 <X className="w-3.5 h-3.5" />
                               </button>
                             </div>
@@ -1679,7 +1683,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                     {(editingDoc.loanRepayment?.loans || []).map((l) => (
                       <div key={l.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           <input
                             type="text"
                             value={l.loanName}
@@ -1701,7 +1705,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-1.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                           <div>
                             <label className="block text-[10px] text-slate-400 mb-0.5">대출 금액</label>
                             <input
@@ -1748,7 +1752,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                           <div>
                             <label className="block text-[10px] text-slate-400 mb-0.5">대출일</label>
                             <input
@@ -1779,7 +1783,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-1.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                           <div>
                             <label className="block text-[10px] text-slate-400 mb-0.5">출금 - 원금</label>
                             <input
@@ -1836,7 +1840,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                           상환완료
                         </label>
                         {l.isRepaid && (
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                             <div>
                               <label className="block text-[10px] text-slate-400 mb-0.5">상환일</label>
                               <input
@@ -1979,7 +1983,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                     {(editingDoc.cardUsage?.cards || []).map((c) => (
                       <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
-                        <div className="grid grid-cols-3 gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                           <input
                             type="text"
                             value={c.cardName}
@@ -2018,43 +2022,45 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                   <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
                                 </span>
                               )}
-                              <div className="grid grid-cols-12 gap-1">
+                              {/* [수정] grid-cols-12를 flex-wrap으로 바꿔서, 폰처럼 화면이
+                              좁으면 자연스럽게 여러 줄로 줄바꿈되고 글자가 안 겹치게 한다. */}
+                              <div className="flex flex-wrap items-center gap-1">
                               <input
                                 type="text"
                                 inputMode="numeric"
                                 value={e.amount ? formatCurrencyInput(e.amount) : ''}
                                 onChange={(ev) => updateCardEntry(c.id, e.id, { amount: parseCurrencyInput(ev.target.value) })}
                                 placeholder="사용금액"
-                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateCardEntry(c.id, e.id, { date: ev.target.value })}
-                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
                                 value={e.project || ''}
                                 onChange={(ev) => updateCardEntry(c.id, e.id, { project: ev.target.value })}
                                 placeholder="프로젝트명"
-                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
                                 value={e.user || ''}
                                 onChange={(ev) => updateCardEntry(c.id, e.id, { user: ev.target.value })}
                                 placeholder="사용자"
-                                className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
                                 value={e.note || ''}
                                 onChange={(ev) => updateCardEntry(c.id, e.id, { note: ev.target.value })}
                                 placeholder="비고"
-                                className="col-span-3 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
-                              <button type="button" onClick={() => removeCardEntry(c.id, e.id)} className="col-span-1 flex items-center justify-center text-slate-400 hover:text-rose-500">
+                              <button type="button" onClick={() => removeCardEntry(c.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
                                 <X className="w-3.5 h-3.5" />
                               </button>
                               </div>
