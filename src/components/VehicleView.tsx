@@ -4238,12 +4238,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </tr>
             `;
           } else {
+            // [수정] 예전엔 같은 날짜에 운행기록이 여러 건이면, 그날 하루 비용 합계를
+            // 모든 줄에 똑같이 반복해서 보여줬다. 그러면 실제로는 한 번만 든 비용인데도
+            // 화면(엑셀)에서는 그 금액이 여러 줄에 찍혀서 "중복으로 입력된 것처럼" 보이는
+            // 문제가 있었다. 이제 같은 날짜의 첫 번째 줄에만 그날 하루 합계를 표시하고,
+            // 같은 날짜의 나머지 줄은 통행료/연료비 칸을 비워둔다. 맨 아래 "합계" 행은
+            // 원래도 날짜별이 아니라 월 전체를 따로 계산하므로 이 변경과 무관하게 정확하다.
+            const shownExpenseDates = new Set<string>();
             carLogs.forEach(log => {
               const isCommute = log.purpose.includes('출퇴근');
               const commuteDist = isCommute ? `${log.distance}.0` : '';
               const workDist = !isCommute ? `${log.distance}.0` : '';
-              const tollVal = getDayExpenses(v.id, log.date, 'toll');
-              const fuelVal = getDayExpenses(v.id, log.date, 'fuel');
+              const isFirstRowForThisDate = !shownExpenseDates.has(log.date);
+              shownExpenseDates.add(log.date);
+              const tollVal = isFirstRowForThisDate ? getDayExpenses(v.id, log.date, 'toll') : 0;
+              const fuelVal = isFirstRowForThisDate ? getDayExpenses(v.id, log.date, 'fuel') : 0;
 
               rowsHtml += `
                 <tr style="height: 25px;">
@@ -4663,11 +4672,19 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-300 text-center font-mono text-slate-800">
-                              {carLogs.map((log) => {
+                              {(() => {
+                                // [수정] 아래 엑셀 내보내기와 동일한 이유로, 같은 날짜의 두 번째
+                                // 줄부터는 통행료/연료비를 비워서 하루 합계가 중복으로 반복
+                                // 표시되지 않게 한다 (엑셀 내보내기 함수의 shownExpenseDates와
+                                // 같은 방식).
+                                const shownExpenseDates = new Set<string>();
+                                return carLogs.map((log) => {
                                 const isCommute = log.purpose.includes('출퇴근');
                                 const distance = log.distance;
-                                const tollVal = getDayExpenses(v.id, log.date, 'toll');
-                                const fuelVal = getDayExpenses(v.id, log.date, 'fuel');
+                                const isFirstRowForThisDate = !shownExpenseDates.has(log.date);
+                                shownExpenseDates.add(log.date);
+                                const tollVal = isFirstRowForThisDate ? getDayExpenses(v.id, log.date, 'toll') : 0;
+                                const fuelVal = isFirstRowForThisDate ? getDayExpenses(v.id, log.date, 'fuel') : 0;
 
                                 return (
                                   <tr key={log.id} className="hover:bg-slate-50 text-slate-800 text-center">
@@ -4694,7 +4711,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                     <td className="p-2 border border-slate-300 text-left px-2 truncate max-w-[100px] text-slate-400" title={log.projectName}>{log.projectName || '-'}</td>
                                   </tr>
                                 );
-                              })}
+                                });
+                              })()}
 
                               {/* 데이터가 비었을 때 빈 칸 채우기 */}
                               {carLogs.length === 0 && (
