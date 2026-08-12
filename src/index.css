@@ -114,12 +114,18 @@ body {
 
 /* 인쇄용 포털(#print-root): 평소엔 화면에 안 보이고,
    인쇄할 때만 앱 전체(#root)를 감추고 이 안의 내용만 단독으로 인쇄됩니다.
-   앱 트리 밖의 완전히 독립된 영역이라 다른 화면 요소의 여백/숨김 문제에 영향을 받지 않습니다. */
+   앱 트리 밖의 완전히 독립된 영역이라 다른 화면 요소의 여백/숨김 문제에 영향을 받지 않습니다.
+   [수정] 예전엔 인쇄할 때 무조건 #root를 통째로 숨겼는데, 그러면 이 포털 방식을 안 쓰고
+   화면에 보이는 내용을 그대로 인쇄하던 다른 기능들(통합 차량 관리의 운행기록부, 프로젝트
+   목록 PDF 등)은 정작 인쇄할 화면(#root 안)까지 같이 숨겨져서 인쇄 결과가 완전히
+   하얗게 나오는 문제가 있었다. 이제 "이 포털을 실제로 쓰는 인쇄"에서만 body에
+   print-portal-mode 클래스를 붙이도록 하고, #root를 숨기는 규칙도 그 클래스가 있을
+   때만 적용되게 좁혔다 — 포털을 안 쓰는 기존 인쇄 기능들은 원래대로 화면 그대로 인쇄된다. */
 #print-root {
   display: none;
 }
 @media print {
-  #root {
+  body.print-portal-mode #root {
     display: none !important;
   }
   #print-root {
@@ -129,6 +135,11 @@ body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+  }
+  body.print-portal-mode {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
   }
   @page {
     size: A4 portrait;
@@ -143,10 +154,5 @@ body {
   }
   .print-landscape {
     page: cashflow-landscape;
-  }
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
   }
 }
