@@ -279,6 +279,11 @@ export interface AdminDoc {
   // 실제 쓰시는 계약서 양식(공유해주신 PDF)을 그대로 재현한다. 근로시간/연차/퇴직 규정 등
   // 고정 조항은 인쇄 화면에 그대로 박혀있고, 사람마다 바뀌는 항목만 여기 채운다.
   laborContract?: {
+    // [추가] 회사(사용자) 쪽 정보 중 사업종류·주소는 로그인 계정 프로필에 없는 값이라
+    // (회사명/대표자/사업자등록번호는 계정 정보에서 자동으로 가져오지만) 여기서 직접
+    // 입력받는다. 한번 입력해두면 이 문서에 그대로 저장된다.
+    companyBusinessType?: string; // 사업 종류 (예: "제조업")
+    companyAddress?: string;      // 사업체 주소
     employeeName?: string;       // 근로자 성명
     employeeBirthDate?: string;  // 생년월일 (YYYY-MM-DD)
     employeeAddress?: string;    // 근로자 주소
