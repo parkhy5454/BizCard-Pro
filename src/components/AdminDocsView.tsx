@@ -1222,31 +1222,41 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const labelCellStyle: React.CSSProperties = { ...cellStyle, background: '#f5f5f5', fontWeight: 700, width: '18%', textAlign: 'center' };
 
     return (
-      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '20mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
         <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>근로 계약서</h1>
 
         <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>1. 계약 당사자</p>
-        <p style={{ fontWeight: 700, margin: '4px 0' }}>사용자</p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
-          <tr><td style={labelCellStyle}>사업체명</td><td style={cellStyle}>{companyName}</td><td style={labelCellStyle}>대표</td><td style={cellStyle}>{repName}</td></tr>
-          <tr><td style={labelCellStyle}>사업종류</td><td style={cellStyle}>{lc.companyBusinessType}</td><td style={labelCellStyle}>사업자등록번호</td><td style={cellStyle}>{bizNumber}</td></tr>
-          <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.companyAddress}</td></tr>
-        </tbody></table>
-        <p style={{ fontWeight: 700, margin: '8px 0 4px' }}>근로자</p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
-          <tr><td style={labelCellStyle}>성 명</td><td style={cellStyle}>{lc.employeeName}</td><td style={labelCellStyle}>생년월일</td><td style={cellStyle}>{fmtDateKo(lc.employeeBirthDate)}</td></tr>
-          <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.employeeAddress}</td></tr>
-          <tr><td style={labelCellStyle}>고용형태</td><td style={cellStyle} colSpan={3}>
-            {(['regular', 'contract', 'intern'] as const).map((t) => (
-              <span key={t} style={{ marginRight: '14px' }}>{lc.employmentType === t ? '■' : '□'} {({ regular: '정규직', contract: '계약직', intern: '인턴' } as any)[t]}</span>
-            ))}
-          </td></tr>
-        </tbody></table>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '4px 0' }}>사용자</p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
+            <tr><td style={labelCellStyle}>사업체명</td><td style={cellStyle}>{companyName}</td><td style={labelCellStyle}>대표</td><td style={cellStyle}>{repName}</td></tr>
+            <tr><td style={labelCellStyle}>사업종류</td><td style={cellStyle}>{lc.companyBusinessType}</td><td style={labelCellStyle}>사업자등록번호</td><td style={cellStyle}>{bizNumber}</td></tr>
+            <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.companyAddress}</td></tr>
+          </tbody></table>
+        </div>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '8px 0 4px' }}>근로자</p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
+            <tr><td style={labelCellStyle}>성 명</td><td style={cellStyle}>{lc.employeeName}</td><td style={labelCellStyle}>생년월일</td><td style={cellStyle}>{fmtDateKo(lc.employeeBirthDate)}</td></tr>
+            <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.employeeAddress}</td></tr>
+            <tr><td style={labelCellStyle}>고용형태</td><td style={cellStyle} colSpan={3}>
+              {(['regular', 'contract', 'intern'] as const).map((t) => (
+                <span key={t} style={{ marginRight: '14px' }}>{lc.employmentType === t ? '■' : '□'} {({ regular: '정규직', contract: '계약직', intern: '인턴' } as any)[t]}</span>
+              ))}
+            </td></tr>
+          </tbody></table>
+        </div>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>2. 근로 조건</p>
-        <p style={{ margin: '4px 0' }}>1) 급여 : 상여금을 포함한 포괄 연봉제이며, 급여는 매월 말일에 계좌로 입금하거나 본인이 현금 지급을 원할 시 현금으로 지급한다.</p>
+        {/* [추가] 인쇄할 때 페이지가 넘어가면서 소제목만 페이지 맨 아래 외따로 남고 내용은
+        다음 페이지로 넘어가는 문제가 있었다(예: "5. 퇴직 시 준수 사항"만 1페이지 끝에 남음).
+        breakInside: 'avoid'로 소제목+본문을 하나로 묶어서, 이 묶음이 남은 공간에 다 안
+        들어가면 통째로 다음 페이지로 넘어가게 한다. */}
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>2. 근로 조건</p>
+          <p style={{ margin: '4px 0' }}>1) 급여 : 상여금을 포함한 포괄 연봉제이며, 급여는 매월 말일에 계좌로 입금하거나 본인이 현금 지급을 원할 시 현금으로 지급한다.</p>
+        </div>
         <p style={{ margin: '4px 0 6px', paddingLeft: '10px' }}>가. 임금계산 원칙 - 구체적인 항목 및 지급액은 다음과 같다</p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px', breakInside: 'avoid' }}>
           <thead><tr>
             <td style={{ ...labelCellStyle, width: '25%', textAlign: 'center' }}>지급 항목</td>
             <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700, background: '#f5f5f5' }}>금액(원)</td>
@@ -1267,35 +1277,49 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         <p style={{ margin: '4px 0' }}>5) 담당 업무 : {lc.jobDuties}</p>
         <p style={{ margin: '4px 0 8px' }}>6) 근무 지침 : 당사 직원 수첩 규정에 동의하고 이에 따름</p>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>3. 고용 기간</p>
-        <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
-        <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>3. 고용 기간</p>
+          <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
+          <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
+        </div>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>4. 연차 휴가</p>
-        <p style={{ margin: '4px 0' }}>- 1년간 8할 이상 출근 시 15일의 유급 휴가 부여(2년에 1개씩 가산)</p>
-        <p style={{ margin: '4px 0 8px' }}>- 또한, 별도의 서면 합의로 특정 근로일을 연차 휴가로 대체 가능</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>4. 연차 휴가</p>
+          <p style={{ margin: '4px 0' }}>- 1년간 8할 이상 출근 시 15일의 유급 휴가 부여(2년에 1개씩 가산)</p>
+          <p style={{ margin: '4px 0 8px' }}>- 또한, 별도의 서면 합의로 특정 근로일을 연차 휴가로 대체 가능</p>
+        </div>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>5. 퇴직 시 준수 사항</p>
-        <p style={{ margin: '4px 0 8px' }}>- 퇴직 1개월 이전까지 회사에 퇴사 의사를 알리고 업무 인수 인계서를 작성하여 제출하고, 후임자를 선임하여 업무 인수인계를 완료할 때까지 성실하게 근무하여야 한다.</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>5. 퇴직 시 준수 사항</p>
+          <p style={{ margin: '4px 0 8px' }}>- 퇴직 1개월 이전까지 회사에 퇴사 의사를 알리고 업무 인수 인계서를 작성하여 제출하고, 후임자를 선임하여 업무 인수인계를 완료할 때까지 성실하게 근무하여야 한다.</p>
+        </div>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>6. 근로 계약 해지 사유</p>
-        <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 무단 결근 시</p>
-        <p style={{ margin: '4px 0' }}>- 업무 태만, 업무 수행 능력 부족 또는 건강상 장애로 업무 수행이 곤란 시</p>
-        <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 상사의 업무 지시 또는 작업 지시를 이행하지 않을 시</p>
-        <p style={{ margin: '4px 0' }}>- 회사의 명예를 손상시켰거나 고의 또는 중과실로 회사에 손해를 입혔을 시</p>
-        <p style={{ margin: '4px 0 8px' }}>- 당사 직원 수첩의 취업 규칙 또는 기타 사회통념 상 더 이상 근로관계 유지 어렵다고 판단될 시</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>6. 근로 계약 해지 사유</p>
+          <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 무단 결근 시</p>
+          <p style={{ margin: '4px 0' }}>- 업무 태만, 업무 수행 능력 부족 또는 건강상 장애로 업무 수행이 곤란 시</p>
+          <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 상사의 업무 지시 또는 작업 지시를 이행하지 않을 시</p>
+          <p style={{ margin: '4px 0' }}>- 회사의 명예를 손상시켰거나 고의 또는 중과실로 회사에 손해를 입혔을 시</p>
+          <p style={{ margin: '4px 0 8px' }}>- 당사 직원 수첩의 취업 규칙 또는 기타 사회통념 상 더 이상 근로관계 유지 어렵다고 판단될 시</p>
+        </div>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>7. 지적 자산의 소유, 기밀 유지(비밀 보호) 및 손해 배상</p>
-        <p style={{ margin: '4px 0' }}>- 근로자는 업무를 수행함에 있어 지적 자산에 관한 권리는 회사에 귀속된다는 점에 동의한다.</p>
-        <p style={{ margin: '4px 0' }}>- 근로자는 계약서에 명시된 연봉 및 월 급여에 대하여 상호 간에 비교·공개하거나 타인에게 누설하여서는 아니 되며, 이를 위반한 경우 이로 인한 모든 불이익을 감수한다.</p>
-        <p style={{ margin: '4px 0' }}>- 근로자는 근로 계약 기간을 포함하여 퇴사 후에라도 회사의 서면 허가 없이는 회사에서 지득한 업무상 기밀사항 또는 고객의 비밀 사항에 대해 그 경중을 막론하고 외부에 유출하여서는 아니 되며, 만일 위반할 경우 민·형사상의 모든 책임을 진다.</p>
-        <p style={{ margin: '4px 0 8px' }}>- 근로자는 고의 또는 과실로 갑에 손해를 입힌 경우 그 손해의 한도 내에서 배상 책임을 진다.</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>7. 지적 자산의 소유, 기밀 유지(비밀 보호) 및 손해 배상</p>
+          <p style={{ margin: '4px 0' }}>- 근로자는 업무를 수행함에 있어 지적 자산에 관한 권리는 회사에 귀속된다는 점에 동의한다.</p>
+          <p style={{ margin: '4px 0' }}>- 근로자는 계약서에 명시된 연봉 및 월 급여에 대하여 상호 간에 비교·공개하거나 타인에게 누설하여서는 아니 되며, 이를 위반한 경우 이로 인한 모든 불이익을 감수한다.</p>
+          <p style={{ margin: '4px 0' }}>- 근로자는 근로 계약 기간을 포함하여 퇴사 후에라도 회사의 서면 허가 없이는 회사에서 지득한 업무상 기밀사항 또는 고객의 비밀 사항에 대해 그 경중을 막론하고 외부에 유출하여서는 아니 되며, 만일 위반할 경우 민·형사상의 모든 책임을 진다.</p>
+          <p style={{ margin: '4px 0 8px' }}>- 근로자는 고의 또는 과실로 갑에 손해를 입힌 경우 그 손해의 한도 내에서 배상 책임을 진다.</p>
+        </div>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>8. 기타 조건</p>
-        <p style={{ margin: '4px 0 8px' }}>- 상기 조건 이외의 개별약정이 있는 경우 그 약정을 본 계약에 우선하여 적용.</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>8. 기타 조건</p>
+          <p style={{ margin: '4px 0 8px' }}>- 상기 조건 이외의 개별약정이 있는 경우 그 약정을 본 계약에 우선하여 적용.</p>
+        </div>
 
-        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>9. 준용</p>
-        <p style={{ margin: '4px 0 8px' }}>- 본 계약서에 명시되지 않은 사항은 근로기준법 등 노동관계법령, 취업규칙을 준용한다.</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>9. 준용</p>
+          <p style={{ margin: '4px 0 8px' }}>- 본 계약서에 명시되지 않은 사항은 근로기준법 등 노동관계법령, 취업규칙을 준용한다.</p>
+        </div>
 
         <p style={{ textAlign: 'center', margin: '20px 0 6px' }}>양 당사자는 상기 계약 조건을 성실히 준수할 것을 약속하며 본 근로계약을 체결합니다.</p>
         <p style={{ textAlign: 'center', margin: '10px 0 20px', fontWeight: 700 }}>{fmtDateKo(lc.contractDate)}</p>
