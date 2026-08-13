@@ -155,4 +155,22 @@ body {
   .print-landscape {
     page: cashflow-landscape;
   }
+  /* [추가] 근로계약서처럼 글이 길어서 여러 페이지로 넘어갈 수 있는 문서는, 바깥 div의
+  padding만으로는 첫 페이지 시작/마지막 페이지 끝에만 여백이 생기고 중간 페이지 경계
+  (1페이지 하단, 2페이지 상단)에는 여백이 전혀 안 생기는 문제가 있었다. @page의 margin은
+  종이가 몇 장으로 나뉘든 모든 페이지에 똑같이 적용되므로, 이 방식으로 바꿔서 페이지가
+  넘어가도 위아래 여백이 항상 유지되게 한다. */
+  @page document-page {
+    size: A4 portrait;
+    margin: 20mm 25mm;
+  }
+  /* [추가] .print-document-margins에 준 padding(20mm 25mm)과 고정폭(210mm)은 화면
+  미리보기에서 A4 페이지처럼 보이려고 넣은 것뿐이다. 실제 인쇄 시에는 위 @page
+  document-page의 margin이 모든 페이지에 동일하게 적용되므로, 이 div 자체의 padding/
+  고정폭은 0으로 없애서 이중 여백이나 폭 초과로 잘리는 문제가 없게 한다. */
+  .print-document-margins {
+    page: document-page;
+    width: auto !important;
+    padding: 0 !important;
+  }
 }
