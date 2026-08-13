@@ -198,6 +198,50 @@ function sumLedgerByAccount(
   return total;
 }
 
+// [추가] "카드사(cardCompany)+카드번호"가 일치하는 회계관리 > 카드사용내역 문서를 전체
+// 목록(docs)에서 찾아, 지정한 기간(periodStart~periodEnd)에 해당하는 사용 금액만 더한다.
+// 경영지원 > 법인카드 관리의 "출금 금액"을 실제 카드사용내역 합계와 대조하기 위한 함수.
+function sumCardUsageByCard(
+  allDocs: AdminDoc[],
+  cardCompany: string,
+  cardNumber: string,
+  periodStart?: string,
+  periodEnd?: string
+): number {
+  const norm = (s: string) => s.replace(/\s/g, '');
+  const targetCompany = norm(cardCompany);
+  const targetNumber = norm(cardNumber);
+  if (!targetCompany || !targetNumber) return 0;
+
+  let total = 0;
+  for (const doc of allDocs) {
+    if (doc.category !== 'card_usage' || !doc.cardUsage) continue;
+    for (const card of doc.cardUsage.cards) {
+      if (norm(card.cardName || '') !== targetCompany || norm(card.cardNumber || '') !== targetNumber) continue;
+      for (const e of card.entries) {
+        if (periodStart && e.date < periodStart) continue;
+        if (periodEnd && e.date > periodEnd) continue;
+        total += Number(e.amount) || 0;
+      }
+    }
+  }
+  return total;
+}
+
+// [추가] 법인카드 관리의 "사용일수" 표기(대개 "전월 01일~전월 말일")를 그대로 파싱하기는
+// 어려워서, corpCard.yearMonth를 기준으로 그 "전월" 전체 기간(YYYY-MM-01 ~ 그 달 마지막 날)을
+// 계산한다. 회사에서 흔히 쓰는 "전월 사용분을 이번 달에 결제" 관행에 맞춘 기본값이다.
+function getPrevMonthRange(yearMonth?: string): { start?: string; end?: string } {
+  if (!yearMonth) return {};
+  const [y, m] = yearMonth.split('-').map(Number);
+  if (!y || !m) return {};
+  const prevMonthDate = new Date(y, m - 2, 1); // m은 1~12, JS Date month는 0~11이므로 m-1이 이번달, m-2가 전달
+  const start = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0).getDate();
+  const end = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  return { start, end };
+}
+
 // [추가] 4대보험료 등을 요율에 맞춰 자동 계산한다. 소득세는 국세청 근로소득 간이세액표
 // (부양가족 수 등에 따라 달라짐)를 따로 봐야 해서 자동 계산 대상에서 제외하고 직접
 // 입력한 값을 그대로 쓴다 — 대신 지방소득세는 "소득세 × 지방소득세율"로 정확히 계산된다.
@@ -2196,6 +2240,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         <Plus className="w-3 h-3" /> 카드 추가
                       </button>
                     </div>
+                    <p className="text-[10px] text-slate-400">※ 회계관리 &gt; 카드사용내역과 대조할 때는 "대상 연월의 전월(前月)" 사용분 합계를 기준으로 비교합니다 (사용일수가 보통 "전월 01일~전월 말일"이기 때문).</p>
 
                     {(editingDoc.corpCard?.cards || []).map((c) => (
                       <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
@@ -2252,6 +2297,32 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
                           />
                         </div>
+
+                        {/* [추가] 회계관리 > 카드사용내역과 대조. 같은 카드사+카드번호로 기록된
+                        카드사용내역 합계(전월 사용분 기준)를 보여주고, 지금 입력된 출금 금액과
+                        일치하는지 표시한다. 다르면 카드사용내역 쪽 합계로 바로 맞출 수 있다. */}
+                        {c.cardCompany && c.cardNumber && (() => {
+                          const { start, end } = getPrevMonthRange(editingDoc.corpCard?.yearMonth);
+                          const matched = sumCardUsageByCard(docs, c.cardCompany, c.cardNumber, start, end);
+                          if (matched === 0) return null;
+                          const isMatch = matched === Number(c.amount);
+                          return (
+                            <div className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] border ${isMatch ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-300 text-amber-700'}`}>
+                              <span>
+                                {isMatch ? '✓ 카드사용내역과 일치' : '⚠ 카드사용내역과 다름'} (카드사용내역 합계: {formatCurrencyInput(matched)}원)
+                              </span>
+                              {!isMatch && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateCorpCard(c.id, { amount: matched })}
+                                  className="shrink-0 px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold"
+                                >
+                                  이 금액으로 맞추기
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           <input
