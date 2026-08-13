@@ -257,6 +257,24 @@ export interface AdminDoc {
       }[];
     }[];
   };
+  // [추가] 경영지원 > 법인카드 관리(category: 'corp_card') 전용 구조화 필드. 카드사용내역
+  // (거래 단위 상세 내역)과 달리, 이건 "카드별로 이번 달 얼마 썼는지" 월 단위 요약 표다.
+  // 카드 한 장 = 한 줄.
+  corpCard?: {
+    yearMonth?: string; // 대상 연월 (예: "2026-07")
+    cards: {
+      id: string;
+      cardCompany: string;    // 카드사 (예: "국민카드")
+      cardNumber: string;      // 카드번호
+      user: string;            // 사용자
+      periodLabel?: string;    // 사용일수 (예: "전월 01일~전월 말일")
+      paymentDay?: string;     // 출금일자 (예: "15일")
+      amount: number;          // 금액(원)
+      withdrawBank?: string;   // 출금은행
+      withdrawAccount?: string;// 출금계좌
+      note?: string;            // 비고
+    }[];
+  };
 }
 
 export interface MeetingExpenseItem {
