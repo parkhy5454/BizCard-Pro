@@ -2392,15 +2392,25 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           .filter(log => log.vehicleId === vehId)
                           .sort((a, b) => (b.endMileage || 0) - (a.endMileage || 0));
                         let recommendedStart = targetVh ? targetVh.currentMileage : 0;
+                        // [추가] 계기판뿐 아니라, 직전 운행의 "도착지/도착지 주소"도 이번
+                        // 운행의 "출발지/출발지 주소"로 그대로 가져온다 — 방금 도착한 곳에서
+                        // 다음 운행이 시작되는 게 자연스러운 흐름이라, 매번 같은 곳을 다시
+                        // 입력하지 않아도 되게 한다(물론 실제와 다르면 그대로 고쳐 쓰면 된다).
+                        let recommendedStartPlace = '';
+                        let recommendedStartAddress = '';
                         if (vehLogs.length > 0) {
                           recommendedStart = vehLogs[0].endMileage;
+                          recommendedStartPlace = vehLogs[0].endPlace || '';
+                          recommendedStartAddress = vehLogs[0].endAddress || '';
                         }
 
                         setNewDriving({ 
                           ...newDriving, 
                           vehicleId: vehId,
                           startMileage: recommendedStart,
-                          endMileage: recommendedStart
+                          endMileage: recommendedStart,
+                          startPlace: recommendedStartPlace,
+                          startAddress: recommendedStartAddress
                         });
                       }}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
