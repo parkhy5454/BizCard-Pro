@@ -2777,6 +2777,65 @@ app.post('/api/contacts/:id/history', async (req, res) => {
   res.json(dbData.contacts[idx]);
 });
 
+// [추가] 명함 테두리 조정 화면을 열자마자 AI로 카드 실물의 네 모서리를 먼저 찾아주는 API.
+// 기존 화면(브라우저)에서만 돌아가는 OpenCV 자동감지는 배경이 어둡거나 카드와 색·질감이
+// 비슷하면(회색 옷감, 아스팔트 바닥 등) 테두리를 잘 못 찾는 문제가 있었다. Gemini는 "명함처럼
+// 생긴 사각형 패턴" 자체를 인식하기 때문에 훨씬 안정적이다. 전체 OCR(scan-card)과 달리
+// 텍스트 필드 없이 좌표만 요청해서 더 가볍고 빠르게 응답받는다.
+app.post('/api/detect-card-corners', async (req, res) => {
+  try {
+    const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
+    const scanLimit = aiScanRateLimiter.check(scanUserId);
+    if (!scanLimit.allowed) {
+      return res.status(429).json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' });
+    }
+    aiScanRateLimiter.registerAttempt(scanUserId);
+
+    const { image } = req.body;
+    if (!image) return res.status(400).json({ error: '이미지가 전송되지 않았습니다.' });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.json({ corners: null });
+
+    const ai = new GoogleGenAI({ apiKey });
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+
+    const contents: any[] = [
+      "이 사진에 찍힌 명함(종이 카드) 실물의 네 모서리 좌표를 찾아줘. " +
+      "좌표는 이미지의 가로/세로 크기에 대한 0~1 사이의 비율로 표현해줘 (예: 이미지 맨 왼쪽 위는 x:0, y:0). " +
+      "카메라 각도 때문에 명함이 기울어져 찍혔어도 실제 카드의 네 꼭짓점 위치를 최대한 정확하게 찾아줘 " +
+      "(카드 주변 배경, 바닥, 옷, 손가락, 그림자는 절대 포함하지 말고 카드 실물 가장자리에 딱 맞춰줘). " +
+      "사진에 명함이 안 보이면 corners를 null로 리턴해줘.\n" +
+      "응답은 반드시 아래 JSON 규격에 맞게 순수 JSON 데이터만 리턴해줘. 마크다운 백틱 없이.\n" +
+      "{\n" +
+      '  "corners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}}\n' +
+      "}",
+      { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
+    ];
+
+    const response = await generateContentWithRetry(ai, {
+      model: 'gemini-3.5-flash',
+      contents: contents
+    });
+
+    const text = response.text || '';
+    let parsedJson: any = { corners: null };
+    try {
+      const jsonStr = text.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+      parsedJson = JSON.parse(jsonStr);
+    } catch (e) {
+      console.error('테두리 감지 JSON 파싱 실패:', text);
+    }
+
+    res.json(parsedJson);
+  } catch (error: any) {
+    console.error('AI 테두리 감지 오류:', error);
+    // [수정] 이 API가 실패해도 화면에서는 기존 OpenCV 감지 결과를 그대로 쓰면 되므로,
+    // 500 에러 대신 corners: null로 조용히 응답해서 화면 쪽 에러 처리를 단순하게 한다.
+    res.json({ corners: null });
+  }
+});
+
 // Gemini Vision 명함 OCR API
 app.post('/api/scan-card', async (req, res) => {
   try {
