@@ -1081,7 +1081,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       });
       if (res.ok) {
         const updated = await res.json();
-        setDrivingLogs(drivingLogs.map(log => log.id === updated.id ? updated : log));
+        // [추가] 서버가 "다음 기록의 출발 계기판도 같이 맞췄다"는 결과(cascadedLog)를
+        // 함께 내려주면, 화면 상태에도 그 두 번째 기록까지 같이 반영한다.
+        setDrivingLogs(drivingLogs.map(log => {
+          if (log.id === updated.id) return updated;
+          if (updated.cascadedLog && log.id === updated.cascadedLog.id) return updated.cascadedLog;
+          return log;
+        }));
         // 차량의 주행거리 업데이트 로컬 반영
         setVehicles(vehicles.map(v => {
           if (v.id === editingDriving.vehicleId) {
@@ -1089,6 +1095,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           }
           return v;
         }));
+        if (updated.cascadedLog) {
+          alert(`도착 계기판이 수정되어, 이어지는 다음 기록의 출발 계기판(${updated.cascadedLog.startMileage.toLocaleString()}km)도 함께 자동으로 맞췄습니다.`);
+        }
         setEditingDriving(null);
       }
     } catch (err) {
