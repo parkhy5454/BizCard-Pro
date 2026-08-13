@@ -1219,7 +1219,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const repName = currentUser?.name || '';
 
     const cellStyle: React.CSSProperties = { border: '0.5px solid #999', padding: '5px 8px', fontSize: '11px' };
-    const labelCellStyle: React.CSSProperties = { ...cellStyle, background: '#f5f5f5', fontWeight: 700, width: '18%' };
+    const labelCellStyle: React.CSSProperties = { ...cellStyle, background: '#f5f5f5', fontWeight: 700, width: '18%', textAlign: 'center' };
 
     return (
       <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '20mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
@@ -1255,8 +1255,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             {lc.salaryItems.map((it) => (
               <tr key={it.id}><td style={cellStyle}>{it.label}</td><td style={{ ...cellStyle, textAlign: 'right' }}>{fmt(it.amount)}</td></tr>
             ))}
-            <tr><td style={{ ...cellStyle, fontWeight: 700 }}>지급 합계 (월 급여)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td></tr>
-            <tr><td style={{ ...cellStyle, fontWeight: 700, background: '#fff7cc' }}>총 액 (연봉)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td></tr>
+            <tr><td style={{ ...cellStyle, fontWeight: 700, textAlign: 'center' }}>지급 합계 (월 급여)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td></tr>
+            <tr><td style={{ ...cellStyle, fontWeight: 700, background: '#fff7cc', textAlign: 'center' }}>총 액 (연봉)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td></tr>
           </tbody>
         </table>
         <p style={{ margin: '4px 0', paddingLeft: '10px' }}>나. 계산기간 및 계산방법 - 월 급여의 계산기간은 초일부터 기산하여 당월 말일로 마감한다.</p>
