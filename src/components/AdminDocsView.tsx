@@ -186,6 +186,20 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     applicationDate: new Date().toISOString().split('T')[0],
     department: '', position: '',
     documentNumber: '', issueDate: new Date().toISOString().split('T')[0]
+  } : undefined,
+  // [추가] 영업 계약서 기본값. 매출구간별 누진 수수료율 등은 공유해주신 예시 계약의
+  // 표준 조건을 기본값으로 깔아두고, 거래처마다 조건이 다르면 직접 고쳐 쓸 수 있게 한다.
+  salesContract: category === 'sales_contract' ? {
+    counterpartyName: '', counterpartyAddress: '', counterpartyBizNumber: '', counterpartyRepName: '',
+    contractDate: new Date().toISOString().split('T')[0],
+    contractStartDate: new Date().toISOString().split('T')[0],
+    contractEndDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+    feeTier1Max: 1800000000, feeTier1Rate: 5,
+    feeTier2Max: 3000000000, feeTier2Rate: 4,
+    feeTier3Rate: 3,
+    lowProfitThreshold: 20, lowProfitRate: 20,
+    aftercareCapRate: 3,
+    recognitionMonths: 24, recognitionCapAmount: 2000000000
   } : undefined
 });
 
@@ -582,6 +596,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const updateEmploymentCertField = (patch: Partial<NonNullable<AdminDoc['employmentCert']>>) => {
     setEditingDoc((prev) => prev ? { ...prev, employmentCert: { ...(prev.employmentCert || {}), ...patch } } : prev);
   };
+  const updateSalesContractField = (patch: Partial<NonNullable<AdminDoc['salesContract']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, salesContract: { ...(prev.salesContract || {}), ...patch } } : prev);
+  };
 
   // [추가] "자동 불러오기" - 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에
   // 이미 "법인카드" 결제로 기록된 지출들을 서버에서 모아와서, 그중 원하는 것만 골라 지금
@@ -717,6 +734,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       // personName에 반영한다.
       if (payload.category === 'employment_cert' && payload.employmentCert?.employeeName) {
         payload.personName = payload.employmentCert.employeeName;
+      }
+      // [추가] 영업 계약서는 거래처(갑) 상호를 검색용 personName에 반영한다.
+      if (payload.category === 'sales_contract' && payload.salesContract?.counterpartyName) {
+        payload.personName = payload.salesContract.counterpartyName;
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -1418,6 +1439,189 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 영업 계약서 인쇄용 화면. 공유해주신 18개 조항 전문을 그대로 재현하고, 거래처(갑)
+  // 정보·계약기간·수수료 구조만 입력받은 값으로 치환한다.
+  const renderPrintableSalesContract = () => {
+    if (!printingDoc || !printingDoc.salesContract) return null;
+    const sc = printingDoc.salesContract;
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    // 1억 단위로 딱 떨어지면 "18억 원"처럼, 아니면 콤마 금액으로 표시
+    const fmtEok = (n?: number) => {
+      if (!n) return '0원';
+      const eok = Math.floor(n / 100000000);
+      const remainder = n % 100000000;
+      if (eok > 0 && remainder === 0) return `${eok}억 원`;
+      return `${fmt(n)}원`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const bizNumber = currentUser?.businessNumber || '';
+    const repName = currentUser?.name || '';
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.65 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>영업 계약서</h1>
+        <p style={{ textAlign: 'center', margin: '4px 0 20px' }}>
+          본 계약서는 영업 개발(수요업체 발굴) 자문 업무와 관련하여 계약 당사자 간의 권리·의무 및 보수 정산 기준을 명확히 함을 목적으로 한다.
+        </p>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>§ 계약 당사자</p>
+          <p style={{ fontWeight: 700, margin: '6px 0 2px' }}>갑 (영업 자문사)</p>
+          <p style={{ margin: '2px 0' }}>• 상호 : {sc.counterpartyName}</p>
+          <p style={{ margin: '2px 0' }}>• 주소 : {sc.counterpartyAddress}</p>
+          <p style={{ margin: '2px 0' }}>• 사업자등록번호 : {sc.counterpartyBizNumber}</p>
+          <p style={{ margin: '2px 0 8px' }}>• 대표이사 : {sc.counterpartyRepName}</p>
+          <p style={{ fontWeight: 700, margin: '6px 0 2px' }}>을 (수주사)</p>
+          <p style={{ margin: '2px 0' }}>• 상호 : {companyName}</p>
+          <p style={{ margin: '2px 0' }}>• 사업자등록번호 : {bizNumber}</p>
+          <p style={{ margin: '2px 0 8px' }}>• 대표이사 : {repName}</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제1조 (목적)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약은 갑이 을의 사업과 관련하여 영업(수요업체 발굴) 자문 업무를 수행하고, 이에 따른 보수 산정 기준, 지급 조건 및 상호 권리·의무를 명확히 함을 목적으로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제2조 (영업 업무의 범위)</p>
+          <p style={{ margin: '2px 0' }}>1. 신규 수요업체 및 발주 가능 거래처 발굴</p>
+          <p style={{ margin: '2px 0' }}>2. 프로젝트 및 사업 기회 정보 제공</p>
+          <p style={{ margin: '2px 0' }}>3. 발주처 소개 및 영업 기회 연결</p>
+          <p style={{ margin: '2px 0 8px' }}>4. 기타 상호 합의한 영업개발 관련 업무 * 갑은 계약 체결, 가격 결정, 조건 협상 및 법적 대리권을 보유하지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제3조 (계약기간)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약의 계약 기간은 {fmtDateKo(sc.contractStartDate)}부터 {fmtDateKo(sc.contractEndDate)}까지로 하며 계약기간 만료 전 상호 합의 시 서면으로 연장할 수 있다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제4조 (보수 산정의 기본 원칙)</p>
+          <p style={{ margin: '2px 0' }}>1. 갑의 보수는 갑의 영업개발 활동을 통해 실제 수주가 성립되어 발생한 매출을 기준으로 산정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 보수 산정은 발주처로부터 실제 수금이 완료된 매출에 한하여 적용한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>3. 보수 정산의 기준 자료는 을이 작성·확정한 프로젝트별 손익계산서로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제5조 (경상이익 및 경상이익률 산정)</p>
+          <p style={{ margin: '2px 0' }}>1. 경상이익은 다음 산식에 따른다. 경상이익 = 매출액 – 총원가 / 경상이익률(%) = (경상이익 ÷ 매출액) × 100</p>
+          <p style={{ margin: '2px 0 8px' }}>2. 총원가에는 직접비, 간접비, 일반관리비 및 사후 관리 예상 비용을 포함한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제6조 (사후 관리 비용 산정 한도)</p>
+          <p style={{ margin: '2px 0 8px' }}>경상이익 산정을 위한 사후 관리 관련 비용은 실제 발생 여부와 관계없이 해당 프로젝트 매출액의 최대 {sc.aftercareCapRate}%를 초과하여 계상할 수 없다. 본 조항은 경상이익률 산정의 객관성과 정산의 공정성 확보하기 위한 강행 기준으로 적용한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제7조 (수수료 산정의 기본 원칙)</p>
+          <p style={{ margin: '2px 0' }}>1. 수수료는 갑의 영업개발 활동으로 실제 수주가 성립되고, 발주처로부터 대금이 실제 수금된 매출액을 기준으로 산정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 수수료는 매출 증가에 따라 총 수수료 금액이 감소하거나 불리해지지 않도록 적용한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>3. 수수료는 구간별 누진 방식으로 적용하며, 단일 수수료율을 소급 적용하지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제8조 (매출액 기준 누진 수수료율)</p>
+          <p style={{ margin: '2px 0' }}>갑의 영업 개발 활동으로 발생한 매출액에 대하여 다음과 같이 구간별 누진 수수료율을 적용한다.</p>
+          <p style={{ margin: '2px 0' }}>1. 매출액 {fmtEok(sc.feeTier1Max)} 이하 구간 → 해당 구간 매출액의 {sc.feeTier1Rate}%</p>
+          <p style={{ margin: '2px 0' }}>2. 매출액 {fmtEok(sc.feeTier1Max)} 초과 ~ {fmtEok(sc.feeTier2Max)} 이하 구간 → 해당 초과 구간 매출액의 {sc.feeTier2Rate}%</p>
+          <p style={{ margin: '2px 0' }}>3. 매출액 {fmtEok(sc.feeTier2Max)} 초과 구간 → 해당 초과 구간 매출액의 {sc.feeTier3Rate}%</p>
+          <p style={{ margin: '2px 0 8px' }}>4. 경상이익율이 {sc.lowProfitThreshold}%미만의 경우 경상 이익의 {sc.lowProfitRate}%</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제9조 (누진 적용 방식의 명확화)</p>
+          <p style={{ margin: '2px 0' }}>1. 수수료는 각 매출 구간별로 분리하여 계산한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 매출 구간 초과로 인해 기존 구간에 적용된 수수료율이 변경되거나 감소하지 아니한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>3. 본 조의 누진 적용 방식은 수수료 산정의 유일한 기준으로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제10조 (수수료 역전 방지 조항)</p>
+          <p style={{ margin: '2px 0' }}>1. 매출 증가로 인해 수수료 총액이 감소하거나, 낮은 매출 구간의 수수료 총액보다 불리하게 산정되는 결과는 허용되지 아니한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>2. 수수료 산정과 관련한 해석상 다툼은 누진 적용 및 역전 방지 원칙을 우선 기준으로 해석한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제11조 (영업 기여도 인정 제한)</p>
+          <p style={{ margin: '2px 0' }}>1. 갑의 영업 기여도는 갑의 단독 행위로 발주처가 특정되고, 그 결과로 을과 발주처 간 계약이 최초로 체결된 경우에 한하여 인정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 다음 각 호의 경우 영업 기여도로 인정하지 아니한다.</p>
+          <p style={{ margin: '2px 0' }}>1) 을과 기존 거래 또는 사전 접촉 이력이 있는 발주처</p>
+          <p style={{ margin: '2px 0' }}>2) 갑의 소개 이전에 을이 협의·견적·미팅을 진행한 경우</p>
+          <p style={{ margin: '2px 0' }}>3) 단순 명단·정보·연락처 제공</p>
+          <p style={{ margin: '2px 0 8px' }}>4) 갑의 행위와 수주 간 인과관계가 입증되지 않는 경우</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제12조 (영업 기여 입증 책임)</p>
+          <p style={{ margin: '2px 0 8px' }}>갑이 보수를 청구하기 위해서는 영업기여 사실 및 수주와의 인과관계를 객관적 자료로 입증하여야 하며, 입증되지 않는 경우 을은 보수 지급 의무를 부담하지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제13조 (지속 거래에 대한 제한적 보수 인정)</p>
+          <p style={{ margin: '2px 0' }}>1. 갑의 영업 개발 활동으로 최초 수주가 성립된 발주처에 한하여, 동일 발주처에서 발생하는 후속 매출에 대하여는 본 조에서 정한 범위 내에서만 예외적으로 보수를 인정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 보수 인정 기간은 최초 수주일로부터 {sc.recognitionMonths}개월로 제한한다.</p>
+          <p style={{ margin: '2px 0' }}>3. 보수 인정 대상이 되는 후속 매출 누적 매출 한도는 {fmtEok(sc.recognitionCapAmount)}을 초과할 수 없다.</p>
+          <p style={{ margin: '2px 0' }}>4. 위 기간 또는 금액 한도 중 어느 하나가 먼저 도달한 시점 이후, 발생하는 매출에 대하여는 갑은 어떠한 명목으로도 보수를 청구할 수 없다.</p>
+          <p style={{ margin: '2px 0 8px' }}>5. 본 조는 갑의 영업기여도에 대한 유일하고 한정적인 예외 규정이며, 본 계약의 다른 조항에 우선하여 적용된다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제14조 (계약 종료 후 보수 청구 제한)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약이 해지·종료·만료된 이후 체결되는 모든 수주에 대하여 갑은 어떠한 명목으로도 보수를 청구할 수 없다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제15조 (보수의 법적 성격)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약에 따른 보수는 조건부 성과 보수이며, 자문료·고문료·고정비 성격을 가지지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제16조 (손익 및 원가 산정 기준)</p>
+          <p style={{ margin: '2px 0 8px' }}>매출액, 경상이익, 원가 및 사후관리 비용 산정은 을이 작성·확정한 회계 자료를 최종 기준으로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제17조 (계약 해석 원칙)</p>
+          <p style={{ margin: '2px 0 8px' }}>보수 조항은 엄격하고 제한적으로 해석하며, 해석상 불명확한 경우 을에게 유리하게 해석한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제18조 (관할 법원)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약과 관련하여 발생하는 모든 분쟁은 을의 본점 소재지를 관할하는 법원을 전속 관할로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ textAlign: 'center', fontWeight: 700, margin: '16px 0 6px' }}>【 서명 및 날인 】</p>
+          <p style={{ textAlign: 'center', margin: '4px 0' }}>본 계약의 내용을 모두 확인하고 이에 동의하여 본 계약서를 2부 작성하여 각자 기명 날인 후 1부씩 보관한다.</p>
+          <p style={{ textAlign: 'center', margin: '4px 0 14px', fontWeight: 700 }}>계약일자 : {fmtDateKo(sc.contractDate)}</p>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '0.5px solid #999' }}>
+            <tbody>
+              <tr>
+                <td style={{ border: '0.5px solid #999', padding: '6px', textAlign: 'center', fontWeight: 700, width: '10%' }}>구분</td>
+                <td style={{ border: '0.5px solid #999', padding: '6px', textAlign: 'center', fontWeight: 700 }}>서명</td>
+              </tr>
+              <tr>
+                <td style={{ border: '0.5px solid #999', padding: '8px', textAlign: 'center', fontWeight: 700 }}>갑</td>
+                <td style={{ border: '0.5px solid #999', padding: '8px' }}>{sc.counterpartyName} 대표이사 {sc.counterpartyRepName} (인)</td>
+              </tr>
+              <tr>
+                <td style={{ border: '0.5px solid #999', padding: '8px', textAlign: 'center', fontWeight: 700 }}>을</td>
+                <td style={{ border: '0.5px solid #999', padding: '8px' }}>{companyName} 대표이사 {repName} (인)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
   const renderActivePrintable = () => {
@@ -1430,6 +1634,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
+    if (printingDoc.category === 'sales_contract') return renderPrintableSalesContract();
     return null;
   };
 
@@ -1528,7 +1733,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'sales_contract' && d.salesContract)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -2890,7 +3095,173 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && (
+                {/* [추가] 영업 계약서 전용 입력. 18개 조항 전문은 인쇄할 때 고정으로 채워지고,
+                거래처(갑) 정보·계약기간·수수료 구조만 여기서 입력한다. */}
+                {activeCategory === 'sales_contract' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <label className="block text-[11px] font-bold text-slate-600">갑 (영업 자문사) 정보</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.salesContract?.counterpartyName || ''}
+                        onChange={(e) => updateSalesContractField({ counterpartyName: e.target.value })}
+                        placeholder="상호"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.salesContract?.counterpartyRepName || ''}
+                        onChange={(e) => updateSalesContractField({ counterpartyRepName: e.target.value })}
+                        placeholder="대표이사"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={editingDoc.salesContract?.counterpartyAddress || ''}
+                      onChange={(e) => updateSalesContractField({ counterpartyAddress: e.target.value })}
+                      placeholder="주소"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      value={editingDoc.salesContract?.counterpartyBizNumber || ''}
+                      onChange={(e) => updateSalesContractField({ counterpartyBizNumber: e.target.value })}
+                      placeholder="사업자등록번호"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약일자</label>
+                        <input
+                          type="date"
+                          value={editingDoc.salesContract?.contractDate || ''}
+                          onChange={(e) => updateSalesContractField({ contractDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 시작일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.salesContract?.contractStartDate || ''}
+                          onChange={(e) => updateSalesContractField({ contractStartDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 종료일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.salesContract?.contractEndDate || ''}
+                          onChange={(e) => updateSalesContractField({ contractEndDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="block text-[11px] font-bold text-slate-600 pt-1">매출액 기준 누진 수수료율</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">1구간 매출 상한(원)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.salesContract?.feeTier1Max ? formatCurrencyInput(editingDoc.salesContract.feeTier1Max) : ''}
+                          onChange={(e) => updateSalesContractField({ feeTier1Max: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">1구간 수수료율(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.feeTier1Rate ?? ''}
+                          onChange={(e) => updateSalesContractField({ feeTier1Rate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">2구간 매출 상한(원)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.salesContract?.feeTier2Max ? formatCurrencyInput(editingDoc.salesContract.feeTier2Max) : ''}
+                          onChange={(e) => updateSalesContractField({ feeTier2Max: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">2구간 수수료율(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.feeTier2Rate ?? ''}
+                          onChange={(e) => updateSalesContractField({ feeTier2Rate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">3구간(초과분) 수수료율(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.feeTier3Rate ?? ''}
+                          onChange={(e) => updateSalesContractField({ feeTier3Rate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">경상이익률 기준(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.lowProfitThreshold ?? ''}
+                          onChange={(e) => updateSalesContractField({ lowProfitThreshold: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">기준 미만시 경상이익 대비(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.lowProfitRate ?? ''}
+                          onChange={(e) => updateSalesContractField({ lowProfitRate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">사후관리비용 한도(매출대비%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.aftercareCapRate ?? ''}
+                          onChange={(e) => updateSalesContractField({ aftercareCapRate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">후속매출 보수인정 기간(개월)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.recognitionMonths ?? ''}
+                          onChange={(e) => updateSalesContractField({ recognitionMonths: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">후속매출 누적 한도(원)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.salesContract?.recognitionCapAmount ? formatCurrencyInput(editingDoc.salesContract.recognitionCapAmount) : ''}
+                          onChange={(e) => updateSalesContractField({ recognitionCapAmount: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400">※ 원가계산서/손익계산서/보수율계산표/사업자등록증 등 첨부서류는 이 화면 아래 "첨부파일"에서 파일로 올려주세요 (프로젝트마다 내용이 달라 자동 생성하지 않습니다).</p>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
