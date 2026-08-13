@@ -157,6 +157,22 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       cardCompany: '', cardNumber: '', user: '', periodLabel: '', paymentDay: '',
       amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
     }]
+  } : undefined,
+  // [추가] 근로계약서 기본값. 급여 구성 항목을 실제 회사 양식(기본급/연장근로수당/
+  // 차량유지비/식대)에 맞춰 미리 채워두고, 필요하면 항목을 더 추가/삭제할 수 있다.
+  laborContract: category === 'labor_contract' ? {
+    employeeName: '', employeeBirthDate: '', employeeAddress: '', employmentType: 'regular',
+    salaryItems: [
+      { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
+      { id: `sal-${Date.now()}-2`, label: '연장근로수당', amount: 0 },
+      { id: `sal-${Date.now()}-3`, label: '차량 유지비', amount: 0 },
+      { id: `sal-${Date.now()}-4`, label: '식대', amount: 0 }
+    ],
+    contractStartDate: new Date().toISOString().split('T')[0],
+    contractEndDate: '',
+    workLocation: '주소지 회사(회사 사정이 있을 시 변경 가능) 및 프로젝트 현장',
+    jobDuties: '기술 영업 및 기술 지원(회사 사정이 있을 시 변경 가능)',
+    contractDate: new Date().toISOString().split('T')[0]
   } : undefined
 });
 
@@ -530,6 +546,27 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     updateCorpCards((cards) => cards.map((c) => c.id === id ? { ...c, ...patch } : c));
   };
 
+  // [추가] 근로계약서 - 급여 구성 항목 추가·삭제·수정 (급여명세서 지급 내역과 같은 패턴)
+  const updateSalaryItems = (updater: (items: AdminDocLineItem[]) => AdminDocLineItem[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const laborContract = prev.laborContract || { salaryItems: [] };
+      return { ...prev, laborContract: { ...laborContract, salaryItems: updater(laborContract.salaryItems || []) } };
+    });
+  };
+  const addSalaryItem = () => {
+    updateSalaryItems((items) => [...items, { id: `sal-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: '', amount: 0 }]);
+  };
+  const removeSalaryItem = (id: string) => {
+    updateSalaryItems((items) => items.filter((it) => it.id !== id));
+  };
+  const updateSalaryItem = (id: string, patch: Partial<AdminDocLineItem>) => {
+    updateSalaryItems((items) => items.map((it) => it.id === id ? { ...it, ...patch } : it));
+  };
+  const updateLaborContractField = (patch: Partial<NonNullable<AdminDoc['laborContract']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, laborContract: { ...(prev.laborContract || { salaryItems: [] }), ...patch } } : prev);
+  };
+
   // [추가] "자동 불러오기" - 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에
   // 이미 "법인카드" 결제로 기록된 지출들을 서버에서 모아와서, 그중 원하는 것만 골라 지금
   // 편집 중인 카드 그룹에 항목으로 채워 넣는다. 이미 가져온 적 있는 항목(sourceKey로 판단)은
@@ -652,6 +689,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       if (payload.category === 'corp_card' && payload.corpCard) {
         const total = payload.corpCard.cards.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
         payload.amount = String(total);
+      }
+      // [추가] 근로계약서는 월 급여 합계를 amount 칸에 표시하고, 근로자 이름을 검색 대상인
+      // personName에도 반영해서 다른 서류들처럼 이름으로 검색할 수 있게 한다.
+      if (payload.category === 'labor_contract' && payload.laborContract) {
+        const total = sumItems(payload.laborContract.salaryItems);
+        payload.amount = String(total);
+        if (payload.laborContract.employeeName) payload.personName = payload.laborContract.employeeName;
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -1155,6 +1199,113 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 근로계약서 인쇄용 화면. 공유해주신 실제 계약서 전문(고정 조항 포함)을 그대로
+  // 재현하고, 근로자 정보/급여 구성/계약기간처럼 사람마다 달라지는 부분만 채워 넣는다.
+  const renderPrintableLaborContract = () => {
+    if (!printingDoc || !printingDoc.laborContract) return null;
+    const lc = printingDoc.laborContract;
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    const monthlyTotal = sumItems(lc.salaryItems);
+    const annualTotal = monthlyTotal * 12;
+    const employmentTypeLabel = { regular: '정규직', contract: '계약직', intern: '인턴' }[lc.employmentType || 'regular'];
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const bizNumber = currentUser?.businessNumber || '';
+    const repName = currentUser?.name || '';
+
+    const cellStyle: React.CSSProperties = { border: '0.5px solid #999', padding: '5px 8px', fontSize: '11px' };
+    const labelCellStyle: React.CSSProperties = { ...cellStyle, background: '#f5f5f5', fontWeight: 700, width: '18%' };
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>근로 계약서</h1>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>1. 계약 당사자</p>
+        <p style={{ fontWeight: 700, margin: '4px 0' }}>사용자</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
+          <tr><td style={labelCellStyle}>사업체명</td><td style={cellStyle}>{companyName}</td><td style={labelCellStyle}>대표</td><td style={cellStyle}>{repName}</td></tr>
+          <tr><td style={labelCellStyle}>사업자등록번호</td><td style={cellStyle}>{bizNumber}</td><td style={labelCellStyle}></td><td style={cellStyle}></td></tr>
+        </tbody></table>
+        <p style={{ fontWeight: 700, margin: '8px 0 4px' }}>근로자</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
+          <tr><td style={labelCellStyle}>성 명</td><td style={cellStyle}>{lc.employeeName}</td><td style={labelCellStyle}>생년월일</td><td style={cellStyle}>{fmtDateKo(lc.employeeBirthDate)}</td></tr>
+          <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.employeeAddress}</td></tr>
+          <tr><td style={labelCellStyle}>고용형태</td><td style={cellStyle} colSpan={3}>
+            {(['regular', 'contract', 'intern'] as const).map((t) => (
+              <span key={t} style={{ marginRight: '14px' }}>{lc.employmentType === t ? '■' : '□'} {({ regular: '정규직', contract: '계약직', intern: '인턴' } as any)[t]}</span>
+            ))}
+          </td></tr>
+        </tbody></table>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>2. 근로 조건</p>
+        <p style={{ margin: '4px 0' }}>1) 급여 : 상여금을 포함한 포괄 연봉제이며, 급여는 매월 말일에 계좌로 입금하거나 본인이 현금 지급을 원할 시 현금으로 지급한다.</p>
+        <p style={{ margin: '4px 0 6px', paddingLeft: '10px' }}>가. 임금계산 원칙 - 구체적인 항목 및 지급액은 다음과 같다</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
+          <thead><tr>
+            <td style={{ ...labelCellStyle, width: '25%', textAlign: 'center' }}>지급 항목</td>
+            <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700, background: '#f5f5f5' }}>금액(원)</td>
+          </tr></thead>
+          <tbody>
+            {lc.salaryItems.map((it) => (
+              <tr key={it.id}><td style={cellStyle}>{it.label}</td><td style={{ ...cellStyle, textAlign: 'right' }}>{fmt(it.amount)}</td></tr>
+            ))}
+            <tr><td style={{ ...cellStyle, fontWeight: 700 }}>지급 합계 (월 급여)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td></tr>
+            <tr><td style={{ ...cellStyle, fontWeight: 700, background: '#fff7cc' }}>총 액 (연봉)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td></tr>
+          </tbody>
+        </table>
+        <p style={{ margin: '4px 0', paddingLeft: '10px' }}>나. 계산기간 및 계산방법 - 월 급여의 계산기간은 초일부터 기산하여 당월 말일로 마감한다.</p>
+        <p style={{ margin: '4px 0 8px', paddingLeft: '10px' }}>다. 지급일 및 지급방법 - 월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</p>
+        <p style={{ margin: '4px 0' }}>2) 급여 외 수당 : 없음 - 주 12시간의 연장 근로를 할 수 있음에 동의하고 이에 해당하는 수당은 급여에 포함한 금액으로 한다.</p>
+        <p style={{ margin: '4px 0' }}>3) 근로 시간 : 매주 월요일 ~ 금요일 09:00~18:00(휴게시간 : 12:00~13:00) - 주간 40시간 만근 시 일요일 유급 휴일, 토요일 무급 휴일</p>
+        <p style={{ margin: '4px 0' }}>4) 근무 장소 : {lc.workLocation}</p>
+        <p style={{ margin: '4px 0' }}>5) 담당 업무 : {lc.jobDuties}</p>
+        <p style={{ margin: '4px 0 8px' }}>6) 근무 지침 : 당사 직원 수첩 규정에 동의하고 이에 따름</p>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>3. 고용 기간</p>
+        <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
+        <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>4. 연차 휴가</p>
+        <p style={{ margin: '4px 0' }}>- 1년간 8할 이상 출근 시 15일의 유급 휴가 부여(2년에 1개씩 가산)</p>
+        <p style={{ margin: '4px 0 8px' }}>- 또한, 별도의 서면 합의로 특정 근로일을 연차 휴가로 대체 가능</p>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>5. 퇴직 시 준수 사항</p>
+        <p style={{ margin: '4px 0 8px' }}>- 퇴직 1개월 이전까지 회사에 퇴사 의사를 알리고 업무 인수 인계서를 작성하여 제출하고, 후임자를 선임하여 업무 인수인계를 완료할 때까지 성실하게 근무하여야 한다.</p>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>6. 근로 계약 해지 사유</p>
+        <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 무단 결근 시</p>
+        <p style={{ margin: '4px 0' }}>- 업무 태만, 업무 수행 능력 부족 또는 건강상 장애로 업무 수행이 곤란 시</p>
+        <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 상사의 업무 지시 또는 작업 지시를 이행하지 않을 시</p>
+        <p style={{ margin: '4px 0' }}>- 회사의 명예를 손상시켰거나 고의 또는 중과실로 회사에 손해를 입혔을 시</p>
+        <p style={{ margin: '4px 0 8px' }}>- 당사 직원 수첩의 취업 규칙 또는 기타 사회통념 상 더 이상 근로관계 유지 어렵다고 판단될 시</p>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>7. 지적 자산의 소유, 기밀 유지(비밀 보호) 및 손해 배상</p>
+        <p style={{ margin: '4px 0' }}>- 근로자는 업무를 수행함에 있어 지적 자산에 관한 권리는 회사에 귀속된다는 점에 동의한다.</p>
+        <p style={{ margin: '4px 0' }}>- 근로자는 계약서에 명시된 연봉 및 월 급여에 대하여 상호 간에 비교·공개하거나 타인에게 누설하여서는 아니 되며, 이를 위반한 경우 이로 인한 모든 불이익을 감수한다.</p>
+        <p style={{ margin: '4px 0' }}>- 근로자는 근로 계약 기간을 포함하여 퇴사 후에라도 회사의 서면 허가 없이는 회사에서 지득한 업무상 기밀사항 또는 고객의 비밀 사항에 대해 그 경중을 막론하고 외부에 유출하여서는 아니 되며, 만일 위반할 경우 민·형사상의 모든 책임을 진다.</p>
+        <p style={{ margin: '4px 0 8px' }}>- 근로자는 고의 또는 과실로 갑에 손해를 입힌 경우 그 손해의 한도 내에서 배상 책임을 진다.</p>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>8. 기타 조건</p>
+        <p style={{ margin: '4px 0 8px' }}>- 상기 조건 이외의 개별약정이 있는 경우 그 약정을 본 계약에 우선하여 적용.</p>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>9. 준용</p>
+        <p style={{ margin: '4px 0 8px' }}>- 본 계약서에 명시되지 않은 사항은 근로기준법 등 노동관계법령, 취업규칙을 준용한다.</p>
+
+        <p style={{ textAlign: 'center', margin: '20px 0 6px' }}>양 당사자는 상기 계약 조건을 성실히 준수할 것을 약속하며 본 근로계약을 체결합니다.</p>
+        <p style={{ textAlign: 'center', margin: '10px 0 20px', fontWeight: 700 }}>{fmtDateKo(lc.contractDate)}</p>
+
+        <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '20px' }}>
+          <p>사용자 : {repName} (인)</p>
+          <p>근로자 : {lc.employeeName} (인)</p>
+        </div>
+      </div>
+    );
+  };
+
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
   const renderActivePrintable = () => {
@@ -1165,6 +1316,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
+    if (printingDoc.category === 'labor_contract') return renderPrintableLaborContract();
     return null;
   };
 
@@ -1263,7 +1415,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'labor_contract' && d.laborContract)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -2357,7 +2509,143 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && (
+                {/* [추가] 근로계약서 전용 입력. 근로자 정보 + 급여 구성만 채우면, 근로시간/
+                연차/퇴직/기밀유지 등 고정 조항은 인쇄할 때 자동으로 다 채워져서 나온다. */}
+                {activeCategory === 'labor_contract' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.laborContract?.employeeName || ''}
+                        onChange={(e) => updateLaborContractField({ employeeName: e.target.value })}
+                        placeholder="근로자 성명"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="date"
+                        value={editingDoc.laborContract?.employeeBirthDate || ''}
+                        onChange={(e) => updateLaborContractField({ employeeBirthDate: e.target.value })}
+                        placeholder="생년월일"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={editingDoc.laborContract?.employeeAddress || ''}
+                      onChange={(e) => updateLaborContractField({ employeeAddress: e.target.value })}
+                      placeholder="근로자 주소"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    />
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">고용형태</label>
+                      <div className="flex gap-1.5">
+                        {([['regular', '정규직'], ['contract', '계약직'], ['intern', '인턴']] as const).map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => updateLaborContractField({ employmentType: val })}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                              editingDoc.laborContract?.employmentType === val
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-white text-slate-500 border-slate-200'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">급여 구성 (월)</label>
+                        <button type="button" onClick={addSalaryItem} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.laborContract?.salaryItems || []).map((it) => (
+                          <div key={it.id} className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={it.label}
+                              onChange={(e) => updateSalaryItem(it.id, { label: e.target.value })}
+                              placeholder="예: 기본급"
+                              className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={it.amount ? formatCurrencyInput(it.amount) : ''}
+                              onChange={(e) => updateSalaryItem(it.id, { amount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeSalaryItem(it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-right text-[11px] text-slate-500 mt-1.5 space-y-0.5">
+                        <p>월 급여 합계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.laborContract?.salaryItems))}원</b></p>
+                        <p className="text-emerald-600 font-bold">연 총액(월×12): {formatCurrencyInput(sumItems(editingDoc.laborContract?.salaryItems) * 12)}원</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 시작일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.laborContract?.contractStartDate || ''}
+                          onChange={(e) => updateLaborContractField({ contractStartDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 종료일 (기간 정함 없으면 비워둠)</label>
+                        <input
+                          type="date"
+                          value={editingDoc.laborContract?.contractEndDate || ''}
+                          onChange={(e) => updateLaborContractField({ contractEndDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">근무 장소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.laborContract?.workLocation || ''}
+                        onChange={(e) => updateLaborContractField({ workLocation: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">담당 업무</label>
+                      <input
+                        type="text"
+                        value={editingDoc.laborContract?.jobDuties || ''}
+                        onChange={(e) => updateLaborContractField({ jobDuties: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">계약서 작성일 (서명 날짜)</label>
+                      <input
+                        type="date"
+                        value={editingDoc.laborContract?.contractDate || ''}
+                        onChange={(e) => updateLaborContractField({ contractDate: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
