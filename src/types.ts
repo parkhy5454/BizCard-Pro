@@ -335,6 +335,21 @@ export interface AdminDoc {
     recognitionMonths?: number;     // 후속 매출 보수 인정 기간(개월) - 예: 24
     recognitionCapAmount?: number;  // 후속 매출 보수 인정 누적 매출 한도(원) - 예: 2,000,000,000 (20억)
   };
+  // [추가] 회계관리 > 퇴직금 정산(category: 'severance') 전용 구조화 필드. 공유해주신
+  // "퇴직금 중간정산 지급명세서" 양식을 그대로 재현한다.
+  severance?: {
+    employeeName?: string;         // 신청인
+    residentNumberMasked?: string; // 주민번호 (마스킹)
+    hireYearMonth?: string;        // 입사년월 (YYYY-MM)
+    periodStart?: string;          // 중간정산 대상기간 시작
+    periodEnd?: string;            // 중간정산 대상기간 종료
+    reason?: string;               // 중간정산 사유
+    companyAdvanceAmount?: number; // ① 회사 선지급 금액
+    companyAdvanceDate?: string;   // ① 회사 선지급 일자
+    companyAdvanceBank?: string;   // ① 입금 은행
+    bankAccrualAmount?: number;    // ② 은행 적립금(퇴직연금 등) 금액
+    receiveDate?: string;          // 수령일(서명 날짜)
+  };
 }
 
 export interface MeetingExpenseItem {
