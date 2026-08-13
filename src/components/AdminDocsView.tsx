@@ -178,6 +178,14 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     workLocation: category === 'salary_agreement' ? '주소지 회사(회사 사정이 있을 시 변경 가능)' : '주소지 회사(회사 사정이 있을 시 변경 가능) 및 프로젝트 현장',
     jobDuties: '기술 영업 및 기술 지원(회사 사정이 있을 시 변경 가능)',
     contractDate: new Date().toISOString().split('T')[0]
+  } : undefined,
+  // [추가] 재직증명서 기본값
+  employmentCert: category === 'employment_cert' ? {
+    companyAddress: '', employeeAddress: '', employeeName: '', residentNumberMasked: '',
+    hireDate: '', purpose: '제출용', submitTo: '',
+    applicationDate: new Date().toISOString().split('T')[0],
+    department: '', position: '',
+    documentNumber: '', issueDate: new Date().toISOString().split('T')[0]
   } : undefined
 });
 
@@ -571,6 +579,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const updateLaborContractField = (patch: Partial<NonNullable<AdminDoc['laborContract']>>) => {
     setEditingDoc((prev) => prev ? { ...prev, laborContract: { ...(prev.laborContract || { salaryItems: [] }), ...patch } } : prev);
   };
+  const updateEmploymentCertField = (patch: Partial<NonNullable<AdminDoc['employmentCert']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, employmentCert: { ...(prev.employmentCert || {}), ...patch } } : prev);
+  };
 
   // [추가] "자동 불러오기" - 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에
   // 이미 "법인카드" 결제로 기록된 지출들을 서버에서 모아와서, 그중 원하는 것만 골라 지금
@@ -701,6 +712,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         const total = sumItems(payload.laborContract.salaryItems);
         payload.amount = String(total);
         if (payload.laborContract.employeeName) payload.personName = payload.laborContract.employeeName;
+      }
+      // [추가] 재직증명서는 금액 개념이 없는 서류라 amount는 그대로 두고, 이름만 검색용
+      // personName에 반영한다.
+      if (payload.category === 'employment_cert' && payload.employmentCert?.employeeName) {
+        payload.personName = payload.employmentCert.employeeName;
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -1346,6 +1362,62 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 재직증명서 인쇄용 화면. 공유해주신 실제 양식대로, 테두리 박스 안에 증명 내용을
+  // 담고, 구분선 아래에 문서번호·발급일·회사 직인 영역을 별도로 둔다.
+  const renderPrintableEmploymentCert = () => {
+    if (!printingDoc || !printingDoc.employmentCert) return null;
+    const ec = printingDoc.employmentCert;
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const repName = currentUser?.name || '';
+    const rowStyle: React.CSSProperties = { display: 'flex', margin: '10px 0', fontSize: '13px' };
+    const labelStyle: React.CSSProperties = { fontWeight: 700, width: '90px', flexShrink: 0 };
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7 }}>
+        <div style={{ border: '1.5px solid #000', padding: '25px 35px' }}>
+          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '10px', marginBottom: '30px' }}>재 직 증 명</h1>
+
+          <div style={rowStyle}><span style={labelStyle}>주 소</span><span>: {ec.employeeAddress}</span></div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>성 명</span><span style={{ width: '160px' }}>: {ec.employeeName}</span>
+            <span style={{ fontWeight: 700, marginRight: '8px' }}>주민등록번호</span><span>: {ec.residentNumberMasked}</span>
+          </div>
+          <div style={rowStyle}><span style={labelStyle}>입사일</span><span>: {fmtDateKo(ec.hireDate)}</span></div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>용 도</span><span style={{ width: '160px' }}>: {ec.purpose}</span>
+            <span style={{ fontWeight: 700, marginRight: '8px' }}>제출처</span><span>: {ec.submitTo}</span>
+          </div>
+
+          <p style={{ margin: '25px 0' }}>
+            위와 같이 {companyName ? `주식회사 ${companyName.replace(/^\(주\)|주식회사\s?/g, '')}` : ''} {ec.position || ''}로 재직하고 있음을 증명하여 주시기 바랍니다.
+          </p>
+
+          <div style={{ marginLeft: 'auto', width: '260px', position: 'relative' }}>
+            <div style={rowStyle}><span style={labelStyle}>신청일</span><span>: {fmtDateKo(ec.applicationDate)}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>소 속</span><span>: {ec.department}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>직 위</span><span>: {ec.position}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>위원인</span><span>: {ec.employeeName} (인)</span></div>
+          </div>
+
+          <p style={{ textAlign: 'center', fontSize: '17px', fontWeight: 700, margin: '25px 0' }}>{companyName} 대표 귀하</p>
+
+          <div style={{ borderTop: '1px solid #000', margin: '20px 0' }} />
+
+          <p style={{ margin: '10px 0' }}>{ec.documentNumber}</p>
+          <p style={{ margin: '10px 0' }}>위와 같이 증명함.</p>
+          <p style={{ textAlign: 'right', margin: '10px 0', fontWeight: 700 }}>{fmtDateKo(ec.issueDate)}</p>
+          <p style={{ margin: '20px 0 10px' }}>{ec.companyAddress}</p>
+          <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, margin: '10px 0' }}>{companyName} 대표</p>
+        </div>
+      </div>
+    );
+  };
+
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
   const renderActivePrintable = () => {
@@ -1357,6 +1429,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
+    if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
     return null;
   };
 
@@ -1455,7 +1528,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -2701,6 +2774,118 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         onChange={(e) => updateLaborContractField({ contractDate: e.target.value })}
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 재직증명서 전용 입력. */}
+                {activeCategory === 'employment_cert' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">사업체 주소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.companyAddress || ''}
+                        onChange={(e) => updateEmploymentCertField({ companyAddress: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.employeeName || ''}
+                        onChange={(e) => updateEmploymentCertField({ employeeName: e.target.value })}
+                        placeholder="성명"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.residentNumberMasked || ''}
+                        onChange={(e) => updateEmploymentCertField({ residentNumberMasked: e.target.value })}
+                        placeholder="주민등록번호 (예: 000000-0******)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">재직자 주소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.employeeAddress || ''}
+                        onChange={(e) => updateEmploymentCertField({ employeeAddress: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">입사일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.employmentCert?.hireDate || ''}
+                          onChange={(e) => updateEmploymentCertField({ hireDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">신청일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.employmentCert?.applicationDate || ''}
+                          onChange={(e) => updateEmploymentCertField({ applicationDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.purpose || ''}
+                        onChange={(e) => updateEmploymentCertField({ purpose: e.target.value })}
+                        placeholder="용도 (예: 제출용)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.submitTo || ''}
+                        onChange={(e) => updateEmploymentCertField({ submitTo: e.target.value })}
+                        placeholder="제출처 (예: 노원구청)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.department || ''}
+                        onChange={(e) => updateEmploymentCertField({ department: e.target.value })}
+                        placeholder="소속"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.position || ''}
+                        onChange={(e) => updateEmploymentCertField({ position: e.target.value })}
+                        placeholder="직위"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">문서번호 (예: 제 2026-0001호)</label>
+                        <input
+                          type="text"
+                          value={editingDoc.employmentCert?.documentNumber || ''}
+                          onChange={(e) => updateEmploymentCertField({ documentNumber: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">증명 발급일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.employmentCert?.issueDate || ''}
+                          onChange={(e) => updateEmploymentCertField({ issueDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
