@@ -311,6 +311,30 @@ export interface AdminDoc {
     documentNumber?: string;      // 문서번호 (예: "제 2026-0001호")
     issueDate?: string;           // 증명 발급일
   };
+  // [추가] 경영지원 > 영업 계약(category: 'sales_contract') 전용 구조화 필드. 공유해주신
+  // "영업 개발(수요업체 발굴) 자문 계약서" 18개 조항 전문을 그대로 재현하고, 거래처(갑)
+  // 정보·계약기간·수수료 구조처럼 계약마다 달라지는 항목만 입력받는다. 첨부되는 원가계산서/
+  // 손익계산서/보수율계산표/사업자등록증은 계약마다 내용이 다른 별도 서류라 이 문서 자체의
+  // "첨부파일" 기능으로 업로드해서 붙이는 방식을 쓴다(계산기로 자동 생성하지 않음).
+  salesContract?: {
+    counterpartyName?: string;      // 갑(영업 자문사) 상호
+    counterpartyAddress?: string;   // 갑 주소
+    counterpartyBizNumber?: string; // 갑 사업자등록번호
+    counterpartyRepName?: string;   // 갑 대표이사
+    contractDate?: string;          // 계약일자
+    contractStartDate?: string;     // 계약 시작일
+    contractEndDate?: string;       // 계약 종료일
+    feeTier1Max?: number;           // 1구간 매출 상한(원) - 예: 1,800,000,000 (18억)
+    feeTier1Rate?: number;          // 1구간 수수료율(%) - 예: 5
+    feeTier2Max?: number;           // 2구간 매출 상한(원) - 예: 3,000,000,000 (30억)
+    feeTier2Rate?: number;          // 2구간 수수료율(%) - 예: 4
+    feeTier3Rate?: number;          // 3구간(2구간 초과분) 수수료율(%) - 예: 3
+    lowProfitThreshold?: number;    // 경상이익률 기준(%) - 예: 20 (미만이면 아래 요율 적용)
+    lowProfitRate?: number;         // 경상이익률 기준 미만일 때 경상이익 대비 수수료율(%) - 예: 20
+    aftercareCapRate?: number;      // 사후관리비용 한도(매출액 대비 %) - 예: 3
+    recognitionMonths?: number;     // 후속 매출 보수 인정 기간(개월) - 예: 24
+    recognitionCapAmount?: number;  // 후속 매출 보수 인정 누적 매출 한도(원) - 예: 2,000,000,000 (20억)
+  };
 }
 
 export interface MeetingExpenseItem {
