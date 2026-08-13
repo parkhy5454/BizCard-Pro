@@ -144,13 +144,39 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     void recognizeAndDiffRescan(side, dataUrl);
   };
 
+  // [추가] contact.frontImage/backImage는 이미 저장된 명함이면 base64가 아니라 서버(Supabase)
+  // 저장소의 이미지 "주소(URL)"인 경우가 많다. 이걸 AI API에 그대로 보내면 "사진 데이터"가
+  // 아니라 "글자로 된 URL 문자열"을 사진으로 오인하고 디코딩에 실패해서 에러가 난다
+  // (재스캔한 한쪽 면만 실제 base64이고, 나머지 한쪽 면이 URL인 상태로 같이 보낼 때 발생).
+  // URL이면 실제로 내려받아서 base64로 바꿔주고, 이미 base64(data:)면 그대로 쓴다.
+  const ensureBase64Image = async (img: string): Promise<string> => {
+    if (!img) return '';
+    if (img.startsWith('data:')) return img;
+    try {
+      const res = await fetch(img);
+      const blob = await res.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      // 저장소 이미지 다운로드에 실패하면, 이 면은 인식 대상에서 빼고 진행한다
+      // (재스캔한 면만이라도 인식되게 하는 게 아예 실패하는 것보다 낫다).
+      return '';
+    }
+  };
+
   const recognizeAndDiffRescan = async (side: 'front' | 'back', dataUrl: string) => {
     if (!contact) return;
     setIsRecognizingRescan(true);
     setRescanRecognizeError(null);
     try {
-      const frontImage = side === 'front' ? dataUrl : (editForm.frontImage || contact.frontImage || '');
-      const backImage = side === 'back' ? dataUrl : (editForm.backImage || contact.backImage || '');
+      const otherSideRaw = side === 'front' ? (editForm.backImage || contact.backImage || '') : (editForm.frontImage || contact.frontImage || '');
+      const otherSideBase64 = await ensureBase64Image(otherSideRaw);
+      const frontImage = side === 'front' ? dataUrl : otherSideBase64;
+      const backImage = side === 'back' ? dataUrl : otherSideBase64;
       const res = await fetch('/api/scan-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
