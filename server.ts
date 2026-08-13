@@ -77,6 +77,28 @@ async function generateContentWithRetry(
   throw lastErr;
 }
 
+// [추가] Gemini API가 실패하면 예전엔 원본 에러 메시지(JSON 통째로, 할당량 정책 URL까지
+// 포함된 긴 영어 문구)를 그대로 화면에 보여줬다. 사용자 입장에선 알아볼 수도 없고,
+// 앱 화면에 저런 게 그대로 뜨는 건 신뢰도도 떨어뜨린다. 원인 종류별로 짧고 이해하기 쉬운
+// 한국어 안내문으로 바꿔주는 공용 함수 — AI를 쓰는 모든 API(명함/영수증 스캔, 테두리
+// 감지, 회의록 정리 등)에서 이 함수로 감싸서 응답한다.
+function toFriendlyAiErrorMessage(err: any): string {
+  const message = String(err?.message || err || '');
+  const isQuotaExhausted = err?.status === 429 || err?.code === 429 || /RESOURCE_EXHAUSTED|exceeded your current quota/i.test(message);
+  if (isQuotaExhausted) {
+    return 'AI 인식 요청이 일시적으로 많아 잠시 지연되고 있습니다. 1분 정도 후 다시 시도해주세요.';
+  }
+  const isTransient = err?.status === 503 || err?.code === 503 || /UNAVAILABLE|high demand|overloaded/i.test(message);
+  if (isTransient) {
+    return 'AI 서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.';
+  }
+  const isSafety = /safety|blocked|SAFETY/i.test(message);
+  if (isSafety) {
+    return '이미지를 분석할 수 없습니다. 다른 사진으로 다시 시도해주세요.';
+  }
+  return 'AI 인식 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+}
+
 import { createServer as createViteServer } from 'vite';
 import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './src/authLogic.js';
 import { getContactGroupIds } from './src/groupUtils.js';
@@ -2978,7 +3000,7 @@ app.post('/api/scan-card', async (req, res) => {
     res.json(parsedJson);
   } catch (error: any) {
     console.error('Gemini OCR Error:', error);
-    res.status(500).json({ error: error.message || '명함 스캔 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
 });
 
@@ -3030,7 +3052,7 @@ app.post('/api/summarize-meeting', async (req, res) => {
     });
   } catch (error: any) {
     console.error('회의록 AI 요약 오류:', error);
-    res.status(500).json({ error: error.message || '회의록 요약 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
 });
 
@@ -3088,7 +3110,7 @@ app.post('/api/parse-voice-contact', async (req, res) => {
     });
   } catch (error: any) {
     console.error('음성 명함 파싱 오류:', error);
-    res.status(500).json({ error: error.message || '음성 인식 처리 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
 });
 
@@ -3192,7 +3214,7 @@ app.post('/api/scan-receipt', async (req, res) => {
     res.json(parsedJson);
   } catch (error: any) {
     console.error('Receipt OCR Error:', error);
-    res.status(500).json({ error: error.message || '영수증 스캔 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
 });
 
@@ -3233,7 +3255,7 @@ app.post('/api/company/search-summary', async (req, res) => {
     res.json({ companyInfo });
   } catch (error: any) {
     console.error('Company search summary error:', error);
-    res.status(500).json({ error: error.message || '회사 비즈니스 요약 검색 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
 });
 
@@ -5273,6 +5295,26 @@ app.delete('/api/admin-docs/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] 경영지원 서류들(근로계약서/재직증명서 등)에서 반복해서 써야 하는 "회사 사업체
+// 주소·사업종류"를 한 번만 입력하면 다음부터 자동으로 불러와지도록, 회사 스코프에 하나만
+// 저장해두는 간단한 설정값. 여러 문서를 만들 때마다 매번 다시 타이핑할 필요가 없게 한다.
+app.get('/api/company-settings', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const scopeId = (req as any).scopeId;
+  const list = await getScopedCollection<{ id: string; address?: string; businessType?: string }>(scopeId, 'companySettings');
+  res.json(list[0] || { id: 'default', address: '', businessType: '' });
+});
+
+app.put('/api/company-settings', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const scopeId = (req as any).scopeId;
+  const record = { id: 'default', address: req.body.address || '', businessType: req.body.businessType || '' };
+  await setScopedDoc(scopeId, 'companySettings', record);
+  res.json(record);
+});
+
 // [추가] "카드사용내역"이 통합 차량 관리(운행기록/비용관리/정비일지), 프로젝트,
 // 업무일지(일일/주간)와 연동되도록 - 이 다섯 곳에 이미 "법인카드" 결제로 기록된 지출들을
 // 전부 찾아서 한 목록으로 모아준다. 운행기록 자체엔 결제수단 항목이 없지만, 운행 중 스캔한
@@ -5422,7 +5464,7 @@ ${text}
     res.json({ polishedText });
   } catch (error: any) {
     console.error('AI Polish Error:', error);
-    res.status(500).json({ error: error.message || 'AI 정제 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
 });
 
