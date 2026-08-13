@@ -200,12 +200,51 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     lowProfitThreshold: 20, lowProfitRate: 20,
     aftercareCapRate: 3,
     recognitionMonths: 24, recognitionCapAmount: 2000000000
+  } : undefined,
+  // [추가] 퇴직금 정산 기본값
+  severance: category === 'severance' ? {
+    employeeName: '', residentNumberMasked: '', hireYearMonth: '',
+    periodStart: '', periodEnd: '', reason: '',
+    companyAdvanceAmount: 0, companyAdvanceDate: new Date().toISOString().split('T')[0], companyAdvanceBank: '',
+    bankAccrualAmount: 0,
+    receiveDate: new Date().toISOString().split('T')[0]
   } : undefined
 });
 
 // 급여명세서 지급/공제 내역 합계 계산
 function sumItems(items?: AdminDocLineItem[]): number {
   return (items || []).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+}
+
+// [추가] 퇴직금 정산 지급명세서처럼, 금액을 숫자와 한글로 같이 적는 공식 문서 관행에 맞춰
+// 숫자를 한글 금액으로 자동 변환한다. "일천만원(₩10,000,000)"처럼 나란히 적을 때 쓴다.
+// 관용적으로 "일" 앞에 십/백/천이 붙어도 "일십/일백/일천"처럼 그대로 적는 방식(공문서에서
+// 흔한 표기)을 따른다.
+function numberToKoreanMoney(num: number): string {
+  if (!num || num === 0) return '영';
+  const digitsKo = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+  const smallUnits = ['', '십', '백', '천'];
+  const bigUnits = ['', '만', '억', '조'];
+
+  function convertGroup(n: number): string {
+    let result = '';
+    let divisor = 1000;
+    for (let i = 0; i < 4; i++) {
+      const digit = Math.floor(n / divisor) % 10;
+      if (digit > 0) result += digitsKo[digit] + smallUnits[3 - i];
+      divisor /= 10;
+    }
+    return result;
+  }
+
+  const groups: number[] = [];
+  let n = Math.floor(Math.abs(num));
+  while (n > 0) { groups.push(n % 10000); n = Math.floor(n / 10000); }
+  let result = '';
+  for (let i = groups.length - 1; i >= 0; i--) {
+    if (groups[i] > 0) result += convertGroup(groups[i]) + bigUnits[i];
+  }
+  return result || '영';
 }
 
 // [추가] "은행+계좌번호"가 일치하는 통장 입금/출금 내역 문서를 전체 목록(docs)에서 찾아,
@@ -636,6 +675,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const updateSalesContractField = (patch: Partial<NonNullable<AdminDoc['salesContract']>>) => {
     setEditingDoc((prev) => prev ? { ...prev, salesContract: { ...(prev.salesContract || {}), ...patch } } : prev);
   };
+  const updateSeveranceField = (patch: Partial<NonNullable<AdminDoc['severance']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, severance: { ...(prev.severance || {}), ...patch } } : prev);
+  };
 
   // [추가] "자동 불러오기" - 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에
   // 이미 "법인카드" 결제로 기록된 지출들을 서버에서 모아와서, 그중 원하는 것만 골라 지금
@@ -775,6 +817,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       // [추가] 영업 계약서는 거래처(갑) 상호를 검색용 personName에 반영한다.
       if (payload.category === 'sales_contract' && payload.salesContract?.counterpartyName) {
         payload.personName = payload.salesContract.counterpartyName;
+      }
+      // [추가] 퇴직금 정산은 회사선지급+은행적립금 합계를 amount 칸에, 신청인 이름을
+      // personName에 반영한다.
+      if (payload.category === 'severance' && payload.severance) {
+        const total = (Number(payload.severance.companyAdvanceAmount) || 0) + (Number(payload.severance.bankAccrualAmount) || 0);
+        payload.amount = String(total);
+        if (payload.severance.employeeName) payload.personName = payload.severance.employeeName;
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -1659,6 +1708,60 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 퇴직금 정산 지급명세서 인쇄용 화면. 공유해주신 양식대로 신청인 정보/중간정산
+  // 대상기간/정산금 내역을 나열하고, 금액은 숫자와 한글을 나란히 표기한다.
+  const renderPrintableSeverance = () => {
+    if (!printingDoc || !printingDoc.severance) return null;
+    const sv = printingDoc.severance;
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return day ? `${y}년 ${m}월 ${day}일` : `${y}년 ${m}월`;
+    };
+    const total = (Number(sv.companyAdvanceAmount) || 0) + (Number(sv.bankAccrualAmount) || 0);
+    const companyName = currentUser?.companyName || '';
+    const repName = currentUser?.name || '';
+    const periodLabelMonths = (() => {
+      if (!sv.periodStart || !sv.periodEnd) return '';
+      const start = new Date(sv.periodStart);
+      const end = new Date(sv.periodEnd);
+      const totalMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      const years = Math.floor(totalMonths / 12);
+      const months = totalMonths % 12;
+      return `${years > 0 ? `${years}년 ` : ''}${months > 0 ? `${months}개월` : ''}`.trim();
+    })();
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '12px', lineHeight: 1.8 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '24px' }}>퇴직금 중간정산 지급명세서</h1>
+
+        <p style={{ margin: '4px 0' }}>1. 신 청 인 : {sv.employeeName}</p>
+        <p style={{ margin: '4px 0' }}>2. 주민번호 : {sv.residentNumberMasked}</p>
+        <p style={{ margin: '4px 0' }}>3. 입사년도 : {fmtDateKo(sv.hireYearMonth)}</p>
+        <p style={{ margin: '4px 0' }}>4. 중간정산 대상기간 : {fmtDateKo(sv.periodStart)} ~ {fmtDateKo(sv.periodEnd)}</p>
+        <p style={{ margin: '4px 0 16px' }}>5. 중간정산 사유 : {sv.reason}</p>
+
+        <p style={{ margin: '10px 0' }}>
+          &nbsp;&nbsp;상기 본인은 {companyName} 근무하는 자로서 상기와 같은 이유로 아래와 같이 중간정산금 ({periodLabelMonths ? `${periodLabelMonths}_` : ''}{fmtDateKo(sv.periodStart)}부터 {fmtDateKo(sv.periodEnd)}까지의 퇴직금)을 지급 받았습니다.
+        </p>
+
+        <p style={{ fontWeight: 700, margin: '16px 0 6px' }}>6. 정산금 내역</p>
+        <p style={{ margin: '4px 0' }}>
+          ① 회사 선지급 - {numberToKoreanMoney(sv.companyAdvanceAmount || 0)}원 정(₩{fmt(sv.companyAdvanceAmount || 0)})
+          {sv.companyAdvanceDate ? `_${sv.companyAdvanceDate.replace(/-/g, '.')}.` : ''}
+          {sv.companyAdvanceBank ? `/${sv.companyAdvanceBank}에서 입금` : ''}
+        </p>
+        <p style={{ margin: '4px 0' }}>② 은행 적립금 - {numberToKoreanMoney(sv.bankAccrualAmount || 0)}원 (₩{fmt(sv.bankAccrualAmount || 0)})</p>
+        <p style={{ margin: '4px 0 20px' }}>③ ①+② = {numberToKoreanMoney(total)}원 (₩{fmt(total)})</p>
+
+        <p style={{ textAlign: 'right', margin: '20px 0 4px' }}>수령인 &nbsp; {sv.employeeName} &nbsp; (서명)</p>
+        <p style={{ textAlign: 'right', margin: '4px 0 20px' }}>{fmtDateKo(sv.receiveDate)}</p>
+        <p style={{ textAlign: 'right', fontWeight: 700 }}>{companyName} 대표이사 {repName} 귀중</p>
+      </div>
+    );
+  };
+
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
   const renderActivePrintable = () => {
@@ -1672,6 +1775,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
     if (printingDoc.category === 'sales_contract') return renderPrintableSalesContract();
+    if (printingDoc.category === 'severance') return renderPrintableSeverance();
     return null;
   };
 
@@ -1788,7 +1892,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'sales_contract' && d.salesContract)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -3319,7 +3423,123 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && (
+                {/* [추가] 퇴직금 정산 전용 입력. */}
+                {activeCategory === 'severance' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.severance?.employeeName || ''}
+                        onChange={(e) => updateSeveranceField({ employeeName: e.target.value })}
+                        placeholder="신청인(성명)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.severance?.residentNumberMasked || ''}
+                        onChange={(e) => updateSeveranceField({ residentNumberMasked: e.target.value })}
+                        placeholder="주민번호 (예: 000000-0000000)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">입사년월</label>
+                      <input
+                        type="month"
+                        value={editingDoc.severance?.hireYearMonth || ''}
+                        onChange={(e) => updateSeveranceField({ hireYearMonth: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">중간정산 대상기간 시작</label>
+                        <input
+                          type="date"
+                          value={editingDoc.severance?.periodStart || ''}
+                          onChange={(e) => updateSeveranceField({ periodStart: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">중간정산 대상기간 종료</label>
+                        <input
+                          type="date"
+                          value={editingDoc.severance?.periodEnd || ''}
+                          onChange={(e) => updateSeveranceField({ periodEnd: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={editingDoc.severance?.reason || ''}
+                      onChange={(e) => updateSeveranceField({ reason: e.target.value })}
+                      placeholder="중간정산 사유 (예: 무주택자의 주택구입)"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    />
+
+                    <label className="block text-[11px] font-bold text-slate-600 pt-1">정산금 내역</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">① 회사 선지급 금액</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.severance?.companyAdvanceAmount ? formatCurrencyInput(editingDoc.severance.companyAdvanceAmount) : ''}
+                          onChange={(e) => updateSeveranceField({ companyAdvanceAmount: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">① 지급일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.severance?.companyAdvanceDate || ''}
+                          onChange={(e) => updateSeveranceField({ companyAdvanceDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">① 입금 은행</label>
+                        <input
+                          type="text"
+                          value={editingDoc.severance?.companyAdvanceBank || ''}
+                          onChange={(e) => updateSeveranceField({ companyAdvanceBank: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">② 은행 적립금(퇴직연금 등)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editingDoc.severance?.bankAccrualAmount ? formatCurrencyInput(editingDoc.severance.bankAccrualAmount) : ''}
+                        onChange={(e) => updateSeveranceField({ bankAccrualAmount: parseCurrencyInput(e.target.value) })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      ①+② 합계: {formatCurrencyInput((Number(editingDoc.severance?.companyAdvanceAmount) || 0) + (Number(editingDoc.severance?.bankAccrualAmount) || 0))}원
+                      <br />
+                      <span className="text-[11px] text-slate-400 font-normal">
+                        ({numberToKoreanMoney((Number(editingDoc.severance?.companyAdvanceAmount) || 0) + (Number(editingDoc.severance?.bankAccrualAmount) || 0))}원)
+                      </span>
+                    </p>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">수령일 (서명 날짜)</label>
+                      <input
+                        type="date"
+                        value={editingDoc.severance?.receiveDate || ''}
+                        onChange={(e) => updateSeveranceField({ receiveDate: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
