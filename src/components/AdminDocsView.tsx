@@ -161,6 +161,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   // [추가] 근로계약서 기본값. 급여 구성 항목을 실제 회사 양식(기본급/연장근로수당/
   // 차량유지비/식대)에 맞춰 미리 채워두고, 필요하면 항목을 더 추가/삭제할 수 있다.
   laborContract: category === 'labor_contract' ? {
+    companyBusinessType: '', companyAddress: '',
     employeeName: '', employeeBirthDate: '', employeeAddress: '', employmentType: 'regular',
     salaryItems: [
       { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
@@ -1228,7 +1229,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         <p style={{ fontWeight: 700, margin: '4px 0' }}>사용자</p>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
           <tr><td style={labelCellStyle}>사업체명</td><td style={cellStyle}>{companyName}</td><td style={labelCellStyle}>대표</td><td style={cellStyle}>{repName}</td></tr>
-          <tr><td style={labelCellStyle}>사업자등록번호</td><td style={cellStyle}>{bizNumber}</td><td style={labelCellStyle}></td><td style={cellStyle}></td></tr>
+          <tr><td style={labelCellStyle}>사업종류</td><td style={cellStyle}>{lc.companyBusinessType}</td><td style={labelCellStyle}>사업자등록번호</td><td style={cellStyle}>{bizNumber}</td></tr>
+          <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.companyAddress}</td></tr>
         </tbody></table>
         <p style={{ fontWeight: 700, margin: '8px 0 4px' }}>근로자</p>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
@@ -2513,6 +2515,26 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 연차/퇴직/기밀유지 등 고정 조항은 인쇄할 때 자동으로 다 채워져서 나온다. */}
                 {activeCategory === 'labor_contract' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">회사 정보 (사업체명·대표·사업자등록번호는 로그인 계정에서 자동 입력됨)</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.companyBusinessType || ''}
+                          onChange={(e) => updateLaborContractField({ companyBusinessType: e.target.value })}
+                          placeholder="사업 종류 (예: 제조업)"
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.companyAddress || ''}
+                          onChange={(e) => updateLaborContractField({ companyAddress: e.target.value })}
+                          placeholder="사업체 주소"
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
