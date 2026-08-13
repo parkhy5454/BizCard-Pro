@@ -147,6 +147,16 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       holder: '',
       entries: [{ id: `cue-${Date.now()}`, amount: 0, date: new Date().toISOString().split('T')[0], project: '', user: '', note: '' }]
     }]
+  } : undefined,
+  // [추가] 법인카드 관리(월별 카드별 사용 요약) 기본값. 카드 한 장을 빈 줄로 미리 넣어두고
+  // "카드 추가"로 늘릴 수 있게 한다.
+  corpCard: category === 'corp_card' ? {
+    yearMonth: new Date().toISOString().slice(0, 7),
+    cards: [{
+      id: `cc-${Date.now()}`,
+      cardCompany: '', cardNumber: '', user: '', periodLabel: '', paymentDay: '',
+      amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
+    }]
   } : undefined
 });
 
@@ -453,6 +463,29 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   };
   const cardGroupTotal = (c: CardGroup) => c.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
+  // [추가] 법인카드 관리(월별 요약) - 카드 줄 추가·삭제·수정
+  type CorpCardRow = NonNullable<AdminDoc['corpCard']>['cards'][number];
+  const updateCorpCards = (updater: (cards: CorpCardRow[]) => CorpCardRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const corpCard = prev.corpCard || { cards: [] };
+      return { ...prev, corpCard: { ...corpCard, cards: updater(corpCard.cards || []) } };
+    });
+  };
+  const addCorpCard = () => {
+    updateCorpCards((cards) => [...cards, {
+      id: `cc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      cardCompany: '', cardNumber: '', user: '', periodLabel: '', paymentDay: '',
+      amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
+    }]);
+  };
+  const removeCorpCard = (id: string) => {
+    updateCorpCards((cards) => cards.filter((c) => c.id !== id));
+  };
+  const updateCorpCard = (id: string, patch: Partial<CorpCardRow>) => {
+    updateCorpCards((cards) => cards.map((c) => c.id === id ? { ...c, ...patch } : c));
+  };
+
   // [추가] "자동 불러오기" - 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에
   // 이미 "법인카드" 결제로 기록된 지출들을 서버에서 모아와서, 그중 원하는 것만 골라 지금
   // 편집 중인 카드 그룹에 항목으로 채워 넣는다. 이미 가져온 적 있는 항목(sourceKey로 판단)은
@@ -569,6 +602,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       // [추가] 법인카드 사용내역은 전체 사용 금액 합계를 amount 칸에 표시한다.
       if (payload.category === 'card_usage' && payload.cardUsage) {
         const total = payload.cardUsage.cards.reduce((sum, c) => sum + c.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 법인카드 관리(월별 요약)는 카드별 금액 합계를 amount 칸에 표시한다.
+      if (payload.category === 'corp_card' && payload.corpCard) {
+        const total = payload.corpCard.cards.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
         payload.amount = String(total);
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
@@ -1017,6 +1055,62 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 법인카드 관리(월별 요약) 인쇄용 화면. 공유해주신 양식대로 카드사/카드번호/사용자/
+  // 사용일수/출금일자/금액/출금은행/출금계좌/비고를 카드 한 장당 한 줄로 나열하고, 맨 아래
+  // 합계 행을 넣는다.
+  const renderPrintableCorpCard = () => {
+    if (!printingDoc || !printingDoc.corpCard) return null;
+    const cc = printingDoc.corpCard;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const total = cc.cards.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const [year, month] = (cc.yearMonth || '').split('-');
+
+    return (
+      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, textDecoration: 'underline', marginBottom: '14px' }}>
+          {year && month ? `${year}년도 카드별 월 사용 내역(${Number(month)}월)` : printingDoc.title}
+        </h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>번호</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드사</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드번호</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용일수</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>출금일자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>금 액</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>출금은행</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>출금계좌</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {cc.cards.map((c, i) => (
+              <tr key={c.id}>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 700 }}>{c.cardCompany}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.cardNumber}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.user}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.periodLabel}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', color: '#c00', fontWeight: 700 }}>{c.paymentDay}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(c.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.withdrawBank}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.withdrawAccount}</td>
+                <td style={{ border: '1px solid #000', padding: '5px' }}>{c.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={6}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
   const renderActivePrintable = () => {
@@ -1026,6 +1120,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'bank_withdrawal' || printingDoc.category === 'bank_deposit') return renderPrintableBankLedger();
     if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
+    if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
     return null;
   };
 
@@ -1124,7 +1219,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -2083,7 +2178,115 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && (
+                {/* [추가] 법인카드 관리(월별 요약) 전용 입력. 카드 한 장이 한 줄이고, 카드사/
+                카드번호/사용자/사용일수/출금일자/금액/출금은행/출금계좌/비고를 입력한다. */}
+                {activeCategory === 'corp_card' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">대상 연월</label>
+                        <input
+                          type="month"
+                          value={editingDoc.corpCard?.yearMonth || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, corpCard: { ...(editingDoc.corpCard || { cards: [] }), yearMonth: e.target.value } })}
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <button type="button" onClick={addCorpCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 카드 추가
+                      </button>
+                    </div>
+
+                    {(editingDoc.corpCard?.cards || []).map((c) => (
+                      <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={c.cardCompany}
+                            onChange={(e) => updateCorpCard(c.id, { cardCompany: e.target.value })}
+                            placeholder="카드사 (예: 국민카드)"
+                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.cardNumber}
+                            onChange={(e) => updateCorpCard(c.id, { cardNumber: e.target.value })}
+                            placeholder="카드번호"
+                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.user}
+                            onChange={(e) => updateCorpCard(c.id, { user: e.target.value })}
+                            placeholder="사용자"
+                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          {(editingDoc.corpCard?.cards.length || 0) > 1 && (
+                            <button type="button" onClick={() => removeCorpCard(c.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                          <input
+                            type="text"
+                            value={c.periodLabel || ''}
+                            onChange={(e) => updateCorpCard(c.id, { periodLabel: e.target.value })}
+                            placeholder="사용일수 (예: 전월 01일~전월 말일)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.paymentDay || ''}
+                            onChange={(e) => updateCorpCard(c.id, { paymentDay: e.target.value })}
+                            placeholder="출금일자 (예: 15일)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={c.amount ? formatCurrencyInput(c.amount) : ''}
+                            onChange={(e) => updateCorpCard(c.id, { amount: parseCurrencyInput(e.target.value) })}
+                            placeholder="금액"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={c.withdrawBank || ''}
+                            onChange={(e) => updateCorpCard(c.id, { withdrawBank: e.target.value })}
+                            placeholder="출금은행"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.withdrawAccount || ''}
+                            onChange={(e) => updateCorpCard(c.id, { withdrawAccount: e.target.value })}
+                            placeholder="출금계좌"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <input
+                          type="text"
+                          value={c.note || ''}
+                          onChange={(e) => updateCorpCard(c.id, { note: e.target.value })}
+                          placeholder="비고"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    ))}
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.corpCard?.cards || []).reduce((s, c) => s + (Number(c.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
