@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Car, Calendar, MapPin, Receipt, Wrench, FileText, BarChart3, 
   Plus, Trash2, Search, ArrowRight, TrendingUp, CheckCircle2, 
@@ -320,6 +321,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     receiptImage: ''
   });
   const [isScanningMaintReceipt, setIsScanningMaintReceipt] = useState<boolean>(false);
+  // [추가] 운행기록부 인쇄(PDF 저장) 시, #print-root 포털에 넣어서 화면의 다른 요소 없이
+  // 이 표만 단독으로 인쇄되게 하기 위한 상태. null이면 인쇄할 내용이 없다는 뜻.
+  const [printingReportHtml, setPrintingReportHtml] = useState<string | null>(null);
 
   // 5. 점검 주기 폼
   const [newInterval, setNewInterval] = useState({
@@ -4208,8 +4212,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             .reduce((sum, e) => sum + e.amount, 0);
         };
 
-        // 엑셀 내보내기 함수
-        const handleExportExcel = (v: Vehicle) => {
+        // [수정] 엑셀 다운로드와 인쇄(PDF)가 똑같은 표 내용을 써야 해서, 표 HTML을 만드는
+        // 부분을 별도 함수로 뽑아냈다. 엑셀 다운로드는 여기에 xls 파일 포장을 씌우고,
+        // 인쇄는 #print-root 포털에 그대로 꽂아 넣어서 화면의 다른 요소 없이 이 표만
+        // 단독으로 인쇄/PDF 저장되게 한다.
+        const buildReportTableHtml = (v: Vehicle): string => {
           const carLogs = drivingLogs.filter(log => log.vehicleId === v.id && log.date.startsWith(reportYearMonth));
           const year = reportYearMonth.split('-')[0];
           const companyName = currentUser.companyName || '초이스커피';
@@ -4355,6 +4362,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             </table>
           `;
 
+          return tableHtml;
+        };
+
+        // 엑셀 내보내기 함수
+        const handleExportExcel = (v: Vehicle) => {
+          const tableHtml = buildReportTableHtml(v);
           const excelContent = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head>
@@ -4390,6 +4403,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           document.body.removeChild(link);
         };
 
+        // [추가] 인쇄(PDF 저장) 함수. 예전엔 window.print()만 호출해서 화면에 보이는 다른
+        // 요소(상단 메뉴, 탭, 다른 카드 등)까지 같이 인쇄됐다. 이제 표 내용을 #print-root
+        // 포털에 넣고, 인쇄할 때만 화면의 나머지 부분(#root)을 감춰서 이 표만 단독으로
+        // 인쇄/PDF 저장되게 한다. 표가 가로로 넓어서 A4 세로가 아니라 가로로 인쇄되도록
+        // print-landscape 클래스도 같이 붙인다.
+        const handlePrintReport = (v: Vehicle) => {
+          const tableHtml = buildReportTableHtml(v);
+          setPrintingReportHtml(tableHtml);
+          setTimeout(() => {
+            document.body.classList.add('print-portal-mode');
+            window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+            window.print();
+          }, 50);
+        };
+
         return (
           <div className="space-y-4">
             <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
@@ -4415,7 +4443,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <span>현재 차량 엑셀 다운로드</span>
                     </button>
                     <button
-                      onClick={() => window.print()}
+                      onClick={() => {
+                        const activeCar = vehicles.find(v => v.id === reportVehicleId);
+                        if (activeCar) handlePrintReport(activeCar);
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
                     >
                       <Printer className="w-3.5 h-3.5" />
@@ -4572,7 +4603,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             <button
                               onClick={() => {
                                 setReportVehicleId(v.id);
-                                setTimeout(() => window.print(), 100);
+                                handlePrintReport(v);
                               }}
                               className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 hover:text-white border border-indigo-200 hover:bg-indigo-600 rounded-lg px-3 py-1.5 bg-indigo-50 transition-all shadow-sm cursor-pointer"
                             >
@@ -6304,6 +6335,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           setReceiptCameraTarget(null);
         }}
       />
+
+      {/* [추가] 운행기록부 인쇄(PDF 저장) 전용: #print-root 포털에 표 내용만 넣어서, 화면의
+      다른 요소(상단 메뉴, 탭, 다른 카드 등) 없이 이 표만 단독으로 인쇄/PDF 저장되게 한다.
+      표가 가로로 넓어서 A4 가로 방향으로 인쇄되도록 print-landscape 클래스를 붙인다. */}
+      {printingReportHtml && typeof document !== 'undefined' && document.getElementById('print-root') &&
+        createPortal(
+          <div className="print-landscape" style={{ padding: '10mm' }} dangerouslySetInnerHTML={{ __html: printingReportHtml }} />,
+          document.getElementById('print-root')!
+        )}
     </div>
   );
 };
