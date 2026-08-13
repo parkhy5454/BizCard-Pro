@@ -162,7 +162,7 @@ body {
   넘어가도 위아래 여백이 항상 유지되게 한다. */
   @page document-page {
     size: A4 portrait;
-    margin: 20mm 25mm;
+    margin: 30mm 25mm;
   }
   /* [추가] .print-document-margins에 준 padding(20mm 25mm)과 고정폭(210mm)은 화면
   미리보기에서 A4 페이지처럼 보이려고 넣은 것뿐이다. 실제 인쇄 시에는 위 @page
