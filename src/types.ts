@@ -275,6 +275,21 @@ export interface AdminDoc {
       note?: string;            // 비고
     }[];
   };
+  // [추가] 경영지원 > 근로계약서(category: 'labor_contract') 전용 구조화 필드. 회사에서
+  // 실제 쓰시는 계약서 양식(공유해주신 PDF)을 그대로 재현한다. 근로시간/연차/퇴직 규정 등
+  // 고정 조항은 인쇄 화면에 그대로 박혀있고, 사람마다 바뀌는 항목만 여기 채운다.
+  laborContract?: {
+    employeeName?: string;       // 근로자 성명
+    employeeBirthDate?: string;  // 생년월일 (YYYY-MM-DD)
+    employeeAddress?: string;    // 근로자 주소
+    employmentType?: 'regular' | 'contract' | 'intern'; // 고용형태 (정규직/계약직/인턴)
+    salaryItems: AdminDocLineItem[]; // 급여 구성 항목 (기본급/연장근로수당/차량유지비/식대 등)
+    contractStartDate?: string;  // 계약 시작일
+    contractEndDate?: string;    // 계약 종료일 (정규직 등 기간 정함이 없으면 비워둠)
+    workLocation?: string;       // 근무 장소
+    jobDuties?: string;          // 담당 업무
+    contractDate?: string;       // 계약서 작성일(맨 아래 서명 날짜)
+  };
 }
 
 export interface MeetingExpenseItem {
