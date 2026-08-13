@@ -322,8 +322,45 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDoc, setEditingDoc] = useState<Partial<AdminDoc> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // [추가] 근로계약서/연봉협약서/재직증명서에서 반복 입력해야 하는 "회사 사업체 주소·사업종류"를
+  // 한 번만 입력하면 다음부터 자동으로 채워지도록, 회사 스코프에 저장된 값을 가져와둔다.
+  const [companySettings, setCompanySettings] = useState<{ address: string; businessType: string }>({ address: '', businessType: '' });
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    fetch('/api/company-settings', { headers: { 'x-user-id': currentUser.id } })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data) setCompanySettings({ address: data.address || '', businessType: data.businessType || '' }); })
+      .catch((err) => console.error('회사 설정 불러오기 실패:', err));
+  }, [currentUser?.id]);
+
+  // [추가] 회사 주소·사업종류를 문서 안에서 고치면, 다음에 새 문서를 만들 때도 그 값이
+  // 바로 기본으로 채워지도록 회사 스코프 설정에도 같이 저장해둔다(디바운스 없이 blur 시 저장).
+  const persistCompanySettings = (patch: Partial<{ address: string; businessType: string }>) => {
+    if (!currentUser) return;
+    const next = { ...companySettings, ...patch };
+    setCompanySettings(next);
+    fetch('/api/company-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify(next)
+    }).catch((err) => console.error('회사 설정 저장 실패:', err));
+  };
 
   const activeConfig = categories.find((c) => c.id === activeCategory) || categories[0];
+
+  // [추가] 재직증명서를 새로 만드는 중에 신청일을 바꿔서 연도가 달라지면, 문서번호도
+  // 그 연도 기준으로 다시 계산해준다. 이미 저장된 문서를 열람/수정할 때는 번호를 그대로
+  // 유지한다(수정 화면에서 신청일을 바꿔도 이미 발급된 번호는 안 바뀌게).
+  const applicationYearForDocNumber = !editingDoc?.id ? editingDoc?.employmentCert?.applicationDate?.slice(0, 4) : undefined;
+  useEffect(() => {
+    if (!applicationYearForDocNumber || !editingDoc || editingDoc.id) return;
+    const currentNumberYear = editingDoc.employmentCert?.documentNumber?.split('-')[0];
+    if (currentNumberYear === applicationYearForDocNumber) return;
+    const countThisYear = docs.filter((d) => d.category === 'employment_cert' && d.employmentCert?.documentNumber?.startsWith(`${applicationYearForDocNumber}-`)).length;
+    setEditingDoc((prev) => prev && prev.employmentCert ? { ...prev, employmentCert: { ...prev.employmentCert, documentNumber: `${applicationYearForDocNumber}-${String(countThisYear + 1).padStart(3, '0')}` } } : prev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationYearForDocNumber]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1676,7 +1713,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           />
         </div>
         <button
-          onClick={() => setEditingDoc(emptyForm(activeCategory))}
+          onClick={() => {
+            const fresh = emptyForm(activeCategory);
+            // [추가] 새 문서를 만들 때, 저장돼 있던 회사 주소·사업종류를 자동으로 채워 넣는다.
+            if (fresh.laborContract) {
+              fresh.laborContract = { ...fresh.laborContract, companyAddress: companySettings.address, companyBusinessType: companySettings.businessType };
+            }
+            if (fresh.employmentCert) {
+              fresh.employmentCert = { ...fresh.employmentCert, companyAddress: companySettings.address };
+            }
+            // [추가] 재직증명서는 문서번호를 신청년도 기준 일련번호로 자동 생성해준다
+            // (예: 2026년 첫 신청 2026-001, 두 번째 2026-002...). 그 해에 이미 만들어진
+            // 재직증명서 개수를 세어서 다음 번호를 매긴다.
+            if (fresh.employmentCert) {
+              const year = (fresh.employmentCert.applicationDate || new Date().toISOString().split('T')[0]).slice(0, 4);
+              const countThisYear = docs.filter((d) => d.category === 'employment_cert' && d.employmentCert?.documentNumber?.startsWith(`${year}-`)).length;
+              fresh.employmentCert.documentNumber = `${year}-${String(countThisYear + 1).padStart(3, '0')}`;
+            }
+            setEditingDoc(fresh);
+          }}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95 whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
@@ -2832,12 +2887,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 {(activeCategory === 'labor_contract' || activeCategory === 'salary_agreement') && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">회사 정보 (사업체명·대표·사업자등록번호는 로그인 계정에서 자동 입력됨)</label>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">회사 정보 (사업체명·대표·사업자등록번호는 로그인 계정에서 자동 입력됨 / 사업종류·주소는 한 번 입력해두면 다음부터 자동으로 채워집니다)</label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         <input
                           type="text"
                           value={editingDoc.laborContract?.companyBusinessType || ''}
                           onChange={(e) => updateLaborContractField({ companyBusinessType: e.target.value })}
+                          onBlur={(e) => persistCompanySettings({ businessType: e.target.value })}
                           placeholder="사업 종류 (예: 제조업)"
                           className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
@@ -2845,6 +2901,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                           type="text"
                           value={editingDoc.laborContract?.companyAddress || ''}
                           onChange={(e) => updateLaborContractField({ companyAddress: e.target.value })}
+                          onBlur={(e) => persistCompanySettings({ address: e.target.value })}
                           placeholder="사업체 주소"
                           className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
@@ -2987,11 +3044,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 {activeCategory === 'employment_cert' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div>
-                      <label className="block text-[10px] text-slate-400 mb-0.5">사업체 주소</label>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">사업체 주소 (한 번 입력해두면 다음부터 자동으로 채워집니다)</label>
                       <input
                         type="text"
                         value={editingDoc.employmentCert?.companyAddress || ''}
                         onChange={(e) => updateEmploymentCertField({ companyAddress: e.target.value })}
+                        onBlur={(e) => persistCompanySettings({ address: e.target.value })}
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
