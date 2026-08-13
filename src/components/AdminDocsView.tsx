@@ -160,18 +160,22 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   } : undefined,
   // [추가] 근로계약서 기본값. 급여 구성 항목을 실제 회사 양식(기본급/연장근로수당/
   // 차량유지비/식대)에 맞춰 미리 채워두고, 필요하면 항목을 더 추가/삭제할 수 있다.
-  laborContract: category === 'labor_contract' ? {
+  laborContract: (category === 'labor_contract' || category === 'salary_agreement') ? {
     companyBusinessType: '', companyAddress: '',
     employeeName: '', employeeBirthDate: '', employeeAddress: '', employmentType: 'regular',
-    salaryItems: [
+    salaryItems: category === 'salary_agreement' ? [
+      { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
+      { id: `sal-${Date.now()}-2`, label: '연장근로수당', amount: 0 },
+      { id: `sal-${Date.now()}-3`, label: '식대', amount: 0 }
+    ] : [
       { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
       { id: `sal-${Date.now()}-2`, label: '연장근로수당', amount: 0 },
       { id: `sal-${Date.now()}-3`, label: '차량 유지비', amount: 0 },
       { id: `sal-${Date.now()}-4`, label: '식대', amount: 0 }
     ],
     contractStartDate: new Date().toISOString().split('T')[0],
-    contractEndDate: '',
-    workLocation: '주소지 회사(회사 사정이 있을 시 변경 가능) 및 프로젝트 현장',
+    contractEndDate: category === 'salary_agreement' ? new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0] : '',
+    workLocation: category === 'salary_agreement' ? '주소지 회사(회사 사정이 있을 시 변경 가능)' : '주소지 회사(회사 사정이 있을 시 변경 가능) 및 프로젝트 현장',
     jobDuties: '기술 영업 및 기술 지원(회사 사정이 있을 시 변경 가능)',
     contractDate: new Date().toISOString().split('T')[0]
   } : undefined
@@ -693,7 +697,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       }
       // [추가] 근로계약서는 월 급여 합계를 amount 칸에 표시하고, 근로자 이름을 검색 대상인
       // personName에도 반영해서 다른 서류들처럼 이름으로 검색할 수 있게 한다.
-      if (payload.category === 'labor_contract' && payload.laborContract) {
+      if ((payload.category === 'labor_contract' || payload.category === 'salary_agreement') && payload.laborContract) {
         const total = sumItems(payload.laborContract.salaryItems);
         payload.amount = String(total);
         if (payload.laborContract.employeeName) payload.personName = payload.laborContract.employeeName;
@@ -1205,6 +1209,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const renderPrintableLaborContract = () => {
     if (!printingDoc || !printingDoc.laborContract) return null;
     const lc = printingDoc.laborContract;
+    const isSalaryAgreement = printingDoc.category === 'salary_agreement';
     const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
     const monthlyTotal = sumItems(lc.salaryItems);
     const annualTotal = monthlyTotal * 12;
@@ -1223,7 +1228,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
     return (
       <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
-        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>근로 계약서</h1>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>{isSalaryAgreement ? '연봉 계약서' : '근로 계약서'}</h1>
 
         <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>1. 계약 당사자</p>
         <div style={{ breakInside: 'avoid' }}>
@@ -1271,6 +1276,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         </table>
         <p style={{ margin: '4px 0', paddingLeft: '10px' }}>나. 계산기간 및 계산방법 - 월 급여의 계산기간은 초일부터 기산하여 당월 말일로 마감한다.</p>
         <p style={{ margin: '4px 0 8px', paddingLeft: '10px' }}>다. 지급일 및 지급방법 - 월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</p>
+        {isSalaryAgreement && (
+          <p style={{ margin: '4px 0 8px' }}>- 단, 경력직의 경우 1년 동안은 업무 적응 기간으로, 업무 적응 기간의 보수는 근로자의 경력, 자질, 업무 능력, 업무 적응도 및 적성 등 각종 제반 상황을 종합적으로 판단하여 최초 연봉 계약 금액의 가감이 가능.</p>
+        )}
         <p style={{ margin: '4px 0' }}>2) 급여 외 수당 : 없음 - 주 12시간의 연장 근로를 할 수 있음에 동의하고 이에 해당하는 수당은 급여에 포함한 금액으로 한다.</p>
         <p style={{ margin: '4px 0' }}>3) 근로 시간 : 매주 월요일 ~ 금요일 09:00~18:00(휴게시간 : 12:00~13:00) - 주간 40시간 만근 시 일요일 유급 휴일, 토요일 무급 휴일</p>
         <p style={{ margin: '4px 0' }}>4) 근무 장소 : {lc.workLocation}</p>
@@ -1279,8 +1287,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
         <div style={{ breakInside: 'avoid' }}>
           <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>3. 고용 기간</p>
-          <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
-          <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
+          {isSalaryAgreement ? (
+            <p style={{ margin: '4px 0 8px' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {fmtDateKo(lc.contractEndDate)} 까지(1년) (단, 기간 만료일까지 별도 의사표시 없을 시 본 계약은 자동 연장)</p>
+          ) : (
+            <>
+              <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
+              <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
+            </>
+          )}
         </div>
 
         <div style={{ breakInside: 'avoid' }}>
@@ -1342,7 +1356,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
-    if (printingDoc.category === 'labor_contract') return renderPrintableLaborContract();
+    if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     return null;
   };
 
@@ -1441,7 +1455,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'labor_contract' && d.laborContract)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -2537,7 +2551,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                 {/* [추가] 근로계약서 전용 입력. 근로자 정보 + 급여 구성만 채우면, 근로시간/
                 연차/퇴직/기밀유지 등 고정 조항은 인쇄할 때 자동으로 다 채워져서 나온다. */}
-                {activeCategory === 'labor_contract' && (
+                {(activeCategory === 'labor_contract' || activeCategory === 'salary_agreement') && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">회사 정보 (사업체명·대표·사업자등록번호는 로그인 계정에서 자동 입력됨)</label>
@@ -2691,7 +2705,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && (
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
