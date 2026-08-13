@@ -1222,7 +1222,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const labelCellStyle: React.CSSProperties = { ...cellStyle, background: '#f5f5f5', fontWeight: 700, width: '18%', textAlign: 'center' };
 
     return (
-      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '20mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '20mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
         <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>근로 계약서</h1>
 
         <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>1. 계약 당사자</p>
