@@ -359,6 +359,17 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgNaturalRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+  // [추가] AI 감지 결과가 늦게 도착했을 때 현재 화면 표시 크기를 즉시 읽기 위한 ref
+  // (setState 업데이터 안에서 또 다른 setState를 호출하는 어색한 패턴을 피하기 위함)
+  const displaySizeRef = useRef({ width: 0, height: 0 });
+  useEffect(() => { displaySizeRef.current = displaySize; }, [displaySize]);
+  // [추가] AI(Gemini)가 감지한 테두리가 나중에 도착했을 때, 사용자가 이미 손으로 테두리를
+  // 만지기 시작했다면 그 조작을 덮어쓰지 않기 위한 플래그.
+  const userInteractedRef = useRef(false);
+
+  // [추가] AI가 테두리를 더 정확하게 찾아주면 "AI로 다시 맞췄어요"처럼 안내 문구를 다르게
+  // 보여주기 위한 상태. null=아직 없음, true=AI 결과 적용됨, false=AI 실패(OpenCV 결과 유지)
+  const [aiCornersApplied, setAiCornersApplied] = useState<boolean | null>(null);
 
   // 이미지 로드 + 자동 모서리 감지
   useEffect(() => {
@@ -373,6 +384,43 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       setAutoDetected(!!detected);
       if (detected) {
         (img as any).__detectedCorners = detected;
+      }
+
+      // [추가] 화면(OpenCV)만으로 찾은 테두리는 배경이 어둡거나 카드와 색·질감이 비슷하면
+      // (아스팔트 바닥, 회색 옷감 등) 잘 못 찾는 경우가 있었다. 화면을 막지 않고 백그라운드로
+      // AI(Gemini)에게도 같은 사진을 보내 더 정확한 좌표를 물어보고, 사용자가 아직 손으로
+      // 테두리를 건드리기 전이면 그 결과로 조용히 업그레이드해준다.
+      try {
+        const res = await fetch('/api/detect-card-corners', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: imageDataUrl })
+        });
+        const data = await res.json();
+        if (userInteractedRef.current) return; // 그 사이 사용자가 이미 직접 조정을 시작했으면 덮어쓰지 않는다
+        if (isValidNormalizedCorners(data.corners)) {
+          const naturalPts: Point[] = [
+            { x: data.corners.topLeft.x * img.naturalWidth, y: data.corners.topLeft.y * img.naturalHeight },
+            { x: data.corners.topRight.x * img.naturalWidth, y: data.corners.topRight.y * img.naturalHeight },
+            { x: data.corners.bottomRight.x * img.naturalWidth, y: data.corners.bottomRight.y * img.naturalHeight },
+            { x: data.corners.bottomLeft.x * img.naturalWidth, y: data.corners.bottomLeft.y * img.naturalHeight }
+          ];
+          (img as any).__detectedCorners = naturalPts;
+          setAutoDetected(true);
+          setAiCornersApplied(true);
+          // 이미 화면에 표시 중이라면(사이즈 계산이 끝난 상태) 지금 바로 표시 좌표로 변환해서 반영한다.
+          const curSize = displaySizeRef.current;
+          if (curSize.width > 0 && curSize.height > 0) {
+            const scaleX = curSize.width / img.naturalWidth;
+            const scaleY = curSize.height / img.naturalHeight;
+            setCorners(naturalPts.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
+          }
+        } else {
+          setAiCornersApplied(false);
+        }
+      } catch (err) {
+        console.error('AI 테두리 감지 실패, OpenCV 결과 유지:', err);
+        setAiCornersApplied(false);
       }
     };
     img.src = imageDataUrl;
@@ -444,6 +492,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
     e.preventDefault();
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
+    userInteractedRef.current = true;
     setDragIndex(idx);
   };
 
@@ -452,6 +501,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const handlePolygonPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     (e.target as Element).setPointerCapture(e.pointerId);
+    userInteractedRef.current = true;
     setIsDraggingAll(true);
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
   };
@@ -461,6 +511,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
     e.preventDefault();
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
+    userInteractedRef.current = true;
     setDragEdge(edgeIdx);
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
   };
@@ -612,7 +663,12 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
             <p className="text-[11px] text-slate-500 mt-0.5">안쪽을 밀어 전체 위치를, 네모 손잡이로 위/아래/좌우 한 변씩, 동그란 점으로 모서리를 조정하세요</p>
             {autoDetected !== null && (
               <p className="text-[10px] font-mono mt-0.5 text-lime-500">
-                자동감지: {autoDetected ? '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)' : '실패 (기본 위치 - 직접 맞춰주세요)'}
+                자동감지: {autoDetected
+                  ? (aiCornersApplied
+                      ? 'AI 정밀 감지 완료 (파란 사각형이 명함이 아니면 직접 드래그로 수정)'
+                      : '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)')
+                  : '실패 (기본 위치 - 직접 맞춰주세요)'}
+                {aiCornersApplied === null && ' · AI로 더 정밀하게 다시 확인 중...'}
               </p>
             )}
           </div>
