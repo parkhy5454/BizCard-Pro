@@ -3688,6 +3688,12 @@ app.put('/api/vehicles/driving/:id', async (req, res) => {
   const scopeId = (req as any).scopeId;
   const idx = dbData.drivingLogs.findIndex(log => log.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Driving log not found' });
+
+  // [추가] 이 기록의 "도착 계기판"을 실제 계기판 값으로 수정하는 경우, 원래 이 기록의
+  // 도착값을 그대로 이어받아 "출발 계기판"으로 썼던 다음 기록이 있다면 그 값도 같이
+  // 맞춰줘야 한다 — 안 그러면 두 기록 사이에 몇 km가 붕 뜨거나 겹쳐버린다.
+  const oldEndMileage = dbData.drivingLogs[idx].endMileage;
+
   dbData.drivingLogs[idx] = { ...dbData.drivingLogs[idx], ...req.body };
   
   const log = dbData.drivingLogs[idx];
@@ -3702,7 +3708,28 @@ app.put('/api/vehicles/driving/:id', async (req, res) => {
   }
   await setScopedDoc(scopeId, 'drivingLogs', log);
   if (updatedVehicle) await setScopedDoc(scopeId, 'vehicles', updatedVehicle);
-  res.json(dbData.drivingLogs[idx]);
+
+  // 도착 계기판이 바뀌었으면, 이어지는 다음 기록(출발 계기판 = 이 기록의 원래 도착 계기판)을
+  // 찾아서 그 출발 계기판과 주행거리도 같이 맞춰준다.
+  let cascadedLog: DrivingLog | null = null;
+  if (log.endMileage !== oldEndMileage) {
+    const nextIdx = dbData.drivingLogs.findIndex(
+      (l) => l.id !== log.id && l.vehicleId === log.vehicleId && l.startMileage === oldEndMileage
+    );
+    if (nextIdx !== -1) {
+      const nextLog = dbData.drivingLogs[nextIdx];
+      const newDistance = nextLog.endMileage - log.endMileage;
+      // 다음 기록의 도착 계기판보다 새 출발 계기판이 더 커지면(주행거리가 음수가 되면)
+      // 자동으로 맞추지 않고 그대로 둔다 — 사용자가 직접 확인하고 고치는 게 안전하다.
+      if (newDistance >= 0) {
+        dbData.drivingLogs[nextIdx] = { ...nextLog, startMileage: log.endMileage, distance: newDistance };
+        cascadedLog = dbData.drivingLogs[nextIdx];
+        await setScopedDoc(scopeId, 'drivingLogs', cascadedLog);
+      }
+    }
+  }
+
+  res.json({ ...dbData.drivingLogs[idx], cascadedLog });
 });
 
 // === 지출비용 수정 API ===
