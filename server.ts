@@ -2793,6 +2793,11 @@ app.post('/api/detect-card-corners', async (req, res) => {
 
     const { image } = req.body;
     if (!image) return res.status(400).json({ error: '이미지가 전송되지 않았습니다.' });
+    if (typeof image !== 'string' || !image.startsWith('data:image')) {
+      // [추가] scan-card와 동일한 이유로, base64 사진 데이터가 아니면 조용히 감지 실패로
+      // 처리한다(이 API는 실패해도 화면에서 OpenCV 결과를 그대로 쓰면 되므로 500 대신 null).
+      return res.json({ corners: null });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.json({ corners: null });
@@ -2849,6 +2854,14 @@ app.post('/api/scan-card', async (req, res) => {
     const { frontImage, backImage } = req.body;
     if (!frontImage && !backImage) {
       return res.status(400).json({ error: '명함 이미지가 전송되지 않았습니다.' });
+    }
+    // [추가] 클라이언트가 실수로 base64 사진 데이터가 아니라 저장소 URL 문자열을 그대로
+    // 보내는 경우(예: 아직 base64로 안 바꾼 기존 이미지 주소), Gemini에 그대로 넘기면
+    // "Base64 decoding failed for https://..." 같은 알아보기 힘든 에러가 났었다. 여기서
+    // 미리 걸러서 원인을 바로 알 수 있는 메시지로 답한다.
+    const isDataUrl = (v: any) => typeof v === 'string' && v.startsWith('data:image');
+    if ((frontImage && !isDataUrl(frontImage)) || (backImage && !isDataUrl(backImage))) {
+      return res.status(400).json({ error: '이미지 데이터 형식이 올바르지 않습니다 (base64 사진 데이터가 아닌 URL 등이 전달됨).' });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
