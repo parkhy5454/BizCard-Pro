@@ -295,6 +295,22 @@ export interface AdminDoc {
     jobDuties?: string;          // 담당 업무
     contractDate?: string;       // 계약서 작성일(맨 아래 서명 날짜)
   };
+  // [추가] 경영지원 > 재직증명서(category: 'employment_cert') 전용 구조화 필드.
+  // 공유해주신 실제 양식(테두리 박스 + 구분선 아래 발급번호/직인 영역)을 그대로 재현한다.
+  employmentCert?: {
+    companyAddress?: string;      // 사업체 주소
+    employeeAddress?: string;     // 재직자 주소
+    employeeName?: string;        // 성명
+    residentNumberMasked?: string; // 주민등록번호 (뒷자리 마스킹, 예: "000000-0******")
+    hireDate?: string;            // 입사일
+    purpose?: string;             // 용도 (예: "제출용")
+    submitTo?: string;            // 제출처 (예: "노원구청")
+    applicationDate?: string;     // 신청일
+    department?: string;          // 소속
+    position?: string;            // 직위
+    documentNumber?: string;      // 문서번호 (예: "제 2026-0001호")
+    issueDate?: string;           // 증명 발급일
+  };
 }
 
 export interface MeetingExpenseItem {
