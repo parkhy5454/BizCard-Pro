@@ -27,6 +27,7 @@ import { VehicleView } from './components/VehicleView.js';
 import { WorkLogsView } from './components/WorkLogsView.js';
 import { ElectronicApprovalView } from './components/ElectronicApprovalView.js';
 import { AdminDocsView } from './components/AdminDocsView.js';
+import { AIIntelligenceView } from './components/AIIntelligenceView.js';
 import { LegalModal } from './components/LegalModal.js';
 
 export default function App() {
@@ -37,7 +38,7 @@ export default function App() {
   });
 
   // 메인 내비게이션 탭 상태
-  const [activeTab, setActiveTab] = useState<'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting'>('cards');
+  const [activeTab, setActiveTab] = useState<'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'ai_intelligence'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -547,6 +548,22 @@ export default function App() {
               <AdminDocsView
                 section="accounting"
                 currentUser={currentUser}
+              />
+            )}
+
+            {/* [추가] AI Intelligence - 오늘의 브리핑/기업 인텔리전스/관계·영업 인텔리전스.
+            경영지원/회계관리와 달리 관리자 제한이 없다 - 누구나 유용하게 쓸 수 있는 화면. */}
+            {activeTab === 'ai_intelligence' && (
+              <AIIntelligenceView
+                contacts={contacts}
+                groups={groups}
+                projects={projects}
+                currentUser={currentUser}
+                onSelectContact={(c) => {
+                  setDetailModalTab('info');
+                  setSelectedContactDetail(c);
+                }}
+                onNavigateToProjects={() => setActiveTab('projects')}
               />
             )}
           </>
