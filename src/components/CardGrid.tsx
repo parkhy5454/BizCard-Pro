@@ -14,6 +14,9 @@ interface Props {
   onSelectContact: (contact: BusinessCard) => void;
   onEditContact: (contact: BusinessCard) => void;
   onDeleteContact: (id: string, e: React.MouseEvent) => void;
+  // [추가] 목록 화면(상세보기 안 들어간 상태)에서도 "AI 기업 인텔리전스"를 바로 조회해서
+  // 저장할 수 있게 하기 위한 콜백. 안 넘겨주면 그 카드에서는 검색 버튼이 그냥 숨겨진다.
+  onUpdateContact?: (contact: BusinessCard) => void;
   // [수정] 인텔리전스 패널에서 "프로젝트 보기"를 누르면 프로젝트 탭으로 이동시키기 위한 콜백 (선택)
   onNavigateToProjects?: () => void;
   // [추가] "관계 인텔리전스" 패널의 전화 버튼에서도, 눌렀을 때 자동으로 통화 시도 기록을
@@ -39,11 +42,35 @@ const formatCallDate = (isoStr: string) => {
   }
 };
 
-export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder }) => {
+export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  // [추가] 목록 화면의 여러 카드 중 지금 "AI 기업 인텔리전스"를 조회 중인 카드가 어느
+  // 것인지 추적한다(카드마다 독립적으로 로딩 상태를 보여주기 위함).
+  const [searchingCompanyId, setSearchingCompanyId] = useState<string | null>(null);
+  const handleSearchCompanySummary = async (contact: BusinessCard) => {
+    if (!contact.company || !onUpdateContact) return;
+    setSearchingCompanyId(contact.id);
+    try {
+      const response = await fetch('/api/company/search-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company: contact.company })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.companyInfo) {
+          onUpdateContact({ ...contact, companyInfo: data.companyInfo });
+        }
+      }
+    } catch (error) {
+      console.error('Error searching company summary:', error);
+    } finally {
+      setSearchingCompanyId(null);
+    }
+  };
   // [수정] 명함이 몇백~몇천 개로 늘어나도 느려지지 않도록, 처음엔 50개만 화면에 그리고
   // 스크롤해서 끝에 가까워지면 50개씩 더 그린다. 데이터 자체는 그대로 다 갖고 있고
   // (검색/지도/중복감지 등 다른 기능에 영향 없음), "화면에 그리는" 개수만 제한한다.
@@ -636,13 +663,43 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                     </div>
                   </div>
 
-                  {/* 회사 정보 간략 요약 */}
-                  {contact.companyInfo && (
-                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-800">
-                      <span className="font-bold text-blue-600 block text-[10px] uppercase font-mono mb-0.5">🏢 회사 비즈니스 요약</span>
-                      <p className="line-clamp-2 leading-relaxed">{contact.companyInfo}</p>
+                  {/* [수정] 예전엔 companyInfo가 있을 때만 이 박스가 보였는데, 그러면 아직
+                  조회 안 한 명함은 검색할 방법이 아예 없었다. 상세보기 안 들어가고도 바로
+                  조회할 수 있게, 항상 박스를 보여주고 "AI 기업 인텔리전스" 검색 버튼을
+                  같이 둔다(이름은 상세보기 화면과 통일). */}
+                  <div
+                    className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-800"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-bold text-blue-600 text-[10px] uppercase font-mono">🏢 AI 기업 인텔리전스</span>
+                      {onUpdateContact && contact.company && (
+                        <button
+                          type="button"
+                          disabled={searchingCompanyId === contact.id}
+                          onClick={() => handleSearchCompanySummary(contact)}
+                          className="px-2 py-0.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[9px] flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                        >
+                          {searchingCompanyId === contact.id ? (
+                            <>
+                              <div className="w-2 h-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>검색 중...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-2 h-2" />
+                              <span>{contact.companyInfo ? '다시 검색' : '검색'}</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
-                  )}
+                    {contact.companyInfo ? (
+                      <p className="line-clamp-2 leading-relaxed">{contact.companyInfo}</p>
+                    ) : (
+                      <p className="text-[10px] text-blue-400/70">아직 요약되지 않았습니다. 검색 버튼을 눌러보세요.</p>
+                    )}
+                  </div>
 
                   {/* 메모 요약 */}
                   {contact.memo && (
