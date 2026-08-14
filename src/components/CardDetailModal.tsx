@@ -622,44 +622,6 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   <Building2 className="w-4 h-4 text-slate-500" />
                   <span>{contact.company} {contact.department ? `| ${contact.department}` : ''}</span>
                 </p>
-                <div className="mt-3">
-                  <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100 text-xs text-slate-700">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                      <span className="font-bold text-indigo-700 text-[10px] uppercase tracking-wider font-mono flex items-center gap-1.5">
-                        🏢 회사 비즈니스 요약
-                      </span>
-                      {contact.company && (
-                        <button
-                          type="button"
-                          disabled={isSearchingCompany}
-                          onClick={handleSearchCompanySummary}
-                          className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] flex items-center gap-1 transition-all shadow-md active:scale-95 disabled:opacity-50 select-none cursor-pointer self-start sm:self-auto shrink-0"
-                        >
-                          {isSearchingCompany ? (
-                            <>
-                              <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              <span>검색 중...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-2.5 h-2.5 text-blue-100 animate-pulse" />
-                              <span>AI 회사 비즈니스 요약</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    {contact.companyInfo ? (
-                      <p className="leading-relaxed text-slate-800 text-xs font-medium bg-white p-2.5 rounded-xl border border-indigo-100">
-                        {contact.companyInfo}
-                      </p>
-                    ) : (
-                      <div className="text-center py-3 text-slate-400 text-[11px] bg-white rounded-xl border border-dashed border-slate-200">
-                        회사 정보가 아직 요약되지 않았습니다. 실시간 검색 버튼을 눌러 업종·주요 사업, 매출액, 직원수를 검색해 보세요.
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
 
               {/* 핸드폰/사무실/팩스 분리 박스 */}
@@ -848,6 +810,46 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                         </button>
                       </div>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* [수정] 예전엔 이 블록이 이름/직책 바로 아래(수정하러 들어가기 전엔 눈에 덜
+              띄는 위치)에 있었는데, 메모 바로 위로 옮겨서 상세정보 화면을 열자마자 스크롤
+              한 번이면 바로 보이게 했다. 이름도 "AI 기업 인텔리전스"로 바꿨다. */}
+              <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100 text-xs text-slate-700">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <span className="font-bold text-indigo-700 text-[10px] uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    🏢 AI 기업 인텔리전스
+                  </span>
+                  {contact.company && (
+                    <button
+                      type="button"
+                      disabled={isSearchingCompany}
+                      onClick={handleSearchCompanySummary}
+                      className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] flex items-center gap-1 transition-all shadow-md active:scale-95 disabled:opacity-50 select-none cursor-pointer self-start sm:self-auto shrink-0"
+                    >
+                      {isSearchingCompany ? (
+                        <>
+                          <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>검색 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-2.5 h-2.5 text-blue-100 animate-pulse" />
+                          <span>AI 기업 인텔리전스</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                {contact.companyInfo ? (
+                  <p className="leading-relaxed text-slate-800 text-xs font-medium bg-white p-2.5 rounded-xl border border-indigo-100">
+                    {contact.companyInfo}
+                  </p>
+                ) : (
+                  <div className="text-center py-3 text-slate-400 text-[11px] bg-white rounded-xl border border-dashed border-slate-200">
+                    회사 정보가 아직 요약되지 않았습니다. 실시간 검색 버튼을 눌러 업종·주요 사업, 매출액, 직원수를 검색해 보세요.
                   </div>
                 )}
               </div>
