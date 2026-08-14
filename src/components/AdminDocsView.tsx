@@ -1734,7 +1734,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
     return (
       <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '12px', lineHeight: 1.8 }}>
-        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '24px' }}>퇴직금 중간정산 지급명세서</h1>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '25mm' }}>퇴직금 중간정산 지급명세서</h1>
 
         <p style={{ margin: '4px 0' }}>1. 신 청 인 : {sv.employeeName}</p>
         <p style={{ margin: '4px 0' }}>2. 주민번호 : {sv.residentNumberMasked}</p>
@@ -1753,11 +1753,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           {sv.companyAdvanceBank ? `/${sv.companyAdvanceBank}에서 입금` : ''}
         </p>
         <p style={{ margin: '4px 0' }}>② 은행 적립금 - {numberToKoreanMoney(sv.bankAccrualAmount || 0)}원 (₩{fmt(sv.bankAccrualAmount || 0)})</p>
-        <p style={{ margin: '4px 0 20px' }}>③ ①+② = {numberToKoreanMoney(total)}원 (₩{fmt(total)})</p>
+        <p style={{ margin: '4px 0 30mm' }}>③ ①+② = {numberToKoreanMoney(total)}원 (₩{fmt(total)})</p>
 
-        <p style={{ textAlign: 'right', margin: '20px 0 4px' }}>수령인 &nbsp; {sv.employeeName} &nbsp; (서명)</p>
-        <p style={{ textAlign: 'right', margin: '4px 0 20px' }}>{fmtDateKo(sv.receiveDate)}</p>
-        <p style={{ textAlign: 'right', fontWeight: 700 }}>{companyName} 대표이사 {repName} 귀중</p>
+        <p style={{ textAlign: 'right', margin: '0 0 4px' }}>수령인 &nbsp; {sv.employeeName} &nbsp; (서명)</p>
+        <p style={{ textAlign: 'right', margin: '4px 0 30mm' }}>{fmtDateKo(sv.receiveDate)}</p>
+        <p style={{ textAlign: 'right', fontWeight: 700, margin: 0 }}>{companyName} 대표이사 {repName} 귀중</p>
       </div>
     );
   };
