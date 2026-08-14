@@ -1554,9 +1554,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const labelStyle: React.CSSProperties = { fontWeight: 700, width: '110px', flexShrink: 0 };
 
     return (
-      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7 }}>
+      <div className="print-document-margins" style={{ width: '210mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7 }}>
         <div style={{ border: '1.5px solid #000', padding: '15mm 20mm', breakInside: 'avoid' }}>
-          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '14px', marginBottom: '30px' }}>위 임 장</h1>
+          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '14px', marginBottom: '30mm' }}>위 임 장</h1>
 
           <div style={rowStyle}><span style={labelStyle}>주 소</span><span>: {poa.employeeAddress}</span></div>
           <div style={rowStyle}><span style={labelStyle}>성 명</span><span>: {poa.employeeName}</span></div>
