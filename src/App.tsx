@@ -439,6 +439,7 @@ export default function App() {
                 projects={projects}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
+                onUpdateContact={handleUpdateCard}
                 onSelectContact={(c) => {
                   setDetailModalTab('info');
                   setSelectedContactDetail(c);
