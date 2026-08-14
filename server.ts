@@ -3426,6 +3426,68 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
   }
 });
 
+// [추가] AI Intelligence의 세 서브탭은 기본적으로 전부 규칙/DB 기반이라 AI 호출이
+// 전혀 없다. 사용자가 "정말 궁금할 때만" 아래 버튼을 눌러야 그때 딱 한 번 Gemini를
+// 부른다 - 화면을 열자마자 자동으로 도는 게 아니라, 실제 클릭한 만큼만 비용/할당량이
+// 나가는 구조로 만들기 위함이다. 세 엔드포인트 다 googleSearch 없이 순수 텍스트
+// 분석만 하므로(이미 화면에 보여준 데이터를 그대로 넘겨서 해석/조언만 요청) 검색
+// 기반 호출보다 가볍다.
+async function runGeminiTextAnalysis(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return 'AI 분석을 사용하려면 GEMINI_API_KEY를 등록해주세요. (지금은 위에 보이는 데이터만으로 판단해주세요)';
+  }
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await generateContentWithRetry(ai, {
+    model: 'gemini-3.5-flash',
+    contents: prompt
+  });
+  return (response.text || '').trim();
+}
+
+app.post('/api/ai-intelligence/briefing-analysis', async (req, res) => {
+  try {
+    const { briefing } = req.body;
+    const prompt = `당신은 업무 비서입니다. 아래는 오늘 하루의 업무 현황 데이터입니다(이미 계산된 데이터이니 다시 계산할 필요 없음):\n\n${JSON.stringify(briefing, null, 2)}\n\n` +
+      `이 데이터를 바탕으로, 오늘 가장 먼저 챙겨야 할 것 2~3가지를 우선순위 순서로 짚어주고, 왜 중요한지 짧게 이유를 붙여서 자연스러운 한국어 문장으로 브리핑해줘. ` +
+      `인사말이나 formatting 없이, 바로 본론부터 5~7문장 이내로 간결하게 작성해줘.`;
+    const analysis = await runGeminiTextAnalysis(prompt);
+    res.json({ analysis });
+  } catch (error: any) {
+    console.error('Briefing AI analysis error:', error);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  }
+});
+
+app.post('/api/ai-intelligence/company-analysis', async (req, res) => {
+  try {
+    const { companies } = req.body;
+    const prompt = `당신은 B2B 영업 전략 컨설턴트입니다. 아래는 우리 회사 명함첩에 등록된 거래처 회사들의 정보입니다(이미 조사된 데이터이니 다시 검색할 필요 없음):\n\n${JSON.stringify(companies, null, 2)}\n\n` +
+      `이 데이터를 바탕으로, 어느 회사에 우선적으로 집중하면 좋을지, 업종/매출 규모 관점에서 눈에 띄는 특징이나 기회가 있는지 분석해서 자연스러운 한국어 문장으로 정리해줘. ` +
+      `인사말이나 formatting 없이, 바로 본론부터 5~7문장 이내로 간결하게 작성해줘.`;
+    const analysis = await runGeminiTextAnalysis(prompt);
+    res.json({ analysis });
+  } catch (error: any) {
+    console.error('Company AI analysis error:', error);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  }
+});
+
+app.post('/api/ai-intelligence/relationship-analysis', async (req, res) => {
+  try {
+    const { pipeline, insights, topCompanies } = req.body;
+    const prompt = `당신은 영업 관리 컨설턴트입니다. 아래는 우리 회사의 영업 파이프라인과 거래처 관계 데이터입니다(이미 계산된 데이터이니 다시 계산할 필요 없음):\n\n` +
+      `파이프라인 요약: ${JSON.stringify(pipeline)}\n\n지금 챙기면 좋은 거래처 목록: ${JSON.stringify(insights)}\n\n관계가 깊은 회사 TOP: ${JSON.stringify(topCompanies)}\n\n` +
+      `이 데이터를 바탕으로, 지금 가장 중요한 영업 액션이 무엇인지, 파이프라인에서 위험 신호는 없는지 짚어서 자연스러운 한국어 문장으로 영업 전략을 조언해줘. ` +
+      `인사말이나 formatting 없이, 바로 본론부터 5~7문장 이내로 간결하게 작성해줘.`;
+    const analysis = await runGeminiTextAnalysis(prompt);
+    res.json({ analysis });
+  } catch (error: any) {
+    console.error('Relationship AI analysis error:', error);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  }
+});
+
 // 데이터 전체 입출력을 위한 벌크 업데이트 API
 app.post('/api/contacts/import', async (req, res) => {
   const dbData = getScopedData(req);
