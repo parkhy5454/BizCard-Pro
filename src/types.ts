@@ -101,6 +101,7 @@ export type AdminDocCategory =
   | 'labor_contract'      // 근로계약서
   | 'salary_agreement'    // 연봉협약서
   | 'employment_cert'     // 재직증명서
+  | 'power_of_attorney'   // 위임장
   | 'office_supplies'     // 사무실 비품 관리
   | 'sales_contract'      // 영업 계약
   | 'corp_card'           // 법인카드 관리
@@ -310,6 +311,17 @@ export interface AdminDoc {
     position?: string;            // 직위
     documentNumber?: string;      // 문서번호 (예: "제 2026-0001호")
     issueDate?: string;           // 증명 발급일
+  };
+  // [추가] 경영지원 > 위임장(category: 'power_of_attorney') 전용 구조화 필드. 공유해주신
+  // 양식을 그대로 재현한다 - 위임받는 사람의 정보와 위임 업무 내용만 채우면 된다.
+  powerOfAttorney?: {
+    employeeAddress?: string;      // 위임받는 사람 주소
+    employeeName?: string;         // 위임받는 사람 성명
+    residentNumberMasked?: string; // 주민등록번호 (마스킹)
+    purpose?: string;              // 용도 (예: "법인지점 통장 개설")
+    submitTo?: string;             // 제출처 (예: "하나은행")
+    taskDescription?: string;      // 위임 업무 내용 (예: "법인통장 개설")
+    issueDate?: string;            // 작성일자
   };
   // [추가] 경영지원 > 영업 계약(category: 'sales_contract') 전용 구조화 필드. 공유해주신
   // "영업 개발(수요업체 발굴) 자문 계약서" 18개 조항 전문을 그대로 재현하고, 거래처(갑)
