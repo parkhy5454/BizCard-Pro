@@ -3395,6 +3395,37 @@ app.post('/api/company/search-summary', async (req, res) => {
   }
 });
 
+// [추가] AI Intelligence > 기업 인텔리전스 화면에서, 지금 스코프의 명함들이 속한 회사
+// "여러 개"를 한 번에 훑어서 이미 캐시된 구조화 정보(업종/매출/직원수/홈페이지 등)가
+// 있는 회사만 뽑아서 돌려준다. 캐시가 없는 회사는 그냥 목록에서 빠지고(=화면에서
+// "아직 조회 안 됨"으로 표시), 이 API 자체는 Gemini를 호출하지 않는다(순수 조회 전용
+// - 화면에서 개별로 "검색" 버튼을 눌러야 실제 AI 검색이 일어난다).
+app.post('/api/company/intelligence-batch', async (req, res) => {
+  try {
+    const { companies } = req.body as { companies?: string[] };
+    if (!Array.isArray(companies) || companies.length === 0) {
+      return res.json({ items: [] });
+    }
+    if (!isSupabaseConfigured) return res.json({ items: [] });
+
+    const keys = Array.from(new Set(companies.map((c) => normalizeCompanyKey(c)).filter(Boolean)));
+    if (keys.length === 0) return res.json({ items: [] });
+
+    const { data, error } = await supabase
+      .from('company')
+      .select('*')
+      .in('company_name_normalized', keys);
+    if (error) {
+      console.error('company 테이블 일괄 조회 실패:', error);
+      return res.json({ items: [] });
+    }
+    res.json({ items: data || [] });
+  } catch (error: any) {
+    console.error('Company intelligence batch error:', error);
+    res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
+  }
+});
+
 // 데이터 전체 입출력을 위한 벌크 업데이트 API
 app.post('/api/contacts/import', async (req, res) => {
   const dbData = getScopedData(req);
