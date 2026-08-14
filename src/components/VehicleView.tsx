@@ -55,7 +55,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [loading, setLoading] = useState(false);
   
   // 서브 탭 상태
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'vehicles' | 'driving' | 'expenses' | 'maintenance' | 'reports' | 'analysis'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'vehicles' | 'driving' | 'expenses' | 'maintenance' | 'reports' | 'analysis'>('driving');
   const [maintSubMode, setMaintSubMode] = useState<'history' | 'intervals'>('history');
 
   // 등록 모달/폼 활성화 여부
@@ -1394,13 +1394,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       <div className="flex border-b border-slate-200 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex space-x-1 py-1 shrink-0">
           {[
-            { id: 'dashboard', label: '대시보드', icon: BarChart3 },
-            { id: 'vehicles', label: '차량등록', icon: Car },
             { id: 'driving', label: '운행기록', icon: MapPin },
             { id: 'expenses', label: '비용관리', icon: Receipt },
             { id: 'maintenance', label: '정비일지', icon: Wrench },
             { id: 'reports', label: '리포트 출력', icon: FileText },
-            { id: 'analysis', label: '지출·운행 분석', icon: TrendingUp }
+            { id: 'analysis', label: '지출·운행 분석', icon: TrendingUp },
+            { id: 'vehicles', label: '차량등록', icon: Car },
+            { id: 'dashboard', label: '대시보드', icon: BarChart3 }
           ].map(tab => {
             const Icon = tab.icon;
             const active = activeSubTab === tab.id;
@@ -2512,27 +2512,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500 flex items-center justify-between">
-                      <span>도착 후 계기판 (km) *</span>
-                      {/* [추가] 출발지·목적지 주소로 예상 주행거리를 계산해서 자동으로 채워준다.
-                      직선거리 기반 근사치라 실제 계기판과 다를 수 있으니, 계산 후에도 이 칸을
-                      바로 직접 수정할 수 있다(값이 잠기지 않음). */}
-                      <button
-                        type="button"
-                        onClick={handleEstimateDistance}
-                        disabled={isEstimatingDistance}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold disabled:opacity-50"
-                      >
-                        {isEstimatingDistance ? '계산 중...' : '📍 예상 거리 자동계산'}
-                      </button>
-                    </label>
+                    <label className="text-xs text-slate-500">도착 후 계기판 (km) *</label>
                     <input 
                       type="number" 
                       value={newDriving.endMileage === 0 ? '' : newDriving.endMileage}
                       onChange={e => setNewDriving({ ...newDriving, endMileage: Number(e.target.value) })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
                     />
-                    <p className="text-[10px] text-slate-400">자동계산은 직선거리 기반 예상치입니다. 실제 계기판 값과 다르면 직접 고쳐주세요.</p>
                   </div>
 
                   {/* 출발지 상호명 및 주소 추가 */}
@@ -2604,7 +2590,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                   {/* 목적지 상호명 및 주소 추가 */}
                   <div className="space-y-1.5 relative">
-                    <label className="text-xs text-slate-500 font-semibold text-indigo-400">목적지 상호명 *</label>
+                    <label className="text-xs text-slate-500 font-semibold text-indigo-400 flex items-center justify-between">
+                      <span>목적지 상호명 *</span>
+                      {/* [수정] 예전엔 "도착 후 계기판" 옆에 있었는데, 이 버튼이 실제로 참고하는
+                      값(출발지/목적지 주소)과 더 가까운 "목적지 상호명" 옆으로 옮겼다. 직선거리
+                      기반 근사치라 실제 계기판과 다를 수 있으니, 계산 후에도 그 칸을 바로 직접
+                      수정할 수 있다(값이 잠기지 않음). */}
+                      <button
+                        type="button"
+                        onClick={handleEstimateDistance}
+                        disabled={isEstimatingDistance}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold disabled:opacity-50"
+                      >
+                        {isEstimatingDistance ? '계산 중...' : '📍 예상 거리 자동계산'}
+                      </button>
+                    </label>
                     <input 
                       type="text" 
                       placeholder="예: 강남파이낸스센터"
@@ -2612,6 +2612,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       onChange={e => setNewDriving({ ...newDriving, endPlace: e.target.value })}
                       className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
+                    <p className="text-[10px] text-slate-400">자동계산은 직선거리 기반 예상치입니다. 계산 후 "도착 후 계기판" 값을 실제와 다르면 직접 고쳐주세요.</p>
                     {uniqueEnds.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1 max-h-[48px] overflow-y-auto">
                         {uniqueEnds.slice(0, 3).map(u => (
