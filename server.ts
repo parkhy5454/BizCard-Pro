@@ -2303,8 +2303,10 @@ async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; c
     for (const [company, group] of byCompany) {
       if (quotaRemaining <= 0 || quotaExhaustedByGemini) break;
       try {
-        const companyInfo = await generateCompanySummary(company);
-        quotaRemaining--;
+        const { summary: companyInfo, fromCache } = await getOrGenerateCompanySummary(company);
+        // [수정] 전역 캐시에서 바로 가져온 경우(fromCache)는 실제로 Gemini를 호출한 게
+        // 아니므로 하루 할당량을 깎지 않는다 — 캐시 재사용 자체가 이 배치의 핵심 목적이다.
+        if (!fromCache) quotaRemaining--;
         for (const c of group) {
           c.companyInfo = companyInfo;
           await setScopedDoc(scope.scopeId, 'contacts', c);
@@ -3245,14 +3247,71 @@ async function generateCompanySummary(company: string): Promise<string> {
   return (response.text || '').trim().replace(/^"/, '').replace(/"$/, '');
 }
 
+// [추가] 회사 요약을 "회사명" 기준으로 전체 서비스에서 공용으로 캐싱한다. 예전엔 명함마다
+// (즉, 회사가 같아도 서로 다른 사용자/스코프에 등록돼 있으면) 매번 각자 따로 Gemini를
+// 호출했다 — 같은 "삼성전자"를 여러 회사(스코프)의 사용자가 각자 검색하면 그만큼 낭비다.
+// 이제는 scoped_items 저장소를 "전역 캐시 스코프" 하나로 공용 사용해서, 한 번 요약한
+// 회사는 30일 동안 어느 스코프에서 다시 조회해도 캐시를 그대로 재사용하고, 진짜 새로
+// Gemini를 호출하는 횟수 자체를 크게 줄인다(하루 할당량이 20회뿐이라 특히 중요하다).
+const COMPANY_SUMMARY_CACHE_SCOPE = '__global_company_summary_cache__';
+const COMPANY_SUMMARY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일
+
+interface CompanySummaryCacheEntry {
+  id: string;          // 정규화된 회사명 (캐시 키)
+  companyName: string; // 원래 회사명 (참고용)
+  summary: string;
+  updatedAt: string;   // ISO 시각 - 이 값 기준으로 30일 지났는지 판단
+}
+
+// "(주)", "주식회사", 공백, 대소문자 차이 때문에 같은 회사가 다른 키로 캐싱되는 것을
+// 막기 위한 정규화. 완벽하진 않지만(예: 정식 법인명이 아예 다른 경우는 못 잡음) 실제
+// 명함에 흔히 적히는 표기 차이는 대부분 커버한다.
+function normalizeCompanyKey(company: string): string {
+  return company
+    .trim()
+    .replace(/\(주\)|주식회사|㈜/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+async function getOrGenerateCompanySummary(company: string): Promise<{ summary: string; fromCache: boolean }> {
+  const key = normalizeCompanyKey(company);
+  if (key) {
+    const cached = await getScopedDoc<CompanySummaryCacheEntry>(COMPANY_SUMMARY_CACHE_SCOPE, 'companySummaries', key);
+    if (cached && cached.summary) {
+      const age = Date.now() - new Date(cached.updatedAt).getTime();
+      if (age < COMPANY_SUMMARY_CACHE_TTL_MS) {
+        return { summary: cached.summary, fromCache: true };
+      }
+    }
+  }
+
+  const summary = await generateCompanySummary(company);
+
+  if (key && summary) {
+    const entry: CompanySummaryCacheEntry = {
+      id: key,
+      companyName: company,
+      summary,
+      updatedAt: new Date().toISOString()
+    };
+    // 캐시 저장 자체가 실패해도(예: Supabase 미설정) 방금 만든 요약은 정상적으로 돌려준다.
+    setScopedDoc(COMPANY_SUMMARY_CACHE_SCOPE, 'companySummaries', entry).catch((err) => {
+      console.error('회사 요약 캐시 저장 실패:', err);
+    });
+  }
+
+  return { summary, fromCache: false };
+}
+
 app.post('/api/company/search-summary', async (req, res) => {
   try {
     const { company } = req.body;
     if (!company) {
       return res.status(400).json({ error: '회사명이 필요합니다.' });
     }
-    const companyInfo = await generateCompanySummary(company);
-    res.json({ companyInfo });
+    const { summary: companyInfo, fromCache } = await getOrGenerateCompanySummary(company);
+    res.json({ companyInfo, fromCache });
   } catch (error: any) {
     console.error('Company search summary error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
