@@ -18,6 +18,7 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'labor_contract', label: '근로계약서', personLabel: '직원명', showAmount: false },
     { id: 'salary_agreement', label: '연봉협약서', personLabel: '직원명', showAmount: true },
     { id: 'employment_cert', label: '재직증명서', personLabel: '직원명', showAmount: false },
+    { id: 'power_of_attorney', label: '위임장', personLabel: '위임받는 사람', showAmount: false },
     { id: 'office_supplies', label: '사무실 비품 관리', personLabel: '담당자/비품명', showAmount: true },
     { id: 'sales_contract', label: '영업 계약', personLabel: '거래처명', showAmount: true },
     { id: 'corp_card', label: '법인카드 관리', personLabel: '카드 소지자', showAmount: true }
@@ -186,6 +187,12 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     applicationDate: new Date().toISOString().split('T')[0],
     department: '', position: '',
     documentNumber: '', issueDate: new Date().toISOString().split('T')[0]
+  } : undefined,
+  // [추가] 위임장 기본값
+  powerOfAttorney: category === 'power_of_attorney' ? {
+    employeeAddress: '', employeeName: '', residentNumberMasked: '',
+    purpose: '', submitTo: '', taskDescription: '',
+    issueDate: new Date().toISOString().split('T')[0]
   } : undefined,
   // [추가] 영업 계약서 기본값. 매출구간별 누진 수수료율 등은 공유해주신 예시 계약의
   // 표준 조건을 기본값으로 깔아두고, 거래처마다 조건이 다르면 직접 고쳐 쓸 수 있게 한다.
@@ -672,6 +679,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const updateEmploymentCertField = (patch: Partial<NonNullable<AdminDoc['employmentCert']>>) => {
     setEditingDoc((prev) => prev ? { ...prev, employmentCert: { ...(prev.employmentCert || {}), ...patch } } : prev);
   };
+  const updatePowerOfAttorneyField = (patch: Partial<NonNullable<AdminDoc['powerOfAttorney']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, powerOfAttorney: { ...(prev.powerOfAttorney || {}), ...patch } } : prev);
+  };
   const updateSalesContractField = (patch: Partial<NonNullable<AdminDoc['salesContract']>>) => {
     setEditingDoc((prev) => prev ? { ...prev, salesContract: { ...(prev.salesContract || {}), ...patch } } : prev);
   };
@@ -813,6 +823,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       // personName에 반영한다.
       if (payload.category === 'employment_cert' && payload.employmentCert?.employeeName) {
         payload.personName = payload.employmentCert.employeeName;
+      }
+      // [추가] 위임장도 금액 개념이 없는 서류라, 위임받는 사람 이름만 검색용 personName에 반영한다.
+      if (payload.category === 'power_of_attorney' && payload.powerOfAttorney?.employeeName) {
+        payload.personName = payload.powerOfAttorney.employeeName;
       }
       // [추가] 영업 계약서는 거래처(갑) 상호를 검색용 personName에 반영한다.
       if (payload.category === 'sales_contract' && payload.salesContract?.counterpartyName) {
@@ -1525,6 +1539,42 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 위임장 인쇄용 화면. 공유해주신 양식대로 위임받는 사람 정보 + 위임 업무 내용을
+  // 채운다.
+  const renderPrintablePowerOfAttorney = () => {
+    if (!printingDoc || !printingDoc.powerOfAttorney) return null;
+    const poa = printingDoc.powerOfAttorney;
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const rowStyle: React.CSSProperties = { display: 'flex', margin: '10px 0', fontSize: '13px' };
+    const labelStyle: React.CSSProperties = { fontWeight: 700, width: '110px', flexShrink: 0 };
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7 }}>
+        <div style={{ border: '1.5px solid #000', padding: '15mm 20mm', breakInside: 'avoid' }}>
+          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '14px', marginBottom: '30px' }}>위 임 장</h1>
+
+          <div style={rowStyle}><span style={labelStyle}>주 소</span><span>: {poa.employeeAddress}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>성 명</span><span>: {poa.employeeName}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>주민등록번호</span><span>: {poa.residentNumberMasked}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>용 도</span><span>: {poa.purpose}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>제 출 처</span><span>: {poa.submitTo}</span></div>
+
+          <p style={{ margin: '30px 0' }}>
+            위 사람을 {poa.submitTo}에서 {companyName} 지점 {poa.taskDescription} 관련 업무 일체의 권한을 위임합니다.
+          </p>
+
+          <p style={{ textAlign: 'center', fontWeight: 700, margin: '30px 0 20px' }}>{fmtDateKo(poa.issueDate)}</p>
+          <p style={{ textAlign: 'center', fontSize: '17px', fontWeight: 700 }}>{companyName} 대표 (인)</p>
+        </div>
+      </div>
+    );
+  };
+
   // [추가] 영업 계약서 인쇄용 화면. 공유해주신 18개 조항 전문을 그대로 재현하고, 거래처(갑)
   // 정보·계약기간·수수료 구조만 입력받은 값으로 치환한다.
   const renderPrintableSalesContract = () => {
@@ -1774,6 +1824,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
+    if (printingDoc.category === 'power_of_attorney') return renderPrintablePowerOfAttorney();
     if (printingDoc.category === 'sales_contract') return renderPrintableSalesContract();
     if (printingDoc.category === 'severance') return renderPrintableSeverance();
     return null;
@@ -1892,7 +1943,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -3257,8 +3308,71 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {/* [추가] 영업 계약서 전용 입력. 18개 조항 전문은 인쇄할 때 고정으로 채워지고,
-                거래처(갑) 정보·계약기간·수수료 구조만 여기서 입력한다. */}
+                {/* [추가] 위임장 전용 입력. */}
+                {activeCategory === 'power_of_attorney' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.employeeName || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ employeeName: e.target.value })}
+                        placeholder="위임받는 사람 성명"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.residentNumberMasked || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ residentNumberMasked: e.target.value })}
+                        placeholder="주민등록번호 (예: 000000-0******)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">위임받는 사람 주소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.employeeAddress || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ employeeAddress: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.purpose || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ purpose: e.target.value })}
+                        placeholder="용도 (예: 법인지점 통장 개설)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.submitTo || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ submitTo: e.target.value })}
+                        placeholder="제출처 (예: 하나은행)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">위임 업무 내용 (예: 법인통장 개설)</label>
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.taskDescription || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ taskDescription: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">작성일자</label>
+                      <input
+                        type="date"
+                        value={editingDoc.powerOfAttorney?.issueDate || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ issueDate: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {activeCategory === 'sales_contract' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <label className="block text-[11px] font-bold text-slate-600">갑 (영업 자문사) 정보</label>
