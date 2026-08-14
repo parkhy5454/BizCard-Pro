@@ -119,6 +119,7 @@ import {
   logAudit,
   getAuditLogs,
   isSupabaseConfigured,
+  supabase,
   getScopedCollection,
   getScopedDoc,
   setScopedDoc,
@@ -3221,20 +3222,50 @@ app.post('/api/scan-receipt', async (req, res) => {
 });
 
 // 회사 비즈니스 및 전년도 매출 규모 실시간 AI 검색 API
-// [수정] 회사 요약을 만드는 로직 자체를 공용 함수로 뺐다. 사용자가 수동으로 누르는 버튼
-// (아래 /api/company/search-summary)과, 매일 자동으로 도는 배치 작업이 똑같은 로직을
-// 공유해서 쓴다.
-async function generateCompanySummary(company: string): Promise<string> {
+// [수정] 예전엔 "회사명은(는) ... 기업입니다" 식의 한 문장만 만들어서 저장했는데, 요청에
+// 따라 업종/주요사업/매출/직원수/홈페이지/출처 URL을 각각 구조화된 값으로 따로 받아서
+// company 테이블의 정해진 컬럼에 맞춰 저장한다. JSON 형태로 응답받아 파싱한다.
+const COMPANY_SUMMARY_SCHEMA_VERSION = 1;
+
+interface CompanySummaryFields {
+  businessNumber: string | null;
+  industry: string | null;
+  mainBusiness: string | null;
+  website: string | null;
+  employees: string | null;
+  sales: string | null;
+  businessSummary: string | null;
+}
+
+async function generateCompanySummary(company: string): Promise<{ fields: CompanySummaryFields; sourceUrls: string[] }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     // API Key가 없는 경우 테스트를 위해 그럴듯한 모의 데이터 생성해서 전달
-    return `${company}은(는) 혁신 비즈니스를 영위하고 있는 기업입니다. (전년도 매출액 규모: 약 1,250억원, 직원수: 약 210명 수준 / 실시간 AI 검색 결과를 보시려면 GEMINI_API_KEY를 등록하세요)`;
+    return {
+      fields: {
+        businessNumber: null,
+        industry: '정보 확인 어려움',
+        mainBusiness: '혁신 비즈니스를 영위하고 있는 기업입니다.',
+        website: null,
+        employees: '약 210명 수준 (모의 데이터)',
+        sales: '약 1,250억원 (모의 데이터)',
+        businessSummary: `${company}은(는) 혁신 비즈니스를 영위하고 있는 기업입니다. (전년도 매출액 규모: 약 1,250억원, 직원수: 약 210명 수준 / 실시간 AI 검색 결과를 보시려면 GEMINI_API_KEY를 등록하세요)`
+      },
+      sourceUrls: []
+    };
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const prompt = `회사명 "${company}"의 업종, 주요 비즈니스 요약, 실시간 구글 검색(googleSearch)을 통해 파악한 전년도 매출액 규모(가장 최근의 연 매출 규모 정보, 예: '매출액 약 5,000억원', 구체적 검색이 어려울 경우 '매출 정보 확인 어려움' 등으로 명시), 그리고 직원수(파악 가능한 가장 최근 규모, 예: '직원수 약 150명', 확인이 어려우면 '직원수 확인 어려움')를 포함하여 1~2줄의 완성도 높은 한 문장으로 비즈니스 요약을 작성해줘.\n` +
-    `예시 포맷: "인공지능 기반 B2B DX 및 스마트 비즈니스 솔루션 기업 (전년도 매출액 약 320억원, 직원수 약 85명)"\n` +
-    `마크다운 백틱 이나 불필요한 서술 없이 최종 요약 문장 하나만 바로 반환해줘.`;
+  const prompt = `회사명 "${company}"에 대해 실시간 구글 검색(googleSearch)으로 다음 정보를 조사해줘:\n` +
+    `- 사업자등록번호 (파악 가능한 경우만, 확인 어려우면 null)\n` +
+    `- 업종\n` +
+    `- 주요 사업 내용 (1줄 설명)\n` +
+    `- 공식 홈페이지 주소 (파악 가능한 경우만, 없으면 null)\n` +
+    `- 직원수 (가장 최근 파악 가능한 규모, 예: "약 150명", 확인 어려우면 "직원수 확인 어려움")\n` +
+    `- 전년도 매출액 규모 (가장 최근 연 매출 규모, 예: "약 5,000억원", 확인 어려우면 "매출 정보 확인 어려움")\n` +
+    `- 위 내용을 종합한 1~2줄 비즈니스 요약 문장 (예: "인공지능 기반 B2B DX 및 스마트 비즈니스 솔루션 기업 (전년도 매출액 약 320억원, 직원수 약 85명)")\n\n` +
+    `응답은 반드시 아래 JSON 형식으로만, 마크다운 백틱이나 다른 설명 없이 순수 JSON만 반환해줘:\n` +
+    `{"businessNumber": string|null, "industry": string|null, "mainBusiness": string|null, "website": string|null, "employees": string|null, "sales": string|null, "businessSummary": string}`;
 
   const response = await generateContentWithRetry(ai, {
     model: 'gemini-3.5-flash',
@@ -3244,24 +3275,50 @@ async function generateCompanySummary(company: string): Promise<string> {
     }
   });
 
-  return (response.text || '').trim().replace(/^"/, '').replace(/"$/, '');
+  let fields: CompanySummaryFields = {
+    businessNumber: null, industry: null, mainBusiness: null, website: null, employees: null, sales: null,
+    businessSummary: (response.text || '').trim()
+  };
+  try {
+    const jsonStr = (response.text || '').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+    const parsed = JSON.parse(jsonStr);
+    fields = {
+      businessNumber: parsed.businessNumber || null,
+      industry: parsed.industry || null,
+      mainBusiness: parsed.mainBusiness || null,
+      website: parsed.website || null,
+      employees: parsed.employees || null,
+      sales: parsed.sales || null,
+      businessSummary: parsed.businessSummary || fields.businessSummary
+    };
+  } catch (e) {
+    console.error('회사 요약 JSON 파싱 실패, 원문 텍스트를 요약으로만 사용:', response.text);
+  }
+
+  // googleSearch grounding이 근거로 삼은 출처 URL들을 뽑아둔다(있으면). SDK/모델 버전에 따라
+  // 구조가 없을 수도 있어서 옵셔널 체이닝으로 방어적으로 읽는다.
+  const sourceUrls: string[] = [];
+  try {
+    const chunks = (response as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    for (const chunk of chunks) {
+      const uri = chunk?.web?.uri;
+      if (uri && !sourceUrls.includes(uri)) sourceUrls.push(uri);
+    }
+  } catch (e) {
+    // 출처 URL은 있으면 좋고 없어도 치명적이지 않으므로 조용히 넘어간다.
+  }
+
+  return { fields, sourceUrls };
 }
 
 // [추가] 회사 요약을 "회사명" 기준으로 전체 서비스에서 공용으로 캐싱한다. 예전엔 명함마다
 // (즉, 회사가 같아도 서로 다른 사용자/스코프에 등록돼 있으면) 매번 각자 따로 Gemini를
 // 호출했다 — 같은 "삼성전자"를 여러 회사(스코프)의 사용자가 각자 검색하면 그만큼 낭비다.
-// 이제는 scoped_items 저장소를 "전역 캐시 스코프" 하나로 공용 사용해서, 한 번 요약한
-// 회사는 30일 동안 어느 스코프에서 다시 조회해도 캐시를 그대로 재사용하고, 진짜 새로
-// Gemini를 호출하는 횟수 자체를 크게 줄인다(하루 할당량이 20회뿐이라 특히 중요하다).
-const COMPANY_SUMMARY_CACHE_SCOPE = '__global_company_summary_cache__';
-const COMPANY_SUMMARY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일
-
-interface CompanySummaryCacheEntry {
-  id: string;          // 정규화된 회사명 (캐시 키)
-  companyName: string; // 원래 회사명 (참고용)
-  summary: string;
-  updatedAt: string;   // ISO 시각 - 이 값 기준으로 30일 지났는지 판단
-}
+// 이제는 Supabase의 전용 company 테이블(구조화된 컬럼: 업종/주요사업/매출/직원수/홈페이지/
+// 출처 URL 등)에 저장해두고, 30일 안에 같은 회사를 다시 조회하면 그 표에서 바로 꺼내
+// 쓴다(진짜로 Gemini를 새로 호출하는 횟수를 크게 줄이기 위함 - 하루 할당량이 20회뿐이라
+// 특히 중요하다).
+const COMPANY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일
 
 // "(주)", "주식회사", 공백, 대소문자 차이 때문에 같은 회사가 다른 키로 캐싱되는 것을
 // 막기 위한 정규화. 완벽하진 않지만(예: 정식 법인명이 아예 다른 경우는 못 잡음) 실제
@@ -3276,33 +3333,53 @@ function normalizeCompanyKey(company: string): string {
 
 async function getOrGenerateCompanySummary(company: string): Promise<{ summary: string; fromCache: boolean }> {
   const key = normalizeCompanyKey(company);
-  if (key) {
-    const cached = await getScopedDoc<CompanySummaryCacheEntry>(COMPANY_SUMMARY_CACHE_SCOPE, 'companySummaries', key);
-    if (cached && cached.summary) {
-      const age = Date.now() - new Date(cached.updatedAt).getTime();
-      if (age < COMPANY_SUMMARY_CACHE_TTL_MS) {
-        return { summary: cached.summary, fromCache: true };
+
+  if (key && isSupabaseConfigured) {
+    const { data: cached, error } = await supabase
+      .from('company')
+      .select('*')
+      .eq('company_name_normalized', key)
+      .maybeSingle();
+    if (error) console.error('company 테이블 조회 실패:', error);
+    if (cached && cached.business_summary) {
+      const age = Date.now() - new Date(cached.last_searched_at).getTime();
+      // summary_version이 지금 코드의 버전과 다르면(=프롬프트/스키마가 그 사이 바뀌었으면)
+      // 오래된 형식의 캐시로 취급해서 새로 검색한다.
+      if (age < COMPANY_CACHE_TTL_MS && cached.summary_version === COMPANY_SUMMARY_SCHEMA_VERSION) {
+        return { summary: cached.business_summary, fromCache: true };
       }
     }
   }
 
-  const summary = await generateCompanySummary(company);
+  const { fields, sourceUrls } = await generateCompanySummary(company);
 
-  if (key && summary) {
-    const entry: CompanySummaryCacheEntry = {
-      id: key,
-      companyName: company,
-      summary,
-      updatedAt: new Date().toISOString()
-    };
-    // 캐시 저장 자체가 실패해도(예: Supabase 미설정) 방금 만든 요약은 정상적으로 돌려준다.
-    setScopedDoc(COMPANY_SUMMARY_CACHE_SCOPE, 'companySummaries', entry).catch((err) => {
-      console.error('회사 요약 캐시 저장 실패:', err);
-    });
+  if (key && isSupabaseConfigured && fields.businessSummary) {
+    const { error } = await supabase
+      .from('company')
+      .upsert(
+        {
+          company_name: company,
+          company_name_normalized: key,
+          business_number: fields.businessNumber,
+          industry: fields.industry,
+          main_business: fields.mainBusiness,
+          website: fields.website,
+          employees: fields.employees,
+          sales: fields.sales,
+          business_summary: fields.businessSummary,
+          source_urls: sourceUrls,
+          last_searched_at: new Date().toISOString(),
+          summary_version: COMPANY_SUMMARY_SCHEMA_VERSION
+        },
+        { onConflict: 'company_name_normalized' }
+      );
+    // 캐시 저장 자체가 실패해도(예: 테이블 아직 미생성) 방금 만든 요약은 정상적으로 돌려준다.
+    if (error) console.error('company 테이블 저장 실패:', error);
   }
 
-  return { summary, fromCache: false };
+  return { summary: fields.businessSummary || '', fromCache: false };
 }
+
 
 app.post('/api/company/search-summary', async (req, res) => {
   try {
