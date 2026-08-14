@@ -13,6 +13,69 @@ interface Props {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// [추가] 세 서브탭 전부 기본적으로는 DB/규칙 기반 데이터만 즉시 보여주고(AI 호출 0회),
+// "정말 궁금할 때"만 이 버튼을 눌러야 그 순간 딱 한 번 Gemini를 부른다. 이미 화면에 보여준
+// (계산이 끝난) 데이터를 그대로 서버에 넘겨서 "해석/조언"만 부탁하는 방식이라, 매번 처음부터
+// 다시 검색·계산하는 것보다 가볍다. 탭을 열 때마다 자동으로 도는 게 절대 아니고, 사용자가
+// 버튼을 누른 횟수만큼만 호출되므로 비용/할당량이 실제 사용량에 비례한다.
+const AiAnalysisPanel: React.FC<{ label: string; endpoint: string; payload: any; disabled?: boolean; disabledReason?: string }> = ({ label, endpoint, payload, disabled, disabledReason }) => {
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleClick = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'AI 분석에 실패했습니다.');
+      setAnalysis(data.analysis);
+    } catch (err: any) {
+      setError(err.message || 'AI 분석에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="mb-1">
+      {!analysis ? (
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={isLoading || disabled}
+          title={disabled ? disabledReason : undefined}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-md shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+        >
+          {isLoading ? (
+            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5" />
+          )}
+          <span>{isLoading ? '분석 중...' : label}</span>
+        </button>
+      ) : (
+        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1"><Sparkles className="w-3 h-3" /> AI 분석 결과</span>
+            <button type="button" onClick={handleClick} disabled={isLoading} className="text-[10px] text-indigo-500 hover:text-indigo-700 font-semibold flex items-center gap-1 disabled:opacity-40">
+              {isLoading ? <div className="w-2.5 h-2.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+              다시 분석
+            </button>
+          </div>
+          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{analysis}</p>
+        </div>
+      )}
+      {error && <p className="text-xs text-rose-500 mt-1.5">{error}</p>}
+    </div>
+  );
+};
+
 // [추가] AI Intelligence 최상위 화면. 세 서브탭(오늘의 브리핑/기업 인텔리전스/관계·영업
 // 인텔리전스)을 묶는다. "오늘의 브리핑"과 "관계·영업 인텔리전스"는 이미 갖고 있는 데이터
 // (명함/프로젝트/업무일지)를 규칙 기반으로 분석해서 보여주므로 AI 호출이 전혀 없고, "기업
@@ -146,6 +209,24 @@ const BriefingTab: React.FC<{
       {hasNothing && (
         <div className="py-12 text-center text-sm text-slate-400">오늘 특별히 챙길 항목이 없습니다. 편안한 하루 되세요.</div>
       )}
+
+      {/* [추가] "오늘의 브리핑 해석" - 위에 이미 즉시 표시된(무료) 데이터를 그대로 AI에게
+      넘겨서 우선순위·조언만 부탁하는 버튼. 자동으로 안 도는 순수 사용자 액션. */}
+      <AiAnalysisPanel
+        label="AI 오늘의 브리핑 해석"
+        endpoint="/api/ai-intelligence/briefing-analysis"
+        payload={{
+          briefing: {
+            myTodayLogWritten: !!myTodayLog,
+            myTodayLogSummary: myTodayLog?.tasksToday || null,
+            dueTodayProjects: dueTodayProjects.map((p) => ({ name: p.name, priority: p.priority })),
+            overdueProjects: overdueProjects.map((p) => ({ name: p.name, dueDate: p.dueDate, priority: p.priority })),
+            dueSoonProjects: dueSoonProjects.map((p) => ({ name: p.name, dueDate: p.dueDate, priority: p.priority })),
+            recentContactsCount: recentContacts.length,
+            tomorrowPlans: tomorrowPlans.map((l) => ({ author: l.author, plan: l.tasksTomorrow }))
+          }
+        }}
+      />
 
       {/* 오늘 마감 */}
       {dueTodayProjects.length > 0 && (
@@ -336,6 +417,26 @@ const CompanyIntelligenceTab: React.FC<{ contacts: BusinessCard[]; onSelectConta
         />
       </div>
 
+      {/* [추가] "AI 기업 분석" - 이미 캐시에서 즉시 표시된(무료) 회사 정보들을 모아서 AI에게
+      "어디에 집중하면 좋을지"를 종합 해석해달라고 부탁하는 버튼. 캐시된 회사가 하나도 없으면
+      분석할 데이터가 없으므로 비활성화한다. */}
+      <AiAnalysisPanel
+        label="AI 기업 분석"
+        endpoint="/api/ai-intelligence/company-analysis"
+        disabled={Object.keys(cacheMap).length === 0}
+        disabledReason="먼저 회사별 '검색' 버튼으로 정보를 조회해야 분석할 수 있습니다."
+        payload={{
+          companies: (Object.values(cacheMap) as CompanyCacheItem[]).map((c) => ({
+            name: c.company_name,
+            industry: c.industry,
+            mainBusiness: c.main_business,
+            sales: c.sales,
+            employees: c.employees,
+            summary: c.business_summary
+          }))
+        }}
+      />
+
       {isLoadingBatch ? (
         <div className="py-16 text-center text-sm text-slate-400">불러오는 중...</div>
       ) : filteredList.length === 0 ? (
@@ -511,6 +612,18 @@ const RelationshipIntelligenceTab: React.FC<{
           ))}
         </div>
       </div>
+
+      {/* [추가] "AI 영업전략 분석" - 위에 이미 즉시 표시된(무료) 파이프라인/거래처 데이터를
+      그대로 AI에게 넘겨서 영업 전략 조언만 부탁하는 버튼. */}
+      <AiAnalysisPanel
+        label="AI 영업전략 분석"
+        endpoint="/api/ai-intelligence/relationship-analysis"
+        payload={{
+          pipeline: pipelineSummary.map((s) => ({ status: statusLabel[s.status], count: s.count, budgetSum: s.budgetSum })),
+          insights: insights.slice(0, 10).map((i) => ({ name: i.contact.name, company: i.contact.company, reason: i.reasonText, daysSince: i.daysSince, urgency: i.urgencyLabel })),
+          topCompanies: topCompanies.map((c) => ({ name: c.name, count: c.count }))
+        }}
+      />
 
       {/* 지금 챙기면 좋은 거래처 */}
       <div>
