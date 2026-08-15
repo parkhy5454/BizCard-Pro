@@ -185,32 +185,31 @@ const BriefingTab: React.FC<{
 
   const tomorrowPlans = useMemo(() => todayLogs.filter((l) => l.tasksTomorrow?.trim()), [todayLogs]);
 
+  // [수정] 요청에 따라 "오늘 해야 할 일 / 프로젝트 / 네트워크 / 영업" 4개 카테고리로
+  // 명확하게 묶었다. 계산 자체는 그대로(규칙 기반, AI 호출 없음)이고 보여주는 구조만 정리.
+  // (이 두 훅은 아래 로딩 중 조기 return보다 반드시 앞에 있어야 훅 호출 순서가 매 렌더링마다
+  // 일정하게 유지된다 - React 훅 규칙.)
+  const recentCalls = useMemo(() => {
+    const calls: { contact: BusinessCard; timestamp: string; type: string }[] = [];
+    const typeLabel: Record<string, string> = { incoming: '수신', outgoing: '발신', missed: '부재중' };
+    contacts.forEach((c) => {
+      (c.callHistory || []).forEach((h) => calls.push({ contact: c, timestamp: h.timestamp, type: typeLabel[h.type] || '통화' }));
+    });
+    return calls.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+  }, [contacts]);
+
+  const inProgressProjectsCount = useMemo(() => projects.filter((p) => p.status === 'progress').length, [projects]);
+
   if (isLoading) {
     return <div className="py-16 text-center text-sm text-slate-400">불러오는 중...</div>;
   }
 
-  const hasNothing = dueTodayProjects.length === 0 && dueSoonProjects.length === 0 && overdueProjects.length === 0 && recentContacts.length === 0 && todayLogs.length === 0;
+  const hasNothing = dueTodayProjects.length === 0 && dueSoonProjects.length === 0 && overdueProjects.length === 0
+    && recentContacts.length === 0 && todayLogs.length === 0 && recentCalls.length === 0;
 
   return (
-    <div className="space-y-4">
-      {/* 오늘 내 업무일지 작성 여부 */}
-      <div className={`p-4 rounded-2xl border ${myTodayLog ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-        <div className="flex items-center gap-2">
-          {myTodayLog ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <AlertCircle className="w-5 h-5 text-amber-600" />}
-          <p className={`text-sm font-bold ${myTodayLog ? 'text-emerald-700' : 'text-amber-700'}`}>
-            {myTodayLog ? '오늘 업무일지를 작성하셨습니다' : '오늘 업무일지를 아직 작성하지 않으셨습니다'}
-          </p>
-        </div>
-        {myTodayLog && (
-          <p className="text-xs text-slate-500 mt-1.5 pl-7 line-clamp-2">{myTodayLog.tasksToday}</p>
-        )}
-      </div>
-
-      {hasNothing && (
-        <div className="py-12 text-center text-sm text-slate-400">오늘 특별히 챙길 항목이 없습니다. 편안한 하루 되세요.</div>
-      )}
-
-      {/* [추가] "오늘의 브리핑 해석" - 위에 이미 즉시 표시된(무료) 데이터를 그대로 AI에게
+    <div className="space-y-5">
+      {/* [추가] "오늘의 브리핑 해석" - 아래에 이미 즉시 표시된(무료) 데이터를 그대로 AI에게
       넘겨서 우선순위·조언만 부탁하는 버튼. 자동으로 안 도는 순수 사용자 액션. */}
       <AiAnalysisPanel
         label="AI 오늘의 브리핑 해석"
@@ -228,65 +227,133 @@ const BriefingTab: React.FC<{
         }}
       />
 
-      {/* 오늘 마감 */}
-      {dueTodayProjects.length > 0 && (
-        <Section title={`오늘 마감인 프로젝트 ${dueTodayProjects.length}건`} icon={Clock} tone="rose">
-          {dueTodayProjects.map((p) => (
-            <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />
-          ))}
-        </Section>
+      {hasNothing && (
+        <div className="py-12 text-center text-sm text-slate-400">오늘 특별히 챙길 항목이 없습니다. 편안한 하루 되세요.</div>
       )}
 
-      {/* 마감 지남 */}
-      {overdueProjects.length > 0 && (
-        <Section title={`마감이 지난 진행 중 프로젝트 ${overdueProjects.length}건`} icon={AlertCircle} tone="rose">
-          {overdueProjects.slice(0, 5).map((p) => (
-            <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />
-          ))}
-        </Section>
-      )}
-
-      {/* 마감 임박 (3일 이내) */}
-      {dueSoonProjects.length > 0 && (
-        <Section title={`마감 임박 (3일 이내) ${dueSoonProjects.length}건`} icon={Clock} tone="amber">
-          {dueSoonProjects.map((p) => (
-            <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />
-          ))}
-        </Section>
-      )}
-
-      {/* 최근 등록된 명함 */}
-      {recentContacts.length > 0 && (
-        <Section title={`최근 3일 내 새로 등록된 명함 ${recentContacts.length}건`} icon={UserPlus} tone="indigo">
-          {recentContacts.slice(0, 8).map((c) => (
-            <button
-              key={c.id}
-              onClick={() => onSelectContact?.(c)}
-              className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 transition-colors text-left"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-700 truncate">{c.name} <span className="text-xs font-normal text-slate-400">{c.company}</span></p>
+      {/* 📋 오늘 해야 할 일 */}
+      <BriefingGroup emoji="📋" title="오늘 해야 할 일">
+        <div className={`p-3.5 rounded-2xl border ${myTodayLog ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="flex items-center gap-2">
+            {myTodayLog ? <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600" /> : <AlertCircle className="w-4.5 h-4.5 text-amber-600" />}
+            <p className={`text-sm font-bold ${myTodayLog ? 'text-emerald-700' : 'text-amber-700'}`}>
+              {myTodayLog ? '오늘 업무일지를 작성하셨습니다' : '오늘 업무일지를 아직 작성하지 않으셨습니다'}
+            </p>
+          </div>
+          {myTodayLog && <p className="text-xs text-slate-500 mt-1.5 pl-6 line-clamp-2">{myTodayLog.tasksToday}</p>}
+        </div>
+        {tomorrowPlans.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-bold text-slate-400">내일 예정 사항 미리보기</p>
+            {tomorrowPlans.map((l) => (
+              <div key={l.id} className="p-2.5 rounded-xl bg-white border border-slate-100">
+                <p className="text-xs font-bold text-slate-500 mb-1">{l.author}</p>
+                <p className="text-xs text-slate-600 whitespace-pre-wrap line-clamp-3">{l.tasksTomorrow}</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
-            </button>
-          ))}
-        </Section>
-      )}
+            ))}
+          </div>
+        )}
+      </BriefingGroup>
 
-      {/* 오늘 작성된 업무일지들의 "명일 예정 사항" 모아보기 */}
-      {tomorrowPlans.length > 0 && (
-        <Section title="내일 예정 사항 미리보기" icon={ListTodo} tone="indigo">
-          {tomorrowPlans.map((l) => (
-            <div key={l.id} className="p-2.5 rounded-xl bg-white border border-slate-100">
-              <p className="text-xs font-bold text-slate-500 mb-1">{l.author}</p>
-              <p className="text-xs text-slate-600 whitespace-pre-wrap line-clamp-3">{l.tasksTomorrow}</p>
-            </div>
-          ))}
-        </Section>
-      )}
+      {/* 📊 프로젝트 */}
+      <BriefingGroup emoji="📊" title="프로젝트">
+        {overdueProjects.length === 0 && dueSoonProjects.length === 0 && dueTodayProjects.length === 0 && inProgressProjectsCount === 0 ? (
+          <p className="text-xs text-slate-400">진행 중인 프로젝트가 없습니다.</p>
+        ) : (
+          <>
+            {overdueProjects.length > 0 && (
+              <Section title={`🔴 마감 지남 ${overdueProjects.length}건`} icon={AlertCircle} tone="rose">
+                {overdueProjects.slice(0, 5).map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+              </Section>
+            )}
+            {dueTodayProjects.length > 0 && (
+              <Section title={`🟠 오늘 마감 ${dueTodayProjects.length}건`} icon={Clock} tone="amber">
+                {dueTodayProjects.map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+              </Section>
+            )}
+            {dueSoonProjects.length > 0 && (
+              <Section title={`🟠 3일 이내 마감 ${dueSoonProjects.length}건`} icon={Clock} tone="amber">
+                {dueSoonProjects.map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+              </Section>
+            )}
+            {inProgressProjectsCount > 0 && (
+              <button onClick={onNavigateToProjects} className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 inline-block">
+                🟢 진행 중 {inProgressProjectsCount}건
+              </button>
+            )}
+          </>
+        )}
+      </BriefingGroup>
+
+      {/* 📇 네트워크 */}
+      <BriefingGroup emoji="📇" title="네트워크">
+        {recentContacts.length === 0 && recentCalls.length === 0 ? (
+          <p className="text-xs text-slate-400">최근 3일간 새로운 활동이 없습니다.</p>
+        ) : (
+          <>
+            {recentContacts.length > 0 && (
+              <Section title={`최근 3일 신규 명함 ${recentContacts.length}건`} icon={UserPlus} tone="indigo">
+                {recentContacts.slice(0, 8).map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => onSelectContact?.(c)}
+                    className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 transition-colors text-left"
+                  >
+                    <p className="text-sm font-bold text-slate-700 truncate">{c.name} <span className="text-xs font-normal text-slate-400">{c.company}</span></p>
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                  </button>
+                ))}
+              </Section>
+            )}
+            {recentCalls.length > 0 && (
+              <Section title="최근 통화/문자" icon={Phone} tone="indigo">
+                {recentCalls.map((call, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => onSelectContact?.(call.contact)}
+                    className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 transition-colors text-left"
+                  >
+                    <p className="text-xs text-slate-600"><span className="font-bold text-slate-800">{call.contact.name}</span> <span className="text-slate-400">{call.contact.company}</span> · {call.type}</p>
+                    <span className="text-[10px] text-slate-400 shrink-0">{new Date(call.timestamp).toLocaleDateString('ko-KR')}</span>
+                  </button>
+                ))}
+              </Section>
+            )}
+          </>
+        )}
+      </BriefingGroup>
+
+      {/* 💰 영업 */}
+      <BriefingGroup emoji="💰" title="영업">
+        {dueSoonProjects.length === 0 && dueTodayProjects.length === 0 && inProgressProjectsCount === 0 ? (
+          <p className="text-xs text-slate-400">오늘 특별히 후속 연락할 영업 건이 없습니다.</p>
+        ) : (
+          <>
+            {(dueTodayProjects.length > 0 || dueSoonProjects.length > 0) && (
+              <Section title={`오늘 후속 연락 대상 ${dueTodayProjects.length + dueSoonProjects.length}건`} icon={Phone} tone="rose">
+                {[...dueTodayProjects, ...dueSoonProjects].map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+              </Section>
+            )}
+            <button onClick={onNavigateToProjects} className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 inline-block">
+              진행 중인 영업 건 {inProgressProjectsCount}건 보기
+            </button>
+          </>
+        )}
+      </BriefingGroup>
     </div>
   );
 };
+
+const BriefingGroup: React.FC<{ emoji: string; title: string; children: React.ReactNode }> = ({ emoji, title, children }) => (
+  <div className="space-y-2.5">
+    <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+      <span>{emoji}</span>
+      <span>{title}</span>
+    </h3>
+    <div className="space-y-3 pl-1">{children}</div>
+  </div>
+);
+
 
 const Section: React.FC<{ title: string; icon: any; tone: 'rose' | 'amber' | 'indigo'; children: React.ReactNode }> = ({ title, icon: Icon, tone, children }) => {
   const toneMap = {
@@ -367,7 +434,7 @@ const CompanyIntelligenceTab: React.FC<{ contacts: BusinessCard[]; onSelectConta
   useEffect(() => {
     if (companyList.length === 0) { setIsLoadingBatch(false); return; }
     setIsLoadingBatch(true);
-    fetch('/api/company/intelligence-batch', {
+    fetch('/api/company/intelligence', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ companies: companyList.map((c) => c.name) })
@@ -385,7 +452,7 @@ const CompanyIntelligenceTab: React.FC<{ contacts: BusinessCard[]; onSelectConta
   const handleSearch = async (company: { name: string; key: string }) => {
     setSearchingKey(company.key);
     try {
-      const res = await fetch('/api/company/search-summary', {
+      const res = await fetch('/api/company/intelligence-refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ company: company.name })
@@ -403,6 +470,8 @@ const CompanyIntelligenceTab: React.FC<{ contacts: BusinessCard[]; onSelectConta
       setSearchingKey(null);
     }
   };
+
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   return (
     <div className="space-y-3">
@@ -442,58 +511,83 @@ const CompanyIntelligenceTab: React.FC<{ contacts: BusinessCard[]; onSelectConta
       ) : filteredList.length === 0 ? (
         <div className="py-16 text-center text-sm text-slate-400">{searchTerm ? '검색 결과가 없습니다.' : '명함에 등록된 회사가 없습니다.'}</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {filteredList.map((company) => {
-            const cached = cacheMap[company.key];
-            const isSearching = searchingKey === company.key;
-            return (
-              <div key={company.key} className="p-3.5 rounded-2xl border border-slate-200 bg-white space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-800 truncate">{company.name}</p>
-                    <p className="text-[11px] text-slate-400">소속 명함 {company.count}건</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isSearching}
-                    onClick={() => handleSearch(company)}
-                    className="shrink-0 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] flex items-center gap-1 disabled:opacity-50"
-                  >
-                    {isSearching ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                    <span>{cached ? '다시 검색' : '검색'}</span>
-                  </button>
-                </div>
-
-                {cached ? (
-                  <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                    {(cached.industry || cached.main_business) && (
-                      <p className="text-xs text-slate-500">
-                        {cached.industry && <span className="font-semibold text-slate-600">{cached.industry}</span>}
-                        {cached.industry && cached.main_business && ' · '}
-                        {cached.main_business}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-1.5">
-                      {cached.sales && (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">매출 {cached.sales}</span>
+        <div className="border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-left text-[11px] text-slate-500 font-bold">
+                  <th className="px-3 py-2.5">회사</th>
+                  <th className="px-3 py-2.5">명함</th>
+                  <th className="px-3 py-2.5">업종</th>
+                  <th className="px-3 py-2.5">직원수</th>
+                  <th className="px-3 py-2.5">매출</th>
+                  <th className="px-3 py-2.5">AI 요약</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredList.map((company) => {
+                  const cached = cacheMap[company.key];
+                  const isSearching = searchingKey === company.key;
+                  const isExpanded = expandedKey === company.key;
+                  return (
+                    <React.Fragment key={company.key}>
+                      <tr className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-3 py-2.5 font-bold text-slate-800 whitespace-nowrap max-w-[160px] truncate">{company.name}</td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{company.count}명</td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{cached?.industry || '-'}</td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{cached?.employees || '-'}</td>
+                        <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{cached?.sales || '-'}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {cached?.business_summary ? (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedKey(isExpanded ? null : company.key)}
+                              className="text-[11px] px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 font-bold hover:bg-indigo-100"
+                            >
+                              {isExpanded ? '접기' : '표시'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isSearching}
+                              onClick={() => handleSearch(company)}
+                              className="text-[11px] px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold flex items-center gap-1 disabled:opacity-50"
+                            >
+                              {isSearching ? <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Search className="w-2.5 h-2.5" />}
+                              검색
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {isExpanded && cached && (
+                        <tr className="bg-indigo-50/40">
+                          <td colSpan={6} className="px-3 py-3">
+                            <div className="space-y-1.5">
+                              <p className="text-xs text-slate-700 leading-relaxed">{cached.business_summary}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {cached.website && (
+                                  <a href={cached.website} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 underline break-all">{cached.website}</a>
+                                )}
+                                <button
+                                  type="button"
+                                  disabled={isSearching}
+                                  onClick={() => handleSearch(company)}
+                                  className="text-[10px] px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-500 font-bold flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  {isSearching ? <div className="w-2.5 h-2.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                                  다시 검색
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      {cached.employees && (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">직원 {cached.employees}</span>
-                      )}
-                    </div>
-                    {cached.business_summary && (
-                      <p className="text-xs text-slate-600 leading-relaxed">{cached.business_summary}</p>
-                    )}
-                    {cached.website && (
-                      <a href={cached.website} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 underline break-all">{cached.website}</a>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-100">아직 조회되지 않았습니다. 검색 버튼을 눌러보세요.</p>
-                )}
-              </div>
-            );
-          })}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -532,10 +626,12 @@ const RelationshipIntelligenceTab: React.FC<{
     failed: 'bg-slate-100 text-slate-500 border-slate-200'
   };
 
-  // "지금 챙기면 좋은 거래처" - CardGrid의 관계 인텔리전스와 동일한 채점 로직(일관성 유지)
+  // "지금 챙기면 좋은 거래처" - CardGrid의 관계 인텔리전스와 동일한 채점 로직(일관성 유지).
+  // [추가] 연결된 활성 프로젝트 "건수"와, 0~99 범위로 보기 쉽게 정규화한 "영업점수"를 같이
+  // 계산해서 화면에 숫자로 보여준다(예: "영업점수 94").
   const insights = useMemo(() => {
     const now = Date.now();
-    interface Insight { contact: BusinessCard; reasonText: string; daysSince: number; urgencyLabel: '높음' | '보통'; score: number; }
+    interface Insight { contact: BusinessCard; reasonText: string; daysSince: number; urgencyLabel: '높음' | '보통'; score: number; linkedProjectCount: number; salesScore: number; }
     const list: Insight[] = [];
 
     contacts.forEach((c) => {
@@ -551,12 +647,19 @@ const RelationshipIntelligenceTab: React.FC<{
         const weight = PRIORITY_WEIGHT[p.priority] || 1;
         const score = daysSince * weight;
         if (!best || score > best.score) {
+          // 영업점수 = 기본 50점 + (연결 프로젝트 수 가중치) + (우선순위 가중치) + (방치 일수, 30일 상한)
+          // - 챙길수록 급한 거래처일수록 점수가 높게 나오도록 설계 (0~99 범위로 clamp)
+          // 영업점수 = 기본 40점 + (연결 프로젝트 수 x6, 상한 있음) + (우선순위 가중치 x6) +
+          // (방치 일수, 25일 상한) - 0~99 범위로 clamp. 챙길수록 급한 거래처일수록 높게 나온다.
+          const salesScore = Math.min(99, Math.round(40 + Math.min(linkedActiveProjects.length, 6) * 6 + weight * 6 + Math.min(daysSince, 25)));
           best = {
             contact: c,
             reasonText: `"${p.name}" 프로젝트 연결 · ${p.priority === 'high' ? '우선순위 높음' : p.priority === 'medium' ? '우선순위 보통' : '우선순위 낮음'}`,
             daysSince,
             urgencyLabel: score >= 40 ? '높음' : '보통',
-            score
+            score,
+            linkedProjectCount: linkedActiveProjects.length,
+            salesScore
           };
         }
       }
@@ -569,7 +672,15 @@ const RelationshipIntelligenceTab: React.FC<{
         if (lastCall) {
           const daysSince = Math.floor((now - lastCall) / DAY_MS);
           if (daysSince >= 10) {
-            best = { contact: c, reasonText: '연결된 진행중 프로젝트는 없지만, 통화 기록 기준 연락이 뜸함', daysSince, urgencyLabel: daysSince >= 20 ? '높음' : '보통', score: daysSince };
+            best = {
+              contact: c,
+              reasonText: '연결된 진행중 프로젝트는 없지만, 통화 기록 기준 연락이 뜸함',
+              daysSince,
+              urgencyLabel: daysSince >= 20 ? '높음' : '보통',
+              score: daysSince,
+              linkedProjectCount: 0,
+              salesScore: Math.min(99, Math.round(30 + Math.min(daysSince, 60)))
+            };
           }
         }
       }
@@ -580,15 +691,38 @@ const RelationshipIntelligenceTab: React.FC<{
     return list.sort((a, b) => b.score - a.score);
   }, [contacts, projects]);
 
-  // 회사별 연락처 수 TOP
+  // [수정] "관계가 깊은 회사"를 단순 명함 수가 아니라, 여러 신호를 합친 관계점수로 판단한다.
+  // 관계점수 = 명함 수(x3) + 통화 횟수(x2) + 연결된 프로젝트 건수(x5) + 최근 접촉 가산점(30일
+  // 이내 연락 있었으면 +10). 지금 확보된 데이터(명함/통화기록/프로젝트 연결) 안에서만 계산하고,
+  // 데이터가 없는 항목(업무 활동량 등)은 과장하지 않기 위해 포함하지 않았다.
   const topCompanies = useMemo(() => {
-    const map = new Map<string, number>();
+    const now = Date.now();
+    const map = new Map<string, { name: string; contactCount: number; callCount: number; projectCount: number; recentContact: boolean }>();
+
     contacts.forEach((c) => {
       if (!c.company?.trim()) return;
-      map.set(c.company, (map.get(c.company) || 0) + 1);
+      const entry = map.get(c.company) || { name: c.company, contactCount: 0, callCount: 0, projectCount: 0, recentContact: false };
+      entry.contactCount += 1;
+      const calls = c.callHistory || [];
+      entry.callCount += calls.length;
+      if (calls.some((h) => (now - new Date(h.timestamp).getTime()) / DAY_MS <= 30)) entry.recentContact = true;
+      const linkedProjects = projects.filter((p) => (p.contactIds || []).includes(c.id));
+      entry.projectCount += linkedProjects.length;
+      map.set(c.company, entry);
     });
-    return Array.from(map.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 8);
-  }, [contacts]);
+
+    return Array.from(map.values())
+      .map((e) => ({
+        ...e,
+        relationshipScore: e.contactCount * 3 + e.callCount * 2 + e.projectCount * 5 + (e.recentContact ? 10 : 0)
+      }))
+      .sort((a, b) => b.relationshipScore - a.relationshipScore)
+      .slice(0, 8);
+  }, [contacts, projects]);
+
+  const totalBudget = useMemo(() => pipelineSummary.reduce((sum, s) => sum + s.budgetSum, 0), [pipelineSummary]);
+  const inProgressBudget = useMemo(() => pipelineSummary.find((s) => s.status === 'progress')?.budgetSum || 0, [pipelineSummary]);
+  const totalCount = useMemo(() => pipelineSummary.reduce((sum, s) => sum + s.count, 0), [pipelineSummary]);
 
   return (
     <div className="space-y-5">
@@ -596,8 +730,20 @@ const RelationshipIntelligenceTab: React.FC<{
       <div>
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-indigo-50 text-indigo-600 border-indigo-100 mb-2">
           <Briefcase className="w-3.5 h-3.5" />
-          <span>영업 파이프라인 요약</span>
+          <span>영업 파이프라인 요약 (전체 {totalCount}건)</span>
         </div>
+        {totalBudget > 0 && (
+          <div className="flex gap-2 mb-2">
+            <div className="flex-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <p className="text-[10px] text-slate-400 font-bold">전체 예상 금액</p>
+              <p className="text-sm font-bold text-slate-700">{totalBudget.toLocaleString()}원</p>
+            </div>
+            <div className="flex-1 p-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
+              <p className="text-[10px] text-indigo-400 font-bold">진행 중 금액</p>
+              <p className="text-sm font-bold text-indigo-700">{inProgressBudget.toLocaleString()}원</p>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {pipelineSummary.map((s) => (
             <button
@@ -607,7 +753,7 @@ const RelationshipIntelligenceTab: React.FC<{
             >
               <p className="text-xs font-bold">{statusLabel[s.status]}</p>
               <p className="text-lg font-bold">{s.count}건</p>
-              {s.budgetSum > 0 && <p className="text-[10px] opacity-70">예산 합계 {s.budgetSum.toLocaleString()}원</p>}
+              {s.budgetSum > 0 && <p className="text-[10px] opacity-70">{s.budgetSum.toLocaleString()}원</p>}
             </button>
           ))}
         </div>
@@ -620,10 +766,11 @@ const RelationshipIntelligenceTab: React.FC<{
         endpoint="/api/ai-intelligence/relationship-analysis"
         payload={{
           pipeline: pipelineSummary.map((s) => ({ status: statusLabel[s.status], count: s.count, budgetSum: s.budgetSum })),
-          insights: insights.slice(0, 10).map((i) => ({ name: i.contact.name, company: i.contact.company, reason: i.reasonText, daysSince: i.daysSince, urgency: i.urgencyLabel })),
-          topCompanies: topCompanies.map((c) => ({ name: c.name, count: c.count }))
+          insights: insights.slice(0, 10).map((i) => ({ name: i.contact.name, company: i.contact.company, reason: i.reasonText, daysSince: i.daysSince, urgency: i.urgencyLabel, salesScore: i.salesScore })),
+          topCompanies: topCompanies.map((c) => ({ name: c.name, relationshipScore: c.relationshipScore }))
         }}
       />
+
 
       {/* 지금 챙기면 좋은 거래처 */}
       <div>
@@ -635,17 +782,22 @@ const RelationshipIntelligenceTab: React.FC<{
           <p className="text-xs text-slate-400 py-3">지금 특별히 챙길 거래처가 없습니다.</p>
         ) : (
           <div className="space-y-1.5">
-            {insights.slice(0, 15).map((insight) => (
+            {insights.slice(0, 15).map((insight, idx) => (
               <div key={insight.contact.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-slate-100">
                 <button onClick={() => onSelectContact?.(insight.contact)} className="min-w-0 text-left flex-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold text-slate-300 font-mono">{idx + 1}위</span>
                     <span className="text-sm font-bold text-slate-800">{insight.contact.name}</span>
                     <span className="text-xs text-slate-400">{insight.contact.company}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-600">영업점수 {insight.salesScore}</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${insight.urgencyLabel === '높음' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
                       긴급도 {insight.urgencyLabel}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{insight.reasonText} · <span className="font-mono">{insight.daysSince}일째 활동 없음</span></p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {insight.linkedProjectCount > 0 && <>연결 프로젝트 {insight.linkedProjectCount}건 · </>}
+                    {insight.reasonText} · <span className="font-mono">{insight.daysSince}일째 활동 없음</span>
+                  </p>
                 </button>
                 {insight.contact.phoneMobile && (
                   <a href={`tel:${insight.contact.phoneMobile}`} className="shrink-0 p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100">
@@ -658,17 +810,20 @@ const RelationshipIntelligenceTab: React.FC<{
         )}
       </div>
 
-      {/* 회사별 연락처 수 TOP */}
+      {/* 관계가 깊은 회사 TOP - 명함수+통화횟수+프로젝트연결+최근접촉을 합친 관계점수 기준 */}
       <div>
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-slate-100 text-slate-600 border-slate-200 mb-2">
           <TrendingUp className="w-3.5 h-3.5" />
           <span>관계가 깊은 회사 TOP {topCompanies.length}</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {topCompanies.map((c) => (
+          {topCompanies.map((c, idx) => (
             <div key={c.name} className="p-2.5 rounded-xl bg-white border border-slate-100">
-              <p className="text-xs font-bold text-slate-700 truncate">{c.name}</p>
-              <p className="text-[11px] text-slate-400">명함 {c.count}건</p>
+              <div className="flex items-center justify-between gap-1 mb-0.5">
+                <p className="text-xs font-bold text-slate-700 truncate">{c.name}</p>
+                <span className="text-[10px] font-bold text-indigo-500 shrink-0">{c.relationshipScore}점</span>
+              </div>
+              <p className="text-[10px] text-slate-400">명함 {c.contactCount} · 통화 {c.callCount} · 프로젝트 {c.projectCount}</p>
             </div>
           ))}
         </div>
