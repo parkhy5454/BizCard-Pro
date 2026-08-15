@@ -113,11 +113,19 @@ const loadOpenCv = (): Promise<any> => {
 // 기반) 방식 하나로는 아무리 민감도를 조절해도 실패하는 경우가 있었다. Canny 민감도를 단계적으로
 // 낮춰가며 재시도하는 것에 더해, 완전히 다른 방식인 적응형 이진화(주변 지역과 비교해 밝은지
 // 어두운지를 보는 방식)도 마지막 안전장치로 추가했다.
+// [추가] 나무 책상 무늬, 옷감 짜임 같은 "무늬가 많은 배경"에서는 Canny/적응형 이진화 둘 다
+// 배경의 무늬 자체를 엣지로 잘못 잡아서 명함 테두리를 놓치는 경우가 많았다. 명함은 거의
+// 항상 흰색/밝은 무채색이라는 특징을 이용해서, "밝고 채도가 낮은 영역"을 색상 기준으로
+// 직접 찾는 방식(white-mask)을 가장 먼저 시도하도록 추가했다 — 배경 무늬에 흔들리지 않고
+// 훨씬 안정적으로 명함 영역만 골라낸다.
 type DetectionStrategyCrop =
+  | { mode: 'white-mask'; satMax: number; valMin: number }
   | { mode: 'canny'; low: number; high: number }
   | { mode: 'adaptive'; blockSize: number; C: number };
 
 const DETECTION_STRATEGY_LADDER_CROP: DetectionStrategyCrop[] = [
+  { mode: 'white-mask', satMax: 60, valMin: 140 },
+  { mode: 'white-mask', satMax: 90, valMin: 110 },
   { mode: 'canny', low: 45, high: 140 },
   { mode: 'canny', low: 25, high: 90 },
   { mode: 'canny', low: 15, high: 60 },
@@ -125,7 +133,7 @@ const DETECTION_STRATEGY_LADDER_CROP: DetectionStrategyCrop[] = [
 ];
 
 const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionStrategyCrop): Point[] | null => {
-  let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy: any = null;
+  let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy, hsv, whiteMask: any = null;
   let bestApprox: any = null;
   let bestApproxScore = -1;
   let fallbackQuad: Point[] | null = null;
@@ -148,7 +156,21 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
     kernel = cv.Mat.ones(3, 3, cv.CV_8U);
     closeKernel = cv.Mat.ones(9, 9, cv.CV_8U);
 
-    if (strategy.mode === 'canny') {
+    if (strategy.mode === 'white-mask') {
+      // [추가] 색상(HSV) 기준으로 "밝고 채도 낮은(=흰색/무채색에 가까운)" 픽셀만 골라내서
+      // 그 영역의 윤곽선을 찾는다. 나무 무늬/옷감 짜임처럼 밝기 변화가 많은 배경이어도,
+      // 명함처럼 실제로 하얗고 채도가 낮은 영역만 정확히 잡아낼 수 있다.
+      hsv = new cv.Mat();
+      cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+      cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+      whiteMask = new cv.Mat();
+      const low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [0, 0, strategy.valMin, 0]);
+      const high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [180, strategy.satMax, 255, 255]);
+      cv.inRange(hsv, low, high, whiteMask);
+      low.delete();
+      high.delete();
+      cv.morphologyEx(whiteMask, dilated, cv.MORPH_CLOSE, closeKernel);
+    } else if (strategy.mode === 'canny') {
       cv.Canny(blurred, edged, strategy.low, strategy.high);
       cv.dilate(edged, dilated, kernel);
     } else {
@@ -250,7 +272,7 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
     return null;
   } finally {
     if (bestApprox) { try { bestApprox.delete(); } catch {} }
-    [src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy].forEach((m) => {
+    [src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy, hsv, whiteMask].forEach((m) => {
       try { m && m.delete && m.delete(); } catch {}
     });
   }
