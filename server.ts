@@ -46,6 +46,16 @@ process.on('unhandledRejection', (reason) => {
 // [수정] Gemini API가 "This model is currently experiencing high demand"(503/UNAVAILABLE) 같은
 // 일시적인 과부하 에러를 낼 때가 있다. 이런 경우 사용자에게 바로 에러를 보여주지 않고,
 // 짧게 대기했다가 자동으로 한두 번 더 시도해서 대부분의 일시적 실패를 자동으로 넘어가게 한다.
+//
+// [추가] 실제 운영 로그를 보면 재시도 2번(800ms, 1600ms) 동안에도 같은 모델(gemini-3.5-flash)이
+// 계속 503으로 응답하는 경우가 있었다 — 그 모델 자체가 그 순간 전체적으로 몰려있는 상황이라,
+// "같은 모델에 더 기다렸다 다시 요청"하는 것만으로는 한계가 있다. 그래서 마지막(재시도를 다
+// 소진한) 시점에 한해서, 딱 한 번 다른 모델(FALLBACK_MODEL)로 넘겨서 시도해본다. 별도의 모델
+// 풀(pool)이라 원래 모델이 과부하여도 정상 응답할 가능성이 있고, 이미 폴백 모델로 시도한
+// 요청이면(무한 폴백 방지) 더 이상 폴백하지 않는다.
+const PRIMARY_GEMINI_MODEL = 'gemini-3.5-flash';
+const FALLBACK_GEMINI_MODEL = 'gemini-2.5-flash';
+
 async function generateContentWithRetry(
   ai: any,
   params: any,
@@ -63,12 +73,22 @@ async function generateContentWithRetry(
       // 기다린다고 풀리는 게 아니라서, 재시도해봐야 100% 또 실패하고 시간과 호출 횟수만
       // 낭비된다(실제로 매일 자동배치가 회사 하나당 쓸데없이 2번씩 더 재시도하며 시간을
       // 끄는 문제가 있었다). 할당량 소진은 재시도 없이 바로 실패시켜서 빠르게 포기하고,
-      // 일시적 과부하(503)만 재시도한다.
+      // 일시적 과부하(503)만 재시도한다. (참고: 할당량은 모델별이 아니라 API 키 단위로
+      // 걸리는 경우가 많아서, 폴백 모델로 바꿔도 어차피 똑같이 막힐 가능성이 높다 — 그래서
+      // 할당량 소진은 폴백 대상에서도 제외한다.)
       const isQuotaExhausted = err?.status === 429 || err?.code === 429 || /RESOURCE_EXHAUSTED/i.test(message);
       if (isQuotaExhausted) throw err;
       const isTransient = err?.status === 503 || err?.code === 503 ||
         /UNAVAILABLE|high demand|overloaded/i.test(message);
-      if (!isTransient || attempt === maxRetries) throw err;
+      if (!isTransient) throw err;
+      if (attempt === maxRetries) {
+        // 재시도를 다 썼는데도 여전히 과부하 → 마지막으로 딱 한 번, 다른 모델로 시도해본다.
+        if (params?.model && params.model !== FALLBACK_GEMINI_MODEL) {
+          console.warn(`[Gemini] ${params.model} 반복 과부하로 폴백 모델(${FALLBACK_GEMINI_MODEL})로 마지막 시도`);
+          return await ai.models.generateContent({ ...params, model: FALLBACK_GEMINI_MODEL });
+        }
+        throw err;
+      }
       const delayMs = 800 * (attempt + 1); // 800ms, 1600ms ... 점점 늘려가며 재시도
       console.warn(`[Gemini] 일시적 오류로 ${delayMs}ms 후 재시도 (${attempt + 1}/${maxRetries}):`, message.slice(0, 200));
       await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -2850,7 +2870,7 @@ app.post('/api/detect-card-corners', async (req, res) => {
     ];
 
     const response = await generateContentWithRetry(ai, {
-      model: 'gemini-3.5-flash',
+      model: PRIMARY_GEMINI_MODEL,
       contents: contents
     });
 
@@ -2978,7 +2998,7 @@ app.post('/api/scan-card', async (req, res) => {
     }
 
     const response = await generateContentWithRetry(ai, {
-      model: 'gemini-3.5-flash',
+      model: PRIMARY_GEMINI_MODEL,
       contents: contents
     });
 
@@ -3041,7 +3061,7 @@ app.post('/api/summarize-meeting', async (req, res) => {
       "}";
 
     const response = await generateContentWithRetry(ai, {
-      model: 'gemini-3.5-flash',
+      model: PRIMARY_GEMINI_MODEL,
       contents: prompt
     });
 
@@ -3097,7 +3117,7 @@ app.post('/api/parse-voice-contact', async (req, res) => {
       "}";
 
     const response = await generateContentWithRetry(ai, {
-      model: 'gemini-3.5-flash',
+      model: PRIMARY_GEMINI_MODEL,
       contents: prompt
     });
 
@@ -3199,7 +3219,7 @@ app.post('/api/scan-receipt', async (req, res) => {
     });
 
     const response = await generateContentWithRetry(ai, {
-      model: 'gemini-3.5-flash',
+      model: PRIMARY_GEMINI_MODEL,
       contents: contents
     });
 
@@ -3274,7 +3294,7 @@ async function generateCompanySummary(company: string): Promise<{ fields: Compan
     `{"businessNumber": string|null, "industry": string|null, "mainBusiness": string|null, "website": string|null, "employees": string|null, "sales": string|null, "businessSummary": string}`;
 
   const response = await generateContentWithRetry(ai, {
-    model: 'gemini-3.5-flash',
+    model: PRIMARY_GEMINI_MODEL,
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }]
@@ -3481,7 +3501,7 @@ async function runGeminiTextAnalysis(prompt: string): Promise<string> {
   }
   const ai = new GoogleGenAI({ apiKey });
   const response = await generateContentWithRetry(ai, {
-    model: 'gemini-3.5-flash',
+    model: PRIMARY_GEMINI_MODEL,
     contents: prompt
   });
   return (response.text || '').trim();
@@ -5727,7 +5747,7 @@ ${text}
 `;
 
     const response = await generateContentWithRetry(ai, {
-      model: 'gemini-3.5-flash',
+      model: PRIMARY_GEMINI_MODEL,
       contents: prompt,
     });
 
