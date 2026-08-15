@@ -3381,6 +3381,25 @@ async function getOrGenerateCompanySummary(company: string): Promise<{ summary: 
 }
 
 
+// [수정] 조회(캐시만 읽음, AI 호출 없음)와 갱신(실제 AI 검색)을 이름으로도 명확히 구분한다.
+// - POST /api/company/intelligence      : 여러 회사를 한 번에 캐시에서만 조회 (읽기 전용)
+// - POST /api/company/intelligence-refresh : 회사 하나를 실제로 AI 검색해서 캐시 갱신
+// 예전 이름(search-summary, intelligence-batch)은 헷갈릴 수 있어서 그대로 별칭으로만
+// 남겨두고, 새 코드는 아래 새 이름을 쓴다.
+app.post('/api/company/intelligence-refresh', async (req, res) => {
+  try {
+    const { company } = req.body;
+    if (!company) {
+      return res.status(400).json({ error: '회사명이 필요합니다.' });
+    }
+    const { summary: companyInfo, fromCache } = await getOrGenerateCompanySummary(company);
+    res.json({ companyInfo, fromCache });
+  } catch (error: any) {
+    console.error('Company intelligence refresh error:', error);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  }
+});
+// 예전 이름 - 하위 호환용 별칭 (기존 배포 클라이언트가 캐시되어 있어도 계속 동작하도록)
 app.post('/api/company/search-summary', async (req, res) => {
   try {
     const { company } = req.body;
@@ -3399,8 +3418,8 @@ app.post('/api/company/search-summary', async (req, res) => {
 // "여러 개"를 한 번에 훑어서 이미 캐시된 구조화 정보(업종/매출/직원수/홈페이지 등)가
 // 있는 회사만 뽑아서 돌려준다. 캐시가 없는 회사는 그냥 목록에서 빠지고(=화면에서
 // "아직 조회 안 됨"으로 표시), 이 API 자체는 Gemini를 호출하지 않는다(순수 조회 전용
-// - 화면에서 개별로 "검색" 버튼을 눌러야 실제 AI 검색이 일어난다).
-app.post('/api/company/intelligence-batch', async (req, res) => {
+// - 화면에서 개별로 "검색" 버튼을 눌러야 위의 intelligence-refresh가 실제로 호출된다).
+app.post('/api/company/intelligence', async (req, res) => {
   try {
     const { companies } = req.body as { companies?: string[] };
     if (!Array.isArray(companies) || companies.length === 0) {
@@ -3421,7 +3440,24 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
     }
     res.json({ items: data || [] });
   } catch (error: any) {
-    console.error('Company intelligence batch error:', error);
+    console.error('Company intelligence error:', error);
+    res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
+  }
+});
+// 예전 이름 - 하위 호환용 별칭
+app.post('/api/company/intelligence-batch', async (req, res) => {
+  try {
+    const { companies } = req.body as { companies?: string[] };
+    if (!Array.isArray(companies) || companies.length === 0) {
+      return res.json({ items: [] });
+    }
+    if (!isSupabaseConfigured) return res.json({ items: [] });
+    const keys = Array.from(new Set(companies.map((c) => normalizeCompanyKey(c)).filter(Boolean)));
+    if (keys.length === 0) return res.json({ items: [] });
+    const { data, error } = await supabase.from('company').select('*').in('company_name_normalized', keys);
+    if (error) return res.json({ items: [] });
+    res.json({ items: data || [] });
+  } catch (error: any) {
     res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
   }
 });
