@@ -2261,7 +2261,13 @@ app.post('/api/billing/run-scheduled', async (req, res) => {
 
 // 하루에 자동으로 채워줄 회사 개수 상한. 쓰는 Gemini 모델의 무료 일일 할당량에 맞춰
 // GEMINI_DAILY_SUMMARY_QUOTA 환경변수로 조절할 수 있다(기본값은 안전하게 보수적으로 잡음).
-const DAILY_SUMMARY_QUOTA = Number(process.env.GEMINI_DAILY_SUMMARY_QUOTA) || 50;
+// [수정] 예전엔 기본값이 50이었는데, 실제 Gemini 무료 티어 하루 한도가 20회뿐이라 이
+// 배치 작업 혼자서 하루 한도 전체(그 이상)를 다 써버릴 수 있었다. 그러면 정작 실시간으로
+// 써야 하는 명함/영수증 스캔이나 사용자가 직접 누르는 "기업 인텔리전스" 검색 버튼에 쓸
+// 할당량이 하나도 안 남는 문제가 있었다. 이 배치는 "여유가 있을 때 조금씩 채워주는"
+// 보조 기능이니, 하루 한도의 일부(기본 3회)만 쓰도록 훨씬 보수적으로 낮췄다 — 대부분의
+// 할당량은 실시간 사용자 액션을 위해 남겨둔다.
+const DAILY_SUMMARY_QUOTA = Number(process.env.GEMINI_DAILY_SUMMARY_QUOTA) || 3;
 
 async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; companiesUpdated: number; failed: number }> {
   if (!process.env.GEMINI_API_KEY) {
