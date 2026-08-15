@@ -148,16 +148,30 @@ function quadAspectRatio(q: Quad): number {
 // 더해, 완전히 다른 방식인 "적응형 이진화(adaptive threshold)"도 마지막 안전장치로 추가했다.
 // 적응형 이진화는 화면 전체의 밝기 차이가 아니라 "주변 지역과 비교해 밝은지 어두운지"를 보기
 // 때문에, 전체 대비가 약해도 그 지역 안에서의 미세한 밝기 차이만으로 경계를 찾아낼 수 있다.
+// [추가] 나무 책상처럼 배경 자체가 밝기/색 편차가 있는 무늬일 때는, Canny/adaptive 둘 다
+// "테두리가 있는 것처럼 보이는 지점"을 프레임마다 조금씩 다르게 잡아서 사각형이 실시간으로
+// 흔들린다(그래서 "고정됨" 판정까지 못 가고 계속 노란색↔초록색을 오가는 문제로 이어졌다).
+// 명함 등록 화면(CropAdjustModal)에서 이미 검증된 "흰색 영역(HSV 채도 낮음+밝기 높음) 우선
+// 탐지" 방식을 여기 실시간 감지에도 동일하게 적용해서, 배경 무늬와 상관없이 명함처럼 밝고
+// 채도 낮은 영역만 안정적으로 잡히도록 한다. 이 방식을 가장 먼저 시도한다.
 type DetectionStrategy =
+  | { mode: 'white-mask'; satMax: number; valMin: number }
   | { mode: 'canny'; low: number; high: number }
   | { mode: 'adaptive'; blockSize: number; C: number };
 
 const DETECTION_STRATEGY_LADDER: DetectionStrategy[] = [
+  { mode: 'white-mask', satMax: 60, valMin: 140 }, // 명함처럼 밝고 채도 낮은 영역을 색상으로 직접 탐지
+  { mode: 'white-mask', satMax: 90, valMin: 110 }, // 완화: 조명이 어둡거나 카드가 살짝 누렇게 보여도 탐지
   { mode: 'canny', low: 45, high: 140 }, // 기본: 또렷한 대비에 적합
   { mode: 'canny', low: 25, high: 90 },  // 완화: 대비가 약한 상황에서 흐릿한 경계선도 더 쉽게 잡음
   { mode: 'canny', low: 15, high: 60 },  // 더 완화
   { mode: 'adaptive', blockSize: 35, C: 5 } // 최후 수단: 전체 대비가 아닌 지역별 밝기 차이로 재시도
 ];
+
+// [추가] 명함 비율(targetAspect)과 이보다 더 벌어지면 "명함 모양이 아니다"로 보고 후보에서
+// 제외한다. CropAdjustModal의 동일한 안전장치와 같은 값(0.3)을 쓴다 — 정사각형(비율 1.0)은
+// 명함 비율(1.586) 대비 차이가 약 0.37이라 이 문턱을 확실히 넘어서 걸러진다.
+const MAX_ACCEPTABLE_ASPECT_DIFF = 0.3;
 
 function detectQuadOnce(
   cv: any,
@@ -173,6 +187,8 @@ function detectQuadOnce(
   const closeKernel = cv.Mat.ones(9, 9, cv.CV_8U);
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
+  let hsv: any = null;
+  let whiteMask: any = null;
 
   let best: { quad: Quad; score: number; areaRatio: number; rotated: boolean } | null = null;
   // [수정] 영수증처럼 얇은 종이는 살짝 휘거나 구겨져 있어서 윤곽선이 "정확히 꼭짓점 4개"로
@@ -184,7 +200,22 @@ function detectQuadOnce(
     cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY);
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
 
-    if (strategy.mode === 'canny') {
+    if (strategy.mode === 'white-mask') {
+      // [추가] 색상(HSV) 기준으로 "밝고 채도 낮은(=흰색/무채색에 가까운)" 픽셀만 골라내서
+      // 그 영역의 윤곽선을 찾는다. CropAdjustModal에서 이미 검증된 것과 동일한 방식 —
+      // 나무 무늬/조명 반사처럼 밝기 변화가 있는 배경이어도, 명함처럼 실제로 밝고 채도 낮은
+      // 영역만 프레임마다 안정적으로 잡아내서, 실시간 감지가 흔들리는 것을 줄인다.
+      hsv = new cv.Mat();
+      cv.cvtColor(srcMat, hsv, cv.COLOR_RGBA2RGB);
+      cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+      whiteMask = new cv.Mat();
+      const low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [0, 0, strategy.valMin, 0]);
+      const high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [180, strategy.satMax, 255, 255]);
+      cv.inRange(hsv, low, high, whiteMask);
+      low.delete();
+      high.delete();
+      cv.morphologyEx(whiteMask, dilated, cv.MORPH_CLOSE, closeKernel);
+    } else if (strategy.mode === 'canny') {
       cv.Canny(blurred, edges, strategy.low, strategy.high);
       cv.dilate(edges, dilated, kernel);
     } else {
@@ -217,16 +248,25 @@ function detectQuadOnce(
         const rawAreaRatio = rawArea / frameArea;
         if (rawAreaRatio > 0.05 && rawAreaRatio < 0.99 && (!fallback || rawAreaRatio > fallback.areaRatio)) {
           const rotRect = cv.minAreaRect(cnt);
-          const angleRad = (rotRect.angle * Math.PI) / 180;
-          const cos = Math.cos(angleRad);
-          const sin = Math.sin(angleRad);
-          const hw = rotRect.size.width / 2;
-          const hh = rotRect.size.height / 2;
-          const corners: Point[] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) => [
-            rotRect.center.x + dx * cos - dy * sin,
-            rotRect.center.y + dx * sin + dy * cos
-          ] as Point);
-          fallback = { quad: orderQuadPoints(corners), areaRatio: rawAreaRatio };
+          const rectAspect = rotRect.size.width / Math.max(rotRect.size.height, 1);
+          const rectAspectDiffNormal = Math.abs(rectAspect - targetAspect) / targetAspect;
+          const rectAspectDiffRotated = Math.abs(rectAspect - 1 / targetAspect) / (1 / targetAspect);
+          const rectAspectDiff = Math.min(rectAspectDiffNormal, rectAspectDiffRotated);
+          // [추가] 이 폴백도 넓이만 보고 골랐었다 — 배경 무늬가 카드와 뭉쳐서 카드보다 훨씬
+          // 크고 명함 비율과 동떨어진 덩어리가 되면, 그게 그대로 "가장 큰 덩어리"로 뽑혀
+          // 폴백으로 쓰였다. 명함 비율과 너무 동떨어진 덩어리는 폴백 후보에서도 제외한다.
+          if (rectAspectDiff <= MAX_ACCEPTABLE_ASPECT_DIFF) {
+            const angleRad = (rotRect.angle * Math.PI) / 180;
+            const cos = Math.cos(angleRad);
+            const sin = Math.sin(angleRad);
+            const hw = rotRect.size.width / 2;
+            const hh = rotRect.size.height / 2;
+            const corners: Point[] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) => [
+              rotRect.center.x + dx * cos - dy * sin,
+              rotRect.center.y + dx * sin + dy * cos
+            ] as Point);
+            fallback = { quad: orderQuadPoints(corners), areaRatio: rawAreaRatio };
+          }
         }
       } catch {
         // minAreaRect 계산이 실패해도(드물게 점 개수가 너무 적은 경우 등) 전체 인식은 계속 진행
@@ -257,6 +297,15 @@ function detectQuadOnce(
             const aspectDiffNormal = Math.abs(aspect - targetAspect) / targetAspect;
             const aspectDiffRotated = Math.abs(aspect - 1 / targetAspect) / (1 / targetAspect);
             const aspectDiff = Math.min(aspectDiffNormal, aspectDiffRotated, 1);
+
+            // [추가] 비율 감점만으로는, 배경 무늬가 명함과 뭉쳐서 생긴 "명함보다 훨씬 넓적하거나
+            // 정사각형에 가까운 덩어리"도 넓이가 커서 점수가 1등으로 뽑힐 수 있었다(실시간
+            // 감지가 순간적으로 엉뚱한 큰 사각형으로 튀는 원인). 명함 비율과 너무 동떨어진
+            // 후보는 점수 계산 없이 아예 제외한다 — CropAdjustModal의 동일한 안전장치와 일관되게.
+            if (aspectDiff > MAX_ACCEPTABLE_ASPECT_DIFF) {
+              approx.delete();
+              continue;
+            }
 
             // 사용자가 화면 중앙에 문서를 놓는다고 가정하고, 중앙에서 먼 후보(책상 모서리, 문틀 등 배경
             // 요소가 크기/비율만으로 우연히 점수가 높게 나오는 경우)는 불리하게 만든다.
@@ -296,6 +345,8 @@ function detectQuadOnce(
     closeKernel.delete();
     contours.delete();
     hierarchy.delete();
+    if (hsv) { try { hsv.delete(); } catch {} }
+    if (whiteMask) { try { whiteMask.delete(); } catch {} }
   }
 
   return best;
