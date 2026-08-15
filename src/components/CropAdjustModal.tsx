@@ -16,6 +16,38 @@ const EDGE_POINT_INDEXES: [number, number][] = [
 ];
 const EDGE_CURSORS = ['ns-resize', 'ew-resize', 'ns-resize', 'ew-resize'];
 
+// [추가] 이 화면(재촬영 후 테두리 확인)의 자동감지는 그동안 "밝고 채도 낮은 영역의 넓이 +
+// 화면 중앙에 가까운 정도"로만 점수를 매기고, 실제 명함 비율(가로:세로 ≈ 1.586)과 맞는지는
+// 전혀 확인하지 않았다. 그래서 나무 책상의 밝은 결/무늬가 카드의 흰 영역과 화면상 붙어있으면
+// (white-mask + MORPH_CLOSE로 뭉쳐짐), 실제 카드보다 더 크고 삐뚤어진 사각형이 점수만 높게
+// 나와 "자동감지: 성공"으로 잘못 뜨는 문제가 있었다. 실시간 촬영 화면(cardVision.ts의
+// detectQuad)에는 이미 있는 비율 검증 로직을 여기에도 동일하게 적용해서, 넓기만 하고 명함
+// 비율과 동떨어진 사각형은 감점시킨다.
+const CARD_TARGET_ASPECT = 1.586;
+// 정방향이든 90도 회전(세로로 찍힘)이든, 카드 비율과 이보다 더 벌어지면 "명함 모양이 아니다"로
+// 보고 후보에서 아예 제외한다 (예: 카드+배경이 뭉쳐서 훨씬 넓적하거나 정사각형에 가까운 덩어리).
+const MAX_ACCEPTABLE_ASPECT_DIFF = 0.4;
+
+// 순서 없는 4개 점을 [좌상, 우상, 우하, 좌하] 순서로 정렬 (점수 계산 중간 단계와
+// 최종 반환 시 양쪽에서 같은 규칙으로 재사용한다)
+function orderQuadPoints(pts: Point[]): [Point, Point, Point, Point] {
+  const sums = pts.map((p) => p.x + p.y);
+  const diffs = pts.map((p) => p.x - p.y);
+  const tl = pts[sums.indexOf(Math.min(...sums))];
+  const br = pts[sums.indexOf(Math.max(...sums))];
+  const tr = pts[diffs.indexOf(Math.max(...diffs))];
+  const bl = pts[diffs.indexOf(Math.min(...diffs))];
+  return [tl, tr, br, bl];
+}
+
+function quadAspectRatio(pts: Point[]): number {
+  const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+  const [tl, tr, br, bl] = pts;
+  const w = (dist(tl, tr) + dist(bl, br)) / 2;
+  const h = (dist(tl, bl) + dist(tr, br)) / 2;
+  return w / Math.max(h, 1);
+}
+
 interface Props {
   imageDataUrl: string;
   title?: string;
@@ -199,17 +231,26 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
         const rawAreaRatio = rawArea / imgArea;
         if (rawAreaRatio > 0.05 && rawAreaRatio < 0.99 && rawAreaRatio > fallbackAreaRatio) {
           const rotRect = cv.minAreaRect(cnt);
-          const angleRad = (rotRect.angle * Math.PI) / 180;
-          const cos = Math.cos(angleRad);
-          const sin = Math.sin(angleRad);
-          const hw = rotRect.size.width / 2;
-          const hh = rotRect.size.height / 2;
-          const corners: Point[] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) => ({
-            x: rotRect.center.x + dx * cos - dy * sin,
-            y: rotRect.center.y + dx * sin + dy * cos
-          }));
-          fallbackQuad = corners;
-          fallbackAreaRatio = rawAreaRatio;
+          // [추가] 이 폴백 경로도 넓이만 보고 골랐었다 — 배경 무늬가 카드와 뭉쳐서 카드보다
+          // 훨씬 크고 명함 비율과 동떨어진 덩어리가 되면, 그게 그대로 "가장 큰 덩어리"로 뽑혀
+          // 폴백으로 쓰였다. 명함 비율과 너무 동떨어진 덩어리는 폴백 후보에서도 제외한다.
+          const rectAspect = rotRect.size.width / Math.max(rotRect.size.height, 1);
+          const rectAspectDiffNormal = Math.abs(rectAspect - CARD_TARGET_ASPECT) / CARD_TARGET_ASPECT;
+          const rectAspectDiffRotated = Math.abs(rectAspect - 1 / CARD_TARGET_ASPECT) / (1 / CARD_TARGET_ASPECT);
+          const rectAspectDiff = Math.min(rectAspectDiffNormal, rectAspectDiffRotated);
+          if (rectAspectDiff <= MAX_ACCEPTABLE_ASPECT_DIFF) {
+            const angleRad = (rotRect.angle * Math.PI) / 180;
+            const cos = Math.cos(angleRad);
+            const sin = Math.sin(angleRad);
+            const hw = rotRect.size.width / 2;
+            const hh = rotRect.size.height / 2;
+            const corners: Point[] = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) => ({
+              x: rotRect.center.x + dx * cos - dy * sin,
+              y: rotRect.center.y + dx * sin + dy * cos
+            }));
+            fallbackQuad = corners;
+            fallbackAreaRatio = rawAreaRatio;
+          }
         }
       } catch {
         // minAreaRect 계산 실패해도 전체 흐름은 계속 진행
@@ -228,15 +269,34 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
           for (let j = 0; j < 4; j++) { cx += approx.data32S[j * 2]; cy += approx.data32S[j * 2 + 1]; }
           cx /= 4; cy /= 4;
           const centerDist = Math.min(Math.hypot(cx - centerX, cy - centerY) / frameDiag, 1);
-          const score = areaRatio * (1 - centerDist * 0.6);
 
-          if (score > bestApproxScore) {
-            bestApproxScore = score;
-            if (bestApprox) bestApprox.delete();
-            bestApprox = approx;
-            matchedThisContour = true;
-          } else {
+          // [추가] 넓이/중앙근접도만으로는, 배경 무늬가 카드 흰 영역과 뭉쳐서 생긴 "카드보다
+          // 크고 삐뚤어진 사각형"도 점수가 높게 나올 수 있다. 실제 명함 비율(가로:세로 ≈
+          // 1.586, 세로로 찍힌 경우 그 역수)과 얼마나 가까운지도 같이 반영해서, 비율이 크게
+          // 어긋난 후보는 감점한다.
+          const rawPts: Point[] = [];
+          for (let j = 0; j < 4; j++) rawPts.push({ x: approx.data32S[j * 2], y: approx.data32S[j * 2 + 1] });
+          const orderedForScore = orderQuadPoints(rawPts);
+          const aspect = quadAspectRatio(orderedForScore);
+          const aspectDiffNormal = Math.abs(aspect - CARD_TARGET_ASPECT) / CARD_TARGET_ASPECT;
+          const aspectDiffRotated = Math.abs(aspect - 1 / CARD_TARGET_ASPECT) / (1 / CARD_TARGET_ASPECT);
+          const aspectDiff = Math.min(aspectDiffNormal, aspectDiffRotated, 1);
+
+          if (aspectDiff > MAX_ACCEPTABLE_ASPECT_DIFF) {
+            // 명함 비율과 너무 동떨어진 사각형(배경과 뭉친 덩어리 등)은 아예 후보에서 제외.
+            // 이 전략(strategy)에서 더 나은 후보를 못 찾으면 detectCorners()가 다음 전략으로 넘어간다.
             approx.delete();
+          } else {
+            const score = areaRatio * (1 - aspectDiff * 0.5) * (1 - centerDist * 0.6);
+
+            if (score > bestApproxScore) {
+              bestApproxScore = score;
+              if (bestApprox) bestApprox.delete();
+              bestApprox = approx;
+              matchedThisContour = true;
+            } else {
+              approx.delete();
+            }
           }
         } else {
           approx.delete();
@@ -260,13 +320,7 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
     if (!pts) return null;
 
     // 좌상 → 우상 → 우하 → 좌하 순서로 정렬
-    const sums = pts.map((p) => p.x + p.y);
-    const diffs = pts.map((p) => p.x - p.y);
-    const tl = pts[sums.indexOf(Math.min(...sums))];
-    const br = pts[sums.indexOf(Math.max(...sums))];
-    const tr = pts[diffs.indexOf(Math.max(...diffs))];
-    const bl = pts[diffs.indexOf(Math.min(...diffs))];
-    return [tl, tr, br, bl];
+    return orderQuadPoints(pts);
   } catch (err) {
     console.error('모서리 자동 감지 실패:', err);
     return null;
