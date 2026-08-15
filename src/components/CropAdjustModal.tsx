@@ -453,6 +453,30 @@ export const warpDataUrlWithNormalizedCorners = (dataUrl: string, corners: Norma
   });
 };
 
+// [추가] 이 화면의 자동감지는 그동안 OpenCV(색상/밝기/윤곽선 기반 기하 추정)만 썼다. 서버에는
+// 이미 Gemini Vision으로 "이게 명함처럼 생겼다"는 패턴 자체로 모서리를 찾아주는
+// /api/detect-card-corners가 있었는데, 정작 화면 어디에서도 호출하지 않고 있었다(연결이 안 된
+// 죽은 코드였음). OpenCV는 배경이 카드와 색/밝기가 비슷하거나, 카드가 세로로 찍히거나, 표면이
+// 반짝여서 하이라이트가 지면 실제 카드 테두리보다 안쪽의 엉뚱한 사각형(마름모 등)을 잡는 경우가
+// 반복적으로 보고됐다. OpenCV 결과를 먼저 즉시 보여주고, 그 뒤로 이 함수가 AI 감지를 백그라운드로
+// 한 번 더 요청해서 유효한 결과가 오면 화면을 그걸로 갱신한다(사용자가 이미 직접 손으로 만졌으면
+// 덮어쓰지 않는다). AI 호출이 실패/무응답이어도(할당량 소진 등) 조용히 무시하고 OpenCV 결과를 유지한다.
+async function fetchAiCornersNormalized(dataUrl: string): Promise<NormalizedCorners | null> {
+  try {
+    const res = await fetch('/api/detect-card-corners', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!isValidNormalizedCorners(data?.corners)) return null;
+    return data.corners as NormalizedCorners;
+  } catch {
+    return null;
+  }
+}
+
 export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel }) => {
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
@@ -461,6 +485,11 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const [isProcessing, setIsProcessing] = useState(false);
   const [warpError, setWarpError] = useState<string | null>(null);
   const [autoDetected, setAutoDetected] = useState<boolean | null>(null);
+  // [추가] AI(Gemini) 기반 모서리 감지가 아직 진행 중인지 / 이미 그 결과로 화면을 갱신했는지.
+  // 라벨 문구에 반영해서, 사용자가 지금 보고 있는 사각형이 빠른 추정인지 AI로 재확인된 것인지
+  // 알 수 있게 한다.
+  const [aiRefining, setAiRefining] = useState(false);
+  const [aiConfirmed, setAiConfirmed] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   // [수정] 모서리 점을 하나씩 맞추는 게 번거롭다는 피드백에 따라, 사각형 안쪽을 드래그하면
   // 네 점이 동시에 같은 방향으로 움직이는 "전체 이동" 모드를 추가한다.
@@ -470,6 +499,11 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgNaturalRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+  // [추가] 사용자가 이미 직접 테두리를 드래그해서 조정했으면, 나중에 AI 감지 결과가 도착해도
+  // 그 조정을 덮어쓰지 않는다.
+  const userAdjustedRef = useRef(false);
+  const displaySizeRef = useRef(displaySize);
+  useEffect(() => { displaySizeRef.current = displaySize; }, [displaySize]);
 
   // [추가] 회전 정보(EXIF)를 실제 픽셀에 반영한 정규화된 이미지. 이후 화면 표시/테두리 감지/
   // 실제 자르기까지 전부 이 값을 기준으로 통일해서 써야, "화면에 보이는 것"과 "실제로 잘리는
@@ -498,6 +532,30 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         setAutoDetected(!!detected);
         if (detected) {
           (img as any).__detectedCorners = detected;
+        }
+
+        // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤, Gemini AI 기반 모서리 감지를 백그라운드로
+        // 한 번 더 요청한다(fetchAiCornersNormalized 정의부 주석 참고). 응답이 오기 전에
+        // 사용자가 이미 취소했거나(cancelled) 직접 테두리를 조정했으면(userAdjustedRef) 무시한다.
+        setAiRefining(true);
+        const aiCorners = await fetchAiCornersNormalized(fixedUrl);
+        if (!cancelled) setAiRefining(false);
+        if (cancelled || !aiCorners || userAdjustedRef.current) return;
+
+        const aiNaturalPts: Point[] = [
+          { x: aiCorners.topLeft.x * img.naturalWidth, y: aiCorners.topLeft.y * img.naturalHeight },
+          { x: aiCorners.topRight.x * img.naturalWidth, y: aiCorners.topRight.y * img.naturalHeight },
+          { x: aiCorners.bottomRight.x * img.naturalWidth, y: aiCorners.bottomRight.y * img.naturalHeight },
+          { x: aiCorners.bottomLeft.x * img.naturalWidth, y: aiCorners.bottomLeft.y * img.naturalHeight }
+        ];
+        (img as any).__detectedCorners = aiNaturalPts;
+        setAutoDetected(true);
+        setAiConfirmed(true);
+        const { width: dw, height: dh } = displaySizeRef.current;
+        if (dw > 0 && dh > 0) {
+          const scaleX = dw / img.naturalWidth;
+          const scaleY = dh / img.naturalHeight;
+          setCorners(aiNaturalPts.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
         }
       };
       img.onerror = () => { if (!cancelled) setIsDetecting(false); };
@@ -572,6 +630,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
     e.preventDefault();
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
+    userAdjustedRef.current = true;
     setDragIndex(idx);
   };
 
@@ -580,6 +639,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   const handlePolygonPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     (e.target as Element).setPointerCapture(e.pointerId);
+    userAdjustedRef.current = true;
     setIsDraggingAll(true);
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
   };
@@ -589,6 +649,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
     e.preventDefault();
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
+    userAdjustedRef.current = true;
     setDragEdge(edgeIdx);
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
   };
@@ -740,7 +801,15 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
             <p className="text-[11px] text-slate-500 mt-0.5">안쪽을 밀어 전체 위치를, 네모 손잡이로 위/아래/좌우 한 변씩, 동그란 점으로 모서리를 조정하세요</p>
             {autoDetected !== null && (
               <p className="text-[10px] font-mono mt-0.5 text-lime-500">
-                자동감지: {autoDetected ? '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)' : '실패 (기본 위치 - 직접 맞춰주세요)'}
+                자동감지: {(() => {
+                  // [추가] 지금 보이는 사각형이 빠른 OpenCV 추정인지, Gemini AI로 한 번 더
+                  // 확인된 결과인지를 그대로 알려준다 — "성공"이라고 무조건 확신하는 문구 대신,
+                  // 실제 신뢰도를 사용자가 판단할 수 있게 한다.
+                  if (!autoDetected) return '실패 (기본 위치 - 직접 맞춰주세요)';
+                  if (aiConfirmed) return 'AI로 재확인됨 (그래도 다르면 직접 드래그로 수정)';
+                  if (aiRefining) return '성공 (빠른 추정 - AI로 정밀 확인 중...)';
+                  return '성공 (빠른 추정 - 파란 사각형이 명함이 아니면 직접 드래그로 수정)';
+                })()}
               </p>
             )}
           </div>
