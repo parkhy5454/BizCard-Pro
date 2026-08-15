@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Check, RotateCcw, X } from 'lucide-react';
+// [추가] 색상/윤곽선 규칙을 사람이 손으로 정하는 OpenCV 방식은, 나무 무늬 배경처럼
+// 밝기가 들쭉날쭉한 배경에서 실제 명함 테두리와 배경을 구분 못 하는 근본적인 한계가
+// 반복적으로 확인됐다(마름모/엉뚱한 사각형으로 잡히는 문제). scanic은 다양한 실제 사진으로
+// 미리 학습된 신경망(ONNX, 완전히 브라우저 로컬 실행 — 서버/API 호출도, 할당량 소모도 없음)
+// 으로 문서 모서리를 찾아주는 오픈소스(MIT) 라이브러리다. 색상 규칙이 아니라 "이게 문서처럼
+// 생겼다"는 걸 데이터로 학습했기 때문에, 배경 무늬에 훨씬 덜 흔들린다. 이걸 1순위로 쓰고,
+// 실패하면(네트워크 문제로 모델을 못 받아온 경우 등) 기존 OpenCV 방식으로 자연스럽게 넘어간다.
+import { scanDocument } from 'scanic';
 
 interface Point {
   x: number;
@@ -339,7 +347,25 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
     if (!pts) return null;
 
     // 좌상 → 우상 → 우하 → 좌하 순서로 정렬
-    return { points: orderQuadPoints(pts), confident };
+    const ordered = orderQuadPoints(pts);
+
+    // [추가] AI 확인 없이 순수 OpenCV 결과를 그대로 쓰는 경우(=confident일 때는 AI를 아예
+    // 안 부름), 실제 카드보다 살짝 타이트하게 잡혀서 인쇄된 글자 가장자리가 잘리는 실패가
+    // 반복 보고됐다. 이건 배경(나무 무늬 등)이 조금 더 넓게 잡히는 실패보다 훨씬 치명적이다
+    // — 글자가 잘리면 그 정보는 되살릴 수 없지만, 배경이 살짝 더 들어간 정도는 명함 OCR
+    // 응답에 같이 딸려오는 frontCorners/backCorners로 별도 AI 호출/할당량 소모 없이 자동으로
+    // 다시 타이트하게 다듬어진다(ScanModal의 recognizeAndDiffRescan/handleScan 참고). 그래서
+    // 최종 사각형을 중심 기준 자기 크기의 4%만큼 바깥쪽으로 살짝 여유를 둬서, "카드 전체를
+    // 포함하되 살짝 넉넉하게"를 "정확히 딱 맞게(그래서 가끔 모자라게)"보다 우선한다.
+    const PAD_RATIO = 0.04;
+    const cx = (ordered[0].x + ordered[1].x + ordered[2].x + ordered[3].x) / 4;
+    const cy = (ordered[0].y + ordered[1].y + ordered[2].y + ordered[3].y) / 4;
+    const padded = ordered.map((p) => ({
+      x: Math.min(Math.max(p.x + (p.x - cx) * PAD_RATIO, 0), img.naturalWidth),
+      y: Math.min(Math.max(p.y + (p.y - cy) * PAD_RATIO, 0), img.naturalHeight)
+    })) as [Point, Point, Point, Point];
+
+    return { points: padded, confident };
   } catch (err) {
     console.error('모서리 자동 감지 실패:', err);
     return null;
@@ -508,6 +534,10 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   // 경우를 구분한다 — 이때는 "빠른 추정이라 불확실함"이 아니라 실제로 꽤 신뢰할 수 있는
   // 결과이므로 라벨 문구를 다르게 보여준다.
   const [cvConfident, setCvConfident] = useState(false);
+  // [추가] scanic의 로컬 ML(신경망) 감지기로 찾은 결과인지. 이 경로는 완전히 브라우저에서
+  // 끝나서 서버/API 호출도, Gemini 할당량 소모도 없다 — OpenCV보다 신뢰도가 높으므로
+  // 성공하면 OpenCV/AI 재확인 단계 자체를 건너뛴다.
+  const [mlConfirmed, setMlConfirmed] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   // [수정] 모서리 점을 하나씩 맞추는 게 번거롭다는 피드백에 따라, 사각형 안쪽을 드래그하면
   // 네 점이 동시에 같은 방향으로 움직이는 "전체 이동" 모드를 추가한다.
@@ -543,6 +573,34 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         if (cancelled) return;
         setImgEl(img);
         imgNaturalRef.current = { width: img.naturalWidth, height: img.naturalHeight };
+
+        // [추가] 1순위: scanic의 로컬 ML 감지기(scanic import부 주석 참고). 색상 규칙이 아니라
+        // 학습된 신경망으로 판단해서 나무 무늬 배경 등에 훨씬 안정적이고, 완전히 브라우저에서
+        // 끝나 서버/할당량 비용이 없다. 성공하면(문서로 판단할 확률 0.5 이상) 바로 이 결과를
+        // 쓰고, 아래 OpenCV/Gemini AI 단계는 전부 건너뛴다.
+        try {
+          const mlResult = await scanDocument(img, { detector: 'ml', mode: 'detect' });
+          if (!cancelled && mlResult.success && mlResult.corners && (mlResult.score ?? 1) >= 0.5) {
+            const mlPts: Point[] = [
+              { x: mlResult.corners.topLeft.x, y: mlResult.corners.topLeft.y },
+              { x: mlResult.corners.topRight.x, y: mlResult.corners.topRight.y },
+              { x: mlResult.corners.bottomRight.x, y: mlResult.corners.bottomRight.y },
+              { x: mlResult.corners.bottomLeft.x, y: mlResult.corners.bottomLeft.y }
+            ];
+            (img as any).__detectedCorners = mlPts;
+            setIsDetecting(false);
+            setAutoDetected(true);
+            setMlConfirmed(true);
+            return;
+          }
+        } catch (err) {
+          // 모델을 못 받아왔거나(네트워크 문제) 초기화에 실패해도, 아래 OpenCV 경로로
+          // 자연스럽게 넘어가면 되므로 여기서는 콘솔 경고만 남기고 계속 진행한다.
+          console.warn('scanic ML 감지 실패, OpenCV 방식으로 대체합니다:', err);
+        }
+        if (cancelled) return;
+
+        // 2순위: 기존 OpenCV 색상/윤곽선 기반 감지 (ML 감지가 실패했을 때만 여기로 온다)
         const detected = await detectCorners(img);
         // 표시 크기 계산은 아래 별도 effect(리사이즈 감지)에서 처리되므로,
         // 여기서는 우선 감지 결과를 "자연 좌표계" 기준으로 저장해두고 표시 시점에 스케일 변환
@@ -831,6 +889,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
                   // 확인된 결과인지를 그대로 알려준다 — "성공"이라고 무조건 확신하는 문구 대신,
                   // 실제 신뢰도를 사용자가 판단할 수 있게 한다.
                   if (!autoDetected) return '실패 (기본 위치 - 직접 맞춰주세요)';
+                  if (mlConfirmed) return 'AI 모델로 확인됨 (그래도 다르면 직접 드래그로 수정)';
                   if (aiConfirmed) return 'AI로 재확인됨 (그래도 다르면 직접 드래그로 수정)';
                   if (cvConfident) return '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)';
                   if (aiRefining) return '성공 (빠른 추정 - AI로 정밀 확인 중...)';
