@@ -169,7 +169,13 @@ const DETECTION_STRATEGY_LADDER_CROP: DetectionStrategyCrop[] = [
   { mode: 'adaptive', blockSize: 35, C: 5 }
 ];
 
-const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionStrategyCrop): Point[] | null => {
+// [추가] OpenCV 감지 결과와 함께 "이 결과를 얼마나 믿을 수 있는지"도 반환한다.
+interface DetectionResult {
+  points: Point[];
+  confident: boolean;
+}
+
+const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionStrategyCrop): DetectionResult | null => {
   let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy, hsv, whiteMask: any = null;
   let bestApprox: any = null;
   let bestApproxScore = -1;
@@ -311,21 +317,29 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
     }
 
     let pts: Point[] | null = null;
+    // [추가] OpenCV 결과를 어느 정도로 믿을 수 있는지("확신") 같이 반환한다. 뒤에서 이 값이
+    // false일 때만 Gemini AI 모서리 감지를 추가로 호출하기 위함이다 — AI 호출은 하루 20회짜리
+    // 무료 할당량을 같이 쓰기 때문에, OpenCV가 이미 잘 맞춘 케이스까지 매번 호출하면 정작
+    // 필요한 명함 OCR(스캔 자체)에 쓸 할당량이 낭비된다.
+    let confident = false;
     if (bestApprox) {
       pts = [];
       for (let i = 0; i < 4; i++) {
         pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
       }
+      // 실제 4점 다각형이 넓이/중심/비율 종합 점수로도 괜찮게 나왔을 때만 확신으로 본다.
+      confident = bestApproxScore >= 0.12;
     } else if (fallbackQuad) {
       // 정확히 4점으로 떨어지는 윤곽선을 못 찾은 경우(휘거나 구겨진 영수증 등),
-      // 가장 큰 덩어리를 감싸는 최소 사각형을 대신 사용한다.
+      // 가장 큰 덩어리를 감싸는 최소 사각형을 대신 사용한다. 이 경로는 근사치라 항상 "확신 없음".
       pts = fallbackQuad;
+      confident = false;
     }
 
     if (!pts) return null;
 
     // 좌상 → 우상 → 우하 → 좌하 순서로 정렬
-    return orderQuadPoints(pts);
+    return { points: orderQuadPoints(pts), confident };
   } catch (err) {
     console.error('모서리 자동 감지 실패:', err);
     return null;
@@ -339,7 +353,7 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
 
 // 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
 // 기본 민감도로 먼저 시도하고, 실패하면 더 민감한 설정 → 적응형 이진화 순으로 자동 재시도한다.
-const detectCorners = async (img: HTMLImageElement): Promise<Point[] | null> => {
+const detectCorners = async (img: HTMLImageElement): Promise<DetectionResult | null> => {
   try {
     await loadOpenCv();
   } catch {
@@ -490,6 +504,10 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   // 알 수 있게 한다.
   const [aiRefining, setAiRefining] = useState(false);
   const [aiConfirmed, setAiConfirmed] = useState(false);
+  // [추가] OpenCV 자체 결과가 이미 충분히 믿을만해서(confident) AI 추가 호출을 아예 안 한
+  // 경우를 구분한다 — 이때는 "빠른 추정이라 불확실함"이 아니라 실제로 꽤 신뢰할 수 있는
+  // 결과이므로 라벨 문구를 다르게 보여준다.
+  const [cvConfident, setCvConfident] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   // [수정] 모서리 점을 하나씩 맞추는 게 번거롭다는 피드백에 따라, 사각형 안쪽을 드래그하면
   // 네 점이 동시에 같은 방향으로 움직이는 "전체 이동" 모드를 추가한다.
@@ -531,12 +549,19 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         setIsDetecting(false);
         setAutoDetected(!!detected);
         if (detected) {
-          (img as any).__detectedCorners = detected;
+          (img as any).__detectedCorners = detected.points;
         }
 
-        // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤, Gemini AI 기반 모서리 감지를 백그라운드로
-        // 한 번 더 요청한다(fetchAiCornersNormalized 정의부 주석 참고). 응답이 오기 전에
-        // 사용자가 이미 취소했거나(cancelled) 직접 테두리를 조정했으면(userAdjustedRef) 무시한다.
+        // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤(속도), OpenCV 스스로 확신이 낮았을 때만
+        // (detected가 없거나 detected.confident === false) Gemini AI 기반 모서리 감지를
+        // 백그라운드로 추가 요청한다(fetchAiCornersNormalized 정의부 주석 참고). 이 AI 호출도
+        // 하루 20회짜리 무료 할당량을 명함 OCR과 같이 나눠 쓰기 때문에, OpenCV가 이미 잘 맞춘
+        // 케이스(=confident)까지 매번 부르면 정작 필요한 스캔(OCR) 자체가 할당량 부족으로
+        // 실패할 수 있다 — 애매하거나 실패한 케이스에만 아껴서 쓴다.
+        if (detected?.confident) {
+          setCvConfident(true);
+          return;
+        }
         setAiRefining(true);
         const aiCorners = await fetchAiCornersNormalized(fixedUrl);
         if (!cancelled) setAiRefining(false);
@@ -807,6 +832,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
                   // 실제 신뢰도를 사용자가 판단할 수 있게 한다.
                   if (!autoDetected) return '실패 (기본 위치 - 직접 맞춰주세요)';
                   if (aiConfirmed) return 'AI로 재확인됨 (그래도 다르면 직접 드래그로 수정)';
+                  if (cvConfident) return '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)';
                   if (aiRefining) return '성공 (빠른 추정 - AI로 정밀 확인 중...)';
                   return '성공 (빠른 추정 - 파란 사각형이 명함이 아니면 직접 드래그로 수정)';
                 })()}
