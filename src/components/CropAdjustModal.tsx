@@ -96,6 +96,61 @@ function quadsRoughlyAgree(a: Point[], b: Point[]): boolean {
   return centroidDist < 0.25 && areaRatio > 0.55;
 }
 
+// [추가] "핸드폰을 가로로 돌려서 찍으면 계속 실패한다"는 반복 재현 — 원인은 scanic ML
+// 모델이 카드가 90도 돌아간(가로로 찍힌) 채로 입력되면 인식률이 크게 떨어진다는 것이었다.
+// (실제로 이 카드처럼 글자가 세로로 흐르게 디자인된 명함은, 사용자가 프레임에 맞춰 찍으려면
+// 폰 자체를 눕혀서 찍게 되고 → 그 결과 사진은 카드가 옆으로 누운 채로 저장된다.) 사진 한 장을
+// 0/90/180/270도로 미리 돌려서 4번 다 모델에 넣어보고, 그중 점수가 가장 높은(=모델이 가장
+// "문서답다"고 판단한) 방향의 결과를 원본 좌표계로 되돌려 사용한다. 모델 자체는 브라우저에서
+// 로컬로 도는 가벼운 연산이라 4번 돌려도 서버/할당량 비용은 여전히 없다.
+async function detectMlBestRotation(img: HTMLImageElement): Promise<{ pts: Point[]; score: number } | null> {
+  const angles = [0, 90, 180, 270];
+  let best: { pts: Point[]; score: number } | null = null;
+
+  for (const angle of angles) {
+    try {
+      const swapped = angle === 90 || angle === 270;
+      const canvas = document.createElement('canvas');
+      canvas.width = swapped ? img.naturalHeight : img.naturalWidth;
+      canvas.height = swapped ? img.naturalWidth : img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+
+      const result = await scanDocument(canvas, { detector: 'ml', mode: 'detect' });
+      const score = result.score ?? 0;
+      if (result.success && result.corners && score >= 0.5 && score > (best?.score ?? 0)) {
+        // 회전된 캔버스 좌표계에서 찾은 코너를, -angle만큼 되돌려 원본 이미지 좌표계로 매핑한다.
+        const rad = (-angle * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const toOriginal = (p: Point): Point => {
+          const dx = p.x - canvas.width / 2;
+          const dy = p.y - canvas.height / 2;
+          return {
+            x: dx * cos - dy * sin + img.naturalWidth / 2,
+            y: dx * sin + dy * cos + img.naturalHeight / 2
+          };
+        };
+        const rawPts = [
+          toOriginal({ x: result.corners.topLeft.x, y: result.corners.topLeft.y }),
+          toOriginal({ x: result.corners.topRight.x, y: result.corners.topRight.y }),
+          toOriginal({ x: result.corners.bottomRight.x, y: result.corners.bottomRight.y }),
+          toOriginal({ x: result.corners.bottomLeft.x, y: result.corners.bottomLeft.y })
+        ];
+        // 회전 방향에 따라 "좌상/우상/우하/좌하" 라벨이 원본 기준으로는 뒤바뀌므로,
+        // 실제 좌표(x+y 합/차) 기준으로 다시 정렬한다.
+        best = { pts: orderQuadPoints(rawPts), score };
+      }
+    } catch {
+      // 이 각도에서 실패해도 나머지 각도는 계속 시도한다.
+    }
+  }
+
+  return best;
+}
+
 interface Props {
   imageDataUrl: string;
   title?: string;
@@ -611,29 +666,24 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
 
         // [추가] scanic의 로컬 ML 감지기(scanic import부 주석 참고)와 기존 OpenCV 윤곽선 감지를
         // 동시에 돌린다. ML은 색상 규칙이 아니라 학습된 신경망으로 판단해서 나무 무늬 배경 등에
-        // 훨씬 안정적이지만, 실사용 테스트에서 "확신 있다(score>=0.5)"고 보고하고도 명함이
-        // 기울어져 찍힌 사진에서 실제 모서리를 못 따라가고 회전 없는 엉뚱한 사각형을 내놓는
-        // 경우가 확인됐다(quadsRoughlyAgree 정의부 주석 참고) — 그래서 ML 결과 하나만으로
-        // 바로 확정 짓지 않고, 독립적인 두 번째 방법(OpenCV)과 위치가 실제로 비슷할 때만
-        // ("교차 검증") 확정으로 취급한다. 두 결과가 다르거나 한쪽이 실패하면 기존처럼 화면에
-        // 우선 보여준 뒤 Gemini AI로 추가 확인한다.
+        // 훨씬 안정적이지만, 카드가 옆으로 누운(90도 회전된) 채로 찍히면 그 자체로 인식률이
+        // 떨어진다는 게 확인됐다(detectMlBestRotation 정의부 주석 참고) — 그래서 사진을
+        // 0/90/180/270도로 미리 돌려보며 가장 "문서답다"고 판단한 방향의 결과를 쓴다. 그렇게
+        // 얻은 결과도 실사용 테스트에서 명함 비율과 맞아떨어지는 채로 위치는 틀린 경우가
+        // 확인됐으므로(quadsRoughlyAgree 정의부 주석 참고), 독립적인 두 번째 방법(OpenCV)과
+        // 위치가 실제로 비슷할 때만("교차 검증") 확정으로 취급한다. 두 결과가 다르거나 한쪽이
+        // 실패하면 기존처럼 화면에 우선 보여준 뒤 Gemini AI로 추가 확인한다.
         let mlPts: Point[] | null = null;
         let mlOk = false;
         const [mlSettled, cvSettled] = await Promise.allSettled([
-          scanDocument(img, { detector: 'ml', mode: 'detect' }),
+          detectMlBestRotation(img),
           detectCorners(img)
         ]);
         if (cancelled) return;
 
         if (mlSettled.status === 'fulfilled') {
-          const mlResult = mlSettled.value;
-          if (mlResult.success && mlResult.corners && (mlResult.score ?? 1) >= 0.5) {
-            mlPts = [
-              { x: mlResult.corners.topLeft.x, y: mlResult.corners.topLeft.y },
-              { x: mlResult.corners.topRight.x, y: mlResult.corners.topRight.y },
-              { x: mlResult.corners.bottomRight.x, y: mlResult.corners.bottomRight.y },
-              { x: mlResult.corners.bottomLeft.x, y: mlResult.corners.bottomLeft.y }
-            ];
+          if (mlSettled.value) {
+            mlPts = mlSettled.value.pts;
             mlOk = true;
           }
         } else {
