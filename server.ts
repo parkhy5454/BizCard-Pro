@@ -5718,6 +5718,44 @@ app.get('/api/admin-docs/card-usage-candidates', (req, res) => {
   res.json(candidates);
 });
 
+// [추가] "가지급내역"이 전자결재 > 가지급금 정산서와 연동되도록 - 결재가 완전히 승인
+// (status === 'approved')된 정산서의 정산 내역(items)을 전부 찾아서 한 목록으로 모아준다.
+// 화면에서 이 목록 중 골라서 "가지급내역"의 해당 인원·해당 월 칸으로 자동 불러올 수 있다.
+// (아직 결재 중이거나 반려된 정산서는 확정된 지급이 아니므로 포함하지 않는다.)
+app.get('/api/admin-docs/advance-payment-candidates', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+
+  const candidates: {
+    sourceKey: string;
+    sourceLabel: string;
+    date: string;
+    amount: number;
+    personName?: string;
+    project?: string;
+    memo?: string;
+  }[] = [];
+
+  for (const settlement of (dbData.advancePayments || [])) {
+    if (settlement.status !== 'approved') continue;
+    for (const item of (settlement.items || [])) {
+      candidates.push({
+        sourceKey: `advance_settlement_item:${settlement.id}:${item.id}`,
+        sourceLabel: '전자결재 가지급금 정산서',
+        date: item.date,
+        amount: item.amount,
+        personName: settlement.author,
+        project: item.project,
+        memo: item.description
+      });
+    }
+  }
+
+  candidates.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  res.json(candidates);
+});
+
 // AI 업무일지 정제 (AI Polish) API
 app.post('/api/worklogs/ai-polish', async (req, res) => {
   try {
