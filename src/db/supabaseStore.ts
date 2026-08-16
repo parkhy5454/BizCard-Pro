@@ -83,7 +83,7 @@ export async function uploadDataUrlImage(
   scopeId: string,
   dataUrl: string,
   keyHint: string,
-  category: 'cards' | 'receipts' = 'cards'
+  category: 'cards' | 'receipts' | 'signatures' = 'cards'
 ): Promise<string | null> {
   if (!isSupabaseConfigured) return null;
   const match = dataUrl.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
