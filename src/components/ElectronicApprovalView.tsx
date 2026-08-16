@@ -1734,9 +1734,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           </tbody>
         </table>
 
+        {/* [수정] 번호 붙은 문단(1. 2. 3. ...)은 첫 줄만 오른쪽으로 들여쓰고(textIndent),
+            한 줄을 넘어가서 줄바꿈되면 이어지는 줄은 다시 본문 왼쪽 여백(0)으로 돌아가도록 함
+            - paddingLeft 없이 textIndent만 쓰면 정확히 이 동작(첫 줄만 들여쓰기)이 된다.
+            실제 참고 문서를 픽셀 단위로 측정해서 들여쓰기 폭을 20mm로 맞췄다. */}
         <div style={{ minHeight: 180, lineHeight: 1.9, fontSize: 12 }}>
           {bodyParagraphs.map((p, i) => (
-            <p key={i} style={{ marginBottom: 14 }}>
+            <p key={i} style={{ marginBottom: 14, textIndent: '20mm' }}>
               <span style={{ marginRight: 6 }}>{i + 1}.</span>{p}{i === bodyParagraphs.length - 1 ? '  - 끝 -' : ''}
             </p>
           ))}
