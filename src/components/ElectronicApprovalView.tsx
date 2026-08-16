@@ -1708,14 +1708,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     const labelBlue = '#1a5cab';
     return (
       // [수정] 출력/미리보기가 실제 A4 용지 크기(297mm)에 맞게 보이도록 minHeight를 지정하고,
-      // 아래쪽 결재/직인 블록을 페이지 맨 밑(여백 25mm)으로 밀어내기 위해 flex column으로 구성한다.
-      // 하단 여백만 25mm로(다른 여백은 기존 위/아래 20, 좌우 25 그대로 유지) 늘려서, 그 여백
-      // 바로 위에 결재 블록이 marginTop:'auto'로 붙게 된다.
-      <div style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', padding: '20mm 25mm 25mm', display: 'flex', flexDirection: 'column', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
+      // 아래쪽 결재/직인 블록을 페이지 맨 밑으로 밀어내기 위해 flex column으로 구성한다.
+      // 여백을 위/아래/좌/우 모두 25mm로 균일하게 맞춰서(예전엔 위 20 / 아래 25로 달랐음)
+      // 인쇄했을 때 상하 균형감이 맞도록 했다.
+      <div style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', padding: '25mm', display: 'flex', flexDirection: 'column', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
         {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
-            로고 높이를 회사명 글자("(주)카이저솔루션", 22px)의 위아래 폭에 맞춰 32px로 조정했다. */}
-        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 34 }}>
-          <img src="/brand/kaiser-logo.png" alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 32 }} />
+            로고가 작아 보인다는 피드백에 따라 텍스트 높이에 맞췄던 32px보다 더 크게(48px) 키웠다. */}
+        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 50 }}>
+          <img src="/brand/kaiser-logo.png" alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 48 }} />
           <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
         </div>
 
