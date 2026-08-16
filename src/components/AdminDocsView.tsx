@@ -3363,108 +3363,101 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                       </div>
                     )}
 
-                    <div className="overflow-x-auto -mx-1">
-                      <table className="min-w-full border-separate border-spacing-0 text-[11px]">
-                        <thead>
-                          <tr>
-                            <th className="sticky left-0 bg-indigo-50/40 text-left text-slate-500 font-bold px-1.5 py-1 whitespace-nowrap">구분</th>
-                            {(editingDoc.advancePayment?.people || []).map((p) => (
-                              <th key={p.id} className="px-1 py-1 min-w-[100px]">
-                                <div className="flex items-center gap-0.5">
+                    {/* [수정] 예전엔 표(table) 형태였는데, 인원이 여러 명이면 화면(특히 폰/좁은
+                    창)에서 열이 넘쳐서 항목끼리 겹쳐 보이는 문제가 있었다. 인원 이름은 위에서
+                    따로 관리하고, 달마다 카드 하나로 나눠서 그 안에 인원별 금액 입력칸을
+                    grid로 자연스럽게 줄바꿈되게 배치하면 화면 폭에 상관없이 안 겹친다. */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                      <label className="block text-[10px] font-bold text-slate-500">인원 (이 표의 열)</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(editingDoc.advancePayment?.people || []).map((p) => (
+                          <div key={p.id} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-0.5 py-0.5">
+                            <input
+                              type="text"
+                              value={p.name}
+                              onChange={(e) => updateAdvancePersonName(p.id, e.target.value)}
+                              placeholder="이름"
+                              className="w-20 bg-transparent text-[11px] font-bold text-slate-700 outline-none"
+                            />
+                            {(editingDoc.advancePayment?.people.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeAdvancePerson(p.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(editingDoc.advancePayment?.months || []).map((m) => (
+                        <div key={m.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <input
+                              type="text"
+                              value={m.label}
+                              onChange={(e) => updateAdvanceMonthField(m.id, { label: e.target.value })}
+                              placeholder="구분 (예: 01월)"
+                              className="w-24 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={m.depositDate || ''}
+                              onChange={(e) => updateAdvanceMonthField(m.id, { depositDate: e.target.value })}
+                              placeholder="입금일 (예: 2026,03,06)"
+                              className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={m.note || ''}
+                              onChange={(e) => updateAdvanceMonthField(m.id, { note: e.target.value })}
+                              placeholder="비고"
+                              className="flex-[2] min-w-[120px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeAdvanceMonth(m.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
+                            {(editingDoc.advancePayment?.people || []).map((p) => {
+                              const cell = m.amounts[p.id];
+                              const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                              return (
+                                <div key={p.id}>
+                                  <label className="block text-[9px] text-slate-400 truncate mb-0.5">{p.name || '(이름 미입력)'}</label>
                                   <input
                                     type="text"
-                                    value={p.name}
-                                    onChange={(e) => updateAdvancePersonName(p.id, e.target.value)}
-                                    placeholder="이름"
-                                    className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                    inputMode="numeric"
+                                    value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                    onChange={(e) => updateAdvanceCellManual(m.id, p.id, parseCurrencyInput(e.target.value))}
+                                    placeholder="0"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
                                   />
-                                  {(editingDoc.advancePayment?.people.length || 0) > 1 && (
-                                    <button type="button" onClick={() => removeAdvancePerson(p.id)} className="shrink-0 p-0.5 text-slate-400 hover:text-rose-500">
-                                      <X className="w-3 h-3" />
-                                    </button>
+                                  {importedSum > 0 && (
+                                    <p className="text-[9px] text-emerald-600 mt-0.5 text-right">+{formatCurrencyInput(importedSum)} 자동반영</p>
                                   )}
                                 </div>
-                              </th>
-                            ))}
-                            <th className="px-1.5 py-1 min-w-[90px] text-slate-500 font-bold">카이저합계</th>
-                            <th className="px-1.5 py-1 min-w-[100px] text-slate-500 font-bold">입금일</th>
-                            <th className="px-1.5 py-1 min-w-[140px] text-slate-500 font-bold">비고</th>
-                            <th className="w-6"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(editingDoc.advancePayment?.months || []).map((m) => (
-                            <tr key={m.id} className="border-t border-indigo-100/70">
-                              <td className="sticky left-0 bg-indigo-50/40 px-1.5 py-1">
-                                <input
-                                  type="text"
-                                  value={m.label}
-                                  onChange={(e) => updateAdvanceMonthField(m.id, { label: e.target.value })}
-                                  placeholder="예: 01월"
-                                  className="w-16 bg-white border border-slate-200 rounded px-1 py-1 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
-                                />
-                              </td>
-                              {(editingDoc.advancePayment?.people || []).map((p) => {
-                                const cell = m.amounts[p.id];
-                                const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
-                                return (
-                                  <td key={p.id} className="px-1 py-1">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
-                                      onChange={(e) => updateAdvanceCellManual(m.id, p.id, parseCurrencyInput(e.target.value))}
-                                      placeholder="0"
-                                      className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
-                                    />
-                                    {importedSum > 0 && (
-                                      <p className="text-[9px] text-emerald-600 mt-0.5 text-right">+{formatCurrencyInput(importedSum)} 자동반영</p>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="px-1.5 py-1 text-right font-bold text-slate-700">
-                                {formatCurrencyInput(advanceMonthTotal(m, editingDoc.advancePayment?.people || []))}
-                              </td>
-                              <td className="px-1.5 py-1">
-                                <input
-                                  type="text"
-                                  value={m.depositDate || ''}
-                                  onChange={(e) => updateAdvanceMonthField(m.id, { depositDate: e.target.value })}
-                                  placeholder="예: 2026,03,06"
-                                  className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                                />
-                              </td>
-                              <td className="px-1.5 py-1">
-                                <input
-                                  type="text"
-                                  value={m.note || ''}
-                                  onChange={(e) => updateAdvanceMonthField(m.id, { note: e.target.value })}
-                                  placeholder="비고"
-                                  className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                                />
-                              </td>
-                              <td className="px-0.5 py-1 text-center">
-                                <button type="button" onClick={() => removeAdvanceMonth(m.id)} className="p-0.5 text-slate-400 hover:text-rose-500">
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          <tr className="border-t-2 border-indigo-200 font-bold">
-                            <td className="sticky left-0 bg-indigo-50/40 px-1.5 py-1.5 text-slate-700">합계</td>
-                            {(editingDoc.advancePayment?.people || []).map((p) => (
-                              <td key={p.id} className="px-1.5 py-1.5 text-right text-slate-700">
-                                {formatCurrencyInput(advancePersonTotal(p.id, editingDoc.advancePayment?.months || []))}
-                              </td>
-                            ))}
-                            <td className="px-1.5 py-1.5 text-right text-emerald-600">
-                              {formatCurrencyInput(advanceGrandTotal(editingDoc.advancePayment))}
-                            </td>
-                            <td colSpan={3}></td>
-                          </tr>
-                        </tbody>
-                      </table>
+                              );
+                            })}
+                          </div>
+
+                          <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                            카이저합계: {formatCurrencyInput(advanceMonthTotal(m, editingDoc.advancePayment?.people || []))}원
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-indigo-100 pt-2 space-y-1">
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-600">
+                        {(editingDoc.advancePayment?.people || []).map((p) => (
+                          <span key={p.id}>{p.name || '(이름 미입력)'}: <b className="text-slate-700">{formatCurrencyInput(advancePersonTotal(p.id, editingDoc.advancePayment?.months || []))}원</b></span>
+                        ))}
+                      </div>
+                      <p className="text-right text-xs font-bold text-emerald-600">
+                        전체 합계: {formatCurrencyInput(advanceGrandTotal(editingDoc.advancePayment))}원
+                      </p>
                     </div>
                   </div>
                 )}
