@@ -112,7 +112,10 @@ export type AdminDocCategory =
   | 'bank_withdrawal'     // 통장 출금 내역
   | 'bank_deposit'        // 통장 입금 내역
   | 'loan_repayment'      // 대출 현황
-  | 'card_usage';         // 법인카드 사용내역
+  | 'card_usage'          // 법인카드 사용내역
+  | 'advance_payment'     // 가지급내역
+  | 'vehicle_fine'        // 차량 과태료 내역
+  | 'tax';                // 각종 세금
 
 export interface AdminDocLineItem {
   id: string;
@@ -256,6 +259,55 @@ export interface AdminDoc {
         sourceKey?: string;
         sourceLabel?: string; // 화면에 보여줄 원본 이름 (예: "차량 비용관리")
       }[];
+    }[];
+  };
+  // [추가] 회계관리 > 가지급내역(category: 'advance_payment') 전용 구조화 필드. 공유해주신
+  // "2026년도 월별 가지급 내역" 양식과 동일하게, 인원(열) × 월(행)의 표로 관리한다.
+  // 인원은 회사 상황에 따라 바뀔 수 있어 자유롭게 추가/삭제 가능한 목록으로 둔다(이름만 있으면
+  // 어떤 인원이든 열로 추가 가능 - 특정 인원 이름을 코드에 고정하지 않음). 카이저합계(그 달
+  // 전체 합)와 맨 아래 합계 행은 입력값 기준으로 화면에서 자동 계산되어 항상 정확하다.
+  advancePayment?: {
+    people: { id: string; name: string }[]; // 표의 열 - 인원
+    months: {
+      id: string;
+      monthKey: string;   // YYYY-MM (전자결재 자동 불러오기 매칭 기준)
+      label: string;       // 화면에 보여줄 구분 텍스트 (기본 "01월" 등, 자유 편집 가능)
+      depositDate?: string; // 입금일
+      // [추가] 인원별 이번 달 금액. manual은 직접 입력, imported는 전자결재 > 가지급금
+      // 정산서가 승인되면 "자동 불러오기"로 채워진 항목들 - 둘을 더한 값이 그 칸의 최종
+      // 금액이다. imported의 sourceKey로 같은 정산서 항목을 중복으로 다시 가져오지 않는다.
+      amounts: Record<string, {
+        manual: number;
+        imported: { sourceKey: string; sourceLabel: string; amount: number }[];
+      }>;
+      note?: string; // 비고 (계산식 메모 등 자유 텍스트, 공유해주신 양식처럼 길게 적어도 됨)
+    }[];
+  };
+  // [추가] 회계관리 > 차량 과태료 내역(category: 'vehicle_fine') 전용 구조화 필드.
+  // 건별로 여러 줄 입력하는 단순한 표(일자/차량/위반내용/금액/납부여부/비고).
+  vehicleFine?: {
+    entries: {
+      id: string;
+      date: string;      // 일자
+      vehicle: string;    // 차량번호/차량명
+      detail: string;     // 위반내용
+      amount: number;     // 금액(원)
+      isPaid: boolean;    // 납부여부
+      note?: string;       // 비고
+    }[];
+  };
+  // [추가] 회계관리 > 각종 세금(category: 'tax') 전용 구조화 필드.
+  // 건별로 여러 줄 입력하는 단순한 표(세목/귀속기간/신고기한/납부일/금액/납부여부/비고).
+  taxPayment?: {
+    entries: {
+      id: string;
+      taxType: string;    // 세목 (부가세/법인세/원천세 등)
+      period: string;      // 귀속기간
+      dueDate?: string;    // 신고기한
+      paidDate?: string;   // 납부일
+      amount: number;      // 금액(원)
+      isPaid: boolean;     // 납부여부
+      note?: string;        // 비고
     }[];
   };
   // [추가] 경영지원 > 법인카드 관리(category: 'corp_card') 전용 구조화 필드. 카드사용내역
