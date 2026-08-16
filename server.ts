@@ -2954,6 +2954,13 @@ app.post('/api/scan-card', async (req, res) => {
       "좌표는 이미지의 가로/세로 크기에 대한 0~1 사이의 비율로 표현해줘 (예: 이미지 맨 왼쪽 위 모서리는 x:0, y:0). " +
       "카메라 각도 때문에 명함이 기울어져 찍혔어도, 실제 카드의 네 꼭짓점 위치를 최대한 정확하게 찾아줘 " +
       "(카드 주변 배경, 손가락, 그림자는 절대 포함하지 말고 카드 실물 가장자리에 딱 맞춰줘).\n" +
+      // [추가] 사용자가 폰을 가로로 눕혀서 찍는 등, 사진 자체가 회전된 채로 촬영되는 경우가
+      // 흔하다. 네 꼭짓점 좌표만으로는 "어디가 위쪽인지"(글자가 어느 방향으로 읽혀야 하는지)를
+      // 알 수 없어서, 순수 기하학적 계산으로 자르면 결과물이 옆으로 눕거나 거꾸로 나오는 문제가
+      // 있었다. Gemini는 실제 글자를 읽을 수 있으니, "이 이미지를 몇 도 시계 방향으로 돌려야
+      // 명함 글자가 똑바로(위아래 안 뒤집히고 옆으로 안 눕고) 보이는지"도 같이 알려달라고 한다.
+      "그리고 각 이미지별로, 그 이미지를 시계 방향으로 몇 도 돌려야 명함에 적힌 글자가 똑바로(거꾸로 뒤집히지 않고, 옆으로 눕지 않고) 정상적으로 읽히는지도 알려줘. " +
+      "값은 반드시 0, 90, 180, 270 중 하나여야 해 (이미 똑바로 보이면 0).\n" +
       "응답은 반드시 아래 JSON 규격에 맞게 순수 JSON 데이터만 리턴해줘. 마크다운 백틱(```json) 없이 리턴하거나 있어도 JSON 파싱 가능해야 함.\n" +
       "{\n" +
       '  "name": "성명",\n' +
@@ -2970,9 +2977,11 @@ app.post('/api/scan-card', async (req, res) => {
       '  "website": "홈페이지 주소 (명함에 적혀있는 경우에만 기재, 없으면 빈 문자열 \"\")",\n' +
       '  "memo": "명함에 적힌 슬로건이나 주요 비즈니스 요약",\n' +
       '  "frontCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n' +
-      '  "backCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}}\n' +
+      '  "backCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n' +
+      '  "frontRotation": 0,\n' +
+      '  "backRotation": 0\n' +
       "}\n" +
-      "(frontCorners는 첫 번째로 첨부된 이미지, backCorners는 두 번째로 첨부된 이미지 기준이야. 해당 이미지가 없으면 그 필드는 생략해도 돼.)"
+      "(frontCorners/frontRotation은 첫 번째로 첨부된 이미지, backCorners/backRotation은 두 번째로 첨부된 이미지 기준이야. 해당 이미지가 없으면 그 필드들은 생략해도 돼.)"
     ];
 
     if (frontImage) {
@@ -3025,6 +3034,13 @@ app.post('/api/scan-card', async (req, res) => {
         companyInfo: '매출 정보 확인 어려움'
       };
     }
+
+    // [추가] frontRotation/backRotation은 0/90/180/270 중 하나만 유효한 값이다. AI가 이 범위
+    // 밖의 값(문자열, null, 다른 숫자 등)을 주면 클라이언트에서 엉뚱하게 회전시킬 수 있으므로,
+    // 여기서 검증해서 벗어나면 "회전 불필요(0)"로 안전하게 처리한다.
+    const normalizeRotation = (v: any) => ([0, 90, 180, 270].includes(v) ? v : 0);
+    if ('frontRotation' in parsedJson) parsedJson.frontRotation = normalizeRotation(parsedJson.frontRotation);
+    if ('backRotation' in parsedJson) parsedJson.backRotation = normalizeRotation(parsedJson.backRotation);
 
     res.json(parsedJson);
   } catch (error: any) {
