@@ -30,7 +30,10 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'bank_withdrawal', label: '통장 출금 내역', personLabel: '거래처/적요', showAmount: true },
     { id: 'bank_deposit', label: '통장 입금 내역', personLabel: '거래처/적요', showAmount: true },
     { id: 'loan_repayment', label: '대출 현황', personLabel: '금융기관', showAmount: true },
-    { id: 'card_usage', label: '카드사용내역', personLabel: '카드 소지자', showAmount: true }
+    { id: 'card_usage', label: '카드사용내역', personLabel: '카드 소지자', showAmount: true },
+    { id: 'advance_payment', label: '가지급내역', personLabel: '인원', showAmount: true },
+    { id: 'vehicle_fine', label: '차량 과태료 내역', personLabel: '차량', showAmount: true },
+    { id: 'tax', label: '각종 세금', personLabel: '세목', showAmount: true }
   ]
 };
 
@@ -158,6 +161,34 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       cardCompany: '', cardNumber: '', user: '', periodLabel: '', paymentDay: '',
       amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
     }]
+  } : undefined,
+  // [추가] 가지급내역 기본값. 공유해주신 양식과 동일하게 12개월 행을 미리 다 채워두고
+  // (연중 아무 때나 열어도 1~12월이 다 보이게), 인원(열)은 빈 칸 하나만 두고 "인원 추가"로
+  // 늘려서 회사 상황에 맞는 이름을 직접 입력하게 한다.
+  advancePayment: category === 'advance_payment' ? (() => {
+    const year = new Date().getFullYear();
+    return {
+      people: [{ id: `person-${Date.now()}`, name: '' }],
+      months: Array.from({ length: 12 }, (_, i) => {
+        const mm = String(i + 1).padStart(2, '0');
+        return {
+          id: `apm-${Date.now()}-${i}`,
+          monthKey: `${year}-${mm}`,
+          label: `${mm}월`,
+          depositDate: '',
+          amounts: {},
+          note: ''
+        };
+      })
+    };
+  })() : undefined,
+  // [추가] 차량 과태료 내역 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  vehicleFine: category === 'vehicle_fine' ? {
+    entries: [{ id: `vf-${Date.now()}`, date: new Date().toISOString().split('T')[0], vehicle: '', detail: '', amount: 0, isPaid: false, note: '' }]
+  } : undefined,
+  // [추가] 각종 세금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  taxPayment: category === 'tax' ? {
+    entries: [{ id: `tax-${Date.now()}`, taxType: '', period: '', dueDate: '', paidDate: '', amount: 0, isPaid: false, note: '' }]
   } : undefined,
   // [추가] 근로계약서 기본값. 급여 구성 항목을 실제 회사 양식(기본급/연장근로수당/
   // 차량유지비/식대)에 맞춰 미리 채워두고, 필요하면 항목을 더 추가/삭제할 수 있다.
@@ -633,6 +664,186 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   };
   const cardGroupTotal = (c: CardGroup) => c.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
+  // [추가] 가지급내역 - 인원(열) 추가/삭제/이름수정, 월(행) 추가/삭제/수정, 칸(인원×월)
+  // 금액 직접입력수정. 칸 하나는 "직접 입력한 금액(manual) + 전자결재에서 자동으로 가져온
+  // 항목들(imported)의 합"으로 구성된다 - 자동 불러오기와 별개로 사람이 직접 조정 금액을
+  // 더 얹거나 뺄 수 있도록(공유해주신 양식의 "-8,800(주차료부족금액)" 같은 조정 내역), manual은
+  // 음수도 허용한다.
+  type AdvancePayment = NonNullable<AdminDoc['advancePayment']>;
+  type AdvancePerson = AdvancePayment['people'][number];
+  type AdvanceMonth = AdvancePayment['months'][number];
+  type AdvanceCell = AdvanceMonth['amounts'][string];
+  const updateAdvancePayment = (updater: (ap: AdvancePayment) => AdvancePayment) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const ap = prev.advancePayment || { people: [], months: [] };
+      return { ...prev, advancePayment: updater(ap) };
+    });
+  };
+  const addAdvancePerson = () => {
+    updateAdvancePayment((ap) => ({ ...ap, people: [...ap.people, { id: `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '' }] }));
+  };
+  const removeAdvancePerson = (personId: string) => {
+    updateAdvancePayment((ap) => ({
+      ...ap,
+      people: ap.people.filter((p) => p.id !== personId),
+      months: ap.months.map((m) => {
+        const nextAmounts = { ...m.amounts };
+        delete nextAmounts[personId];
+        return { ...m, amounts: nextAmounts };
+      })
+    }));
+  };
+  const updateAdvancePersonName = (personId: string, name: string) => {
+    updateAdvancePayment((ap) => ({ ...ap, people: ap.people.map((p) => p.id === personId ? { ...p, name } : p) }));
+  };
+  const addAdvanceMonth = () => {
+    updateAdvancePayment((ap) => ({
+      ...ap,
+      months: [...ap.months, { id: `apm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, monthKey: '', label: '', depositDate: '', amounts: {}, note: '' }]
+    }));
+  };
+  const removeAdvanceMonth = (monthId: string) => {
+    updateAdvancePayment((ap) => ({ ...ap, months: ap.months.filter((m) => m.id !== monthId) }));
+  };
+  const updateAdvanceMonthField = (monthId: string, patch: Partial<Pick<AdvanceMonth, 'monthKey' | 'label' | 'depositDate' | 'note'>>) => {
+    updateAdvancePayment((ap) => ({ ...ap, months: ap.months.map((m) => m.id === monthId ? { ...m, ...patch } : m) }));
+  };
+  const updateAdvanceCellManual = (monthId: string, personId: string, manual: number) => {
+    updateAdvancePayment((ap) => ({
+      ...ap,
+      months: ap.months.map((m) => m.id === monthId
+        ? { ...m, amounts: { ...m.amounts, [personId]: { manual, imported: m.amounts[personId]?.imported || [] } } }
+        : m)
+    }));
+  };
+  const advanceCellTotal = (cell?: AdvanceCell) => cell ? (Number(cell.manual) || 0) + cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+  const advanceMonthTotal = (m: AdvanceMonth, people: AdvancePerson[]) => people.reduce((sum, p) => sum + advanceCellTotal(m.amounts[p.id]), 0);
+  const advancePersonTotal = (personId: string, months: AdvanceMonth[]) => months.reduce((sum, m) => sum + advanceCellTotal(m.amounts[personId]), 0);
+  const advanceGrandTotal = (ap?: AdvancePayment) => ap ? ap.months.reduce((sum, m) => sum + advanceMonthTotal(m, ap.people), 0) : 0;
+
+  // [추가] "자동 불러오기" - 전자결재 > 가지급금 정산서가 승인(status: 'approved')되면 그
+  // 정산 내역을 서버에서 모아와서, 고른 항목을 이름이 일치하는 인원 열 + 날짜가 속한 월 행의
+  // 칸에 채워 넣는다. 일치하는 인원 열이 없으면 새로 만들고, 해당 월 행이 없으면 새로 만든다.
+  // 이미 가져온 적 있는 항목(sourceKey로 판단)은 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
+  type AdvanceImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; personName?: string; project?: string; memo?: string };
+  const [advanceImportCandidates, setAdvanceImportCandidates] = useState<AdvanceImportCandidate[]>([]);
+  const [showAdvanceImportPanel, setShowAdvanceImportPanel] = useState(false);
+  const [isLoadingAdvanceCandidates, setIsLoadingAdvanceCandidates] = useState(false);
+  const [selectedAdvanceImportKeys, setSelectedAdvanceImportKeys] = useState<Set<string>>(new Set());
+
+  const alreadyImportedAdvanceKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'advance_payment' || !d.advancePayment) continue;
+    for (const m of d.advancePayment.months) {
+      for (const personId of Object.keys(m.amounts)) {
+        for (const imp of (m.amounts[personId].imported || [])) alreadyImportedAdvanceKeys.add(imp.sourceKey);
+      }
+    }
+  }
+  for (const m of (editingDoc?.advancePayment?.months || [])) {
+    for (const personId of Object.keys(m.amounts)) {
+      for (const imp of (m.amounts[personId]?.imported || [])) alreadyImportedAdvanceKeys.add(imp.sourceKey);
+    }
+  }
+
+  const handleOpenAdvanceImportPanel = async () => {
+    if (!currentUser) return;
+    setShowAdvanceImportPanel(true);
+    setIsLoadingAdvanceCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/advance-payment-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: AdvanceImportCandidate[] = await res.json();
+      setAdvanceImportCandidates(data);
+    } catch (err: any) {
+      alert(`전자결재 가지급금 정산서 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowAdvanceImportPanel(false);
+    } finally {
+      setIsLoadingAdvanceCandidates(false);
+    }
+  };
+
+  const toggleAdvanceImportKey = (key: string) => {
+    setSelectedAdvanceImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const importAdvanceCandidate = (ap: AdvancePayment, cand: AdvanceImportCandidate): AdvancePayment => {
+    let people = ap.people;
+    const name = (cand.personName || '').trim();
+    let person = people.find((p) => p.name.trim() === name);
+    if (!person && name) {
+      person = { id: `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name };
+      people = [...people, person];
+    }
+    if (!person) return ap; // 이름 정보가 아예 없으면 어느 인원 열에 넣을지 알 수 없어 건너뜀
+
+    const monthKey = (cand.date || '').slice(0, 7);
+    let months = ap.months;
+    let month = months.find((m) => m.monthKey === monthKey);
+    if (!month) {
+      const mm = monthKey.slice(5, 7);
+      month = { id: `apm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, monthKey, label: mm ? `${mm}월` : (monthKey || ''), depositDate: '', amounts: {}, note: '' };
+      months = [...months, month].sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+    }
+    const targetMonthId = month.id;
+    months = months.map((m) => {
+      if (m.id !== targetMonthId) return m;
+      const existing = m.amounts[person!.id] || { manual: 0, imported: [] };
+      return { ...m, amounts: { ...m.amounts, [person!.id]: { ...existing, imported: [...existing.imported, { sourceKey: cand.sourceKey, sourceLabel: cand.sourceLabel, amount: cand.amount }] } } };
+    });
+    return { ...ap, people, months };
+  };
+
+  const handleImportAdvanceSelected = () => {
+    const toImport = advanceImportCandidates.filter((c) => selectedAdvanceImportKeys.has(c.sourceKey));
+    updateAdvancePayment((ap) => toImport.reduce((acc, cand) => importAdvanceCandidate(acc, cand), ap));
+    setSelectedAdvanceImportKeys(new Set());
+    setShowAdvanceImportPanel(false);
+  };
+
+  // [추가] 차량 과태료 내역 - 항목 추가/삭제/수정 (건별로 여러 줄)
+  type VehicleFineRow = NonNullable<AdminDoc['vehicleFine']>['entries'][number];
+  const updateVehicleFineEntries = (updater: (entries: VehicleFineRow[]) => VehicleFineRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const vehicleFine = prev.vehicleFine || { entries: [] };
+      return { ...prev, vehicleFine: { ...vehicleFine, entries: updater(vehicleFine.entries || []) } };
+    });
+  };
+  const addVehicleFineEntry = () => {
+    updateVehicleFineEntries((entries) => [...entries, { id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], vehicle: '', detail: '', amount: 0, isPaid: false, note: '' }]);
+  };
+  const removeVehicleFineEntry = (id: string) => {
+    updateVehicleFineEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateVehicleFineEntry = (id: string, patch: Partial<VehicleFineRow>) => {
+    updateVehicleFineEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
+  // [추가] 각종 세금 - 항목 추가/삭제/수정 (건별로 여러 줄)
+  type TaxRow = NonNullable<AdminDoc['taxPayment']>['entries'][number];
+  const updateTaxEntries = (updater: (entries: TaxRow[]) => TaxRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const taxPayment = prev.taxPayment || { entries: [] };
+      return { ...prev, taxPayment: { ...taxPayment, entries: updater(taxPayment.entries || []) } };
+    });
+  };
+  const addTaxEntry = () => {
+    updateTaxEntries((entries) => [...entries, { id: `tax-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, taxType: '', period: '', dueDate: '', paidDate: '', amount: 0, isPaid: false, note: '' }]);
+  };
+  const removeTaxEntry = (id: string) => {
+    updateTaxEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateTaxEntry = (id: string, patch: Partial<TaxRow>) => {
+    updateTaxEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
   // [추가] 법인카드 관리(월별 요약) - 카드 줄 추가·삭제·수정
   type CorpCardRow = NonNullable<AdminDoc['corpCard']>['cards'][number];
   const updateCorpCards = (updater: (cards: CorpCardRow[]) => CorpCardRow[]) => {
@@ -810,6 +1021,20 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       // [추가] 법인카드 관리(월별 요약)는 카드별 금액 합계를 amount 칸에 표시한다.
       if (payload.category === 'corp_card' && payload.corpCard) {
         const total = payload.corpCard.cards.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 가지급내역은 인원×월 전체 칸(직접입력+자동반영)의 총 합계를 amount 칸에 표시한다.
+      if (payload.category === 'advance_payment' && payload.advancePayment) {
+        payload.amount = String(advanceGrandTotal(payload.advancePayment));
+      }
+      // [추가] 차량 과태료 내역은 전체 과태료 합계를 amount 칸에 표시한다.
+      if (payload.category === 'vehicle_fine' && payload.vehicleFine) {
+        const total = payload.vehicleFine.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 각종 세금은 전체 세금 합계를 amount 칸에 표시한다.
+      if (payload.category === 'tax' && payload.taxPayment) {
+        const total = payload.taxPayment.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
         payload.amount = String(total);
       }
       // [추가] 근로계약서는 월 급여 합계를 amount 칸에 표시하고, 근로자 이름을 검색 대상인
@@ -3037,6 +3262,371 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
+                {/* [추가] 가지급내역 전용 입력. 공유해주신 "2026년도 월별 가지급 내역" 양식과
+                동일하게 인원(열) × 월(행)의 표로 입력받는다. 인원은 자유롭게 추가/삭제할 수
+                있고, 카이저합계(그 달 전체 합)와 맨 아래 인원별/전체 합계는 자동으로 계산된다.
+                전자결재 > 가지급금 정산서가 승인되면 "자동 불러오기"로 이름이 일치하는 인원의
+                해당 월 칸에 자동으로 반영할 수 있다. */}
+                {activeCategory === 'advance_payment' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">인원별 월별 가지급 내역</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenAdvanceImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addAdvancePerson} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 인원 추가
+                        </button>
+                        <button type="button" onClick={addAdvanceMonth} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 월 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 전자결재 > 가지급금 정산서 중 승인된 건의 정산 내역을 모아 보여주고,
+                    고른 것만 이름이 일치하는 인원의 해당 월 칸으로 자동 반영한다. */}
+                    {showAdvanceImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">전자결재 가지급금 정산서(승인) 불러오기</span>
+                          <button type="button" onClick={() => setShowAdvanceImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">이름이 일치하는 인원 열이 없으면 새로 만들고, 해당 월 행이 없으면 새로 만들어서 채웁니다.</p>
+
+                        {isLoadingAdvanceCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = advanceImportCandidates.filter((c) => !alreadyImportedAdvanceKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 승인된 가지급금 정산서 내역이 없습니다.</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedAdvanceImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedAdvanceImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedAdvanceImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedAdvanceImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleAdvanceImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{c.personName || '(이름 없음)'}</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.project && <span className="text-slate-400"> · {c.project}</span>}
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportAdvanceSelected}
+                              disabled={selectedAdvanceImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedAdvanceImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="overflow-x-auto -mx-1">
+                      <table className="min-w-full border-separate border-spacing-0 text-[11px]">
+                        <thead>
+                          <tr>
+                            <th className="sticky left-0 bg-indigo-50/40 text-left text-slate-500 font-bold px-1.5 py-1 whitespace-nowrap">구분</th>
+                            {(editingDoc.advancePayment?.people || []).map((p) => (
+                              <th key={p.id} className="px-1 py-1 min-w-[100px]">
+                                <div className="flex items-center gap-0.5">
+                                  <input
+                                    type="text"
+                                    value={p.name}
+                                    onChange={(e) => updateAdvancePersonName(p.id, e.target.value)}
+                                    placeholder="이름"
+                                    className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  {(editingDoc.advancePayment?.people.length || 0) > 1 && (
+                                    <button type="button" onClick={() => removeAdvancePerson(p.id)} className="shrink-0 p-0.5 text-slate-400 hover:text-rose-500">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </th>
+                            ))}
+                            <th className="px-1.5 py-1 min-w-[90px] text-slate-500 font-bold">카이저합계</th>
+                            <th className="px-1.5 py-1 min-w-[100px] text-slate-500 font-bold">입금일</th>
+                            <th className="px-1.5 py-1 min-w-[140px] text-slate-500 font-bold">비고</th>
+                            <th className="w-6"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(editingDoc.advancePayment?.months || []).map((m) => (
+                            <tr key={m.id} className="border-t border-indigo-100/70">
+                              <td className="sticky left-0 bg-indigo-50/40 px-1.5 py-1">
+                                <input
+                                  type="text"
+                                  value={m.label}
+                                  onChange={(e) => updateAdvanceMonthField(m.id, { label: e.target.value })}
+                                  placeholder="예: 01월"
+                                  className="w-16 bg-white border border-slate-200 rounded px-1 py-1 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </td>
+                              {(editingDoc.advancePayment?.people || []).map((p) => {
+                                const cell = m.amounts[p.id];
+                                const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                                return (
+                                  <td key={p.id} className="px-1 py-1">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                      onChange={(e) => updateAdvanceCellManual(m.id, p.id, parseCurrencyInput(e.target.value))}
+                                      placeholder="0"
+                                      className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    {importedSum > 0 && (
+                                      <p className="text-[9px] text-emerald-600 mt-0.5 text-right">+{formatCurrencyInput(importedSum)} 자동반영</p>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td className="px-1.5 py-1 text-right font-bold text-slate-700">
+                                {formatCurrencyInput(advanceMonthTotal(m, editingDoc.advancePayment?.people || []))}
+                              </td>
+                              <td className="px-1.5 py-1">
+                                <input
+                                  type="text"
+                                  value={m.depositDate || ''}
+                                  onChange={(e) => updateAdvanceMonthField(m.id, { depositDate: e.target.value })}
+                                  placeholder="예: 2026,03,06"
+                                  className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </td>
+                              <td className="px-1.5 py-1">
+                                <input
+                                  type="text"
+                                  value={m.note || ''}
+                                  onChange={(e) => updateAdvanceMonthField(m.id, { note: e.target.value })}
+                                  placeholder="비고"
+                                  className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </td>
+                              <td className="px-0.5 py-1 text-center">
+                                <button type="button" onClick={() => removeAdvanceMonth(m.id)} className="p-0.5 text-slate-400 hover:text-rose-500">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t-2 border-indigo-200 font-bold">
+                            <td className="sticky left-0 bg-indigo-50/40 px-1.5 py-1.5 text-slate-700">합계</td>
+                            {(editingDoc.advancePayment?.people || []).map((p) => (
+                              <td key={p.id} className="px-1.5 py-1.5 text-right text-slate-700">
+                                {formatCurrencyInput(advancePersonTotal(p.id, editingDoc.advancePayment?.months || []))}
+                              </td>
+                            ))}
+                            <td className="px-1.5 py-1.5 text-right text-emerald-600">
+                              {formatCurrencyInput(advanceGrandTotal(editingDoc.advancePayment))}
+                            </td>
+                            <td colSpan={3}></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 차량 과태료 내역 전용 입력. 건별로 여러 줄 입력하는 단순한 표
+                (일자/차량/위반내용/금액/납부여부/비고). */}
+                {activeCategory === 'vehicle_fine' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600">차량 과태료 내역</label>
+                      <button type="button" onClick={addVehicleFineEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 항목 추가
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.vehicleFine?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 flex flex-wrap items-center gap-1">
+                          <input
+                            type="date"
+                            value={e.date}
+                            onChange={(ev) => updateVehicleFineEntry(e.id, { date: ev.target.value })}
+                            className="flex-1 min-w-[120px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={e.vehicle}
+                            onChange={(ev) => updateVehicleFineEntry(e.id, { vehicle: ev.target.value })}
+                            placeholder="차량번호/차량명"
+                            className="flex-1 min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={e.detail}
+                            onChange={(ev) => updateVehicleFineEntry(e.id, { detail: ev.target.value })}
+                            placeholder="위반내용"
+                            className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                            onChange={(ev) => updateVehicleFineEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                            placeholder="금액"
+                            className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={e.note || ''}
+                            onChange={(ev) => updateVehicleFineEntry(e.id, { note: ev.target.value })}
+                            placeholder="비고"
+                            className="flex-[2] min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <label className="flex items-center gap-1 text-[11px] text-slate-600 shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={e.isPaid}
+                              onChange={(ev) => updateVehicleFineEntry(e.id, { isPaid: ev.target.checked })}
+                              className="w-3.5 h-3.5"
+                            />
+                            납부완료
+                          </label>
+                          <button type="button" onClick={() => removeVehicleFineEntry(e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.vehicleFine?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 각종 세금 전용 입력. 건별로 여러 줄 입력하는 단순한 표
+                (세목/귀속기간/신고기한/납부일/금액/납부여부/비고). */}
+                {activeCategory === 'tax' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600">각종 세금 내역</label>
+                      <button type="button" onClick={addTaxEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 항목 추가
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.taxPayment?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <input
+                              type="text"
+                              value={e.taxType}
+                              onChange={(ev) => updateTaxEntry(e.id, { taxType: ev.target.value })}
+                              placeholder="세목 (예: 부가세)"
+                              className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={e.period}
+                              onChange={(ev) => updateTaxEntry(e.id, { period: ev.target.value })}
+                              placeholder="귀속기간 (예: 2026년 1기)"
+                              className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                              onChange={(ev) => updateTaxEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                              placeholder="금액"
+                              className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeTaxEntry(e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex-1 min-w-[110px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">신고기한</label>
+                              <input
+                                type="date"
+                                value={e.dueDate || ''}
+                                onChange={(ev) => updateTaxEntry(e.id, { dueDate: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[110px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">납부일</label>
+                              <input
+                                type="date"
+                                value={e.paidDate || ''}
+                                onChange={(ev) => updateTaxEntry(e.id, { paidDate: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={e.note || ''}
+                              onChange={(ev) => updateTaxEntry(e.id, { note: ev.target.value })}
+                              placeholder="비고"
+                              className="flex-[2] min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <label className="flex items-center gap-1 text-[11px] text-slate-600 shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={e.isPaid}
+                                onChange={(ev) => updateTaxEntry(e.id, { isPaid: ev.target.checked })}
+                                className="w-3.5 h-3.5"
+                              />
+                              납부완료
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.taxPayment?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
                 {/* [추가] 근로계약서 전용 입력. 근로자 정보 + 급여 구성만 채우면, 근로시간/
                 연차/퇴직/기밀유지 등 고정 조항은 인쇄할 때 자동으로 다 채워져서 나온다. */}
                 {(activeCategory === 'labor_contract' || activeCategory === 'salary_agreement') && (
@@ -3653,7 +4243,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && (
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && activeCategory !== 'advance_payment' && activeCategory !== 'vehicle_fine' && activeCategory !== 'tax' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
