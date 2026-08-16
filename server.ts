@@ -5756,6 +5756,42 @@ app.get('/api/admin-docs/advance-payment-candidates', (req, res) => {
   res.json(candidates);
 });
 
+// [추가] "차량 과태료 내역"이 회계관리 > 통장 출금 내역과 연동되도록 - 이미 등록된 통장
+// 출금 내역(bank_withdrawal)의 거래 내역을 전부 찾아서 한 목록으로 모아준다. 출금 내역
+// 자체엔 "이게 과태료인지 아닌지" 표시가 없어서(일반 거래와 똑같이 기록되므로) 전부 후보로
+// 보여주고, 화면에서 실제 과태료 건만 골라 "차량 과태료 내역"으로 가져올 수 있게 한다.
+app.get('/api/admin-docs/vehicle-fine-candidates', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+
+  const candidates: {
+    sourceKey: string;
+    sourceLabel: string;
+    date: string;
+    amount: number;
+    memo?: string;
+  }[] = [];
+
+  for (const doc of (dbData.adminDocs || [])) {
+    if (doc.category !== 'bank_withdrawal' || !doc.bankLedger) continue;
+    for (const acc of (doc.bankLedger.accounts || [])) {
+      for (const entry of (acc.entries || [])) {
+        candidates.push({
+          sourceKey: `bank_withdrawal_entry:${doc.id}:${entry.id}`,
+          sourceLabel: '통장 출금 내역',
+          date: entry.date,
+          amount: entry.amount,
+          memo: [entry.description, entry.note].filter(Boolean).join(' · ')
+        });
+      }
+    }
+  }
+
+  candidates.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  res.json(candidates);
+});
+
 // AI 업무일지 정제 (AI Polish) API
 app.post('/api/worklogs/ai-polish', async (req, res) => {
   try {
