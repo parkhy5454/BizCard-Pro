@@ -1270,7 +1270,7 @@ async function persistImageField(
   scopeId: string,
   value: string | undefined,
   keyHint: string,
-  category: 'cards' | 'receipts' = 'cards'
+  category: 'cards' | 'receipts' | 'signatures' = 'cards'
 ): Promise<string | undefined> {
   if (!value || !value.startsWith('data:image/')) return value;
   try {
@@ -1569,7 +1569,8 @@ app.post('/api/auth/login', async (req, res) => {
       position: user.position,
       role: user.role,
       approvalStatus: user.approvalStatus,
-      emailVerified: isEmailVerified(user.emailVerified)
+      emailVerified: isEmailVerified(user.emailVerified),
+      signatureImage: user.signatureImage
     }
   });
 });
@@ -1665,7 +1666,43 @@ app.get('/api/auth/me', (req, res) => {
       position: user.position,
       role: user.role,
       approvalStatus: user.approvalStatus,
-      emailVerified: isEmailVerified(user.emailVerified)
+      emailVerified: isEmailVerified(user.emailVerified),
+      signatureImage: user.signatureImage
+    }
+  });
+});
+
+// [추가] 전자결재 승인 시 도장처럼 찍히는 손글씨 서명 등록/변경. 본인 것만 바꿀 수 있고
+// (다른 사람 서명을 대신 등록할 수 없게), 회사 동료 목록(/api/auth/users)에는 이 필드를
+// 절대 내려주지 않는다 - 서명 URL이 넓게 퍼지면 다른 사람이 그 이미지를 내려받아 문서에
+// 도용할 위험이 있기 때문에, 본인 정보 조회(로그인/me/이 엔드포인트의 응답)에서만 노출한다.
+app.put('/api/auth/signature', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { signatureImage } = req.body;
+  if (typeof signatureImage !== 'string' || !signatureImage.startsWith('data:image/')) {
+    return res.status(400).json({ error: '서명 이미지 형식이 올바르지 않습니다.' });
+  }
+
+  user.signatureImage = await persistImageField(scopeIdForUser(user), signatureImage, `sig-${user.id}`, 'signatures');
+  await addUser(user);
+
+  res.json({
+    success: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      type: user.type,
+      companyName: user.companyName,
+      businessNumber: user.businessNumber,
+      position: user.position,
+      role: user.role,
+      approvalStatus: user.approvalStatus,
+      emailVerified: isEmailVerified(user.emailVerified),
+      signatureImage: user.signatureImage
     }
   });
 });
