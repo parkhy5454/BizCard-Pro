@@ -1296,6 +1296,27 @@ async function persistReceiptImagesInArray<T extends { id: string; receiptImage?
   })));
 }
 
+// [추가] 자동차 등록증처럼 "사진일 수도, PDF일 수도 있는" 파일 하나짜리 필드를 위한 범용
+// 버전. persistImageField는 image/*만 처리하는데, 등록증은 사진으로 찍을 수도 있고
+// PDF 파일을 올릴 수도 있어서 uploadDataUrlFile(범용 MIME 지원)을 대신 쓴다. 이미 URL이거나
+// 값이 없으면 그대로 두고, 업로드 실패 시에도 base64를 그대로 저장해 사진/파일 자체는
+// 안 깨지게 한다(다른 persist* 헬퍼들과 동일한 안전장치).
+async function persistFileField(
+  scopeId: string,
+  value: string | undefined,
+  keyHint: string,
+  category: 'cards' | 'receipts' | 'attachments' = 'attachments'
+): Promise<string | undefined> {
+  if (!value || !value.startsWith('data:')) return value;
+  try {
+    const url = await uploadDataUrlFile(scopeId, value, keyHint, category);
+    return url || value;
+  } catch (err) {
+    console.error(`persistFileField(${keyHint}) 실패, base64를 그대로 저장합니다:`, err);
+    return value;
+  }
+}
+
 // [추가] 미팅 첨부파일(제안서/견적서/발송자료 등, PDF·PPT·엑셀·한글 다 포함)을 그대로 base64로
 // DB에 쌓아두면, 문서 몇 개만 있어도 프로젝트 하나의 JSON이 수십MB로 불어나서 저장/전송이
 // 느려지거나 실패하기 쉽다(특히 모바일 네트워크에서). 영수증 사진처럼 Storage에 실제 파일로
@@ -4003,23 +4024,31 @@ app.get('/api/vehicles', (req, res) => {
 
 app.post('/api/vehicles', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const v: Vehicle = req.body;
   if (!v.id) v.id = `vh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!v.createdAt) v.createdAt = new Date().toISOString();
   if (v.currentMileage === undefined) v.currentMileage = v.initialMileage || 0;
-  
+  // [수정] 자동차 등록증 사진/파일이 base64로 들어오면 Storage에 올리고 URL만 저장한다
+  // (명함 사진 등 다른 필드는 이미 이렇게 처리되고 있었는데, 이 필드만 빠져 있었다).
+  v.registrationDocumentUrl = await persistFileField(scopeId, v.registrationDocumentUrl, `vehicle-${v.id}-reg`, 'attachments');
+
   dbData.vehicles.unshift(v);
-  await setScopedDoc((req as any).scopeId, 'vehicles', v);
+  await setScopedDoc(scopeId, 'vehicles', v);
   res.status(201).json(v);
 });
 
 app.put('/api/vehicles/:id', async (req, res) => {
   const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
   const idx = dbData.vehicles.findIndex(v => v.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Vehicle not found' });
-  
-  dbData.vehicles[idx] = { ...dbData.vehicles[idx], ...req.body };
-  await setScopedDoc((req as any).scopeId, 'vehicles', dbData.vehicles[idx]);
+
+  const updated = { ...dbData.vehicles[idx], ...req.body };
+  // [수정] 위와 동일: 수정 화면에서 등록증을 새로 올린 경우에도 Storage로 옮긴다.
+  updated.registrationDocumentUrl = await persistFileField(scopeId, updated.registrationDocumentUrl, `vehicle-${updated.id}-reg`, 'attachments');
+  dbData.vehicles[idx] = updated;
+  await setScopedDoc(scopeId, 'vehicles', dbData.vehicles[idx]);
   res.json(dbData.vehicles[idx]);
 });
 
@@ -5511,6 +5540,10 @@ app.post('/api/approvals/advance', async (req, res) => {
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
   if (!doc.items) doc.items = [];
   if (!doc.status) doc.status = 'pending';
+  // [수정] 정산 항목에 직접 첨부한 영수증 사진이 base64로 들어오면 Storage로 올린다.
+  // (차량비용/정비/업무일지에서 "가져오기"한 항목은 원본이 이미 URL이라 여기서는 손 안 대고
+  // 그대로 통과한다 - persistImageField가 data:image/로 시작하지 않으면 값을 그대로 반환)
+  doc.items = (await persistReceiptImagesInArray(scopeId, doc.items, `advance-${doc.id}`)) || [];
 
   dbData.advancePayments = dbData.advancePayments || [];
   dbData.advancePayments.unshift(doc);
@@ -5530,6 +5563,8 @@ app.put('/api/approvals/advance/:id', async (req, res) => {
 
   const before = dbData.advancePayments[idx];
   const updated = { ...before, ...req.body };
+  // [수정] POST와 동일: 수정 시 새로 추가/변경된 영수증 사진도 Storage로 옮긴다.
+  updated.items = (await persistReceiptImagesInArray(scopeId, updated.items, `advance-${updated.id}`)) || [];
   dbData.advancePayments[idx] = updated;
   await setScopedDoc(scopeId, 'advancePayments', updated);
   res.json(updated);
