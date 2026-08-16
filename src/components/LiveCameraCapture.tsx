@@ -221,6 +221,40 @@ export const LiveCameraCapture: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode]);
 
+  // [추가] "핸드폰을 가로로 돌리면 세로 폭만큼만 촬영된다"는 문제의 원인 — getUserMedia로 받은
+  // 카메라 스트림(video.videoWidth/videoHeight)은 스트림을 처음 열 때의 방향으로 고정되는
+  // 경우가 있고, 이후 사용자가 폰을 물리적으로 돌려도 브라우저가 스트림 자체를 다시 협상하지
+  // 않을 수 있다. 그러면 화면(컨테이너)은 새 방향에 맞게 커지는데, 실제 촬영되는 영상 프레임은
+  // 예전 방향 그대로라서 가이드 사각형-실제 영상 좌표 매핑(getGuideBoundsInVideoSpace)이
+  // 어긋나고, 결과적으로 원래 세로 폭만큼만 잘려 촬영된 것처럼 보인다. 기기 방향이 바뀌면
+  // 스트림을 완전히 새로 열어서(stop → getUserMedia 재요청), 브라우저가 현재 물리적 방향에
+  // 맞는 새 프레임 크기로 다시 협상하도록 강제한다.
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      // 방향 전환 애니메이션/센서 반영에 약간의 지연이 있으므로, 짧게 기다린 뒤 재시작한다.
+      window.setTimeout(() => {
+        startStream(facingMode);
+      }, 350);
+    };
+    window.addEventListener('orientationchange', handleOrientationChange);
+    // orientationchange를 못 받는 일부 환경(구형 Android WebView 등)을 위한 보조 수단.
+    // resize는 훨씬 자주 발생하므로(주소창 표시/숨김 등), 실제로 가로/세로가 뒤바뀐 경우에만 반응한다.
+    let lastIsLandscape = window.innerWidth > window.innerHeight;
+    const handleResize = () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isLandscape !== lastIsLandscape) {
+        lastIsLandscape = isLandscape;
+        handleOrientationChange();
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode]);
+
   // OpenCV.js 지연 로딩 (스캔 화면이 열릴 때 + "다시 시도" 버튼을 눌렀을 때 재사용)
   const attemptLoadCv = useCallback(() => {
     let cancelled = false;
