@@ -124,7 +124,7 @@ import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './
 import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -848,6 +848,7 @@ const db: { [scopeId: string]: {
   weeklyLogs: WeeklyWorkLog[];
   advancePayments: AdvancePaymentSettlement[];
   leaveRequests: LeaveRequest[];
+  officialDocuments: OfficialDocument[];
   adminDocs: AdminDoc[];
 } } = {};
 
@@ -935,6 +936,7 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   const weeklyLogs = await withTimeout(getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs'), 'weeklyLogs');
   const advancePayments = await withTimeout(getScopedCollection<AdvancePaymentSettlement>(scopeId, 'advancePayments'), 'advancePayments');
   const leaveRequests = await withTimeout(getScopedCollection<LeaveRequest>(scopeId, 'leaveRequests'), 'leaveRequests');
+  const officialDocuments = await withTimeout(getScopedCollection<OfficialDocument>(scopeId, 'officialDocuments'), 'officialDocuments');
   const adminDocs = await withTimeout(getScopedCollection<AdminDoc>(scopeId, 'adminDocs'), 'adminDocs');
   const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
@@ -954,6 +956,7 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
     weeklyLogs,
     advancePayments,
     leaveRequests,
+    officialDocuments,
     adminDocs
   };
 
@@ -1007,6 +1010,7 @@ function getScopedData(req: express.Request): any {
     weeklyLogs: [],
     advancePayments: [],
     leaveRequests: [],
+    officialDocuments: [],
     adminDocs: []
   };
 }
@@ -3808,13 +3812,13 @@ app.put('/api/my-profile', async (req, res) => {
 // ------------------------------------------------------------------
 app.get('/api/approval-line-templates', async (req, res) => {
   const scopeId = (req as any).scopeId;
-  const existing = await getScopedDoc<{ id: string; advance?: ApprovalStep[]; leave?: ApprovalStep[] }>(scopeId, 'approvalLineTemplates', 'default');
-  res.json(existing || { id: 'default', advance: null, leave: null });
+  const existing = await getScopedDoc<{ id: string; advance?: ApprovalStep[]; leave?: ApprovalStep[]; official?: ApprovalStep[] }>(scopeId, 'approvalLineTemplates', 'default');
+  res.json(existing || { id: 'default', advance: null, leave: null, official: null });
 });
 
 app.put('/api/approval-line-templates', async (req, res) => {
   const scopeId = (req as any).scopeId;
-  const template = { id: 'default', advance: req.body.advance || null, leave: req.body.leave || null };
+  const template = { id: 'default', advance: req.body.advance || null, leave: req.body.leave || null, official: req.body.official || null };
   await setScopedDoc(scopeId, 'approvalLineTemplates', template);
   res.json(template);
 });
@@ -5668,6 +5672,57 @@ app.delete('/api/approvals/leave/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] 전자결재: 공문서(대외 발송용 공식 문서) CRUD. 가지급금 정산서/휴가 신청서와
+// 완전히 동일한 스코프별 저장/알림 패턴을 그대로 따른다.
+app.get('/api/approvals/official', (req, res) => {
+  const dbData = getScopedData(req);
+  res.json(dbData.officialDocuments || []);
+});
+
+app.post('/api/approvals/official', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  const doc: OfficialDocument = req.body;
+  if (!doc.id) doc.id = `of-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+  if (!doc.bodyParagraphs) doc.bodyParagraphs = [];
+  if (!doc.status) doc.status = 'pending';
+
+  dbData.officialDocuments = dbData.officialDocuments || [];
+  dbData.officialDocuments.unshift(doc);
+  await setScopedDoc(scopeId, 'officialDocuments', doc);
+  res.status(201).json(doc);
+
+  notifyNextApproverIfChanged(scopeId, '공문서', doc.executionNumber, doc.author, doc.approvalLine, doc.status)
+    .catch(err => console.error('[mailer] 공문서 결재 알림 처리 실패:', err));
+});
+
+app.put('/api/approvals/official/:id', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.officialDocuments = dbData.officialDocuments || [];
+  const idx = dbData.officialDocuments.findIndex((d: OfficialDocument) => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Official document not found' });
+
+  const before = dbData.officialDocuments[idx];
+  const updated = { ...before, ...req.body };
+  dbData.officialDocuments[idx] = updated;
+  await setScopedDoc(scopeId, 'officialDocuments', updated);
+  res.json(updated);
+
+  notifyNextApproverIfChanged(scopeId, '공문서', updated.executionNumber, updated.author, updated.approvalLine, updated.status, before.approvalLine)
+    .catch(err => console.error('[mailer] 공문서 결재 알림 처리 실패:', err));
+});
+
+app.delete('/api/approvals/official/:id', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  dbData.officialDocuments = dbData.officialDocuments || [];
+  dbData.officialDocuments = dbData.officialDocuments.filter((d: OfficialDocument) => d.id !== req.params.id);
+  await deleteScopedDoc(scopeId, 'officialDocuments', req.params.id);
+  res.json({ success: true });
+});
+
 // ------------------------------------------------------------------
 // 📁 경영지원 / 회계관리 - 관리자만 접근 가능한 회사 서류·장부 보관함
 // [추가] 근로계약서, 급여명세서 등 12개 서류 종류를 하나의 공용 데이터(AdminDoc)로 다루고,
@@ -5738,22 +5793,36 @@ app.delete('/api/admin-docs/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// [추가] 경영지원 서류들(근로계약서/재직증명서 등)에서 반복해서 써야 하는 "회사 사업체
-// 주소·사업종류"를 한 번만 입력하면 다음부터 자동으로 불러와지도록, 회사 스코프에 하나만
-// 저장해두는 간단한 설정값. 여러 문서를 만들 때마다 매번 다시 타이핑할 필요가 없게 한다.
+// [추가] 경영지원 서류들(근로계약서/재직증명서 등)과 전자결재 공문서에서 반복해서 써야 하는
+// "회사 사업체 주소·사업종류·전화/팩스/이메일·공문서 시행번호 접두어"를 한 번만 입력하면 다음부터
+// 자동으로 불러와지도록, 회사 스코프에 하나만 저장해두는 간단한 설정값. 여러 문서를 만들 때마다
+// 매번 다시 타이핑할 필요가 없게 한다.
+// [수정] 조회(GET)는 공문서를 작성하는 일반 직원도 발신처 정보를 자동으로 채워 넣을 수 있어야
+// 하므로 관리자 전용에서 로그인한 모든 사용자로 완화했다. 수정(PUT)은 기존과 동일하게 관리자만 가능.
 app.get('/api/company-settings', async (req, res) => {
-  const requester = requireAdmin(req, res);
-  if (!requester) return;
   const scopeId = (req as any).scopeId;
-  const list = await getScopedCollection<{ id: string; address?: string; businessType?: string }>(scopeId, 'companySettings');
-  res.json(list[0] || { id: 'default', address: '', businessType: '' });
+  const list = await getScopedCollection<{ id: string; address?: string; businessType?: string; phone?: string; fax?: string; email?: string; docPrefix?: string }>(scopeId, 'companySettings');
+  res.json(list[0] || { id: 'default', address: '', businessType: '', phone: '', fax: '', email: '', docPrefix: 'KS' });
 });
 
 app.put('/api/company-settings', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
   const scopeId = (req as any).scopeId;
-  const record = { id: 'default', address: req.body.address || '', businessType: req.body.businessType || '' };
+  // [수정] 예전엔 요청 본문에 없는 필드를 전부 빈 값으로 덮어써서, 예를 들어 공문서 탭에서
+  // 전화/팩스만 저장해도 근로계약서 쪽에서 써둔 주소·사업종류가 날아가는 문제가 있었다.
+  // 기존 값을 먼저 불러와 보낸 필드만 덮어쓰는 부분 업데이트(병합) 방식으로 바꾼다.
+  const existingList = await getScopedCollection<any>(scopeId, 'companySettings');
+  const existing = existingList[0] || {};
+  const record = {
+    id: 'default',
+    address: req.body.address !== undefined ? req.body.address : (existing.address || ''),
+    businessType: req.body.businessType !== undefined ? req.body.businessType : (existing.businessType || ''),
+    phone: req.body.phone !== undefined ? req.body.phone : (existing.phone || ''),
+    fax: req.body.fax !== undefined ? req.body.fax : (existing.fax || ''),
+    email: req.body.email !== undefined ? req.body.email : (existing.email || ''),
+    docPrefix: req.body.docPrefix !== undefined ? req.body.docPrefix : (existing.docPrefix || 'KS')
+  };
   await setScopedDoc(scopeId, 'companySettings', record);
   res.json(record);
 });
