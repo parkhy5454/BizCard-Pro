@@ -184,7 +184,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   })() : undefined,
   // [추가] 차량 과태료 내역 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   vehicleFine: category === 'vehicle_fine' ? {
-    entries: [{ id: `vf-${Date.now()}`, date: new Date().toISOString().split('T')[0], vehicle: '', detail: '', amount: 0, isPaid: false, note: '' }]
+    entries: [{ id: `vf-${Date.now()}`, date: new Date().toISOString().split('T')[0], vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]
   } : undefined,
   // [추가] 각종 세금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   taxPayment: category === 'tax' ? {
@@ -816,13 +816,79 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     });
   };
   const addVehicleFineEntry = () => {
-    updateVehicleFineEntries((entries) => [...entries, { id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], vehicle: '', detail: '', amount: 0, isPaid: false, note: '' }]);
+    updateVehicleFineEntries((entries) => [...entries, { id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]);
   };
   const removeVehicleFineEntry = (id: string) => {
     updateVehicleFineEntries((entries) => entries.filter((e) => e.id !== id));
   };
   const updateVehicleFineEntry = (id: string, patch: Partial<VehicleFineRow>) => {
     updateVehicleFineEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
+  // [추가] "자동 불러오기" - 회계관리 > 통장 출금 내역에 이미 등록된 거래 내역을 서버에서
+  // 모아와서, 실제로 과태료인 건만 골라 지금 편집 중인 차량 과태료 내역에 항목으로 채워
+  // 넣는다. 출금 내역 자체엔 "과태료 여부" 표시가 없어 전부 후보로 보여주고 사람이 고른다.
+  // 이미 가져온 적 있는 항목(sourceKey로 판단)은 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
+  type VehicleFineImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
+  const [vehicleFineImportCandidates, setVehicleFineImportCandidates] = useState<VehicleFineImportCandidate[]>([]);
+  const [showVehicleFineImportPanel, setShowVehicleFineImportPanel] = useState(false);
+  const [isLoadingVehicleFineCandidates, setIsLoadingVehicleFineCandidates] = useState(false);
+  const [selectedVehicleFineImportKeys, setSelectedVehicleFineImportKeys] = useState<Set<string>>(new Set());
+
+  const alreadyImportedVehicleFineKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'vehicle_fine' || !d.vehicleFine) continue;
+    for (const e of d.vehicleFine.entries) {
+      if (e.sourceKey) alreadyImportedVehicleFineKeys.add(e.sourceKey);
+    }
+  }
+  for (const e of (editingDoc?.vehicleFine?.entries || [])) {
+    if (e.sourceKey) alreadyImportedVehicleFineKeys.add(e.sourceKey);
+  }
+
+  const handleOpenVehicleFineImportPanel = async () => {
+    if (!currentUser) return;
+    setShowVehicleFineImportPanel(true);
+    setIsLoadingVehicleFineCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/vehicle-fine-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: VehicleFineImportCandidate[] = await res.json();
+      setVehicleFineImportCandidates(data);
+    } catch (err: any) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowVehicleFineImportPanel(false);
+    } finally {
+      setIsLoadingVehicleFineCandidates(false);
+    }
+  };
+
+  const toggleVehicleFineImportKey = (key: string) => {
+    setSelectedVehicleFineImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportVehicleFineSelected = () => {
+    const toImport = vehicleFineImportCandidates.filter((c) => selectedVehicleFineImportKeys.has(c.sourceKey));
+    updateVehicleFineEntries((entries) => [
+      ...entries,
+      ...toImport.map((cand) => ({
+        id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: cand.date,
+        vehicle: '',
+        amount: cand.amount,
+        processedDate: '',
+        detail: cand.memo || '',
+        note: '',
+        sourceKey: cand.sourceKey,
+        sourceLabel: cand.sourceLabel
+      }))
+    ]);
+    setSelectedVehicleFineImportKeys(new Set());
+    setShowVehicleFineImportPanel(false);
   };
 
   // [추가] 각종 세금 - 항목 추가/삭제/수정 (건별로 여러 줄)
@@ -3466,63 +3532,162 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 (일자/차량/위반내용/금액/납부여부/비고). */}
                 {activeCategory === 'vehicle_fine' && (
                   <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
                       <label className="text-[11px] font-bold text-slate-600">차량 과태료 내역</label>
-                      <button type="button" onClick={addVehicleFineEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
-                        <Plus className="w-3 h-3" /> 항목 추가
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenVehicleFineImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addVehicleFineEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
                     </div>
+
+                    {/* [추가] 통장 출금 내역에 이미 등록된 거래 중 실제 과태료인 건만 골라서
+                    가져온다. 출금 내역엔 과태료 여부 표시가 없어 전부 후보로 보여준다. */}
+                    {showVehicleFineImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 과태료 불러오기</span>
+                          <button type="button" onClick={() => setShowVehicleFineImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">차량번호는 출금 내역에 없어 비어있는 채로 가져옵니다 - 가져온 뒤 직접 입력해주세요.</p>
+
+                        {isLoadingVehicleFineCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = vehicleFineImportCandidates.filter((c) => !alreadyImportedVehicleFineKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 통장 출금 내역이 없습니다.</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedVehicleFineImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedVehicleFineImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedVehicleFineImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedVehicleFineImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleVehicleFineImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportVehicleFineSelected}
+                              disabled={selectedVehicleFineImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedVehicleFineImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     <div className="space-y-1.5">
                       {(editingDoc.vehicleFine?.entries || []).map((e) => (
-                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 flex flex-wrap items-center gap-1">
-                          <input
-                            type="date"
-                            value={e.date}
-                            onChange={(ev) => updateVehicleFineEntry(e.id, { date: ev.target.value })}
-                            className="flex-1 min-w-[120px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                          <input
-                            type="text"
-                            value={e.vehicle}
-                            onChange={(ev) => updateVehicleFineEntry(e.id, { vehicle: ev.target.value })}
-                            placeholder="차량번호/차량명"
-                            className="flex-1 min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                          <input
-                            type="text"
-                            value={e.detail}
-                            onChange={(ev) => updateVehicleFineEntry(e.id, { detail: ev.target.value })}
-                            placeholder="위반내용"
-                            className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={e.amount ? formatCurrencyInput(e.amount) : ''}
-                            onChange={(ev) => updateVehicleFineEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
-                            placeholder="금액"
-                            className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                          <input
-                            type="text"
-                            value={e.note || ''}
-                            onChange={(ev) => updateVehicleFineEntry(e.id, { note: ev.target.value })}
-                            placeholder="비고"
-                            className="flex-[2] min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                          <label className="flex items-center gap-1 text-[11px] text-slate-600 shrink-0">
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          {e.sourceLabel && (
+                            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                              <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                            </span>
+                          )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">위반일자</label>
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateVehicleFineEntry(e.id, { date: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">위반차량</label>
+                              <input
+                                type="text"
+                                value={e.vehicle}
+                                onChange={(ev) => updateVehicleFineEntry(e.id, { vehicle: ev.target.value })}
+                                placeholder="예: 벤츠(8030)"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[90px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">금액</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateVehicleFineEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="금액"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">처리일자</label>
+                              <input
+                                type="date"
+                                value={e.processedDate || ''}
+                                onChange={(ev) => updateVehicleFineEntry(e.id, { processedDate: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <button type="button" onClick={() => removeVehicleFineEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
                             <input
-                              type="checkbox"
-                              checked={e.isPaid}
-                              onChange={(ev) => updateVehicleFineEntry(e.id, { isPaid: ev.target.checked })}
-                              className="w-3.5 h-3.5"
+                              type="text"
+                              value={e.detail}
+                              onChange={(ev) => updateVehicleFineEntry(e.id, { detail: ev.target.value })}
+                              placeholder="내용 (위반 상세)"
+                              className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                             />
-                            납부완료
-                          </label>
-                          <button type="button" onClick={() => removeVehicleFineEntry(e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                            <input
+                              type="text"
+                              value={e.note || ''}
+                              onChange={(ev) => updateVehicleFineEntry(e.id, { note: ev.target.value })}
+                              placeholder="비고 (담당자 등)"
+                              className="flex-1 min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
