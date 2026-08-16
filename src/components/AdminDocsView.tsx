@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
@@ -303,6 +304,41 @@ function numberToKoreanMoney(num: number): string {
     if (groups[i] > 0) result += convertGroup(groups[i]) + bigUnits[i];
   }
   return result || '영';
+}
+
+// [추가] 통장 출금/입금 내역 엑셀 가져오기용 - 은행에서 내려받은 엑셀은 날짜가
+// "2026.01.12", "2026/01/12", "2026-01-12", 44654(엑셀 일련번호) 등 제각각이라, 화면의
+// <input type="date">에 바로 채워지도록 최대한 "YYYY-MM-DD"로 맞춰본다. 못 알아보는
+// 형식이면 원본 텍스트를 그대로 둔다(날짜 칸은 비어 보여도 데이터 자체는 남아있음).
+function normalizeDateForInput(raw: string): string {
+  const s = (raw || '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (m) {
+    const [, y, mo, d] = m;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  // 엑셀 날짜 일련번호(예: 45678)인 경우 - 1900-01-01 기준 오프셋으로 변환
+  if (/^\d{4,6}$/.test(s)) {
+    const serial = Number(s);
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const parsed = new Date(epoch.getTime() + serial * 86400000);
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1990 && parsed.getFullYear() < 2100) {
+      return parsed.toISOString().split('T')[0];
+    }
+  }
+  return s;
+}
+
+// [추가] 통장 출금/입금 내역 엑셀 가져오기용 - "1,234,500", "₩1,234,500", "1234500" 등을
+// 숫자로 변환한다. 부호(-)가 있으면(은행 엑셀에서 출금을 음수로 표기하는 경우가 있음)
+// 절대값으로 바꿔서 저장한다 - 출금/입금 내역은 카테고리로 이미 방향이 정해져 있어서
+// 금액 칸에는 항상 양수만 저장하는 기존 방식과 맞춘다.
+function parseExcelAmount(raw: string): number {
+  const cleaned = (raw || '').toString().replace(/[^\d.-]/g, '');
+  const n = Number(cleaned);
+  return isNaN(n) ? 0 : Math.abs(n);
 }
 
 // [추가] "은행+계좌번호"가 일치하는 통장 입금/출금 내역 문서를 전체 목록(docs)에서 찾아,
@@ -620,6 +656,118 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       : a));
   };
   const bankAccountTotal = (a: BankAccount) => a.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  // [추가] 통장 출금/입금 내역 - 엑셀 내보내기. 지금까지 등록된 이 종류(출금 또는 입금)의
+  // 모든 문서·통장·거래를 한 시트로 펼쳐서 다운로드한다 - 은행 사이트/회계 프로그램으로
+  // 옮기거나 백업해두기 좋게, 그리고 아래 "엑셀 가져오기"로 다시 그대로 불러올 수 있게
+  // 컬럼 순서를 맞춰뒀다.
+  const [isImportingBankLedger, setIsImportingBankLedger] = useState(false);
+  const handleExportBankLedgerExcel = () => {
+    const isWithdrawal = activeCategory === 'bank_withdrawal';
+    const targetDocs = docs.filter((d) => d.section === section && d.category === activeCategory);
+    const wsData: (string | number)[][] = [['문서 제목', '은행', '계좌번호', '구분', '일자', '프로젝트', '금액', '거래내용', '비고']];
+    targetDocs.forEach((d) => {
+      (d.bankLedger?.accounts || []).forEach((acc) => {
+        acc.entries.forEach((e) => {
+          wsData.push([d.title, acc.bankName || '', acc.accountNumber || '', acc.subCategory || '', e.date, e.project || '', Number(e.amount) || 0, e.description || '', e.note || '']);
+        });
+      });
+    });
+    if (wsData.length === 1) {
+      alert(`내보낼 ${isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'}이 없습니다.`);
+      return;
+    }
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = wsData[0].map((_, colIdx) => {
+      let maxLen = 8;
+      wsData.forEach((row) => { const len = (row[colIdx] ?? '').toString().length; if (len > maxLen) maxLen = Math.min(len, 40); });
+      return { wch: maxLen + 2 };
+    });
+    XLSX.utils.book_append_sheet(wb, ws, isWithdrawal ? '통장 출금 내역' : '통장 입금 내역');
+    XLSX.writeFile(wb, `${isWithdrawal ? '통장출금내역' : '통장입금내역'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // [추가] 통장 출금/입금 내역 - 엑셀 가져오기. 위 "엑셀 내보내기"로 받은 파일이나, 은행에서
+  // 바로 내려받은 거래내역 엑셀을 업로드하면 새 문서 하나로 만들어준다(통장 하나, 거래
+  // 여러 줄). 은행마다 컬럼 이름이 달라서 자주 쓰이는 이름들을 최대한 알아보려고 하고,
+  // 못 알아본 컬럼은 빈 채로 둔다 - 가져온 뒤 "수정"에서 은행명/계좌번호 등을 채우거나
+  // 잘못 들어온 값을 고치면 된다.
+  const handleImportBankLedgerFile = async (file: File) => {
+    if (!currentUser) return;
+    setIsImportingBankLedger(true);
+    try {
+      const isWithdrawal = activeCategory === 'bank_withdrawal';
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1, raw: false, defval: '' });
+      if (rows.length < 2) throw new Error('엑셀에 데이터가 없습니다.');
+
+      const norm = (s: string) => (s || '').toString().replace(/\s/g, '').toLowerCase();
+      const header = rows[0].map((h) => norm(h));
+      const findCol = (candidates: string[]) => header.findIndex((h) => candidates.some((c) => h.includes(norm(c))));
+
+      const colDate = findCol(['거래일자', '거래일', '일자', '날짜', 'date']);
+      const colDesc = findCol(['거래내용', '적요', '내용', '거래처', 'description']);
+      const colProject = findCol(['프로젝트']);
+      const colNote = findCol(['비고', '메모', 'note']);
+      const colAmount = findCol(['금액', 'amount']);
+      const colWithdrawal = findCol(['출금액', '출금', 'withdrawal']);
+      const colDeposit = findCol(['입금액', '입금', 'deposit']);
+      // 이 카테고리(출금/입금)에 맞는 금액 컬럼을 우선 쓰고, 없으면 공용 "금액" 컬럼을 쓴다.
+      const amountCol = isWithdrawal
+        ? (colWithdrawal >= 0 ? colWithdrawal : colAmount)
+        : (colDeposit >= 0 ? colDeposit : colAmount);
+
+      if (amountCol < 0) {
+        throw new Error('금액 컬럼을 찾지 못했습니다. 첫 줄(헤더)에 "금액" 또는 "출금액"/"입금액" 컬럼이 있는지 확인해주세요.');
+      }
+
+      const entries = rows.slice(1)
+        .filter((row) => row.some((cell) => (cell || '').toString().trim() !== ''))
+        .map((row, idx) => {
+          const amount = parseExcelAmount(row[amountCol]);
+          return {
+            id: `be-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+            date: colDate >= 0 ? normalizeDateForInput(row[colDate]) : '',
+            project: colProject >= 0 ? (row[colProject] || '').toString() : '',
+            amount,
+            description: colDesc >= 0 ? (row[colDesc] || '').toString() : '',
+            note: colNote >= 0 ? (row[colNote] || '').toString() : ''
+          };
+        })
+        .filter((e) => e.amount > 0); // 다른 방향(예: 출금 파일에 섞여 들어온 입금 줄)은 0원으로 걸러진다
+
+      if (entries.length === 0) {
+        throw new Error('가져올 거래가 없습니다 (금액이 있는 줄을 찾지 못했습니다).');
+      }
+
+      const totalAmount = entries.reduce((s, e) => s + e.amount, 0);
+      const newDoc: Partial<AdminDoc> = {
+        section,
+        category: activeCategory,
+        title: `${isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'} 엑셀 가져오기 (${file.name.replace(/\.(xlsx|xls|csv)$/i, '')})`,
+        date: new Date().toISOString().split('T')[0],
+        amount: String(totalAmount),
+        bankLedger: { accounts: [{ id: `bacc-${Date.now()}`, bankName: '', accountNumber: '', subCategory: '', entries }] }
+      };
+
+      const res = await fetch('/api/admin-docs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify(newDoc)
+      });
+      if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}).`);
+      const saved: AdminDoc = await res.json();
+      setDocs((prev) => [saved, ...prev]);
+      alert(`${entries.length}건을 가져왔습니다. 새로 만들어진 "${saved.title}" 문서를 열어서 은행명/계좌번호를 채우고 내용을 확인해주세요.`);
+    } catch (err: any) {
+      alert(`엑셀 가져오기에 실패했습니다.\n${err.message || '파일 형식을 확인해주세요.'}`);
+    } finally {
+      setIsImportingBankLedger(false);
+    }
+  };
 
   // [추가] 대출이자 및 원금 상환 내역 - 대출 줄 추가·삭제·수정
   type LoanEntry = NonNullable<AdminDoc['loanRepayment']>['loans'][number];
@@ -2405,6 +2553,35 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           <span>{activeConfig.label} 추가</span>
         </button>
       </div>
+
+      {/* [추가] 통장 출금/입금 내역만 엑셀 가져오기/내보내기 제공. 은행 사이트에서 받은
+      거래내역 엑셀을 그대로 올리거나, 여기서 내보낸 엑셀로 백업/편집 후 다시 올릴 수 있다. */}
+      {(activeCategory === 'bank_withdrawal' || activeCategory === 'bank_deposit') && (
+        <div className="flex items-center gap-2 -mt-1">
+          <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors ${isImportingBankLedger ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload className="w-3.5 h-3.5" />
+            {isImportingBankLedger ? '가져오는 중...' : '엑셀 가져오기'}
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportBankLedgerFile(file);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleExportBankLedgerExcel}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            엑셀 내보내기
+          </button>
+        </div>
+      )}
 
       {/* 목록 */}
       {loading ? (
