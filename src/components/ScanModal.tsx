@@ -170,7 +170,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       // 이 결과가 있으면 지금까지의 대충 잘린/원본 사진을 이걸로 교체한다.
       if (frontImg && isValidNormalizedCorners(data.frontCorners)) {
         try {
-          const recropped = await warpDataUrlWithNormalizedCorners(frontImg, data.frontCorners);
+          const recropped = await warpDataUrlWithNormalizedCorners(frontImg, data.frontCorners, 1.586);
           setFrontImg(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 앞면 재크롭 실패, 기존 사진 유지:', err);
@@ -178,7 +178,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       }
       if (backImg && isValidNormalizedCorners(data.backCorners)) {
         try {
-          const recropped = await warpDataUrlWithNormalizedCorners(backImg, data.backCorners);
+          const recropped = await warpDataUrlWithNormalizedCorners(backImg, data.backCorners, 1.586);
           setBackImg(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 뒷면 재크롭 실패, 기존 사진 유지:', err);
@@ -371,7 +371,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         let finalFrontImage = item.frontImage;
         if (isValidNormalizedCorners(data.frontCorners)) {
           try {
-            finalFrontImage = await warpDataUrlWithNormalizedCorners(item.frontImage, data.frontCorners);
+            finalFrontImage = await warpDataUrlWithNormalizedCorners(item.frontImage, data.frontCorners, 1.586);
           } catch (err) {
             console.error('AI 좌표 기반 재크롭 실패, 기존 사진 유지:', err);
           }
@@ -430,7 +430,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       let finalFrontImage = item.frontImage;
       if (isValidNormalizedCorners(data.frontCorners)) {
         try {
-          finalFrontImage = await warpDataUrlWithNormalizedCorners(item.frontImage, data.frontCorners);
+          finalFrontImage = await warpDataUrlWithNormalizedCorners(item.frontImage, data.frontCorners, 1.586);
         } catch (err) {
           console.error('AI 좌표 기반 재크롭 실패, 기존 사진 유지:', err);
         }
@@ -1026,6 +1026,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         <CropAdjustModal
           imageDataUrl={cropTarget.rawImage}
           title={cropTarget.side === 'front' ? '명함 앞면 테두리 확인' : '명함 뒷면 테두리 확인'}
+          expectedAspectRatio={1.586}
           onConfirm={(cropped) => {
             if (cropTarget.side === 'front') setFrontImg(cropped);
             else setBackImg(cropped);
@@ -1094,6 +1095,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
         <CropAdjustModal
           imageDataUrl={batchCropTarget}
           title="명함 테두리 확인"
+          expectedAspectRatio={1.586}
           onConfirm={handleBatchCropConfirm}
           onCancel={handleBatchCropCancel}
         />

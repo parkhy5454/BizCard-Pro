@@ -257,7 +257,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       // [수정] AI가 함께 알려준 "명함 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
       if (targetFront && isValidNormalizedCorners(data.frontCorners)) {
         try {
-          const recropped = await warpDataUrlWithNormalizedCorners(targetFront, data.frontCorners);
+          const recropped = await warpDataUrlWithNormalizedCorners(targetFront, data.frontCorners, 1.586);
           setScanImg(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 앞면 재크롭 실패, 기존 사진 유지:', err);
@@ -265,7 +265,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       }
       if (targetBack && isValidNormalizedCorners(data.backCorners)) {
         try {
-          const recropped = await warpDataUrlWithNormalizedCorners(targetBack, data.backCorners);
+          const recropped = await warpDataUrlWithNormalizedCorners(targetBack, data.backCorners, 1.586);
           setScanImgBack(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 뒷면 재크롭 실패, 기존 사진 유지:', err);
@@ -672,6 +672,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         <CropAdjustModal
           imageDataUrl={cropTarget.rawImage}
           title={cropTarget.side === 'front' ? '명함 앞면 테두리 확인' : '명함 뒷면 테두리 확인'}
+          expectedAspectRatio={1.586}
           onConfirm={(cropped) => {
             if (cropTarget.side === 'front') {
               setScanImg(cropped);

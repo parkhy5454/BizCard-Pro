@@ -1147,6 +1147,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
         <CropAdjustModal
           imageDataUrl={rescanCropTarget.rawImage}
           title={rescanCropTarget.side === 'front' ? '명함 앞면 테두리 확인' : '명함 뒷면 테두리 확인'}
+          expectedAspectRatio={1.586}
           onConfirm={(cropped) => {
             applyRescannedImage(rescanCropTarget.side, cropped);
             setRescanCropTarget(null);

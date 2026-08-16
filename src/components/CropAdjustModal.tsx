@@ -185,6 +185,10 @@ interface Props {
   title?: string;
   onConfirm: (croppedDataUrl: string) => void;
   onCancel: () => void;
+  // [추가] 명함처럼 "이 방향(가로/세로)이 맞다"가 정해진 문서일 때만 넘긴다. 넘기면 최종
+  // 결과물이 항상 이 방향으로 나오도록 보정하고(orientQuadForExpectedAspect 정의부 주석
+  // 참고), 영수증처럼 방향이 정해지지 않은 문서는 안 넘겨서 예전처럼 감지된 그대로 쓴다.
+  expectedAspectRatio?: number;
 }
 
 // 저장 용량을 줄이기 위해 이미지의 긴 변을 최대 크기로 축소 (DB 조회 속도에 큰 영향을 주므로 모든 최종 출력에 적용)
@@ -524,8 +528,34 @@ const detectCorners = async (imgSrc: HTMLImageElement | HTMLCanvasElement): Prom
   return null;
 };
 
+// [추가] 폰을 가로로 눕혀서 찍은 사진은, 카드 자체는 정상(가로로 긴) 규격인데 원본 이미지
+// 좌표 기준으로만 좌상/우상/우하/좌하를 정하다 보니(orderQuadPoints는 순수 좌표값으로만
+// 판단, 실제 글자가 어느 방향으로 읽히는지는 모른다) 사각형 자체는 카드 테두리에 잘 맞아도
+// 최종 결과물이 세로로(글자가 옆으로 누운 채로) 저장되는 문제가 실사용 테스트에서 확인됐다.
+// 명함은 항상 가로가 더 긴 규격(90x50mm, 비율 ≈1.586)이므로, 예상 비율(expectedAspectRatio)이
+// 주어지면 그 방향(가로 긴 모양인지 세로 긴 모양인지)과 실제 감지된 사각형의 방향이 다를 때
+// 시계 방향으로 90도 돌려서 항상 올바른(가로/세로) 방향으로 결과물이 나오게 한다. 영수증처럼
+// 원래 세로가 긴 문서도 있으므로(ReceiptScanModal은 이 값을 안 넘김), 호출한 쪽이 명시적으로
+// "이 방향이 맞다"고 알려줄 때만 보정하고, 안 넘기면 예전처럼 감지된 그대로 사용한다.
+function orientQuadForExpectedAspect(corners: Point[], expectedAspectRatio?: number): [Point, Point, Point, Point] {
+  let [tl, tr, br, bl] = corners as [Point, Point, Point, Point];
+  if (!expectedAspectRatio) return [tl, tr, br, bl];
+
+  const widthEstimate = (Math.hypot(tr.x - tl.x, tr.y - tl.y) + Math.hypot(br.x - bl.x, br.y - bl.y)) / 2;
+  const heightEstimate = (Math.hypot(bl.x - tl.x, bl.y - tl.y) + Math.hypot(br.x - tr.x, br.y - tr.y)) / 2;
+  const detectedIsLandscape = widthEstimate >= heightEstimate;
+  const expectedIsLandscape = expectedAspectRatio >= 1;
+
+  if (detectedIsLandscape !== expectedIsLandscape) {
+    // 시계 방향으로 한 칸 회전 (좌상←좌하, 우상←좌상, 우하←우상, 좌하←우하) — 뒤집힘(미러링) 없이
+    // 순수 회전만 적용해서 원근 왜곡/글자 좌우반전이 생기지 않는다.
+    [tl, tr, br, bl] = [bl, tl, tr, br];
+  }
+  return [tl, tr, br, bl];
+}
+
 // 4개 점(원본 이미지 좌표)을 기준으로 원근 보정하여 반듯하게 자름
-export const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Promise<string> => {
+export const warpToCorners = async (img: HTMLImageElement, corners: Point[], expectedAspectRatio?: number): Promise<string> => {
   await loadOpenCv();
   const cv = (window as any).cv;
   const canvas = document.createElement('canvas');
@@ -535,7 +565,7 @@ export const warpToCorners = async (img: HTMLImageElement, corners: Point[]): Pr
   ctx.drawImage(img, 0, 0);
   const src = cv.imread(canvas);
 
-  const [tl, tr, br, bl] = corners;
+  const [tl, tr, br, bl] = orientQuadForExpectedAspect(corners, expectedAspectRatio);
   const maxWidth = Math.round(Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y)));
   const maxHeight = Math.round(Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y)));
 
@@ -602,7 +632,7 @@ export function isValidNormalizedCorners(c: any): c is NormalizedCorners {
   return area > 0.03; // 이미지 전체 면적의 3% 미만이면 신뢰하지 않음
 }
 
-export const warpDataUrlWithNormalizedCorners = (dataUrl: string, corners: NormalizedCorners): Promise<string> => {
+export const warpDataUrlWithNormalizedCorners = (dataUrl: string, corners: NormalizedCorners, expectedAspectRatio?: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = async () => {
@@ -613,7 +643,7 @@ export const warpDataUrlWithNormalizedCorners = (dataUrl: string, corners: Norma
           { x: corners.bottomRight.x * img.naturalWidth, y: corners.bottomRight.y * img.naturalHeight },
           { x: corners.bottomLeft.x * img.naturalWidth, y: corners.bottomLeft.y * img.naturalHeight }
         ];
-        const result = await warpToCorners(img, pts);
+        const result = await warpToCorners(img, pts, expectedAspectRatio);
         resolve(result);
       } catch (err) {
         reject(err);
@@ -648,7 +678,7 @@ async function fetchAiCornersNormalized(dataUrl: string): Promise<NormalizedCorn
   }
 }
 
-export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel }) => {
+export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel, expectedAspectRatio }) => {
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [corners, setCorners] = useState<Point[] | null>(null); // 표시 좌표계 기준
@@ -1011,7 +1041,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       const scaleX = imgNaturalRef.current.width / displaySize.width;
       const scaleY = imgNaturalRef.current.height / displaySize.height;
       const naturalCorners = corners.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-      const cropped = await warpToCorners(imgEl, naturalCorners);
+      const cropped = await warpToCorners(imgEl, naturalCorners, expectedAspectRatio);
       onConfirm(cropped);
     } catch (err: any) {
       // 이전에는 실패를 콘솔에만 남기고 조용히 원본으로 넘어갔는데, 그러면 왜 보정이 안 됐는지 알 수가 없다.
