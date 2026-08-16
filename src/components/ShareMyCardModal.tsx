@@ -71,15 +71,21 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
   // vCard 생성 문자열
   const generateVCardText = () => {
-    // [수정] 명함 앞면 사진이 있으면 vCard의 PHOTO 필드에 base64로 직접 내장한다.
-    // (다른 채널과 달리 vCard 표준은 사진을 파일 안에 담는 방식이 일반적)
+    // [수정] 명함 앞면 사진이 있으면 vCard의 PHOTO 필드에 넣는다. 사진이 base64로 남아있는
+    // 경우엔 예전처럼 파일 안에 직접 내장하고(ENCODING=b), Storage로 이전된 뒤라 URL로
+    // 저장돼 있는 경우엔(현재 대부분 이 경우) 그 주소를 URI 참조로 넣는다 - vCard 3.0
+    // 표준이 지원하는 형식이라 별도 다운로드/base64 변환 없이 그대로 쓸 수 있다.
+    // [수정 전 버그] base64 정규식만 검사했어서, 사진이 Storage URL로 바뀐 뒤로는 이 조건에
+    // 안 걸려 PHOTO 필드가 통째로 빈 채로 다운로드되고 있었다.
     let photoLine = '';
     if (profile.frontImage) {
-      const match = profile.frontImage.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (match) {
-        const [, imgType, base64Data] = match;
+      const base64Match = profile.frontImage.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (base64Match) {
+        const [, imgType, base64Data] = base64Match;
         const vcardImgType = imgType.toLowerCase() === 'jpg' ? 'JPEG' : imgType.toUpperCase();
         photoLine = `PHOTO;ENCODING=b;TYPE=${vcardImgType}:${base64Data}`;
+      } else if (/^https?:\/\//i.test(profile.frontImage)) {
+        photoLine = `PHOTO;VALUE=URI:${profile.frontImage}`;
       }
     }
 
