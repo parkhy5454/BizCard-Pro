@@ -316,11 +316,12 @@ const defaultLeaveApprovalLine = (): ApprovalStep[] => [
 const defaultAdvanceApprovalLine = (): ApprovalStep[] => [
   { role: '기안자' }, { role: '경영지원팀장' }, { role: '기술이사' }, { role: '대표이사' }
 ];
-// [추가] 공문서 결재선 기본값. 공유해주신 실제 양식(담당/이사 → 협조자/대표 2단 배치)을
-// 그대로 기본으로 쓴다. 출력 화면에서 2개씩 묶어 표시하므로 이 순서 그대로면
-// "담당·이사"가 첫 줄, "협조자·대표"가 둘째 줄에 놓인다.
+// [수정] 공문서 결재선 기본값을 회사 실제 직책명(휴가 신청서 등과 동일하게 담당/경영지원실장/
+// 이사/대표이사)으로 맞췄다. 출력 화면에서는 "대표이사"를 제외한 나머지가 왼쪽 한 줄에
+// 이 배열 순서 그대로(담당 → 경영지원실장 → 이사) 나란히 표시되고, "대표이사"는 "결재
+// [날짜]" 라벨과 함께 오른쪽에 세로로 묶여 표시된다.
 const defaultOfficialApprovalLine = (): ApprovalStep[] => [
-  { role: '담당' }, { role: '이사' }, { role: '협조자' }, { role: '대표' }
+  { role: '담당' }, { role: '경영지원실장' }, { role: '이사' }, { role: '대표이사' }
 ];
 
 function makeDraftNumber(existing: string[]): string {
@@ -1783,7 +1784,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                   <div style={{ fontWeight: 700 }}>결재&nbsp;&nbsp;{finalApprovalDate}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: labelBlue, fontWeight: 700 }}>대표</span>
+                    <span style={{ color: labelBlue, fontWeight: 700 }}>{daepyoStep.role}</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
                       {daepyoStep.signatureUrl && <img src={daepyoStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
                     </span>
