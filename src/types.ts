@@ -115,7 +115,8 @@ export type AdminDocCategory =
   | 'card_usage'          // 법인카드 사용내역
   | 'advance_payment'     // 가지급내역
   | 'vehicle_fine'        // 차량 과태료 내역
-  | 'tax';                // 각종 세금
+  | 'tax'                 // 각종 세금
+  | 'management_fee';     // 관리비내역
 
 export interface AdminDocLineItem {
   id: string;
@@ -303,18 +304,40 @@ export interface AdminDoc {
       sourceLabel?: string; // 화면에 보여줄 원본 이름 (예: "통장 출금 내역")
     }[];
   };
-  // [추가] 회계관리 > 각종 세금(category: 'tax') 전용 구조화 필드.
-  // 건별로 여러 줄 입력하는 단순한 표(세목/귀속기간/신고기한/납부일/금액/납부여부/비고).
+  // [수정] 회계관리 > 각종 세금(category: 'tax') 전용 구조화 필드. 공유해주신
+  // "2026년 각종 세금 내역" 양식과 동일하게 no(자동 순번)/내역/결재일자/금액/비고로
+  // 단순화했다 - 원래 세목/귀속기간/신고기한/납부여부를 따로 뒀는데, 실제 양식은 "내역"
+  // 한 칸에 다 적고("부가가치세(26년1기분)" 처럼) 비고엔 "완료" 같은 상태만 적는 방식이라
+  // 그대로 반영했다. 결재일자는 "없음.", "2026.04.24완료"처럼 날짜가 아닌 텍스트가 섞여
+  // 있는 경우가 있어 날짜 타입이 아닌 자유 텍스트로 둔다.
   taxPayment?: {
     entries: {
       id: string;
-      taxType: string;    // 세목 (부가세/법인세/원천세 등)
-      period: string;      // 귀속기간
-      dueDate?: string;    // 신고기한
-      paidDate?: string;   // 납부일
-      amount: number;      // 금액(원)
-      isPaid: boolean;     // 납부여부
-      note?: string;        // 비고
+      description: string;  // 내역
+      paidDate?: string;      // 결재일자 (자유 텍스트 - 날짜가 아닌 메모가 섞일 수 있음)
+      amount: number;         // 금액(원)
+      note?: string;           // 비고 (완료 여부 등)
+      // [추가] 통장 출금 내역에서 "자동 불러오기"로 가져온 경우의 원본 추적용.
+      sourceKey?: string;
+      sourceLabel?: string;
+    }[];
+  };
+  // [추가] 회계관리 > 관리비내역(category: 'management_fee') 전용 구조화 필드. 공유해주신
+  // "월별 관리비내역" 양식과 동일하게 호실(열) × 월(행) 표로 관리한다 - 가지급내역과 완전히
+  // 같은 구조라서(호실 = 인원 자리), 호실도 회사 상황에 따라 바뀔 수 있어 자유롭게
+  // 추가/삭제 가능한 목록으로 둔다. 통장 출금 내역에서 "자동 불러오기"로 채워 넣을 수 있다.
+  managementFee?: {
+    units: { id: string; name: string }[]; // 표의 열 - 호실(예: "518호")
+    months: {
+      id: string;
+      monthKey: string;   // YYYY-MM
+      label: string;        // 화면에 보여줄 구분 텍스트 (기본 "01월" 등)
+      paymentDate?: string; // 납부일
+      amounts: Record<string, {
+        manual: number;
+        imported: { sourceKey: string; sourceLabel: string; amount: number }[];
+      }>;
+      note?: string;
     }[];
   };
   // [추가] 경영지원 > 법인카드 관리(category: 'corp_card') 전용 구조화 필드. 카드사용내역
