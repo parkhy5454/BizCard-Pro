@@ -790,9 +790,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     setOfExecutionNumber(makeExecutionNumber(officialList.map(d => d.executionNumber || ''), companySettings.docPrefix, today));
     setOfReceiptNumber('');
     setOfCompanyName(myProfile?.company || currentUser?.companyName || '');
+    // [수정] 회사 기본값이 아직 DB에 저장되기 전(최초 1회)에도 전화/전송이 주소처럼 실제
+    // 값으로 바로 보이도록 폴백 기본값을 넣었다. 입력칸에서 포커스가 빠지면(onBlur) 자동으로
+    // 저장되므로, 한 번 열어서 그대로 두면 이 값이 그대로 회사 기본값으로 굳어진다.
     setOfCompanyAddress(companySettings.address || '');
-    setOfCompanyPhone(companySettings.phone || '');
-    setOfCompanyFax(companySettings.fax || '');
+    setOfCompanyPhone(companySettings.phone || '02-971-0954');
+    setOfCompanyFax(companySettings.fax || '0504-843-0954');
     setOfCompanyEmail(companySettings.email || '');
     setOfApprovalLine((companyApprovalTemplate.official && companyApprovalTemplate.official.length) ? companyApprovalTemplate.official : defaultOfficialApprovalLine());
     setEditingOfficialId(null);
