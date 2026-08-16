@@ -1704,6 +1704,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     // 배열상 가장 마지막에 결재된 날짜로 대신한다.
     const daepyoStep = approvalLine.find(s => s.role.includes('대표'));
     const finalApprovalDate = daepyoStep?.date || [...approvalLine].reverse().find(s => s.date)?.date || '';
+    // [추가] 협조자는 담당/이사와 같은 줄에 묶지 않고 별도 줄로 빼서 "담당" 줄과 "시행" 줄
+    // 사이에 위치시킨다 (요청: "담당과 시행 사이에 협조자를 넣어").
+    const coopStep = approvalLine.find(s => s.role.includes('협조자'));
     // 실제 양식의 라벨 색(진한 파랑) - 담당/이사/협조자/대표, 시행 라벨에만 쓰이고 나머지는 검정 그대로.
     const labelBlue = '#1a5cab';
     return (
@@ -1757,12 +1760,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
           {/* [수정] 도장 아래 굵은 회색 구분선 - 그 아래로 결재란/시행/발신처 정보를 묶는다 */}
           <div style={{ borderTop: '4px solid #5d5d5d', marginTop: 10, paddingTop: 14, fontSize: 11 }}>
-            {/* [수정] 결재란 - 표(테두리) 없이 한 줄로 배치. 담당/이사/협조자는 왼쪽에 나란히,
+            {/* [수정] 결재란 - 표(테두리) 없이 배치. 담당/이사는 왼쪽 한 줄에 나란히,
                 "결재 [날짜]"와 "대표 [서명]"은 오른쪽에 세로로 쌓아서 같은 폭(오른쪽 정렬)으로
-                맞춘다 - 대표이사가 결재하면 서명이 아래 칸에, 그 결재 날짜가 서명 바로 위에 표시됨. */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 24 }}>
+                맞춘다 - 대표이사가 결재하면 서명이 아래 칸에, 그 결재 날짜가 서명 바로 위에 표시됨.
+                협조자는 담당/이사와 한 줄에 묶지 않고, 그 아래 별도 줄로 빼서 "담당" 줄과
+                "시행" 줄 사이에 위치하도록 한다. */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8, gap: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
-                {approvalLine.filter(s => !s.role.includes('대표')).map((s, i) => (
+                {approvalLine.filter(s => !s.role.includes('대표') && !s.role.includes('협조자')).map((s, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: labelBlue, fontWeight: 700 }}>{s.role}</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
@@ -1784,6 +1789,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 </div>
               )}
             </div>
+
+            {coopStep && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <span style={{ color: labelBlue, fontWeight: 700 }}>협조자</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
+                  {coopStep.signatureUrl && <img src={coopStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
+                  <span style={{ fontSize: 10 }}>{coopStep.date || ''}</span>
+                </span>
+              </div>
+            )}
 
             <p style={{ marginBottom: 4 }}>
               <span style={{ color: labelBlue }}>시행</span>&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}
