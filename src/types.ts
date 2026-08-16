@@ -283,17 +283,24 @@ export interface AdminDoc {
       note?: string; // 비고 (계산식 메모 등 자유 텍스트, 공유해주신 양식처럼 길게 적어도 됨)
     }[];
   };
-  // [추가] 회계관리 > 차량 과태료 내역(category: 'vehicle_fine') 전용 구조화 필드.
-  // 건별로 여러 줄 입력하는 단순한 표(일자/차량/위반내용/금액/납부여부/비고).
+  // [수정] 회계관리 > 차량 과태료 내역(category: 'vehicle_fine') 전용 구조화 필드. 공유해주신
+  // "2026년 법인차량 과태료 내역" 양식과 동일한 열 구성(위반일자/위반차량/금액/처리일자/
+  // 내용/비고)으로 맞췄다 - 원래는 "납부여부" 체크박스만 뒀는데, 실제 양식엔 언제 처리했는지
+  // 날짜(처리일자)가 있고 비고엔 담당자 이름을 적는 방식이라 그대로 반영했다.
   vehicleFine?: {
     entries: {
       id: string;
-      date: string;      // 일자
-      vehicle: string;    // 차량번호/차량명
-      detail: string;     // 위반내용
-      amount: number;     // 금액(원)
-      isPaid: boolean;    // 납부여부
-      note?: string;       // 비고
+      date: string;          // 위반일자
+      vehicle: string;        // 위반차량 (번호/명)
+      amount: number;         // 금액(원)
+      processedDate?: string; // 처리일자 (비어있으면 아직 미처리)
+      detail: string;          // 내용 (위반 상세)
+      note?: string;            // 비고 (담당자 이름 등 자유 기재)
+      // [추가] 회계관리 > 통장 출금 내역에서 "자동 불러오기"로 가져온 경우, 그 원본을
+      // 추적하기 위한 값. 사람이 직접 입력한 항목은 이 값이 없다. sourceKey로 같은
+      // 원본을 중복으로 다시 가져오지 않도록 막는다.
+      sourceKey?: string;
+      sourceLabel?: string; // 화면에 보여줄 원본 이름 (예: "통장 출금 내역")
     }[];
   };
   // [추가] 회계관리 > 각종 세금(category: 'tax') 전용 구조화 필드.
