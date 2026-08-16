@@ -199,6 +199,29 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     }
   };
 
+  // [추가] 관리자 전용: 이미 승인된 동료를 팀에서 제거한다 (본인 제외, 마지막 관리자는
+  // 서버에서 막아준다). 승인 대기자를 지우는 "거절"과는 별도 API(/api/auth/users/:id DELETE).
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState('');
+  const removeMember = async (target: UserType) => {
+    if (!window.confirm(`${target.name}(${target.email})님을 팀에서 제거할까요?\n계정이 삭제되며 되돌릴 수 없습니다.`)) return;
+    setRemoveError('');
+    setRemovingId(target.id);
+    try {
+      const res = await fetch(`/api/auth/users/${target.id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || '제거에 실패했습니다.');
+      setUsers(prev => prev.filter(u => u.id !== target.id));
+    } catch (err: any) {
+      setRemoveError(err.message || '제거 중 오류가 발생했습니다.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
@@ -273,6 +296,9 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         )}
         {approvalError && (
           <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{approvalError}</div>
+        )}
+        {removeError && (
+          <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{removeError}</div>
         )}
 
         {/* 가입자 목록 영역 */}
@@ -452,6 +478,15 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                                   일반 사용자로 지정
                                 </button>
                                 {roleUpdatingId === u.id && <span className="text-[11px] text-slate-400">변경 중...</span>}
+                                <button
+                                  type="button"
+                                  disabled={removingId === u.id}
+                                  onClick={() => removeMember(u)}
+                                  title="팀에서 제거 (계정 삭제)"
+                                  className="ml-auto text-[11px] px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-500/20 hover:bg-rose-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  {removingId === u.id ? '제거 중...' : '팀에서 제거'}
+                                </button>
                               </div>
                             )}
                           </div>

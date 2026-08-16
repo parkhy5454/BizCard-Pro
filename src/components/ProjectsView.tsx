@@ -24,6 +24,12 @@ interface Props {
   triggerPrintPreview?: number;
   // [수정] "리스트 출력"/"파이프라인" 탭 전환을 위한 화면 모드
   viewMode?: 'cards' | 'listOutput' | 'pipeline';
+  // [추가] 전역 검색에서 특정 프로젝트를 눌렀을 때, 그 프로젝트를 펼쳐서 바로 보여주기 위한
+  // 신호. focusProjectId만으로는 같은 프로젝트를 다시 눌러도 값이 안 바뀌어 useEffect가
+  // 반응하지 않으므로, 누를 때마다 값이 바뀌는 focusProjectSignal을 함께 쓴다
+  // (triggerNewProject 등 기존 트리거 프롭들과 동일한 패턴).
+  focusProjectId?: string;
+  focusProjectSignal?: number;
 }
 
 export const ProjectsView: React.FC<Props> = ({ 
@@ -37,7 +43,9 @@ export const ProjectsView: React.FC<Props> = ({
   triggerNewProject,
   triggerExcelExport,
   triggerPrintPreview,
-  viewMode = 'cards'
+  viewMode = 'cards',
+  focusProjectId,
+  focusProjectSignal
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -387,6 +395,22 @@ export const ProjectsView: React.FC<Props> = ({
   }, [filterStatus, projectSearchQuery]);
   // [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하기 위한 상태
   const [showProjectsPrintPreview, setShowProjectsPrintPreview] = useState<boolean>(false);
+
+  // [추가] 전역 검색에서 특정 프로젝트로 이동해왔을 때: 필터/검색어 때문에 그 프로젝트가
+  // 목록에서 가려져 있거나 "더 보기" 제한 밖에 있을 수 있으므로, 필터를 전체로 풀고
+  // 검색어를 비운 뒤, 그 프로젝트가 보이는 순번까지 visibleProjectCount를 늘리고 펼친다.
+  useEffect(() => {
+    if (!focusProjectId || !focusProjectSignal) return;
+    setFilterStatus('all');
+    setProjectSearchQuery('');
+    setExpandedId(focusProjectId);
+    const idx = projects.findIndex((p) => p.id === focusProjectId);
+    if (idx >= 0) setVisibleProjectCount((prev) => Math.max(prev, idx + 1));
+    setTimeout(() => {
+      document.getElementById(`project-card-${focusProjectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusProjectSignal]);
 
   // 상단 메뉴의 '새 프로젝트 등록' 버튼에서 신호가 오면 등록 모달을 엽니다.
   useEffect(() => {
@@ -1746,6 +1770,7 @@ export const ProjectsView: React.FC<Props> = ({
             return (
               <div
                 key={proj.id}
+                id={`project-card-${proj.id}`}
                 className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-slate-200 transition-all shadow-xl"
               >
                 {/* 프로젝트 카드 메인 상단바 */}

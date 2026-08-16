@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
+import { RemindersBell } from './RemindersBell.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 
 interface Props {
-  activeTab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'ai_intelligence';
-  setActiveTab: (tab: 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'ai_intelligence') => void;
+  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence';
+  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence') => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedGroup: string;
@@ -16,6 +17,7 @@ interface Props {
   onOpenTaxPackage: () => void;
   onOpenShareMyCardModal: () => void;
   onOpenUserDirectory: () => void;
+  onOpenGlobalSearch: () => void;
   onOpenNewProject?: () => void;
   onExportProjectsExcel?: () => void;
   onOpenProjectsPrintPreview?: () => void;
@@ -49,6 +51,7 @@ export const Navigation: React.FC<Props> = ({
   onOpenTaxPackage,
   onOpenShareMyCardModal,
   onOpenUserDirectory,
+  onOpenGlobalSearch,
   onOpenNewProject = () => {},
   onExportProjectsExcel = () => {},
   onOpenProjectsPrintPreview = () => {},
@@ -71,6 +74,36 @@ export const Navigation: React.FC<Props> = ({
   // 다 모이는 화면이라, 아무나 보면 안 되고 개발자 계정에서만 보이게 제한한다.
   const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
   const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
+  // [추가] 데이터 백업 - 서버(/api/backup/export)는 이미 있었는데 어디서도 눌러볼 방법이
+  // 없었다. 서버 쪽 권한 규칙과 똑같이(개인 계정은 항상 본인 데이터를, 회사 계정은
+  // 관리자만) 내려받을 수 있게 버튼을 노출한다. 커스텀 헤더(x-user-id)가 필요해서 그냥
+  // <a href>로는 안 되고, fetch로 받은 내용을 blob으로 만들어 다운로드를 흉내낸다.
+  const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
+  const canAccessBackup = currentUser?.type === 'individual' || currentUser?.role === 'admin';
+  const handleDownloadBackup = async () => {
+    if (!currentUser || isDownloadingBackup) return;
+    setIsDownloadingBackup(true);
+    try {
+      const res = await fetch('/api/backup/export', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `백업에 실패했습니다 (상태: ${res.status}).`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bizcard-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`데이터 백업에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
+    } finally {
+      setIsDownloadingBackup(false);
+    }
+  };
   // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
@@ -140,12 +173,30 @@ export const Navigation: React.FC<Props> = ({
             {currentUser && (
               <div className="flex items-center gap-2 md:hidden">
                 <button
+                  onClick={onOpenGlobalSearch}
+                  title="전체 검색"
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-blue-500 border border-slate-200 transition-colors"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+                <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
+                <button
                   onClick={onOpenSubscriptionModal}
                   title="구독 관리"
                   className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-indigo-400 border border-slate-200 transition-colors"
                 >
                   <CreditCard className="w-4 h-4" />
                 </button>
+                {canAccessBackup && (
+                  <button
+                    onClick={handleDownloadBackup}
+                    disabled={isDownloadingBackup}
+                    title="데이터 백업"
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-emerald-500 border border-slate-200 transition-colors disabled:opacity-40"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={onLogout}
                   title="로그아웃"
@@ -220,12 +271,32 @@ export const Navigation: React.FC<Props> = ({
                 </div>
 
                 <button
+                  onClick={onOpenGlobalSearch}
+                  title="전체 검색 (명함/프로젝트/차량/업무일지)"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-500 transition-colors hidden md:block"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                </button>
+                <span className="hidden md:block">
+                  <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
+                </span>
+                <button
                   onClick={onOpenSubscriptionModal}
                   title="구독 관리"
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-400 transition-colors hidden md:block"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
                 </button>
+                {canAccessBackup && (
+                  <button
+                    onClick={handleDownloadBackup}
+                    disabled={isDownloadingBackup}
+                    title="데이터 백업 (전체 내려받기)"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-emerald-500 transition-colors ml-1 hidden md:block disabled:opacity-40"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={onLogout}
                   title="로그아웃"
@@ -287,6 +358,18 @@ export const Navigation: React.FC<Props> = ({
         <div className="flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm">
           
           <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                activeTab === 'dashboard'
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 text-blue-400" />
+              <span>홈</span>
+            </button>
+
             <button
               onClick={() => setActiveTab('cards')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -373,6 +456,20 @@ export const Navigation: React.FC<Props> = ({
                 >
                   <TrendingUp className="w-4 h-4 text-indigo-400" />
                   <span>회계관리</span>
+                </button>
+                {/* [추가] 활동 로그 - 서버에는 이미 감사 기록(누가 언제 어떤 민감한 작업을
+                했는지)이 쌓이고 있었는데 이걸 보여주는 화면이 없었다. 경영지원/회계관리와
+                같은 이유로 관리자만 볼 수 있게 한다. */}
+                <button
+                  onClick={() => setActiveTab('audit_logs')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                    activeTab === 'audit_logs'
+                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <History className="w-4 h-4 text-indigo-400" />
+                  <span>활동 로그</span>
                 </button>
               </>
             )}
