@@ -1697,7 +1697,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     if (!doc) return null;
     const approvalLine = doc.approvalLine || [];
     const bodyParagraphs = doc.bodyParagraphs || [];
-    const footerLine = [doc.companyPhone && `전화 : ${doc.companyPhone}`, doc.companyFax && `전송 : ${doc.companyFax}`, doc.companyEmail && `e-mail : ${doc.companyEmail}`].filter(Boolean).join('   ');
+    // [수정] 전화/전송/e-mail 사이 간격을 일반 공백(연속 공백은 브라우저가 한 칸으로 접어버림)
+    // 대신 각 항목을 배열로 두고 flex+gap으로 렌더링해서 원하는 만큼 확실하게 띄운다.
+    const footerParts = [doc.companyPhone && `전화 : ${doc.companyPhone}`, doc.companyFax && `전송 : ${doc.companyFax}`, doc.companyEmail && `e-mail : ${doc.companyEmail}`].filter(Boolean) as string[];
     // [수정] 결재란 우측 상단에 표시하는 "최종 결재일" - 배열상 마지막 날짜가 아니라, 실제로
     // "대표"(대표/대표이사 등) 역할을 맡은 단계가 결재한 날짜를 명시적으로 찾아서 쓴다.
     // 결재선에 "대표" 역할이 없으면(회사마다 결재선 구성이 다를 수 있으므로) 예외적으로
@@ -1800,12 +1802,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               </div>
             )}
 
-            <p style={{ marginBottom: 4 }}>
+            {/* [수정] 시행/접수, 주소, 연락처 줄 자간을 0.8px→1.2px로 더 넓힘 */}
+            <p style={{ marginBottom: 4, letterSpacing: 1.2 }}>
               <span style={{ color: labelBlue }}>시행</span>&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}
             </p>
             {/* 맨 아래 2줄: 첫 줄엔 (우편번호 포함) 주소, 둘째 줄엔 전화/전송/이메일 */}
-            {doc.companyAddress && <p style={{ color: '#333', marginBottom: 2 }}>{doc.companyAddress}</p>}
-            {footerLine && <p style={{ color: '#333' }}>{footerLine}</p>}
+            {doc.companyAddress && <p style={{ color: '#333', marginBottom: 2, letterSpacing: 1.2 }}>{doc.companyAddress}</p>}
+            {/* 전화/전송/e-mail 사이 간격을 36px→52px로 더 넓게 벌려서 표시 */}
+            {footerParts.length > 0 && (
+              <p style={{ color: '#333', letterSpacing: 1.2, display: 'flex', gap: 52 }}>
+                {footerParts.map((part, i) => <span key={i}>{part}</span>)}
+              </p>
+            )}
           </div>
         </div>
       </div>
