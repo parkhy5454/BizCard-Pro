@@ -27,6 +27,9 @@ import { VehicleView } from './components/VehicleView.js';
 import { WorkLogsView } from './components/WorkLogsView.js';
 import { ElectronicApprovalView } from './components/ElectronicApprovalView.js';
 import { AdminDocsView } from './components/AdminDocsView.js';
+import { AuditLogView } from './components/AuditLogView.js';
+import { GlobalSearchModal } from './components/GlobalSearchModal.js';
+import { DashboardView } from './components/DashboardView.js';
 import { AIIntelligenceView } from './components/AIIntelligenceView.js';
 import { LegalModal } from './components/LegalModal.js';
 
@@ -38,7 +41,7 @@ export default function App() {
   });
 
   // 메인 내비게이션 탭 상태
-  const [activeTab, setActiveTab] = useState<'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'ai_intelligence'>('cards');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -76,6 +79,27 @@ export default function App() {
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(
     () => new URLSearchParams(window.location.search).has('authKey')
   );
+  // [추가] 전역 검색(명함/프로젝트/차량/업무일지 통합 검색) 모달 상태.
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  // [추가] 전역 검색에서 프로젝트를 눌렀을 때 ProjectsView가 그 프로젝트를 펼쳐서 보여주도록
+  // 전달하는 신호. focusProjectSignal은 같은 프로젝트를 다시 눌러도 반응하도록 매번 증가시킨다.
+  const [focusProjectId, setFocusProjectId] = useState<string | undefined>(undefined);
+  const [focusProjectSignal, setFocusProjectSignal] = useState(0);
+
+  // [추가] 전역 검색 결과를 눌렀을 때 각 화면으로 이동시키는 핸들러들.
+  const handleOpenContactFromSearch = (contact: BusinessCard) => {
+    setActiveTab('cards');
+    setDetailModalTab('info');
+    setSelectedContactDetail(contact);
+  };
+  const handleOpenProjectFromSearch = (projectId: string) => {
+    setActiveTab('projects');
+    setProjectsViewMode('cards');
+    setFocusProjectId(projectId);
+    setFocusProjectSignal((n) => n + 1);
+  };
+  const handleOpenVehiclesFromSearch = () => setActiveTab('vehicles');
+  const handleOpenWorkLogsFromSearch = () => setActiveTab('worklogs');
 
   // 로그아웃 핸들러
   const handleLogout = () => {
@@ -405,6 +429,7 @@ export default function App() {
         onOpenTaxPackage={() => setIsTaxPackageOpen(true)}
         onOpenShareMyCardModal={() => setIsShareMyCardOpen(true)}
         onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
+        onOpenGlobalSearch={() => setIsGlobalSearchOpen(true)}
         onOpenNewProject={() => setTriggerNewProject((n) => n + 1)}
         onExportProjectsExcel={() => setTriggerProjectsExcelExport((n) => n + 1)}
         onOpenProjectsPrintPreview={() => setTriggerProjectsPrintPreview((n) => n + 1)}
@@ -432,6 +457,19 @@ export default function App() {
           </div>
         ) : (
           <>
+            {/* 탭 0: 홈 대시보드 (KPI + 차트 + 최근 활동) */}
+            {activeTab === 'dashboard' && currentUser && (
+              <DashboardView
+                currentUser={currentUser}
+                contacts={contacts}
+                projects={projects}
+                onOpenContact={handleOpenContactFromSearch}
+                onOpenProject={handleOpenProjectFromSearch}
+                onOpenGlobalSearch={() => setIsGlobalSearchOpen(true)}
+                onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
+              />
+            )}
+
             {/* 탭 1: 전체 명함 뷰 */}
             {activeTab === 'cards' && (
               <CardGrid
@@ -506,6 +544,8 @@ export default function App() {
                 triggerExcelExport={triggerProjectsExcelExport}
                 triggerPrintPreview={triggerProjectsPrintPreview}
                 viewMode={projectsViewMode}
+                focusProjectId={focusProjectId}
+                focusProjectSignal={focusProjectSignal}
               />
             )}
 
@@ -549,6 +589,12 @@ export default function App() {
                 section="accounting"
                 currentUser={currentUser}
               />
+            )}
+
+            {/* [추가] 활동 로그 - 관리자만 접근 가능. 민감한 작업(권한 변경/가입 승인/결제/백업 등)의
+            감사 기록을 보여준다. */}
+            {activeTab === 'audit_logs' && currentUser?.role === 'admin' && (
+              <AuditLogView currentUser={currentUser} />
             )}
 
             {/* [추가] AI Intelligence - 오늘의 브리핑/기업 인텔리전스/관계·영업 인텔리전스.
@@ -664,6 +710,21 @@ export default function App() {
       )}
       {isSubscriptionModalOpen && currentUser && (
         <SubscriptionModal onClose={() => setIsSubscriptionModalOpen(false)} />
+      )}
+
+      {/* [추가] 전역 검색: 명함/프로젝트/차량/업무일지 통합 검색 */}
+      {isGlobalSearchOpen && currentUser && (
+        <GlobalSearchModal
+          isOpen={isGlobalSearchOpen}
+          onClose={() => setIsGlobalSearchOpen(false)}
+          currentUser={currentUser}
+          contacts={contacts}
+          projects={projects}
+          onOpenContact={handleOpenContactFromSearch}
+          onOpenProject={handleOpenProjectFromSearch}
+          onOpenVehicles={handleOpenVehiclesFromSearch}
+          onOpenWorkLogs={handleOpenWorkLogsFromSearch}
+        />
       )}
 
     </div>
