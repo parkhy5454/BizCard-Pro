@@ -3,13 +3,17 @@ import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
   Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
-  Download, ClipboardList, Car, Wrench, ChevronDown, Camera
+  Download, ClipboardList, Car, Wrench, ChevronDown, Camera, PenTool
 } from 'lucide-react';
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { SignaturePadModal } from './SignaturePadModal.js';
 
 interface Props {
   currentUser: User | null;
+  // [추가] 서명을 새로 등록/변경했을 때 앱 전체(App.tsx)의 currentUser 상태를 갱신하기 위한
+  // 콜백. 없으면(옵셔널) 이 화면 안에서만 반영되고 다음 새로고침 시 서버에서 다시 받아온다.
+  onUpdateCurrentUser?: (user: User) => void;
 }
 
 const STATUS_LABEL: Record<ApprovalStatus, string> = {
@@ -382,8 +386,14 @@ const ApprovalLineEditor: React.FC<{
   </div>
 );
 
-export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
+export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateCurrentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave'>('advance');
+
+  // [추가] 서명 등록 모달 상태. 결재자가 아직 서명을 등록 안 한 상태에서 "승인"을 누르면
+  // 먼저 이 모달을 열어 서명을 받고, 저장되는 즉시 원래 하려던 승인을 이어서 처리한다
+  // (pendingApprovalTarget에 "무엇을 승인하려 했는지" 잠깐 담아둔다).
+  const [isSignaturePadOpen, setIsSignaturePadOpen] = useState(false);
+  const [pendingApprovalTarget, setPendingApprovalTarget] = useState<{ kind: 'advance' | 'leave'; id: string } | null>(null);
 
   const [advanceList, setAdvanceList] = useState<AdvancePaymentSettlement[]>([]);
   const [leaveList, setLeaveList] = useState<LeaveRequest[]>([]);
@@ -882,7 +892,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     const colgroup = `<colgroup>${COLS.map(w => `<col style="width:${w}%;" />`).join('')}</colgroup>`;
 
     const roleCell = (role: string) => `<th style="${cellBorder} ${grayBg} text-align:center;">${esc(role)}</th>`;
-    const dateCell = (d?: string) => `<td style="${cellBorder} text-align:center; height:32px;">${esc(d || '')}</td>`;
+    const dateCell = (d?: string, sigUrl?: string) => `<td style="${cellBorder} text-align:center; height:32px;">${sigUrl ? `<img src="${esc(sigUrl)}" style="max-height:26px; max-width:90%; display:block; margin:0 auto 2px;" />` : ''}${esc(d || '')}</td>`;
 
     const topHtml = `
       <table style="border-collapse: collapse; width:100%; border:1.5pt solid #000; ${baseFont} table-layout: fixed;" cellpadding="4">
@@ -896,7 +906,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         <tr>
           <td style="${cellBorder} ${grayBg} font-weight:bold;">기간</td>
           <td style="${cellBorder}">${esc(formatKoreanPeriod(doc.periodStart, doc.periodEnd))}</td>
-          ${approvalLine.map(s => dateCell(s.date)).join('')}
+          ${approvalLine.map(s => dateCell(s.date, s.signatureUrl)).join('')}
         </tr>
         <tr>
           <td style="${cellBorder} ${grayBg} font-weight:bold;">부서</td>
@@ -1022,7 +1032,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 90 }}>{s.role}</th>)}
               </tr>
               <tr>
-                {approvalLine.map((s, i) => <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 40 }}>{s.date || ''}</td>)}
+                {approvalLine.map((s, i) => (
+                  <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 48 }}>
+                    {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 28, maxWidth: '90%', display: 'block', margin: '0 auto 2px' }} />}
+                    {s.date || ''}
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
@@ -1135,7 +1150,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
         </tr>
         <tr>
           <td colspan="6" style="border:none;"></td>
-          ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:32px;">${esc(s.date || '')}</td>`).join('')}
+          ${approvalLine.map(s => `<td style="${cellBorder} text-align:center; height:32px;">${s.signatureUrl ? `<img src="${esc(s.signatureUrl)}" style="max-height:26px; max-width:90%; display:block; margin:0 auto 2px;" />` : ''}${esc(s.date || '')}</td>`).join('')}
         </tr>
         <tr><td colspan="11" style="border:none; padding-top:10px;">기안번호 : ${esc(doc.draftNumber)}</td></tr>
         <tr>
@@ -1251,7 +1266,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                 {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 90 }}>{s.role}</th>)}
               </tr>
               <tr>
-                {approvalLine.map((s, i) => <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 40 }}>{s.date || ''}</td>)}
+                {approvalLine.map((s, i) => (
+                  <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 48 }}>
+                    {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 28, maxWidth: '90%', display: 'block', margin: '0 auto 2px' }} />}
+                    {s.date || ''}
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
@@ -1406,17 +1426,21 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   };
 
   // 결재선의 다음 미결 단계에 오늘 날짜로 승인 처리 (모든 단계가 끝나면 문서 상태를 승인으로 전환)
-  const advanceNextApprovalStep = async (kind: 'advance' | 'leave', id: string) => {
-    if (!currentUser) return;
+  // [수정] 승인자 이름과 서명 이미지도 그 단계에 같이 스냅샷으로 남긴다. approverOverride는
+  // "방금 서명을 등록/변경한 직후 이어서 승인하는" 경우에 쓴다 - currentUser prop이 다음
+  // 렌더링에서야 갱신되므로, 그 사이의 낡은 값 대신 방금 저장된 최신 사용자 정보를 바로 쓰기 위함.
+  const advanceNextApprovalStep = async (kind: 'advance' | 'leave', id: string, approverOverride?: User) => {
+    const approver = approverOverride || currentUser;
+    if (!approver) return;
     const list: any[] = kind === 'advance' ? advanceList : leaveList;
     const doc = list.find((d: any) => d.id === id);
     if (!doc) return;
     const line: ApprovalStep[] = [...doc.approvalLine];
     const idx = line.findIndex(s => !s.date);
     if (idx === -1) return;
-    line[idx] = { ...line[idx], date: todayStr() };
+    line[idx] = { ...line[idx], date: todayStr(), name: approver.name, signatureUrl: approver.signatureImage };
     const allDone = line.every(s => !!s.date);
-    const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
+    const headers = { 'Content-Type': 'application/json', 'x-user-id': approver.id };
     const body = JSON.stringify({ approvalLine: line, status: allDone ? 'approved' : 'pending' });
     try {
       if (kind === 'advance') {
@@ -1433,6 +1457,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
     } catch (err: any) {
       alert(`승인 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
+  };
+
+  // [추가] "승인" 버튼을 눌렀을 때: 아직 서명을 등록 안 했으면 먼저 서명 등록 모달을 띄우고,
+  // 저장이 끝나면 자동으로 이어서 승인 처리한다. 이미 등록돼 있으면 바로 승인한다.
+  const handleApproveClick = (kind: 'advance' | 'leave', id: string) => {
+    if (!currentUser) return;
+    if (!currentUser.signatureImage) {
+      setPendingApprovalTarget({ kind, id });
+      setIsSignaturePadOpen(true);
+      return;
+    }
+    advanceNextApprovalStep(kind, id);
   };
 
   const rejectDoc = async (kind: 'advance' | 'leave', id: string) => {
@@ -1470,26 +1506,35 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
   return (
     <div className="space-y-5">
       {/* 전자결재 하위 탭 */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveApprovalTab('advance')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+              activeApprovalTab === 'advance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            <span>가지급금 정산서</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{advanceList.length}</span>
+          </button>
+          <button
+            onClick={() => setActiveApprovalTab('leave')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+              activeApprovalTab === 'leave' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
+            }`}
+          >
+            <Plane className="w-4 h-4" />
+            <span>휴가 신청서</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{leaveList.length}</span>
+          </button>
+        </div>
         <button
-          onClick={() => setActiveApprovalTab('advance')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-            activeApprovalTab === 'advance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
-          }`}
+          onClick={() => { setPendingApprovalTarget(null); setIsSignaturePadOpen(true); }}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 transition-colors"
         >
-          <Wallet className="w-4 h-4" />
-          <span>가지급금 정산서</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{advanceList.length}</span>
-        </button>
-        <button
-          onClick={() => setActiveApprovalTab('leave')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-            activeApprovalTab === 'leave' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
-          }`}
-        >
-          <Plane className="w-4 h-4" />
-          <span>휴가 신청서</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{leaveList.length}</span>
+          <PenTool className="w-3.5 h-3.5 text-indigo-500" />
+          <span>{currentUser?.signatureImage ? '내 서명 변경' : '내 서명 등록'}</span>
         </button>
       </div>
 
@@ -1554,7 +1599,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
                     {doc.status === 'pending' && (
                       <div className="flex items-center gap-2 pt-1">
-                        <button onClick={() => advanceNextApprovalStep('advance', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold border border-emerald-600/30 transition-colors">
+                        <button onClick={() => handleApproveClick('advance', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold border border-emerald-600/30 transition-colors">
                           <Check className="w-3.5 h-3.5" /> 다음 결재 승인
                         </button>
                         <button onClick={() => rejectDoc('advance', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-xs font-bold border border-rose-600/30 transition-colors">
@@ -1641,7 +1686,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
 
                   {doc.status === 'pending' && (
                     <div className="flex items-center gap-2 pt-1">
-                      <button onClick={() => advanceNextApprovalStep('leave', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold border border-emerald-600/30 transition-colors">
+                      <button onClick={() => handleApproveClick('leave', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold border border-emerald-600/30 transition-colors">
                         <Check className="w-3.5 h-3.5" /> 다음 결재 승인
                       </button>
                       <button onClick={() => rejectDoc('leave', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-xs font-bold border border-rose-600/30 transition-colors">
@@ -2218,7 +2263,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         </tr>
                         <tr>
                           {previewApprovalLine.map((s, i) => (
-                            <td key={i} className="border border-black px-3 py-2.5 h-10">{s.date || ''}</td>
+                            <td key={i} className="border border-black px-3 py-2.5 h-10 text-center">
+                              {s.signatureUrl && <img src={s.signatureUrl} className="max-h-6 max-w-[90%] inline-block mb-0.5" />}
+                              <div>{s.date || ''}</div>
+                            </td>
                           ))}
                         </tr>
                       </tbody>
@@ -2347,7 +2395,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
                         </tr>
                         <tr>
                           {previewLeaveApprovalLine.map((s, i) => (
-                            <td key={i} className="border border-black px-3 py-2.5 h-10">{s.date || ''}</td>
+                            <td key={i} className="border border-black px-3 py-2.5 h-10 text-center">
+                              {s.signatureUrl && <img src={s.signatureUrl} className="max-h-6 max-w-[90%] inline-block mb-0.5" />}
+                              <div>{s.date || ''}</div>
+                            </td>
                           ))}
                         </tr>
                       </tbody>
@@ -2475,6 +2526,24 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser }) => {
             className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
           />
         </div>
+      )}
+
+      {/* [추가] 서명 등록/변경 모달. "내 서명 등록" 버튼으로 직접 열거나, 서명이 없는 상태에서
+          결재를 시도하면 자동으로 뜬다 — 후자의 경우 저장 완료 시 대기 중이던 결재를 이어서 진행한다. */}
+      {isSignaturePadOpen && currentUser && (
+        <SignaturePadModal
+          currentUser={currentUser}
+          onClose={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); }}
+          onSaved={(updatedUser) => {
+            setIsSignaturePadOpen(false);
+            onUpdateCurrentUser?.(updatedUser);
+            if (pendingApprovalTarget) {
+              const target = pendingApprovalTarget;
+              setPendingApprovalTarget(null);
+              advanceNextApprovalStep(target.kind, target.id, updatedUser);
+            }
+          }}
+        />
       )}
     </div>
   );
