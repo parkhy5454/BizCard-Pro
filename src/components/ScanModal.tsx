@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
-import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
+import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
@@ -168,9 +168,12 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       // [수정] AI가 함께 알려준 "명함 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
       // 화면의 명암 차이로 테두리를 찾는 기존 방식보다 훨씬 안정적이라(배경과 색이 비슷해도 잘 됨),
       // 이 결과가 있으면 지금까지의 대충 잘린/원본 사진을 이걸로 교체한다.
+      let finalFrontImg = frontImg;
+      let finalBackImg = backImg;
       if (frontImg && isValidNormalizedCorners(data.frontCorners)) {
         try {
           const recropped = await warpDataUrlWithNormalizedCorners(frontImg, data.frontCorners, 1.586);
+          finalFrontImg = recropped;
           setFrontImg(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 앞면 재크롭 실패, 기존 사진 유지:', err);
@@ -179,9 +182,28 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       if (backImg && isValidNormalizedCorners(data.backCorners)) {
         try {
           const recropped = await warpDataUrlWithNormalizedCorners(backImg, data.backCorners, 1.586);
+          finalBackImg = recropped;
           setBackImg(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 뒷면 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
+
+      // [추가] 순수 도형 인식(orientQuadForExpectedAspect)만으로는 시계/반시계 중 어느 쪽으로
+      // 돌려야 할지까지는 알 수 없어서, 위 재크롭까지 마친 뒤에도 상하가 뒤집혀 나올 수 있다.
+      // Gemini가 실제 글자를 읽고 알려준 회전값(frontRotation/backRotation)으로 마지막 보정을 한다.
+      if (finalFrontImg && data.frontRotation) {
+        try {
+          setFrontImg(await rotateDataUrlByDegrees(finalFrontImg, data.frontRotation));
+        } catch (err) {
+          console.error('앞면 방향 보정 실패, 보정 전 사진 유지:', err);
+        }
+      }
+      if (finalBackImg && data.backRotation) {
+        try {
+          setBackImg(await rotateDataUrlByDegrees(finalBackImg, data.backRotation));
+        } catch (err) {
+          console.error('뒷면 방향 보정 실패, 보정 전 사진 유지:', err);
         }
       }
 
@@ -376,6 +398,15 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
             console.error('AI 좌표 기반 재크롭 실패, 기존 사진 유지:', err);
           }
         }
+        // [추가] 순수 도형 인식만으로는 상하 반전까지는 못 잡으므로, Gemini가 읽은 글자
+        // 방향(frontRotation)으로 마지막 보정을 한다 (rotateDataUrlByDegrees 정의부 주석 참고).
+        if (data.frontRotation) {
+          try {
+            finalFrontImage = await rotateDataUrlByDegrees(finalFrontImage, data.frontRotation);
+          } catch (err) {
+            console.error('방향 보정 실패, 보정 전 사진 유지:', err);
+          }
+        }
 
         const dup =
           findDuplicateContact(parsed, contacts) ||
@@ -433,6 +464,15 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           finalFrontImage = await warpDataUrlWithNormalizedCorners(item.frontImage, data.frontCorners, 1.586);
         } catch (err) {
           console.error('AI 좌표 기반 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
+      // [추가] 순수 도형 인식만으로는 상하 반전까지는 못 잡으므로, Gemini가 읽은 글자
+      // 방향(frontRotation)으로 마지막 보정을 한다 (rotateDataUrlByDegrees 정의부 주석 참고).
+      if (data.frontRotation) {
+        try {
+          finalFrontImage = await rotateDataUrlByDegrees(finalFrontImage, data.frontRotation);
+        } catch (err) {
+          console.error('방향 보정 실패, 보정 전 사진 유지:', err);
         }
       }
       const dup = findDuplicateContact(parsed, contacts);

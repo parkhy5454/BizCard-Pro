@@ -191,6 +191,37 @@ interface Props {
   expectedAspectRatio?: number;
 }
 
+// [추가] 순수 도형(사각형 모서리) 인식만으로는 시계/반시계 중 어느 방향으로 돌려야
+// 명함 글자가 똑바로 보이는지까지는 알 수 없다(정사각형이 아닌 이상 "가로로 긴 사각형"이라는
+// 점은 같아도, 180도 돌리면 여전히 가로로 긴 사각형이라 구분이 안 된다). 그래서 실제 글자를
+// 읽을 수 있는 Gemini OCR 응답에 "이 이미지를 몇 도 돌려야 글자가 똑바로 보이는지"
+// (frontRotation/backRotation, server.ts의 /api/scan-card 참고)를 같이 받아서, 크롭이 끝난
+// 최종 이미지에 이 회전을 마지막으로 한 번 더 적용한다 — 순수 기하학적 보정
+// (orientQuadForExpectedAspect)이 놓친 상하 반전까지 잡아주는 안전망.
+export const rotateDataUrlByDegrees = (dataUrl: string, degrees: 0 | 90 | 180 | 270): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (degrees === 0) { resolve(dataUrl); return; }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const swapped = degrees === 90 || degrees === 270;
+        const canvas = document.createElement('canvas');
+        canvas.width = swapped ? img.naturalHeight : img.naturalWidth;
+        canvas.height = swapped ? img.naturalWidth : img.naturalHeight;
+        const ctx = canvas.getContext('2d')!;
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((degrees * Math.PI) / 180);
+        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => reject(new Error('이미지 로딩 실패'));
+    img.src = dataUrl;
+  });
+};
+
 // 저장 용량을 줄이기 위해 이미지의 긴 변을 최대 크기로 축소 (DB 조회 속도에 큰 영향을 주므로 모든 최종 출력에 적용)
 // [수정] 카메라 촬영 결과(LiveCameraCapture)도 재사용할 수 있도록 export 처리
 export const resizeDataUrl = (dataUrl: string, maxDim = 1400, quality = 0.82): Promise<string> => {

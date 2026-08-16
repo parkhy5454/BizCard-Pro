@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, CheckCircle2 } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { MyProfile } from '../types.js';
-import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, NormalizedCorners } from './CropAdjustModal.js';
+import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 
@@ -255,9 +255,12 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       } : prev);
 
       // [수정] AI가 함께 알려준 "명함 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
+      let finalFrontImg = targetFront;
+      let finalBackImg = targetBack;
       if (targetFront && isValidNormalizedCorners(data.frontCorners)) {
         try {
           const recropped = await warpDataUrlWithNormalizedCorners(targetFront, data.frontCorners, 1.586);
+          finalFrontImg = recropped;
           setScanImg(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 앞면 재크롭 실패, 기존 사진 유지:', err);
@@ -266,9 +269,26 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       if (targetBack && isValidNormalizedCorners(data.backCorners)) {
         try {
           const recropped = await warpDataUrlWithNormalizedCorners(targetBack, data.backCorners, 1.586);
+          finalBackImg = recropped;
           setScanImgBack(recropped);
         } catch (err) {
           console.error('AI 좌표 기반 뒷면 재크롭 실패, 기존 사진 유지:', err);
+        }
+      }
+      // [추가] 순수 도형 인식만으로는 상하 반전까지는 못 잡으므로, Gemini가 읽은 글자 방향
+      // (frontRotation/backRotation)으로 마지막 보정을 한다 (rotateDataUrlByDegrees 정의부 주석 참고).
+      if (finalFrontImg && data.frontRotation) {
+        try {
+          setScanImg(await rotateDataUrlByDegrees(finalFrontImg, data.frontRotation));
+        } catch (err) {
+          console.error('앞면 방향 보정 실패, 보정 전 사진 유지:', err);
+        }
+      }
+      if (finalBackImg && data.backRotation) {
+        try {
+          setScanImgBack(await rotateDataUrlByDegrees(finalBackImg, data.backRotation));
+        } catch (err) {
+          console.error('뒷면 방향 보정 실패, 보정 전 사진 유지:', err);
         }
       }
     } catch (err: any) {
