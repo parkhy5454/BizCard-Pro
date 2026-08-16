@@ -570,8 +570,15 @@ export default function App() {
 
             {/* 탭 8: 전자결재 (가지급금 정산서 / 휴가 신청서) 뷰 */}
             {activeTab === 'approvals' && (
-              <ElectronicApprovalView 
+              <ElectronicApprovalView
                 currentUser={currentUser}
+                onUpdateCurrentUser={(updatedUser) => {
+                  // [추가] 전자결재 화면에서 서명을 새로 등록/변경했을 때 앱 전체 상태와
+                  // localStorage에 반영해, 새로고침 후에도 서명이 계속 남아있도록 한다
+                  // (로그인 시 저장하는 방식과 동일).
+                  setCurrentUser(updatedUser);
+                  localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
+                }}
               />
             )}
 

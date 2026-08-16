@@ -548,6 +548,10 @@ export interface User {
   // [추가] 가입 일시. "가입 회원 & 협업 디렉토리"/운영현황에서 회사를 최근 가입순으로
   // 정렬하는 데 사용한다.
   createdAt?: string;
+  // [추가] 전자결재에서 승인할 때 도장처럼 찍히는 손글씨 서명 이미지. 한 번 그려서
+  // 등록해두면 이후 결재마다 재사용된다. base64로 들어오면 서버가 Supabase Storage에
+  // 올리고 여기엔 그 주소(URL)만 저장한다 (다른 사진 필드들과 동일한 방식).
+  signatureImage?: string;
 }
 
 export interface RegisteredUser extends User {
@@ -715,6 +719,11 @@ export interface ApprovalStep {
   role: string;   // 직책/직위 라벨
   name?: string;   // 결재자 이름
   date?: string;   // 결재(승인) 일자 YYYY-MM-DD, 비어있으면 미결
+  // [추가] 승인하는 순간의 결재자 서명 이미지를 그대로 남겨둔다(스냅샷). User.signatureImage를
+  // 그때그때 참조하지 않고 복사해두는 이유: 나중에 그 사람이 서명을 다시 그려서 바꾸더라도,
+  // 이미 승인된 예전 문서에는 "그 당시 실제로 찍힌 서명"이 그대로 남아있어야 하기 때문
+  // (전자결재 문서의 무결성/증빙 목적).
+  signatureUrl?: string;
 }
 
 export type LeaveCategory =
