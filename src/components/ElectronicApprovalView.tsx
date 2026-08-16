@@ -1719,8 +1719,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       // 인쇄했을 때 상하 균형감이 맞도록 했다.
       <div style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', padding: '25mm', display: 'flex', flexDirection: 'column', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
         {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
-            로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다. */}
-        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64 }}>
+            로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다.
+            [수정] 로고(절대 위치, top:50%로 컨테이너 세로 중앙에 배치)와 회사명 글자(일반
+            흐름)의 기준선이 달라서 로고가 글자보다 아래로 처져 보이는 문제가 있었다 -
+            컨테이너에 display:flex + alignItems:center를 줘서 회사명 글자도 로고와 똑같이
+            컨테이너 세로 중앙(50%)을 기준으로 정렬되도록 맞췄다. */}
+        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img src="/brand/kaiser-logo.png" alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
           <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
         </div>
