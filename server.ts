@@ -5756,11 +5756,12 @@ app.get('/api/admin-docs/advance-payment-candidates', (req, res) => {
   res.json(candidates);
 });
 
-// [추가] "차량 과태료 내역"이 회계관리 > 통장 출금 내역과 연동되도록 - 이미 등록된 통장
-// 출금 내역(bank_withdrawal)의 거래 내역을 전부 찾아서 한 목록으로 모아준다. 출금 내역
-// 자체엔 "이게 과태료인지 아닌지" 표시가 없어서(일반 거래와 똑같이 기록되므로) 전부 후보로
-// 보여주고, 화면에서 실제 과태료 건만 골라 "차량 과태료 내역"으로 가져올 수 있게 한다.
-app.get('/api/admin-docs/vehicle-fine-candidates', (req, res) => {
+// [수정] "차량 과태료 내역"/"각종 세금"/"관리비내역" 세 곳 모두 회계관리 > 통장 출금
+// 내역과 연동되도록 - 이미 등록된 통장 출금 내역(bank_withdrawal)의 거래 내역을 전부
+// 찾아서 한 목록으로 모아주는 공용 엔드포인트로 일반화했다(원래는 차량 과태료 전용이었음).
+// 출금 내역 자체엔 "이게 과태료/세금/관리비 중 무엇인지" 표시가 없어서(일반 거래와 똑같이
+// 기록되므로) 전부 후보로 보여주고, 화면에서 각 탭에 맞는 건만 골라 가져오게 한다.
+app.get('/api/admin-docs/bank-withdrawal-candidates', (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
   const dbData = getScopedData(req);
