@@ -819,10 +819,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     setIsOfficialModalOpen(true);
   };
 
-  // [추가] 공문서 발신처 정보(주소/전화/팩스/이메일/시행번호 접두어)를 회사 공통 설정에 저장한다.
+  // [수정] 공문서 발신처 정보(주소/전화/팩스/이메일/시행번호 접두어)를 회사 공통 설정에 저장한다.
   // 관리자만 저장할 수 있고, 저장해두면 다음 공문서 작성 시 자동으로 채워진다.
-  const saveCompanyContactSettings = async () => {
-    if (!currentUser) return;
+  // silent=true면(입력칸에서 포커스가 빠져나갈 때 자동 저장하는 경우) 성공 알림을 띄우지 않는다 -
+  // "주소"만 예전부터 자동으로 채워지고 전화/전송은 그렇지 않다는 피드백이 있었는데, 원인은
+  // 주소는 예전에 한 번 "회사 기본값으로 저장" 버튼을 눌러 저장된 적이 있지만 전화/전송은
+  // 버튼을 누르지 않으면 그 문서에만 적용되고 다음 문서에는 반영되지 않았기 때문이다. 이제
+  // 네 필드 모두 입력을 마치고 다른 칸으로 넘어가면(blur) 자동으로 저장되도록 해서, 버튼을
+  // 따로 누르지 않아도 "한 번 입력하면 다음부터 자동으로 채워지는" 동작이 되게 한다.
+  const saveCompanyContactSettings = async (silent = false) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
     try {
       const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
       const patch = { address: ofCompanyAddress, phone: ofCompanyPhone, fax: ofCompanyFax, email: ofCompanyEmail, docPrefix: companySettings.docPrefix || 'KS' };
@@ -830,10 +836,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       if (!res.ok) throw new Error();
       const data = await res.json();
       setCompanySettings(prev => ({ ...prev, address: data.address || '', phone: data.phone || '', fax: data.fax || '', email: data.email || '', docPrefix: data.docPrefix || 'KS' }));
-      alert('발신처 정보를 회사 기본값으로 저장했습니다. 다음 공문서 작성 시 자동으로 채워집니다.');
+      if (!silent) alert('발신처 정보를 회사 기본값으로 저장했습니다. 다음 공문서 작성 시 자동으로 채워집니다.');
     } catch (err) {
       console.error('Company contact settings save error:', err);
-      alert('저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      if (!silent) alert('저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
   };
 
@@ -2688,19 +2694,22 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-600">발신처 정보 (문서 하단에 표시)</label>
                   {currentUser?.role === 'admin' && (
-                    <button type="button" onClick={saveCompanyContactSettings} className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap">
+                    <button type="button" onClick={() => saveCompanyContactSettings()} className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap">
                       회사 기본값으로 저장
                     </button>
                   )}
                 </div>
-                <input type="text" value={ofCompanyAddress} onChange={(e) => setOfCompanyAddress(e.target.value)} placeholder="주소"
+                {/* [수정] 주소만 예전부터 자동으로 채워지고 전화/전송은 안 채워진다는 피드백에 따라,
+                    네 필드 모두 입력을 마치고 포커스가 빠져나가면(onBlur) 관리자에 한해 자동으로
+                    회사 기본값에 저장되도록 함 - 버튼을 따로 누르지 않아도 다음 문서부터 반영된다. */}
+                <input type="text" value={ofCompanyAddress} onChange={(e) => setOfCompanyAddress(e.target.value)} onBlur={() => saveCompanyContactSettings(true)} placeholder="주소"
                   className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <input type="text" inputMode="numeric" value={ofCompanyPhone} onChange={(e) => setOfCompanyPhone(formatPhoneNumber(e.target.value))} placeholder="02-1234-5678"
+                  <input type="text" inputMode="numeric" value={ofCompanyPhone} onChange={(e) => setOfCompanyPhone(formatPhoneNumber(e.target.value))} onBlur={() => saveCompanyContactSettings(true)} placeholder="02-1234-5678"
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
-                  <input type="text" inputMode="numeric" value={ofCompanyFax} onChange={(e) => setOfCompanyFax(formatPhoneNumber(e.target.value))} placeholder="0504-123-4567"
+                  <input type="text" inputMode="numeric" value={ofCompanyFax} onChange={(e) => setOfCompanyFax(formatPhoneNumber(e.target.value))} onBlur={() => saveCompanyContactSettings(true)} placeholder="0504-123-4567"
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
-                  <input type="text" value={ofCompanyEmail} onChange={(e) => setOfCompanyEmail(e.target.value)} placeholder="e-mail"
+                  <input type="text" value={ofCompanyEmail} onChange={(e) => setOfCompanyEmail(e.target.value)} onBlur={() => saveCompanyContactSettings(true)} placeholder="e-mail"
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 </div>
               </div>
