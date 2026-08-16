@@ -1729,30 +1729,33 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           ))}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '30px 0 22px' }}>
-          <table style={{ borderCollapse: 'collapse' }}>
-            <tbody>
-              <tr>
-                <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 50 }}>결&nbsp;&nbsp;재</td>
-                {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 80 }}>{s.role}</th>)}
-              </tr>
-              <tr>
-                {approvalLine.map((s, i) => (
-                  <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 46 }}>
-                    {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 26, maxWidth: '90%', display: 'block', margin: '0 auto 2px' }} />}
-                    {s.date || ''}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {/* [수정] 결재란(도장)부터 발신처 정보까지를 실제 양식처럼 구분선 아래 하나의
+            "맨 아래 블록"으로 묶는다. 결재란은 이 블록의 맨 위(우측 정렬), 주소와
+            전화/전송/이메일은 그 아래 각각 별도의 줄로 둔다. */}
+        <div style={{ borderTop: '1.5pt solid #000', marginTop: 30, paddingTop: 14, fontSize: 11 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <tbody>
+                <tr>
+                  <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 50 }}>결&nbsp;&nbsp;재</td>
+                  {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 80 }}>{s.role}</th>)}
+                </tr>
+                <tr>
+                  {approvalLine.map((s, i) => (
+                    <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 46 }}>
+                      {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 26, maxWidth: '90%', display: 'block', margin: '0 auto 2px' }} />}
+                      {s.date || ''}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-        <div style={{ borderTop: '1.5pt solid #000', paddingTop: 10, fontSize: 11 }}>
           <p style={{ marginBottom: 4 }}>시행&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}</p>
-          {(doc.companyAddress || footerLine) && (
-            <p style={{ color: '#333' }}>{doc.companyAddress}{doc.companyAddress && footerLine ? '   ' : ''}{footerLine}</p>
-          )}
+          {/* 맨 아래 2줄: 첫 줄엔 (우편번호 포함) 주소, 둘째 줄엔 전화/전송/이메일 */}
+          {doc.companyAddress && <p style={{ color: '#333', marginBottom: 2 }}>{doc.companyAddress}</p>}
+          {footerLine && <p style={{ color: '#333' }}>{footerLine}</p>}
         </div>
       </div>
     );
