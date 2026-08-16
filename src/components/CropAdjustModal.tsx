@@ -61,6 +61,41 @@ function quadAspectRatio(pts: Point[]): number {
   return w / Math.max(h, 1);
 }
 
+// [추가] scanic ML 모델이 "확신 있다"고 보고해도(score>=0.5) 실사용 테스트에서, 명함이
+// 기울어져 찍힌 사진에서 실제 모서리를 따라가지 못하고 수평/수직으로 딱 떨어지는(회전 없는)
+// 엉뚱한 사각형을 내놓는 경우가 확인됐다 — 심지어 그 엉뚱한 사각형이 명함 비율(1.586)과
+// 거의 정확히 맞아떨어져서, 비율 검증만으로는 걸러지지 않았다. 신경망 점수 하나만 믿고
+// OpenCV/Gemini 재확인 단계를 전부 건너뛰면, 예전에 OpenCV 자체 confident 점수만 믿었다가
+// "확신에 찬 오탐"을 못 걸렀던 것과 똑같은 함정에 빠진다. 그래서 서로 독립적인 두 방법(ML
+// 신경망 vs OpenCV 윤곽선 감지)의 결과 위치가 실제로 비슷할 때만("교차 검증") ML 결과를
+// 확정으로 취급한다 — 위치(중심점)와 크기(면적)가 둘 다 어느 정도 가까워야 "같은 카드를
+// 가리키고 있다"고 본다.
+function quadsRoughlyAgree(a: Point[], b: Point[]): boolean {
+  const area = (pts: Point[]) => {
+    let s = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % pts.length];
+      s += p1.x * p2.y - p2.x * p1.y;
+    }
+    return Math.abs(s) / 2;
+  };
+  const centroid = (pts: Point[]) => ({
+    x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
+    y: pts.reduce((s, p) => s + p.y, 0) / pts.length
+  });
+  const areaA = area(a);
+  const areaB = area(b);
+  if (areaA <= 0 || areaB <= 0) return false;
+  const cA = centroid(a);
+  const cB = centroid(b);
+  // 두 사각형 크기 기준으로 정규화한 중심점 거리 (카드 크기와 무관하게 같은 기준으로 비교하기 위함)
+  const scale = Math.sqrt((areaA + areaB) / 2);
+  const centroidDist = Math.hypot(cA.x - cB.x, cA.y - cB.y) / Math.max(scale, 1);
+  const areaRatio = Math.min(areaA, areaB) / Math.max(areaA, areaB);
+  return centroidDist < 0.25 && areaRatio > 0.55;
+}
+
 interface Props {
   imageDataUrl: string;
   title?: string;
@@ -574,49 +609,71 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         setImgEl(img);
         imgNaturalRef.current = { width: img.naturalWidth, height: img.naturalHeight };
 
-        // [추가] 1순위: scanic의 로컬 ML 감지기(scanic import부 주석 참고). 색상 규칙이 아니라
-        // 학습된 신경망으로 판단해서 나무 무늬 배경 등에 훨씬 안정적이고, 완전히 브라우저에서
-        // 끝나 서버/할당량 비용이 없다. 성공하면(문서로 판단할 확률 0.5 이상) 바로 이 결과를
-        // 쓰고, 아래 OpenCV/Gemini AI 단계는 전부 건너뛴다.
-        try {
-          const mlResult = await scanDocument(img, { detector: 'ml', mode: 'detect' });
-          if (!cancelled && mlResult.success && mlResult.corners && (mlResult.score ?? 1) >= 0.5) {
-            const mlPts: Point[] = [
+        // [추가] scanic의 로컬 ML 감지기(scanic import부 주석 참고)와 기존 OpenCV 윤곽선 감지를
+        // 동시에 돌린다. ML은 색상 규칙이 아니라 학습된 신경망으로 판단해서 나무 무늬 배경 등에
+        // 훨씬 안정적이지만, 실사용 테스트에서 "확신 있다(score>=0.5)"고 보고하고도 명함이
+        // 기울어져 찍힌 사진에서 실제 모서리를 못 따라가고 회전 없는 엉뚱한 사각형을 내놓는
+        // 경우가 확인됐다(quadsRoughlyAgree 정의부 주석 참고) — 그래서 ML 결과 하나만으로
+        // 바로 확정 짓지 않고, 독립적인 두 번째 방법(OpenCV)과 위치가 실제로 비슷할 때만
+        // ("교차 검증") 확정으로 취급한다. 두 결과가 다르거나 한쪽이 실패하면 기존처럼 화면에
+        // 우선 보여준 뒤 Gemini AI로 추가 확인한다.
+        let mlPts: Point[] | null = null;
+        let mlOk = false;
+        const [mlSettled, cvSettled] = await Promise.allSettled([
+          scanDocument(img, { detector: 'ml', mode: 'detect' }),
+          detectCorners(img)
+        ]);
+        if (cancelled) return;
+
+        if (mlSettled.status === 'fulfilled') {
+          const mlResult = mlSettled.value;
+          if (mlResult.success && mlResult.corners && (mlResult.score ?? 1) >= 0.5) {
+            mlPts = [
               { x: mlResult.corners.topLeft.x, y: mlResult.corners.topLeft.y },
               { x: mlResult.corners.topRight.x, y: mlResult.corners.topRight.y },
               { x: mlResult.corners.bottomRight.x, y: mlResult.corners.bottomRight.y },
               { x: mlResult.corners.bottomLeft.x, y: mlResult.corners.bottomLeft.y }
             ];
-            (img as any).__detectedCorners = mlPts;
-            setIsDetecting(false);
-            setAutoDetected(true);
-            setMlConfirmed(true);
-            return;
+            mlOk = true;
           }
-        } catch (err) {
-          // 모델을 못 받아왔거나(네트워크 문제) 초기화에 실패해도, 아래 OpenCV 경로로
+        } else {
+          // 모델을 못 받아왔거나(네트워크 문제) 초기화에 실패해도, 아래 OpenCV 결과로
           // 자연스럽게 넘어가면 되므로 여기서는 콘솔 경고만 남기고 계속 진행한다.
-          console.warn('scanic ML 감지 실패, OpenCV 방식으로 대체합니다:', err);
+          console.warn('scanic ML 감지 실패, OpenCV 방식으로 대체합니다:', mlSettled.reason);
         }
-        if (cancelled) return;
 
-        // 2순위: 기존 OpenCV 색상/윤곽선 기반 감지 (ML 감지가 실패했을 때만 여기로 온다)
-        const detected = await detectCorners(img);
-        // 표시 크기 계산은 아래 별도 effect(리사이즈 감지)에서 처리되므로,
-        // 여기서는 우선 감지 결과를 "자연 좌표계" 기준으로 저장해두고 표시 시점에 스케일 변환
+        const detected = cvSettled.status === 'fulfilled' ? cvSettled.value : null;
+        if (cvSettled.status === 'rejected') {
+          console.error('OpenCV 모서리 감지 실패:', cvSettled.reason);
+        }
+
+        if (mlOk && mlPts && detected && quadsRoughlyAgree(mlPts, detected.points)) {
+          // 서로 다른 두 방법이 같은 위치를 가리켰으니 안심하고 확정, 뒤 단계(Gemini AI)는 건너뛴다.
+          (img as any).__detectedCorners = mlPts;
+          setIsDetecting(false);
+          setAutoDetected(true);
+          setMlConfirmed(true);
+          return;
+        }
+
+        // 교차 검증에 실패했거나(ML/OpenCV 결과가 서로 다름, 또는 둘 중 하나가 실패) 아직 확신할
+        // 수 없는 상태 — 일단 더 정교한 쪽(ML 결과가 있으면 ML, 없으면 OpenCV)을 화면에 먼저
+        // 보여주고, 표시 크기 계산은 아래 별도 effect(리사이즈 감지)에서 처리된다.
+        const initialPts = mlPts || detected?.points || null;
         setIsDetecting(false);
-        setAutoDetected(!!detected);
-        if (detected) {
-          (img as any).__detectedCorners = detected.points;
+        setAutoDetected(!!initialPts);
+        if (initialPts) {
+          (img as any).__detectedCorners = initialPts;
         }
 
-        // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤(속도), OpenCV 스스로 확신이 낮았을 때만
-        // (detected가 없거나 detected.confident === false) Gemini AI 기반 모서리 감지를
-        // 백그라운드로 추가 요청한다(fetchAiCornersNormalized 정의부 주석 참고). 이 AI 호출도
-        // 하루 20회짜리 무료 할당량을 명함 OCR과 같이 나눠 쓰기 때문에, OpenCV가 이미 잘 맞춘
-        // 케이스(=confident)까지 매번 부르면 정작 필요한 스캔(OCR) 자체가 할당량 부족으로
-        // 실패할 수 있다 — 애매하거나 실패한 케이스에만 아껴서 쓴다.
-        if (detected?.confident) {
+        // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤(속도), OpenCV 스스로 확신이 높고(confident)
+        // ML이 애초에 경쟁 후보를 내놓지 못했을 때만(=mlOk가 false) Gemini AI 확인을 건너뛴다.
+        // ML이 뭔가를 내놨는데 OpenCV와 위치가 다르다면(교차 검증 실패), 서로 다른 두 "확신"이
+        // 충돌하는 상황이므로 OpenCV 자체 확신만으로는 안심할 수 없다 — 이 AI 호출도 하루 20회짜리
+        // 무료 할당량을 명함 OCR과 같이 나눠 쓰기 때문에, 확실한 케이스까지 매번 부르면 정작
+        // 필요한 스캔(OCR) 자체가 할당량 부족으로 실패할 수 있어 애매하거나 충돌하는 케이스에만
+        // 아껴서 쓴다.
+        if (!mlOk && detected?.confident) {
           setCvConfident(true);
           return;
         }
