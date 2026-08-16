@@ -96,52 +96,81 @@ function quadsRoughlyAgree(a: Point[], b: Point[]): boolean {
   return centroidDist < 0.25 && areaRatio > 0.55;
 }
 
-// [추가] "핸드폰을 가로로 돌려서 찍으면 계속 실패한다"는 반복 재현 — 원인은 scanic ML
-// 모델이 카드가 90도 돌아간(가로로 찍힌) 채로 입력되면 인식률이 크게 떨어진다는 것이었다.
-// (실제로 이 카드처럼 글자가 세로로 흐르게 디자인된 명함은, 사용자가 프레임에 맞춰 찍으려면
-// 폰 자체를 눕혀서 찍게 되고 → 그 결과 사진은 카드가 옆으로 누운 채로 저장된다.) 사진 한 장을
-// 0/90/180/270도로 미리 돌려서 4번 다 모델에 넣어보고, 그중 점수가 가장 높은(=모델이 가장
+// [추가] "핸드폰을 가로로 돌려서 찍으면 계속 실패한다"는 반복 재현 끝에, 처음엔 "90도 단위
+// 회전"(폰을 눕혀서 찍는 경우)만 대응했었다. 그런데 실제로는 90도 딱 떨어지는 경우가 아니라
+// 명함이 임의의 각도(예: 20~25도)로 삐딱하게 찍히는 경우가 훨씬 흔했고, 그 경우 scanic ML
+// 모델이 실제 모서리를 못 따라가는 걸로 확인됐다 — 명함 촬영은 사용자가 어느 각도로 들고
+// 찍을지 특정할 수 없으므로, 90도 단위가 아니라 촘촘한 각도 전체를 훑어야 한다. 사진 한 장을
+// 15도 간격으로(총 24방향) 돌려가며 모델에 넣어보고, 그중 점수가 가장 높은(=모델이 가장
 // "문서답다"고 판단한) 방향의 결과를 원본 좌표계로 되돌려 사용한다. 모델 자체는 브라우저에서
-// 로컬로 도는 가벼운 연산이라 4번 돌려도 서버/할당량 비용은 여전히 없다.
-async function detectMlBestRotation(img: HTMLImageElement): Promise<{ pts: Point[]; score: number } | null> {
-  const angles = [0, 90, 180, 270];
-  let best: { pts: Point[]; score: number } | null = null;
+// 로컬로 도는 가벼운 연산이라 여러 번 돌려도 서버/할당량 비용은 없다 — 다만 매번 24번을 다
+// 시도하면 느려지므로, 가장 흔한 방향(안 돌아감→90도 단위)부터 먼저 시도하고, 아주 높은
+// 점수(0.85 이상 = 충분히 확신)가 나오면 그 시점에 바로 멈춘다.
+const ROTATION_SWEEP_ANGLES = [
+  0, 90, 180, 270,
+  15, 345, 30, 330, 45, 315, 60, 300, 75, 285,
+  105, 255, 120, 240, 135, 225, 150, 210, 165, 195
+];
+const ROTATION_EARLY_EXIT_SCORE = 0.85;
 
-  for (const angle of angles) {
+// 이미지를 angleDeg만큼 회전시킨 새 캔버스를 만든다. 90도 단위가 아닌 임의 각도도 다루므로,
+// 회전 후 이미지 전체가 캔버스 밖으로 잘리지 않도록 캔버스 크기를 넉넉하게(회전된 바운딩
+// 박스 크기로) 잡는다.
+function rotateImageToCanvas(img: HTMLImageElement, angleDeg: number): HTMLCanvasElement {
+  const rad = (angleDeg * Math.PI) / 180;
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(w * cos + h * sin);
+  canvas.height = Math.ceil(w * sin + h * cos);
+  const ctx = canvas.getContext('2d')!;
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -w / 2, -h / 2);
+  return canvas;
+}
+
+// rotateImageToCanvas로 angleDeg만큼 돌린 캔버스 위의 좌표(p)를, 원본 이미지 좌표계로 되돌린다.
+function rotatedPointToOriginal(canvas: HTMLCanvasElement, img: HTMLImageElement, angleDeg: number, p: Point): Point {
+  const rad = (-angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = p.x - canvas.width / 2;
+  const dy = p.y - canvas.height / 2;
+  return {
+    x: dx * cos - dy * sin + img.naturalWidth / 2,
+    y: dx * sin + dy * cos + img.naturalHeight / 2
+  };
+}
+
+interface MlOrientationResult {
+  canvas: HTMLCanvasElement;
+  angle: number;
+  canvasPts: Point[]; // 회전된 캔버스 좌표계 기준 (그 캔버스 위에서 OpenCV 교차검증할 때 사용)
+  originalPts: Point[]; // 원본 이미지 좌표계로 되돌린 좌표 (화면 표시/최종 사용)
+  score: number;
+}
+
+async function detectMlBestOrientation(img: HTMLImageElement): Promise<MlOrientationResult | null> {
+  let best: MlOrientationResult | null = null;
+
+  for (const angle of ROTATION_SWEEP_ANGLES) {
     try {
-      const swapped = angle === 90 || angle === 270;
-      const canvas = document.createElement('canvas');
-      canvas.width = swapped ? img.naturalHeight : img.naturalWidth;
-      canvas.height = swapped ? img.naturalWidth : img.naturalHeight;
-      const ctx = canvas.getContext('2d')!;
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((angle * Math.PI) / 180);
-      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-
+      const canvas = rotateImageToCanvas(img, angle);
       const result = await scanDocument(canvas, { detector: 'ml', mode: 'detect' });
       const score = result.score ?? 0;
       if (result.success && result.corners && score >= 0.5 && score > (best?.score ?? 0)) {
-        // 회전된 캔버스 좌표계에서 찾은 코너를, -angle만큼 되돌려 원본 이미지 좌표계로 매핑한다.
-        const rad = (-angle * Math.PI) / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-        const toOriginal = (p: Point): Point => {
-          const dx = p.x - canvas.width / 2;
-          const dy = p.y - canvas.height / 2;
-          return {
-            x: dx * cos - dy * sin + img.naturalWidth / 2,
-            y: dx * sin + dy * cos + img.naturalHeight / 2
-          };
-        };
-        const rawPts = [
-          toOriginal({ x: result.corners.topLeft.x, y: result.corners.topLeft.y }),
-          toOriginal({ x: result.corners.topRight.x, y: result.corners.topRight.y }),
-          toOriginal({ x: result.corners.bottomRight.x, y: result.corners.bottomRight.y }),
-          toOriginal({ x: result.corners.bottomLeft.x, y: result.corners.bottomLeft.y })
-        ];
-        // 회전 방향에 따라 "좌상/우상/우하/좌하" 라벨이 원본 기준으로는 뒤바뀌므로,
-        // 실제 좌표(x+y 합/차) 기준으로 다시 정렬한다.
-        best = { pts: orderQuadPoints(rawPts), score };
+        const canvasPts = orderQuadPoints([
+          { x: result.corners.topLeft.x, y: result.corners.topLeft.y },
+          { x: result.corners.topRight.x, y: result.corners.topRight.y },
+          { x: result.corners.bottomRight.x, y: result.corners.bottomRight.y },
+          { x: result.corners.bottomLeft.x, y: result.corners.bottomLeft.y }
+        ]);
+        const originalPts = orderQuadPoints(canvasPts.map((p) => rotatedPointToOriginal(canvas, img, angle, p)));
+        best = { canvas, angle, canvasPts, originalPts, score };
+        if (score >= ROTATION_EARLY_EXIT_SCORE) break;
       }
     } catch {
       // 이 각도에서 실패해도 나머지 각도는 계속 시도한다.
@@ -273,7 +302,16 @@ interface DetectionResult {
   confident: boolean;
 }
 
-const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionStrategyCrop): DetectionResult | null => {
+// [추가] 회전 탐색(detectMlBestOrientation)이 찾은 "가장 문서다운 방향"의 캔버스를 그대로
+// OpenCV 교차검증에도 재사용할 수 있도록, 원본 <img> 대신 이미 그려진 <canvas>도 받을 수 있게
+// 한다 (둘 다 naturalWidth/naturalHeight 대신 공통으로 쓸 수 있는 크기 계산이 필요).
+function getSourceDims(src: HTMLImageElement | HTMLCanvasElement): { width: number; height: number } {
+  return src instanceof HTMLCanvasElement
+    ? { width: src.width, height: src.height }
+    : { width: src.naturalWidth, height: src.naturalHeight };
+}
+
+const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: any, strategy: DetectionStrategyCrop): DetectionResult | null => {
   let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy, hsv, whiteMask: any = null;
   let bestApprox: any = null;
   let bestApproxScore = -1;
@@ -281,11 +319,12 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
   let fallbackAreaRatio = -1;
 
   try {
+    const { width: srcWidth, height: srcHeight } = getSourceDims(imgSrc);
     const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
+    canvas.width = srcWidth;
+    canvas.height = srcHeight;
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(imgSrc, 0, 0);
 
     src = cv.imread(canvas);
     gray = new cv.Mat();
@@ -323,9 +362,9 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
     hierarchy = new cv.Mat();
     cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-    const imgArea = img.naturalWidth * img.naturalHeight;
-    const centerX = img.naturalWidth / 2;
-    const centerY = img.naturalHeight / 2;
+    const imgArea = srcWidth * srcHeight;
+    const centerX = srcWidth / 2;
+    const centerY = srcHeight / 2;
     const frameDiag = Math.hypot(centerX, centerY);
     const epsilonFactors = [0.02, 0.01, 0.03, 0.05];
 
@@ -451,8 +490,8 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
     const cx = (ordered[0].x + ordered[1].x + ordered[2].x + ordered[3].x) / 4;
     const cy = (ordered[0].y + ordered[1].y + ordered[2].y + ordered[3].y) / 4;
     const padded = ordered.map((p) => ({
-      x: Math.min(Math.max(p.x + (p.x - cx) * PAD_RATIO, 0), img.naturalWidth),
-      y: Math.min(Math.max(p.y + (p.y - cy) * PAD_RATIO, 0), img.naturalHeight)
+      x: Math.min(Math.max(p.x + (p.x - cx) * PAD_RATIO, 0), srcWidth),
+      y: Math.min(Math.max(p.y + (p.y - cy) * PAD_RATIO, 0), srcHeight)
     })) as [Point, Point, Point, Point];
 
     return { points: padded, confident };
@@ -469,7 +508,9 @@ const detectCornersOnce = (img: HTMLImageElement, cv: any, strategy: DetectionSt
 
 // 이미지에서 가장 그럴듯한 4각형(명함/영수증) 모서리를 자동으로 찾음 (실패 시 null)
 // 기본 민감도로 먼저 시도하고, 실패하면 더 민감한 설정 → 적응형 이진화 순으로 자동 재시도한다.
-const detectCorners = async (img: HTMLImageElement): Promise<DetectionResult | null> => {
+// [수정] 회전 탐색이 찾은 "가장 문서다운 방향"의 캔버스도 그대로 받아 교차검증할 수 있도록,
+// 원본 <img> 대신 <canvas>도 받을 수 있게 확장했다.
+const detectCorners = async (imgSrc: HTMLImageElement | HTMLCanvasElement): Promise<DetectionResult | null> => {
   try {
     await loadOpenCv();
   } catch {
@@ -477,7 +518,7 @@ const detectCorners = async (img: HTMLImageElement): Promise<DetectionResult | n
   }
   const cv = (window as any).cv;
   for (const strategy of DETECTION_STRATEGY_LADDER_CROP) {
-    const result = detectCornersOnce(img, cv, strategy);
+    const result = detectCornersOnce(imgSrc, cv, strategy);
     if (result) return result;
   }
   return null;
@@ -666,50 +707,78 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
 
         // [추가] scanic의 로컬 ML 감지기(scanic import부 주석 참고)와 기존 OpenCV 윤곽선 감지를
         // 동시에 돌린다. ML은 색상 규칙이 아니라 학습된 신경망으로 판단해서 나무 무늬 배경 등에
-        // 훨씬 안정적이지만, 카드가 옆으로 누운(90도 회전된) 채로 찍히면 그 자체로 인식률이
-        // 떨어진다는 게 확인됐다(detectMlBestRotation 정의부 주석 참고) — 그래서 사진을
-        // 0/90/180/270도로 미리 돌려보며 가장 "문서답다"고 판단한 방향의 결과를 쓴다. 그렇게
-        // 얻은 결과도 실사용 테스트에서 명함 비율과 맞아떨어지는 채로 위치는 틀린 경우가
-        // 확인됐으므로(quadsRoughlyAgree 정의부 주석 참고), 독립적인 두 번째 방법(OpenCV)과
-        // 위치가 실제로 비슷할 때만("교차 검증") 확정으로 취급한다. 두 결과가 다르거나 한쪽이
-        // 실패하면 기존처럼 화면에 우선 보여준 뒤 Gemini AI로 추가 확인한다.
-        let mlPts: Point[] | null = null;
-        let mlOk = false;
-        const [mlSettled, cvSettled] = await Promise.allSettled([
-          detectMlBestRotation(img),
+        // 훨씬 안정적이지만, 명함이 임의의 각도로 삐딱하게 찍히면 인식률이 떨어진다는 게
+        // 확인됐다(detectMlBestOrientation 정의부 주석 참고) — 그래서 사진을 15도 간격 24방향으로
+        // 미리 돌려보며 가장 "문서답다"고 판단한 방향의 결과를 쓴다. 그렇게 얻은 결과도 실사용
+        // 테스트에서 명함 비율과 맞아떨어지는 채로 위치는 틀린 경우가 확인됐으므로
+        // (quadsRoughlyAgree 정의부 주석 참고), 독립적인 두 번째 방법(OpenCV)과 위치가 실제로
+        // 비슷할 때만("교차 검증") 확정으로 취급한다. 이때 OpenCV도 원본(기울어진) 사진이 아니라
+        // ML이 찾은 "가장 문서다운 방향"으로 이미 돌려둔 같은 캔버스에서 돌려야, OpenCV 쪽도
+        // 기울기 때문에 실패하는 걸 막을 수 있다.
+        let mlOrientation: MlOrientationResult | null = null;
+        const [mlSettled, cvOriginalSettled] = await Promise.allSettled([
+          detectMlBestOrientation(img),
           detectCorners(img)
         ]);
         if (cancelled) return;
 
         if (mlSettled.status === 'fulfilled') {
-          if (mlSettled.value) {
-            mlPts = mlSettled.value.pts;
-            mlOk = true;
-          }
+          mlOrientation = mlSettled.value;
         } else {
           // 모델을 못 받아왔거나(네트워크 문제) 초기화에 실패해도, 아래 OpenCV 결과로
           // 자연스럽게 넘어가면 되므로 여기서는 콘솔 경고만 남기고 계속 진행한다.
           console.warn('scanic ML 감지 실패, OpenCV 방식으로 대체합니다:', mlSettled.reason);
         }
 
-        const detected = cvSettled.status === 'fulfilled' ? cvSettled.value : null;
-        if (cvSettled.status === 'rejected') {
-          console.error('OpenCV 모서리 감지 실패:', cvSettled.reason);
+        const cvOnOriginal = cvOriginalSettled.status === 'fulfilled' ? cvOriginalSettled.value : null;
+        if (cvOriginalSettled.status === 'rejected') {
+          console.error('OpenCV 모서리 감지 실패:', cvOriginalSettled.reason);
         }
 
-        if (mlOk && mlPts && detected && quadsRoughlyAgree(mlPts, detected.points)) {
-          // 서로 다른 두 방법이 같은 위치를 가리켰으니 안심하고 확정, 뒤 단계(Gemini AI)는 건너뛴다.
-          (img as any).__detectedCorners = mlPts;
-          setIsDetecting(false);
-          setAutoDetected(true);
-          setMlConfirmed(true);
-          return;
+        const mlOk = !!mlOrientation;
+        const mlPts = mlOrientation?.originalPts ?? null;
+
+        if (mlOrientation) {
+          // ML이 "가장 문서다운 방향"으로 이미 돌려둔 캔버스 위에서 OpenCV도 한 번 더 돌려,
+          // 같은(기울기 보정된) 프레임 안에서 두 방법이 같은 자리를 가리키는지 확인한다 —
+          // 원본(기울어진) 사진에서 OpenCV를 돌리는 것보다 훨씬 공정한 비교다.
+          let cvOnRotated: DetectionResult | null = null;
+          try {
+            await loadOpenCv();
+            const cv = (window as any).cv;
+            for (const strategy of DETECTION_STRATEGY_LADDER_CROP) {
+              const result = detectCornersOnce(mlOrientation.canvas, cv, strategy);
+              if (result) { cvOnRotated = result; break; }
+            }
+          } catch (err) {
+            console.warn('회전 보정된 프레임에서 OpenCV 교차검증 실패:', err);
+          }
+
+          if (cvOnRotated && quadsRoughlyAgree(mlOrientation.canvasPts, cvOnRotated.points)) {
+            // 서로 다른 두 방법이 (기울기 보정 후) 같은 위치를 가리켰으니 안심하고 확정,
+            // 뒤 단계(Gemini AI)는 건너뛴다.
+            (img as any).__detectedCorners = mlOrientation.originalPts;
+            setIsDetecting(false);
+            setAutoDetected(true);
+            setMlConfirmed(true);
+            return;
+          }
+
+          // 회전 보정된 프레임에서도 교차검증이 안 됐다면, 마지막으로 원본(기울어진) 프레임의
+          // OpenCV 결과와도 비교해본다 (기존 로직과 동일한 안전망).
+          if (cvOnOriginal && quadsRoughlyAgree(mlPts!, cvOnOriginal.points)) {
+            (img as any).__detectedCorners = mlPts;
+            setIsDetecting(false);
+            setAutoDetected(true);
+            setMlConfirmed(true);
+            return;
+          }
         }
 
         // 교차 검증에 실패했거나(ML/OpenCV 결과가 서로 다름, 또는 둘 중 하나가 실패) 아직 확신할
         // 수 없는 상태 — 일단 더 정교한 쪽(ML 결과가 있으면 ML, 없으면 OpenCV)을 화면에 먼저
         // 보여주고, 표시 크기 계산은 아래 별도 effect(리사이즈 감지)에서 처리된다.
-        const initialPts = mlPts || detected?.points || null;
+        const initialPts = mlPts || cvOnOriginal?.points || null;
         setIsDetecting(false);
         setAutoDetected(!!initialPts);
         if (initialPts) {
@@ -723,7 +792,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         // 무료 할당량을 명함 OCR과 같이 나눠 쓰기 때문에, 확실한 케이스까지 매번 부르면 정작
         // 필요한 스캔(OCR) 자체가 할당량 부족으로 실패할 수 있어 애매하거나 충돌하는 케이스에만
         // 아껴서 쓴다.
-        if (!mlOk && detected?.confident) {
+        if (!mlOk && cvOnOriginal?.confident) {
           setCvConfident(true);
           return;
         }
