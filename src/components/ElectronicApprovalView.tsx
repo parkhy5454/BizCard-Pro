@@ -1757,13 +1757,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
           {/* [수정] 도장 아래 굵은 회색 구분선 - 그 아래로 결재란/시행/발신처 정보를 묶는다 */}
           <div style={{ borderTop: '4px solid #5d5d5d', marginTop: 10, paddingTop: 14, fontSize: 11 }}>
-            {/* [수정] 결재란 - 표(테두리) 없이, 담당/이사 → 협조자/대표 2단 배치로 실제 양식과 동일하게 구성 */}
-            <div style={{ position: 'relative', marginBottom: 16, minHeight: 40 }}>
-              <div style={{ position: 'absolute', right: 0, top: 0, fontWeight: 700 }}>
-                결재&nbsp;&nbsp;{finalApprovalDate}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, auto)', columnGap: 40, rowGap: 6 }}>
-                {approvalLine.map((s, i) => (
+            {/* [수정] 결재란 - 표(테두리) 없이 한 줄로 배치. 담당/이사/협조자는 왼쪽에 나란히,
+                "결재 [날짜]"와 "대표 [서명]"은 오른쪽에 세로로 쌓아서 같은 폭(오른쪽 정렬)으로
+                맞춘다 - 대표이사가 결재하면 서명이 아래 칸에, 그 결재 날짜가 서명 바로 위에 표시됨. */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
+                {approvalLine.filter(s => !s.role.includes('대표')).map((s, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: labelBlue, fontWeight: 700 }}>{s.role}</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
@@ -1773,6 +1772,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   </div>
                 ))}
               </div>
+              {daepyoStep && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                  <div style={{ fontWeight: 700 }}>결재&nbsp;&nbsp;{finalApprovalDate}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: labelBlue, fontWeight: 700 }}>대표</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
+                      {daepyoStep.signatureUrl && <img src={daepyoStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <p style={{ marginBottom: 4 }}>
