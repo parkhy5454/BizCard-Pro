@@ -1781,14 +1781,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 ))}
               </div>
               {daepyoStep && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                  <div style={{ fontWeight: 700 }}>결재&nbsp;&nbsp;{finalApprovalDate}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: labelBlue, fontWeight: 700 }}>{daepyoStep.role}</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
-                      {daepyoStep.signatureUrl && <img src={daepyoStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
-                    </span>
-                  </div>
+                // [수정] "결재 [날짜]"와 "대표이사 [서명]"을 2열 grid(라벨 열 + 값 열)로 배치해서,
+                // 라벨 글자 수가 달라도(결재=2자, 대표이사=4자) 값 열(날짜/서명)이 항상 같은
+                // 세로선에 맞춰지도록 함 - "서명 바로 위에 날짜가 오도록" 정확히 정렬된다.
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 8, rowGap: 4, justifyContent: 'end' }}>
+                  <div style={{ fontWeight: 700 }}>결재</div>
+                  <div style={{ fontWeight: 700, minWidth: 56 }}>{finalApprovalDate}</div>
+                  <span style={{ color: labelBlue, fontWeight: 700 }}>{daepyoStep.role}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', minWidth: 56 }}>
+                    {daepyoStep.signatureUrl && <img src={daepyoStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
+                  </span>
                 </div>
               )}
             </div>
