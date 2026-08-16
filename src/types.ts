@@ -798,6 +798,32 @@ export interface AdvancePaymentSettlement {
   createdAt: string;
 }
 
+// [추가] 공문서 (대외 발송용 공식 문서 - 시험성적서 제출 건 등). 회사 레터헤드 형식의
+// "수신자/참조/제목 + 번호 매겨진 본문 + 결재란 + 시행번호/접수 + 발신처 정보" 양식을 그대로 재현한다.
+export interface OfficialDocument {
+  id: string;
+  companyName: string;        // 발신 회사명 (상단 레터헤드)
+  author: string;              // 기안자(작성자) - 문서 하단 레터헤드에는 안 찍히지만, 결재 요청 알림 이메일 등
+                                // 내부적으로 "누가 상신했는지" 표시할 때 쓰인다(수신자와는 다른 개념).
+  recipient: string;           // 수신자
+  reference?: string;          // 참조
+  subject: string;              // 제목
+  bodyParagraphs: string[];    // 본문 문단들 (출력 시 1. 2. 3. ...으로 자동 번호가 매겨지고, 마지막 문단 뒤에 "- 끝 -"이 붙는다)
+  issueDate: string;            // 시행일자 YYYY-MM-DD (시행번호 옆 괄호 안에 표시되는 날짜)
+  // [추가] 시행번호 (예: KS-20260816-001). 접두어-YYYYMMDD-일련번호 형식이며, 일련번호는
+  // 같은 날짜(YYYYMMDD)로 이미 만들어진 공문서 개수 + 1로 계산되어 날짜가 바뀌면 001부터 다시 시작한다.
+  executionNumber: string;
+  receiptNumber?: string;       // 접수번호 (수신 측에서 접수 시 기재하는 칸, 보통 공란으로 둠)
+  companyAddress?: string;      // 발신처 주소 (하단에 표시)
+  companyPhone?: string;        // 발신처 전화
+  companyFax?: string;          // 발신처 전송(팩스)
+  companyEmail?: string;        // 발신처 이메일
+  approvalLine: ApprovalStep[]; // 결재선 (예: 담당/이사/대표)
+  status: ApprovalStatus;
+  approverMemo?: string;
+  createdAt: string;
+}
+
 export interface WeeklyWorkLog {
   id: string;
   startDate: string;     // 주간 시작일 (YYYY-MM-DD)
