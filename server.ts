@@ -1829,6 +1829,51 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
   res.json({ success: true, user: { id: target.id, email: target.email, name: target.name, position: target.position, role: target.role } });
 });
 
+// [추가] 관리자 전용: 이미 승인된 동료를 팀에서 제거(계정 삭제)한다. 기존에는 승인 대기
+// 상태(reject)에서만 계정을 지울 수 있었고, 이미 승인된 멤버를 내보낼 방법이 없었다.
+// 본인 계정은 이 API로 지울 수 없다 (본인 탈퇴는 /api/auth/withdraw를 써야 하며, 그쪽은
+// 비밀번호 확인과 "나 혼자 관리자인데 동료가 남아있으면 탈퇴 불가" 안전장치가 있다).
+// 같은 이유로 여기서도 "제거 후 그 회사에 관리자가 한 명도 안 남는" 경우는 막는다.
+app.delete('/api/auth/users/:targetId', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 동료를 제거할 수 있습니다.' });
+
+  const target = users.find(u => u.id === req.params.targetId);
+  if (!target) return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+  if (scopeIdForUser(requester) !== scopeIdForUser(target)) {
+    return res.status(403).json({ error: '같은 회사 소속 사용자만 제거할 수 있습니다.' });
+  }
+  if (target.id === requester.id) {
+    return res.status(400).json({ error: '본인 계정은 이 기능으로 제거할 수 없습니다. 탈퇴는 "회원 탈퇴" 메뉴를 이용해주세요.' });
+  }
+
+  if (target.role === 'admin') {
+    const scopeId = scopeIdForUser(requester);
+    const anotherAdminExists = users.some(u => u.id !== target.id && scopeIdForUser(u) === scopeId && u.role === 'admin');
+    if (!anotherAdminExists) {
+      return res.status(400).json({ error: '이 회사의 마지막 관리자는 제거할 수 없습니다. 다른 동료를 먼저 관리자로 지정해주세요.' });
+    }
+  }
+
+  // [수정] 계정을 지우기 전에 감사 로그부터 남긴다 (지운 뒤에는 대상 이메일 등 정보가 사라짐).
+  await logAudit({
+    scopeId: scopeIdForUser(requester),
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'member_remove',
+    targetUserId: target.id,
+    targetEmail: target.email,
+    detail: { role: target.role || null }
+  });
+
+  users = users.filter(u => u.id !== target.id);
+  await deleteUser(target.id);
+  await invalidateAllSessionsForUser(target.id);
+  res.json({ success: true });
+});
+
 // 관리자 전용: 최근 관리자 작업 감사 로그 조회 (역할 변경, 승인/거절 등)
 // [추가] 운영자 전용: 사업자번호는 같은데 회사명 표기가 갈려서(예: "(주)OO" vs "주식회사 OO")
 // 화면에 별도 회사로 나뉘어 보이는 사례를 전체 훑어서 찾아준다. 실제 데이터(명함 등)는
