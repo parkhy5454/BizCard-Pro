@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { formatPhoneNumber } from '../phoneFormat.js';
 import { SignaturePadModal } from './SignaturePadModal.js';
 
 interface Props {
@@ -229,20 +230,10 @@ function formatKoreanPeriod(start: string, end: string): string {
   return `${formatKoreanDate(start)} ~ ${formatKoreanDate(end)}`;
 }
 
-// 숫자만 입력해도 한국 전화번호 형식(02-XXXX-XXXX / 010-XXXX-XXXX 등)으로 자동으로 하이픈이 붙는 유틸
-function formatPhoneNumber(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  if (digits.startsWith('02')) {
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-    if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, digits.length - 4)}-${digits.slice(-4)}`;
-    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
-  }
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, digits.length - 4)}-${digits.slice(-4)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
-}
+// [수정] 이 파일에 따로 두고 있던 전화번호 자동 하이픈 포맷터는 6~9자리 입력 중간에
+// "02--1234"처럼 하이픈이 두 번 겹쳐 찍히는 버그가 있었다. 다른 화면(카드 상세, 프로젝트
+// 참석자, 회원가입 등)에서 이미 쓰고 있는 공용 유틸(src/phoneFormat.ts, 이 버그 없음)로
+// 통일해서 쓴다 - 아래에서 import한 formatPhoneNumber를 그대로 사용.
 
 // 반차(4시간)/반반차(2시간) 선택 시, 시작 시간을 입력하면 종료 시간을 자동으로 계산하기 위한 유틸
 // 반차(4시간)/반반차(2시간) 선택 시, 시작 시간을 입력하면 종료 시간을 자동으로 계산하기 위한 유틸.
@@ -2701,9 +2692,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 <input type="text" value={ofCompanyAddress} onChange={(e) => setOfCompanyAddress(e.target.value)} placeholder="주소"
                   className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <input type="text" value={ofCompanyPhone} onChange={(e) => setOfCompanyPhone(e.target.value)} placeholder="전화"
+                  <input type="text" inputMode="numeric" value={ofCompanyPhone} onChange={(e) => setOfCompanyPhone(formatPhoneNumber(e.target.value))} placeholder="02-1234-5678"
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
-                  <input type="text" value={ofCompanyFax} onChange={(e) => setOfCompanyFax(e.target.value)} placeholder="전송(팩스)"
+                  <input type="text" inputMode="numeric" value={ofCompanyFax} onChange={(e) => setOfCompanyFax(formatPhoneNumber(e.target.value))} placeholder="0504-123-4567"
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
                   <input type="text" value={ofCompanyEmail} onChange={(e) => setOfCompanyEmail(e.target.value)} placeholder="e-mail"
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
