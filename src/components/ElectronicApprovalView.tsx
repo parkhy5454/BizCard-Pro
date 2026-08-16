@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
   Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
-  Download, ClipboardList, Car, Wrench, ChevronDown, Camera, PenTool
+  Download, ClipboardList, Car, Wrench, ChevronDown, Camera, PenTool, FileText
 } from 'lucide-react';
-import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, ApprovalStatus, ApprovalStep, User } from '../types.js';
+import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { SignaturePadModal } from './SignaturePadModal.js';
 
@@ -316,11 +316,33 @@ const defaultLeaveApprovalLine = (): ApprovalStep[] => [
 const defaultAdvanceApprovalLine = (): ApprovalStep[] => [
   { role: '기안자' }, { role: '경영지원팀장' }, { role: '기술이사' }, { role: '대표이사' }
 ];
+// [추가] 공문서 결재선 기본값. 공유해주신 실제 양식(담당/이사/대표)을 그대로 기본으로 쓴다.
+const defaultOfficialApprovalLine = (): ApprovalStep[] => [
+  { role: '담당' }, { role: '이사' }, { role: '대표' }
+];
 
 function makeDraftNumber(existing: string[]): string {
   const prefix = todayStr().replace(/-/g, '');
   const seq = existing.filter(d => d.startsWith(prefix)).length + 1;
   return `${prefix}-${String(seq).padStart(2, '0')}`;
+}
+
+// [추가] 공문서 시행번호 생성: "접두어-YYYYMMDD-일련번호" 형식(예: KS-20260816-001).
+// 같은 날짜(YYYYMMDD)로 이미 만들어진 문서 개수를 세어 그 다음 번호를 매기므로, 날짜가
+// 바뀌면(예: 8/23) 그 날짜엔 아직 아무것도 없으니 자동으로 001부터 다시 시작한다.
+function makeExecutionNumber(existing: string[], prefix: string, dateStr: string): string {
+  const datePart = (dateStr || todayStr()).replace(/-/g, '');
+  const fullPrefix = `${(prefix || 'KS').trim()}-${datePart}-`;
+  const seq = existing.filter(d => d.startsWith(fullPrefix)).length + 1;
+  return `${fullPrefix}${String(seq).padStart(3, '0')}`;
+}
+
+// 'YYYY-MM-DD' -> 'YYYY. MM. DD' (공문서 시행번호 옆 괄호 표기용)
+function formatDateDot(dateStr?: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[0]}. ${parts[1]}. ${parts[2]}`;
 }
 
 // [수정] 이 컴포넌트는 원래 ElectronicApprovalView 함수 "안"에서 정의되어 있었다.
@@ -331,9 +353,9 @@ function makeDraftNumber(existing: string[]): string {
 const ApprovalLineEditor: React.FC<{
   line: ApprovalStep[];
   setLine: (v: ApprovalStep[]) => void;
-  kind: 'advance' | 'leave';
+  kind: 'advance' | 'leave' | 'official';
   companyPositions: string[];
-  onSaveAsDefault: (kind: 'advance' | 'leave', line: ApprovalStep[]) => void;
+  onSaveAsDefault: (kind: 'advance' | 'leave' | 'official', line: ApprovalStep[]) => void;
 }> = ({ line, setLine, kind, companyPositions, onSaveAsDefault }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between gap-2">
@@ -387,30 +409,37 @@ const ApprovalLineEditor: React.FC<{
 );
 
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateCurrentUser }) => {
-  const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave'>('advance');
+  const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave' | 'official'>('advance');
 
   // [추가] 서명 등록 모달 상태. 결재자가 아직 서명을 등록 안 한 상태에서 "승인"을 누르면
   // 먼저 이 모달을 열어 서명을 받고, 저장되는 즉시 원래 하려던 승인을 이어서 처리한다
   // (pendingApprovalTarget에 "무엇을 승인하려 했는지" 잠깐 담아둔다).
   const [isSignaturePadOpen, setIsSignaturePadOpen] = useState(false);
-  const [pendingApprovalTarget, setPendingApprovalTarget] = useState<{ kind: 'advance' | 'leave'; id: string } | null>(null);
+  const [pendingApprovalTarget, setPendingApprovalTarget] = useState<{ kind: 'advance' | 'leave' | 'official'; id: string } | null>(null);
 
   const [advanceList, setAdvanceList] = useState<AdvancePaymentSettlement[]>([]);
   const [leaveList, setLeaveList] = useState<LeaveRequest[]>([]);
+  const [officialList, setOfficialList] = useState<OfficialDocument[]>([]);
   // [수정] 결재 문서가 몇백 건으로 늘어나도 느려지지 않도록, 처음엔 50건만 화면에 그린다.
   const [visibleAdvanceCount, setVisibleAdvanceCount] = useState<number>(50);
   const [visibleLeaveCount, setVisibleLeaveCount] = useState<number>(50);
+  const [visibleOfficialCount, setVisibleOfficialCount] = useState<number>(50);
+  // [추가] 경영지원 서류(근로계약서 등)와 공유하는 회사 공통 설정값. 공문서 작성 시
+  // 발신처 주소/전화/팩스/이메일과 시행번호 접두어(기본 "KS")를 자동으로 채우는 데 쓰인다.
+  const [companySettings, setCompanySettings] = useState<{ address: string; businessType: string; phone: string; fax: string; email: string; docPrefix: string }>({ address: '', businessType: '', phone: '', fax: '', email: '', docPrefix: 'KS' });
   const [myProfile, setMyProfile] = useState<any>(null);
   const [companyPositions, setCompanyPositions] = useState<string[]>([]);
   // [수정] 회사마다 결재 단계/직책명이 다를 수 있어, 서버에 저장된 "우리 회사 기본 결재선"을 불러와 사용한다.
   // 저장된 게 없으면 null로 남아있고, 이 경우에만 내장된 예시 기본값을 쓴다.
-  const [companyApprovalTemplate, setCompanyApprovalTemplate] = useState<{ advance: ApprovalStep[] | null; leave: ApprovalStep[] | null }>({ advance: null, leave: null });
+  const [companyApprovalTemplate, setCompanyApprovalTemplate] = useState<{ advance: ApprovalStep[] | null; leave: ApprovalStep[] | null; official: ApprovalStep[] | null }>({ advance: null, leave: null, official: null });
   const [loading, setLoading] = useState<boolean>(true);
 
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isOfficialModalOpen, setIsOfficialModalOpen] = useState(false);
   const [editingAdvanceId, setEditingAdvanceId] = useState<string | null>(null);
   const [editingLeaveId, setEditingLeaveId] = useState<string | null>(null);
+  const [editingOfficialId, setEditingOfficialId] = useState<string | null>(null);
 
   // 가지급금 정산서 폼 상태
   const [apCompanyName, setApCompanyName] = useState('');
@@ -443,6 +472,27 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const [previewAdvanceId, setPreviewAdvanceId] = useState<string | null>(null);
   // 휴가 신청서 화면 출력(미리보기)
   const [previewLeaveId, setPreviewLeaveId] = useState<string | null>(null);
+  // 공문서 화면 출력(미리보기)
+  const [previewOfficialId, setPreviewOfficialId] = useState<string | null>(null);
+
+  // [추가] 공문서 폼 상태. 공유해주신 실제 공문 양식(수신자/참조/제목 + 번호 매겨진 본문 +
+  // 결재란 + 시행번호/접수 + 발신처 정보)을 그대로 재현한다.
+  // 기안자(작성자) - 문서 자체에는 안 찍히지만, 결재 요청 알림 이메일에 "누가 상신했는지" 표시할 때 쓰인다.
+  const [ofAuthor, setOfAuthor] = useState('');
+  const [ofRecipient, setOfRecipient] = useState('');
+  const [ofReference, setOfReference] = useState('');
+  const [ofSubject, setOfSubject] = useState('');
+  // 본문은 textarea에 한 줄(문단)씩 입력받아 저장 시 bodyParagraphs 배열로 쪼갠다.
+  const [ofBodyText, setOfBodyText] = useState('');
+  const [ofIssueDate, setOfIssueDate] = useState(todayStr());
+  const [ofExecutionNumber, setOfExecutionNumber] = useState('');
+  const [ofReceiptNumber, setOfReceiptNumber] = useState('');
+  const [ofCompanyName, setOfCompanyName] = useState('');
+  const [ofCompanyAddress, setOfCompanyAddress] = useState('');
+  const [ofCompanyPhone, setOfCompanyPhone] = useState('');
+  const [ofCompanyFax, setOfCompanyFax] = useState('');
+  const [ofCompanyEmail, setOfCompanyEmail] = useState('');
+  const [ofApprovalLine, setOfApprovalLine] = useState<ApprovalStep[]>(defaultOfficialApprovalLine());
 
   // 휴가 신청서 폼 상태
   const [lvDraftNumber, setLvDraftNumber] = useState('');
@@ -473,6 +523,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     fetchMyProfile();
     fetchCompanyPositions();
     fetchApprovalLineTemplate();
+    fetchCompanySettings();
   }, [currentUser]);
 
   // 총 연차 일수가 입력되어 있으면, 휴가 구분과 무관하게 같은 해에 그 사람이 이미 사용한 휴가일수
@@ -540,15 +591,34 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       const data = await res.json();
       setCompanyApprovalTemplate({
         advance: (data.advance && data.advance.length) ? data.advance : null,
-        leave: (data.leave && data.leave.length) ? data.leave : null
+        leave: (data.leave && data.leave.length) ? data.leave : null,
+        official: (data.official && data.official.length) ? data.official : null
       });
     } catch (err) {
       console.error('Approval line template fetch error:', err);
     }
   };
 
+  // [추가] 경영지원 서류와 공유하는 회사 공통 설정(주소/전화/팩스/이메일/시행번호 접두어)을 불러온다.
+  // 공문서를 작성하는 사람 누구나 발신처 정보를 자동으로 채울 수 있어야 하므로 관리자가 아니어도 조회 가능하다.
+  const fetchCompanySettings = async () => {
+    try {
+      const headers = currentUser ? { 'x-user-id': currentUser.id } : undefined;
+      const res = await fetch('/api/company-settings', { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      setCompanySettings({
+        address: data.address || '', businessType: data.businessType || '',
+        phone: data.phone || '', fax: data.fax || '', email: data.email || '',
+        docPrefix: data.docPrefix || 'KS'
+      });
+    } catch (err) {
+      console.error('Company settings fetch error:', err);
+    }
+  };
+
   // 현재 편집 중인 결재선을 "우리 회사 기본값"으로 저장 (다음부터 새 문서 작성 시 자동으로 채워짐)
-  const saveApprovalLineAsCompanyDefault = async (kind: 'advance' | 'leave', line: ApprovalStep[]) => {
+  const saveApprovalLineAsCompanyDefault = async (kind: 'advance' | 'leave' | 'official', line: ApprovalStep[]) => {
     const cleanedLine = line.map(s => ({ role: s.role })); // 이름/날짜는 템플릿에 저장하지 않고 직책만
     const nextTemplate = { ...companyApprovalTemplate, [kind]: cleanedLine };
     try {
@@ -575,12 +645,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     setLoading(true);
     try {
       const headers = currentUser ? { 'x-user-id': currentUser.id } : undefined;
-      const [advRes, lvRes] = await Promise.all([
+      const [advRes, lvRes, ofRes] = await Promise.all([
         fetch('/api/approvals/advance', { headers }).then(r => r.json()),
-        fetch('/api/approvals/leave', { headers }).then(r => r.json())
+        fetch('/api/approvals/leave', { headers }).then(r => r.json()),
+        fetch('/api/approvals/official', { headers }).then(r => r.json())
       ]);
       if (Array.isArray(advRes)) setAdvanceList(advRes);
       if (Array.isArray(lvRes)) setLeaveList(lvRes);
+      if (Array.isArray(ofRes)) setOfficialList(ofRes);
     } catch (err) {
       console.error('Approvals fetch error:', err);
     } finally {
@@ -709,6 +781,66 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     setLvSubmittedDate(doc.submittedDate);
     setLvApprovalLine(doc.approvalLine && doc.approvalLine.length ? doc.approvalLine : ((companyApprovalTemplate.leave && companyApprovalTemplate.leave.length) ? companyApprovalTemplate.leave : defaultLeaveApprovalLine()));
     setIsLeaveModalOpen(true);
+  };
+
+  // [추가] 공문서 폼 초기화. 시행번호는 오늘 날짜 + 회사 접두어 기준으로 자동 계산해 채워주되,
+  // 언제든 직접 고칠 수 있는 일반 입력창이라 겹치거나 틀리면 사용자가 바로 수정하면 된다.
+  const resetOfficialForm = () => {
+    const today = todayStr();
+    setOfAuthor(myProfile?.name || currentUser?.name || '');
+    setOfRecipient('');
+    setOfReference('');
+    setOfSubject('');
+    setOfBodyText('');
+    setOfIssueDate(today);
+    setOfExecutionNumber(makeExecutionNumber(officialList.map(d => d.executionNumber || ''), companySettings.docPrefix, today));
+    setOfReceiptNumber('');
+    setOfCompanyName(myProfile?.company || currentUser?.companyName || '');
+    setOfCompanyAddress(companySettings.address || '');
+    setOfCompanyPhone(companySettings.phone || '');
+    setOfCompanyFax(companySettings.fax || '');
+    setOfCompanyEmail(companySettings.email || '');
+    setOfApprovalLine((companyApprovalTemplate.official && companyApprovalTemplate.official.length) ? companyApprovalTemplate.official : defaultOfficialApprovalLine());
+    setEditingOfficialId(null);
+  };
+
+  const openNewOfficial = () => { resetOfficialForm(); setIsOfficialModalOpen(true); };
+
+  const openEditOfficial = (doc: OfficialDocument) => {
+    setEditingOfficialId(doc.id);
+    setOfAuthor(doc.author || '');
+    setOfRecipient(doc.recipient);
+    setOfReference(doc.reference || '');
+    setOfSubject(doc.subject);
+    setOfBodyText((doc.bodyParagraphs || []).join('\n'));
+    setOfIssueDate(doc.issueDate);
+    setOfExecutionNumber(doc.executionNumber);
+    setOfReceiptNumber(doc.receiptNumber || '');
+    setOfCompanyName(doc.companyName);
+    setOfCompanyAddress(doc.companyAddress || '');
+    setOfCompanyPhone(doc.companyPhone || '');
+    setOfCompanyFax(doc.companyFax || '');
+    setOfCompanyEmail(doc.companyEmail || '');
+    setOfApprovalLine(doc.approvalLine && doc.approvalLine.length ? doc.approvalLine : ((companyApprovalTemplate.official && companyApprovalTemplate.official.length) ? companyApprovalTemplate.official : defaultOfficialApprovalLine()));
+    setIsOfficialModalOpen(true);
+  };
+
+  // [추가] 공문서 발신처 정보(주소/전화/팩스/이메일/시행번호 접두어)를 회사 공통 설정에 저장한다.
+  // 관리자만 저장할 수 있고, 저장해두면 다음 공문서 작성 시 자동으로 채워진다.
+  const saveCompanyContactSettings = async () => {
+    if (!currentUser) return;
+    try {
+      const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
+      const patch = { address: ofCompanyAddress, phone: ofCompanyPhone, fax: ofCompanyFax, email: ofCompanyEmail, docPrefix: companySettings.docPrefix || 'KS' };
+      const res = await fetch('/api/company-settings', { method: 'PUT', headers, body: JSON.stringify(patch) });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setCompanySettings(prev => ({ ...prev, address: data.address || '', phone: data.phone || '', fax: data.fax || '', email: data.email || '', docPrefix: data.docPrefix || 'KS' }));
+      alert('발신처 정보를 회사 기본값으로 저장했습니다. 다음 공문서 작성 시 자동으로 채워집니다.');
+    } catch (err) {
+      console.error('Company contact settings save error:', err);
+      alert('저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   const addApItem = () => {
@@ -1401,6 +1533,40 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     }
   };
 
+  const saveOfficial = async () => {
+    if (!ofRecipient.trim()) { alert('수신자를 입력해 주세요.'); return; }
+    if (!ofSubject.trim()) { alert('제목을 입력해 주세요.'); return; }
+    if (!currentUser) return;
+    const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
+    // 본문은 textarea에서 한 줄(문단)씩 입력받은 걸 배열로 쪼갠다. 빈 줄은 문단 사이 여백일 뿐이니 제외.
+    const bodyParagraphs = ofBodyText.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+    const payload: Partial<OfficialDocument> = {
+      companyName: ofCompanyName, author: ofAuthor || currentUser.name, recipient: ofRecipient, reference: ofReference || undefined,
+      subject: ofSubject, bodyParagraphs, issueDate: ofIssueDate, executionNumber: ofExecutionNumber,
+      receiptNumber: ofReceiptNumber || undefined, companyAddress: ofCompanyAddress || undefined,
+      companyPhone: ofCompanyPhone || undefined, companyFax: ofCompanyFax || undefined,
+      companyEmail: ofCompanyEmail || undefined, approvalLine: ofApprovalLine
+    };
+    try {
+      if (editingOfficialId) {
+        const res = await fetch(`/api/approvals/official/${editingOfficialId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`공문서 저장에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setOfficialList(prev => prev.map(d => d.id === editingOfficialId ? updated : d));
+      } else {
+        const res = await fetch('/api/approvals/official', { method: 'POST', headers, body: JSON.stringify({ ...payload, status: 'pending' }) });
+        if (!res.ok) throw new Error(`공문서 저장에 실패했습니다 (상태: ${res.status}).`);
+        const created = await res.json();
+        setOfficialList(prev => [created, ...prev]);
+      }
+      setIsOfficialModalOpen(false);
+      resetOfficialForm();
+    } catch (err) {
+      console.error('Official document save error:', err);
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  };
+
   const deleteAdvance = async (id: string) => {
     if (!currentUser) return;
     if (!confirm('이 정산서를 삭제하시겠습니까?')) return;
@@ -1425,14 +1591,26 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     }
   };
 
+  const deleteOfficial = async (id: string) => {
+    if (!currentUser) return;
+    if (!confirm('이 공문서를 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/approvals/official/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
+      setOfficialList(prev => prev.filter(d => d.id !== id));
+    } catch (err: any) {
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
+  };
+
   // 결재선의 다음 미결 단계에 오늘 날짜로 승인 처리 (모든 단계가 끝나면 문서 상태를 승인으로 전환)
   // [수정] 승인자 이름과 서명 이미지도 그 단계에 같이 스냅샷으로 남긴다. approverOverride는
   // "방금 서명을 등록/변경한 직후 이어서 승인하는" 경우에 쓴다 - currentUser prop이 다음
   // 렌더링에서야 갱신되므로, 그 사이의 낡은 값 대신 방금 저장된 최신 사용자 정보를 바로 쓰기 위함.
-  const advanceNextApprovalStep = async (kind: 'advance' | 'leave', id: string, approverOverride?: User) => {
+  const advanceNextApprovalStep = async (kind: 'advance' | 'leave' | 'official', id: string, approverOverride?: User) => {
     const approver = approverOverride || currentUser;
     if (!approver) return;
-    const list: any[] = kind === 'advance' ? advanceList : leaveList;
+    const list: any[] = kind === 'advance' ? advanceList : kind === 'leave' ? leaveList : officialList;
     const doc = list.find((d: any) => d.id === id);
     if (!doc) return;
     const line: ApprovalStep[] = [...doc.approvalLine];
@@ -1448,11 +1626,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
         const updated = await res.json();
         setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
-      } else {
+      } else if (kind === 'leave') {
         const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
         if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
         const updated = await res.json();
         setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+      } else {
+        const res = await fetch(`/api/approvals/official/${id}`, { method: 'PUT', headers, body });
+        if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
       }
     } catch (err: any) {
       alert(`승인 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
@@ -1461,7 +1644,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
   // [추가] "승인" 버튼을 눌렀을 때: 아직 서명을 등록 안 했으면 먼저 서명 등록 모달을 띄우고,
   // 저장이 끝나면 자동으로 이어서 승인 처리한다. 이미 등록돼 있으면 바로 승인한다.
-  const handleApproveClick = (kind: 'advance' | 'leave', id: string) => {
+  const handleApproveClick = (kind: 'advance' | 'leave' | 'official', id: string) => {
     if (!currentUser) return;
     if (!currentUser.signatureImage) {
       setPendingApprovalTarget({ kind, id });
@@ -1471,7 +1654,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     advanceNextApprovalStep(kind, id);
   };
 
-  const rejectDoc = async (kind: 'advance' | 'leave', id: string) => {
+  const rejectDoc = async (kind: 'advance' | 'leave' | 'official', id: string) => {
     if (!currentUser) return;
     const memo = prompt('반려 사유를 입력해 주세요.') || '';
     const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
@@ -1482,15 +1665,97 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
         const updated = await res.json();
         setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
-      } else {
+      } else if (kind === 'leave') {
         const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
         if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
         const updated = await res.json();
         setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+      } else {
+        const res = await fetch(`/api/approvals/official/${id}`, { method: 'PUT', headers, body });
+        if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
       }
     } catch (err: any) {
       alert(`반려 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
+  };
+
+  // [추가] 공문서 인쇄. 화면 미리보기와 동일한 renderPrintableOfficial 출력을 #print-root
+  // 포털로 그대로 재사용해, 화면에 보이는 그대로 인쇄/PDF 저장되도록 한다.
+  const handlePrintOfficial = () => {
+    document.body.classList.add('print-portal-mode');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+    window.print();
+  };
+
+  // [추가] 공문서 출력용 렌더러. 요청하신 여백(위/아래 20mm, 좌/우 25mm)을 그대로 반영하고,
+  // 화면 미리보기와 실제 인쇄(#print-root 포털) 양쪽에서 동일하게 재사용한다.
+  const renderPrintableOfficial = (doc: OfficialDocument | undefined) => {
+    if (!doc) return null;
+    const approvalLine = doc.approvalLine || [];
+    const bodyParagraphs = doc.bodyParagraphs || [];
+    const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 10px', verticalAlign: 'middle' };
+    const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
+    const footerLine = [doc.companyPhone && `전화 : ${doc.companyPhone}`, doc.companyFax && `전송 : ${doc.companyFax}`, doc.companyEmail && `e-mail : ${doc.companyEmail}`].filter(Boolean).join('   ');
+    return (
+      <div style={{ width: '210mm', boxSizing: 'border-box', margin: '0 auto', padding: '20mm 25mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <span style={{ fontSize: 24, fontWeight: 800 }}>{doc.companyName}</span>
+        </div>
+
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+          <tbody>
+            <tr>
+              <td style={{ width: 76, padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>수 신 자</td>
+              <td style={{ padding: '5px 0', borderBottom: '1px solid #000' }}>{doc.recipient}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>참&nbsp;&nbsp;&nbsp;&nbsp;조</td>
+              <td style={{ padding: '5px 0', borderBottom: '1px solid #000' }}>{doc.reference || ''}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>제&nbsp;&nbsp;&nbsp;&nbsp;목</td>
+              <td style={{ padding: '5px 0', borderBottom: '2px solid #000', fontWeight: 700 }}>{doc.subject}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style={{ minHeight: 180, lineHeight: 1.9, fontSize: 12 }}>
+          {bodyParagraphs.map((p, i) => (
+            <p key={i} style={{ marginBottom: 14 }}>
+              <span style={{ marginRight: 6 }}>{i + 1}.</span>{p}{i === bodyParagraphs.length - 1 ? '  - 끝 -' : ''}
+            </p>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '30px 0 22px' }}>
+          <table style={{ borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 50 }}>결&nbsp;&nbsp;재</td>
+                {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 80 }}>{s.role}</th>)}
+              </tr>
+              <tr>
+                {approvalLine.map((s, i) => (
+                  <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 46 }}>
+                    {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 26, maxWidth: '90%', display: 'block', margin: '0 auto 2px' }} />}
+                    {s.date || ''}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ borderTop: '1.5pt solid #000', paddingTop: 10, fontSize: 11 }}>
+          <p style={{ marginBottom: 4 }}>시행&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}</p>
+          {(doc.companyAddress || footerLine) && (
+            <p style={{ color: '#333' }}>{doc.companyAddress}{doc.companyAddress && footerLine ? '   ' : ''}{footerLine}</p>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const ApprovalLineMini: React.FC<{ line: ApprovalStep[] }> = ({ line }) => (
@@ -1527,6 +1792,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <Plane className="w-4 h-4" />
             <span>휴가 신청서</span>
             <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{leaveList.length}</span>
+          </button>
+          <button
+            onClick={() => setActiveApprovalTab('official')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+              activeApprovalTab === 'official' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>공문서</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-100 text-slate-600 font-mono">{officialList.length}</span>
           </button>
         </div>
         <button
@@ -1628,7 +1903,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             </div>
           )}
         </div>
-      ) : (
+      ) : activeApprovalTab === 'leave' ? (
         <div className="space-y-4">
           <div className="flex justify-start">
             <button onClick={openNewLeave} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95">
@@ -1709,6 +1984,80 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 >
                   <span className="text-2xl">＋</span>
                   <span className="text-xs font-bold">{leaveList.length - visibleLeaveCount}건 더 보기</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex justify-start">
+            <button onClick={openNewOfficial} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95">
+              <Plus className="w-4 h-4" /><span>공문서 작성</span>
+            </button>
+          </div>
+
+          {officialList.length === 0 ? (
+            <div className="py-20 text-center text-slate-400 bg-slate-100 border border-dashed border-slate-200 rounded-2xl">
+              <FileText className="w-8 h-8 mx-auto mb-2 text-slate-700" />
+              <p className="text-sm">등록된 공문서가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-3 -mx-1 px-1 [scrollbar-width:thin]">
+              {[...officialList].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, visibleOfficialCount).map(doc => (
+                <div key={doc.id} className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-slate-800 truncate">{doc.subject}</h3>
+                        <StatusBadge status={doc.status} />
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                        <span className="flex items-center gap-1"><Hash className="w-3 h-3" />{doc.executionNumber}</span>
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{doc.issueDate}</span>
+                        <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" />{doc.author}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 truncate">수신: {doc.recipient}{doc.reference ? ` · 참조: ${doc.reference}` : ''}</p>
+                      <ApprovalLineMini line={doc.approvalLine || []} />
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => setPreviewOfficialId(doc.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-400 transition-colors" title="출력 미리보기">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => openEditOfficial(doc)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-400 transition-colors">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => deleteOfficial(doc.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-rose-400 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {doc.status === 'pending' && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button onClick={() => handleApproveClick('official', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold border border-emerald-600/30 transition-colors">
+                        <Check className="w-3.5 h-3.5" /> 다음 결재 승인
+                      </button>
+                      <button onClick={() => rejectDoc('official', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-xs font-bold border border-rose-600/30 transition-colors">
+                        <X className="w-3.5 h-3.5" /> 반려
+                      </button>
+                    </div>
+                  )}
+                  {doc.status === 'rejected' && doc.approverMemo && (
+                    <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">반려 사유: {doc.approverMemo}</p>
+                  )}
+                </div>
+              ))}
+
+              {/* [수정] 더 남은 공문서가 있으면 "더 보기" 버튼으로 이어서 로딩 */}
+              {visibleOfficialCount < officialList.length && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleOfficialCount((prev) => Math.min(prev + 50, officialList.length))}
+                  className="flex-none w-[150px] snap-center border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-white rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 transition-all"
+                >
+                  <span className="text-2xl">＋</span>
+                  <span className="text-xs font-bold">{officialList.length - visibleOfficialCount}건 더 보기</span>
                 </button>
               )}
             </div>
@@ -2203,6 +2552,142 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         </div>
       )}
 
+      {/* 공문서 작성/수정 모달 */}
+      {isOfficialModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-400" />
+                {editingOfficialId ? '공문서 수정' : '공문서 작성'}
+              </h2>
+              <button onClick={() => setIsOfficialModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <ApprovalLineEditor line={ofApprovalLine} setLine={setOfApprovalLine} kind="official" companyPositions={companyPositions} onSaveAsDefault={saveApprovalLineAsCompanyDefault} />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">발신 회사명</label>
+                  <input type="text" value={ofCompanyName} onChange={(e) => setOfCompanyName(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">작성자(기안자)</label>
+                  <input type="text" value={ofAuthor} onChange={(e) => setOfAuthor(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">수신자</label>
+                  <input type="text" value={ofRecipient} onChange={(e) => setOfRecipient(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">참조 (선택)</label>
+                  <input type="text" value={ofReference} onChange={(e) => setOfReference(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600">제목</label>
+                <input type="text" value={ofSubject} onChange={(e) => setOfSubject(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600">본문 (한 줄에 문단 하나씩 입력하면 출력 시 자동으로 1. 2. 3. 번호가 매겨집니다)</label>
+                <textarea value={ofBodyText} onChange={(e) => setOfBodyText(e.target.value)} rows={6}
+                  placeholder={'예)\n귀 원의 무궁한 발전을 기원합니다.\n2026년 혁신제품 선정과 관련사항입니다.'}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm resize-y" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">시행일자</label>
+                  <YMDInput value={ofIssueDate} onChange={(v) => { setOfIssueDate(v); setOfExecutionNumber(makeExecutionNumber(officialList.filter(d => d.id !== editingOfficialId).map(d => d.executionNumber || ''), companySettings.docPrefix, v)); }} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">시행번호</label>
+                  <input type="text" value={ofExecutionNumber} onChange={(e) => setOfExecutionNumber(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600">접수번호 (선택, 보통 공란으로 둡니다)</label>
+                <input type="text" value={ofReceiptNumber} onChange={(e) => setOfReceiptNumber(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono" />
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-600">발신처 정보 (문서 하단에 표시)</label>
+                  {currentUser?.role === 'admin' && (
+                    <button type="button" onClick={saveCompanyContactSettings} className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap">
+                      회사 기본값으로 저장
+                    </button>
+                  )}
+                </div>
+                <input type="text" value={ofCompanyAddress} onChange={(e) => setOfCompanyAddress(e.target.value)} placeholder="주소"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input type="text" value={ofCompanyPhone} onChange={(e) => setOfCompanyPhone(e.target.value)} placeholder="전화"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                  <input type="text" value={ofCompanyFax} onChange={(e) => setOfCompanyFax(e.target.value)} placeholder="전송(팩스)"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                  <input type="text" value={ofCompanyEmail} onChange={(e) => setOfCompanyEmail(e.target.value)} placeholder="e-mail"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                </div>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2">
+              <button onClick={() => setIsOfficialModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
+              <button onClick={saveOfficial} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 공문서 출력 미리보기 */}
+      {previewOfficialId && (() => {
+        const previewOfficial = officialList.find(d => d.id === previewOfficialId);
+        if (!previewOfficial) return null;
+        return (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
+                    <Eye className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">공문서 출력 미리보기</h2>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={handlePrintOfficial} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
+                    <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
+                  </button>
+                  <button onClick={() => setPreviewOfficialId(null)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
+                <div className="shrink-0" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.08)' }}>
+                  {renderPrintableOfficial(previewOfficial)}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 가지급금 정산서 출력 미리보기 (주간업무일지/차량운행일지와 동일한 방식: 화면에 그대로 보여준 뒤 엑셀/PDF로 출력) */}
       {previewAdvanceId && (() => {
         const previewDoc = advanceList.find(d => d.id === previewAdvanceId);
@@ -2506,6 +2991,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         createPortal(renderPrintableAdvance(advanceList.find(d => d.id === previewAdvanceId)), document.getElementById('print-root')!)}
       {previewLeaveId && typeof document !== 'undefined' && document.getElementById('print-root') &&
         createPortal(renderPrintableLeave(leaveList.find(d => d.id === previewLeaveId)), document.getElementById('print-root')!)}
+      {previewOfficialId && typeof document !== 'undefined' && document.getElementById('print-root') &&
+        createPortal(renderPrintableOfficial(officialList.find(d => d.id === previewOfficialId)), document.getElementById('print-root')!)}
 
       {/* [수정] 정산 항목에 딸린 영수증 썸네일 확대보기 라이트박스 */}
       {enlargedReceiptUrl && (
