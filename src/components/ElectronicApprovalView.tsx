@@ -1719,9 +1719,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       // 인쇄했을 때 상하 균형감이 맞도록 했다.
       <div style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', padding: '25mm', display: 'flex', flexDirection: 'column', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
         {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
-            로고가 작아 보인다는 피드백에 따라 텍스트 높이에 맞췄던 32px보다 더 크게(48px) 키웠다. */}
-        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 50 }}>
-          <img src="/brand/kaiser-logo.png" alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 48 }} />
+            로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다. */}
+        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64 }}>
+          <img src="/brand/kaiser-logo.png" alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
           <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
         </div>
 
@@ -1759,10 +1759,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             바로 붙지 않고 marginTop:'auto'로 페이지 맨 아래(바깥 padding-bottom 25mm 바로 위)까지
             밀어낸다. 상위 컨테이너가 flex column이라 이 auto 마진이 남은 세로 공간을 모두 차지한다. */}
         <div style={{ marginTop: 'auto' }}>
-          {/* [추가] 회사명 + 직인(도장) - 실제로 도장이 찍힌 것처럼 회사명 글자 위에 살짝 겹치게, 가운데 배치 */}
+          {/* [수정] 회사명 + 직인(도장) - 도장이 회사명 글자 위에 살짝 겹치게 가운데 배치.
+              도장 이미지가 글자보다 나중에 그려지면(기본 DOM 순서) 도장 사각형 배경이 겹치는
+              부분의 글자(예: "션")를 완전히 덮어버려서 안 보이는 문제가 있었다. 회사명 span에
+              zIndex를 줘서 도장 위로 글자가 항상 비쳐 보이도록 함(flex item은 position 없이도
+              zIndex로 별도 stacking context가 생긴다). */}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 40, marginBottom: 0 }}>
-            <span style={{ fontSize: 20, fontWeight: 800 }}>{doc.companyName}</span>
-            <img src="/brand/kaiser-seal.png" alt="" style={{ height: 58, marginLeft: -20 }} />
+            <span style={{ fontSize: 20, fontWeight: 800, position: 'relative', zIndex: 1 }}>{doc.companyName}</span>
+            <img src="/brand/kaiser-seal.png" alt="" style={{ height: 58, marginLeft: -20, position: 'relative', zIndex: 0 }} />
           </div>
 
           {/* [수정] 도장 아래 굵은 회색 구분선 - 그 아래로 결재란/시행/발신처 정보를 묶는다 */}
