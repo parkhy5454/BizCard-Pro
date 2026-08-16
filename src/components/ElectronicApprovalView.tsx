@@ -316,9 +316,11 @@ const defaultLeaveApprovalLine = (): ApprovalStep[] => [
 const defaultAdvanceApprovalLine = (): ApprovalStep[] => [
   { role: '기안자' }, { role: '경영지원팀장' }, { role: '기술이사' }, { role: '대표이사' }
 ];
-// [추가] 공문서 결재선 기본값. 공유해주신 실제 양식(담당/이사/대표)을 그대로 기본으로 쓴다.
+// [추가] 공문서 결재선 기본값. 공유해주신 실제 양식(담당/이사 → 협조자/대표 2단 배치)을
+// 그대로 기본으로 쓴다. 출력 화면에서 2개씩 묶어 표시하므로 이 순서 그대로면
+// "담당·이사"가 첫 줄, "협조자·대표"가 둘째 줄에 놓인다.
 const defaultOfficialApprovalLine = (): ApprovalStep[] => [
-  { role: '담당' }, { role: '이사' }, { role: '대표' }
+  { role: '담당' }, { role: '이사' }, { role: '협조자' }, { role: '대표' }
 ];
 
 function makeDraftNumber(existing: string[]): string {
@@ -1695,28 +1697,34 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     if (!doc) return null;
     const approvalLine = doc.approvalLine || [];
     const bodyParagraphs = doc.bodyParagraphs || [];
-    const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '6px 10px', verticalAlign: 'middle' };
-    const grayStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f3f4f6', fontWeight: 700 };
     const footerLine = [doc.companyPhone && `전화 : ${doc.companyPhone}`, doc.companyFax && `전송 : ${doc.companyFax}`, doc.companyEmail && `e-mail : ${doc.companyEmail}`].filter(Boolean).join('   ');
+    // [추가] 결재란 우측 상단에 표시하는 "결재 날짜" - 마지막으로 승인이 찍힌 단계의 날짜를 쓴다
+    // (역순으로 찾아 날짜가 있는 첫 단계 = 지금까지 중 가장 최근에 결재된 단계).
+    const lastApprovalDate = [...approvalLine].reverse().find(s => s.date)?.date || '';
+    // 실제 양식의 라벨 색(진한 파랑) - 담당/이사/협조자/대표, 시행 라벨에만 쓰이고 나머지는 검정 그대로.
+    const labelBlue = '#1a5cab';
     return (
       <div style={{ width: '210mm', boxSizing: 'border-box', margin: '0 auto', padding: '20mm 25mm', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <span style={{ fontSize: 24, fontWeight: 800 }}>{doc.companyName}</span>
+        {/* 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬 */}
+        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 34 }}>
+          <img src="/brand/kaiser-logo.png" alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 32 }} />
+          <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+        {/* 수신자/참조/제목 - 줄마다 밑줄 없이, 블록 전체 아래에 선 하나만 긋는다 */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, borderBottom: '1px solid #000' }}>
           <tbody>
             <tr>
               <td style={{ width: 76, padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>수 신 자</td>
-              <td style={{ padding: '5px 0', borderBottom: '1px solid #000' }}>{doc.recipient}</td>
+              <td style={{ padding: '5px 0' }}>{doc.recipient}</td>
             </tr>
             <tr>
               <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>참&nbsp;&nbsp;&nbsp;&nbsp;조</td>
-              <td style={{ padding: '5px 0', borderBottom: '1px solid #000' }}>{doc.reference || ''}</td>
+              <td style={{ padding: '5px 0' }}>{doc.reference || ''}</td>
             </tr>
             <tr>
-              <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>제&nbsp;&nbsp;&nbsp;&nbsp;목</td>
-              <td style={{ padding: '5px 0', borderBottom: '2px solid #000', fontWeight: 700 }}>{doc.subject}</td>
+              <td style={{ padding: '5px 0 10px', fontWeight: 700, verticalAlign: 'top' }}>제&nbsp;&nbsp;&nbsp;&nbsp;목</td>
+              <td style={{ padding: '5px 0 10px', fontWeight: 700 }}>{doc.subject}</td>
             </tr>
           </tbody>
         </table>
@@ -1729,30 +1737,35 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           ))}
         </div>
 
-        {/* [수정] 결재란(도장)부터 발신처 정보까지를 실제 양식처럼 구분선 아래 하나의
-            "맨 아래 블록"으로 묶는다. 결재란은 이 블록의 맨 위(우측 정렬), 주소와
-            전화/전송/이메일은 그 아래 각각 별도의 줄로 둔다. */}
-        <div style={{ borderTop: '1.5pt solid #000', marginTop: 30, paddingTop: 14, fontSize: 11 }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-            <table style={{ borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr>
-                  <td rowSpan={2} style={{ ...grayStyle, textAlign: 'center', width: 50 }}>결&nbsp;&nbsp;재</td>
-                  {approvalLine.map((s, i) => <th key={i} style={{ ...grayStyle, textAlign: 'center', width: 80 }}>{s.role}</th>)}
-                </tr>
-                <tr>
-                  {approvalLine.map((s, i) => (
-                    <td key={i} style={{ ...cellStyle, textAlign: 'center', height: 46 }}>
-                      {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 26, maxWidth: '90%', display: 'block', margin: '0 auto 2px' }} />}
-                      {s.date || ''}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
+        {/* [추가] 회사명 + 직인(도장) - 실제로 도장이 찍힌 것처럼 회사명 글자 위에 살짝 겹치게, 가운데 배치 */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 40, marginBottom: 0 }}>
+          <span style={{ fontSize: 20, fontWeight: 800 }}>{doc.companyName}</span>
+          <img src="/brand/kaiser-seal.png" alt="" style={{ height: 58, marginLeft: -20 }} />
+        </div>
+
+        {/* [수정] 도장 아래 굵은 회색 구분선 - 그 아래로 결재란/시행/발신처 정보를 묶는다 */}
+        <div style={{ borderTop: '4px solid #5d5d5d', marginTop: 10, paddingTop: 14, fontSize: 11 }}>
+          {/* [수정] 결재란 - 표(테두리) 없이, 담당/이사 → 협조자/대표 2단 배치로 실제 양식과 동일하게 구성 */}
+          <div style={{ position: 'relative', marginBottom: 16, minHeight: 40 }}>
+            <div style={{ position: 'absolute', right: 0, top: 0, fontWeight: 700 }}>
+              결재&nbsp;&nbsp;{lastApprovalDate}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, auto)', columnGap: 40, rowGap: 6 }}>
+              {approvalLine.map((s, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: labelBlue, fontWeight: 700 }}>{s.role}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
+                    {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
+                    <span style={{ fontSize: 10 }}>{s.date || ''}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <p style={{ marginBottom: 4 }}>시행&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}</p>
+          <p style={{ marginBottom: 4 }}>
+            <span style={{ color: labelBlue }}>시행</span>&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}
+          </p>
           {/* 맨 아래 2줄: 첫 줄엔 (우편번호 포함) 주소, 둘째 줄엔 전화/전송/이메일 */}
           {doc.companyAddress && <p style={{ color: '#333', marginBottom: 2 }}>{doc.companyAddress}</p>}
           {footerLine && <p style={{ color: '#333' }}>{footerLine}</p>}
