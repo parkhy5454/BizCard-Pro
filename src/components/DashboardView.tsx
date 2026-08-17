@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, Briefcase, Car, ClipboardList, ShieldCheck, TrendingUp, ArrowRight } from 'lucide-react';
+import { Users, Briefcase, Car, ClipboardList, ShieldCheck, TrendingUp, ArrowRight, FileCheck } from 'lucide-react';
 import { BusinessCard, Project, User as UserType, Vehicle } from '../types.js';
 
 // [추가] "지금 확인한거 다 순차적으로 해줘"의 마지막 두 항목(홈 대시보드/차트)을 하나의
@@ -20,6 +20,8 @@ interface Props {
   onOpenProject: (projectId: string) => void;
   onOpenGlobalSearch: () => void;
   onOpenUserDirectory: () => void;
+  // [추가] "내 결재 대기" 카드를 누르면 전자결재 탭으로 바로 이동시키기 위한 콜백
+  onOpenApprovals: () => void;
 }
 
 interface WorkLogLite {
@@ -36,12 +38,16 @@ const STATUS_COLOR: Record<Project['status'], string> = {
 };
 
 export const DashboardView: React.FC<Props> = ({
-  currentUser, contacts, projects, onOpenContact, onOpenProject, onOpenGlobalSearch, onOpenUserDirectory
+  currentUser, contacts, projects, onOpenContact, onOpenProject, onOpenGlobalSearch, onOpenUserDirectory, onOpenApprovals
 }) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [dailyLogs, setDailyLogs] = useState<WorkLogLite[]>([]);
   const [weeklyLogs, setWeeklyLogs] = useState<WorkLogLite[]>([]);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  // [추가] "내 결재 대기" 카드용 - 다른 직원 것까지 다 보이는 명함/프로젝트와 달리, 이건
+  // 로그인한 사람의 직책이 결재선의 다음 미결 단계와 일치하는 문서 개수만 서버에서
+  // 걸러서 내려준다(관리자든 일반 직원이든, 결재선에 자기 직책이 있으면 누구나 대상).
+  const [myPendingApprovalCount, setMyPendingApprovalCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,6 +73,11 @@ export const DashboardView: React.FC<Props> = ({
     } else {
       setPendingCount(null);
     }
+
+    fetch('/api/approvals/pending-count', { headers })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setMyPendingApprovalCount(data && typeof data.count === 'number' ? data.count : null))
+      .catch(() => setMyPendingApprovalCount(null));
   }, [currentUser?.id]);
 
   const now = new Date();
@@ -132,7 +143,7 @@ export const DashboardView: React.FC<Props> = ({
       </div>
 
       {/* 핵심 지표 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-blue-600 p-5 rounded-2xl flex items-center justify-between shadow-md">
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-white/80">등록된 명함</span>
@@ -191,6 +202,25 @@ export const DashboardView: React.FC<Props> = ({
               <ClipboardList className="w-5.5 h-5.5" />
             </div>
           </div>
+        )}
+
+        {/* [추가] 내 결재 대기 - 명함/프로젝트처럼 회사 전체가 같이 보는 숫자가 아니라,
+        로그인한 사람의 직책이 결재선의 다음 미결 단계와 일치하는 문서만 골라 센 개수.
+        직책이 결재선 어디에도 없으면(결재자가 아닌 직원, 개인 계정 등) 카드 자체를 숨긴다. */}
+        {myPendingApprovalCount !== null && (
+          <button
+            onClick={onOpenApprovals}
+            className="bg-teal-600 p-5 rounded-2xl flex items-center justify-between shadow-md text-left hover:brightness-95 transition-all"
+          >
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-white/80">내 결재 대기</span>
+              <p className="text-2xl font-bold text-white">{myPendingApprovalCount.toLocaleString()}건</p>
+              <p className="text-[11px] text-white/70 flex items-center gap-1">전자결재에서 확인 <ArrowRight className="w-3 h-3" /></p>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
+              <FileCheck className="w-5.5 h-5.5" />
+            </div>
+          </button>
         )}
       </div>
 
