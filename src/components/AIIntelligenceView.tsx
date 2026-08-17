@@ -13,6 +13,15 @@ interface Props {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// [추가] "기업 인텔리전스"/"관계·영업 인텔리전스"는 원래 외부 거래처·잠재고객을 분석하려는
+// 목적인데, 명함첩에 우리 회사 직원 명함이 하나라도 등록돼 있으면(예: 명함 스캔 중 실수로,
+// 또는 사내 인맥 관리 목적으로) 그 회사 자체가 분석 대상 기업 목록/랭킹에 같이 섞여
+// 들어가버린다. "(주)"/"주식회사" 표기나 공백 유무 차이로도 같은 회사를 놓치지 않도록
+// 정규화해서 비교한 뒤, 로그인한 사람의 소속 회사와 일치하는 명함은 두 탭의 분석
+// 대상에서 제외한다.
+const normalizeCompanyName = (s: string): string =>
+  (s || '').trim().replace(/^(주식회사|㈜|\(주\))\s*/, '').replace(/\s*(주식회사|㈜|\(주\))$/, '').replace(/\s+/g, '').toLowerCase();
+
 // [추가] 세 서브탭 전부 기본적으로는 DB/규칙 기반 데이터만 즉시 보여주고(AI 호출 0회),
 // "정말 궁금할 때"만 이 버튼을 눌러야 그 순간 딱 한 번 Gemini를 부른다. 이미 화면에 보여준
 // (계산이 끝난) 데이터를 그대로 서버에 넘겨서 "해석/조언"만 부탁하는 방식이라, 매번 처음부터
@@ -84,6 +93,14 @@ const AiAnalysisPanel: React.FC<{ label: string; endpoint: string; payload: any;
 export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects, currentUser, onSelectContact, onNavigateToProjects }) => {
   const [activeSubTab, setActiveSubTab] = useState<'briefing' | 'company' | 'relationship'>('briefing');
 
+  // [추가] "기업 인텔리전스"/"관계·영업 인텔리전스" 두 탭에서만 우리 회사 자신을 뺀
+  // 명함 목록을 쓴다("오늘의 브리핑"은 원래도 내 할 일 위주라 그대로 둔다).
+  const myCompanyNorm = normalizeCompanyName(currentUser?.companyName || '');
+  const externalContacts = useMemo(
+    () => (myCompanyNorm ? contacts.filter((c) => normalizeCompanyName(c.company) !== myCompanyNorm) : contacts),
+    [contacts, myCompanyNorm]
+  );
+
   const subTabs: { id: typeof activeSubTab; label: string; icon: any; desc: string }[] = [
     { id: 'briefing', label: '오늘의 브리핑', icon: Calendar, desc: '지금 내가 해야 할 일과 중요한 변화' },
     { id: 'company', label: '기업 인텔리전스', icon: Building2, desc: '회사·기관 분석' },
@@ -124,9 +141,9 @@ export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects
       {activeSubTab === 'briefing' && (
         <BriefingTab contacts={contacts} projects={projects} currentUser={currentUser} onSelectContact={onSelectContact} onNavigateToProjects={onNavigateToProjects} />
       )}
-      {activeSubTab === 'company' && <CompanyIntelligenceTab contacts={contacts} onSelectContact={onSelectContact} />}
+      {activeSubTab === 'company' && <CompanyIntelligenceTab contacts={externalContacts} onSelectContact={onSelectContact} />}
       {activeSubTab === 'relationship' && (
-        <RelationshipIntelligenceTab contacts={contacts} projects={projects} onSelectContact={onSelectContact} onNavigateToProjects={onNavigateToProjects} />
+        <RelationshipIntelligenceTab contacts={externalContacts} projects={projects} onSelectContact={onSelectContact} onNavigateToProjects={onNavigateToProjects} />
       )}
     </div>
   );
