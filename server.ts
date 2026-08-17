@@ -5535,6 +5535,13 @@ function getNextPendingApprover(approvalLine: ApprovalStep[] = []): ApprovalStep
   return approvalLine.find(s => !s.date);
 }
 
+// 결재선의 직책 문자열(예: "대표이사")과 가입자의 직책(User.position) 문자열을 비교할 때,
+// 공백이나 대소문자 차이 때문에 매칭에 실패하지 않도록 정규화한다.
+// (예: 결재선에는 "대표 이사", 직원 프로필에는 "대표이사"로 입력돼 있어도 같은 사람으로 매칭)
+function normalizeApprovalRole(s: string): string {
+  return s.trim().replace(/\s+/g, '').toLowerCase();
+}
+
 // 결재라인이 진전되어 "다음 결재 대기자"가 바뀌었을 때만(중복 발송 방지) 그 사람에게 이메일을 보낸다.
 // - 신규 기안(beforeLine 없음): 첫 번째 결재자에게 발송
 // - 결재 진행(beforeLine 있음): 다음 결재자가 바뀐 경우에만 발송
@@ -5556,8 +5563,7 @@ async function notifyNextApproverIfChanged(
   if (!nextAfter) return;
   if (beforeLine && nextBefore?.role === nextAfter.role && nextBefore?.date === nextAfter.date) return; // 변화 없음
 
-  const normalize = (s: string) => s.trim().replace(/\s+/g, '').toLowerCase();
-  const target = users.find(u => scopeIdForUser(u) === scopeId && normalize(u.position || '') === normalize(nextAfter.role));
+  const target = users.find(u => scopeIdForUser(u) === scopeId && normalizeApprovalRole(u.position || '') === normalizeApprovalRole(nextAfter.role));
   if (!target) {
     console.warn(`[mailer] "${nextAfter.role}" 직책을 가진 가입자를 찾지 못해 결재 요청 이메일을 보내지 못했습니다. (직원 관리에서 직책을 지정해주세요)`);
     return;
@@ -5753,6 +5759,33 @@ app.delete('/api/approvals/official/:id', async (req, res) => {
   dbData.officialDocuments = dbData.officialDocuments.filter((d: OfficialDocument) => d.id !== req.params.id);
   await deleteScopedDoc(scopeId, 'officialDocuments', req.params.id);
   res.json({ success: true });
+});
+
+// [추가] 홈 대시보드의 "내 결재 대기" 카드용 요약 엔드포인트. 가지급금 정산서/휴가 신청서/
+// 공문서 세 종류를 각각 통째로 불러오지 않고, 로그인한 사람의 직책(User.position)이 결재선의
+// "다음 미결 단계" 직책과 일치하는 pending 문서 개수만 가볍게 계산해서 돌려준다(첨부 영수증
+// 이미지 등 무거운 데이터를 포함하지 않음). 직책이 결재선 어디에도 없으면(예: 결재 단계에
+// 없는 직책이거나 개인 계정) 항상 0건으로, 다른 직원의 결재 건수가 새어나가지 않는다.
+app.get('/api/approvals/pending-count', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = userId ? users.find(u => u.id === userId) : undefined;
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const myRole = normalizeApprovalRole(requester.position || '');
+  if (!myRole) return res.json({ count: 0, byType: { advance: 0, leave: 0, official: 0 } });
+
+  const dbData = getScopedData(req);
+  const countMine = (docs: { status: string; approvalLine?: ApprovalStep[] }[] | undefined): number =>
+    (docs || []).filter((d) => {
+      if (d.status !== 'pending') return false;
+      const next = getNextPendingApprover(d.approvalLine || []);
+      return !!next && normalizeApprovalRole(next.role) === myRole;
+    }).length;
+
+  const advance = countMine(dbData.advancePayments);
+  const leave = countMine(dbData.leaveRequests);
+  const official = countMine(dbData.officialDocuments);
+  res.json({ count: advance + leave + official, byType: { advance, leave, official } });
 });
 
 // ------------------------------------------------------------------
