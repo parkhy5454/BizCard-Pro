@@ -1310,15 +1310,22 @@ export const ProjectsView: React.FC<Props> = ({
   // 동일한 패턴으로 통일한다: 실제 인쇄되는 내용을 이 함수 하나로 분리해서 화면 미리보기와
   // #print-root 포털(실제 인쇄) 양쪽에서 재사용하고, 인쇄 버튼은 body에 print-portal-mode를
   // 붙여 #root(화면에 보이는 나머지 전체 앱, 이 모달 포함) 자체를 감춘 뒤 window.print()를
-  // 호출한다. 내용 길이가 프로젝트 개수에 따라 크게 달라질 수 있어, 강제 높이(minHeight)는
-  // 주지 않고 padding만으로 여백을 주어 페이지 수에 관계없이 자연스럽게 흐르도록 한다.
+  // 호출한다.
+  // [수정] A4 가로(297mm x 210mm)로, 여백은 위/아래 20mm·좌/우 25mm로 지정. 프로젝트가
+  // 많아 여러 페이지로 넘어갈 수 있으므로 근로계약서/공문서와 동일하게, 실제 여백은 이 div의
+  // padding이 아니라 index.css의 named page(projects-list-page)의 margin이 모든 페이지에
+  // 동일하게 적용되도록 전담한다(print-projects-list-margins 클래스, @media print 안에서만
+  // width/padding/minHeight를 무력화). 화면 미리보기에서는 그 규칙이 적용되지 않으므로
+  // 평소엔 297mm 고정폭 + 20mm/25mm padding으로 A4 가로 용지와 비슷하게 보인다.
   const renderPrintableProjectsList = () => (
-    <table style={{ width: '210mm', margin: '0 auto', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
-      <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
-        <div className="text-center mb-6">
-          <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">전체 프로젝트 목록</span>
-          <p className="text-[10px] text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
-        </div>
+    <div
+      className="print-projects-list-margins text-black text-xs font-sans leading-tight"
+      style={{ width: '297mm', margin: '0 auto', padding: '20mm 25mm', border: '2px solid #000000', background: '#fff', boxSizing: 'border-box' }}
+    >
+      <div className="text-center mb-6">
+        <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">전체 프로젝트 목록</span>
+        <p className="text-[10px] text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
+      </div>
 
         <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
           <thead>
@@ -1352,8 +1359,7 @@ export const ProjectsView: React.FC<Props> = ({
             )}
           </tbody>
         </table>
-      </div>
-    </td></tr></tbody></table>
+    </div>
   );
 
   const handlePrintProjectsList = () => {
