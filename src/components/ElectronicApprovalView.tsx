@@ -1717,7 +1717,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       // 아래쪽 결재/직인 블록을 페이지 맨 밑으로 밀어내기 위해 flex column으로 구성한다.
       // 여백을 위/아래/좌/우 모두 25mm로 균일하게 맞춰서(예전엔 위 20 / 아래 25로 달랐음)
       // 인쇄했을 때 상하 균형감이 맞도록 했다.
-      <div style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', padding: '25mm', display: 'flex', flexDirection: 'column', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
+      // [추가] print-official-document-margins 클래스: 본문이 길어 A4 한 장을 넘기는
+      // 경우에도(짧은 편지 양식이 기본이지만) 매 페이지에 25mm 여백이 유지되도록,
+      // 실제 인쇄 시에는 이 div의 고정폭/자체 padding 대신 named @page 규칙(margin:25mm)이
+      // 페이지마다 적용된다 - 화면 미리보기에는 영향 없음(@media print 전용 규칙).
+      <div className="print-official-document-margins" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', padding: '25mm', display: 'flex', flexDirection: 'column', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
         {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
             로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다.
             [수정] 로고(절대 위치, top:50%로 컨테이너 세로 중앙에 배치)와 회사명 글자(일반
