@@ -168,10 +168,17 @@ body {
   미리보기에서 A4 페이지처럼 보이려고 넣은 것뿐이다. 실제 인쇄 시에는 위 @page
   document-page의 margin이 모든 페이지에 동일하게 적용되므로, 이 div 자체의 padding/
   고정폭은 0으로 없애서 이중 여백이나 폭 초과로 잘리는 문제가 없게 한다. */
+  /* [수정] 공문서에서 발견된 것과 동일한 문제 — 이 클래스가 붙는 바깥 div들(근로/연봉계약서,
+  재직증명서, 영업계약서, 퇴직금중간정산지급명세서 등)도 화면 미리보기용으로 인라인
+  minHeight:297mm를 갖고 있는데, 이게 인쇄 시에도 그대로 남아있으면 내용이 짧아 한 페이지에
+  다 들어가는 문서도 이 페이지의 실제 인쇄 가능 영역(297mm - 위30mm - 아래30mm = 237mm)을
+  넘겨버려 뒤에 빈 페이지가 하나 더 생긴다. 인쇄할 때는 이 최소 높이를 없애서 내용 길이만큼만
+  차지하게 하고, 페이지 사이 여백은 위 @page document-page의 margin이 전담하게 한다. */
   .print-document-margins {
     page: document-page;
     width: auto !important;
     padding: 0 !important;
+    min-height: auto !important;
   }
 
   /* [추가] 공문서(전자결재)는 여백이 위/아래/좌/우 모두 25mm로, 근로계약서 등이 쓰는
