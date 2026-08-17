@@ -209,19 +209,4 @@ body {
     padding: 0 !important;
     min-height: auto !important;
   }
-
-  /* [추가] 전체 프로젝트 목록은 컬럼이 많아 세로(portrait)로 인쇄하면 표가 잘리므로
-  가로(landscape)로 인쇄하고, 요청받은 여백(위/아래 20mm, 좌/우 25mm)을 다른 문서들과
-  동일하게 @page의 margin으로 지정해 프로젝트가 많아 여러 페이지로 넘어가도 모든 페이지에
-  똑같이 적용되게 한다. */
-  @page projects-list-page {
-    size: A4 landscape;
-    margin: 20mm 25mm;
-  }
-  .print-projects-list-margins {
-    page: projects-list-page;
-    width: auto !important;
-    padding: 0 !important;
-    min-height: auto !important;
-  }
 }

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
@@ -9,6 +8,26 @@ import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { ContactMultiSearchSelect } from './ContactPicker.js';
 import { AttendeeContactSearchAdd } from './AttendeeContactSearchAdd.js';
+
+// [추가] 전체 프로젝트 목록 인쇄는 공유 CSS(index.css)의 named page(@page 커스텀 이름 +
+// page 속성) 방식 대신, 별도의 새 창(window.open)에 이 표만 담긴 완전히 독립된 HTML
+// 문서를 열어서 그 창에서 인쇄한다. named page 방식은 브라우저별로 실제 인쇄(파일 인쇄
+// 미리보기)에서 안정적으로 적용되지 않는 경우가 있어("A4 가로"로 지정했는데도 실제로는
+// 세로로 좁게 인쇄되는 문제), 이 문서 하나에만 적용되는 단일 @page 규칙만 갖는 새 창을
+// 열어 인쇄하는, VehicleView.tsx의 문서/이미지 인쇄와 같은 방식(window.open +
+// printWin.print())을 써서 다른 CSS와 절대 충돌하지 않도록 한다.
+// 이 문서 문자열에 프로젝트명/담당자/시행사 등 사용자가 직접 입력한 값을 그대로 꽂아
+// 넣으므로, VehicleView.tsx의 운행기록부 인쇄와 동일한 이유로 XSS 방지를 위해 반드시
+// 이 함수로 이스케이프한 뒤에 넣는다.
+const escapeHtml = (value: unknown): string => {
+  const str = value === null || value === undefined ? '' : String(value);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
 
 interface Props {
   contacts: BusinessCard[];
@@ -1298,30 +1317,20 @@ export const ProjectsView: React.FC<Props> = ({
       return { wch: maxLen + 3 };
     });
     ws['!cols'] = colWidths;
+    // [추가] 표를 인쇄와 동일하게(위/아래 20mm·좌/우 25mm) 여백으로 열어볼 수 있도록 인치로
+    // 환산해 지정(20mm≈0.79in, 25mm≈0.98in). 용지 방향(가로)은 이 xlsx 라이브러리가 쓰기를
+    // 지원하지 않아 코드로 지정할 수 없으므로, 엑셀에서 직접 인쇄할 때는 페이지 설정에서
+    // "가로"를 선택해야 한다.
+    ws['!margins'] = { left: 0.98, right: 0.98, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 };
     XLSX.utils.book_append_sheet(wb, ws, '전체_프로젝트');
     XLSX.writeFile(wb, `전체_프로젝트_목록_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // [수정] 예전엔 이 인쇄 미리보기 화면 자체에서 window.print()를 바로 호출했다. 그러면
-  // 다른 문서들(근로계약서, 전자결재 등)과 달리 앱 트리 밖의 독립된 #print-root 포털을
-  // 쓰지 않아서, 인쇄 시 이 미리보기 모달의 상단 버튼바(엑셀 다운로드/인쇄/닫기 버튼)와
-  // 그 뒤에 깔린 화면까지 그대로 인쇄물에 찍히는 문제가 있었다("no-print" 클래스를 붙여뒀지만
-  // 실제로 그 클래스를 숨겨주는 CSS 규칙이 어디에도 없어서 아무 효과가 없었다). 다른 문서들과
-  // 동일한 패턴으로 통일한다: 실제 인쇄되는 내용을 이 함수 하나로 분리해서 화면 미리보기와
-  // #print-root 포털(실제 인쇄) 양쪽에서 재사용하고, 인쇄 버튼은 body에 print-portal-mode를
-  // 붙여 #root(화면에 보이는 나머지 전체 앱, 이 모달 포함) 자체를 감춘 뒤 window.print()를
-  // 호출한다.
-  // [수정] A4 가로(297mm x 210mm)로, 여백은 위/아래 20mm·좌/우 25mm로 지정. 프로젝트가
-  // 많아 여러 페이지로 넘어갈 수 있으므로 근로계약서/공문서와 동일하게, 실제 여백은 이 div의
-  // padding이 아니라 index.css의 named page(projects-list-page)의 margin이 모든 페이지에
-  // 동일하게 적용되도록 전담한다(print-projects-list-margins 클래스, @media print 안에서만
-  // width/padding/minHeight를 무력화). 화면 미리보기에서는 그 규칙이 적용되지 않으므로
-  // 평소엔 297mm 고정폭 + 20mm/25mm padding으로 A4 가로 용지와 비슷하게 보인다.
+  // [수정] 화면 미리보기는 실제 인쇄와 별개로, 모달 안에서 넓게(가로로 꽉 차게) 보여주기만
+  // 하면 되므로 액자처럼 감싸던 검은 테두리는 없애고, 표 자체가 모달 폭(297mm까지)을 그대로
+  // 채우도록 한다.
   const renderPrintableProjectsList = () => (
-    <div
-      className="print-projects-list-margins shrink-0 text-black text-xs font-sans leading-tight"
-      style={{ width: '297mm', margin: '0 auto', padding: '20mm 25mm', border: '2px solid #000000', background: '#fff', boxSizing: 'border-box' }}
-    >
+    <div className="shrink-0 text-black text-xs font-sans leading-tight" style={{ width: '100%', maxWidth: '297mm', margin: '0 auto', padding: '10mm 0' }}>
       <div className="text-center mb-6">
         <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">전체 프로젝트 목록</span>
         <p className="text-[10px] text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
@@ -1362,10 +1371,71 @@ export const ProjectsView: React.FC<Props> = ({
     </div>
   );
 
+  // [수정] index.css 공용 스타일시트에 있는 named page(@page 커스텀 이름 + page 속성) 방식은
+  // 실제 브라우저의 인쇄 미리보기에서 안정적으로 적용되지 않아("A4 가로"로 지정했는데도
+  // 실제 인쇄 결과는 세로로 좁게 나오는 문제가 있었다), VehicleView.tsx의 문서 인쇄와 동일하게
+  // 이 표 하나만 담긴 완전히 독립된 새 창을 열어서 그 창 안에서 인쇄한다. 이 창의 스타일시트에는
+  // "@page { size: A4 landscape; margin: 20mm 25mm; }" 단 하나의 페이지 규칙만 있으므로, 다른
+  // 문서의 세로 인쇄 설정과 절대 충돌하지 않고 항상 A4 가로로 인쇄된다.
   const handlePrintProjectsList = () => {
-    document.body.classList.add('print-portal-mode');
-    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
-    window.print();
+    const headers = ['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'];
+    const rowsHtml = filteredProjects.length === 0
+      ? `<tr><td colspan="14" style="text-align:center;color:#9ca3af;padding:24px 8px;">표시할 프로젝트가 없습니다.</td></tr>`
+      : filteredProjects.map(p => `
+        <tr>
+          <td style="text-align:left;">${escapeHtml(p.name)}</td>
+          <td style="text-align:center;">${escapeHtml(p.salesRep || '-')}</td>
+          <td style="text-align:center;">${escapeHtml(STATUS_LABEL_KO[p.status])}</td>
+          <td style="text-align:center;">${escapeHtml(PRIORITY_LABEL_KO[p.priority])}</td>
+          <td style="text-align:center;">${escapeHtml(p.dueDate || '')}</td>
+          <td style="text-align:right;">${escapeHtml(formatBudgetDisplay(p.budget))}</td>
+          <td>${escapeHtml(p.developer || '-')}</td>
+          <td>${escapeHtml(p.contractor || '-')}</td>
+          <td>${escapeHtml(p.architect || '-')}</td>
+          <td>${escapeHtml(p.interiorDesigner || '-')}</td>
+          <td>${escapeHtml(p.electricalDesigner || '-')}</td>
+          <td>${escapeHtml(p.mechanicalDesigner || '-')}</td>
+          <td>${escapeHtml(p.supervisor || '-')}</td>
+          <td>${escapeHtml(p.operator || '-')}</td>
+        </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>전체 프로젝트 목록</title>
+<style>
+  @page { size: A4 landscape; margin: 20mm 25mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #000; }
+  .title { text-align: center; margin-bottom: 16px; }
+  .title h1 { display: inline-block; border-bottom: 4px double #000; padding-bottom: 4px; margin: 0; font-size: 22px; }
+  .title p { font-size: 10px; color: #666; margin: 4px 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: auto; }
+  th, td { border: 1px solid #000; padding: 5px 6px; }
+  th { background: #f3f4f6; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="title">
+    <h1>전체 프로젝트 목록</h1>
+    <p>출력일: ${escapeHtml(new Date().toLocaleDateString('ko-KR'))}</p>
+  </div>
+  <table>
+    <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+  <script>window.onload = function () { window.focus(); window.print(); };</script>
+</body>
+</html>`;
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.');
+      return;
+    }
+    printWin.document.write(html);
+    printWin.document.close();
   };
 
   // [추가] "OO 특약점 프로젝트 파이프라인" 엑셀 일괄 가져오기 상태/입력 참조
@@ -3431,10 +3501,6 @@ export const ProjectsView: React.FC<Props> = ({
           </div>
         </div>
       )}
-
-      {/* 인쇄 전용 정적 리포트: 앱 트리 밖의 별도 포털(#print-root)에 렌더링되어 인쇄 시 단독으로 출력됨 */}
-      {showProjectsPrintPreview && typeof document !== 'undefined' && document.getElementById('print-root') &&
-        createPortal(renderPrintableProjectsList(), document.getElementById('print-root')!)}
     </div>
   );
 };
