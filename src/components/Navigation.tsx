@@ -151,7 +151,13 @@ export const Navigation: React.FC<Props> = ({
 
   return (
     <>
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 shadow-xl">
+    {/* [수정] index.html에 viewport-fit=cover + apple-mobile-web-app-status-bar-style=
+    black-translucent가 설정돼 있어서, 아이폰에서 홈 화면에 추가해 앱처럼 실행하면 상태
+    표시줄(시계/신호/배터리)이 투명해지면서 이 헤더 위에 그대로 겹쳐 보였다("BizCard" 로고
+    글자와 시계가 겹치는 등). pt-[env(safe-area-inset-top)]으로 노치/상태 표시줄 높이만큼
+    헤더 안쪽에 여백을 줘서, 그 아래로 실제 로고/버튼들이 밀려나게 한다. 노치가 없는
+    기기(대부분의 안드로이드, PC 브라우저)에서는 env() 값이 0이라 아무 변화가 없다. */}
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 shadow-xl pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between py-4 md:py-0 md:h-16 gap-4">
           
