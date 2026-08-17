@@ -173,4 +173,26 @@ body {
     width: auto !important;
     padding: 0 !important;
   }
+
+  /* [추가] 공문서(전자결재)는 여백이 위/아래/좌/우 모두 25mm로, 근로계약서 등이 쓰는
+  document-page(위/아래 30mm)와는 다르다. 같은 이유로 - 본문이 길어 페이지가 넘어가도
+  매 페이지 여백이 항상 유지되도록 - 전용 named page를 따로 둔다. 화면 미리보기에서는
+  이 규칙이 적용되지 않으므로(@media print 안에만 있음) 평소엔 그대로 210mm 고정폭 +
+  25mm padding으로 보인다. */
+  @page official-document-page {
+    size: A4 portrait;
+    margin: 25mm;
+  }
+  /* [수정] 위 규칙만으로는 화면 미리보기용으로 넣어둔 바깥 div의 인라인 minHeight:297mm가
+  인쇄 시에도 그대로 남아있어서, 실제 내용이 짧아 한 페이지에 다 들어가는 문서도 강제로
+  297mm 높이를 채우려다 이 문서용 페이지의 실제 인쇄 가능 영역(25mm 여백을 뺀 247mm)을
+  넘겨버려 뒤에 빈 페이지가 하나 더 생기는 문제가 있었다. 인쇄할 때는 이 최소 높이를
+  없애서 내용 길이만큼만 차지하게 하고, 페이지 사이 여백은 이제 위 named page의 margin이
+  전담하므로 문제 없다. */
+  .print-official-document-margins {
+    page: official-document-page;
+    width: auto !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
 }
