@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
@@ -25,6 +25,10 @@ interface Props {
   // [추가] 정렬 방식 — 부모(App.tsx)가 실제 정렬을 처리하고, 여기서는 드롭다운 UI만 보여준다.
   sortOrder?: 'recent' | 'name';
   setSortOrder?: (order: 'recent' | 'name') => void;
+  // [추가] 명함 주소에 잘못 섞여 들어간 "\" 문자를 찾아 정리하는 관리자 전용 도구 버튼.
+  // 관리자가 아니거나 콜백을 안 넘겨주면 버튼 자체가 안 보인다.
+  isAdmin?: boolean;
+  onOpenAddressCleanup?: () => void;
 }
 
 const formatCallDate = (isoStr: string) => {
@@ -42,7 +46,7 @@ const formatCallDate = (isoStr: string) => {
   }
 };
 
-export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder }) => {
+export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder, isAdmin, onOpenAddressCleanup }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -371,6 +375,16 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
               <option value="name">이름순</option>
             </select>
           </div>
+        )}
+        {/* [추가] 관리자 전용 - 명함 주소에 잘못 섞여 들어간 "\" 문자 찾아서 정리하는 도구 */}
+        {isAdmin && onOpenAddressCleanup && (
+          <button
+            onClick={onOpenAddressCleanup}
+            title="명함 주소에 섞인 '\' 문자 정리 (관리자 전용)"
+            className="shrink-0 p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-inner"
+          >
+            <Eraser className="w-4 h-4" />
+          </button>
         )}
       </div>
 
