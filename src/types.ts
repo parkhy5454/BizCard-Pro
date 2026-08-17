@@ -767,6 +767,12 @@ export interface LeaveRequest {
   status: ApprovalStatus;
   approverMemo?: string;
   createdAt: string;
+  // [추가] 두 결재자가 거의 동시에 이 문서를 승인/반려하면, 나중에 도착한 요청이 먼저
+  // 처리된 결재 내용을 조용히 덮어써버리는 문제가 있었다. 서버가 저장할 때마다 이 값을
+  // 새로 찍어두고, 승인/반려 요청 시 클라이언트가 자기가 마지막으로 읽은 시점의 이 값을
+  // 같이 보내면, 그 사이 다른 사람이 먼저 처리해서 값이 달라졌을 때 서버가 감지해서
+  // 거부할 수 있다(server.ts의 PUT /api/approvals/leave/:id 참고).
+  updatedAt?: string;
 }
 
 export interface AdvancePaymentItem {
@@ -796,6 +802,8 @@ export interface AdvancePaymentSettlement {
   status: ApprovalStatus;
   approverMemo?: string;
   createdAt: string;
+  // [추가] 동시 승인/반려 충돌 감지용 (LeaveRequest.updatedAt 설명 참고)
+  updatedAt?: string;
 }
 
 // [추가] 공문서 (대외 발송용 공식 문서 - 시험성적서 제출 건 등). 회사 레터헤드 형식의
@@ -822,6 +830,8 @@ export interface OfficialDocument {
   status: ApprovalStatus;
   approverMemo?: string;
   createdAt: string;
+  // [추가] 동시 승인/반려 충돌 감지용 (LeaveRequest.updatedAt 설명 참고)
+  updatedAt?: string;
 }
 
 export interface WeeklyWorkLog {
