@@ -467,6 +467,7 @@ export default function App() {
                 onOpenProject={handleOpenProjectFromSearch}
                 onOpenGlobalSearch={() => setIsGlobalSearchOpen(true)}
                 onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
+                onOpenApprovals={() => setActiveTab('approvals')}
               />
             )}
 
