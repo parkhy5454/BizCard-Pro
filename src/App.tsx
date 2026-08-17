@@ -23,6 +23,7 @@ import { EmailVerificationRequiredView } from './components/EmailVerificationReq
 import { WithdrawAccountModal } from './components/WithdrawAccountModal.js';
 import { SubscriptionModal } from './components/SubscriptionModal.js';
 import { UserDirectoryModal } from './components/UserDirectoryModal.js';
+import { AddressBackslashCleanupModal } from './components/AddressBackslashCleanupModal.js';
 import { VehicleView } from './components/VehicleView.js';
 import { WorkLogsView } from './components/WorkLogsView.js';
 import { ElectronicApprovalView } from './components/ElectronicApprovalView.js';
@@ -71,6 +72,8 @@ export default function App() {
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
   const [isUserDirectoryOpen, setIsUserDirectoryOpen] = useState<boolean>(false);
+  // [추가] 관리자 전용 - 명함 주소에 섞인 "\" 문자 정리 도구
+  const [isAddressCleanupOpen, setIsAddressCleanupOpen] = useState<boolean>(false);
   // [수정] 이용약관/개인정보처리방침 모달 - 푸터에서 열림
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy' | null>(null);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
@@ -666,6 +669,8 @@ export default function App() {
         onClose={() => setSelectedContactDetail(null)}
         onUpdateContact={handleUpdateCard}
         onAddCallHistory={handleAddCallHistory}
+        isAdmin={currentUser?.role === 'admin'}
+        onOpenAddressCleanup={() => setIsAddressCleanupOpen(true)}
       />
 
       {/* 모달 4: 가입 회원 및 동료 디렉토리 */}
@@ -674,6 +679,15 @@ export default function App() {
           isOpen={isUserDirectoryOpen}
           onClose={() => setIsUserDirectoryOpen(false)}
           currentUser={currentUser}
+        />
+      )}
+
+      {/* 모달: 명함 주소 "\" 문자 정리 (관리자 전용) */}
+      {isAddressCleanupOpen && currentUser && (
+        <AddressBackslashCleanupModal
+          currentUser={currentUser}
+          onClose={() => setIsAddressCleanupOpen(false)}
+          onCleaned={() => fetchInitialData()}
         />
       )}
 
