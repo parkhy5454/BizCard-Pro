@@ -2880,6 +2880,63 @@ app.delete('/api/contacts/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] 명함 주소(address/address2/homeAddress)에 잘못 섞여 들어간 "\" 문자를 찾아서
+// 지워주는 관리자 전용 정리 도구. 명함 스캔/OCR이나 붙여넣기 과정에서 주소 중간에
+// 이스케이프 문자 같은 "\"가 실수로 섞여 들어간 경우를 위한 일회성 정리 기능이다.
+// 실수로 잘못 지워지는 걸 막기 위해, 실제로 적용(clean)하기 전에 어떤 명함이 어떻게
+// 바뀌는지 먼저 보여주는 스캔(scan) 엔드포인트를 따로 둔다 - 관리자만 쓸 수 있다.
+function stripBackslashFromAddress(value: string): string {
+  return value.replace(/\\/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+function findBackslashAddressFixes(dbData: any) {
+  const fields: Array<'address' | 'address2' | 'homeAddress'> = ['address', 'address2', 'homeAddress'];
+  const results: { id: string; name: string; company: string; changes: Record<string, { before: string; after: string }> }[] = [];
+  for (const c of (dbData.contacts || [])) {
+    const changes: Record<string, { before: string; after: string }> = {};
+    for (const field of fields) {
+      const before = (c as any)[field];
+      if (typeof before === 'string' && before.includes('\\')) {
+        changes[field] = { before, after: stripBackslashFromAddress(before) };
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      results.push({ id: c.id, name: c.name, company: c.company, changes });
+    }
+  }
+  return results;
+}
+
+app.get('/api/admin/contacts-backslash-scan', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+  res.json(findBackslashAddressFixes(dbData));
+});
+
+app.post('/api/admin/contacts-backslash-clean', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  const fixes = findBackslashAddressFixes(dbData);
+  if (!fixes.length) return res.json({ fixedCount: 0 });
+
+  const fixIds = new Set(fixes.map(f => f.id));
+  const updatedContacts: BusinessCard[] = [];
+  dbData.contacts = dbData.contacts.map((c: BusinessCard) => {
+    if (!fixIds.has(c.id)) return c;
+    const fix = fixes.find(f => f.id === c.id)!;
+    const updated = { ...c } as any;
+    for (const field of Object.keys(fix.changes)) {
+      updated[field] = fix.changes[field].after;
+    }
+    updatedContacts.push(updated);
+    return updated;
+  });
+  await setScopedDocs(scopeId, 'contacts', updatedContacts);
+  res.json({ fixedCount: updatedContacts.length });
+});
+
 // 그룹 CRUD
 app.get('/api/groups', (req, res) => {
   const dbData = getScopedData(req);
