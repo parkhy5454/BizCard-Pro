@@ -3816,7 +3816,12 @@ app.get('/api/approval-line-templates', async (req, res) => {
   res.json(existing || { id: 'default', advance: null, leave: null, official: null });
 });
 
+// [수정] 결재선 기본 템플릿은 회사 전체의 결재 흐름(예: 대표이사 결재 단계 포함 여부)을
+// 좌우하므로, 조회(GET)는 회사 소속 누구나 가능하지만 저장(PUT)은 관리자만 할 수 있어야
+// 한다. 이 체크가 빠져 있으면 일반 직원도 결재선을 마음대로 바꿔버릴 수 있었다.
 app.put('/api/approval-line-templates', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
   const scopeId = (req as any).scopeId;
   const template = { id: 'default', advance: req.body.advance || null, leave: req.body.leave || null, official: req.body.official || null };
   await setScopedDoc(scopeId, 'approvalLineTemplates', template);
@@ -5567,6 +5572,21 @@ async function notifyNextApproverIfChanged(
   });
 }
 
+// [추가] 전자결재(가지급금 정산서/휴가 신청서/공문서) 동시 승인 충돌 감지.
+// 두 결재자가 거의 동시에 같은 문서를 승인/반려하면, 이전에는 나중에 도착한 요청이
+// {...before, ...req.body} 방식으로 통째로 덮어써서 먼저 처리된 결재 내용이 조용히
+// 사라지는 문제가 있었다(예: A가 승인한 직후 B가 반려하면, A의 승인 흔적이 사라짐).
+// 클라이언트가 자기가 화면에 표시하고 있던 문서의 updatedAt을 expectedUpdatedAt으로
+// 같이 보내면, 그 사이 다른 사람이 먼저 저장해서 서버 쪽 updatedAt이 달라졌을 때 이를
+// 감지해 409로 거부한다. expectedUpdatedAt을 안 보내는 요청(예: 일반 폼 수정 저장)은
+// 기존과 동일하게 그대로 통과시킨다 - 승인/반려처럼 "다른 사람의 결정과 충돌하면 안 되는"
+// 요청에서만 클라이언트가 이 값을 채워 보낸다.
+function hasApprovalUpdateConflict(before: { updatedAt?: string }, reqBody: any): boolean {
+  const expected = reqBody?.expectedUpdatedAt;
+  if (!expected) return false;
+  return !!before.updatedAt && before.updatedAt !== expected;
+}
+
 // 전자결재: 가지급금 정산서 CRUD
 app.get('/api/approvals/advance', (req, res) => {
   const dbData = getScopedData(req);
@@ -5579,6 +5599,7 @@ app.post('/api/approvals/advance', async (req, res) => {
   const doc: AdvancePaymentSettlement = req.body;
   if (!doc.id) doc.id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+  doc.updatedAt = new Date().toISOString();
   if (!doc.items) doc.items = [];
   if (!doc.status) doc.status = 'pending';
   // [수정] 정산 항목에 직접 첨부한 영수증 사진이 base64로 들어오면 Storage로 올린다.
@@ -5603,7 +5624,10 @@ app.put('/api/approvals/advance/:id', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Advance payment settlement not found' });
 
   const before = dbData.advancePayments[idx];
-  const updated = { ...before, ...req.body };
+  if (hasApprovalUpdateConflict(before, req.body)) {
+    return res.status(409).json({ error: '다른 사람이 방금 이 문서를 먼저 처리했습니다. 새로고침 후 다시 확인해주세요.', current: before });
+  }
+  const updated = { ...before, ...req.body, updatedAt: new Date().toISOString() };
   // [수정] POST와 동일: 수정 시 새로 추가/변경된 영수증 사진도 Storage로 옮긴다.
   updated.items = (await persistReceiptImagesInArray(scopeId, updated.items, `advance-${updated.id}`)) || [];
   dbData.advancePayments[idx] = updated;
@@ -5635,6 +5659,7 @@ app.post('/api/approvals/leave', async (req, res) => {
   const doc: LeaveRequest = req.body;
   if (!doc.id) doc.id = `lv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+  doc.updatedAt = new Date().toISOString();
   if (!doc.status) doc.status = 'pending';
 
   dbData.leaveRequests = dbData.leaveRequests || [];
@@ -5654,7 +5679,10 @@ app.put('/api/approvals/leave/:id', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Leave request not found' });
 
   const before = dbData.leaveRequests[idx];
-  const updated = { ...before, ...req.body };
+  if (hasApprovalUpdateConflict(before, req.body)) {
+    return res.status(409).json({ error: '다른 사람이 방금 이 문서를 먼저 처리했습니다. 새로고침 후 다시 확인해주세요.', current: before });
+  }
+  const updated = { ...before, ...req.body, updatedAt: new Date().toISOString() };
   dbData.leaveRequests[idx] = updated;
   await setScopedDoc(scopeId, 'leaveRequests', updated);
   res.json(updated);
@@ -5685,6 +5713,7 @@ app.post('/api/approvals/official', async (req, res) => {
   const doc: OfficialDocument = req.body;
   if (!doc.id) doc.id = `of-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
+  doc.updatedAt = new Date().toISOString();
   if (!doc.bodyParagraphs) doc.bodyParagraphs = [];
   if (!doc.status) doc.status = 'pending';
 
@@ -5705,7 +5734,10 @@ app.put('/api/approvals/official/:id', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Official document not found' });
 
   const before = dbData.officialDocuments[idx];
-  const updated = { ...before, ...req.body };
+  if (hasApprovalUpdateConflict(before, req.body)) {
+    return res.status(409).json({ error: '다른 사람이 방금 이 문서를 먼저 처리했습니다. 새로고침 후 다시 확인해주세요.', current: before });
+  }
+  const updated = { ...before, ...req.body, updatedAt: new Date().toISOString() };
   dbData.officialDocuments[idx] = updated;
   await setScopedDoc(scopeId, 'officialDocuments', updated);
   res.json(updated);
