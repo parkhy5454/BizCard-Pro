@@ -1319,7 +1319,7 @@ export const ProjectsView: React.FC<Props> = ({
   // 평소엔 297mm 고정폭 + 20mm/25mm padding으로 A4 가로 용지와 비슷하게 보인다.
   const renderPrintableProjectsList = () => (
     <div
-      className="print-projects-list-margins text-black text-xs font-sans leading-tight"
+      className="print-projects-list-margins shrink-0 text-black text-xs font-sans leading-tight"
       style={{ width: '297mm', margin: '0 auto', padding: '20mm 25mm', border: '2px solid #000000', background: '#fff', boxSizing: 'border-box' }}
     >
       <div className="text-center mb-6">
@@ -3399,7 +3399,12 @@ export const ProjectsView: React.FC<Props> = ({
       {/* [수정] 전체 프로젝트 목록 PDF 인쇄/미리보기 모달 */}
       {showProjectsPrintPreview && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
-          <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+          {/* [수정] 이 모달의 max-width가 세로(A4 portrait, 210mm) 문서 기준(215mm)으로 남아있어서,
+          가로(297mm)로 바뀐 미리보기 내용이 이 좁은 폭 안에 억지로 눌려 들어가 컬럼 헤더가
+          여러 줄로 꺾이는 등 실제로는 넓게 나와야 할 표가 좁고 찌그러진 모습으로 보였다.
+          가로 문서 폭(297mm)이 다 들어가도록 max-width를 늘리고, 그래도 화면(브라우저 창)이
+          더 좁은 경우에는 내용이 눌리지 않고 가로 스크롤로 보이도록 처리한다. */}
+          <div className="w-full max-w-[320mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
@@ -3420,7 +3425,7 @@ export const ProjectsView: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
+            <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-auto flex justify-center">
               {renderPrintableProjectsList()}
             </div>
           </div>
