@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
@@ -405,6 +405,14 @@ const ApprovalLineEditor: React.FC<{
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateCurrentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave' | 'official'>('advance');
 
+  // [추가] 발신처 정보(주소/전화/전송/이메일) 필드는 칸을 옮길 때마다(onBlur) 자동으로
+  // 저장을 시도한다. 빠르게 탭으로 여러 칸을 옮겨다니면 저장 요청이 겹쳐서 나가는데,
+  // 네트워크 사정에 따라 먼저 보낸 요청의 응답이 나중에 도착할 수 있다 - 그러면 이미
+  // 최신 값으로 반영된 화면을 예전 응답이 다시 덮어써버리는 경합이 생긴다. 요청마다
+  // 순번을 매겨두고, 응답이 왔을 때 그 사이 더 최신 요청이 나가지 않았을 때만(=지금
+  // 응답이 가장 최근 요청의 것일 때만) 화면 상태에 반영해서 이 경합을 막는다.
+  const companyContactSaveSeq = useRef(0);
+
   // [추가] 서명 등록 모달 상태. 결재자가 아직 서명을 등록 안 한 상태에서 "승인"을 누르면
   // 먼저 이 모달을 열어 서명을 받고, 저장되는 즉시 원래 하려던 승인을 이어서 처리한다
   // (pendingApprovalTarget에 "무엇을 승인하려 했는지" 잠깐 담아둔다).
@@ -612,7 +620,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   };
 
   // 현재 편집 중인 결재선을 "우리 회사 기본값"으로 저장 (다음부터 새 문서 작성 시 자동으로 채워짐)
+  // [수정] 서버(/api/approval-line-templates PUT)가 관리자만 저장 가능하도록 바뀌어서,
+  // 일반 직원이 눌렀을 때 막연한 "저장에 실패했습니다"만 보이지 않도록 여기서 먼저
+  // 안내 메시지를 보여준다. 결재선은 회사 전체의 결재 흐름에 영향을 주므로 관리자만
+  // 바꿀 수 있어야 한다.
   const saveApprovalLineAsCompanyDefault = async (kind: 'advance' | 'leave' | 'official', line: ApprovalStep[]) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      alert('결재선 기본값 저장은 관리자만 할 수 있습니다.');
+      return;
+    }
     const cleanedLine = line.map(s => ({ role: s.role })); // 이름/날짜는 템플릿에 저장하지 않고 직책만
     const nextTemplate = { ...companyApprovalTemplate, [kind]: cleanedLine };
     try {
@@ -832,12 +848,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   // 따로 누르지 않아도 "한 번 입력하면 다음부터 자동으로 채워지는" 동작이 되게 한다.
   const saveCompanyContactSettings = async (silent = false) => {
     if (!currentUser || currentUser.role !== 'admin') return;
+    const mySeq = ++companyContactSaveSeq.current;
     try {
       const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
       const patch = { address: ofCompanyAddress, phone: ofCompanyPhone, fax: ofCompanyFax, email: ofCompanyEmail, docPrefix: companySettings.docPrefix || 'KS' };
       const res = await fetch('/api/company-settings', { method: 'PUT', headers, body: JSON.stringify(patch) });
       if (!res.ok) throw new Error();
       const data = await res.json();
+      // 그 사이 더 최신 저장 요청이 이미 나간 상태라면, 이 응답은 낡은 것이므로 화면에 반영하지 않는다.
+      if (mySeq !== companyContactSaveSeq.current) return;
       setCompanySettings(prev => ({ ...prev, address: data.address || '', phone: data.phone || '', fax: data.fax || '', email: data.email || '', docPrefix: data.docPrefix || 'KS' }));
       if (!silent) alert('발신처 정보를 회사 기본값으로 저장했습니다. 다음 공문서 작성 시 자동으로 채워집니다.');
     } catch (err) {
@@ -1622,24 +1641,24 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     line[idx] = { ...line[idx], date: todayStr(), name: approver.name, signatureUrl: approver.signatureImage };
     const allDone = line.every(s => !!s.date);
     const headers = { 'Content-Type': 'application/json', 'x-user-id': approver.id };
-    const body = JSON.stringify({ approvalLine: line, status: allDone ? 'approved' : 'pending' });
+    // [수정] 두 결재자가 거의 동시에 같은 문서를 처리하는 경우를 대비해, 지금 내가 보고 있는
+    // 문서의 updatedAt(마지막으로 서버에서 읽어온 시점의 값)을 같이 보낸다. 그 사이 다른
+    // 사람이 먼저 승인/반려해서 서버 쪽 값이 달라졌으면, 서버가 409로 거부하고 내 결정은
+    // 반영되지 않는다 - 아래 409 처리에서 최신 상태를 다시 불러오고 안내한다.
+    const body = JSON.stringify({ approvalLine: line, status: allDone ? 'approved' : 'pending', expectedUpdatedAt: doc.updatedAt });
     try {
-      if (kind === 'advance') {
-        const res = await fetch(`/api/approvals/advance/${id}`, { method: 'PUT', headers, body });
-        if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
-        const updated = await res.json();
-        setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
-      } else if (kind === 'leave') {
-        const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
-        if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
-        const updated = await res.json();
-        setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
-      } else {
-        const res = await fetch(`/api/approvals/official/${id}`, { method: 'PUT', headers, body });
-        if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
-        const updated = await res.json();
-        setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
+      const endpoint = kind === 'advance' ? `/api/approvals/advance/${id}` : kind === 'leave' ? `/api/approvals/leave/${id}` : `/api/approvals/official/${id}`;
+      const res = await fetch(endpoint, { method: 'PUT', headers, body });
+      if (res.status === 409) {
+        await fetchAll();
+        alert('다른 결재자가 방금 이 문서를 먼저 처리했습니다. 최신 상태를 다시 불러왔으니 확인 후 다시 시도해주세요.');
+        return;
       }
+      if (!res.ok) throw new Error(`승인 처리에 실패했습니다 (상태: ${res.status}).`);
+      const updated = await res.json();
+      if (kind === 'advance') setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
+      else if (kind === 'leave') setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+      else setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
     } catch (err: any) {
       alert(`승인 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
@@ -1660,25 +1679,24 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const rejectDoc = async (kind: 'advance' | 'leave' | 'official', id: string) => {
     if (!currentUser) return;
     const memo = prompt('반려 사유를 입력해 주세요.') || '';
+    const list: any[] = kind === 'advance' ? advanceList : kind === 'leave' ? leaveList : officialList;
+    const doc = list.find((d: any) => d.id === id);
     const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
-    const body = JSON.stringify({ status: 'rejected', approverMemo: memo });
+    // [수정] 승인 처리와 동일하게, 동시 처리 충돌을 감지할 수 있도록 expectedUpdatedAt을 같이 보낸다.
+    const body = JSON.stringify({ status: 'rejected', approverMemo: memo, expectedUpdatedAt: doc?.updatedAt });
     try {
-      if (kind === 'advance') {
-        const res = await fetch(`/api/approvals/advance/${id}`, { method: 'PUT', headers, body });
-        if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
-        const updated = await res.json();
-        setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
-      } else if (kind === 'leave') {
-        const res = await fetch(`/api/approvals/leave/${id}`, { method: 'PUT', headers, body });
-        if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
-        const updated = await res.json();
-        setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
-      } else {
-        const res = await fetch(`/api/approvals/official/${id}`, { method: 'PUT', headers, body });
-        if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
-        const updated = await res.json();
-        setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
+      const endpoint = kind === 'advance' ? `/api/approvals/advance/${id}` : kind === 'leave' ? `/api/approvals/leave/${id}` : `/api/approvals/official/${id}`;
+      const res = await fetch(endpoint, { method: 'PUT', headers, body });
+      if (res.status === 409) {
+        await fetchAll();
+        alert('다른 결재자가 방금 이 문서를 먼저 처리했습니다. 최신 상태를 다시 불러왔으니 확인 후 다시 시도해주세요.');
+        return;
       }
+      if (!res.ok) throw new Error(`반려 처리에 실패했습니다 (상태: ${res.status}).`);
+      const updated = await res.json();
+      if (kind === 'advance') setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
+      else if (kind === 'leave') setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
+      else setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
     } catch (err: any) {
       alert(`반려 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }

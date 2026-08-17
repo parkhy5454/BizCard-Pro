@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
@@ -1265,37 +1266,100 @@ export const ProjectsView: React.FC<Props> = ({
   };
   const PRIORITY_LABEL_KO: Record<Project['priority'], string> = { high: '높음', medium: '보통', low: '낮음' };
 
-  const handleExportProjectsExcel = () => {
-    const esc = (v: any) => (v === null || v === undefined ? '' : String(v)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // [수정] 예전엔 이 내보내기가 HTML 표를 확장자만 .xls로 바꿔서 내려주는 방식이었다.
+  // 엑셀에서 열리긴 하지만 모든 셀이 문자로 취급되어서, 예산처럼 숫자인 값도 엑셀에서
+  // SUM/정렬/조건부서식 등을 바로 쓸 수 없는 "텍스트로 위장한 셀"이 되는 문제가 있었다.
+  // 업무일지 내보내기(WorkLogsView.tsx)와 동일하게 진짜 xlsx 파일로 만들어서, 예산이
+  // 순수 숫자인 경우는 실제 숫자 셀로 들어가도록 바꾼다(숫자가 아닌 값은 그대로 문자로 둔다).
+  const handleExportProjectsExcel = async () => {
+    const XLSX = await import('xlsx');
     const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '등록일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사'];
-    const rows = filteredProjects.map(p => [
-      p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '', formatBudgetDisplay(p.budget),
-      p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
-      p.mechanicalDesigner || '', p.supervisor || '', p.operator || ''
-    ]);
+    const wsData: any[][] = [headers];
+    filteredProjects.forEach(p => {
+      const isNumericBudget = !!p.budget && /^\d+$/.test(p.budget);
+      wsData.push([
+        p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '',
+        isNumericBudget ? Number(p.budget) : (p.budget || ''),
+        p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
+        p.mechanicalDesigner || '', p.supervisor || '', p.operator || ''
+      ]);
+    });
 
-    const tableHtml = `
-      <table style="border-collapse: collapse; font-family: 'Malgun Gothic', Arial; font-size: 10pt;">
-        <tr>${headers.map(h => `<th style="border: 0.5pt solid #000; background:#f1f5f9; font-weight:bold; padding:6px 8px;">${h}</th>`).join('')}</tr>
-        ${rows.map(r => `<tr>${r.map(c => `<td style="border: 0.5pt solid #000; padding:6px 8px;">${esc(c)}</td>`).join('')}</tr>`).join('')}
-      </table>
-    `;
-    const excelContent = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head><meta charset="utf-8">
-      <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
-      <x:Name>전체_프로젝트</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
-      </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
-      </head><body>${tableHtml}</body></html>
-    `;
-    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `전체_프로젝트_목록_${new Date().toISOString().split('T')[0]}.xls`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const colWidths = headers.map((_, colIdx) => {
+      let maxLen = 8;
+      wsData.forEach(row => {
+        const val = row[colIdx];
+        if (val !== null && val !== undefined && val !== '') {
+          maxLen = Math.min(Math.max(maxLen, val.toString().length), 40);
+        }
+      });
+      return { wch: maxLen + 3 };
+    });
+    ws['!cols'] = colWidths;
+    XLSX.utils.book_append_sheet(wb, ws, '전체_프로젝트');
+    XLSX.writeFile(wb, `전체_프로젝트_목록_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // [수정] 예전엔 이 인쇄 미리보기 화면 자체에서 window.print()를 바로 호출했다. 그러면
+  // 다른 문서들(근로계약서, 전자결재 등)과 달리 앱 트리 밖의 독립된 #print-root 포털을
+  // 쓰지 않아서, 인쇄 시 이 미리보기 모달의 상단 버튼바(엑셀 다운로드/인쇄/닫기 버튼)와
+  // 그 뒤에 깔린 화면까지 그대로 인쇄물에 찍히는 문제가 있었다("no-print" 클래스를 붙여뒀지만
+  // 실제로 그 클래스를 숨겨주는 CSS 규칙이 어디에도 없어서 아무 효과가 없었다). 다른 문서들과
+  // 동일한 패턴으로 통일한다: 실제 인쇄되는 내용을 이 함수 하나로 분리해서 화면 미리보기와
+  // #print-root 포털(실제 인쇄) 양쪽에서 재사용하고, 인쇄 버튼은 body에 print-portal-mode를
+  // 붙여 #root(화면에 보이는 나머지 전체 앱, 이 모달 포함) 자체를 감춘 뒤 window.print()를
+  // 호출한다. 내용 길이가 프로젝트 개수에 따라 크게 달라질 수 있어, 강제 높이(minHeight)는
+  // 주지 않고 padding만으로 여백을 주어 페이지 수에 관계없이 자연스럽게 흐르도록 한다.
+  const renderPrintableProjectsList = () => (
+    <table style={{ width: '210mm', margin: '0 auto', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
+      <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
+        <div className="text-center mb-6">
+          <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">전체 프로젝트 목록</span>
+          <p className="text-[10px] text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
+        </div>
+
+        <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
+          <thead>
+            <tr className="bg-gray-100">
+              {['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
+                <th key={h} className="border border-black px-1.5 py-1.5 font-bold">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredProjects.map(p => (
+              <tr key={p.id}>
+                <td className="border border-black px-1.5 py-1.5 text-left">{p.name}</td>
+                <td className="border border-black px-1.5 py-1.5 text-center">{p.salesRep || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5 text-center">{STATUS_LABEL_KO[p.status]}</td>
+                <td className="border border-black px-1.5 py-1.5 text-center">{PRIORITY_LABEL_KO[p.priority]}</td>
+                <td className="border border-black px-1.5 py-1.5 text-center">{p.dueDate}</td>
+                <td className="border border-black px-1.5 py-1.5 text-right">{formatBudgetDisplay(p.budget)}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.developer || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.contractor || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.architect || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.interiorDesigner || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.electricalDesigner || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.mechanicalDesigner || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.supervisor || '-'}</td>
+                <td className="border border-black px-1.5 py-1.5">{p.operator || '-'}</td>
+              </tr>
+            ))}
+            {filteredProjects.length === 0 && (
+              <tr><td colSpan={14} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </td></tr></tbody></table>
+  );
+
+  const handlePrintProjectsList = () => {
+    document.body.classList.add('print-portal-mode');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+    window.print();
   };
 
   // [추가] "OO 특약점 프로젝트 파이프라인" 엑셀 일괄 가져오기 상태/입력 참조
@@ -3341,7 +3405,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <button onClick={handleExportProjectsExcel} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
                   <FileSpreadsheet className="w-3.5 h-3.5" /><span>엑셀 다운로드</span>
                 </button>
-                <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
+                <button onClick={handlePrintProjectsList} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
                   <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
                 </button>
                 <button onClick={() => setShowProjectsPrintPreview(false)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
@@ -3351,51 +3415,15 @@ export const ProjectsView: React.FC<Props> = ({
             </div>
 
             <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
-              <table className="shrink-0" style={{ width: '210mm', borderCollapse: 'collapse' }}><tbody><tr><td style={{ border: '2px solid #000000', background: '#fff' }}>
-              <div className="text-black p-6 sm:p-8 text-xs font-sans leading-tight">
-                <div className="text-center mb-6">
-                  <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">전체 프로젝트 목록</span>
-                  <p className="text-[10px] text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
-                </div>
-
-                <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      {['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
-                        <th key={h} className="border border-black px-1.5 py-1.5 font-bold">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProjects.map(p => (
-                      <tr key={p.id}>
-                        <td className="border border-black px-1.5 py-1.5 text-left">{p.name}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-center">{p.salesRep || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-center">{STATUS_LABEL_KO[p.status]}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-center">{PRIORITY_LABEL_KO[p.priority]}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-center">{p.dueDate}</td>
-                        <td className="border border-black px-1.5 py-1.5 text-right">{formatBudgetDisplay(p.budget)}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.developer || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.contractor || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.architect || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.interiorDesigner || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.electricalDesigner || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.mechanicalDesigner || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.supervisor || '-'}</td>
-                        <td className="border border-black px-1.5 py-1.5">{p.operator || '-'}</td>
-                      </tr>
-                    ))}
-                    {filteredProjects.length === 0 && (
-                      <tr><td colSpan={14} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              </td></tr></tbody></table>
+              {renderPrintableProjectsList()}
             </div>
           </div>
         </div>
       )}
+
+      {/* 인쇄 전용 정적 리포트: 앱 트리 밖의 별도 포털(#print-root)에 렌더링되어 인쇄 시 단독으로 출력됨 */}
+      {showProjectsPrintPreview && typeof document !== 'undefined' && document.getElementById('print-root') &&
+        createPortal(renderPrintableProjectsList(), document.getElementById('print-root')!)}
     </div>
   );
 };

@@ -1682,6 +1682,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [수정] 이 화면(과 아래 대출 현황/법인카드 사용내역/카드별 월 사용 내역, 총 4개)은
+  // .print-landscape 클래스로 가로(297mm x 210mm) 인쇄를 지정해놓고, 정작 바깥 div의
+  // 실제 크기는 세로 문서 크기(width:210mm, minHeight:297mm)를 그대로 쓰고 있었다.
+  // 그러면 가로로 눕힌 297mm(가로)x210mm(세로) 용지 위에서 세로로 297mm짜리 내용을
+  // 채우려다 보니, 짧은 문서도 실제 인쇄 가능 영역(210mm)을 넘겨 뒤에 빈 페이지가
+  // 하나 더 생기고, 폭도 210mm만 써서 오른쪽에 약 87mm가 그냥 비어 보였다. 이미 올바르게
+  // 되어 있던 자금 현황(renderPrintableCashflow, width:297mm/minHeight:210mm)과
+  // 동일하게 맞춰서 고친다.
   // [추가] 통장 출금/입금 내역 인쇄용 화면 (두 카테고리 공용). 공유해주신 양식대로
   // 계좌별로 거래를 묶고, 계좌 소계 행과 맨 아래 전체 합계 행을 넣고, 오른쪽 끝
   // "출금(입금)통장" 칸은 그 계좌의 거래+소계 행 전체에 걸쳐 하나로 병합해서 보여준다.
@@ -1693,7 +1701,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const grandTotal = ledger.accounts.reduce((s, a) => s + bankAccountTotal(a), 0);
 
     return (
-      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
         <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
           &lt;{isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'}&gt;
         </h1>
@@ -1799,7 +1807,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
 
     return (
-      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
         <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>대출 현황</h1>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000', tableLayout: 'fixed' }}>
           {colGroup}
@@ -1872,7 +1880,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const grandTotal = cardUsage.cards.reduce((s, c) => s + cardGroupTotal(c), 0);
 
     return (
-      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
         <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>법인 카드 사용내역</h1>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
           <colgroup>
@@ -1956,7 +1964,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const [year, month] = (cc.yearMonth || '').split('-');
 
     return (
-      <div className="print-landscape" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
         <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, textDecoration: 'underline', marginBottom: '14px' }}>
           {year && month ? `${year}년도 카드별 월 사용 내역(${Number(month)}월)` : printingDoc.title}
         </h1>

@@ -12,6 +12,23 @@ import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCor
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
+// [추가] 운행기록부 인쇄/엑셀 내보내기(buildReportTableHtml)는 운전자명·부서·주행목적·
+// 출발지/도착지 주소 등 사용자가 직접 입력한 값을 HTML 문자열로 조립해서 그대로
+// dangerouslySetInnerHTML로 화면에 꽂아 넣는다. 이 값들을 이스케이프하지 않으면, 누군가
+// 이런 입력칸에 <script>나 <img onerror=...> 같은 태그를 넣었을 때 다른 직원/관리자가
+// 그 기록부를 인쇄 미리보기 하는 순간 그 사람 계정 권한으로 스크립트가 실행되는 저장형
+// XSS 취약점이 생긴다. HTML 문자열에 꽂아 넣는 모든 사용자 입력값은 반드시 이 함수로
+// 이스케이프한 뒤에 넣는다.
+const escapeHtml = (value: unknown): string => {
+  const str = value === null || value === undefined ? '' : String(value);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 const MAINTENANCE_OPTIONS = [
   '엔진오일 교환',
   '엔지오일 교환',
@@ -4239,17 +4256,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const buildReportTableHtml = (v: Vehicle): string => {
           const carLogs = drivingLogs.filter(log => log.vehicleId === v.id && log.date.startsWith(reportYearMonth));
           const year = reportYearMonth.split('-')[0];
-          const companyName = currentUser.companyName || '초이스커피';
-          const bizNumber = currentUser.businessNumber || '207-16-23565';
-          
+          const companyName = escapeHtml(currentUser.companyName || '초이스커피');
+          const bizNumber = escapeHtml(currentUser.businessNumber || '207-16-23565');
+
           const totalCommuteDistance = carLogs.filter(log => log.purpose.includes('출퇴근')).reduce((sum, x) => sum + x.distance, 0);
           const totalWorkDistance = carLogs.filter(log => !log.purpose.includes('출퇴근')).reduce((sum, x) => sum + x.distance, 0);
           const totalTollAmount = getMonthExpensesTotal(v.id, reportYearMonth, 'toll');
           const totalFuelAmount = getMonthExpensesTotal(v.id, reportYearMonth, 'fuel');
 
-          const insuranceInfo = v.insuranceCompany 
-            ? `${v.insuranceCompany}${v.insuranceAgent ? '/' + v.insuranceAgent : ''}${v.insuranceContact ? ' (' + v.insuranceContact + ')' : ''}` 
-            : '삼성화재/고상진 (010-3456-5432)';
+          const insuranceInfo = escapeHtml(v.insuranceCompany
+            ? `${v.insuranceCompany}${v.insuranceAgent ? '/' + v.insuranceAgent : ''}${v.insuranceContact ? ' (' + v.insuranceContact + ')' : ''}`
+            : '삼성화재/고상진 (010-3456-5432)');
 
           const rentalTypeKo = getRentalTypeKo(v.rentalType);
           const rentalFeeStr = v.rentalFee ? formatWon(v.rentalFee) : '1,300,000';
@@ -4283,19 +4300,19 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
               rowsHtml += `
                 <tr style="height: 25px;">
-                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.date}</td>
-                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.department || ''}</td>
-                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.driverName}</td>
-                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.purpose}</td>
-                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.startPlace || ''}</td>
-                  <td style="text-align: left; padding-left: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.startAddress || ''}</td>
-                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.endPlace || ''}</td>
-                  <td style="text-align: left; padding-left: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.endAddress || ''}</td>
-                  <td style="text-align: right; padding-right: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${commuteDist}</td>
-                  <td style="text-align: right; padding-right: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${workDist}</td>
+                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.date)}</td>
+                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.department || '')}</td>
+                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.driverName)}</td>
+                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.purpose)}</td>
+                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.startPlace || '')}</td>
+                  <td style="text-align: left; padding-left: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.startAddress || '')}</td>
+                  <td style="text-align: center; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.endPlace || '')}</td>
+                  <td style="text-align: left; padding-left: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.endAddress || '')}</td>
+                  <td style="text-align: right; padding-right: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(commuteDist)}</td>
+                  <td style="text-align: right; padding-right: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(workDist)}</td>
                   <td style="text-align: right; padding-right: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${tollVal > 0 ? formatWon(tollVal) : ''}</td>
                   <td style="text-align: right; padding-right: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${fuelVal > 0 ? formatWon(fuelVal) : ''}</td>
-                  <td style="text-align: left; padding-left: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${log.projectName || ''}</td>
+                  <td style="text-align: left; padding-left: 5px; border: 0.5pt solid #000000; font-family: 'Malgun Gothic', Arial; font-size: 9pt;">${escapeHtml(log.projectName || '')}</td>
                 </tr>
               `;
             });
@@ -4333,12 +4350,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
               <!-- Section 1 Values -->
               <tr style="height: 30px; text-align: center;">
-                <td colspan="2" style="border: 0.5pt solid #000000;">${v.modelName}</td>
-                <td colspan="2" style="border: 0.5pt solid #000000; font-weight: bold;">${v.plateNumber}</td>
+                <td colspan="2" style="border: 0.5pt solid #000000;">${escapeHtml(v.modelName)}</td>
+                <td colspan="2" style="border: 0.5pt solid #000000; font-weight: bold;">${escapeHtml(v.plateNumber)}</td>
                 <td colspan="4" style="border: 0.5pt solid #000000; text-align: left; padding-left: 10px;">${insuranceInfo}</td>
-                <td colspan="2" style="border: 0.5pt solid #000000;">${rentalTypeKo}</td>
-                <td colspan="2" style="border: 0.5pt solid #000000; text-align: right; padding-right: 10px;">${rentalFeeStr}</td>
-                <td colspan="1" style="border: 0.5pt solid #000000;">${v.color || ''}</td>
+                <td colspan="2" style="border: 0.5pt solid #000000;">${escapeHtml(rentalTypeKo)}</td>
+                <td colspan="2" style="border: 0.5pt solid #000000; text-align: right; padding-right: 10px;">${escapeHtml(rentalFeeStr)}</td>
+                <td colspan="1" style="border: 0.5pt solid #000000;">${escapeHtml(v.color || '')}</td>
               </tr>
 
               <!-- Spacer/Section Row 2 -->
