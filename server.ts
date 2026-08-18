@@ -2823,6 +2823,15 @@ app.post('/api/contacts', async (req, res) => {
   if (!newCard.createdAt) newCard.createdAt = new Date().toISOString();
   if (!newCard.callHistory) newCard.callHistory = [];
 
+  // [추가] 매번 관리자가 "\" 정리 도구를 눌러줘야 하는 번거로움을 없애기 위해, 명함이
+  // 저장되는 이 시점(신규 등록/수동 입력/스캔·OCR/가져오기 등 모든 경로가 결국 이 API로
+  // 모인다)에 주소에 섞인 "\"를 자동으로 지운다. 그래서 이제부터는 애초에 "\"가 저장되는
+  // 일 자체가 없다 - 관리자 도구는 이 변경 이전에 이미 저장돼 있던 기존 데이터를 한 번
+  // 정리할 때만 필요하다.
+  if (typeof newCard.address === 'string') newCard.address = stripBackslashFromAddress(newCard.address);
+  if (typeof newCard.address2 === 'string') newCard.address2 = stripBackslashFromAddress(newCard.address2);
+  if (typeof newCard.homeAddress === 'string') newCard.homeAddress = stripBackslashFromAddress(newCard.homeAddress);
+
   // [수정] 팀/부서별 공유(비공개) 기능을 위해 등록자 정보를 자동으로 남긴다.
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
@@ -2854,9 +2863,14 @@ app.put('/api/contacts/:id', async (req, res) => {
   const idx = dbData.contacts.findIndex(c => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Contact not found' });
   
+  const beforeAddress = dbData.contacts[idx].address;
   const updated = { ...dbData.contacts[idx], ...req.body };
-  if (req.body.address && req.body.address !== dbData.contacts[idx].address) {
-    const coords = await geocodeAddress(req.body.address);
+  // [추가] POST와 동일하게, 수정 저장 시에도 주소에 섞인 "\"를 자동으로 지운다.
+  if (typeof updated.address === 'string') updated.address = stripBackslashFromAddress(updated.address);
+  if (typeof updated.address2 === 'string') updated.address2 = stripBackslashFromAddress(updated.address2);
+  if (typeof updated.homeAddress === 'string') updated.homeAddress = stripBackslashFromAddress(updated.homeAddress);
+  if (updated.address && updated.address !== beforeAddress) {
+    const coords = await geocodeAddress(updated.address);
     if (coords) {
       updated.lat = coords.lat;
       updated.lng = coords.lng;
@@ -4027,7 +4041,20 @@ app.post('/api/projects/import', async (req, res) => {
       contactIds: [],
       budget: raw.budget || '',
       followUps: [],
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      // [추가] "프로젝트 파이프라인" 양식 전용 필드들(리스트 출력 화면/인쇄/엑셀에서 사용).
+      // 클라이언트(ProjectsView.tsx의 handleImportProjectsExcel)가 엑셀에서 읽어 그대로
+      // 넣어 보내므로 여기서도 빠짐없이 저장한다.
+      endCustomer: raw.endCustomer || '',
+      siteLocation: raw.siteLocation || '',
+      productGroup: raw.productGroup || '',
+      mainItemsSpec: raw.mainItemsSpec || '',
+      expectedTiming: raw.expectedTiming || '',
+      winProbability: typeof raw.winProbability === 'number' ? raw.winProbability : undefined,
+      pipelineStage: raw.pipelineStage || undefined,
+      competitor: raw.competitor || '',
+      supportNeeded: raw.supportNeeded || '',
+      remarks: raw.remarks || ''
     };
     dbData.projects.unshift(p);
     toInsert.push(p);
