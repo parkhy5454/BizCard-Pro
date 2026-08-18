@@ -1392,51 +1392,131 @@ export const ProjectsView: React.FC<Props> = ({
     return { budgetSum, weightedSum };
   })();
 
-  // [수정] 예전엔 이 내보내기가 HTML 표를 확장자만 .xls로 바꿔서 내려주는 방식이었다.
-  // 엑셀에서 열리긴 하지만 모든 셀이 문자로 취급되어서, 예산처럼 숫자인 값도 엑셀에서
-  // SUM/정렬/조건부서식 등을 바로 쓸 수 없는 "텍스트로 위장한 셀"이 되는 문제가 있었다.
-  // 업무일지 내보내기(WorkLogsView.tsx)와 동일하게 진짜 xlsx 파일로 만들어서, 예산이
-  // 순수 숫자인 경우는 실제 숫자 셀로 들어가도록 바꾼다(숫자가 아닌 값은 그대로 문자로 둔다).
+  // [수정] 예전엔 이 내보내기가 HTML 표를 확장자만 .xls로 바꿔서 내려주는 방식이었다가,
+  // 이후 진짜 xlsx(숫자 셀 포함)로 바꿨었다. 이번엔 인쇄/화면 리스트 출력과 똑같이 제목
+  // ("프로젝트 파이프라인 (Project Pipeline)")과 출력일 줄을 넣고 제목에 색을 넣어달라는
+  // 요청이 있었는데, 지금까지 쓰던 xlsx 패키지(SheetJS 커뮤니티 버전)는 "새 파일 저장" 시
+  // 글자색/배경색 등 셀 서식을 전혀 쓰지 못한다(직접 실험해서 확인함 - .s에 스타일을 넣어도
+  // 결과 파일에는 반영되지 않음, 유료 Pro 버전에서만 지원). 그래서 이 내보내기만 셀 서식
+  // 쓰기를 지원하는 exceljs 라이브러리로 바꾼다.
   const handleExportProjectsExcel = async () => {
-    const XLSX = await import('xlsx');
-    // [수정] "프로젝트 파이프라인" 양식(번호/프로젝트명/영업자/최종고객/현장·지역/제품군/
-    // 주요품목·사양/예상 수주금액/예상 수주시기/성사확률/가중 예상금액/진행단계/경쟁사/
-    // ABB 지원요청/비고)과 동일한 컬럼 구성으로 통일. 화면 리스트 출력·인쇄와 같은
-    // PIPELINE_COLUMNS를 그대로 써서 세 출력 방식이 어긋나지 않게 한다.
-    const headers = PIPELINE_COLUMNS.map(c => c.label);
-    const wsData: any[][] = [headers];
-    filteredProjects.forEach((p, idx) => {
-      wsData.push(PIPELINE_COLUMNS.map(c => c.excelValue(p, idx)));
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('전체_프로젝트', {
+      pageSetup: {
+        // [추가] 인쇄와 동일하게 A4 가로, 위/아래 20mm·좌/우 25mm 여백으로 설정.
+        // (SheetJS와 달리 exceljs는 용지 방향까지 실제로 써서 저장할 수 있다.)
+        orientation: 'landscape', paperSize: 9 /* A4 */,
+        margins: { left: 0.98, right: 0.98, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 }
+      }
     });
-    // 맨 아래 합계 행: 예상 수주금액·가중 예상금액 열에만 합계를 넣고, 나머지는 비워둔다.
-    const totalsRow = PIPELINE_COLUMNS.map((_c, colIdx) => {
-      if (colIdx === 1) return '합계';
-      if (colIdx === PIPELINE_BUDGET_COL_IDX) return pipelineTotals.budgetSum;
-      if (colIdx === PIPELINE_WEIGHTED_COL_IDX) return pipelineTotals.weightedSum;
-      return '';
-    });
-    wsData.push(totalsRow);
+    const colCount = PIPELINE_COLUMNS.length;
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    const colWidths = headers.map((_, colIdx) => {
-      let maxLen = 8;
-      wsData.forEach(row => {
-        const val = row[colIdx];
+    // 제목 줄 - 인디고 배경 + 흰 글씨로 색을 넣어 인쇄물의 굵은 제목과 대응되게 함
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = '프로젝트 파이프라인 (Project Pipeline)';
+    titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 26;
+
+    // 출력일 줄
+    ws.mergeCells(2, 1, 2, colCount);
+    const dateCell = ws.getCell(2, 1);
+    dateCell.value = `출력일: ${new Date().toLocaleDateString('ko-KR')}`;
+    dateCell.font = { size: 9, color: { argb: 'FF6B7280' } };
+    dateCell.alignment = { horizontal: 'center' };
+
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+
+    // 헤더 행 (3번째 줄은 비워서 제목 영역과 표 사이 여백을 둠)
+    const headerRowIdx = 4;
+    const headerRow = ws.getRow(headerRowIdx);
+    PIPELINE_COLUMNS.forEach((c, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = c.label;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    filteredProjects.forEach((p, idx) => {
+      const row = ws.getRow(headerRowIdx + 1 + idx);
+      PIPELINE_COLUMNS.forEach((c, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        const value = c.excelValue(p, idx);
+        cell.value = value;
+        cell.alignment = { horizontal: c.align, vertical: 'middle', wrapText: true };
+        cell.border = fullBorder;
+        if ((colIdx === PIPELINE_BUDGET_COL_IDX || colIdx === PIPELINE_WEIGHTED_COL_IDX) && typeof value === 'number') {
+          cell.numFmt = '#,##0';
+        }
+      });
+    });
+
+    // 합계 행 - 예상 수주금액·가중 예상금액 열에만 합계를 넣고, 나머지는 "합계" 라벨과 빈 칸으로 병합
+    const totalsRowIdx = headerRowIdx + 1 + filteredProjects.length;
+    if (filteredProjects.length > 0) {
+      ws.mergeCells(totalsRowIdx, 1, totalsRowIdx, PIPELINE_BUDGET_COL_IDX);
+      const labelCell = ws.getCell(totalsRowIdx, 1);
+      labelCell.value = '합계';
+      labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      const budgetCell = ws.getCell(totalsRowIdx, PIPELINE_BUDGET_COL_IDX + 1);
+      budgetCell.value = pipelineTotals.budgetSum;
+      budgetCell.numFmt = '#,##0';
+      budgetCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+      if (PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX > 1) {
+        ws.mergeCells(totalsRowIdx, PIPELINE_BUDGET_COL_IDX + 2, totalsRowIdx, PIPELINE_WEIGHTED_COL_IDX);
+      }
+      const weightedCell = ws.getCell(totalsRowIdx, PIPELINE_WEIGHTED_COL_IDX + 1);
+      weightedCell.value = pipelineTotals.weightedSum;
+      weightedCell.numFmt = '#,##0';
+      weightedCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+      if (colCount - PIPELINE_WEIGHTED_COL_IDX > 1) {
+        ws.mergeCells(totalsRowIdx, PIPELINE_WEIGHTED_COL_IDX + 2, totalsRowIdx, colCount);
+      }
+
+      const totalsRow = ws.getRow(totalsRowIdx);
+      for (let c = 1; c <= colCount; c++) {
+        const cell = totalsRow.getCell(c);
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+        cell.border = fullBorder;
+      }
+    }
+
+    // 열 너비 - 제목/출력일 줄은 병합 셀이라 건너뛰고, 헤더/데이터 기준으로 계산
+    PIPELINE_COLUMNS.forEach((c, colIdx) => {
+      let maxLen = c.label.length;
+      filteredProjects.forEach((p, idx) => {
+        const val = c.excelValue(p, idx);
         if (val !== null && val !== undefined && val !== '') {
           maxLen = Math.min(Math.max(maxLen, val.toString().length), 40);
         }
       });
-      return { wch: maxLen + 3 };
+      ws.getColumn(colIdx + 1).width = maxLen + 3;
     });
-    ws['!cols'] = colWidths;
-    // [추가] 표를 인쇄와 동일하게(위/아래 20mm·좌/우 25mm) 여백으로 열어볼 수 있도록 인치로
-    // 환산해 지정(20mm≈0.79in, 25mm≈0.98in). 용지 방향(가로)은 이 xlsx 라이브러리가 쓰기를
-    // 지원하지 않아 코드로 지정할 수 없으므로, 엑셀에서 직접 인쇄할 때는 페이지 설정에서
-    // "가로"를 선택해야 한다.
-    ws['!margins'] = { left: 0.98, right: 0.98, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 };
-    XLSX.utils.book_append_sheet(wb, ws, '전체_프로젝트');
-    XLSX.writeFile(wb, `전체_프로젝트_목록_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    // 제목/헤더 행이 스크롤해도 항상 보이도록 고정
+    ws.views = [{ state: 'frozen', ySplit: headerRowIdx }];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `전체_프로젝트_목록_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   // [수정] 화면 미리보기는 실제 인쇄와 별개로, 모달 안에서 넓게(가로로 꽉 차게) 보여주기만
