@@ -456,6 +456,17 @@ export const ProjectsView: React.FC<Props> = ({
   // 필드가 이미 있었는데, 등록 폼에는 입력 칸이 빠져 있어서 등록할 때 메모를 못 남기고
   // 있었다.
   const [newDescription, setNewDescription] = useState<string>('');
+  // [추가] "프로젝트 파이프라인" 양식에 맞춘 영업 파이프라인 관리 필드들 (등록 폼 입력용)
+  const [newEndCustomer, setNewEndCustomer] = useState<string>('');
+  const [newSiteLocation, setNewSiteLocation] = useState<string>('');
+  const [newProductGroup, setNewProductGroup] = useState<string>('');
+  const [newMainItemsSpec, setNewMainItemsSpec] = useState<string>('');
+  const [newExpectedTiming, setNewExpectedTiming] = useState<string>('');
+  const [newWinProbability, setNewWinProbability] = useState<string>('');
+  const [newPipelineStage, setNewPipelineStage] = useState<NonNullable<Project['pipelineStage']> | ''>('');
+  const [newCompetitor, setNewCompetitor] = useState<string>('');
+  const [newSupportNeeded, setNewSupportNeeded] = useState<string>('');
+  const [newRemarks, setNewRemarks] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
 
   // 프로젝트 정보 수정용 상태
@@ -542,6 +553,16 @@ export const ProjectsView: React.FC<Props> = ({
       priority: newPriority,
       dueDate: newDueDate,
       budget: newBudget,
+      endCustomer: newEndCustomer,
+      siteLocation: newSiteLocation,
+      productGroup: newProductGroup,
+      mainItemsSpec: newMainItemsSpec,
+      expectedTiming: newExpectedTiming,
+      winProbability: newWinProbability ? Number(newWinProbability) : undefined,
+      pipelineStage: newPipelineStage || undefined,
+      competitor: newCompetitor,
+      supportNeeded: newSupportNeeded,
+      remarks: newRemarks,
       contactIds: finalContactIds
     };
 
@@ -580,6 +601,16 @@ export const ProjectsView: React.FC<Props> = ({
     setNewSupervisor('');
     setNewOperator('');
     setNewBudget('');
+    setNewEndCustomer('');
+    setNewSiteLocation('');
+    setNewProductGroup('');
+    setNewMainItemsSpec('');
+    setNewExpectedTiming('');
+    setNewWinProbability('');
+    setNewPipelineStage('');
+    setNewCompetitor('');
+    setNewSupportNeeded('');
+    setNewRemarks('');
     setSelectedContacts([]);
     setUseDirectContact(false);
     setDirectContactName('');
@@ -1285,6 +1316,82 @@ export const ProjectsView: React.FC<Props> = ({
   };
   const PRIORITY_LABEL_KO: Record<Project['priority'], string> = { high: '높음', medium: '보통', low: '낮음' };
 
+  // [추가] 프로젝트 리스트 출력(화면 표/PDF 인쇄/엑셀)을 "프로젝트 파이프라인" 양식에 맞춰
+  // 통일하면서 추가된 값들. 세 출력 방식(화면 표, 인쇄, 엑셀)이 서로 다른 헤더/순서로
+  // 어긋나지 않도록, 아래 PIPELINE_COLUMNS 하나로 컬럼 구성과 각 셀 값을 정의해서 세
+  // 군데(리스트 출력 표, 인쇄 미리보기/실제 인쇄, 엑셀)에서 모두 그대로 가져다 쓴다.
+  const PIPELINE_STAGE_LABEL_KO: Record<NonNullable<Project['pipelineStage']>, string> = {
+    lead: '발굴(Lead)',
+    quotation: '견적(Quotation)',
+    negotiation: '협상(Negotiation)',
+    closing: '수주예정(Closing)',
+    hold: '보류(Hold)'
+  };
+  const PIPELINE_STAGE_OPTIONS: Array<{ value: NonNullable<Project['pipelineStage']>; label: string }> = [
+    { value: 'lead', label: '발굴 (Lead)' },
+    { value: 'quotation', label: '견적 (Quotation)' },
+    { value: 'negotiation', label: '협상 (Negotiation)' },
+    { value: 'closing', label: '수주예정 (Closing)' },
+    { value: 'hold', label: '보류 (Hold)' }
+  ];
+  // 가중 예상금액 = 예상 수주금액(순수 숫자인 경우) × 성사확률(%) / 100. 둘 중 하나라도
+  // 없으면 계산할 수 없으므로 null을 돌려준다.
+  const computeWeightedAmount = (budget?: string, winProbability?: number): number | null => {
+    if (!budget || !/^\d+$/.test(budget)) return null;
+    if (winProbability === undefined || winProbability === null || isNaN(winProbability)) return null;
+    return Math.round(Number(budget) * (winProbability / 100));
+  };
+  const formatKRW = (n: number): string => `₩${n.toLocaleString('ko-KR')}`;
+
+  interface PipelineColumn {
+    label: string;
+    align: 'left' | 'center' | 'right';
+    getValue: (p: Project, idx: number) => string;
+    excelValue: (p: Project, idx: number) => string | number;
+  }
+  const PIPELINE_COLUMNS: PipelineColumn[] = [
+    { label: '번호', align: 'center', getValue: (_p, idx) => String(idx + 1), excelValue: (_p, idx) => idx + 1 },
+    { label: '프로젝트명', align: 'left', getValue: (p) => p.name, excelValue: (p) => p.name },
+    { label: '영업자', align: 'center', getValue: (p) => p.salesRep || '-', excelValue: (p) => p.salesRep || '' },
+    { label: '최종고객(발주처)', align: 'left', getValue: (p) => p.endCustomer || '-', excelValue: (p) => p.endCustomer || '' },
+    { label: '현장/지역', align: 'center', getValue: (p) => p.siteLocation || '-', excelValue: (p) => p.siteLocation || '' },
+    { label: '제품군', align: 'center', getValue: (p) => p.productGroup || '-', excelValue: (p) => p.productGroup || '' },
+    { label: '주요 품목·사양', align: 'left', getValue: (p) => p.mainItemsSpec || '-', excelValue: (p) => p.mainItemsSpec || '' },
+    {
+      label: '예상 수주금액(KRW)', align: 'right',
+      getValue: (p) => formatBudgetDisplay(p.budget),
+      excelValue: (p) => (p.budget && /^\d+$/.test(p.budget)) ? Number(p.budget) : (p.budget || '')
+    },
+    { label: '예상 수주시기', align: 'center', getValue: (p) => p.expectedTiming || '미정', excelValue: (p) => p.expectedTiming || '' },
+    {
+      label: '성사확률(%)', align: 'center',
+      getValue: (p) => (p.winProbability !== undefined && p.winProbability !== null) ? `${p.winProbability}%` : '-',
+      excelValue: (p) => (p.winProbability !== undefined && p.winProbability !== null) ? p.winProbability : ''
+    },
+    {
+      label: '가중 예상금액(KRW)', align: 'right',
+      getValue: (p) => { const w = computeWeightedAmount(p.budget, p.winProbability); return w !== null ? formatKRW(w) : '-'; },
+      excelValue: (p) => { const w = computeWeightedAmount(p.budget, p.winProbability); return w !== null ? w : ''; }
+    },
+    { label: '진행단계', align: 'center', getValue: (p) => p.pipelineStage ? PIPELINE_STAGE_LABEL_KO[p.pipelineStage] : '-', excelValue: (p) => p.pipelineStage ? PIPELINE_STAGE_LABEL_KO[p.pipelineStage] : '' },
+    { label: '경쟁사', align: 'center', getValue: (p) => p.competitor || '-', excelValue: (p) => p.competitor || '' },
+    { label: 'ABB 지원요청', align: 'left', getValue: (p) => p.supportNeeded || '-', excelValue: (p) => p.supportNeeded || '' },
+    { label: '비고', align: 'left', getValue: (p) => p.remarks || '-', excelValue: (p) => p.remarks || '' }
+  ];
+  // 인쇄/엑셀 하단 "합계" 행에서 예상 수주금액·가중 예상금액을 더할 때 쓰는 컬럼 위치
+  const PIPELINE_BUDGET_COL_IDX = 7;
+  const PIPELINE_WEIGHTED_COL_IDX = 10;
+  const pipelineTotals = (() => {
+    let budgetSum = 0;
+    let weightedSum = 0;
+    filteredProjects.forEach((p) => {
+      if (p.budget && /^\d+$/.test(p.budget)) budgetSum += Number(p.budget);
+      const w = computeWeightedAmount(p.budget, p.winProbability);
+      if (w !== null) weightedSum += w;
+    });
+    return { budgetSum, weightedSum };
+  })();
+
   // [수정] 예전엔 이 내보내기가 HTML 표를 확장자만 .xls로 바꿔서 내려주는 방식이었다.
   // 엑셀에서 열리긴 하지만 모든 셀이 문자로 취급되어서, 예산처럼 숫자인 값도 엑셀에서
   // SUM/정렬/조건부서식 등을 바로 쓸 수 없는 "텍스트로 위장한 셀"이 되는 문제가 있었다.
@@ -1292,17 +1399,23 @@ export const ProjectsView: React.FC<Props> = ({
   // 순수 숫자인 경우는 실제 숫자 셀로 들어가도록 바꾼다(숫자가 아닌 값은 그대로 문자로 둔다).
   const handleExportProjectsExcel = async () => {
     const XLSX = await import('xlsx');
-    const headers = ['프로젝트명', '영업자(담당자)', '상태', '우선순위', '등록일', '예산', '시행사(발주처)', '시공사', '건축설계사', '인테리어설계사', '전기설계사', '기계설계사', '감리사', '운영사'];
+    // [수정] "프로젝트 파이프라인" 양식(번호/프로젝트명/영업자/최종고객/현장·지역/제품군/
+    // 주요품목·사양/예상 수주금액/예상 수주시기/성사확률/가중 예상금액/진행단계/경쟁사/
+    // ABB 지원요청/비고)과 동일한 컬럼 구성으로 통일. 화면 리스트 출력·인쇄와 같은
+    // PIPELINE_COLUMNS를 그대로 써서 세 출력 방식이 어긋나지 않게 한다.
+    const headers = PIPELINE_COLUMNS.map(c => c.label);
     const wsData: any[][] = [headers];
-    filteredProjects.forEach(p => {
-      const isNumericBudget = !!p.budget && /^\d+$/.test(p.budget);
-      wsData.push([
-        p.name, p.salesRep || '', STATUS_LABEL_KO[p.status], PRIORITY_LABEL_KO[p.priority], p.dueDate || '',
-        isNumericBudget ? Number(p.budget) : (p.budget || ''),
-        p.developer || '', p.contractor || '', p.architect || '', p.interiorDesigner || '', p.electricalDesigner || '',
-        p.mechanicalDesigner || '', p.supervisor || '', p.operator || ''
-      ]);
+    filteredProjects.forEach((p, idx) => {
+      wsData.push(PIPELINE_COLUMNS.map(c => c.excelValue(p, idx)));
     });
+    // 맨 아래 합계 행: 예상 수주금액·가중 예상금액 열에만 합계를 넣고, 나머지는 비워둔다.
+    const totalsRow = PIPELINE_COLUMNS.map((_c, colIdx) => {
+      if (colIdx === 1) return '합계';
+      if (colIdx === PIPELINE_BUDGET_COL_IDX) return pipelineTotals.budgetSum;
+      if (colIdx === PIPELINE_WEIGHTED_COL_IDX) return pipelineTotals.weightedSum;
+      return '';
+    });
+    wsData.push(totalsRow);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -1332,39 +1445,37 @@ export const ProjectsView: React.FC<Props> = ({
   const renderPrintableProjectsList = () => (
     <div className="shrink-0 text-black text-xs font-sans leading-tight" style={{ width: '100%', maxWidth: '297mm', margin: '0 auto', padding: '10mm 0' }}>
       <div className="text-center mb-6">
-        <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">전체 프로젝트 목록</span>
+        <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-xl sm:text-2xl font-extrabold text-black">프로젝트 파이프라인 (Project Pipeline)</span>
         <p className="text-[10px] text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
       </div>
 
-        <table className="w-full border-collapse border-[1.5px] border-black text-[10px]">
+        <table className="w-full border-collapse border-[1.5px] border-black text-[9px]">
           <thead>
             <tr className="bg-gray-100">
-              {['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
-                <th key={h} className="border border-black px-1.5 py-1.5 font-bold">{h}</th>
+              {PIPELINE_COLUMNS.map(c => (
+                <th key={c.label} className="border border-black px-1.5 py-1.5 font-bold">{c.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filteredProjects.map(p => (
+            {filteredProjects.map((p, idx) => (
               <tr key={p.id}>
-                <td className="border border-black px-1.5 py-1.5 text-left">{p.name}</td>
-                <td className="border border-black px-1.5 py-1.5 text-center">{p.salesRep || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5 text-center">{STATUS_LABEL_KO[p.status]}</td>
-                <td className="border border-black px-1.5 py-1.5 text-center">{PRIORITY_LABEL_KO[p.priority]}</td>
-                <td className="border border-black px-1.5 py-1.5 text-center">{p.dueDate}</td>
-                <td className="border border-black px-1.5 py-1.5 text-right">{formatBudgetDisplay(p.budget)}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.developer || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.contractor || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.architect || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.interiorDesigner || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.electricalDesigner || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.mechanicalDesigner || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.supervisor || '-'}</td>
-                <td className="border border-black px-1.5 py-1.5">{p.operator || '-'}</td>
+                {PIPELINE_COLUMNS.map(c => (
+                  <td key={c.label} className={`border border-black px-1.5 py-1.5 text-${c.align}`}>{c.getValue(p, idx)}</td>
+                ))}
               </tr>
             ))}
             {filteredProjects.length === 0 && (
-              <tr><td colSpan={14} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
+              <tr><td colSpan={PIPELINE_COLUMNS.length} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
+            )}
+            {filteredProjects.length > 0 && (
+              <tr className="bg-gray-100 font-bold">
+                <td colSpan={PIPELINE_BUDGET_COL_IDX} className="border border-black px-1.5 py-1.5 text-center">합계</td>
+                <td className="border border-black px-1.5 py-1.5 text-right">{formatKRW(pipelineTotals.budgetSum)}</td>
+                <td colSpan={PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1} className="border border-black px-1.5 py-1.5" />
+                <td className="border border-black px-1.5 py-1.5 text-right">{formatKRW(pipelineTotals.weightedSum)}</td>
+                <td colSpan={PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1} className="border border-black px-1.5 py-1.5" />
+              </tr>
             )}
           </tbody>
         </table>
@@ -1378,52 +1489,45 @@ export const ProjectsView: React.FC<Props> = ({
   // "@page { size: A4 landscape; margin: 20mm 25mm; }" 단 하나의 페이지 규칙만 있으므로, 다른
   // 문서의 세로 인쇄 설정과 절대 충돌하지 않고 항상 A4 가로로 인쇄된다.
   const handlePrintProjectsList = () => {
-    const headers = ['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'];
+    const headers = PIPELINE_COLUMNS.map(c => c.label);
     const rowsHtml = filteredProjects.length === 0
-      ? `<tr><td colspan="14" style="text-align:center;color:#9ca3af;padding:24px 8px;">표시할 프로젝트가 없습니다.</td></tr>`
-      : filteredProjects.map(p => `
-        <tr>
-          <td style="text-align:left;">${escapeHtml(p.name)}</td>
-          <td style="text-align:center;">${escapeHtml(p.salesRep || '-')}</td>
-          <td style="text-align:center;">${escapeHtml(STATUS_LABEL_KO[p.status])}</td>
-          <td style="text-align:center;">${escapeHtml(PRIORITY_LABEL_KO[p.priority])}</td>
-          <td style="text-align:center;">${escapeHtml(p.dueDate || '')}</td>
-          <td style="text-align:right;">${escapeHtml(formatBudgetDisplay(p.budget))}</td>
-          <td>${escapeHtml(p.developer || '-')}</td>
-          <td>${escapeHtml(p.contractor || '-')}</td>
-          <td>${escapeHtml(p.architect || '-')}</td>
-          <td>${escapeHtml(p.interiorDesigner || '-')}</td>
-          <td>${escapeHtml(p.electricalDesigner || '-')}</td>
-          <td>${escapeHtml(p.mechanicalDesigner || '-')}</td>
-          <td>${escapeHtml(p.supervisor || '-')}</td>
-          <td>${escapeHtml(p.operator || '-')}</td>
-        </tr>`).join('');
+      ? `<tr><td colspan="${PIPELINE_COLUMNS.length}" style="text-align:center;color:#9ca3af;padding:24px 8px;">표시할 프로젝트가 없습니다.</td></tr>`
+      : filteredProjects.map((p, idx) => `
+        <tr>${PIPELINE_COLUMNS.map(c => `<td style="text-align:${c.align};">${escapeHtml(c.getValue(p, idx))}</td>`).join('')}</tr>`).join('');
+    const totalsHtml = filteredProjects.length === 0 ? '' : `
+      <tr style="background:#f3f4f6;font-weight:700;">
+        <td colspan="${PIPELINE_BUDGET_COL_IDX}" style="text-align:center;">합계</td>
+        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.budgetSum))}</td>
+        <td colspan="${PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1}"></td>
+        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.weightedSum))}</td>
+        <td colspan="${PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1}"></td>
+      </tr>`;
 
     const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>전체 프로젝트 목록</title>
+<title>프로젝트 파이프라인</title>
 <style>
   @page { size: A4 landscape; margin: 20mm 25mm; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #000; }
   .title { text-align: center; margin-bottom: 16px; }
-  .title h1 { display: inline-block; border-bottom: 4px double #000; padding-bottom: 4px; margin: 0; font-size: 22px; }
+  .title h1 { display: inline-block; border-bottom: 4px double #000; padding-bottom: 4px; margin: 0; font-size: 20px; }
   .title p { font-size: 10px; color: #666; margin: 4px 0 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: auto; }
-  th, td { border: 1px solid #000; padding: 5px 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: auto; }
+  th, td { border: 1px solid #000; padding: 4px 5px; }
   th { background: #f3f4f6; font-weight: 700; }
 </style>
 </head>
 <body>
   <div class="title">
-    <h1>전체 프로젝트 목록</h1>
+    <h1>프로젝트 파이프라인 (Project Pipeline)</h1>
     <p>출력일: ${escapeHtml(new Date().toLocaleDateString('ko-KR'))}</p>
   </div>
   <table>
     <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
-    <tbody>${rowsHtml}</tbody>
+    <tbody>${rowsHtml}${totalsHtml}</tbody>
   </table>
   <script>window.onload = function () { window.focus(); window.print(); };</script>
 </body>
@@ -1450,22 +1554,32 @@ export const ProjectsView: React.FC<Props> = ({
   // 품목·사양 | 예상 수주금액 | 예상 수주시기 | 성사확률(%) | 가중 예상금액(자동계산, 무시) |
   // 진행단계 | 경쟁사 | ABB 지원요청 | 비고.
   //
-  // 매핑 규칙(사용자와 상의해서 정함):
-  // - 최종고객 -> 시행사(발주처) 칸(developer)
-  // - 진행단계: 발굴/견적/보류 -> 진행중(opportunity), 협상/수주예정 -> progress
-  //   (앱의 상태값에는 "보류"에 해당하는 값이 없어서, 아직 살아있는 건이라는 의미로
-  //   opportunity로 분류하기로 함)
-  // - 성사확률(%) -> 우선순위(priority): 70% 이상 high, 40~69% medium, 그 미만 low
-  // - "예상 수주시기"는 "2026 Q3", "미정"처럼 실제 날짜가 아니어서 마감일(dueDate,
-  //   날짜 선택 칸)에 넣으면 나중에 수정 화면에서 빈칸처럼 보인다. 그래서 dueDate는
-  //   비워두고, 현장/지역·제품군·주요품목·예상시기·성사확률·경쟁사·지원요청·비고를
-  //   모두 설명(description)에 정리해서 넣어 정보 손실 없이 보존한다.
+  // 매핑 규칙:
+  // - 이제 최종고객/현장·지역/제품군/주요품목·사양/예상수주시기/성사확률/진행단계/경쟁사/
+  //   지원요청/비고가 모두 Project 타입에 전용 칸(endCustomer 등)으로 생기면서, 예전처럼
+  //   최종고객을 시행사(developer)에 욱여넣거나 나머지를 전부 메모(description)에 몰아
+  //   적을 필요가 없어졌다. 각 열을 대응되는 칸에 그대로 넣는다.
+  // - 다만 프로젝트 관리(칸반 보드/필터)에 쓰이는 기존 status·priority는 이 파이프라인
+  //   양식에 없는 값이라, 하위 호환을 위해 진행단계·성사확률로부터 대략 추정해서 같이
+  //   채워준다(발굴/견적/보류 -> opportunity, 협상/수주예정 -> progress).
+  // - "예상 수주시기"는 "2026 Q3", "미정"처럼 실제 날짜가 아니라서 마감일(dueDate, 날짜
+  //   선택 칸)에는 넣지 않고 전용 칸(expectedTiming)에 그대로 보존한다.
   const mapPipelineStageToStatus = (stage: string): Project['status'] => {
     const s = (stage || '').toLowerCase();
     if (s.includes('negotiation') || s.includes('협상')) return 'progress';
     if (s.includes('closing') || s.includes('수주예정')) return 'progress';
     // 발굴(Lead), 견적(Quotation), 보류(Hold), 그 외 알 수 없는 값은 모두 진행중으로 분류
     return 'opportunity';
+  };
+
+  const mapPipelineStageToPipelineStage = (stage: string): Project['pipelineStage'] => {
+    const s = (stage || '').toLowerCase();
+    if (s.includes('lead') || s.includes('발굴')) return 'lead';
+    if (s.includes('quotation') || s.includes('견적')) return 'quotation';
+    if (s.includes('negotiation') || s.includes('협상')) return 'negotiation';
+    if (s.includes('closing') || s.includes('수주예정')) return 'closing';
+    if (s.includes('hold') || s.includes('보류')) return 'hold';
+    return undefined;
   };
 
   const mapWinPctToPriority = (winPct: number | null): Project['priority'] => {
@@ -1524,21 +1638,21 @@ export const ProjectsView: React.FC<Props> = ({
         const supportNeeded = (r[12] ?? '').toString().trim();
         const remarks = (r[13] ?? '').toString().trim();
 
-        const descLines = [
-          site && `현장/지역: ${site}`,
-          productGroup && `제품군: ${productGroup}`,
-          mainItems && `주요 품목·사양: ${mainItems}`,
-          timing && `예상 수주시기: ${timing}`,
-          winPct !== null && !isNaN(winPct) && `성사확률: ${winPct}%`,
-          competitor && `경쟁사: ${competitor}`,
-          supportNeeded && `지원요청: ${supportNeeded}`,
-          remarks && `비고: ${remarks}`
-        ].filter(Boolean);
-
         toImport.push({
           name,
+          // 최종고객은 전용 칸(endCustomer)에 넣되, 카드 화면의 "시행: OOO" 뱃지·거래처
+          // 회사명 매칭 기능이 계속 동작하도록 시행사(developer) 칸에도 같이 채워준다.
+          endCustomer,
           developer: endCustomer,
-          description: descLines.join('\n'),
+          siteLocation: site,
+          productGroup,
+          mainItemsSpec: mainItems,
+          expectedTiming: timing,
+          winProbability: (winPct !== null && !isNaN(winPct)) ? winPct : undefined,
+          pipelineStage: mapPipelineStageToPipelineStage(stage),
+          competitor,
+          supportNeeded,
+          remarks,
           salesRep: defaultSalesRep,
           status: mapPipelineStageToStatus(stage),
           priority: mapWinPctToPriority(winPct),
@@ -1842,31 +1956,34 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full text-xs text-slate-600 whitespace-nowrap">
                   <thead className="bg-white text-slate-500">
                     <tr>
-                      {['프로젝트명', '영업자', '상태', '우선순위', '등록일', '예산', '시행사', '시공사', '건축설계', '인테리어', '전기설계', '기계설계', '감리사', '운영사'].map(h => (
-                        <th key={h} className="px-3 py-2.5 text-left font-bold border-b border-slate-200">{h}</th>
+                      {PIPELINE_COLUMNS.map(c => (
+                        <th key={c.label} className={`px-3 py-2.5 font-bold border-b border-slate-200 ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}>{c.label}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {filteredProjects.map((p) => (
+                    {filteredProjects.map((p, idx) => (
                       <tr key={p.id} className="hover:bg-slate-100 transition-colors">
-                        <td className="px-3 py-2.5 font-semibold text-slate-800">{p.name}</td>
-                        <td className="px-3 py-2.5 text-indigo-600 font-semibold">{p.salesRep || '-'}</td>
-                        <td className="px-3 py-2.5">{STATUS_LABEL_KO[p.status]}</td>
-                        <td className="px-3 py-2.5">{PRIORITY_LABEL_KO[p.priority]}</td>
-                        <td className="px-3 py-2.5 font-mono">{p.dueDate}</td>
-                        <td className="px-3 py-2.5">{formatBudgetDisplay(p.budget)}</td>
-                        <td className="px-3 py-2.5">{p.developer || '-'}</td>
-                        <td className="px-3 py-2.5">{p.contractor || '-'}</td>
-                        <td className="px-3 py-2.5">{p.architect || '-'}</td>
-                        <td className="px-3 py-2.5">{p.interiorDesigner || '-'}</td>
-                        <td className="px-3 py-2.5">{p.electricalDesigner || '-'}</td>
-                        <td className="px-3 py-2.5">{p.mechanicalDesigner || '-'}</td>
-                        <td className="px-3 py-2.5">{p.supervisor || '-'}</td>
-                        <td className="px-3 py-2.5">{p.operator || '-'}</td>
+                        {PIPELINE_COLUMNS.map((c, colIdx) => (
+                          <td
+                            key={c.label}
+                            className={`px-3 py-2.5 ${colIdx === 1 ? 'font-semibold text-slate-800' : colIdx === 2 ? 'text-indigo-600 font-semibold' : ''} ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}
+                          >
+                            {c.getValue(p, idx)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold text-slate-700">
+                      <td colSpan={PIPELINE_BUDGET_COL_IDX} className="px-3 py-2.5 text-center">합계</td>
+                      <td className="px-3 py-2.5 text-right">{formatKRW(pipelineTotals.budgetSum)}</td>
+                      <td colSpan={PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1} />
+                      <td className="px-3 py-2.5 text-right">{formatKRW(pipelineTotals.weightedSum)}</td>
+                      <td colSpan={PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1} />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
@@ -2077,7 +2194,39 @@ export const ProjectsView: React.FC<Props> = ({
                         })}
                       </div>
                     </div>
-                                        
+
+                    {/* [추가] 영업 파이프라인 정보 - 최종고객/현장·지역/제품군/주요품목·사양/
+                    예상 수주시기/성사확률/가중 예상금액/파이프라인 단계/경쟁사/ABB 지원요청/비고.
+                    아무 값도 입력되지 않은 프로젝트(기존에 등록된 프로젝트 등)에서는 굳이
+                    빈 칸들만 나열하지 않도록, 하나라도 값이 있을 때만 보여준다. */}
+                    {(proj.endCustomer || proj.siteLocation || proj.productGroup || proj.mainItemsSpec || proj.expectedTiming || proj.winProbability !== undefined || proj.pipelineStage || proj.competitor || proj.supportNeeded || proj.remarks) && (
+                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-3">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 uppercase tracking-wider font-mono">
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> 영업 파이프라인 정보
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                          {([
+                            ['최종고객(발주처)', proj.endCustomer],
+                            ['현장/지역', proj.siteLocation],
+                            ['제품군', proj.productGroup],
+                            ['주요 품목·사양', proj.mainItemsSpec],
+                            ['예상 수주시기', proj.expectedTiming],
+                            ['성사확률', proj.winProbability !== undefined && proj.winProbability !== null ? `${proj.winProbability}%` : undefined],
+                            ['가중 예상금액', (() => { const w = computeWeightedAmount(proj.budget, proj.winProbability); return w !== null ? formatKRW(w) : undefined; })()],
+                            ['파이프라인 단계', proj.pipelineStage ? PIPELINE_STAGE_LABEL_KO[proj.pipelineStage] : undefined],
+                            ['경쟁사', proj.competitor],
+                            ['ABB 지원요청', proj.supportNeeded],
+                            ['비고', proj.remarks]
+                          ] as [string, string | undefined][]).map(([label, value]) => (
+                            <div key={label} className="bg-slate-100 p-2.5 rounded-xl border border-slate-200">
+                              <div className="text-[10px] text-slate-400 font-semibold mb-0.5">{label}</div>
+                              <div className="text-slate-700 font-medium">{value || '-'}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* 1. 연관된 거래처 명함 칩즈 */}
                     {relatedContacts.length > 0 && (
                       <div className="space-y-2">
@@ -2799,6 +2948,72 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
               </div>
 
+              {/* [추가] "프로젝트 파이프라인" 양식(번호/프로젝트명/영업자/최종고객/현장·지역/
+              제품군/주요품목·사양/예상 수주금액/예상 수주시기/성사확률/가중 예상금액(자동계산)/
+              진행단계/경쟁사/ABB 지원요청/비고)에 맞춰 등록 시점에 바로 입력할 수 있도록 추가한
+              영업 파이프라인 정보 칸들. "진행 단계"(칸반 상태)와는 별개로, 리스트 출력(화면표/
+              인쇄/엑셀)에서 쓰는 "진행단계"는 아래 "파이프라인 단계" 칸의 값이다. */}
+              <div className="pt-2 border-t border-slate-200 space-y-3">
+                <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">최종고객(발주처)</label>
+                    <input type="text" value={newEndCustomer} onChange={(e) => setNewEndCustomer(e.target.value)} placeholder="예: HL리츠운용(주)" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">현장/지역</label>
+                    <input type="text" value={newSiteLocation} onChange={(e) => setNewSiteLocation(e.target.value)} placeholder="예: 서울" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">제품군(PG)</label>
+                    <input type="text" value={newProductGroup} onChange={(e) => setNewProductGroup(e.target.value)} placeholder="예: 조명/전력 제어 외" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">예상 수주시기</label>
+                    <input type="text" value={newExpectedTiming} onChange={(e) => setNewExpectedTiming(e.target.value)} placeholder="예: 2026 Q3, 미정" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">주요 품목·사양</label>
+                  <input type="text" value={newMainItemsSpec} onChange={(e) => setNewMainItemsSpec(e.target.value)} placeholder="예: Wiring device, DIN rail device, etc." className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">성사확률(%)</label>
+                    <input type="number" min={0} max={100} value={newWinProbability} onChange={(e) => setNewWinProbability(e.target.value)} placeholder="예: 60" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">파이프라인 단계</label>
+                    <select value={newPipelineStage} onChange={(e) => setNewPipelineStage(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                      <option value="">선택 안 함</option>
+                      {PIPELINE_STAGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">경쟁사</label>
+                    <input type="text" value={newCompetitor} onChange={(e) => setNewCompetitor(e.target.value)} placeholder="예: S사" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">ABB 지원요청</label>
+                    <input type="text" value={newSupportNeeded} onChange={(e) => setNewSupportNeeded(e.target.value)} placeholder="예: 기술지원·현장데모" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">비고</label>
+                  <textarea value={newRemarks} onChange={(e) => setNewRemarks(e.target.value)} placeholder="예: 재견적 예정" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500 resize-none" />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
@@ -3015,6 +3230,68 @@ export const ProjectsView: React.FC<Props> = ({
                 <div>
                   <label className="block text-slate-600 font-semibold mb-1">운영사</label>
                   <input type="text" value={editingProject.operator || ''} onChange={(e) => setEditingProject({ ...editingProject, operator: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+
+              {/* [추가] 등록 폼과 동일한 영업 파이프라인 정보 칸들 (수정 가능) */}
+              <div className="pt-2 border-t border-slate-200 space-y-3">
+                <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">최종고객(발주처)</label>
+                    <input type="text" value={editingProject.endCustomer || ''} onChange={(e) => setEditingProject({ ...editingProject, endCustomer: e.target.value })} placeholder="예: HL리츠운용(주)" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">현장/지역</label>
+                    <input type="text" value={editingProject.siteLocation || ''} onChange={(e) => setEditingProject({ ...editingProject, siteLocation: e.target.value })} placeholder="예: 서울" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">제품군(PG)</label>
+                    <input type="text" value={editingProject.productGroup || ''} onChange={(e) => setEditingProject({ ...editingProject, productGroup: e.target.value })} placeholder="예: 조명/전력 제어 외" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">예상 수주시기</label>
+                    <input type="text" value={editingProject.expectedTiming || ''} onChange={(e) => setEditingProject({ ...editingProject, expectedTiming: e.target.value })} placeholder="예: 2026 Q3, 미정" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">주요 품목·사양</label>
+                  <input type="text" value={editingProject.mainItemsSpec || ''} onChange={(e) => setEditingProject({ ...editingProject, mainItemsSpec: e.target.value })} placeholder="예: Wiring device, DIN rail device, etc." className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">성사확률(%)</label>
+                    <input type="number" min={0} max={100} value={editingProject.winProbability ?? ''} onChange={(e) => setEditingProject({ ...editingProject, winProbability: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="예: 60" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">파이프라인 단계</label>
+                    <select value={editingProject.pipelineStage || ''} onChange={(e) => setEditingProject({ ...editingProject, pipelineStage: (e.target.value || undefined) as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                      <option value="">선택 안 함</option>
+                      {PIPELINE_STAGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">경쟁사</label>
+                    <input type="text" value={editingProject.competitor || ''} onChange={(e) => setEditingProject({ ...editingProject, competitor: e.target.value })} placeholder="예: S사" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">ABB 지원요청</label>
+                    <input type="text" value={editingProject.supportNeeded || ''} onChange={(e) => setEditingProject({ ...editingProject, supportNeeded: e.target.value })} placeholder="예: 기술지원·현장데모" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">비고</label>
+                  <textarea value={editingProject.remarks || ''} onChange={(e) => setEditingProject({ ...editingProject, remarks: e.target.value })} placeholder="예: 재견적 예정" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500 resize-none" />
                 </div>
               </div>
 
