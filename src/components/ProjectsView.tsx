@@ -50,6 +50,12 @@ interface Props {
   // (triggerNewProject 등 기존 트리거 프롭들과 동일한 패턴).
   focusProjectId?: string;
   focusProjectSignal?: number;
+  // [추가] "리스트 출력" 표에서 프로젝트명을 눌렀을 때, "프로젝트 리스트"(카드형 화면)의
+  // 해당 프로젝트로 이동시켜 펼쳐 보여주기 위한 콜백. App.tsx가 전역 검색에서 프로젝트를
+  // 눌렀을 때와 동일한 핸들러(handleOpenProjectFromSearch)를 그대로 넘겨준다 - 화면 모드를
+  // "카드형"으로 바꾸고 focusProjectId/focusProjectSignal을 갱신하는 역할을 이미 하고 있어
+  // 따로 새 로직을 만들 필요가 없다.
+  onFocusProject?: (projectId: string) => void;
 }
 
 export const ProjectsView: React.FC<Props> = ({ 
@@ -65,7 +71,8 @@ export const ProjectsView: React.FC<Props> = ({
   triggerPrintPreview,
   viewMode = 'cards',
   focusProjectId,
-  focusProjectSignal
+  focusProjectSignal,
+  onFocusProject
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -2045,12 +2052,28 @@ export const ProjectsView: React.FC<Props> = ({
                     {filteredProjects.map((p, idx) => (
                       <tr key={p.id} className="hover:bg-slate-100 transition-colors">
                         {PIPELINE_COLUMNS.map((c, colIdx) => (
-                          <td
-                            key={c.label}
-                            className={`px-3 py-2.5 ${colIdx === 1 ? 'font-semibold text-slate-800' : colIdx === 2 ? 'text-indigo-600 font-semibold' : ''} ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}
-                          >
-                            {c.getValue(p, idx)}
-                          </td>
+                          colIdx === 1 ? (
+                            // [추가] 프로젝트명을 누르면 "프로젝트 리스트"(카드형 화면)의 해당
+                            // 프로젝트로 이동해 펼쳐서 보여준다(전역 검색에서 프로젝트를 눌렀을
+                            // 때와 동일한 동작).
+                            <td key={c.label} className="px-3 py-2.5 text-left">
+                              <button
+                                type="button"
+                                onClick={() => onFocusProject?.(p.id)}
+                                className="font-semibold text-indigo-600 hover:text-indigo-500 hover:underline text-left"
+                                title="프로젝트 리스트에서 보기"
+                              >
+                                {c.getValue(p, idx)}
+                              </button>
+                            </td>
+                          ) : (
+                            <td
+                              key={c.label}
+                              className={`px-3 py-2.5 ${colIdx === 2 ? 'text-indigo-600 font-semibold' : ''} ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}
+                            >
+                              {c.getValue(p, idx)}
+                            </td>
+                          )
                         ))}
                       </tr>
                     ))}
