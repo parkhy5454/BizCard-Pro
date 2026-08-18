@@ -550,6 +550,7 @@ export default function App() {
                 viewMode={projectsViewMode}
                 focusProjectId={focusProjectId}
                 focusProjectSignal={focusProjectSignal}
+                onFocusProject={handleOpenProjectFromSearch}
               />
             )}
 
