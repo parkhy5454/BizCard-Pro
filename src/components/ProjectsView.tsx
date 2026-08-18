@@ -422,6 +422,11 @@ export const ProjectsView: React.FC<Props> = ({
   }, [filterStatus, projectSearchQuery]);
   // [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하기 위한 상태
   const [showProjectsPrintPreview, setShowProjectsPrintPreview] = useState<boolean>(false);
+  // [추가] "리스트 출력" 표에서 개별/전체 선택 삭제를 위한 선택된 프로젝트 id 목록.
+  // 필터가 바뀌어 화면에서 사라진 프로젝트의 선택은 굳이 자동으로 풀지 않아도 되지만
+  // (다시 필터를 풀면 여전히 선택돼 있는 게 자연스럽다), 실제로 삭제된 항목은
+  // handleDeleteProject/handleBulkDeleteProjects에서 선택 목록에서도 함께 제거한다.
+  const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set());
 
   // [추가] 전역 검색에서 특정 프로젝트로 이동해왔을 때: 필터/검색어 때문에 그 프로젝트가
   // 목록에서 가려져 있거나 "더 보기" 제한 밖에 있을 수 있으므로, 필터를 전체로 풀고
@@ -764,6 +769,38 @@ export const ProjectsView: React.FC<Props> = ({
       // 화면에서 지운다.
       if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       setProjects(projects.filter((p) => p.id !== id));
+      // [추가] "리스트 출력" 표에서 이 프로젝트가 선택돼 있었다면 선택 목록에서도 제거한다.
+      setSelectedListIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (err: any) {
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
+  };
+
+  // [추가] "리스트 출력" 표에서 선택한(또는 전체) 프로젝트를 한 번에 삭제하는 핸들러.
+  // 서버의 일괄 삭제 API(/api/projects/bulk-delete)를 한 번만 호출해 처리한다.
+  // 카드형 화면(프로젝트 리스트)과 같은 projects 상태를 쓰므로, 여기서 삭제하면
+  // 카드형 화면에서도 동일하게 사라진다.
+  const handleBulkDeleteProjects = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    if (!confirm(`선택한 프로젝트 ${ids.length}건과 관련 팔로우업 기록을 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      const res = await fetch('/api/projects/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify({ ids })
+      });
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
+      const idSet = new Set(ids);
+      setProjects(projects.filter((p) => !idSet.has(p.id)));
+      setSelectedListIds(new Set());
     } catch (err: any) {
       alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
@@ -1994,8 +2031,35 @@ export const ProjectsView: React.FC<Props> = ({
         ) : viewMode === 'listOutput' ? (
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-slate-700">전체 프로젝트 리스트 ({filteredProjects.length}건)</h3>
-              <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-700">
+                전체 프로젝트 리스트 ({filteredProjects.length}건)
+                {selectedListIds.size > 0 && (
+                  <span className="ml-2 text-indigo-600 font-semibold">{selectedListIds.size}건 선택됨</span>
+                )}
+              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* [추가] "리스트 출력" 표에서 선택/전체 삭제. 카드형 화면(프로젝트 리스트)과
+                같은 projects 상태를 공유하므로, 여기서 지우면 카드형 화면에서도 함께 사라진다. */}
+                {selectedListIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleBulkDeleteProjects(Array.from(selectedListIds))}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>선택 삭제 ({selectedListIds.size}건)</span>
+                  </button>
+                )}
+                {filteredProjects.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleBulkDeleteProjects(filteredProjects.map((p) => p.id))}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold transition-all active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>전체 삭제</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleExportProjectsExcel}
@@ -2043,14 +2107,49 @@ export const ProjectsView: React.FC<Props> = ({
                 <table className="w-full text-xs text-slate-600 whitespace-nowrap">
                   <thead className="bg-white text-slate-500">
                     <tr>
+                      {/* [추가] 전체 선택 체크박스. PIPELINE_COLUMNS는 화면표/인쇄/엑셀이 공유하는
+                      배열이라 그대로 두고, 선택/삭제용 칸은 그 바깥(맨 앞/맨 뒤)에 따로 둔다. */}
+                      <th className="px-3 py-2.5 font-bold border-b border-slate-200 w-8">
+                        <input
+                          type="checkbox"
+                          checked={filteredProjects.length > 0 && selectedListIds.size === filteredProjects.length}
+                          ref={(el) => {
+                            if (el) el.indeterminate = selectedListIds.size > 0 && selectedListIds.size < filteredProjects.length;
+                          }}
+                          onChange={() => {
+                            if (selectedListIds.size === filteredProjects.length) {
+                              setSelectedListIds(new Set());
+                            } else {
+                              setSelectedListIds(new Set(filteredProjects.map((p) => p.id)));
+                            }
+                          }}
+                          className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer"
+                        />
+                      </th>
                       {PIPELINE_COLUMNS.map(c => (
                         <th key={c.label} className={`px-3 py-2.5 font-bold border-b border-slate-200 ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}>{c.label}</th>
                       ))}
+                      <th className="px-3 py-2.5 font-bold border-b border-slate-200 w-8" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {filteredProjects.map((p, idx) => (
-                      <tr key={p.id} className="hover:bg-slate-100 transition-colors">
+                      <tr key={p.id} className={`hover:bg-slate-100 transition-colors ${selectedListIds.has(p.id) ? 'bg-indigo-50/60' : ''}`}>
+                        <td className="px-3 py-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedListIds.has(p.id)}
+                            onChange={() => {
+                              setSelectedListIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(p.id)) next.delete(p.id);
+                                else next.add(p.id);
+                                return next;
+                              });
+                            }}
+                            className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer"
+                          />
+                        </td>
                         {PIPELINE_COLUMNS.map((c, colIdx) => (
                           colIdx === 1 ? (
                             // [추가] 프로젝트명을 누르면 "프로젝트 리스트"(카드형 화면)의 해당
@@ -2075,16 +2174,30 @@ export const ProjectsView: React.FC<Props> = ({
                             </td>
                           )
                         ))}
+                        {/* [추가] 개별 삭제 버튼. 기존 카드형 화면의 handleDeleteProject를 그대로
+                        재사용해 삭제 로직/확인창/에러 처리를 중복 없이 공유한다. */}
+                        <td className="px-3 py-2.5 text-center">
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteProject(p.id, e)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="이 프로젝트 삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold text-slate-700">
+                      <td />
                       <td colSpan={PIPELINE_BUDGET_COL_IDX} className="px-3 py-2.5 text-center">합계</td>
                       <td className="px-3 py-2.5 text-right">{formatKRW(pipelineTotals.budgetSum)}</td>
                       <td colSpan={PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1} />
                       <td className="px-3 py-2.5 text-right">{formatKRW(pipelineTotals.weightedSum)}</td>
                       <td colSpan={PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1} />
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
