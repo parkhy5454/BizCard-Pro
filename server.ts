@@ -4080,6 +4080,22 @@ app.delete('/api/projects/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] "리스트 출력" 표에서 여러 프로젝트를 한 번에 선택/전체 삭제할 때 쓰는 일괄 삭제
+// API. 기존 단건 삭제(app.delete('/api/projects/:id'))를 배열로 반복 호출하는 것과 동일한
+// 효과지만, 요청 한 번으로 처리해 다건 삭제 시 네트워크 왕복을 줄인다.
+app.post('/api/projects/bulk-delete', async (req, res) => {
+  const dbData = getScopedData(req);
+  const scopeId = (req as any).scopeId;
+  const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  if (ids.length === 0) return res.json({ success: true, deletedCount: 0 });
+  const idSet = new Set(ids);
+  dbData.projects = dbData.projects.filter(p => !idSet.has(p.id));
+  for (const id of ids) {
+    await deleteScopedDoc(scopeId, 'projects', id);
+  }
+  res.json({ success: true, deletedCount: ids.length });
+});
+
 // 프로젝트 팔로우업 노트 관리
 app.post('/api/projects/:id/followups', async (req, res) => {
   const dbData = getScopedData(req);
