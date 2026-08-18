@@ -493,6 +493,24 @@ export interface Project {
   budget?: string;
   followUps: ProjectFollowUp[];
   createdAt: string;
+  // [추가] "프로젝트 파이프라인" 양식(번호/프로젝트명/영업자/최종고객/현장·지역/제품군/
+  // 주요품목·사양/예상 수주금액/예상 수주시기/성사확률/가중 예상금액(자동계산)/진행단계/
+  // 경쟁사/ABB 지원요청/비고)에 맞춰 프로젝트 리스트 출력(화면 표·인쇄·엑셀)을 이 형식으로
+  // 바꾸면서 추가된 영업 파이프라인 관리용 필드들. 기존 시행사/시공사/설계사 등 필드나
+  // status(칸반 진행 상태)와는 별개로, 이 회사의 영업 파이프라인 보고 양식 전용으로 쓰인다.
+  endCustomer?: string;   // 최종고객(발주처)
+  siteLocation?: string;  // 현장/지역
+  productGroup?: string;  // 제품군(PG)
+  mainItemsSpec?: string; // 주요 품목·사양
+  expectedTiming?: string; // 예상 수주시기 (예: "2026 Q3", "미정" - 날짜가 아닌 자유 텍스트)
+  winProbability?: number; // 성사확률(%) 0~100. 가중 예상금액(budget × winProbability/100)은
+                            // 항상 이 값과 budget에서 계산해서 보여주며 별도로 저장하지 않는다.
+  // 파이프라인 단계(발굴/견적/협상/수주예정/보류). 프로젝트 관리용 status(기회/진행/완료/실패)와는
+  // 별개의 값으로, 리스트 출력에서는 이 값을 "진행단계" 칸에 쓴다.
+  pipelineStage?: 'lead' | 'quotation' | 'negotiation' | 'closing' | 'hold';
+  competitor?: string;    // 경쟁사
+  supportNeeded?: string; // ABB 지원요청
+  remarks?: string;       // 비고 (리스트 출력 전용 - 메모(description)와는 별개 칸)
 }
 
 export interface MyProfile {
