@@ -3123,52 +3123,16 @@ export const ProjectsView: React.FC<Props> = ({
                 <input type="text" value={newSalesRep} onChange={(e) => setNewSalesRep(e.target.value)} placeholder="예: 홍길동" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
-                  <input type="text" value={newDeveloper} onChange={(e) => setNewDeveloper(e.target.value)} placeholder="예: 한국디벨로퍼" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">시공사</label>
-                  <input type="text" value={newContractor} onChange={(e) => setNewContractor(e.target.value)} placeholder="예: 현대건설" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">건축설계사</label>
-                  <input type="text" value={newArchitect} onChange={(e) => setNewArchitect(e.target.value)} placeholder="예: 희림건축" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">인테리어설계사</label>
-                  <input type="text" value={newInteriorDesigner} onChange={(e) => setNewInteriorDesigner(e.target.value)} placeholder="예: 원오디자인" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">전기설계사</label>
-                  <input type="text" value={newElectricalDesigner} onChange={(e) => setNewElectricalDesigner(e.target.value)} placeholder="예: 나라설계" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">기계설계사</label>
-                  <input type="text" value={newMechanicalDesigner} onChange={(e) => setNewMechanicalDesigner(e.target.value)} placeholder="예: 우원엠앤이" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">감리사</label>
-                  <input type="text" value={newSupervisor} onChange={(e) => setNewSupervisor(e.target.value)} placeholder="예: 한미글로벌" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">운영사</label>
-                  <input type="text" value={newOperator} onChange={(e) => setNewOperator(e.target.value)} placeholder="예: 에스원" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              {/* [추가] "프로젝트 파이프라인" 양식(번호/프로젝트명/영업자/최종고객/현장·지역/
-              제품군/주요품목·사양/예상 수주금액/예상 수주시기/성사확률/가중 예상금액(자동계산)/
-              진행단계/경쟁사/ABB 지원요청/비고)에 맞춰 등록 시점에 바로 입력할 수 있도록 추가한
-              영업 파이프라인 정보 칸들. "진행 단계"(칸반 상태)와는 별개로, 리스트 출력(화면표/
-              인쇄/엑셀)에서 쓰는 "진행단계"는 아래 "파이프라인 단계" 칸의 값이다. */}
+              {/* [수정] 사용자 요청에 따라 "영업자(담당자)" 아래로는 회사/설계사 정보부터
+              경쟁사/비고까지 모든 선택 입력 필드를 "영업 파이프라인 정보 (선택)" 한 섹션으로
+              통합했다. 순서는 최종고객(발주처) → 시행사(발주처) → 시공사 → 건축/인테리어/
+              전기/기계설계사 → 감리사 → 운영사 → 현장/지역 → 제품군(PG) → 주요 품목·사양 →
+              예상 수주금액 → 예상 수주시기 → 성사확률 → 가중 예상금액(자동계산, 읽기전용) →
+              파이프라인 단계 → 경쟁사 → ABB 지원요청 → 비고 → (칸반)진행 단계/프로젝트
+              등록일/중요도. 그 아래 "연관된 명함 담당자 선택"/"새로운 담당자 직접 입력"은
+              기존과 동일하게 이 섹션 다음에 이어진다. 출력(화면 리스트 출력/인쇄/엑셀)은
+              여전히 PIPELINE_COLUMNS에 정의된 필드만 사용하므로 이 폼 재구성과 무관하게
+              그대로 유지된다. */}
               <div className="pt-2 border-t border-slate-200 space-y-3">
                 <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
 
@@ -3178,19 +3142,44 @@ export const ProjectsView: React.FC<Props> = ({
                     <input type="text" value={newEndCustomer} onChange={(e) => setNewEndCustomer(e.target.value)} placeholder="예: HL리츠운용(주)" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                   <div>
+                    <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
+                    <input type="text" value={newDeveloper} onChange={(e) => setNewDeveloper(e.target.value)} placeholder="예: 한국디벨로퍼" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">시공사</label>
+                    <input type="text" value={newContractor} onChange={(e) => setNewContractor(e.target.value)} placeholder="예: 현대건설" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">건축설계사</label>
+                    <input type="text" value={newArchitect} onChange={(e) => setNewArchitect(e.target.value)} placeholder="예: 희림건축" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">인테리어설계사</label>
+                    <input type="text" value={newInteriorDesigner} onChange={(e) => setNewInteriorDesigner(e.target.value)} placeholder="예: 원오디자인" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">전기설계사</label>
+                    <input type="text" value={newElectricalDesigner} onChange={(e) => setNewElectricalDesigner(e.target.value)} placeholder="예: 나라설계" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">기계설계사</label>
+                    <input type="text" value={newMechanicalDesigner} onChange={(e) => setNewMechanicalDesigner(e.target.value)} placeholder="예: 우원엠앤이" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">감리사</label>
+                    <input type="text" value={newSupervisor} onChange={(e) => setNewSupervisor(e.target.value)} placeholder="예: 한미글로벌" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">운영사</label>
+                    <input type="text" value={newOperator} onChange={(e) => setNewOperator(e.target.value)} placeholder="예: 에스원" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
                     <label className="block text-slate-600 font-semibold mb-1">현장/지역</label>
                     <input type="text" value={newSiteLocation} onChange={(e) => setNewSiteLocation(e.target.value)} placeholder="예: 서울" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">제품군(PG)</label>
                     <input type="text" value={newProductGroup} onChange={(e) => setNewProductGroup(e.target.value)} placeholder="예: 조명/전력 제어 외" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">예상 수주시기</label>
-                    <input type="text" value={newExpectedTiming} onChange={(e) => setNewExpectedTiming(e.target.value)} placeholder="예: 2026 Q3, 미정" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                 </div>
 
@@ -3201,8 +3190,27 @@ export const ProjectsView: React.FC<Props> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    <label className="block text-slate-600 font-semibold mb-1">예상 수주 금액 (원)</label>
+                    <input type="text" inputMode="numeric" value={newBudget ? formatCurrencyInput(newBudget) : ''} onChange={(e) => setNewBudget(e.target.value.replace(/[^\d]/g, ''))} placeholder="예: 50,000,000" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">예상 수주시기</label>
+                    <input type="text" value={newExpectedTiming} onChange={(e) => setNewExpectedTiming(e.target.value)} placeholder="예: 2026 Q3, 미정" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
                     <label className="block text-slate-600 font-semibold mb-1">성사확률(%)</label>
                     <input type="number" min={0} max={100} value={newWinProbability} onChange={(e) => setNewWinProbability(e.target.value)} placeholder="예: 60" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    {/* [추가] 가중 예상금액은 예산×성사확률로 항상 자동 계산되는 값이라 별도로
+                    저장하지 않고, 현재 입력값 기준으로 미리보기만 읽기 전용으로 보여준다. */}
+                    <label className="block text-slate-600 font-semibold mb-1">가중 예상금액(KRW)</label>
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-500 font-medium">
+                      {(() => {
+                        const w = computeWeightedAmount(newBudget, newWinProbability === '' ? undefined : Number(newWinProbability));
+                        return w === null ? '자동 계산됨' : formatKRW(w);
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">파이프라인 단계</label>
@@ -3211,9 +3219,6 @@ export const ProjectsView: React.FC<Props> = ({
                       {PIPELINE_STAGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">경쟁사</label>
                     <input type="text" value={newCompetitor} onChange={(e) => setNewCompetitor(e.target.value)} placeholder="예: S사" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
@@ -3228,38 +3233,29 @@ export const ProjectsView: React.FC<Props> = ({
                   <label className="block text-slate-600 font-semibold mb-1">비고</label>
                   <textarea value={newRemarks} onChange={(e) => setNewRemarks(e.target.value)} placeholder="예: 재견적 예정" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500 resize-none" />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
-                  <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
-                    <option value="opportunity">기회 (Opportunity)</option>
-                    <option value="progress">진행 (Progress)</option>
-                    <option value="completed">완료 (Completed)</option>
-                    <option value="failed">실패 (Failed)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
-                  <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
-                  <input type="text" inputMode="numeric" value={newBudget ? formatCurrencyInput(newBudget) : ''} onChange={(e) => setNewBudget(e.target.value.replace(/[^\d]/g, ''))} placeholder="예: 50,000,000" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">중요도</label>
-                  <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
-                    <option value="high">🔥 높음</option>
-                    <option value="medium">⚡ 보통</option>
-                    <option value="low">🌱 낮음</option>
-                  </select>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
+                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                      <option value="opportunity">기회 (Opportunity)</option>
+                      <option value="progress">진행 (Progress)</option>
+                      <option value="completed">완료 (Completed)</option>
+                      <option value="failed">실패 (Failed)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
+                    <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">중요도</label>
+                    <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                      <option value="high">🔥 높음</option>
+                      <option value="medium">⚡ 보통</option>
+                      <option value="low">🌱 낮음</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -3408,48 +3404,9 @@ export const ProjectsView: React.FC<Props> = ({
                 <input type="text" value={editingProject.salesRep || ''} onChange={(e) => setEditingProject({ ...editingProject, salesRep: e.target.value })} placeholder="예: 홍길동" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
-                  <input type="text" value={editingProject.developer || ''} onChange={(e) => setEditingProject({ ...editingProject, developer: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">시공사</label>
-                  <input type="text" value={editingProject.contractor || ''} onChange={(e) => setEditingProject({ ...editingProject, contractor: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">건축설계사</label>
-                  <input type="text" value={editingProject.architect || ''} onChange={(e) => setEditingProject({ ...editingProject, architect: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">인테리어설계사</label>
-                  <input type="text" value={editingProject.interiorDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, interiorDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">전기설계사</label>
-                  <input type="text" value={editingProject.electricalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, electricalDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">기계설계사</label>
-                  <input type="text" value={editingProject.mechanicalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, mechanicalDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">감리사</label>
-                  <input type="text" value={editingProject.supervisor || ''} onChange={(e) => setEditingProject({ ...editingProject, supervisor: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">운영사</label>
-                  <input type="text" value={editingProject.operator || ''} onChange={(e) => setEditingProject({ ...editingProject, operator: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              {/* [추가] 등록 폼과 동일한 영업 파이프라인 정보 칸들 (수정 가능) */}
+              {/* [수정] 등록 폼과 동일하게, 영업자(담당자) 아래로는 회사/설계사 정보부터
+              경쟁사/비고까지 모든 선택 입력 필드를 "영업 파이프라인 정보 (선택)" 한 섹션으로
+              통합했다 (수정 가능). 순서는 등록 폼과 동일하다. */}
               <div className="pt-2 border-t border-slate-200 space-y-3">
                 <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
 
@@ -3459,19 +3416,44 @@ export const ProjectsView: React.FC<Props> = ({
                     <input type="text" value={editingProject.endCustomer || ''} onChange={(e) => setEditingProject({ ...editingProject, endCustomer: e.target.value })} placeholder="예: HL리츠운용(주)" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                   <div>
+                    <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
+                    <input type="text" value={editingProject.developer || ''} onChange={(e) => setEditingProject({ ...editingProject, developer: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">시공사</label>
+                    <input type="text" value={editingProject.contractor || ''} onChange={(e) => setEditingProject({ ...editingProject, contractor: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">건축설계사</label>
+                    <input type="text" value={editingProject.architect || ''} onChange={(e) => setEditingProject({ ...editingProject, architect: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">인테리어설계사</label>
+                    <input type="text" value={editingProject.interiorDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, interiorDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">전기설계사</label>
+                    <input type="text" value={editingProject.electricalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, electricalDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">기계설계사</label>
+                    <input type="text" value={editingProject.mechanicalDesigner || ''} onChange={(e) => setEditingProject({ ...editingProject, mechanicalDesigner: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">감리사</label>
+                    <input type="text" value={editingProject.supervisor || ''} onChange={(e) => setEditingProject({ ...editingProject, supervisor: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">운영사</label>
+                    <input type="text" value={editingProject.operator || ''} onChange={(e) => setEditingProject({ ...editingProject, operator: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
                     <label className="block text-slate-600 font-semibold mb-1">현장/지역</label>
                     <input type="text" value={editingProject.siteLocation || ''} onChange={(e) => setEditingProject({ ...editingProject, siteLocation: e.target.value })} placeholder="예: 서울" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">제품군(PG)</label>
                     <input type="text" value={editingProject.productGroup || ''} onChange={(e) => setEditingProject({ ...editingProject, productGroup: e.target.value })} placeholder="예: 조명/전력 제어 외" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">예상 수주시기</label>
-                    <input type="text" value={editingProject.expectedTiming || ''} onChange={(e) => setEditingProject({ ...editingProject, expectedTiming: e.target.value })} placeholder="예: 2026 Q3, 미정" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                 </div>
 
@@ -3482,8 +3464,27 @@ export const ProjectsView: React.FC<Props> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    <label className="block text-slate-600 font-semibold mb-1">예상 수주 금액 (원)</label>
+                    <input type="text" inputMode="numeric" value={editingProject.budget ? formatCurrencyInput(editingProject.budget) : ''} onChange={(e) => setEditingProject({ ...editingProject, budget: e.target.value.replace(/[^\d]/g, '') })} placeholder="예: 50,000,000" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">예상 수주시기</label>
+                    <input type="text" value={editingProject.expectedTiming || ''} onChange={(e) => setEditingProject({ ...editingProject, expectedTiming: e.target.value })} placeholder="예: 2026 Q3, 미정" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
                     <label className="block text-slate-600 font-semibold mb-1">성사확률(%)</label>
                     <input type="number" min={0} max={100} value={editingProject.winProbability ?? ''} onChange={(e) => setEditingProject({ ...editingProject, winProbability: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="예: 60" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    {/* [추가] 가중 예상금액은 예산×성사확률로 항상 자동 계산되는 값이라 별도로
+                    저장하지 않고, 현재 값 기준으로 미리보기만 읽기 전용으로 보여준다. */}
+                    <label className="block text-slate-600 font-semibold mb-1">가중 예상금액(KRW)</label>
+                    <div className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-500 font-medium">
+                      {(() => {
+                        const w = computeWeightedAmount(editingProject.budget, editingProject.winProbability);
+                        return w === null ? '자동 계산됨' : formatKRW(w);
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">파이프라인 단계</label>
@@ -3492,9 +3493,6 @@ export const ProjectsView: React.FC<Props> = ({
                       {PIPELINE_STAGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">경쟁사</label>
                     <input type="text" value={editingProject.competitor || ''} onChange={(e) => setEditingProject({ ...editingProject, competitor: e.target.value })} placeholder="예: S사" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
@@ -3509,38 +3507,29 @@ export const ProjectsView: React.FC<Props> = ({
                   <label className="block text-slate-600 font-semibold mb-1">비고</label>
                   <textarea value={editingProject.remarks || ''} onChange={(e) => setEditingProject({ ...editingProject, remarks: e.target.value })} placeholder="예: 재견적 예정" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500 resize-none" />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
-                  <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
-                    <option value="opportunity">기회 (Opportunity)</option>
-                    <option value="progress">진행 (Progress)</option>
-                    <option value="completed">완료 (Completed)</option>
-                    <option value="failed">실패 (Failed)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
-                  <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">예상 거래 규모 / 예산 (원)</label>
-                  <input type="text" inputMode="numeric" value={editingProject.budget ? formatCurrencyInput(editingProject.budget) : ''} onChange={(e) => setEditingProject({ ...editingProject, budget: e.target.value.replace(/[^\d]/g, '') })} placeholder="예: 50,000,000" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">중요도</label>
-                  <select value={editingProject.priority} onChange={(e) => setEditingProject({ ...editingProject, priority: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
-                    <option value="high">🔥 높음</option>
-                    <option value="medium">⚡ 보통</option>
-                    <option value="low">🌱 낮음</option>
-                  </select>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
+                    <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                      <option value="opportunity">기회 (Opportunity)</option>
+                      <option value="progress">진행 (Progress)</option>
+                      <option value="completed">완료 (Completed)</option>
+                      <option value="failed">실패 (Failed)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
+                    <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">중요도</label>
+                    <select value={editingProject.priority} onChange={(e) => setEditingProject({ ...editingProject, priority: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                      <option value="high">🔥 높음</option>
+                      <option value="medium">⚡ 보통</option>
+                      <option value="low">🌱 낮음</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
