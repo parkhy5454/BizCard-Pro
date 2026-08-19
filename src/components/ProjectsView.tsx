@@ -451,7 +451,10 @@ export const ProjectsView: React.FC<Props> = ({
   const [newName, setNewName] = useState<string>('');
   // [수정] 영업자(담당자) - 기본값은 지금 로그인한 사람(등록자) 이름, 직접 수정 가능
   const [newSalesRep, setNewSalesRep] = useState<string>(currentUser?.name || '');
-  const [newDeveloper, setNewDeveloper] = useState<string>('');
+  // [수정] 사용자 지적으로 "최종고객(발주처)"와 "시행사(발주처)"가 사실상 같은 개념이라
+  // 입력칸을 하나로 합쳤다. newDeveloper라는 별도 입력 state는 없애고, 저장 시 항상
+  // newEndCustomer 값을 그대로 developer 칸에도 같이 써서(최종고객=시행사) 카드 뱃지·
+  // 거래처 회사명 매칭 등 기존에 developer 필드를 참조하던 기능이 계속 동작하게 한다.
   const [newContractor, setNewContractor] = useState<string>('');
   const [newArchitect, setNewArchitect] = useState<string>('');
   const [newElectricalDesigner, setNewElectricalDesigner] = useState<string>('');
@@ -553,7 +556,7 @@ export const ProjectsView: React.FC<Props> = ({
       name: newName,
       description: newDescription,
       salesRep: newSalesRep,
-      developer: newDeveloper,
+      developer: newEndCustomer,
       contractor: newContractor,
       architect: newArchitect,
       electricalDesigner: newElectricalDesigner,
@@ -604,7 +607,6 @@ export const ProjectsView: React.FC<Props> = ({
     setNewDescription('');
     setNewSalesRep(currentUser?.name || '');
     setNewDueDate(new Date().toISOString().split('T')[0]);
-    setNewDeveloper('');
     setNewContractor('');
     setNewArchitect('');
     setNewElectricalDesigner('');
@@ -640,7 +642,10 @@ export const ProjectsView: React.FC<Props> = ({
     e.preventDefault();
     if (!editingProject) return;
 
-    let updated = editingProject;
+    // [수정] "최종고객(발주처)"와 "시행사(발주처)"를 하나로 합치면서, 별도 입력칸 없이도
+    // developer 필드가 항상 endCustomer 값을 그대로 따라가게 한다 (카드 뱃지·거래처 회사명
+    // 매칭 등 기존에 developer를 참조하던 기능이 계속 동작하도록 유지).
+    let updated: Project = { ...editingProject, developer: editingProject.endCustomer };
 
     // 새로운 담당자를 직접 입력했으면 먼저 명함으로 저장하고 프로젝트에 연결
     if (useDirectContact && directContactName.trim()) {
@@ -1342,6 +1347,7 @@ export const ProjectsView: React.FC<Props> = ({
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
+        (p.endCustomer || '').toLowerCase().includes(q) ||
         (p.developer || '').toLowerCase().includes(q) ||
         (p.contractor || '').toLowerCase().includes(q)
       );
@@ -1736,34 +1742,45 @@ export const ProjectsView: React.FC<Props> = ({
         return;
       }
 
-      // 작성자(있으면) 기본 영업자로 사용 - 상단 안내 영역 어딘가에 "작성자" 라벨과 함께 있음
+      // 작성자(있으면) 기본 영업자로 사용 - 상단 안내 영역 어딘가에 "작성자" 라벨과 함께 있음.
+      // 각 행에 "영업자" 열 값이 따로 있으면 그 값을 우선 쓰고, 비어있는 행에 한해서만
+      // 이 기본값으로 채워준다 (아래 fallback 처리 참고).
       let defaultSalesRep = '';
       for (const r of rows.slice(0, headerRowIdx)) {
         const idx = r.findIndex((v) => typeof v === 'string' && v.replace(/\s/g, '') === '작성자');
         if (idx !== -1 && typeof r[idx + 1] === 'string') { defaultSalesRep = r[idx + 1]; break; }
       }
 
+      // [수정] 아래 열 순서는 PIPELINE_COLUMNS(화면 리스트 출력/인쇄/엑셀 내보내기가 실제로
+      // 쓰는 열 순서: 번호·프로젝트명·영업자·최종고객(발주처)·현장/지역·제품군·주요 품목·사양·
+      // 예상 수주금액·예상 수주시기·성사확률·가중 예상금액(자동계산이라 읽지 않음)·진행단계·
+      // 경쟁사·ABB 지원요청·비고)와 정확히 맞춘 것이다. 예전 코드는 "영업자" 열이 추가되기
+      // 전 기준으로 짜여 있어서 최종고객부터 한 칸씩 밀려 읽혔고(영업자를 최종고객으로,
+      // 최종고객을 현장/지역으로 잘못 읽는 식) 맨 마지막 "비고" 열은 아예 읽지도 못했다.
       const dataRows = rows.slice(headerRowIdx + 2); // 헤더 다음 줄은 "예시" 행이라 건너뜀
       const toImport: Partial<Project>[] = [];
       for (const r of dataRows) {
         const name = typeof r[1] === 'string' ? r[1].trim() : '';
         if (!name) continue; // 프로젝트명이 빈 행은 빈 템플릿 줄이므로 건너뜀
 
-        const endCustomer = (r[2] ?? '').toString().trim();
-        const site = (r[3] ?? '').toString().trim();
-        const productGroup = (r[4] ?? '').toString().trim();
-        const mainItems = (r[5] ?? '').toString().trim();
-        const expectedValue = r[6];
-        const timing = (r[7] ?? '').toString().trim();
-        const winPctRaw = r[8];
+        const salesRepCell = (r[2] ?? '').toString().trim();
+        const endCustomer = (r[3] ?? '').toString().trim();
+        const site = (r[4] ?? '').toString().trim();
+        const productGroup = (r[5] ?? '').toString().trim();
+        const mainItems = (r[6] ?? '').toString().trim();
+        const expectedValue = r[7];
+        const timing = (r[8] ?? '').toString().trim();
+        const winPctRaw = r[9];
         const winPct = typeof winPctRaw === 'number' ? winPctRaw : (winPctRaw ? parseFloat(String(winPctRaw)) : null);
-        const stage = (r[10] ?? '').toString().trim();
-        const competitor = (r[11] ?? '').toString().trim();
-        const supportNeeded = (r[12] ?? '').toString().trim();
-        const remarks = (r[13] ?? '').toString().trim();
+        // r[10]은 "가중 예상금액(KRW)" 열 - 저장하지 않는 자동 계산값이라 그냥 건너뜀
+        const stage = (r[11] ?? '').toString().trim();
+        const competitor = (r[12] ?? '').toString().trim();
+        const supportNeeded = (r[13] ?? '').toString().trim();
+        const remarks = (r[14] ?? '').toString().trim();
 
         toImport.push({
           name,
+          salesRep: salesRepCell || defaultSalesRep,
           // 최종고객은 전용 칸(endCustomer)에 넣되, 카드 화면의 "시행: OOO" 뱃지·거래처
           // 회사명 매칭 기능이 계속 동작하도록 시행사(developer) 칸에도 같이 채워준다.
           endCustomer,
@@ -1777,7 +1794,6 @@ export const ProjectsView: React.FC<Props> = ({
           competitor,
           supportNeeded,
           remarks,
-          salesRep: defaultSalesRep,
           status: mapPipelineStageToStatus(stage),
           priority: mapWinPctToPriority(winPct),
           dueDate: '',
@@ -2276,7 +2292,10 @@ export const ProjectsView: React.FC<Props> = ({
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {proj.salesRep && <span className="text-[10px] bg-indigo-50 border border-indigo-500/30 text-indigo-700 px-2 py-0.5 rounded-md font-bold">영업자: {proj.salesRep}</span>}
-                      {proj.developer && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">시행: {proj.developer}</span>}
+                      {/* [수정] "최종고객(발주처)"와 "시행사(발주처)"를 하나로 합쳐서 endCustomer
+                      값을 직접 보여준다 (developer는 이제 endCustomer를 그대로 미러링하는
+                      내부용 값이라 화면 표시는 endCustomer 기준으로 통일). */}
+                      {proj.endCustomer && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">발주처: {proj.endCustomer}</span>}
                       {proj.contractor && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">시공: {proj.contractor}</span>}
                       {proj.architect && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">건축설계: {proj.architect}</span>}
                       {proj.interiorDesigner && <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">인테리어: {proj.interiorDesigner}</span>}
@@ -2377,8 +2396,10 @@ export const ProjectsView: React.FC<Props> = ({
                         <Briefcase className="w-3.5 h-3.5 text-indigo-400" /> 프로젝트 관계사 / 참여사 정보
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        {/* [수정] "최종고객(발주처)"와 "시행사(발주처)"를 하나로 합쳐서
+                        endCustomer 값을 보여준다 (거래처 회사명 매칭도 endCustomer 기준). */}
                         {([
-                          ['시행사(발주처)', proj.developer],
+                          ['최종고객(발주처)', proj.endCustomer],
                           ['시공사', proj.contractor],
                           ['건축설계사', proj.architect],
                           ['인테리어설계사', proj.interiorDesigner],
@@ -2415,14 +2436,15 @@ export const ProjectsView: React.FC<Props> = ({
                     예상 수주시기/성사확률/가중 예상금액/파이프라인 단계/경쟁사/ABB 지원요청/비고.
                     아무 값도 입력되지 않은 프로젝트(기존에 등록된 프로젝트 등)에서는 굳이
                     빈 칸들만 나열하지 않도록, 하나라도 값이 있을 때만 보여준다. */}
-                    {(proj.endCustomer || proj.siteLocation || proj.productGroup || proj.mainItemsSpec || proj.expectedTiming || proj.winProbability !== undefined || proj.pipelineStage || proj.competitor || proj.supportNeeded || proj.remarks) && (
+                    {(proj.siteLocation || proj.productGroup || proj.mainItemsSpec || proj.expectedTiming || proj.winProbability !== undefined || proj.pipelineStage || proj.competitor || proj.supportNeeded || proj.remarks) && (
                       <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-3">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 uppercase tracking-wider font-mono">
                           <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> 영업 파이프라인 정보
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                          {/* [수정] 최종고객(발주처)은 위 "프로젝트 관계사/참여사 정보" 카드에서
+                          이미 보여주므로(시행사(발주처)와 통합됨) 여기서는 중복 표시하지 않는다. */}
                           {([
-                            ['최종고객(발주처)', proj.endCustomer],
                             ['현장/지역', proj.siteLocation],
                             ['제품군', proj.productGroup],
                             ['주요 품목·사양', proj.mainItemsSpec],
@@ -3125,7 +3147,7 @@ export const ProjectsView: React.FC<Props> = ({
 
               {/* [수정] 사용자 요청에 따라 "영업자(담당자)" 아래로는 회사/설계사 정보부터
               경쟁사/비고까지 모든 선택 입력 필드를 "영업 파이프라인 정보 (선택)" 한 섹션으로
-              통합했다. 순서는 최종고객(발주처) → 시행사(발주처) → 시공사 → 건축/인테리어/
+              통합했다. 순서는 최종고객(발주처)(=시행사(발주처), 입력칸 통합) → 시공사 → 건축/인테리어/
               전기/기계설계사 → 감리사 → 운영사 → 현장/지역 → 제품군(PG) → 주요 품목·사양 →
               예상 수주금액 → 예상 수주시기 → 성사확률 → 가중 예상금액(자동계산, 읽기전용) →
               파이프라인 단계 → 경쟁사 → ABB 지원요청 → 비고 → (칸반)진행 단계/프로젝트
@@ -3138,12 +3160,12 @@ export const ProjectsView: React.FC<Props> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    {/* [수정] "최종고객(발주처)"와 "시행사(발주처)"는 같은 개념이라 입력칸을
+                    하나로 합쳤다. 저장 시 developer 필드에도 이 값을 그대로 같이 써서(위
+                    handleCreateProject 참고) 기존 카드 뱃지·거래처 회사명 매칭 기능은
+                    그대로 동작한다. */}
                     <label className="block text-slate-600 font-semibold mb-1">최종고객(발주처)</label>
                     <input type="text" value={newEndCustomer} onChange={(e) => setNewEndCustomer(e.target.value)} placeholder="예: HL리츠운용(주)" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
-                    <input type="text" value={newDeveloper} onChange={(e) => setNewDeveloper(e.target.value)} placeholder="예: 한국디벨로퍼" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">시공사</label>
@@ -3412,12 +3434,12 @@ export const ProjectsView: React.FC<Props> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    {/* [수정] "최종고객(발주처)"와 "시행사(발주처)"는 같은 개념이라 입력칸을
+                    하나로 합쳤다. 저장 시(handleUpdateProjectDetails) developer 필드에도
+                    이 값을 그대로 같이 써서 기존 카드 뱃지·거래처 회사명 매칭 기능은 그대로
+                    동작한다. */}
                     <label className="block text-slate-600 font-semibold mb-1">최종고객(발주처)</label>
                     <input type="text" value={editingProject.endCustomer || ''} onChange={(e) => setEditingProject({ ...editingProject, endCustomer: e.target.value })} placeholder="예: HL리츠운용(주)" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">시행사(발주처)</label>
-                    <input type="text" value={editingProject.developer || ''} onChange={(e) => setEditingProject({ ...editingProject, developer: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">시공사</label>
