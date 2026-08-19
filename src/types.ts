@@ -478,7 +478,10 @@ export interface Project {
   name: string;
   description?: string;
   salesRep?: string;           // 영업자(담당자) - 이 프로젝트를 등록/담당하는 내부 영업 담당자 (기본값: 등록자 본인)
-  developer?: string;          // 시행사(발주처)
+  developer?: string;          // 시행사(발주처). [수정] 최종고객(발주처, endCustomer)와 같은
+                                // 개념이라 등록/수정 폼에서는 별도 입력칸 없이 항상 endCustomer
+                                // 값을 그대로 미러링해서 저장한다(카드 뱃지·거래처 회사명 매칭
+                                // 등 기존에 이 필드를 참조하던 기능과의 하위호환용으로만 남겨둠).
   contractor?: string;         // 시공사
   architect?: string;          // 건축설계사
   interiorDesigner?: string;   // 인테리어설계사
