@@ -95,14 +95,15 @@ export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects
   const [activeSubTab, setActiveSubTab] = useState<'briefing' | 'company' | 'relationship'>('briefing');
 
   // [추가] "기업 인텔리전스"/"관계·영업 인텔리전스" 두 탭에서만 (1) 우리 회사 자신과
-  // (2) "나만 보기(비공개)"로 설정된 그룹에 속한 명함(교회/동창회/동호회 등 - 만든 사람
-  // 본인 것이든 남의 것이든 상관없이), (3) 은행/보증/보험/컨설팅/투자/변호사/변리사,
-  // 인증/연구소/협회 그룹에 속한 명함(자문/제휴 성격 기관이라 실제 영업 대상 거래처가
-  // 아님)을 뺀 명함 목록을 쓴다. 두 탭 모두 "거래처/영업 대상 기업"을 분석하려는
-  // 목적인데, 이런 그룹까지 회사 랭킹에 섞이면 분석 결과가 흐려지기 때문. "오늘의
-  // 브리핑"은 원래도 내 할 일 위주라 그대로 둔다.
+  // (2) [회사(company) 계정에 한해서만] "나만 보기(비공개)"로 설정된 그룹에 속한 명함
+  // (교회/동창회/동호회 등 - 만든 사람 본인 것이든 남의 것이든 상관없이), (3) 은행/보증/
+  // 보험/컨설팅/투자/변호사/변리사, 인증/연구소/협회 그룹에 속한 명함(자문/제휴 성격
+  // 기관이라 실제 영업 대상 거래처가 아님)을 뺀 명함 목록을 쓴다. 두 탭 모두 "거래처/영업
+  // 대상 기업"을 분석하려는 목적인데, 이런 그룹까지 회사 랭킹에 섞이면 분석 결과가 흐려지기
+  // 때문. 개인(individual) 계정은 혼자 쓰는 계정이라 이 (2)(3) 제외 없이 모든 명함을 그대로
+  // 쓴다. "오늘의 브리핑"은 원래도 내 할 일 위주라 그대로 둔다.
   const myCompanyNorm = normalizeCompanyName(currentUser?.companyName || '');
-  const intelExcludedGroupIds = useMemo(() => getIntelExcludedGroupIds(groups), [groups]);
+  const intelExcludedGroupIds = useMemo(() => getIntelExcludedGroupIds(groups, currentUser?.type), [groups, currentUser?.type]);
   const externalContacts = useMemo(
     () => contacts.filter((c) => {
       if (myCompanyNorm && normalizeCompanyName(c.company) === myCompanyNorm) return false;

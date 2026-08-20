@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone } from 'lucide-react';
-import { BusinessCard, ContactGroup, Project } from '../types.js';
+import { BusinessCard, ContactGroup, Project, User } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
 import { downloadContactVCard } from '../vcardUtils.js';
@@ -11,6 +11,9 @@ interface Props {
   groups: ContactGroup[];
   // [수정] "관계 인텔리전스" 패널에서 명함과 프로젝트/팔로우업을 엮어서 분석하기 위해 필요
   projects?: Project[];
+  // [추가] "관계 인텔리전스" 패널에서 개인/회사 계정에 따라 분석 대상을 다르게 거르기 위해
+  // 필요(개인 계정은 모든 명함, 회사 계정은 나만보기·은행/보험/컨설팅 등 그룹 제외).
+  currentUser?: User | null;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onSelectContact: (contact: BusinessCard) => void;
@@ -48,7 +51,7 @@ const formatCallDate = (isoStr: string) => {
   }
 };
 
-export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder, isAdmin, onOpenAddressCleanup }) => {
+export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], currentUser, searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder, isAdmin, onOpenAddressCleanup }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -195,10 +198,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
 
         const insights: Insight[] = [];
 
-        // [추가] "나만 보기(비공개)" 그룹 + 은행/보증/보험/컨설팅/투자/변호사/변리사,
-        // 인증/연구소/협회 그룹에 속한 명함은 실제 영업 대상 거래처가 아니므로 이 패널의
-        // 분석 대상에서 제외한다.
-        const intelContacts = filterContactsForIntel(contacts, groups);
+        // [추가] 회사(company) 계정에 한해서만 "나만 보기(비공개)" 그룹 + 은행/보증/보험/
+        // 컨설팅/투자/변호사/변리사, 인증/연구소/협회 그룹에 속한 명함을 실제 영업 대상
+        // 거래처가 아니므로 이 패널의 분석 대상에서 제외한다. 개인(individual) 계정은
+        // 모든 명함을 그대로 쓴다.
+        const intelContacts = filterContactsForIntel(contacts, groups, currentUser?.type);
 
         intelContacts.forEach((c) => {
           // 이 명함과 연결된 프로젝트 중, 아직 끝나지 않은(진행중/기회) 것만 대상으로 한다
