@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw } from 'lucide-react';
+import { MapPin, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw, Search, LocateFixed } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 
@@ -10,6 +10,11 @@ interface Props {
   // [추가] 좌표 재계산 등으로 명함 데이터가 서버에서 바뀌었을 때, 페이지 전체를 새로고침
   // 하지 않고도 최신 데이터를 반영할 수 있도록 부모(App.tsx)의 contacts 상태를 갱신하는 콜백.
   onContactsRefresh?: (contacts: BusinessCard[]) => void;
+  // [추가] 목록에서 바로 전화 버튼을 눌렀을 때 "발신 시도" 통화 기록을 자동으로 남기기
+  // 위해 필요. 명함 상세보기(CardDetailModal)의 전화 버튼과 동일한 동작을 이 화면의
+  // 목록에서도 한 번의 클릭으로 할 수 있게 한다. 안 넘겨주면 전화 버튼만 동작하고
+  // 기록은 남지 않는다.
+  onAddCallHistory?: (contactId: string, record: { type: 'incoming' | 'outgoing' | 'missed'; note?: string }) => void;
 }
 
 // 하버사인 공식(Haversine formula)으로 두 좌표 간 거리(km) 계산
@@ -63,10 +68,17 @@ declare global {
   }
 }
 
-export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectContact, onContactsRefresh }) => {
+export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectContact, onContactsRefresh, onAddCallHistory }) => {
   const [myLat, setMyLat] = useState<number>(37.5665);
   const [myLng, setMyLng] = useState<number>(126.9780);
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
+  // [추가] "지금 내 위치" 대신, 이동하기 전에 미리 지역/주소를 검색해서 그 지역 사람들을
+  // 확인하고 미팅을 잡을 수 있게 하는 기능. locationMode가 'search'면 기준 좌표가 GPS가
+  // 아니라 검색한 지역이라는 뜻이고, 화면에 그 사실과 검색어를 같이 보여준다.
+  const [locationMode, setLocationMode] = useState<'gps' | 'search'>('gps');
+  const [addressQuery, setAddressQuery] = useState<string>('');
+  const [searchedLabel, setSearchedLabel] = useState<string>('');
+  const [isSearchingAddress, setIsSearchingAddress] = useState<boolean>(false);
   // [추가] 주소 지오코딩이 안 된 명함이나 너무 먼 명함까지 다 나열되면 실제로 쓸모 있는
   // "지금 갈 수 있는 근처 사람"을 찾기 어려웠다. 반경 필터를 추가해서, 기본값을 5km로
   // 두고 필요하면 더 좁히거나 넓힐 수 있게 한다.
@@ -103,6 +115,53 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       },
       { timeout: 5000 }
     );
+  };
+
+  // [추가] 이동하기 전에 미리 어느 지역에 사람이 있는지 확인하고 싶을 때 쓰는 지역/주소
+  // 검색. 카카오맵 SDK의 주소 검색(Geocoder)으로 먼저 시도하고, "강남역"·"판교테크노밸리"
+  // 처럼 정확한 지번/도로명 주소가 아닌 지역·건물명일 수도 있으니 실패하면 장소 키워드
+  // 검색(Places)으로 한 번 더 시도한다. 검색이 성공하면 이 지점을 기준 좌표로 바꿔서,
+  // GPS로 실제 이동했을 때와 완전히 동일한 화면(지도/가상 레이더/거리순 목록)을 보여준다.
+  const handleSearchAddress = () => {
+    const q = addressQuery.trim();
+    if (!q) return;
+    const kakao = window.kakao;
+    if (kakaoLoadState !== 'ready' || !kakao?.maps?.services) {
+      alert('지도가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    setIsSearchingAddress(true);
+    const geocoder = new kakao.maps.services.Geocoder();
+    geocoder.addressSearch(q, (result: any[], status: string) => {
+      if (status === kakao.maps.services.Status.OK && result[0]) {
+        setMyLat(parseFloat(result[0].y));
+        setMyLng(parseFloat(result[0].x));
+        setLocationMode('search');
+        setSearchedLabel(q);
+        setIsSearchingAddress(false);
+        return;
+      }
+      const places = new kakao.maps.services.Places();
+      places.keywordSearch(q, (data: any[], placesStatus: string) => {
+        setIsSearchingAddress(false);
+        if (placesStatus === kakao.maps.services.Status.OK && data[0]) {
+          setMyLat(parseFloat(data[0].y));
+          setMyLng(parseFloat(data[0].x));
+          setLocationMode('search');
+          setSearchedLabel(q);
+        } else {
+          alert('입력하신 지역/주소를 찾지 못했습니다. 더 정확한 주소나 건물/지역명으로 다시 시도해주세요.');
+        }
+      });
+    });
+  };
+
+  // 검색했던 지역 기준에서 다시 "지금 내 위치" 기준으로 돌아간다.
+  const handleUseMyGPS = () => {
+    setLocationMode('gps');
+    setSearchedLabel('');
+    setAddressQuery('');
+    handleGetMyGPS();
   };
 
   const filteredAndSortedContacts = contacts
@@ -386,6 +445,49 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
         </div>
       </div>
 
+      {/* [추가] 이동하기 전에 미리 지역/주소를 검색해서 그 지역 사람들을 확인하고 미팅을
+      잡을 수 있게 하는 검색 바. 검색하면 아래 지도/목록의 기준 좌표가 "지금 내 위치"에서
+      검색한 지역으로 바뀌고, 실제로 그 지역에 도착해서 GPS로 볼 때와 동일한 화면을
+      미리 볼 수 있다. */}
+      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-2.5 md:p-4 shadow-xl space-y-2">
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 md:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" />
+            <input
+              type="text"
+              value={addressQuery}
+              onChange={(e) => setAddressQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
+              placeholder="이동 전 미리 확인할 지역/주소 입력 (예: 강남역, 판교테크노밸리, 서울 강남구 테헤란로)"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
+            />
+          </div>
+          <button
+            onClick={handleSearchAddress}
+            disabled={isSearchingAddress || !addressQuery.trim()}
+            className="shrink-0 px-3 md:px-4 py-2 md:py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+          >
+            {isSearchingAddress ? '검색 중...' : '검색'}
+          </button>
+        </div>
+
+        {locationMode === 'search' && (
+          <div className="flex items-center justify-between gap-2 bg-indigo-50 border border-indigo-100 rounded-lg md:rounded-xl px-2.5 md:px-3 py-1.5 md:py-2">
+            <span className="text-[10px] md:text-xs text-indigo-700 font-semibold flex items-center gap-1 min-w-0 truncate">
+              <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
+              <span className="truncate">"{searchedLabel}" 기준으로 보는 중 (내 실제 위치 아님)</span>
+            </span>
+            <button
+              onClick={handleUseMyGPS}
+              className="shrink-0 text-[10px] md:text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            >
+              <LocateFixed className="w-3 h-3 md:w-3.5 md:h-3.5" />
+              내 위치로
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden relative aspect-square md:aspect-video">
@@ -504,6 +606,26 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
                     >
                       {inVisitList ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                     </button>
+
+                    {/* [추가] 상세보기까지 들어가지 않아도, 목록에서 바로 전화를 걸 수 있게
+                    한다. 명함 상세보기(CardDetailModal)의 전화 버튼과 동일하게, 누르는
+                    순간 "발신 시도" 통화 기록을 자동으로 남긴다. */}
+                    {c.phoneMobile && (
+                      <a
+                        href={`tel:${c.phoneMobile}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddCallHistory?.(c.id, {
+                            type: 'outgoing',
+                            note: '(자동 기록) 주변 레이더 목록에서 전화 버튼을 눌러 발신을 시도했습니다.'
+                          });
+                        }}
+                        title={`${c.name}에게 바로 전화하기`}
+                        className="shrink-0 w-8 h-8 rounded-full bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white flex items-center justify-center transition-all"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </a>
+                    )}
 
                     <div onClick={() => onSelectContact(c)} className="min-w-0 flex-1 cursor-pointer">
                       <div className="flex items-center gap-2">
