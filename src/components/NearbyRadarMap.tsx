@@ -79,6 +79,13 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   const [addressQuery, setAddressQuery] = useState<string>('');
   const [searchedLabel, setSearchedLabel] = useState<string>('');
   const [isSearchingAddress, setIsSearchingAddress] = useState<boolean>(false);
+  // [추가] 검색어가 카카오 지도에서 "지점"으로 검색되는 게 아니라, 내가 이미 가지고 있는
+  // 명함들의 주소/회사명 "안에 포함된 단어"로 매칭됐을 때 그 결과 명함 id 목록을 담아둔다.
+  // null이면 이 모드가 아니라는 뜻이고(기존처럼 반경 기준으로 목록을 보여줌), 배열이면
+  // 반경 제한 없이 이 id들에 해당하는 명함만 목록에 보여준다. "서울시 노원구 석계로 15길
+  // 25" 같은 전체 주소 중 "노원구", "석계로"처럼 단어 하나만 입력해도 그 단어가 주소에
+  // 포함된 명함을 바로 찾을 수 있게 하기 위한 기능이다.
+  const [keywordMatchIds, setKeywordMatchIds] = useState<string[] | null>(null);
   // [추가] 주소 지오코딩이 안 된 명함이나 너무 먼 명함까지 다 나열되면 실제로 쓸모 있는
   // "지금 갈 수 있는 근처 사람"을 찾기 어려웠다. 반경 필터를 추가해서, 기본값을 5km로
   // 두고 필요하면 더 좁히거나 넓힐 수 있게 한다.
@@ -118,16 +125,45 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   };
 
   // [추가] 이동하기 전에 미리 어느 지역에 사람이 있는지 확인하고 싶을 때 쓰는 지역/주소
-  // 검색. 카카오맵 SDK의 주소 검색(Geocoder)으로 먼저 시도하고, "강남역"·"판교테크노밸리"
-  // 처럼 정확한 지번/도로명 주소가 아닌 지역·건물명일 수도 있으니 실패하면 장소 키워드
-  // 검색(Places)으로 한 번 더 시도한다. 검색이 성공하면 이 지점을 기준 좌표로 바꿔서,
-  // GPS로 실제 이동했을 때와 완전히 동일한 화면(지도/가상 레이더/거리순 목록)을 보여준다.
+  // 검색. 두 단계로 동작한다.
+  //
+  // 1단계 (내 명함 주소/회사명 직접 매칭): "서울시 노원구 석계로 15길 25"처럼 명함에
+  // 저장된 전체 주소 중, "노원구"나 "석계로"처럼 단어 하나만 입력해도 그 단어가 주소나
+  // 회사명에 포함된 명함을 바로 찾아서 보여준다. 카카오 API를 거치지 않는 단순 문자열
+  // 포함 검사라 "송파"처럼 짧고 불완전한 단어도 실패 없이 바로 매칭된다.
+  //
+  // 2단계 (카카오 지도 검색, 폴백): 1단계에서 일치하는 명함이 하나도 없으면, 아직 등록된
+  // 사람이 없는 새로운 지역/건물을 미리 둘러보는 상황일 수 있으니, 기존처럼 카카오맵
+  // SDK의 주소 검색(Geocoder) → 장소 키워드 검색(Places) 순서로 그 지점 자체를 찾아서
+  // 지도 중심으로 옮겨준다.
   const handleSearchAddress = () => {
     const q = addressQuery.trim();
     if (!q) return;
+
+    const qLower = q.toLowerCase();
+    const localMatches = contacts.filter(
+      (c) =>
+        (c.address && c.address.toLowerCase().includes(qLower)) ||
+        (c.company && c.company.toLowerCase().includes(qLower))
+    );
+
+    if (localMatches.length > 0) {
+      setKeywordMatchIds(localMatches.map((c) => c.id));
+      setLocationMode('search');
+      setSearchedLabel(q);
+      // 매칭된 명함 중 좌표가 있는 것이 있으면 지도/가상 레이더 중심도 그쪽으로 옮겨준다.
+      const withCoords = localMatches.find((c) => c.lat && c.lng);
+      if (withCoords && withCoords.lat && withCoords.lng) {
+        setMyLat(withCoords.lat);
+        setMyLng(withCoords.lng);
+      }
+      return;
+    }
+
+    setKeywordMatchIds(null);
     const kakao = window.kakao;
     if (kakaoLoadState !== 'ready' || !kakao?.maps?.services) {
-      alert('지도가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      alert('일치하는 명함이 없고, 지도도 아직 준비되지 않아 지역 검색을 할 수 없습니다. 잠시 후 다시 시도해주세요.');
       return;
     }
     setIsSearchingAddress(true);
@@ -150,7 +186,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           setLocationMode('search');
           setSearchedLabel(q);
         } else {
-          alert('입력하신 지역/주소를 찾지 못했습니다. 더 정확한 주소나 건물/지역명으로 다시 시도해주세요.');
+          alert('일치하는 명함도 없고, 지역/주소도 찾지 못했습니다. 다른 단어나 더 정확한 주소로 다시 시도해주세요.');
         }
       });
     });
@@ -161,6 +197,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
     setLocationMode('gps');
     setSearchedLabel('');
     setAddressQuery('');
+    setKeywordMatchIds(null);
     handleGetMyGPS();
   };
 
@@ -169,9 +206,15 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       const dist = (c.lat && c.lng) ? getDistanceKM(myLat, myLng, c.lat, c.lng) : 9999;
       return { ...c, distanceKm: dist };
     })
-    // radiusKm이 0이면 "전체보기"로 취급해서 거리 제한 없이 다 보여준다.
-    // 좌표가 없는 명함(distanceKm 9999)은 반경 필터를 걸어두면 자동으로 걸러진다.
-    .filter((c) => radiusKm === 0 || c.distanceKm <= radiusKm)
+    .filter((c) => {
+      // 주소/회사명 단어 검색 결과 모드(keywordMatchIds)일 때는 반경 제한을 두지 않고
+      // 매칭된 명함만 그대로 보여준다 — 좌표가 없어서 거리 계산이 안 되는 명함도 이
+      // 방식이면 놓치지 않고 찾아낼 수 있다.
+      if (keywordMatchIds) return keywordMatchIds.includes(c.id);
+      // radiusKm이 0이면 "전체보기"로 취급해서 거리 제한 없이 다 보여준다.
+      // 좌표가 없는 명함(distanceKm 9999)은 반경 필터를 걸어두면 자동으로 걸러진다.
+      return radiusKm === 0 || c.distanceKm <= radiusKm;
+    })
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   useEffect(() => {
@@ -433,7 +476,12 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
 
           <select
             value={radiusKm}
-            onChange={(e) => setRadiusKm(Number(e.target.value))}
+            onChange={(e) => {
+              setRadiusKm(Number(e.target.value));
+              // 반경을 직접 바꾸면 "단어 검색 결과만 보기" 모드는 해제하고 다시 반경
+              // 기준 목록으로 돌아간다.
+              if (keywordMatchIds) setKeywordMatchIds(null);
+            }}
             className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] md:text-xs rounded-lg md:rounded-xl px-1.5 md:px-3 py-1.5 md:py-2 focus:outline-none focus:border-indigo-500 font-bold"
           >
             <option value={1}>1km 이내</option>
@@ -458,7 +506,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               value={addressQuery}
               onChange={(e) => setAddressQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
-              placeholder="이동 전 미리 확인할 지역/주소 입력 (예: 강남역, 판교테크노밸리, 서울 강남구 테헤란로)"
+              placeholder="주소/회사에 포함된 단어로 검색 (예: 노원구, 석계로, 강남역, 판교테크노밸리)"
               className="w-full bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
             />
           </div>
@@ -475,7 +523,11 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           <div className="flex items-center justify-between gap-2 bg-indigo-50 border border-indigo-100 rounded-lg md:rounded-xl px-2.5 md:px-3 py-1.5 md:py-2">
             <span className="text-[10px] md:text-xs text-indigo-700 font-semibold flex items-center gap-1 min-w-0 truncate">
               <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
-              <span className="truncate">"{searchedLabel}" 기준으로 보는 중 (내 실제 위치 아님)</span>
+              <span className="truncate">
+                {keywordMatchIds
+                  ? `"${searchedLabel}" 주소/회사명에 포함된 명함 ${keywordMatchIds.length}건`
+                  : `"${searchedLabel}" 기준으로 보는 중 (내 실제 위치 아님)`}
+              </span>
             </span>
             <button
               onClick={handleUseMyGPS}
@@ -587,7 +639,11 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           <div className="flex-1 overflow-y-auto space-y-3 pr-1">
             {filteredAndSortedContacts.length === 0 ? (
               <p className="text-xs text-slate-400 py-10 text-center px-4">
-                {radiusKm > 0 ? `${radiusKm}km 이내에 해당하는 명함이 없습니다. 반경을 넓혀보세요.` : '조건에 맞는 명함이 없습니다.'}
+                {keywordMatchIds
+                  ? `"${searchedLabel}"가 주소/회사명에 포함된 명함이 없습니다.`
+                  : radiusKm > 0
+                  ? `${radiusKm}km 이내에 해당하는 명함이 없습니다. 반경을 넓혀보세요.`
+                  : '조건에 맞는 명함이 없습니다.'}
               </p>
             ) : (
               filteredAndSortedContacts.map((c) => {
