@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Calendar, Building2, Users, TrendingUp, AlertCircle, Clock, Search, RefreshCw, Briefcase, Phone, ChevronRight, CheckCircle2, ListTodo, UserPlus } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project, User as UserType, DailyWorkLog, WeeklyWorkLog } from '../types.js';
+import { getIntelExcludedGroupIds } from '../contactFilters.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -95,22 +96,20 @@ export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects
 
   // [추가] "기업 인텔리전스"/"관계·영업 인텔리전스" 두 탭에서만 (1) 우리 회사 자신과
   // (2) "나만 보기(비공개)"로 설정된 그룹에 속한 명함(교회/동창회/동호회 등 - 만든 사람
-  // 본인 것이든 남의 것이든 상관없이)을 뺀 명함 목록을 쓴다. 두 탭 모두 "거래처/영업
-  // 대상 기업"을 분석하려는 목적인데, 개인적으로 비공개 처리해둔 친목 모임 같은 그룹까지
-  // 회사 랭킹에 섞이면 분석 결과가 흐려지기 때문. "오늘의 브리핑"은 원래도 내 할 일
-  // 위주라 그대로 둔다.
+  // 본인 것이든 남의 것이든 상관없이), (3) 은행/보증/보험/컨설팅/투자/변호사/변리사,
+  // 인증/연구소/협회 그룹에 속한 명함(자문/제휴 성격 기관이라 실제 영업 대상 거래처가
+  // 아님)을 뺀 명함 목록을 쓴다. 두 탭 모두 "거래처/영업 대상 기업"을 분석하려는
+  // 목적인데, 이런 그룹까지 회사 랭킹에 섞이면 분석 결과가 흐려지기 때문. "오늘의
+  // 브리핑"은 원래도 내 할 일 위주라 그대로 둔다.
   const myCompanyNorm = normalizeCompanyName(currentUser?.companyName || '');
-  const privateGroupIds = useMemo(
-    () => new Set(groups.filter((g) => g.isPrivate).map((g) => g.id)),
-    [groups]
-  );
+  const intelExcludedGroupIds = useMemo(() => getIntelExcludedGroupIds(groups), [groups]);
   const externalContacts = useMemo(
     () => contacts.filter((c) => {
       if (myCompanyNorm && normalizeCompanyName(c.company) === myCompanyNorm) return false;
-      if ((c.groupIds || []).some((gid) => privateGroupIds.has(gid))) return false;
+      if ((c.groupIds || []).some((gid) => intelExcludedGroupIds.has(gid))) return false;
       return true;
     }),
-    [contacts, myCompanyNorm, privateGroupIds]
+    [contacts, myCompanyNorm, intelExcludedGroupIds]
   );
 
   const subTabs: { id: typeof activeSubTab; label: string; icon: any; desc: string }[] = [

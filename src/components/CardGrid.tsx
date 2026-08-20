@@ -4,6 +4,7 @@ import { BusinessCard, ContactGroup, Project } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
 import { downloadContactVCard } from '../vcardUtils.js';
+import { filterContactsForIntel } from '../contactFilters.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -194,7 +195,12 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
 
         const insights: Insight[] = [];
 
-        contacts.forEach((c) => {
+        // [추가] "나만 보기(비공개)" 그룹 + 은행/보증/보험/컨설팅/투자/변호사/변리사,
+        // 인증/연구소/협회 그룹에 속한 명함은 실제 영업 대상 거래처가 아니므로 이 패널의
+        // 분석 대상에서 제외한다.
+        const intelContacts = filterContactsForIntel(contacts, groups);
+
+        intelContacts.forEach((c) => {
           // 이 명함과 연결된 프로젝트 중, 아직 끝나지 않은(진행중/기회) 것만 대상으로 한다
           const linkedActiveProjects = projects.filter(
             (p) => (p.contactIds || []).includes(c.id) && (p.status === 'opportunity' || p.status === 'progress')
