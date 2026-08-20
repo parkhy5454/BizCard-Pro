@@ -510,6 +510,7 @@ export default function App() {
                   setSelectedContactDetail(c);
                 }}
                 onContactsRefresh={setContacts}
+                onAddCallHistory={handleAddCallHistory}
               />
             )}
 
