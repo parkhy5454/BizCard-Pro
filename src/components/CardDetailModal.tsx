@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home } from 'lucide-react';
+import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home, Smartphone } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
@@ -8,6 +8,7 @@ import { generateStandardCardImage } from '../cardImageGenerator.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
+import { generateContactVCardText, downloadContactVCard } from '../vcardUtils.js';
 
 interface Props {
   contact: BusinessCard | null;
@@ -17,37 +18,6 @@ interface Props {
   onUpdateContact: (updated: BusinessCard) => void;
   onAddCallHistory: (contactId: string, record: { type: 'incoming'|'outgoing'|'missed'; duration?: string; note?: string }) => void;
   initialTab?: 'info' | 'history' | 'edit';
-}
-
-// [수정] 명함 전달하기(Web Share API)에서 함께 보낼 vCard(.vcf) 텍스트 생성.
-// 명함 앞면 사진이 있으면 PHOTO 필드로 함께 담아, 상대방 연락처 앱에 저장 시 사진도 같이 들어가게 한다.
-function generateContactVCardText(contact: BusinessCard): string {
-  let photoLine = '';
-  if (contact.frontImage) {
-    const match = contact.frontImage.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (match) {
-      const [, imgType, base64Data] = match;
-      const vcardImgType = imgType.toLowerCase() === 'jpg' ? 'JPEG' : imgType.toUpperCase();
-      photoLine = `PHOTO;ENCODING=b;TYPE=${vcardImgType}:${base64Data}`;
-    }
-  }
-  return [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `FN:${contact.name}`,
-    `N:${contact.name};;;;`,
-    `ORG:${contact.company};${contact.department}`,
-    `TITLE:${contact.title}`,
-    contact.phoneMobile ? `TEL;TYPE=CELL:${contact.phoneMobile}` : '',
-    contact.phoneOffice ? `TEL;TYPE=WORK:${contact.phoneOffice}` : '',
-    contact.phoneFax ? `TEL;TYPE=FAX:${contact.phoneFax}` : '',
-    contact.email ? `EMAIL;TYPE=PREF,INTERNET:${contact.email}` : '',
-    contact.address ? `ADR;TYPE=WORK:;;${contact.address};;;;` : '',
-    contact.website ? `URL:${contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}` : '',
-    contact.memo ? `NOTE:${contact.memo}` : '',
-    photoLine,
-    'END:VCARD'
-  ].filter(Boolean).join('\r\n');
 }
 
 export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
@@ -552,6 +522,19 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
             >
               <Share2 className="w-3.5 h-3.5 text-indigo-400" />
               <span>{shareStatus === 'copied' ? '명함 정보가 복사되었습니다!' : '이 명함 외부로 전달하기'}</span>
+            </button>
+
+            {/* [추가] 캠카드의 "아이폰에 저장" 버튼과 동일한 기능. vCard(.vcf) 파일을 바로
+                다운로드해서, 아이폰(iOS Safari)에서는 곧바로 "연락처에 추가" 화면이 뜨고
+                안드로이드/PC에서도 기본 연락처 앱으로 바로 열린다. 이 앱에 이미 저장돼 있는
+                명함을 휴대폰 기본 연락처 앱에도 따로 저장하고 싶을 때 쓰는 버튼이다. */}
+            <button
+              type="button"
+              onClick={() => downloadContactVCard(contact)}
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 hover:border-emerald-500/50 text-slate-700 hover:text-slate-700 font-bold text-xs transition-colors"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+              <span>휴대폰 연락처에 저장 (vCard)</span>
             </button>
 
             {/* [수정] 명함 스캔 초대(바이럴 루프): 이 명함 주인에게 앱 사용을 추천하는 메시지를 보낸다 */}

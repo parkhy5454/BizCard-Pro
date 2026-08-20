@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
+import { downloadContactVCard } from '../vcardUtils.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -493,6 +494,21 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], sea
                       없어서 이 버튼 자체가 안 보이는 문제가 있었다. 그래서 작은 화면(터치 기기로 간주)에서는
                       항상 보이게 하고, 큰 화면(마우스 사용 PC)에서는 기존처럼 호버할 때만 나타나게 유지한다. */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 z-10">
+                    {/* [추가] 캠카드의 "아이폰에 저장" 버튼과 동일한 기능. 목록에서 바로 이
+                    명함을 vCard(.vcf) 파일로 받아서, 아이폰(iOS Safari)이면 곧바로 "연락처에
+                    추가" 화면이 뜬다. 상세보기까지 들어가지 않아도 한 번의 클릭으로 되도록
+                    목록 카드에도 같이 넣었다. */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadContactVCard(contact);
+                      }}
+                      title="휴대폰 연락처에 저장 (vCard)"
+                      className="w-8 h-8 rounded-full bg-white/80 hover:bg-emerald-600 text-slate-600 hover:text-white flex items-center justify-center shadow transition-all duration-150 cursor-pointer"
+                    >
+                      <Smartphone className="w-4 h-4" />
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {
