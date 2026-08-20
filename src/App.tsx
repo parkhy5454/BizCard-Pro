@@ -480,6 +480,7 @@ export default function App() {
                 contacts={filteredContacts}
                 groups={groups}
                 projects={projects}
+                currentUser={currentUser}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 onUpdateContact={handleUpdateCard}
