@@ -1081,6 +1081,133 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     });
   };
 
+  // [추가] 가지급내역 인쇄 화면(renderPrintableAdvancePayment)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 다른 엑셀 출력과 같은 방식 - exceljs로 노란 헤더/합계 행 배경색을 화면과
+  // 똑같이 재현한다. 인원(열) 개수가 문서마다 달라서 열 구성을 동적으로 만들고, 입금일은
+  // "구분"과 별도 열로 두며, 금액이 0인 칸은 화면과 동일하게 "-"로 표시한다.
+  const handleExportAdvancePaymentExcel = async () => {
+    if (!printingDoc || !printingDoc.advancePayment) return;
+    const ap = printingDoc.advancePayment;
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (ap.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = advanceGrandTotal(ap);
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('가지급내역', {
+      pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
+    });
+
+    // 열 구성: 구분 | 인원1..N | 합계 | 입금일 | 비고
+    const columns = ['구분', ...ap.people.map((p) => p.name || '(이름 미입력)'), '합계', '입금일', '비 고'];
+    const colCount = columns.length;
+    const totalColIdx = colCount - 3; // 0-index, "합계" 열
+    const depositColIdx = colCount - 2; // 0-index, "입금일" 열
+    const noteColIdx = colCount - 1; // 0-index, "비고" 열
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = firstYear ? `${firstYear}년도 월별 가지급 내역` : printingDoc.title;
+    titleCell.font = { bold: true, size: 14, underline: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    ap.months.forEach((m, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [
+        m.label,
+        ...ap.people.map((p) => advanceCellTotal(m.amounts[p.id])),
+        advanceMonthTotal(m, ap.people),
+        m.depositDate || '',
+        m.note || '',
+      ];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        const isAmountCol = colIdx >= 1 && colIdx <= totalColIdx;
+        cell.border = fullBorder;
+        if (isAmountCol) {
+          cell.value = fmt(v as number) === '-' ? '-' : v;
+          cell.numFmt = '#,##0';
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+        } else if (colIdx === 0) {
+          cell.value = v;
+          cell.font = { bold: true };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else if (colIdx === depositColIdx) {
+          cell.value = v;
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else {
+          cell.value = v;
+          cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        }
+      });
+      const noteLines = m.note ? m.note.split('\n').length : 1;
+      row.height = Math.max(20, noteLines * 14);
+    });
+
+    const totalRowIdx = headerRowIdx + 1 + ap.months.length;
+    const totalRow = ws.getRow(totalRowIdx);
+    totalRow.getCell(1).value = '합계';
+    ap.people.forEach((p, i) => {
+      const cell = totalRow.getCell(2 + i);
+      cell.value = advancePersonTotal(p.id, ap.months);
+      cell.numFmt = '#,##0';
+    });
+    const grandCell = totalRow.getCell(totalColIdx + 1);
+    grandCell.value = grandTotal;
+    grandCell.numFmt = '#,##0';
+    const depositTotalCell = totalRow.getCell(depositColIdx + 1);
+    depositTotalCell.value = '-';
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = (c === 1 || c === depositColIdx + 1) ? { horizontal: 'center', vertical: 'middle' } : { horizontal: 'right', vertical: 'middle' };
+    }
+
+    columns.forEach((label, colIdx) => {
+      if (colIdx === noteColIdx) { ws.getColumn(colIdx + 1).width = 55; return; } // 비 고
+      const maxLen = Math.max(
+        String(label).length,
+        ...ap.months.map((m) => {
+          if (colIdx === 0) return m.label.length;
+          if (colIdx === totalColIdx) return String(advanceMonthTotal(m, ap.people)).length;
+          if (colIdx === depositColIdx) return (m.depositDate || '').length;
+          const p = ap.people[colIdx - 1];
+          return String(advanceCellTotal(m.amounts[p.id])).length;
+        })
+      );
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '가지급내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   // [추가] 관리비내역 인쇄 화면(renderPrintableManagementFee)을 그대로 엑셀로도 받을 수
   // 있게 한다. 다른 엑셀 출력(법인카드/차량 과태료)과 같은 방식 - exceljs로 노란 헤더/합계
   // 행 배경색을 화면과 똑같이 재현한다. 호실(열) 개수가 문서마다 달라서 열 구성을 동적으로
@@ -1661,6 +1788,49 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     setSelectedAdvanceImportKeys(new Set());
     setShowAdvanceImportPanel(false);
   };
+
+  // [추가] "전자결재에서 가지급금 신청(정산서)이 승인되면 자동으로 가져오게" 요청에 맞춰,
+  // 예전엔 사람이 "자동 불러오기" 버튼을 눌러 목록을 열고 하나씩 체크해야 했는데, 이제는
+  // 가지급내역 문서를 열기(새로 만들거나 수정하기)만 하면 아직 안 가져온 승인된 정산서
+  // 내역을 자동으로 찾아서 조용히 채워 넣는다. 다만 실제 저장은 여전히 사람이 "저장"을
+  // 눌러야 반영되므로, 자동으로 채워진 내용은 저장 전에 그대로 확인하고 고칠 수 있다.
+  // 문서를 열 때 한 번만 실행되게 ref로 막고(안 그러면 채워 넣을 때마다 editingDoc이
+  // 바뀌면서 계속 다시 실행됨), 몇 건을 자동으로 채웠는지는 안내 문구로 보여준다.
+  const advanceAutoImportedForRef = useRef<string | null>(null);
+  const [advanceAutoImportedCount, setAdvanceAutoImportedCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!editingDoc || editingDoc.category !== 'advance_payment' || !currentUser) return;
+    const docKey = editingDoc.id || 'new';
+    if (advanceAutoImportedForRef.current === docKey) return;
+    advanceAutoImportedForRef.current = docKey;
+    setAdvanceAutoImportedCount(null);
+    (async () => {
+      try {
+        const res = await fetch('/api/admin-docs/advance-payment-candidates', { headers: { 'x-user-id': currentUser.id } });
+        if (!res.ok) return;
+        const data: AdvanceImportCandidate[] = await res.json();
+        const notYetImported = data.filter((c) => !alreadyImportedAdvanceKeys.has(c.sourceKey));
+        if (notYetImported.length === 0) return;
+        updateAdvancePayment((ap) => notYetImported.reduce((acc, cand) => importAdvanceCandidate(acc, cand), ap));
+        setAdvanceAutoImportedCount(notYetImported.length);
+      } catch {
+        // 조용히 무시 - 실패해도 기존 "자동 불러오기" 버튼으로 수동으로 가져올 수 있다.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingDoc?.id, editingDoc?.category, currentUser?.id]);
+
+  // [추가] 새 가지급내역 문서는 아직 서버에 저장된 id가 없어서(id가 계속 undefined) 위
+  // 자동 불러오기가 "한 번 실행함" 표시를 계속 같은 값으로 봐서, 폼을 닫았다가 다시 "새
+  // 문서"를 열어도 재실행이 안 될 수 있다. 폼이 닫힐 때(editingDoc이 null이 될 때) 표시를
+  // 지워서, 다음에 폼을 열 때 다시 확인하게 한다.
+  useEffect(() => {
+    if (!editingDoc) {
+      advanceAutoImportedForRef.current = null;
+      setAdvanceAutoImportedCount(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!editingDoc]);
 
   // [추가] 차량 과태료 내역 - 항목 추가/삭제/수정 (건별로 여러 줄)
   type VehicleFineRow = NonNullable<AdminDoc['vehicleFine']>['entries'][number];
@@ -2769,6 +2939,61 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 가지급내역 인쇄용 화면. 공유해주신 "OOOO년도 월별 가지급 내역" 양식대로 인원별
+  // 월별 금액 + 카이저합계(그 달 인원 전체 합) + 비고 열로 표를 그리고, 맨 아래 인원별/전체
+  // 합계 행을 넣는다. 비고는 계산식 메모를 길게 적어두시는 경우가 많아 줄바꿈을 그대로
+  // 살린다(white-space: pre-line). 인원(열)이 많고 비고가 길어서 가로(landscape)로 그린다.
+  const renderPrintableAdvancePayment = () => {
+    if (!printingDoc || !printingDoc.advancePayment) return null;
+    const ap = printingDoc.advancePayment;
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (ap.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = advanceGrandTotal(ap);
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, textDecoration: 'underline', marginBottom: '14px' }}>
+          {firstYear ? `${firstYear}년도 월별 가지급 내역` : printingDoc.title}
+        </h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>구분</td>
+              {ap.people.map((p) => (
+                <td key={p.id} style={{ border: '1px solid #000', padding: '5px' }}>{p.name || '(이름 미입력)'}</td>
+              ))}
+              <td style={{ border: '1px solid #000', padding: '5px' }}>합계</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>입금일</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {ap.months.map((m) => (
+              <tr key={m.id}>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 700 }}>{m.label}</td>
+                {ap.people.map((p) => (
+                  <td key={p.id} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(advanceCellTotal(m.amounts[p.id]))}</td>
+                ))}
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right', fontWeight: 700 }}>{fmt(advanceMonthTotal(m, ap.people))}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{m.depositDate}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', whiteSpace: 'pre-line' }}>{m.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합계</td>
+              {ap.people.map((p) => (
+                <td key={p.id} style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(advancePersonTotal(p.id, ap.months))}</td>
+              ))}
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>-</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   // [추가] 차량 과태료 내역 인쇄용 화면. 공유해주신 "OOOO년 법인차량 과태료 내역" 양식대로
   // 위반일자/위반차량/금액/처리일자/내용/비고 열로 표를 그리고, 맨 아래 합계 행을 넣는다.
   const renderPrintableVehicleFine = () => {
@@ -3305,6 +3530,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
     if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
+    if (printingDoc.category === 'advance_payment') return renderPrintableAdvancePayment();
     if (printingDoc.category === 'vehicle_fine') return renderPrintableVehicleFine();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
@@ -3530,7 +3756,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'vehicle_fine' && d.vehicleFine) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -4683,6 +4909,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 해당 월 칸에 자동으로 반영할 수 있다. */}
                 {activeCategory === 'advance_payment' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    {/* [추가] 문서를 열면(새로 만들거나 수정하기) 전자결재 > 가지급금 정산서 중
+                    아직 안 가져온 승인 건을 자동으로 찾아서 조용히 채워 넣는데, 그 사실을
+                    모르고 지나치지 않도록 몇 건 채웠는지 안내한다. 실제 저장은 여전히
+                    "저장"을 눌러야 반영된다. */}
+                    {advanceAutoImportedCount !== null && advanceAutoImportedCount > 0 && (
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
+                        <RefreshCw className="w-3 h-3 shrink-0" />
+                        전자결재 &gt; 가지급금 정산서(승인)에서 {advanceAutoImportedCount}건을 자동으로 불러와 채웠습니다. 확인 후 저장해주세요.
+                      </div>
+                    )}
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
                       <label className="text-[11px] font-bold text-slate-600">인원별 월별 가지급 내역</label>
                       <div className="flex items-center gap-1.5">
@@ -6137,6 +6373,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
               엑셀 출력
             </button>
           )}
+          {printingDoc.category === 'advance_payment' && (
+            <button
+              onClick={handleExportAdvancePaymentExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
           <button
             onClick={() => {
               // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
@@ -6161,7 +6406,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         <div
           className="bg-white shadow-2xl mx-auto"
           style={{
-            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card'].includes(printingDoc.category)
+            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment'].includes(printingDoc.category)
               ? '297mm'
               : '210mm',
           }}
