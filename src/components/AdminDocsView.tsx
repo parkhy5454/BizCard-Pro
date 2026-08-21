@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload } from 'lucide-react';
-import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User } from '../types.js';
+import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 interface Props {
@@ -504,6 +504,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       body: JSON.stringify(next)
     }).catch((err) => console.error('회사 설정 저장 실패:', err));
   };
+
+  // [추가] 차량 과태료 내역의 "위반차량"을 직접 타이핑하지 않고 통합 차량관리에 등록된
+  // 차량에서 골라 쓸 수 있도록, 등록 차량 목록을 불러온다.
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    fetch('/api/vehicles', { headers: { 'x-user-id': currentUser.id } })
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => setVehicles(Array.isArray(data) ? data : []))
+      .catch((err) => console.error('등록 차량 목록 불러오기 실패:', err));
+  }, [currentUser?.id]);
 
   const activeConfig = categories.find((c) => c.id === activeCategory) || categories[0];
 
@@ -4263,8 +4274,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             </div>
                             <div className="flex-1 min-w-[100px]">
                               <label className="block text-[9px] text-slate-400 mb-0.5">위반차량</label>
+                              {/* [수정] 통합 차량관리에 등록된 차량에서 골라 쓸 수 있도록 datalist로
+                              자동완성 목록을 붙인다. 등록 안 된 차량(예: 렌터카)은 그대로 직접
+                              입력할 수 있게 select가 아닌 text+datalist로 둔다. */}
                               <input
                                 type="text"
+                                list="vehicle-fine-vehicle-options"
                                 value={e.vehicle}
                                 onChange={(ev) => updateVehicleFineEntry(e.id, { vehicle: ev.target.value })}
                                 placeholder="예: 벤츠(8030)"
@@ -4314,6 +4329,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         </div>
                       ))}
                     </div>
+
+                    {/* [추가] "위반차량" 입력칸(들)이 공용으로 참조하는 등록 차량 자동완성 목록. */}
+                    <datalist id="vehicle-fine-vehicle-options">
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={`${v.modelName} (${v.plateNumber})`} />
+                      ))}
+                    </datalist>
 
                     <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       합계: {formatCurrencyInput((editingDoc.vehicleFine?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
