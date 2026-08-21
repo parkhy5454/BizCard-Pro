@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
 import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.js';
+import { ProjectMultiSearchSelect } from './ProjectPicker.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -3200,36 +3201,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
                         <span>연관 프로젝트 연결</span>
                       </label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-[120px] overflow-y-auto space-y-2">
-                        {projects.length === 0 ? (
-                          <p className="text-xs text-slate-400 text-center py-2">등록된 프로젝트가 없습니다.</p>
-                        ) : (
-                          projects.map(p => {
-                            const isSelected = formProjectIds.includes(p.id);
-                            return (
-                              <button
-                                type="button"
-                                key={p.id}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    setFormProjectIds(prev => prev.filter(id => id !== p.id));
-                                  } else {
-                                    setFormProjectIds(prev => [...prev, p.id]);
-                                  }
-                                }}
-                                className={`w-full flex items-center justify-between text-left px-3 py-1.5 rounded-xl text-xs transition-all ${
-                                  isSelected 
-                                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
-                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-100'
-                                }`}
-                              >
-                                <span className="truncate pr-2 font-medium">{p.name}</span>
-                                {isSelected ? <Check className="w-3.5 h-3.5 flex-shrink-0" /> : null}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
+                      <ProjectMultiSearchSelect
+                        projects={projects}
+                        value={formProjectIds}
+                        onChange={setFormProjectIds}
+                      />
                     </div>
 
                     {/* 연관 거래처 매핑 멀티플 선택 */}

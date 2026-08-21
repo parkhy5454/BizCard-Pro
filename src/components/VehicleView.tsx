@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
 import { ContactSearchSelect } from './ContactPicker.js';
+import { ProjectSearchSelect } from './ProjectPicker.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -2496,16 +2497,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-500">연동 프로젝트</label>
-                    <select 
+                    <ProjectSearchSelect
+                      projects={projects}
                       value={newDriving.projectName || ''}
-                      onChange={e => setNewDriving({ ...newDriving, projectName: e.target.value })}
-                      className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                    >
-                      <option value="">프로젝트 연동 안함 (없음)</option>
-                      {projects.map(p => (
-                        <option key={p.id} value={p.name}>{p.name}</option>
-                      ))}
-                    </select>
+                      onChange={(name) => setNewDriving({ ...newDriving, projectName: name })}
+                    />
                   </div>
 
                   <div className="space-y-1.5">
@@ -3295,16 +3291,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">연동 프로젝트</label>
-                  <select 
+                  <ProjectSearchSelect
+                    projects={projects}
                     value={newExpense.projectName || ''}
-                    onChange={e => setNewExpense({ ...newExpense, projectName: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                  >
-                    <option value="">프로젝트 연동 안함 (없음)</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.name}>{p.name}</option>
-                    ))}
-                  </select>
+                    onChange={(name) => setNewExpense({ ...newExpense, projectName: name })}
+                  />
                 </div>
 
                 <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
@@ -5586,16 +5577,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">연동 프로젝트</label>
-                  <select 
+                  <ProjectSearchSelect
+                    projects={projects}
                     value={editingDriving.projectName || ''}
-                    onChange={e => setEditingDriving({ ...editingDriving, projectName: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                  >
-                    <option value="">연동 안함</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.name}>{p.name}</option>
-                    ))}
-                  </select>
+                    onChange={(name) => setEditingDriving({ ...editingDriving, projectName: name })}
+                    noneLabel="연동 안함"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -5946,24 +5933,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-semibold text-indigo-400">연동 프로젝트</label>
-                  <select 
-                    value={projects.some(p => p.name === editingExpense.projectName) ? editingExpense.projectName : (editingExpense.projectName ? 'custom' : '')}
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val === 'custom') {
-                        setEditingExpense({ ...editingExpense, projectName: '직접 입력' });
-                      } else {
-                        setEditingExpense({ ...editingExpense, projectName: val });
-                      }
-                    }}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                  >
-                    <option value="">프로젝트 연동 안함 (없음)</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.name}>{p.name}</option>
-                    ))}
-                    <option value="custom">직접 입력 (커스텀)</option>
-                  </select>
+                  <ProjectSearchSelect
+                    projects={projects}
+                    value={editingExpense.projectName || ''}
+                    onChange={(name) => setEditingExpense({ ...editingExpense, projectName: name })}
+                    allowCustom
+                  />
                 </div>
 
                 {(editingExpense.projectName === '직접 입력' || (editingExpense.projectName && !projects.some(p => p.name === editingExpense.projectName))) ? (
