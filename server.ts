@@ -6416,6 +6416,10 @@ app.get('/api/projects/pnl', (req, res) => {
 
   const incomeByProject: Record<string, number> = {};
   const cardExpenseByProject: Record<string, number> = {};
+  // [추가] 프로젝트를 하나 골랐을 때 "총액"뿐 아니라 실제 입금/카드 사용 건 하나하나를
+  // 보여줄 수 있도록, 프로젝트별로 건별 내역도 함께 모아둔다.
+  const incomeEntriesByProject: Record<string, { date: string; amount: number; memo?: string }[]> = {};
+  const cardExpenseEntriesByProject: Record<string, { date: string; amount: number; memo?: string; cardName?: string; holder?: string }[]> = {};
   let unmatchedIncome = 0;
   let unmatchedCardExpense = 0;
 
@@ -6426,6 +6430,11 @@ app.get('/api/projects/pnl', (req, res) => {
           const amt = Number(entry.amount) || 0;
           if (entry.projectId) {
             incomeByProject[entry.projectId] = (incomeByProject[entry.projectId] || 0) + amt;
+            (incomeEntriesByProject[entry.projectId] = incomeEntriesByProject[entry.projectId] || []).push({
+              date: entry.date,
+              amount: amt,
+              memo: [entry.description, entry.note].filter(Boolean).join(' · ')
+            });
           } else {
             unmatchedIncome += amt;
           }
@@ -6438,6 +6447,13 @@ app.get('/api/projects/pnl', (req, res) => {
           const amt = Number(entry.amount) || 0;
           if (entry.projectId) {
             cardExpenseByProject[entry.projectId] = (cardExpenseByProject[entry.projectId] || 0) + amt;
+            (cardExpenseEntriesByProject[entry.projectId] = cardExpenseEntriesByProject[entry.projectId] || []).push({
+              date: entry.date,
+              amount: amt,
+              memo: entry.note,
+              cardName: card.cardName,
+              holder: card.holder
+            });
           } else {
             unmatchedCardExpense += amt;
           }
@@ -6454,6 +6470,8 @@ app.get('/api/projects/pnl', (req, res) => {
     const totalExpense = cardExpense + followupExpense;
     const profit = income - totalExpense;
     const profitMargin = income > 0 ? (profit / income) * 100 : null;
+    const incomeEntries = (incomeEntriesByProject[p.id] || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const cardExpenseEntries = (cardExpenseEntriesByProject[p.id] || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     return {
       projectId: p.id,
       projectName: p.name,
@@ -6463,7 +6481,9 @@ app.get('/api/projects/pnl', (req, res) => {
       followupExpense,
       totalExpense,
       profit,
-      profitMargin
+      profitMargin,
+      incomeEntries,
+      cardExpenseEntries
     };
   });
 
