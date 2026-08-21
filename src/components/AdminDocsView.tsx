@@ -542,6 +542,24 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   corpCardDocs.forEach((d) => { const ym = d.corpCard?.yearMonth; if (ym) corpCardMonthSet.add(ym); });
   const corpCardMonths: string[] = Array.from(corpCardMonthSet).sort((a, b) => b.localeCompare(a)); // 최신 연월이 먼저 오도록
 
+  // [추가] 회계관리 > 카드사용내역에서 "카드명/카드번호/소지자"를 매번 직접 타이핑하지 않고,
+  // 경영지원 > 법인카드 관리에 이미 등록된 카드 목록에서 골라 그대로 연동해 채울 수 있도록
+  // 전체 문서에서 corp_card 카드 목록을 모아 카드사+카드번호 기준으로 중복 제거한다.
+  const knownCorpCards = (() => {
+    const seen = new Set<string>();
+    const list: { key: string; cardCompany: string; cardNumber: string; user: string }[] = [];
+    docs.forEach((d) => {
+      if (d.category !== 'corp_card' || !d.corpCard) return;
+      d.corpCard.cards.forEach((c) => {
+        const key = `${c.cardCompany.replace(/\s/g, '')}__${(c.cardNumber || '').replace(/\s/g, '')}`;
+        if (!c.cardCompany || seen.has(key)) return;
+        seen.add(key);
+        list.push({ key, cardCompany: c.cardCompany, cardNumber: c.cardNumber, user: c.user });
+      });
+    });
+    return list;
+  })();
+
   const handleViewAllCorpCards = () => {
     const targetMonth = corpCardMergeMonth || corpCardMonths[0];
     if (!targetMonth) return;
@@ -3591,6 +3609,24 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                     {(editingDoc.cardUsage?.cards || []).map((c) => (
                       <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                        {/* [추가] 경영지원 > 법인카드 관리에 등록된 카드에서 골라 카드명/카드번호/
+                        소지자를 그대로 연동해 채운다 - 직접 타이핑하지 않아도 되고, 두 화면의
+                        카드 정보가 서로 어긋나지 않게 해준다. */}
+                        {knownCorpCards.length > 0 && (
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              const picked = knownCorpCards.find((k) => k.key === e.target.value);
+                              if (picked) updateCardField(c.id, { cardName: picked.cardCompany, cardNumber: picked.cardNumber, holder: picked.user });
+                            }}
+                            className="w-full bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1.5 text-[11px] font-bold text-indigo-700 outline-none focus:border-indigo-500"
+                          >
+                            <option value="">법인카드 관리에서 카드 불러오기...</option>
+                            {knownCorpCards.map((k) => (
+                              <option key={k.key} value={k.key}>{k.cardCompany}{k.cardNumber ? ` (${k.cardNumber})` : ''}{k.user ? ` - ${k.user}` : ''}</option>
+                            ))}
+                          </select>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                           <input
                             type="text"
@@ -5251,7 +5287,20 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             인쇄 / PDF 저장
           </button>
         </div>
-        <div className="bg-white shadow-2xl mx-auto" style={{ width: (printingDoc.category === 'monthly_cashflow' || printingDoc.category === 'corp_card') ? '297mm' : '210mm' }}>
+        {/* [수정] 미리보기 화면(이 바깥 흰색 A4 박스)의 폭이 그동안 세로(210mm)로 고정돼
+        있어서, 가로(.print-landscape, 297mm)로 그리는 화면들(자금 현황/통장 출금·입금
+        내역/대출 현황/법인카드 사용내역/카드별 월 사용 내역)은 실제 인쇄와 달리 미리보기에서만
+        표가 흰 박스 폭을 넘어가 화면 밖으로 삐져나와 보였다. 실제 인쇄(#print-root)는 이
+        바깥 박스와 무관하게 항상 올바르게 나왔던 것이라, 가로로 그리는 카테고리를 전부
+        여기에도 반영해서 미리보기와 실제 인쇄가 항상 같은 폭으로 보이게 맞춘다. */}
+        <div
+          className="bg-white shadow-2xl mx-auto"
+          style={{
+            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card'].includes(printingDoc.category)
+              ? '297mm'
+              : '210mm',
+          }}
+        >
           {renderActivePrintable()}
         </div>
       </div>
