@@ -773,6 +773,109 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     });
   };
 
+  // [추가] "카드별 월 사용 내역" 인쇄 화면(renderPrintableCorpCard, 전체보기든 개별 문서든
+  // 동일)을 그대로 엑셀로도 받을 수 있게 한다. 지금까지 쓰던 xlsx 패키지(SheetJS 커뮤니티
+  // 버전)는 셀 배경색 등 서식을 저장할 수 없어서(프로젝트 목록 엑셀 내보내기 때 확인된
+  // 제약 - 위 handleExportProjectsExcel 참고), 서식 쓰기가 되는 exceljs로 화면과 똑같이
+  // 노란 헤더/합계 행 배경색을 넣어 만든다.
+  const handleExportCorpCardExcel = async () => {
+    if (!printingDoc || !printingDoc.corpCard) return;
+    const cc = printingDoc.corpCard;
+    const [year, month] = (cc.yearMonth || '').split('-');
+    const isMerged = printingDoc.id.startsWith('merged-corp-card-');
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('카드별_월_사용_내역', {
+      pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['번호', '카드사', '카드번호', '사용자', '사용일수', '출금일자', '사용금액', '출금은행', '출금계좌', '비 고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+
+    // 제목 줄
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = year && month ? `${year}년도 카드별 월 사용 내역(${Number(month)}월)` : printingDoc.title;
+    titleCell.font = { bold: true, size: 14, underline: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    let headerRowIdx = 2;
+    if (isMerged) {
+      ws.mergeCells(2, 1, 2, colCount);
+      const noteCell = ws.getCell(2, 1);
+      noteCell.value = `※ 금액은 회계관리 > 카드사용내역에 기록된 실제 사용 내역을 기준으로 ${new Date().toISOString().slice(0, 10)} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)`;
+      noteCell.font = { size: 9, color: { argb: 'FF555555' } };
+      noteCell.alignment = { horizontal: 'center' };
+      headerRowIdx = 3;
+    }
+
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    cc.cards.forEach((c, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [i + 1, c.cardCompany, c.cardNumber, c.user, c.periodLabel || '', c.paymentDay || '', Number(c.amount) || 0, c.withdrawBank || '', c.withdrawAccount || '', c.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 0 || colIdx === 3 || colIdx === 4 ? 'center' : (colIdx === 6 ? 'right' : 'left'), wrapText: colIdx === 9 };
+        if (colIdx === 6) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = cc.cards.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + cc.cards.length;
+    ws.mergeCells(totalRowIdx, 1, totalRowIdx, 6);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(7);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    // 열 너비 - 헤더/데이터 기준으로 대략 계산
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      cc.cards.forEach((c, i) => {
+        const v = [i + 1, c.cardCompany, c.cardNumber, c.user, c.periodLabel, c.paymentDay, formatCurrencyInput(c.amount || 0), c.withdrawBank, c.withdrawAccount, c.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 8), colIdx === 9 ? 45 : 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `카드별_월_사용_내역_${cc.yearMonth || ''}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !files.length || !editingDoc) return;
@@ -5540,6 +5643,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             닫기
           </button>
+          {/* [추가] "카드별 월 사용 내역"(법인카드 관리)은 화면 표 그대로(노란 헤더/합계 행
+          색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
+          {printingDoc.category === 'corp_card' && (
+            <button
+              onClick={handleExportCorpCardExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
           <button
             onClick={() => {
               // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
