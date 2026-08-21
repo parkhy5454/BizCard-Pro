@@ -2853,7 +2853,14 @@ app.post('/api/contacts', async (req, res) => {
   newCard.backImage = await persistImageField(scopeId, newCard.backImage, `contact-${newCard.id}-back`);
   
   dbData.contacts.unshift(newCard);
-  await setScopedDoc(scopeId, 'contacts', newCard);
+  // [수정] DB 저장이 실제로 실패했는데도 항상 "성공"으로 응답하던 문제를 고쳤다. 저장에
+  // 실패하면 방금 메모리에 추가한 것도 되돌려서(롤백), 화면엔 저장된 것처럼 보이지만 DB엔
+  // 없는 "유령 데이터" 상태가 생기지 않게 하고, 클라이언트에는 실패를 알려서 재시도하게 한다.
+  const saved = await setScopedDoc(scopeId, 'contacts', newCard);
+  if (!saved) {
+    dbData.contacts = dbData.contacts.filter((c: BusinessCard) => c.id !== newCard.id);
+    return res.status(500).json({ error: '명함을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(newCard);
 });
 
@@ -2862,8 +2869,10 @@ app.put('/api/contacts/:id', async (req, res) => {
   const scopeId = (req as any).scopeId;
   const idx = dbData.contacts.findIndex(c => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Contact not found' });
-  
+
   const beforeAddress = dbData.contacts[idx].address;
+  // [추가] DB 저장이 실패했을 때 메모리 캐시를 원래대로 되돌리기(롤백) 위해 수정 전 값을 남겨둔다.
+  const previousContact = dbData.contacts[idx];
   const updated = { ...dbData.contacts[idx], ...req.body };
   // [추가] POST와 동일하게, 수정 저장 시에도 주소에 섞인 "\"를 자동으로 지운다.
   if (typeof updated.address === 'string') updated.address = stripBackslashFromAddress(updated.address);
@@ -2883,7 +2892,18 @@ app.put('/api/contacts/:id', async (req, res) => {
   updated.backImage = await persistImageField(scopeId, updated.backImage, `contact-${updated.id}-back`);
 
   dbData.contacts[idx] = updated;
-  await setScopedDoc(scopeId, 'contacts', updated);
+  // [수정] DB 저장이 실제로 실패했는데도 항상 "성공"으로 응답하던 문제를 고쳤다. 예전엔
+  // setScopedDoc이 에러를 서버 콘솔에만 남기고 조용히 넘어가서, 재스캔한 명함 사진처럼
+  // 방금 고친 내용이 화면엔 저장된 것처럼 보이지만 실제로는 메모리 캐시에만 반영되고
+  // DB엔 없는 상태가 될 수 있었다(서버 재시작 시 조용히 사라짐). 이제 저장 실패 시
+  // 메모리도 수정 전 상태로 롤백하고, 클라이언트에는 실패를 알려서 사용자가 다시
+  // 시도할 수 있게 한다(클라이언트는 이 에러를 받으면 알림창을 띄우고 화면은 그대로
+  // 유지한다 — App.tsx의 handleUpdateCard 참고).
+  const saved = await setScopedDoc(scopeId, 'contacts', updated);
+  if (!saved) {
+    dbData.contacts[idx] = previousContact;
+    return res.status(500).json({ error: '명함 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(updated);
 });
 
