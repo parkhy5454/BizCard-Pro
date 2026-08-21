@@ -363,7 +363,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   // 미리 깔아둔다(부채만 회사마다 대출명이 달라서 빈 목록으로 시작 - "항목 추가"로 등록).
   cashFlowAnnual: category === 'cash_flow' ? (() => {
     const year = String(new Date().getFullYear());
-    const emptyMonths = () => ({} as Record<string, number>);
+    const emptyMonths = () => ({} as Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }>);
     return {
       year,
       openingBalance: 0,
@@ -628,13 +628,19 @@ type CashFlowRow = CashFlowAnnual['inflows'][number];
 type CashFlowOutflowRow = CashFlowAnnual['outflows'][number];
 type CashFlowExpenseGroup = CashFlowAnnual['expenseGroups'][number];
 type CashFlowExpenseItem = CashFlowExpenseGroup['items'][number];
+type CashFlowCell = CashFlowRow['months'][string];
 const CASH_FLOW_MONTHS: string[] = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
+// 월별 셀 하나의 합계 = 직접 입력(manual) + 통장 내역에서 자동 불러온 금액(imported) 전부.
+function cfCellTotal(cell?: CashFlowCell): number {
+  if (!cell) return 0;
+  return (Number(cell.manual) || 0) + (cell.imported || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
+}
 function cfRowsMonthlyTotal(rows: CashFlowRow[], month: string): number {
-  return rows.reduce((s, r) => s + (Number(r.months[month]) || 0), 0);
+  return rows.reduce((s, r) => s + cfCellTotal(r.months[month]), 0);
 }
 function cfExpenseGroupMonthlyTotal(group: CashFlowExpenseGroup, month: string): number {
-  return group.items.reduce((s, it) => s + (Number(it.months[month]) || 0), 0);
+  return group.items.reduce((s, it) => s + cfCellTotal(it.months[month]), 0);
 }
 function cfExpenseAllMonthlyTotal(groups: CashFlowExpenseGroup[], month: string): number {
   return groups.reduce((s, g) => s + cfExpenseGroupMonthlyTotal(g, month), 0);
@@ -1155,7 +1161,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       const dataRows: (string | number)[][] = [];
       cf.inflows.forEach((r, i) => {
         const row = ws.getRow(3 + i);
-        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.contractAmount || 0, r.remainingAmount || 0, r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => r.months[m] || 0)];
+        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.contractAmount || 0, r.remainingAmount || 0, r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => cfCellTotal(r.months[m]))];
         dataRows.push(values);
         values.forEach((v, ci) => {
           const cell = row.getCell(ci + 1);
@@ -1201,7 +1207,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       const dataRows: (string | number)[][] = [];
       cf.outflows.forEach((r, i) => {
         const row = ws.getRow(3 + i);
-        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.estimatedTotal || 0, r.note || '', r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => r.months[m] || 0)];
+        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.estimatedTotal || 0, r.note || '', r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => cfCellTotal(r.months[m]))];
         dataRows.push(values);
         values.forEach((v, ci) => {
           const cell = row.getCell(ci + 1);
@@ -1250,7 +1256,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         const items = g.items.length > 0 ? g.items : [{ id: `${g.id}-empty`, label: '', months: {} as Record<string, number> }];
         items.forEach((it, ii) => {
           const row = ws.getRow(r);
-          const values: (string | number)[] = [ii === 0 ? g.name : '', it.label, ...CASH_FLOW_MONTHS.map((m) => it.months[m] || 0)];
+          const values: (string | number)[] = [ii === 0 ? g.name : '', it.label, ...CASH_FLOW_MONTHS.map((m) => cfCellTotal(it.months[m]))];
           dataRows.push(values);
           values.forEach((v, ci) => {
             const cell = row.getCell(ci + 1);
@@ -2036,14 +2042,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   }));
   const removeCashFlowInflow = (id: string) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.filter((r) => r.id !== id) }));
   const updateCashFlowInflowField = (id: string, patch: Partial<CashFlowRow>) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.map((r) => r.id === id ? { ...r, ...patch } : r) }));
-  const updateCashFlowInflowMonth = (id: string, month: string, value: number) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: value } } : r) }));
+  // [수정] 월별 셀이 "직접 입력(manual) + 통장에서 자동 불러온 금액(imported)" 구조로
+  // 바뀌면서, 칸 입력은 이제 manual 값만 바꾸고 imported는 그대로 유지한다(관리비내역과
+  // 동일한 방식 - updateManagementCellManual 참고).
+  const updateCashFlowInflowMonthManual = (id: string, month: string, manual: number) => updateCashFlow((cf) => ({
+    ...cf, inflows: cf.inflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: { manual, imported: r.months[month]?.imported || [] } } } : r)
+  }));
 
   const addCashFlowOutflow = () => updateCashFlow((cf) => ({
     ...cf, outflows: [...cf.outflows, { id: `cfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '', recipient: '', estimatedTotal: 0, note: '', prevYear: 0, months: {} }]
   }));
   const removeCashFlowOutflow = (id: string) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.filter((r) => r.id !== id) }));
   const updateCashFlowOutflowField = (id: string, patch: Partial<CashFlowOutflowRow>) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.map((r) => r.id === id ? { ...r, ...patch } : r) }));
-  const updateCashFlowOutflowMonth = (id: string, month: string, value: number) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: value } } : r) }));
+  const updateCashFlowOutflowMonthManual = (id: string, month: string, manual: number) => updateCashFlow((cf) => ({
+    ...cf, outflows: cf.outflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: { manual, imported: r.months[month]?.imported || [] } } } : r)
+  }));
 
   const addCashFlowExpenseItem = (groupId: string) => updateCashFlow((cf) => ({
     ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId
@@ -2056,9 +2069,97 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const updateCashFlowExpenseItemField = (groupId: string, itemId: string, patch: Partial<CashFlowExpenseItem>) => updateCashFlow((cf) => ({
     ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.map((it) => it.id === itemId ? { ...it, ...patch } : it) } : g)
   }));
-  const updateCashFlowExpenseItemMonth = (groupId: string, itemId: string, month: string, value: number) => updateCashFlow((cf) => ({
-    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.map((it) => it.id === itemId ? { ...it, months: { ...it.months, [month]: value } } : it) } : g)
+  const updateCashFlowExpenseItemMonthManual = (groupId: string, itemId: string, month: string, manual: number) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.map((it) => it.id === itemId ? { ...it, months: { ...it.months, [month]: { manual, imported: it.months[month]?.imported || [] } } } : it) } : g)
   }));
+
+  // [추가] 현금 흐름 - "자동 불러오기". INFLOWS 행은 통장 입금 내역에서, OUTFLOWS 행과
+  // 경비 항목은 통장 출금 내역에서 후보를 가져와 고른 뒤, 날짜의 월(月)에 맞는 칸에
+  // imported로 채워 넣는다(관리비내역의 자동 불러오기와 같은 패턴). OUTFLOWS와 경비는
+  // 같은 통장 출금 내역 풀을 공유하므로, 한쪽에 이미 가져온 건은 다른 쪽에서 중복으로
+  // 다시 뜨지 않는다(같은 출금 거래를 매입과 경비 양쪽에 이중으로 반영하는 것을 방지).
+  type CashFlowImportTarget = { kind: 'inflow' | 'outflow' | 'expense'; rowId: string; groupId?: string; rowLabel: string };
+  type CashFlowImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
+  const [cashFlowImportTarget, setCashFlowImportTarget] = useState<CashFlowImportTarget | null>(null);
+  const [cashFlowImportCandidates, setCashFlowImportCandidates] = useState<CashFlowImportCandidate[]>([]);
+  const [isLoadingCashFlowCandidates, setIsLoadingCashFlowCandidates] = useState(false);
+  const [selectedCashFlowImportKeys, setSelectedCashFlowImportKeys] = useState<Set<string>>(new Set());
+
+  const collectCashFlowImportedKeys = (pickPools: (cf: CashFlowAnnual) => { imported: { sourceKey: string }[] }[][]) => {
+    const keys = new Set<string>();
+    const allDocs = [...docs, ...(editingDoc?.cashFlowAnnual ? [editingDoc] : [])];
+    for (const d of allDocs) {
+      if (d.category !== 'cash_flow' || !d.cashFlowAnnual) continue;
+      for (const cellGroup of pickPools(d.cashFlowAnnual)) {
+        for (const cell of cellGroup) {
+          for (const imp of (cell.imported || [])) keys.add(imp.sourceKey);
+        }
+      }
+    }
+    return keys;
+  };
+  // 통장 입금 내역 풀 - INFLOWS에서만 쓴다.
+  const alreadyImportedCashFlowDepositKeys = collectCashFlowImportedKeys((cf) => cf.inflows.map((r) => Object.values(r.months)));
+  // 통장 출금 내역 풀 - OUTFLOWS와 경비가 함께 쓴다(중복 방지를 위해 하나로 합쳐서 추적).
+  const alreadyImportedCashFlowWithdrawalKeys = collectCashFlowImportedKeys((cf) => [
+    ...cf.outflows.map((r) => Object.values(r.months)),
+    ...cf.expenseGroups.flatMap((g) => g.items.map((it) => Object.values(it.months)))
+  ]);
+
+  const handleOpenCashFlowImportPanel = async (target: CashFlowImportTarget) => {
+    if (!currentUser) return;
+    setCashFlowImportTarget(target);
+    setSelectedCashFlowImportKeys(new Set());
+    setIsLoadingCashFlowCandidates(true);
+    try {
+      const endpoint = target.kind === 'inflow' ? '/api/admin-docs/bank-deposit-candidates' : '/api/admin-docs/bank-withdrawal-candidates';
+      const res = await fetch(endpoint, { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: CashFlowImportCandidate[] = await res.json();
+      setCashFlowImportCandidates(data);
+    } catch (err: any) {
+      alert(`통장 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setCashFlowImportTarget(null);
+    } finally {
+      setIsLoadingCashFlowCandidates(false);
+    }
+  };
+
+  const toggleCashFlowImportKey = (key: string) => {
+    setSelectedCashFlowImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportCashFlowSelected = () => {
+    if (!cashFlowImportTarget || selectedCashFlowImportKeys.size === 0) return;
+    const target = cashFlowImportTarget;
+    const toImport = cashFlowImportCandidates.filter((c) => selectedCashFlowImportKeys.has(c.sourceKey));
+    const applyImports = (months: Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }>) => {
+      let next = months;
+      toImport.forEach((cand) => {
+        const mm = Number((cand.date || '').slice(5, 7));
+        if (!mm) return; // 날짜 없는 후보는 건너뜀
+        const monthKey = String(mm);
+        const existing = next[monthKey] || { manual: 0, imported: [] };
+        next = { ...next, [monthKey]: { ...existing, imported: [...existing.imported, { sourceKey: cand.sourceKey, sourceLabel: cand.sourceLabel, amount: cand.amount }] } };
+      });
+      return next;
+    };
+    updateCashFlow((cf) => {
+      if (target.kind === 'inflow') {
+        return { ...cf, inflows: cf.inflows.map((r) => r.id === target.rowId ? { ...r, months: applyImports(r.months) } : r) };
+      }
+      if (target.kind === 'outflow') {
+        return { ...cf, outflows: cf.outflows.map((r) => r.id === target.rowId ? { ...r, months: applyImports(r.months) } : r) };
+      }
+      return { ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === target.groupId ? { ...g, items: g.items.map((it) => it.id === target.rowId ? { ...it, months: applyImports(it.months) } : it) } : g) };
+    });
+    setSelectedCashFlowImportKeys(new Set());
+    setCashFlowImportTarget(null);
+  };
 
   // [추가] 대출이자 및 원금 상환 내역 - 대출 줄 추가·삭제·수정
   type LoanEntry = NonNullable<AdminDoc['loanRepayment']>['loans'][number];
@@ -3621,7 +3722,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.contractAmount || 0)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.remainingAmount || 0)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.prevYear || 0)}</td>
-                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.months[m] || 0)}</td>)}
+                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfCellTotal(r.months[m]))}</td>)}
               </tr>
             ))}
             <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
@@ -3668,7 +3769,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.estimatedTotal || 0)}</td>
                 <td style={{ border: '1px solid #000', padding: '4px' }}>{r.note}</td>
                 <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.prevYear || 0)}</td>
-                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.months[m] || 0)}</td>)}
+                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfCellTotal(r.months[m]))}</td>)}
               </tr>
             ))}
             <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
@@ -3714,7 +3815,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                       <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700, verticalAlign: 'middle' }} rowSpan={g.items.length}>{g.name}</td>
                     )}
                     <td style={{ border: '1px solid #000', padding: '4px' }}>{it.label}</td>
-                    {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(it.months[m] || 0)}</td>)}
+                    {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfCellTotal(it.months[m]))}</td>)}
                   </tr>
                 ))}
                 <tr style={{ background: '#ffe600', fontWeight: 700 }}>
@@ -6513,6 +6614,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 placeholder="프로젝트 수주자"
                                 className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                               />
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCashFlowImportPanel({ kind: 'inflow', rowId: r.id, rowLabel: r.name || '(프로젝트명 미입력)' })}
+                                className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                              >
+                                <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                              </button>
                               <button type="button" onClick={() => removeCashFlowInflow(r.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -6544,22 +6652,29 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                               />
                             </div>
                             <div className="flex flex-wrap gap-1">
-                              {CASH_FLOW_MONTHS.map((m) => (
-                                <div key={m} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
-                                  <span className="text-[10px] text-slate-400 w-5">{m}월</span>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={r.months[m] ? formatCurrencyInput(r.months[m]) : ''}
-                                    onChange={(e) => updateCashFlowInflowMonth(r.id, m, parseCurrencyInput(e.target.value))}
-                                    placeholder="0"
-                                    className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
-                                  />
-                                </div>
-                              ))}
+                              {CASH_FLOW_MONTHS.map((m) => {
+                                const cell = r.months[m];
+                                const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                                return (
+                                  <div key={m} className="flex flex-col bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                    <div className="flex items-center gap-0.5">
+                                      <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                        onChange={(e) => updateCashFlowInflowMonthManual(r.id, m, parseCurrencyInput(e.target.value))}
+                                        placeholder="0"
+                                        className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                      />
+                                    </div>
+                                    {importedSum > 0 && <p className="text-[9px] text-emerald-600 text-right">+{formatCurrencyInput(importedSum)} 자동</p>}
+                                  </div>
+                                );
+                              })}
                             </div>
                             <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
-                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + (Number(r.months[m]) || 0), 0))}원
+                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfCellTotal(r.months[m]), 0))}원
                             </p>
                           </div>
                         ))}
@@ -6596,6 +6711,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 placeholder="프로젝트 수주자"
                                 className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                               />
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCashFlowImportPanel({ kind: 'outflow', rowId: r.id, rowLabel: r.name || '(매입처 미입력)' })}
+                                className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                              >
+                                <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                              </button>
                               <button type="button" onClick={() => removeCashFlowOutflow(r.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -6626,22 +6748,29 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                               />
                             </div>
                             <div className="flex flex-wrap gap-1">
-                              {CASH_FLOW_MONTHS.map((m) => (
-                                <div key={m} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
-                                  <span className="text-[10px] text-slate-400 w-5">{m}월</span>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={r.months[m] ? formatCurrencyInput(r.months[m]) : ''}
-                                    onChange={(e) => updateCashFlowOutflowMonth(r.id, m, parseCurrencyInput(e.target.value))}
-                                    placeholder="0"
-                                    className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
-                                  />
-                                </div>
-                              ))}
+                              {CASH_FLOW_MONTHS.map((m) => {
+                                const cell = r.months[m];
+                                const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                                return (
+                                  <div key={m} className="flex flex-col bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                    <div className="flex items-center gap-0.5">
+                                      <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                        onChange={(e) => updateCashFlowOutflowMonthManual(r.id, m, parseCurrencyInput(e.target.value))}
+                                        placeholder="0"
+                                        className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                      />
+                                    </div>
+                                    {importedSum > 0 && <p className="text-[9px] text-emerald-600 text-right">+{formatCurrencyInput(importedSum)} 자동</p>}
+                                  </div>
+                                );
+                              })}
                             </div>
                             <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
-                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + (Number(r.months[m]) || 0), 0))}원
+                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfCellTotal(r.months[m]), 0))}원
                             </p>
                           </div>
                         ))}
@@ -6689,24 +6818,38 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                       className="w-36 shrink-0 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
                                     />
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenCashFlowImportPanel({ kind: 'expense', rowId: it.id, groupId: g.id, rowLabel: `${g.name} · ${it.label || '(항목명 미입력)'}` })}
+                                    className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                                  >
+                                    <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                                  </button>
                                   <button type="button" onClick={() => removeCashFlowExpenseItem(g.id, it.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
                                     <X className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                                 <div className="flex flex-wrap gap-1">
-                                  {CASH_FLOW_MONTHS.map((m) => (
-                                    <div key={m} className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
-                                      <span className="text-[10px] text-slate-400 w-5">{m}월</span>
-                                      <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        value={it.months[m] ? formatCurrencyInput(it.months[m]) : ''}
-                                        onChange={(e) => updateCashFlowExpenseItemMonth(g.id, it.id, m, parseCurrencyInput(e.target.value))}
-                                        placeholder="0"
-                                        className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
-                                      />
-                                    </div>
-                                  ))}
+                                  {CASH_FLOW_MONTHS.map((m) => {
+                                    const cell = it.months[m];
+                                    const importedSum = cell ? cell.imported.reduce((s, x) => s + (Number(x.amount) || 0), 0) : 0;
+                                    return (
+                                      <div key={m} className="flex flex-col bg-white border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                        <div className="flex items-center gap-0.5">
+                                          <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                            onChange={(e) => updateCashFlowExpenseItemMonthManual(g.id, it.id, m, parseCurrencyInput(e.target.value))}
+                                            placeholder="0"
+                                            className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                          />
+                                        </div>
+                                        {importedSum > 0 && <p className="text-[9px] text-emerald-600 text-right">+{formatCurrencyInput(importedSum)} 자동</p>}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}
@@ -7513,6 +7656,85 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
               {isSavingBankImport ? '가져오는 중...' : '가져오기 확정'}
             </button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* [추가] 현금 흐름 - "자동 불러오기" 확인 화면. INFLOWS 행은 통장 입금 내역에서,
+    OUTFLOWS 행/경비 항목은 통장 출금 내역에서 골라 그 행의 해당 월 칸에 채워 넣는다
+    (관리비내역의 자동 불러오기와 같은 방식). */}
+    {cashFlowImportTarget && (
+      <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">자동 불러오기</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                {cashFlowImportTarget.kind === 'inflow' ? '통장 입금 내역' : '통장 출금 내역'}에서 골라
+                "{cashFlowImportTarget.rowLabel}"의 날짜에 맞는 월 칸에 채워 넣습니다.
+              </p>
+            </div>
+            <button onClick={() => setCashFlowImportTarget(null)} className="shrink-0 text-slate-400 hover:text-slate-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {isLoadingCashFlowCandidates ? (
+            <p className="text-[11px] text-slate-400 text-center py-6">불러오는 중...</p>
+          ) : (
+            <>
+              {(() => {
+                const targetYear = editingDoc?.cashFlowAnnual?.year || '';
+                const alreadyImported = cashFlowImportTarget.kind === 'inflow' ? alreadyImportedCashFlowDepositKeys : alreadyImportedCashFlowWithdrawalKeys;
+                const available = cashFlowImportCandidates.filter((c) => !alreadyImported.has(c.sourceKey) && (!targetYear || (c.date || '').slice(0, 4) === targetYear));
+                if (available.length === 0) {
+                  return <p className="text-[11px] text-slate-400 text-center py-6">{targetYear ? `${targetYear}년에 해당하는, ` : ''}아직 안 가져온 내역이 없습니다.</p>;
+                }
+                return (
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={available.every((c) => selectedCashFlowImportKeys.has(c.sourceKey))}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedCashFlowImportKeys(new Set(available.map((c) => c.sourceKey)));
+                          else setSelectedCashFlowImportKeys(new Set());
+                        }}
+                        className="w-3.5 h-3.5"
+                      />
+                      전체 선택 ({available.length}건)
+                    </label>
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {available.map((c) => (
+                        <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedCashFlowImportKeys.has(c.sourceKey)}
+                            onChange={() => toggleCashFlowImportKey(c.sourceKey)}
+                            className="w-3.5 h-3.5 mt-0.5"
+                          />
+                          <span className="flex-1">
+                            <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                            <span className="text-slate-400 mx-1">·</span>
+                            <span>{c.date}</span>
+                            {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              <button
+                type="button"
+                onClick={handleImportCashFlowSelected}
+                disabled={selectedCashFlowImportKeys.size === 0}
+                className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40"
+              >
+                선택한 {selectedCashFlowImportKeys.size}건 가져오기
+              </button>
+            </>
+          )}
         </div>
       </div>
     )}
