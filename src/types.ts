@@ -202,7 +202,12 @@ export interface AdminDoc {
       entries: {
         id: string;
         date: string;         // 일자 (YYYY-MM-DD)
-        project: string;      // 프로젝트
+        project: string;      // 프로젝트 (표시용 이름 - 자유 입력도 허용)
+        // [추가] 프로젝트 손익계산서에서 이 입금을 특정 프로젝트의 실제 수입(계약금 등)으로
+        // 집계하려면 이름만으로는 프로젝트가 바뀌거나 중복될 때 매칭이 깨진다. 등록된
+        // Project.id를 직접 저장해 확실하게 연결한다 - 목록에서 골랐을 때만 채워지고,
+        // 직접 입력한 값은 project만 있고 projectId는 없을 수 있다(집계에서 "미매칭"으로 표시).
+        projectId?: string;
         amount: number;       // 금액(원)
         description: string;  // 거래내용
         note?: string;         // 비고
@@ -251,7 +256,9 @@ export interface AdminDoc {
         id: string;
         amount: number;    // 사용 금액(원)
         date: string;       // 사용일자 (YYYY-MM-DD)
-        project?: string;   // 프로젝트명
+        project?: string;   // 프로젝트명 (표시용 이름 - 자유 입력도 허용)
+        // [추가] 프로젝트 손익계산서 집계용 - 위 bankLedger entries의 projectId와 같은 목적.
+        projectId?: string;
         user?: string;      // 사용자 (소지자와 다를 수 있음, 예: 법인카드 대여)
         note?: string;       // 비고
         // [추가] 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에서 이미

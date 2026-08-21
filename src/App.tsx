@@ -67,7 +67,7 @@ export default function App() {
   const [triggerProjectsExcelExport, setTriggerProjectsExcelExport] = useState<number>(0);
   const [triggerProjectsPrintPreview, setTriggerProjectsPrintPreview] = useState<number>(0);
   // [수정] "리스트 출력" 탭 켜짐/꺼짐 상태 (카드 목록 ↔ 표 형태 리스트 전환)
-  const [projectsViewMode, setProjectsViewMode] = useState<'cards' | 'listOutput' | 'pipeline'>('cards');
+  const [projectsViewMode, setProjectsViewMode] = useState<'cards' | 'listOutput' | 'pipeline' | 'pnl'>('cards');
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
@@ -440,6 +440,7 @@ export default function App() {
         onShowProjectsCardView={() => setProjectsViewMode('cards')}
         onShowProjectsListOutput={() => setProjectsViewMode('listOutput')}
         onShowProjectsPipeline={() => setProjectsViewMode('pipeline')}
+        onShowProjectsPnl={() => setProjectsViewMode('pnl')}
         totalContactsCount={contacts.length}
         projectFilterStatus={projectFilterStatus}
         setProjectFilterStatus={setProjectFilterStatus}
@@ -596,11 +597,13 @@ export default function App() {
               <AdminDocsView
                 section="management"
                 currentUser={currentUser}
+                projects={projects}
               />
             )}
             {activeTab === 'accounting' && currentUser?.role === 'admin' && (
               <AdminDocsView
                 section="accounting"
+                projects={projects}
                 currentUser={currentUser}
               />
             )}
