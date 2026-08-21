@@ -5057,17 +5057,24 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                               placeholder="입금일 (예: 2026,03,06)"
                               className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                             />
-                            <input
-                              type="text"
-                              value={m.note || ''}
-                              onChange={(e) => updateAdvanceMonthField(m.id, { note: e.target.value })}
-                              placeholder="비고"
-                              className="flex-[2] min-w-[120px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                            />
                             <button type="button" onClick={() => removeAdvanceMonth(m.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
                               <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
+
+                          {/* [수정] 예전엔 한 줄짜리 입력칸이라 "*이름: 계산식"을 사람별로
+                          적어도 Enter로 줄을 나눌 수 없어서 인쇄/엑셀에서 전부 한 줄로 붙어
+                          보였다. 여러 줄 입력이 되는 textarea로 바꿔서, Enter로 사람별 한
+                          줄씩 적으면 인쇄/PDF/엑셀에도 그 줄바꿈 그대로 나뉘어 보이게 한다
+                          (renderPrintableAdvancePayment/handleExportAdvancePaymentExcel은
+                          이미 줄바꿈을 그대로 살리게 되어 있어 수정 없이도 바로 적용된다). */}
+                          <textarea
+                            value={m.note || ''}
+                            onChange={(e) => updateAdvanceMonthField(m.id, { note: e.target.value })}
+                            placeholder="비고 (예: *성시욱: 계산식... ↵Enter로 줄바꿈해서 사람별로 한 줄씩 적으면 인쇄/엑셀에서도 줄이 나뉘어 보입니다)"
+                            rows={3}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500 resize-y"
+                          />
 
                           <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
                             {(editingDoc.advancePayment?.people || []).map((p) => {
