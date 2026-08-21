@@ -716,6 +716,20 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   corpCardDocs.forEach((d) => { const ym = d.corpCard?.yearMonth; if (ym) corpCardMonthSet.add(ym); });
   const corpCardMonths: string[] = Array.from(corpCardMonthSet).sort((a, b) => b.localeCompare(a)); // 최신 연월이 먼저 오도록
 
+  // [추가] 차량 과태료 내역 - "년도별로 보이게" 요청에 맞춰, 문서를 여러 개로 나눠 등록했거나
+  // 한 문서에 여러 건을 같이 넣어뒀어도 상관없이 전체 문서의 모든 항목(entries)을 위반일자
+  // 기준 연도로 모을 수 있게 미리 연도 목록을 뽑아둔다. 법인카드와 달리 문서 자체에 연월
+  // 필드가 없고 건(항목)마다 날짜가 따로 있어서, 문서 단위가 아니라 항목 단위로 연도를 센다.
+  const vehicleFineDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'vehicle_fine' && d.vehicleFine);
+  const vehicleFineYearSet = new Set<string>();
+  vehicleFineDocs.forEach((d) => {
+    (d.vehicleFine?.entries || []).forEach((e) => {
+      const y = (e.date || d.date || '').slice(0, 4);
+      if (y) vehicleFineYearSet.add(y);
+    });
+  });
+  const vehicleFineYears: string[] = Array.from(vehicleFineYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
   // [추가] 회계관리 > 카드사용내역에서 "카드명/카드번호/소지자"를 매번 직접 타이핑하지 않고,
   // 경영지원 > 법인카드 관리에 이미 등록된 카드 목록에서 골라 그대로 연동해 채울 수 있도록
   // 전체 문서에서 corp_card 카드 목록을 모아 카드사+카드번호 기준으로 중복 제거한다.
@@ -874,6 +888,40 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  // [추가] 차량 과태료 내역 - "개별이 아니라 년도별로 보이게" 요청에 맞춰, 문서 여러 개(또는
+  // 한 문서 안의 여러 건)에 나눠 등록된 항목들을 위반일자 기준으로 선택한 연도에 해당하는
+  // 것만 전부 모아 한 표(인쇄 화면)로 보여준다. 법인카드의 handleViewAllCorpCards와 같은
+  // 패턴 - 실제 문서는 그대로 두고, 보여줄 때만 화면에서 합친다.
+  const handleViewAllVehicleFines = () => {
+    const targetYear = vehicleFineMergeYear || vehicleFineYears[0];
+    if (!targetYear) return;
+
+    const matchesYear = (e: NonNullable<AdminDoc['vehicleFine']>['entries'][number], docDate?: string) =>
+      (e.date || docDate || '').slice(0, 4) === targetYear;
+
+    // 표시할 문서 기본값(제목/작성자 등 공용 필드)은 실제로 해당 연도 항목을 가진 문서 중
+    // 첫 번째 것을 쓴다. 메모는 특정 문서 하나의 것이라 합친 화면에 그대로 쓰면 오해를 살 수
+    // 있어 비워둔다.
+    const docsWithMatch = vehicleFineDocs.filter((d) => (d.vehicleFine?.entries || []).some((e) => matchesYear(e, d.date)));
+    const base = docsWithMatch[0] || vehicleFineDocs[0];
+    if (!base) return;
+
+    const mergedEntries = vehicleFineDocs
+      .flatMap((d) => (d.vehicleFine?.entries || []).map((e) => ({ entry: e, docDate: d.date })))
+      .filter(({ entry, docDate }) => matchesYear(entry, docDate))
+      .sort((a, b) => (a.entry.date || '').localeCompare(b.entry.date || ''))
+      .map(({ entry }, i) => ({ ...entry, id: `merged-${i}-${entry.id}` }));
+    if (mergedEntries.length === 0) return;
+
+    setPrintingDoc({
+      ...base,
+      id: `merged-vehicle-fine-${targetYear}`,
+      title: `${targetYear}년 법인차량 과태료 내역 - 전체`,
+      memo: undefined,
+      vehicleFine: { entries: mergedEntries },
+    });
   };
 
   // [추가] 차량 과태료 내역 인쇄 화면(renderPrintableVehicleFine)을 그대로 엑셀로도 받을 수
@@ -1047,6 +1095,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
   // [추가] 법인카드 관리 - "전체 카드 한 페이지로 보기"에서 고를 대상 연월
   const [corpCardMergeMonth, setCorpCardMergeMonth] = useState('');
+
+  // [추가] 차량 과태료 내역 - "연도별로 모아보기"에서 고를 대상 연도
+  const [vehicleFineMergeYear, setVehicleFineMergeYear] = useState('');
 
   // [추가] 월별 자금 현황 - 통장(계좌) 줄 추가·삭제·수정
   const updateCashflowAccounts = (updater: (accounts: NonNullable<AdminDoc['cashflow']>['accounts']) => NonNullable<AdminDoc['cashflow']>['accounts']) => {
@@ -2524,10 +2575,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
     const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
     const total = vf.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const isMerged = printingDoc.id.startsWith('merged-vehicle-fine-');
 
     return (
       <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
-        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>{printingDoc.title}</h1>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>{printingDoc.title}</h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 문서별로 나눠 등록하신 차량 과태료 내역 중 위반일자가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+          </p>
+        )}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
           <thead>
             <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
@@ -3169,6 +3226,31 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             <Printer className="w-3.5 h-3.5" />
             전체 카드 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 차량 과태료 내역 - 문서를 여러 개로 나눠 등록하거나 한 문서에 여러 건을
+      같이 넣어둬도, 위반일자 기준으로 선택한 연도의 건을 전부 모아 한 페이지(표)로
+      인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'vehicle_fine' && vehicleFineYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={vehicleFineMergeYear || vehicleFineYears[0]}
+            onChange={(e) => setVehicleFineMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {vehicleFineYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllVehicleFines}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            연도별로 한 페이지로 보기
           </button>
         </div>
       )}
