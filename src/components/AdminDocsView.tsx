@@ -730,6 +730,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   });
   const vehicleFineYears: string[] = Array.from(vehicleFineYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
 
+  // [추가] 관리비내역 - 호실(예: 518호, 519호)을 한 문서에 같이 등록하지 않고 호실마다 문서를
+  // 따로 등록해두신 경우가 많아서, "같은 연도 것끼리 호실을 다 합쳐서 한 표로 보여달라"는
+  // 요청에 맞춰 같은 연도(monthKey의 연도)의 management_fee 문서를 전부 찾아 호실(열)을
+  // 하나로 합쳐서 인쇄 화면(renderPrintableManagementFee)에 넘긴다. 실제 데이터는 그대로
+  // 두고(문서를 합치거나 지우지 않음), 보여줄 때만 화면에서 합친다.
+  const managementFeeDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'management_fee' && d.managementFee);
+  const managementFeeYearSet = new Set<string>();
+  managementFeeDocs.forEach((d) => {
+    (d.managementFee?.months || []).forEach((m) => {
+      const y = (m.monthKey || '').slice(0, 4);
+      if (y) managementFeeYearSet.add(y);
+    });
+  });
+  const managementFeeYears: string[] = Array.from(managementFeeYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
   // [추가] 회계관리 > 카드사용내역에서 "카드명/카드번호/소지자"를 매번 직접 타이핑하지 않고,
   // 경영지원 > 법인카드 관리에 이미 등록된 카드 목록에서 골라 그대로 연동해 채울 수 있도록
   // 전체 문서에서 corp_card 카드 목록을 모아 카드사+카드번호 기준으로 중복 제거한다.
@@ -1014,6 +1029,58 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     URL.revokeObjectURL(url);
   };
 
+  // [추가] 관리비내역 - "518호, 519호 각각 문서로 등록해도 함께 전체로 보이게" 요청에 맞춰,
+  // 같은 연도(monthKey의 연도)의 management_fee 문서를 모두 찾아 호실(열)을 하나의 표로
+  // 합친다. 문서마다 독립적으로 생성된 호실 id가 겹칠 수 있어 새 id로 재부여하고, 월별
+  // 금액(amounts)도 그 매핑을 따라 옮긴다. 납부일은 월마다 문서들 중 먼저 값이 있는 것을
+  // 쓴다(보통 같은 달 관리비는 다 같이 한 번에 납부되므로). 실제 데이터는 그대로 두고
+  // (문서를 합치거나 지우지 않음), 보여줄 때만 화면에서 합친다.
+  const handleViewAllManagementFees = () => {
+    const targetYear = managementFeeMergeYear || managementFeeYears[0];
+    if (!targetYear) return;
+    const docsForYear = managementFeeDocs.filter((d) => (d.managementFee?.months || []).some((m) => (m.monthKey || '').slice(0, 4) === targetYear));
+    if (docsForYear.length === 0) return;
+
+    const mergedUnits: { id: string; name: string }[] = [];
+    const idMaps: Record<string, string>[] = docsForYear.map((d, di) => {
+      const map: Record<string, string> = {};
+      (d.managementFee?.units || []).forEach((u) => {
+        const newId = `merged-${di}-${u.id}`;
+        map[u.id] = newId;
+        mergedUnits.push({ id: newId, name: u.name });
+      });
+      return map;
+    });
+
+    const monthOrder = Array.from({ length: 12 }, (_, i) => `${targetYear}-${String(i + 1).padStart(2, '0')}`);
+    const mergedMonths = monthOrder.map((monthKey, i) => {
+      let paymentDate = '';
+      const amounts: Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }> = {};
+      docsForYear.forEach((d, di) => {
+        const m = (d.managementFee?.months || []).find((mm) => mm.monthKey === monthKey);
+        if (!m) return;
+        if (!paymentDate && m.paymentDate) paymentDate = m.paymentDate;
+        Object.keys(m.amounts).forEach((unitId) => {
+          const newId = idMaps[di][unitId];
+          if (newId) amounts[newId] = m.amounts[unitId];
+        });
+      });
+      return { id: `merged-month-${monthKey}`, monthKey, label: `${i + 1}월`, paymentDate, amounts };
+    });
+
+    // 메모(입금 계좌 등)는 문서마다 같은 내용을 반복 입력해두신 경우가 많아, 중복을 걷어내고
+    // 서로 다른 내용만 " / "로 이어붙인다.
+    const memos = Array.from(new Set(docsForYear.map((d) => d.memo).filter((m): m is string => !!m && m.trim() !== '')));
+    const base = docsForYear[0];
+    setPrintingDoc({
+      ...base,
+      id: `merged-management-fee-${targetYear}`,
+      title: `${targetYear}년도 월별 관리비내역 - 전체`,
+      memo: memos.length ? memos.join(' / ') : undefined,
+      managementFee: { units: mergedUnits, months: mergedMonths },
+    });
+  };
+
   // [추가] 관리비내역 인쇄 화면(renderPrintableManagementFee)을 그대로 엑셀로도 받을 수
   // 있게 한다. 다른 엑셀 출력(법인카드/차량 과태료)과 같은 방식 - exceljs로 노란 헤더/합계
   // 행 배경색을 화면과 똑같이 재현한다. 호실(열) 개수가 문서마다 달라서 열 구성을 동적으로
@@ -1209,6 +1276,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
   // [추가] 차량 과태료 내역 - "연도별로 모아보기"에서 고를 대상 연도
   const [vehicleFineMergeYear, setVehicleFineMergeYear] = useState('');
+
+  // [추가] 관리비내역 - "호실 전체 합쳐보기"에서 고를 대상 연도
+  const [managementFeeMergeYear, setManagementFeeMergeYear] = useState('');
 
   // [추가] 월별 자금 현황 - 통장(계좌) 줄 추가·삭제·수정
   const updateCashflowAccounts = (updater: (accounts: NonNullable<AdminDoc['cashflow']>['accounts']) => NonNullable<AdminDoc['cashflow']>['accounts']) => {
@@ -2637,12 +2707,18 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
     const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
     const grandTotal = managementGrandTotal(mf);
+    const isMerged = printingDoc.id.startsWith('merged-management-fee-');
 
     return (
       <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
-        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>
           {firstYear ? `${firstYear.slice(2)}년도 월별 관리비내역` : printingDoc.title}
         </h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 호실별로 나눠 등록하신 관리비내역 문서를 이 연도 기준으로 모두 모아 보여줍니다.
+          </p>
+        )}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
           <thead>
             <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
@@ -3362,6 +3438,30 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             <Printer className="w-3.5 h-3.5" />
             연도별로 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 관리비내역 - 호실(예: 518호, 519호)을 각각 문서로 따로 등록해도, 같은 연도
+      것끼리 호실을 다 합쳐서 한 페이지(표)로 인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'management_fee' && managementFeeYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={managementFeeMergeYear || managementFeeYears[0]}
+            onChange={(e) => setManagementFeeMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {managementFeeYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllManagementFees}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            호실 전체 한 페이지로 보기
           </button>
         </div>
       )}
