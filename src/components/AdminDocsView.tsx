@@ -1280,6 +1280,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   // [추가] 관리비내역 - "호실 전체 합쳐보기"에서 고를 대상 연도
   const [managementFeeMergeYear, setManagementFeeMergeYear] = useState('');
 
+  // [추가] 카드사용내역 인쇄/PDF 화면 - 사용일자 정렬 방향. 예전엔 저장된 순서 그대로(보통
+  // "자동 불러오기"로 채워진 순서라 날짜가 뒤죽박죽) 보여줬는데, 최근 날짜가 위로 오게
+  // 기본 내림차순으로 바꾸고, 오름차순으로도 바꿔볼 수 있게 한다.
+  const [cardUsageSortDir, setCardUsageSortDir] = useState<'desc' | 'asc'>('desc');
+
   // [추가] 월별 자금 현황 - 통장(계좌) 줄 추가·삭제·수정
   const updateCashflowAccounts = (updater: (accounts: NonNullable<AdminDoc['cashflow']>['accounts']) => NonNullable<AdminDoc['cashflow']>['accounts']) => {
     setEditingDoc((prev) => {
@@ -2561,6 +2566,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const cardUsage = printingDoc.cardUsage;
     const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
     const grandTotal = cardUsage.cards.reduce((s, c) => s + cardGroupTotal(c), 0);
+    // [추가] "자동으로는 최근이 위로 보이게, 오름차순/내림차순도 선택할 수 있게" 요청에 맞춰
+    // 카드별 사용 내역을 사용일자 기준으로 정렬해서 보여준다(저장된 데이터 순서 자체는
+    // 건드리지 않고, 보여줄 때만 정렬). 날짜가 비어있는 건은 방향에 상관없이 맨 아래로 보낸다.
+    const sortEntries = (entries: typeof cardUsage.cards[number]['entries']) =>
+      [...entries].sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return cardUsageSortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+      });
 
     return (
       <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
@@ -2593,7 +2608,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           <tbody>
             {cardUsage.cards.map((c, cardIdx) => (
               <React.Fragment key={c.id}>
-                {c.entries.map((e, i) => (
+                {sortEntries(c.entries).map((e, i) => (
                   <tr key={e.id}>
                     {i === 0 && (
                       <>
@@ -6075,6 +6090,24 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             닫기
           </button>
+          {/* [추가] "카드사용내역"은 자동으로 최근 날짜가 위로 오게 기본 정렬해서 보여주고,
+          오름차순/내림차순을 직접 골라볼 수 있게 버튼을 추가한다. */}
+          {printingDoc.category === 'card_usage' && (
+            <div className="flex items-center gap-1 mr-auto bg-white border border-slate-200 rounded-xl p-1">
+              <button
+                onClick={() => setCardUsageSortDir('desc')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${cardUsageSortDir === 'desc' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                최근 날짜순(내림차순)
+              </button>
+              <button
+                onClick={() => setCardUsageSortDir('asc')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${cardUsageSortDir === 'asc' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                오래된 날짜순(오름차순)
+              </button>
+            </div>
+          )}
           {/* [추가] "카드별 월 사용 내역"(법인카드 관리)/"차량 과태료 내역"/"관리비내역"은
           화면 표 그대로(노란 헤더/합계 행 색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
           {printingDoc.category === 'corp_card' && (
