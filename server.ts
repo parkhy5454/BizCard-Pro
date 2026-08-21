@@ -6399,6 +6399,77 @@ app.get('/api/admin-docs/bank-deposit-candidates', (req, res) => {
   res.json(candidates);
 });
 
+// [추가] 프로젝트 탭 > 손익계산서: 프로젝트별로 실제 입금(수입)과 지출(카드 사용 + 팔로우업
+// 지출)을 자동으로 모아서 최종 수익금/수익률을 계산해준다. 수입은 회계관리 > 통장 입금
+// 내역에서 projectId가 이 프로젝트로 연결된 항목의 합, 지출은 (1) 회계관리 > 법인카드 사용
+// 내역에서 projectId가 연결된 항목의 합과 (2) 프로젝트 팔로우업에 이미 기록된 지출
+// (expenses, 결제수단 무관 전체)의 합을 각각 별도 항목으로 보여준다 - 두 지출을 하나로
+// 합치지 않고 분리해서 보여줘야, 법인카드로 결제한 같은 지출이 팔로우업과 카드 사용
+// 내역 양쪽에 중복으로 기록됐는지 화면에서 바로 알아챌 수 있다. projectId가 연결되지
+// 않은(자유 입력만 된) 입금/카드 사용 내역은 unmatchedIncome/unmatchedCardExpense로
+// 총액만 따로 알려준다 - 회계 데이터가 프로젝트별 손익에 회사 전체 입출금 내역과 연동된,
+// 회계관리 화면과 마찬가지로 관리자 전용 데이터이므로 requireAdmin으로 막는다.
+app.get('/api/projects/pnl', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+
+  const incomeByProject: Record<string, number> = {};
+  const cardExpenseByProject: Record<string, number> = {};
+  let unmatchedIncome = 0;
+  let unmatchedCardExpense = 0;
+
+  for (const doc of (dbData.adminDocs || [])) {
+    if (doc.category === 'bank_deposit' && doc.bankLedger) {
+      for (const acc of (doc.bankLedger.accounts || [])) {
+        for (const entry of (acc.entries || [])) {
+          const amt = Number(entry.amount) || 0;
+          if (entry.projectId) {
+            incomeByProject[entry.projectId] = (incomeByProject[entry.projectId] || 0) + amt;
+          } else {
+            unmatchedIncome += amt;
+          }
+        }
+      }
+    }
+    if (doc.category === 'card_usage' && doc.cardUsage) {
+      for (const card of (doc.cardUsage.cards || [])) {
+        for (const entry of (card.entries || [])) {
+          const amt = Number(entry.amount) || 0;
+          if (entry.projectId) {
+            cardExpenseByProject[entry.projectId] = (cardExpenseByProject[entry.projectId] || 0) + amt;
+          } else {
+            unmatchedCardExpense += amt;
+          }
+        }
+      }
+    }
+  }
+
+  const rows = (dbData.projects || []).map((p) => {
+    const income = incomeByProject[p.id] || 0;
+    const cardExpense = cardExpenseByProject[p.id] || 0;
+    const followupExpense = (p.followUps || []).reduce((sum, fu) =>
+      sum + (fu.expenses || []).reduce((s, ex) => s + (Number(ex.amount) || 0), 0), 0);
+    const totalExpense = cardExpense + followupExpense;
+    const profit = income - totalExpense;
+    const profitMargin = income > 0 ? (profit / income) * 100 : null;
+    return {
+      projectId: p.id,
+      projectName: p.name,
+      status: p.status,
+      income,
+      cardExpense,
+      followupExpense,
+      totalExpense,
+      profit,
+      profitMargin
+    };
+  });
+
+  res.json({ rows, unmatchedIncome, unmatchedCardExpense });
+});
+
 // AI 업무일지 정제 (AI Polish) API
 app.post('/api/worklogs/ai-polish', async (req, res) => {
   try {
