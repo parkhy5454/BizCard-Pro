@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
-import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload } from 'lucide-react';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
@@ -9,6 +9,73 @@ interface Props {
   section: AdminDocSection;
   currentUser: User | null;
 }
+
+// [수정] datalist 자동완성은 브라우저마다 동작이 다르고(포커스만으론 후보가 안 뜨는 경우도
+// 있어) 눈에 잘 안 띈다는 피드백이 있었다. 명함/프로젝트 담당자 선택에 쓰던 것과 같은,
+// 눈에 보이는 드롭다운 방식으로 바꾼다 - 입력칸에 포커스하면 바로 등록 차량 목록이 펼쳐지고,
+// 타이핑하면 그 목록이 실시간으로 좁혀지며(자유 입력도 그대로 유지), 목록에서 고르면 선택된다.
+interface VehicleSearchInputProps {
+  vehicles: Vehicle[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value, onChange, placeholder, className }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const labelOf = (v: Vehicle) => `${v.modelName} (${v.plateNumber})`;
+  const q = value.toLowerCase();
+  const filtered = vehicles
+    .filter((v) => !q || v.modelName.toLowerCase().includes(q) || v.plateNumber.toLowerCase().includes(q) || (v.owner || '').toLowerCase().includes(q))
+    .slice(0, 30);
+
+  return (
+    <div ref={wrapRef} className={`relative ${className || ''}`}>
+      <input
+        type="text"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        placeholder={placeholder}
+        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+      />
+      {open && vehicles.length > 0 && (
+        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-slate-400 text-center py-3">일치하는 등록 차량이 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
+            ) : (
+              filtered.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => { onChange(labelOf(v)); setOpen(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-indigo-50 flex items-center gap-1.5 ${labelOf(v) === value ? 'bg-indigo-50' : ''}`}
+                >
+                  <Car className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span className="font-medium text-slate-700 truncate">{v.modelName}</span>
+                  <span className="text-slate-400 truncate">({v.plateNumber})</span>
+                  {labelOf(v) === value && <Check className="w-3 h-3 text-indigo-600 ml-auto shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // [추가] 카드번호 입력칸(법인카드 관리/카드사용내역 공용) - 숫자만 입력받아 "0000-0000-0000-0000"
 // 형태로 4자리마다 자동으로 하이픈을 넣어준다.
@@ -4274,16 +4341,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             </div>
                             <div className="flex-1 min-w-[100px]">
                               <label className="block text-[9px] text-slate-400 mb-0.5">위반차량</label>
-                              {/* [수정] 통합 차량관리에 등록된 차량에서 골라 쓸 수 있도록 datalist로
-                              자동완성 목록을 붙인다. 등록 안 된 차량(예: 렌터카)은 그대로 직접
-                              입력할 수 있게 select가 아닌 text+datalist로 둔다. */}
-                              <input
-                                type="text"
-                                list="vehicle-fine-vehicle-options"
+                              {/* [수정] 통합 차량관리에 등록된 차량을 눈에 보이는 드롭다운으로 골라
+                              쓸 수 있게 한다. 등록 안 된 차량(예: 렌터카)은 그대로 직접 입력 가능. */}
+                              <VehicleSearchInput
+                                vehicles={vehicles}
                                 value={e.vehicle}
-                                onChange={(ev) => updateVehicleFineEntry(e.id, { vehicle: ev.target.value })}
+                                onChange={(v) => updateVehicleFineEntry(e.id, { vehicle: v })}
                                 placeholder="예: 벤츠(8030)"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                             </div>
                             <div className="flex-1 min-w-[90px]">
@@ -4329,13 +4393,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         </div>
                       ))}
                     </div>
-
-                    {/* [추가] "위반차량" 입력칸(들)이 공용으로 참조하는 등록 차량 자동완성 목록. */}
-                    <datalist id="vehicle-fine-vehicle-options">
-                      {vehicles.map((v) => (
-                        <option key={v.id} value={`${v.modelName} (${v.plateNumber})`} />
-                      ))}
-                    </datalist>
 
                     <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       합계: {formatCurrencyInput((editingDoc.vehicleFine?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
