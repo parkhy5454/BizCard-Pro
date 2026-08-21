@@ -1344,6 +1344,27 @@ async function persistAttachmentsInArray(
   }));
 }
 
+// [추가] 사진/파일(스캔·촬영 등)이 포함된 저장 요청에서 반복되는 패턴을 하나로 묶은 헬퍼.
+// setScopedDoc/setScopedDocs가 DB 저장 실패 시 서버 콘솔에만 로그를 남기고 조용히 "성공"을
+// 반환하던 문제를 고쳐서 이제 boolean을 돌려주는데, 이 boolean을 매 라우트마다 일일이
+// 확인하고 "메모리 캐시 롤백 + 에러 응답"을 반복해서 쓰면 실수하기 쉽다. 이 헬퍼를 쓰면
+// 저장이 실패했을 때 rollback()으로 메모리를 되돌리고, 지정한 메시지로 500 에러 응답까지
+// 한 번에 처리해준다. 호출부는 반환값이 false면 곧바로 return하면 된다(이미 응답을 보냈으므로).
+async function persistOrRespondError(
+  res: express.Response,
+  saveFn: () => Promise<boolean>,
+  rollback: () => void,
+  errorMessage: string
+): Promise<boolean> {
+  const saved = await saveFn();
+  if (!saved) {
+    rollback();
+    res.status(500).json({ error: errorMessage });
+    return false;
+  }
+  return true;
+}
+
 // 비밀번호 검증: bcrypt 해시면 정식 비교, 옛날 평문으로 저장된 계정이면 평문 비교 후
 // 성공 시 자동으로 안전한 해시로 업그레이드합니다 (기존 가입자 로그인이 끊기지 않도록).
 function verifyPassword(inputPassword: string, storedPassword?: string): boolean {
@@ -1690,8 +1711,15 @@ app.put('/api/auth/signature', async (req, res) => {
     return res.status(400).json({ error: '서명 이미지 형식이 올바르지 않습니다.' });
   }
 
+  // [추가] DB 저장 실패 시 되돌리기 위해 수정 전 서명을 남겨둔다.
+  const previousSignatureImage = user.signatureImage;
   user.signatureImage = await persistImageField(scopeIdForUser(user), signatureImage, `sig-${user.id}`, 'signatures');
-  await addUser(user);
+  // [수정] 서명 저장이 DB에 실제로 실패했는데도 조용히 "성공"으로 응답하던 문제를 고쳤다.
+  const savedUser = await addUser(user);
+  if (!savedUser) {
+    user.signatureImage = previousSignatureImage;
+    return res.status(500).json({ error: '서명 이미지를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
 
   res.json({
     success: true,
@@ -3869,7 +3897,15 @@ app.post('/api/contacts/import', async (req, res) => {
     if (emailKey) existingEmailKeys.add(emailKey);
   }
 
-  await setScopedDocs(scopeId, 'contacts', toInsert);
+  // [수정] 가져오기 도중 DB 저장이 실패하면, 방금 메모리에 추가한 항목들(toInsert)을 모두
+  // 되돌리고 실패를 알린다 — 그렇지 않으면 "가져오기 완료"로 보이지만 실제로는 DB에 없는
+  // 명함들이 화면에만 잠깐 보이다가 서버 재시작 시 사라지는 문제가 생긴다.
+  const bulkSaved = await setScopedDocs(scopeId, 'contacts', toInsert);
+  if (!bulkSaved) {
+    const insertedIds = new Set(toInsert.map((c) => c.id));
+    dbData.contacts = dbData.contacts.filter((c: BusinessCard) => !insertedIds.has(c.id));
+    return res.status(500).json({ error: '가져온 명함을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json({ count: toInsert.length, skippedDuplicates, skippedDetails, contacts: dbData.contacts });
 });
 
@@ -3887,11 +3923,19 @@ app.get('/api/my-profile', async (req, res) => {
 app.put('/api/my-profile', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
+  // [추가] DB 저장 실패 시 메모리 캐시를 되돌리기 위해 수정 전 값을 남겨둔다.
+  const previousProfile = dbData.myProfile;
   dbData.myProfile = { ...dbData.myProfile, ...req.body };
   // [수정] 내 명함 사진도 마찬가지로 Storage에 업로드 후 URL만 저장
   dbData.myProfile.frontImage = await persistImageField(scopeId, dbData.myProfile.frontImage, `myprofile-${scopeId}-front`);
   dbData.myProfile.backImage = await persistImageField(scopeId, dbData.myProfile.backImage, `myprofile-${scopeId}-back`);
-  await setScopedProfile(scopeId, dbData.myProfile);
+  // [수정] "내 명함"도 재스캔한 사진이 DB 저장에 실패했는데 조용히 성공으로 응답하던 문제를
+  // 고쳤다. 실패하면 메모리를 원래대로 되돌리고 에러를 알린다.
+  const savedProfile = await setScopedProfile(scopeId, dbData.myProfile);
+  if (!savedProfile) {
+    dbData.myProfile = previousProfile;
+    return res.status(500).json({ error: '내 명함 정보를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(dbData.myProfile);
 });
 
@@ -4143,8 +4187,16 @@ app.post('/api/projects/:id/followups', async (req, res) => {
   f.expenses = await persistReceiptImagesInArray(scopeId, f.expenses, `followup-${f.id}`);
   // [추가] 첨부파일(제안서/견적서 등, PDF·PPT·엑셀·한글 포함)도 Storage에 업로드 후 URL로 교체
   f.attachments = await persistAttachmentsInArray(scopeId, f.attachments, `followup-${f.id}`);
-  dbData.projects[idx].followUps.unshift(f);
-  await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
+  // [추가] DB 저장 실패 시 되돌리기 위해 수정 전 프로젝트 상태를 남겨둔다.
+  const previousProject = dbData.projects[idx];
+  dbData.projects[idx] = { ...previousProject, followUps: [f, ...previousProject.followUps] };
+  // [수정] 영수증/첨부파일이 포함된 미팅 기록은 용량이 커서 DB 저장이 실패하기 쉬운데도
+  // 조용히 "성공"으로 응답하던 문제를 고쳤다. 실패하면 되돌리고 에러를 알린다.
+  const savedFollowup = await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
+  if (!savedFollowup) {
+    dbData.projects[idx] = previousProject;
+    return res.status(500).json({ error: '미팅 기록을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(dbData.projects[idx]);
 });
 
@@ -4163,8 +4215,17 @@ app.put('/api/projects/:id/followups/:fid', async (req, res) => {
     if (req.body.attachments) {
       updatedFollowUp.attachments = await persistAttachmentsInArray(scopeId, updatedFollowUp.attachments, `followup-${req.params.fid}`);
     }
-    dbData.projects[idx].followUps[fIdx] = updatedFollowUp;
-    await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
+    // [추가] DB 저장 실패 시 되돌리기 위해 수정 전 프로젝트 상태를 남겨둔다.
+    const previousProject = dbData.projects[idx];
+    const nextFollowUps = [...previousProject.followUps];
+    nextFollowUps[fIdx] = updatedFollowUp;
+    dbData.projects[idx] = { ...previousProject, followUps: nextFollowUps };
+    // [수정] 위 등록(POST)과 동일한 이유로, 저장 실패를 조용히 넘기지 않고 되돌린 뒤 알린다.
+    const savedFollowup = await setScopedDoc(scopeId, 'projects', dbData.projects[idx]);
+    if (!savedFollowup) {
+      dbData.projects[idx] = previousProject;
+      return res.status(500).json({ error: '미팅 기록 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+    }
   }
   res.json(dbData.projects[idx]);
 });
@@ -4200,7 +4261,13 @@ app.post('/api/vehicles', async (req, res) => {
   v.registrationDocumentUrl = await persistFileField(scopeId, v.registrationDocumentUrl, `vehicle-${v.id}-reg`, 'attachments');
 
   dbData.vehicles.unshift(v);
-  await setScopedDoc(scopeId, 'vehicles', v);
+  // [수정] 등록증 스캔본이 포함된 저장이 DB에 실제로 실패했는데도 조용히 "성공"으로
+  // 응답하던 문제를 고쳤다. 실패하면 방금 추가한 것을 되돌리고 알린다.
+  const savedVehicle = await setScopedDoc(scopeId, 'vehicles', v);
+  if (!savedVehicle) {
+    dbData.vehicles = dbData.vehicles.filter((x: Vehicle) => x.id !== v.id);
+    return res.status(500).json({ error: '차량 정보를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(v);
 });
 
@@ -4210,11 +4277,17 @@ app.put('/api/vehicles/:id', async (req, res) => {
   const idx = dbData.vehicles.findIndex(v => v.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Vehicle not found' });
 
+  const previousVehicle = dbData.vehicles[idx];
   const updated = { ...dbData.vehicles[idx], ...req.body };
   // [수정] 위와 동일: 수정 화면에서 등록증을 새로 올린 경우에도 Storage로 옮긴다.
   updated.registrationDocumentUrl = await persistFileField(scopeId, updated.registrationDocumentUrl, `vehicle-${updated.id}-reg`, 'attachments');
   dbData.vehicles[idx] = updated;
-  await setScopedDoc(scopeId, 'vehicles', dbData.vehicles[idx]);
+  // [수정] 위 등록(POST)과 동일한 이유로, 저장 실패를 조용히 넘기지 않고 되돌린 뒤 알린다.
+  const savedVehicle = await setScopedDoc(scopeId, 'vehicles', dbData.vehicles[idx]);
+  if (!savedVehicle) {
+    dbData.vehicles[idx] = previousVehicle;
+    return res.status(500).json({ error: '차량 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(dbData.vehicles[idx]);
 });
 
@@ -4290,9 +4363,15 @@ app.post('/api/vehicles/expenses', async (req, res) => {
   if (!exp.id) exp.id = `exp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!exp.createdAt) exp.createdAt = new Date().toISOString();
   exp.receiptImage = await persistImageField(scopeId, exp.receiptImage, `vehicle-expense-${exp.id}`, 'receipts');
-  
+
   dbData.expenses.unshift(exp);
-  await setScopedDoc(scopeId, 'expenses', exp);
+  // [수정] 영수증 스캔본이 포함된 저장이 DB에 실제로 실패했는데도 조용히 "성공"으로
+  // 응답하던 문제를 고쳤다. 실패하면 방금 추가한 것을 되돌리고 알린다.
+  const savedExpense = await setScopedDoc(scopeId, 'expenses', exp);
+  if (!savedExpense) {
+    dbData.expenses = dbData.expenses.filter((e: VehicleExpense) => e.id !== exp.id);
+    return res.status(500).json({ error: '지출 내역을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(exp);
 });
 
@@ -4316,9 +4395,15 @@ app.post('/api/vehicles/maintenances', async (req, res) => {
   if (!maint.id) maint.id = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!maint.createdAt) maint.createdAt = new Date().toISOString();
   maint.receiptImage = await persistImageField(scopeId, maint.receiptImage, `vehicle-maint-${maint.id}`, 'receipts');
-  
+
   dbData.maintenances.unshift(maint);
-  await setScopedDoc(scopeId, 'maintenances', maint);
+  // [수정] 위 지출비용과 동일한 이유로, 영수증 스캔본이 포함된 저장 실패를 조용히 넘기지
+  // 않고 되돌린 뒤 알린다.
+  const savedMaint = await setScopedDoc(scopeId, 'maintenances', maint);
+  if (!savedMaint) {
+    dbData.maintenances = dbData.maintenances.filter((m: VehicleMaintenance) => m.id !== maint.id);
+    return res.status(500).json({ error: '정비 기록을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(maint);
 });
 
@@ -4327,11 +4412,16 @@ app.put('/api/vehicles/maintenances/:id', async (req, res) => {
   const scopeId = (req as any).scopeId;
   const idx = dbData.maintenances.findIndex(m => m.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Maintenance not found' });
-  
+
+  const previousMaint = dbData.maintenances[idx];
   const updated = { ...dbData.maintenances[idx], ...req.body };
   updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-maint-${updated.id}`, 'receipts');
   dbData.maintenances[idx] = updated;
-  await setScopedDoc(scopeId, 'maintenances', dbData.maintenances[idx]);
+  const savedMaintUpdate = await setScopedDoc(scopeId, 'maintenances', dbData.maintenances[idx]);
+  if (!savedMaintUpdate) {
+    dbData.maintenances[idx] = previousMaint;
+    return res.status(500).json({ error: '정비 기록 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(dbData.maintenances[idx]);
 });
 
@@ -4398,10 +4488,15 @@ app.put('/api/vehicles/expenses/:id', async (req, res) => {
   const scopeId = (req as any).scopeId;
   const idx = dbData.expenses.findIndex(e => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Expense not found' });
+  const previousExpense = dbData.expenses[idx];
   const updated = { ...dbData.expenses[idx], ...req.body };
   updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-expense-${updated.id}`, 'receipts');
   dbData.expenses[idx] = updated;
-  await setScopedDoc(scopeId, 'expenses', dbData.expenses[idx]);
+  const savedExpenseUpdate = await setScopedDoc(scopeId, 'expenses', dbData.expenses[idx]);
+  if (!savedExpenseUpdate) {
+    dbData.expenses[idx] = previousExpense;
+    return res.status(500).json({ error: '지출 내역 수정 사항을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(dbData.expenses[idx]);
 });
 
@@ -5163,10 +5258,16 @@ app.post('/api/worklogs/daily', async (req, res) => {
 
   dbData.dailyLogs = dbData.dailyLogs || [];
   dbData.dailyLogs.unshift(log);
-  await Promise.all([
+  // [수정] 지출 영수증 스캔본이 포함된 업무일지 저장이 DB에 실제로 실패했는데도 조용히
+  // "성공"으로 응답하던 문제를 고쳤다. 실패하면 방금 추가한 것을 되돌리고 알린다.
+  const [savedDailyLog] = await Promise.all([
     setScopedDoc(scopeId, 'dailyLogs', log),
     replaceScopedCollection(scopeId, 'expenses', dbData.expenses)
   ]);
+  if (!savedDailyLog) {
+    dbData.dailyLogs = dbData.dailyLogs.filter((l: DailyWorkLog) => l.id !== log.id);
+    return res.status(500).json({ error: '업무일지를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(log);
 });
 
@@ -5185,10 +5286,15 @@ app.put('/api/worklogs/daily/:id', async (req, res) => {
   // 비용 항목 연동 동기화
   syncWorkLogExpenses(dbData, req.params.id, updated.date, updated.title, updated.expenses);
 
-  await Promise.all([
+  // [수정] 위 등록(POST)과 동일한 이유로, 저장 실패를 조용히 넘기지 않고 되돌린 뒤 알린다.
+  const [savedDailyLogUpdate] = await Promise.all([
     setScopedDoc(scopeId, 'dailyLogs', updated),
     replaceScopedCollection(scopeId, 'expenses', dbData.expenses)
   ]);
+  if (!savedDailyLogUpdate) {
+    dbData.dailyLogs[idx] = original;
+    return res.status(500).json({ error: '업무일지 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(dbData.dailyLogs[idx]);
 });
 
@@ -5232,10 +5338,15 @@ app.post('/api/worklogs/weekly', async (req, res) => {
 
   dbData.weeklyLogs = dbData.weeklyLogs || [];
   dbData.weeklyLogs.unshift(log);
-  await Promise.all([
+  // [수정] 위 일일 업무일지와 동일한 이유로, 저장 실패를 조용히 넘기지 않고 되돌린 뒤 알린다.
+  const [savedWeeklyLog] = await Promise.all([
     setScopedDoc(scopeId, 'weeklyLogs', log),
     replaceScopedCollection(scopeId, 'expenses', dbData.expenses)
   ]);
+  if (!savedWeeklyLog) {
+    dbData.weeklyLogs = dbData.weeklyLogs.filter((l: WeeklyWorkLog) => l.id !== log.id);
+    return res.status(500).json({ error: '주간 업무일지를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(log);
 });
 
@@ -5254,10 +5365,14 @@ app.put('/api/worklogs/weekly/:id', async (req, res) => {
   // 비용 항목 연동 동기화 (주간은 시작일을 지출일자로 연동)
   syncWorkLogExpenses(dbData, req.params.id, updated.startDate, updated.title, updated.expenses);
 
-  await Promise.all([
+  const [savedWeeklyLogUpdate] = await Promise.all([
     setScopedDoc(scopeId, 'weeklyLogs', updated),
     replaceScopedCollection(scopeId, 'expenses', dbData.expenses)
   ]);
+  if (!savedWeeklyLogUpdate) {
+    dbData.weeklyLogs[idx] = original;
+    return res.status(500).json({ error: '주간 업무일지 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(dbData.weeklyLogs[idx]);
 });
 
@@ -5735,7 +5850,13 @@ app.post('/api/approvals/advance', async (req, res) => {
 
   dbData.advancePayments = dbData.advancePayments || [];
   dbData.advancePayments.unshift(doc);
-  await setScopedDoc(scopeId, 'advancePayments', doc);
+  // [수정] 영수증 스캔본이 포함된 정산서 저장이 DB에 실제로 실패했는데도 조용히 "성공"으로
+  // 응답하던 문제를 고쳤다. 실패하면 방금 추가한 것을 되돌리고 알린다.
+  const savedAdvance = await setScopedDoc(scopeId, 'advancePayments', doc);
+  if (!savedAdvance) {
+    dbData.advancePayments = dbData.advancePayments.filter((d: AdvancePaymentSettlement) => d.id !== doc.id);
+    return res.status(500).json({ error: '가지급금 정산서를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(doc);
 
   notifyNextApproverIfChanged(scopeId, '가지급금 정산서', `${doc.periodStart} ~ ${doc.periodEnd}`, doc.author, doc.approvalLine, doc.status)
@@ -5757,7 +5878,12 @@ app.put('/api/approvals/advance/:id', async (req, res) => {
   // [수정] POST와 동일: 수정 시 새로 추가/변경된 영수증 사진도 Storage로 옮긴다.
   updated.items = (await persistReceiptImagesInArray(scopeId, updated.items, `advance-${updated.id}`)) || [];
   dbData.advancePayments[idx] = updated;
-  await setScopedDoc(scopeId, 'advancePayments', updated);
+  // [수정] 위 등록(POST)과 동일한 이유로, 저장 실패를 조용히 넘기지 않고 되돌린 뒤 알린다.
+  const savedAdvanceUpdate = await setScopedDoc(scopeId, 'advancePayments', updated);
+  if (!savedAdvanceUpdate) {
+    dbData.advancePayments[idx] = before;
+    return res.status(500).json({ error: '가지급금 정산서 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(updated);
 
   notifyNextApproverIfChanged(scopeId, '가지급금 정산서', `${updated.periodStart} ~ ${updated.periodEnd}`, updated.author, updated.approvalLine, updated.status, before.approvalLine)
@@ -5945,7 +6071,13 @@ app.post('/api/admin-docs', async (req, res) => {
 
   dbData.adminDocs = dbData.adminDocs || [];
   dbData.adminDocs.unshift(doc);
-  await setScopedDoc(scopeId, 'adminDocs', doc);
+  // [수정] 첨부파일(스캔본 포함)이 들어간 저장이 DB에 실제로 실패했는데도 조용히 "성공"으로
+  // 응답하던 문제를 고쳤다. 실패하면 방금 추가한 것을 되돌리고 알린다.
+  const savedAdminDoc = await setScopedDoc(scopeId, 'adminDocs', doc);
+  if (!savedAdminDoc) {
+    dbData.adminDocs = dbData.adminDocs.filter((d: AdminDoc) => d.id !== doc.id);
+    return res.status(500).json({ error: '문서를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.status(201).json(doc);
 });
 
@@ -5958,12 +6090,18 @@ app.put('/api/admin-docs/:id', async (req, res) => {
   const idx = dbData.adminDocs.findIndex((d: AdminDoc) => d.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Document not found' });
 
+  const previousAdminDoc = dbData.adminDocs[idx];
   const updated: AdminDoc = { ...dbData.adminDocs[idx], ...req.body, id: req.params.id };
   if (updated.attachments) {
     updated.attachments = await persistAttachmentsInArray(scopeId, updated.attachments, `admindoc-${updated.id}`);
   }
   dbData.adminDocs[idx] = updated;
-  await setScopedDoc(scopeId, 'adminDocs', updated);
+  // [수정] 위 등록(POST)과 동일한 이유로, 저장 실패를 조용히 넘기지 않고 되돌린 뒤 알린다.
+  const savedAdminDocUpdate = await setScopedDoc(scopeId, 'adminDocs', updated);
+  if (!savedAdminDocUpdate) {
+    dbData.adminDocs[idx] = previousAdminDoc;
+    return res.status(500).json({ error: '문서 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
   res.json(updated);
 });
 
