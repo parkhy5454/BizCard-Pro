@@ -1044,10 +1044,18 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const mergedUnits: { id: string; name: string }[] = [];
     const idMaps: Record<string, string>[] = docsForYear.map((d, di) => {
       const map: Record<string, string> = {};
-      (d.managementFee?.units || []).forEach((u) => {
+      const units = d.managementFee?.units || [];
+      // [수정] 호실별로 문서를 따로 등록하실 때, 표 안의 "호실(이 표의 열)" 이름칸은 그대로
+      // 비워두고 문서 위쪽 "호실" 칸(personName)에만 "518호"처럼 입력해두신 경우가 있었다
+      // (그 경우 목록에는 "518호"로 잘 보이지만, 정작 표의 열 이름은 비어 있어서 합친
+      // 화면에 "(호실명 미입력)"으로만 나왔음). 문서에 호실이 딱 하나뿐이면 표의 열
+      // 이름이 비어 있을 때 문서의 "호실" 칸 값을 대신 쓴다(호실이 여러 개인 문서는 어느
+      // 열이 문서의 호실 칸과 같은 건지 알 수 없어 그대로 둔다).
+      const fallbackName = units.length === 1 ? (d.personName || '') : '';
+      units.forEach((u) => {
         const newId = `merged-${di}-${u.id}`;
         map[u.id] = newId;
-        mergedUnits.push({ id: newId, name: u.name });
+        mergedUnits.push({ id: newId, name: u.name || fallbackName });
       });
       return map;
     });
