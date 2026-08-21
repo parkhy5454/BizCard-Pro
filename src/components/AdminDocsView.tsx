@@ -167,7 +167,8 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'power_of_attorney', label: '위임장', personLabel: '위임받는 사람', showAmount: false },
     { id: 'office_supplies', label: '사무실 비품 관리', personLabel: '담당자/비품명', showAmount: true },
     { id: 'sales_contract', label: '영업 계약', personLabel: '거래처명', showAmount: true },
-    { id: 'corp_card', label: '법인카드 관리', personLabel: '카드 소지자', showAmount: true }
+    { id: 'corp_card', label: '법인카드 관리', personLabel: '카드 소지자', showAmount: true },
+    { id: 'cash_flow', label: '현금 흐름', personLabel: '', showAmount: false }
   ],
   accounting: [
     { id: 'payslip', label: '급여명세서', personLabel: '직원명', showAmount: true },
@@ -354,6 +355,44 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
           note: ''
         };
       })
+    };
+  })() : undefined,
+  // [추가] 현금 흐름 기본값. "연도 하나 = 문서 하나"라서 대상 연도를 먼저 잡고, INFLOWS/
+  // OUTFLOWS는 빈 줄 하나씩만 미리 넣어두고 "행 추가"로 늘리게 하며, 경비는 실제로 자주
+  // 쓰시는 네 그룹(급여/소득공제, 사업 경비, 부채, 기타 경비)과 각 그룹의 흔한 항목들을
+  // 미리 깔아둔다(부채만 회사마다 대출명이 달라서 빈 목록으로 시작 - "항목 추가"로 등록).
+  cashFlowAnnual: category === 'cash_flow' ? (() => {
+    const year = String(new Date().getFullYear());
+    const emptyMonths = () => ({} as Record<string, number>);
+    return {
+      year,
+      openingBalance: 0,
+      inflows: [{ id: `cfi-${Date.now()}`, name: '', recipient: '', contractAmount: 0, remainingAmount: 0, prevYear: 0, months: emptyMonths() }],
+      outflows: [{ id: `cfo-${Date.now()}`, name: '', recipient: '', estimatedTotal: 0, note: '', prevYear: 0, months: emptyMonths() }],
+      expenseGroups: [
+        {
+          id: `cfeg-${Date.now()}-1`, name: '급여/소득공제', items: [
+            { id: `cfei-${Date.now()}-1`, label: '급여', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-2`, label: '4대보험(퇴직연금/보)', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-3`, label: '세금 외(지방소득세 등)', months: emptyMonths() }
+          ]
+        },
+        {
+          id: `cfeg-${Date.now()}-2`, name: '사업 경비', items: [
+            { id: `cfei-${Date.now()}-4`, label: '개인경비(가지급금 등)', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-5`, label: '가로등', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-6`, label: '기타', months: emptyMonths() }
+          ]
+        },
+        { id: `cfeg-${Date.now()}-3`, name: '부채', items: [] },
+        {
+          id: `cfeg-${Date.now()}-4`, name: '기타 경비', items: [
+            { id: `cfei-${Date.now()}-7`, label: '차량 대여료', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-8`, label: '건물 관리비', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-9`, label: '사무비품경비 및 기타비용', months: emptyMonths() }
+          ]
+        }
+      ]
     };
   })() : undefined,
   // [추가] 근로계약서 기본값. 급여 구성 항목을 실제 회사 양식(기본급/연장근로수당/
@@ -579,6 +618,43 @@ function getTargetMonthRange(yearMonth?: string): { start?: string; end?: string
   const lastDay = new Date(y, m, 0).getDate();
   const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   return { start, end };
+}
+
+// [추가] 경영지원 > 현금 흐름(category: 'cash_flow') - INFLOWS/OUTFLOWS/경비/현금흐름
+// 최종 네 화면이 전부 이 몇 개 순수 계산 함수를 공용으로 쓴다. "현금흐름 최종"은 사람이
+// 따로 입력하지 않고 INFLOWS·OUTFLOWS·경비를 월별로 더해서 자동으로 계산한다.
+type CashFlowAnnual = NonNullable<AdminDoc['cashFlowAnnual']>;
+type CashFlowRow = CashFlowAnnual['inflows'][number];
+type CashFlowOutflowRow = CashFlowAnnual['outflows'][number];
+type CashFlowExpenseGroup = CashFlowAnnual['expenseGroups'][number];
+type CashFlowExpenseItem = CashFlowExpenseGroup['items'][number];
+const CASH_FLOW_MONTHS: string[] = Array.from({ length: 12 }, (_, i) => String(i + 1));
+
+function cfRowsMonthlyTotal(rows: CashFlowRow[], month: string): number {
+  return rows.reduce((s, r) => s + (Number(r.months[month]) || 0), 0);
+}
+function cfExpenseGroupMonthlyTotal(group: CashFlowExpenseGroup, month: string): number {
+  return group.items.reduce((s, it) => s + (Number(it.months[month]) || 0), 0);
+}
+function cfExpenseAllMonthlyTotal(groups: CashFlowExpenseGroup[], month: string): number {
+  return groups.reduce((s, g) => s + cfExpenseGroupMonthlyTotal(g, month), 0);
+}
+// OUTFLOWS(매입 합계) + 경비 합계 = Total OUTFLOWS(2)
+function cfTotalOutflowMonthly(cf: CashFlowAnnual, month: string): number {
+  return cfRowsMonthlyTotal(cf.outflows, month) + cfExpenseAllMonthlyTotal(cf.expenseGroups, month);
+}
+// 순 현금 흐름(1)-(2) = INFLOWS 합계 - Total OUTFLOWS
+function cfNetCashFlowMonthly(cf: CashFlowAnnual, month: string): number {
+  return cfRowsMonthlyTotal(cf.inflows, month) - cfTotalOutflowMonthly(cf, month);
+}
+// 통장잔고(월말기준) = 전년도이월금에서 시작해 매월 순현금흐름을 누적한 값.
+// 인덱스 0이 1월, 11이 12월.
+function cfBankBalances(cf: CashFlowAnnual): number[] {
+  let running = Number(cf.openingBalance) || 0;
+  return CASH_FLOW_MONTHS.map((m) => {
+    running += cfNetCashFlowMonthly(cf, m);
+    return running;
+  });
 }
 
 // [추가] 4대보험료 등을 요율에 맞춰 자동 계산한다. 소득세는 국세청 근로소득 간이세액표
@@ -1029,6 +1105,252 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     URL.revokeObjectURL(url);
   };
 
+  // [추가] 현금 흐름 - INFLOWS/OUTFLOWS/경비/현금흐름 최종 표를 엑셀로 받는다. 인쇄/PDF
+  // 미리보기에서 고른 표(cashFlowPrintTab)와 똑같이 - "전체"를 고르면 네 표를 시트 4개로
+  // 나눠 한 파일에 담고, 특정 표만 골랐으면 그 표 하나만 시트 1개로 받는다.
+  const handleExportCashFlowExcel = async () => {
+    if (!printingDoc || !printingDoc.cashFlowAnnual) return;
+    const cf = printingDoc.cashFlowAnnual;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const navyFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF3D5A99' } };
+    const greenFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFC6EFCE' } };
+    const grayFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE7E6E6' } };
+    const landscapeSetup = { orientation: 'landscape' as const, paperSize: 9, margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } };
+    const setColWidths = (ws: any, columns: string[], rowsAsStrings: (string | number)[][]) => {
+      columns.forEach((label, ci) => {
+        let maxLen = label.length;
+        rowsAsStrings.forEach((row) => {
+          const v = row[ci];
+          if (v !== undefined && v !== null && v !== '') maxLen = Math.max(maxLen, String(v).length);
+        });
+        ws.getColumn(ci + 1).width = Math.min(Math.max(maxLen + 2, 8), 26);
+      });
+    };
+
+    const addInflowsSheet = () => {
+      const columns = ['NO', '프로젝트명', '프로젝트 수주자', '계약금(VAT포함)', '잔여기성', '전년도', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('INFLOWS', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `INFLOWS (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = navyFill; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+      headerRow.height = 26;
+
+      const dataRows: (string | number)[][] = [];
+      cf.inflows.forEach((r, i) => {
+        const row = ws.getRow(3 + i);
+        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.contractAmount || 0, r.remainingAmount || 0, r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => r.months[m] || 0)];
+        dataRows.push(values);
+        values.forEach((v, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = v; cell.border = fullBorder;
+          cell.alignment = { horizontal: ci === 0 || ci === 2 ? 'center' : (ci === 1 ? 'left' : 'right'), vertical: 'middle' };
+          if (ci >= 3) cell.numFmt = '#,##0';
+        });
+      });
+
+      const sumField = (key: 'contractAmount' | 'remainingAmount' | 'prevYear') => cf.inflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+      const totalRowIdx = 3 + cf.inflows.length;
+      const totalRow = ws.getRow(totalRowIdx);
+      const totals: (string | number)[] = ['합계(1)', '', '', sumField('contractAmount'), sumField('remainingAmount'), sumField('prevYear'), ...CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m))];
+      totals.forEach((v, ci) => {
+        const cell = totalRow.getCell(ci + 1);
+        cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+        cell.alignment = { horizontal: ci === 0 ? 'center' : 'right', vertical: 'middle' };
+        if (ci >= 3) cell.numFmt = '#,##0';
+      });
+      setColWidths(ws, columns, [...dataRows, totals]);
+    };
+
+    const addOutflowsSheet = () => {
+      const columns = ['NO', '프로젝트별 물품 매입처', '프로젝트 수주자', '예상물품구입(외주)총액', '비 고', '전년도 구입', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('OUTFLOWS', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `OUTFLOWS (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = navyFill; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+      headerRow.height = 26;
+
+      const dataRows: (string | number)[][] = [];
+      cf.outflows.forEach((r, i) => {
+        const row = ws.getRow(3 + i);
+        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.estimatedTotal || 0, r.note || '', r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => r.months[m] || 0)];
+        dataRows.push(values);
+        values.forEach((v, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = v; cell.border = fullBorder;
+          cell.alignment = { horizontal: ci === 0 || ci === 2 ? 'center' : (ci === 1 || ci === 4 ? 'left' : 'right'), vertical: 'middle' };
+          if (ci === 3 || ci >= 5) cell.numFmt = '#,##0';
+        });
+      });
+
+      const sumField = (key: 'estimatedTotal' | 'prevYear') => cf.outflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+      const totalRowIdx = 3 + cf.outflows.length;
+      const totalRow = ws.getRow(totalRowIdx);
+      const totals: (string | number)[] = ['매입 합계', '', '', sumField('estimatedTotal'), '', sumField('prevYear'), ...CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m))];
+      totals.forEach((v, ci) => {
+        const cell = totalRow.getCell(ci + 1);
+        cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+        cell.alignment = { horizontal: ci === 0 ? 'center' : 'right', vertical: 'middle' };
+        if (ci === 3 || ci >= 5) cell.numFmt = '#,##0';
+      });
+      setColWidths(ws, columns, [...dataRows, totals]);
+    };
+
+    const addExpensesSheet = () => {
+      const columns = ['구분', '항목', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('경비', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `경비 (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = navyFill; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+      headerRow.height = 22;
+
+      let r = 3;
+      const dataRows: (string | number)[][] = [];
+      cf.expenseGroups.forEach((g) => {
+        const items = g.items.length > 0 ? g.items : [{ id: `${g.id}-empty`, label: '', months: {} as Record<string, number> }];
+        items.forEach((it, ii) => {
+          const row = ws.getRow(r);
+          const values: (string | number)[] = [ii === 0 ? g.name : '', it.label, ...CASH_FLOW_MONTHS.map((m) => it.months[m] || 0)];
+          dataRows.push(values);
+          values.forEach((v, ci) => {
+            const cell = row.getCell(ci + 1);
+            cell.value = v; cell.border = fullBorder;
+            if (ci === 0) cell.font = { bold: true };
+            cell.alignment = { horizontal: ci <= 1 ? 'left' : 'right', vertical: 'middle' };
+            if (ci >= 2) cell.numFmt = '#,##0';
+          });
+          r++;
+        });
+        const subtotalRow = ws.getRow(r);
+        const subtotals: (string | number)[] = [`${g.name} 소계`, '', ...CASH_FLOW_MONTHS.map((m) => cfExpenseGroupMonthlyTotal(g, m))];
+        dataRows.push(subtotals);
+        subtotals.forEach((v, ci) => {
+          const cell = subtotalRow.getCell(ci + 1);
+          cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+          cell.alignment = { horizontal: ci === 0 ? 'left' : 'right', vertical: 'middle' };
+          if (ci >= 2) cell.numFmt = '#,##0';
+        });
+        r++;
+      });
+      const grandRow = ws.getRow(r);
+      const grandTotals: (string | number)[] = ['경비 총 합계', '', ...CASH_FLOW_MONTHS.map((m) => cfExpenseAllMonthlyTotal(cf.expenseGroups, m))];
+      dataRows.push(grandTotals);
+      grandTotals.forEach((v, ci) => {
+        const cell = grandRow.getCell(ci + 1);
+        cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+        cell.alignment = { horizontal: ci === 0 ? 'left' : 'right', vertical: 'middle' };
+        if (ci >= 2) cell.numFmt = '#,##0';
+      });
+      setColWidths(ws, columns, dataRows);
+    };
+
+    const addSummarySheet = () => {
+      const columns = ['구분', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('현금흐름_최종', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `현금 흐름 최종 (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true }; c.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFDBE5F1' } }; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      const inflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m));
+      const outflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m));
+      const expenseTotals = CASH_FLOW_MONTHS.map((m) => cfExpenseAllMonthlyTotal(cf.expenseGroups, m));
+      const totalOutflowTotals = CASH_FLOW_MONTHS.map((m) => cfTotalOutflowMonthly(cf, m));
+      const netTotals = CASH_FLOW_MONTHS.map((m) => cfNetCashFlowMonthly(cf, m));
+      const balances = cfBankBalances(cf);
+
+      const dataRows: (string | number)[][] = [];
+      const writeRow = (rowIdx: number, label: string, values: number[], opts?: { bold?: boolean; fill?: any }) => {
+        const row = ws.getRow(rowIdx);
+        const rowValues: (string | number)[] = [label, ...values];
+        dataRows.push(rowValues);
+        rowValues.forEach((v, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = v; cell.border = fullBorder;
+          if (opts?.bold) cell.font = { bold: true };
+          if (opts?.fill) cell.fill = opts.fill;
+          cell.alignment = { horizontal: ci === 0 ? 'left' : 'right', vertical: 'middle' };
+          if (ci >= 1) cell.numFmt = '#,##0';
+        });
+      };
+      writeRow(3, 'INFLOWS 합계(1)', inflowTotals);
+      writeRow(4, '매입 합계', outflowTotals);
+      writeRow(5, '경비 합계', expenseTotals);
+      writeRow(6, 'Total OUTFLOWS(2)', totalOutflowTotals, { bold: true, fill: grayFill });
+      writeRow(7, '순 현금 흐름(1)-(2)', netTotals, { bold: true });
+      writeRow(8, `통장잔고(월말기준) [전년도이월금: ${new Intl.NumberFormat('ko-KR').format(cf.openingBalance || 0)}]`, balances, { bold: true, fill: greenFill });
+      setColWidths(ws, columns, dataRows);
+    };
+
+    if (cashFlowPrintTab === 'inflows') addInflowsSheet();
+    else if (cashFlowPrintTab === 'outflows') addOutflowsSheet();
+    else if (cashFlowPrintTab === 'expenses') addExpensesSheet();
+    else if (cashFlowPrintTab === 'summary') addSummarySheet();
+    else { addInflowsSheet(); addOutflowsSheet(); addExpensesSheet(); addSummarySheet(); }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${cf.year}년도_현금흐름_${cashFlowPrintTab === 'all' ? '전체' : cashFlowPrintTab}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   // [추가] 관리비내역 - "518호, 519호 각각 문서로 등록해도 함께 전체로 보이게" 요청에 맞춰,
   // 같은 연도(monthKey의 연도)의 management_fee 문서를 모두 찾아 호실(열)을 하나의 표로
   // 합친다. 문서마다 독립적으로 생성된 호실 id가 겹칠 수 있어 새 id로 재부여하고, 월별
@@ -1433,6 +1755,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const [bankImportNewSubCategory, setBankImportNewSubCategory] = useState('');
   const [isSavingBankImport, setIsSavingBankImport] = useState(false);
 
+  // [추가] 현금 흐름 - 편집 화면에서 지금 보고 있는 표(INFLOWS/OUTFLOWS/경비/현금흐름
+  // 최종 미리보기)와, 인쇄/PDF·엑셀 미리보기에서 고를 표(전체 4장 포함).
+  const [cashFlowEditTab, setCashFlowEditTab] = useState<'inflows' | 'outflows' | 'expenses' | 'summary'>('inflows');
+  const [cashFlowPrintTab, setCashFlowPrintTab] = useState<'inflows' | 'outflows' | 'expenses' | 'summary' | 'all'>('all');
+
   // [추가] 카드사용내역 인쇄/PDF 화면 - 사용일자 정렬 방향. 예전엔 저장된 순서 그대로(보통
   // "자동 불러오기"로 채워진 순서라 날짜가 뒤죽박죽) 보여줬는데, 최근 날짜가 위로 오게
   // 기본 내림차순으로 바꾸고, 오름차순으로도 바꿔볼 수 있게 한다.
@@ -1685,6 +2012,53 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       setIsSavingBankImport(false);
     }
   };
+
+  // [추가] 현금 흐름 - INFLOWS/OUTFLOWS 행, 경비 그룹·항목 추가·삭제·수정. 문서 자체에
+  // cashFlowAnnual이 아직 없는 경우(예전에 만들어진 문서 등)를 대비해, 없으면 빈 기본
+  // 구조를 새로 만들어서 시작한다.
+  const emptyCashFlowAnnual = (): CashFlowAnnual => ({
+    year: String(new Date().getFullYear()), openingBalance: 0, inflows: [], outflows: [],
+    expenseGroups: [
+      { id: `cfeg-${Date.now()}-1`, name: '급여/소득공제', items: [] },
+      { id: `cfeg-${Date.now()}-2`, name: '사업 경비', items: [] },
+      { id: `cfeg-${Date.now()}-3`, name: '부채', items: [] },
+      { id: `cfeg-${Date.now()}-4`, name: '기타 경비', items: [] }
+    ]
+  });
+  const updateCashFlow = (updater: (cf: CashFlowAnnual) => CashFlowAnnual) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      return { ...prev, cashFlowAnnual: updater(prev.cashFlowAnnual || emptyCashFlowAnnual()) };
+    });
+  };
+  const addCashFlowInflow = () => updateCashFlow((cf) => ({
+    ...cf, inflows: [...cf.inflows, { id: `cfi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '', recipient: '', contractAmount: 0, remainingAmount: 0, prevYear: 0, months: {} }]
+  }));
+  const removeCashFlowInflow = (id: string) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.filter((r) => r.id !== id) }));
+  const updateCashFlowInflowField = (id: string, patch: Partial<CashFlowRow>) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.map((r) => r.id === id ? { ...r, ...patch } : r) }));
+  const updateCashFlowInflowMonth = (id: string, month: string, value: number) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: value } } : r) }));
+
+  const addCashFlowOutflow = () => updateCashFlow((cf) => ({
+    ...cf, outflows: [...cf.outflows, { id: `cfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '', recipient: '', estimatedTotal: 0, note: '', prevYear: 0, months: {} }]
+  }));
+  const removeCashFlowOutflow = (id: string) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.filter((r) => r.id !== id) }));
+  const updateCashFlowOutflowField = (id: string, patch: Partial<CashFlowOutflowRow>) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.map((r) => r.id === id ? { ...r, ...patch } : r) }));
+  const updateCashFlowOutflowMonth = (id: string, month: string, value: number) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: value } } : r) }));
+
+  const addCashFlowExpenseItem = (groupId: string) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId
+      ? { ...g, items: [...g.items, { id: `cfei-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: '', months: {} }] }
+      : g)
+  }));
+  const removeCashFlowExpenseItem = (groupId: string, itemId: string) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.filter((it) => it.id !== itemId) } : g)
+  }));
+  const updateCashFlowExpenseItemField = (groupId: string, itemId: string, patch: Partial<CashFlowExpenseItem>) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.map((it) => it.id === itemId ? { ...it, ...patch } : it) } : g)
+  }));
+  const updateCashFlowExpenseItemMonth = (groupId: string, itemId: string, month: string, value: number) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.map((it) => it.id === itemId ? { ...it, months: { ...it.months, [month]: value } } : it) } : g)
+  }));
 
   // [추가] 대출이자 및 원금 상환 내역 - 대출 줄 추가·삭제·수정
   type LoanEntry = NonNullable<AdminDoc['loanRepayment']>['loans'][number];
@@ -3215,6 +3589,227 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 현금 흐름 - INFLOWS 표 인쇄/PDF·엑셀 화면. 공유해주신 양식(NO/프로젝트명/
+  // 프로젝트 수주자/계약금(VAT포함)/잔여기성/전년도/1~12월 + 합계(1))을 그대로 재현한다.
+  const renderCashFlowInflowsTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const monthTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m));
+    const sumField = (key: 'contractAmount' | 'remainingAmount' | 'prevYear') => cf.inflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={18}>INFLOWS ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>NO</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트명</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트 수주자</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>계약금(VAT포함)</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>잔여기성</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>전년도</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            {cf.inflows.map((r, i) => (
+              <tr key={r.id}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{r.name}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{r.recipient}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.contractAmount || 0)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.remainingAmount || 0)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.prevYear || 0)}</td>
+                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.months[m] || 0)}</td>)}
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}>합계(1)</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('contractAmount'))}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('remainingAmount'))}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('prevYear'))}</td>
+              {monthTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - OUTFLOWS(매입) 표 인쇄/PDF·엑셀 화면.
+  const renderCashFlowOutflowsTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const monthTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m));
+    const sumField = (key: 'estimatedTotal' | 'prevYear') => cf.outflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={18}>OUTFLOWS ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>NO</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트별 물품 매입처</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트 수주자</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>예상물품구입(외주)총액</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>비 고</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>전년도 구입</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            {cf.outflows.map((r, i) => (
+              <tr key={r.id}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{r.name}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{r.recipient}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.estimatedTotal || 0)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{r.note}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.prevYear || 0)}</td>
+                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.months[m] || 0)}</td>)}
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}>매입 합계</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('estimatedTotal'))}</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}></td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('prevYear'))}</td>
+              {monthTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - 경비 표 인쇄/PDF·엑셀 화면. 그룹(급여/소득공제, 사업 경비, 부채,
+  // 기타 경비)별로 항목을 묶어서 보여주고, 그룹마다 소계(노란 배경) 행을 넣는다.
+  const renderCashFlowExpensesTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={14}>경비 ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '4px' }} colSpan={2}>구 분</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            {cf.expenseGroups.map((g) => (
+              <React.Fragment key={g.id}>
+                {g.items.length === 0 ? (
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700 }} colSpan={2}>{g.name}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px' }} colSpan={12}></td>
+                  </tr>
+                ) : g.items.map((it, ii) => (
+                  <tr key={it.id}>
+                    {ii === 0 && (
+                      <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700, verticalAlign: 'middle' }} rowSpan={g.items.length}>{g.name}</td>
+                    )}
+                    <td style={{ border: '1px solid #000', padding: '4px' }}>{it.label}</td>
+                    {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(it.months[m] || 0)}</td>)}
+                  </tr>
+                ))}
+                <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+                  <td style={{ border: '1px solid #000', padding: '4px' }} colSpan={2}>{g.name} 소계</td>
+                  {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfExpenseGroupMonthlyTotal(g, m))}</td>)}
+                </tr>
+              </React.Fragment>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={2}>경비 총 합계</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(cfExpenseAllMonthlyTotal(cf.expenseGroups, m))}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - 최종(자동 계산) 표 인쇄/PDF·엑셀 화면. INFLOWS/OUTFLOWS/경비
+  // 입력값으로 Total OUTFLOWS/순 현금 흐름/통장잔고(월말기준)를 자동 계산해서 보여준다.
+  const renderCashFlowSummaryTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const inflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m));
+    const outflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m));
+    const expenseTotals = CASH_FLOW_MONTHS.map((m) => cfExpenseAllMonthlyTotal(cf.expenseGroups, m));
+    const totalOutflowTotals = CASH_FLOW_MONTHS.map((m) => cfTotalOutflowMonthly(cf, m));
+    const netTotals = CASH_FLOW_MONTHS.map((m) => cfNetCashFlowMonthly(cf, m));
+    const balances = cfBankBalances(cf);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={13}>현금 흐름 최종 ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#dbe5f1', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>구 분</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '5px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>INFLOWS 합계(1)</td>
+              {inflowTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>매입 합계</td>
+              {outflowTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>경비 합계</td>
+              {expenseTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr style={{ background: '#e7e6e6', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>Total OUTFLOWS(2)</td>
+              {totalOutflowTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr style={{ fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>순 현금 흐름(1)-(2)</td>
+              {netTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr style={{ background: '#c6efce', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>
+                통장잔고(월말기준)
+                <div style={{ fontWeight: 400, fontSize: '9px', color: '#333' }}>전년도이월금: {fmt(cf.openingBalance)}</div>
+              </td>
+              {balances.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - 위 네 표 중 "인쇄/PDF 저장" 화면에서 골라놓은 표(cashFlowPrintTab)를
+  // 보여준다. "전체"를 고르면 네 표를 한 번에(표마다 새 페이지로 나눠서) 이어서 보여준다.
+  const renderPrintableCashFlow = () => {
+    if (!printingDoc || !printingDoc.cashFlowAnnual) return null;
+    const cf = printingDoc.cashFlowAnnual;
+    if (cashFlowPrintTab === 'all') {
+      return (
+        <>
+          <div style={{ pageBreakAfter: 'always' }}>{renderCashFlowInflowsTable(cf)}</div>
+          <div style={{ pageBreakAfter: 'always' }}>{renderCashFlowOutflowsTable(cf)}</div>
+          <div style={{ pageBreakAfter: 'always' }}>{renderCashFlowExpensesTable(cf)}</div>
+          <div>{renderCashFlowSummaryTable(cf)}</div>
+        </>
+      );
+    }
+    if (cashFlowPrintTab === 'inflows') return renderCashFlowInflowsTable(cf);
+    if (cashFlowPrintTab === 'outflows') return renderCashFlowOutflowsTable(cf);
+    if (cashFlowPrintTab === 'expenses') return renderCashFlowExpensesTable(cf);
+    return renderCashFlowSummaryTable(cf);
+  };
+
   // [추가] 근로계약서 인쇄용 화면. 공유해주신 실제 계약서 전문(고정 조항 포함)을 그대로
   // 재현하고, 근로자 정보/급여 구성/계약기간처럼 사람마다 달라지는 부분만 채워 넣는다.
   const renderPrintableLaborContract = () => {
@@ -3699,6 +4294,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
     if (printingDoc.category === 'advance_payment') return renderPrintableAdvancePayment();
     if (printingDoc.category === 'vehicle_fine') return renderPrintableVehicleFine();
+    if (printingDoc.category === 'cash_flow') return renderPrintableCashFlow();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
     if (printingDoc.category === 'power_of_attorney') return renderPrintablePowerOfAttorney();
@@ -3740,7 +4336,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`${activeConfig.label} 검색 (제목, ${activeConfig.personLabel}, 메모)`}
+            placeholder={activeConfig.personLabel ? `${activeConfig.label} 검색 (제목, ${activeConfig.personLabel}, 메모)` : `${activeConfig.label} 검색 (제목, 메모)`}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-500"
           />
         </div>
@@ -3761,6 +4357,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
               const year = (fresh.employmentCert.applicationDate || new Date().toISOString().split('T')[0]).slice(0, 4);
               const countThisYear = docs.filter((d) => d.category === 'employment_cert' && d.employmentCert?.documentNumber?.startsWith(`${year}-`)).length;
               fresh.employmentCert.documentNumber = `${year}-${String(countThisYear + 1).padStart(3, '0')}`;
+            }
+            // [추가] 현금 흐름은 "연도 하나 = 문서 하나"라서, 제목을 미리 "{연도}년도 현금
+            // 흐름"으로 채워두고(직접 고쳐도 됨), 편집 화면은 항상 INFLOWS 탭부터 보여준다.
+            if (fresh.cashFlowAnnual) {
+              fresh.title = `${fresh.cashFlowAnnual.year}년도 현금 흐름`;
+              setCashFlowEditTab('inflows');
             }
             setEditingDoc(fresh);
           }}
@@ -3948,9 +4550,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
-                      onClick={() => setPrintingDoc(d)}
+                      onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
                       title="인쇄"
                     >
@@ -3958,7 +4560,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                     </button>
                   )}
                   <button
-                    onClick={() => setEditingDoc(d)}
+                    onClick={() => { if (d.category === 'cash_flow') setCashFlowEditTab('inflows'); setEditingDoc(d); }}
                     className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -5832,6 +6434,327 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                 )}
 
+                {/* [추가] 현금 흐름 전용 입력. "연도 하나 = 문서 하나"이고, 그 안에서
+                INFLOWS/OUTFLOWS/경비 세 표를 서브탭으로 전환하며 입력한다. "현금흐름
+                최종"은 따로 입력하지 않고 세 표 입력값으로 자동 계산된 미리보기만 보여준다
+                (정식 표는 "인쇄/PDF·엑셀"에서 확인). */}
+                {activeCategory === 'cash_flow' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <label className="text-[11px] font-bold text-slate-600">현금 흐름 (연도별)</label>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">대상 연도</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editingDoc.cashFlowAnnual?.year || ''}
+                            onChange={(e) => updateCashFlow((cf) => ({ ...cf, year: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                            placeholder="2026"
+                            className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">전년도이월금(연초 통장잔고)</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editingDoc.cashFlowAnnual?.openingBalance ? formatCurrencyInput(editingDoc.cashFlowAnnual.openingBalance) : ''}
+                            onChange={(e) => updateCashFlow((cf) => ({ ...cf, openingBalance: parseCurrencyInput(e.target.value) }))}
+                            placeholder="0"
+                            className="w-32 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 flex-wrap">
+                      {([
+                        { key: 'inflows', label: 'INFLOWS' },
+                        { key: 'outflows', label: 'OUTFLOWS' },
+                        { key: 'expenses', label: '경비' },
+                        { key: 'summary', label: '현금흐름 최종 (미리보기)' }
+                      ] as const).map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => setCashFlowEditTab(t.key)}
+                          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${cashFlowEditTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {cashFlowEditTab === 'inflows' && (
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          <button type="button" onClick={addCashFlowInflow} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" /> 프로젝트 행 추가
+                          </button>
+                        </div>
+                        {(editingDoc.cashFlowAnnual?.inflows || []).length === 0 && (
+                          <p className="text-[11px] text-slate-400 text-center py-3">아직 행이 없습니다. "프로젝트 행 추가"를 눌러주세요.</p>
+                        )}
+                        {(editingDoc.cashFlowAnnual?.inflows || []).map((r) => (
+                          <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={r.name}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { name: e.target.value })}
+                                placeholder="프로젝트명 (예: 양평 YP주택, 기타 매출 등)"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={r.recipient || ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { recipient: e.target.value })}
+                                placeholder="프로젝트 수주자"
+                                className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => removeCashFlowInflow(r.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.contractAmount ? formatCurrencyInput(r.contractAmount) : ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { contractAmount: parseCurrencyInput(e.target.value) })}
+                                placeholder="계약금(VAT포함)"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.remainingAmount ? formatCurrencyInput(r.remainingAmount) : ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { remainingAmount: parseCurrencyInput(e.target.value) })}
+                                placeholder="잔여기성"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.prevYear ? formatCurrencyInput(r.prevYear) : ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { prevYear: parseCurrencyInput(e.target.value) })}
+                                placeholder="전년도"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {CASH_FLOW_MONTHS.map((m) => (
+                                <div key={m} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                  <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={r.months[m] ? formatCurrencyInput(r.months[m]) : ''}
+                                    onChange={(e) => updateCashFlowInflowMonth(r.id, m, parseCurrencyInput(e.target.value))}
+                                    placeholder="0"
+                                    className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
+                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + (Number(r.months[m]) || 0), 0))}원
+                            </p>
+                          </div>
+                        ))}
+                        <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                          INFLOWS 총 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfRowsMonthlyTotal(editingDoc.cashFlowAnnual?.inflows || [], m), 0))}원
+                        </p>
+                      </div>
+                    )}
+
+                    {cashFlowEditTab === 'outflows' && (
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          <button type="button" onClick={addCashFlowOutflow} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" /> 매입처 행 추가
+                          </button>
+                        </div>
+                        {(editingDoc.cashFlowAnnual?.outflows || []).length === 0 && (
+                          <p className="text-[11px] text-slate-400 text-center py-3">아직 행이 없습니다. "매입처 행 추가"를 눌러주세요.</p>
+                        )}
+                        {(editingDoc.cashFlowAnnual?.outflows || []).map((r) => (
+                          <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={r.name}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { name: e.target.value })}
+                                placeholder="프로젝트별 물품 매입처 (예: 양평 YP주택, 기타 매입 등)"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={r.recipient || ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { recipient: e.target.value })}
+                                placeholder="프로젝트 수주자"
+                                className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => removeCashFlowOutflow(r.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.estimatedTotal ? formatCurrencyInput(r.estimatedTotal) : ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { estimatedTotal: parseCurrencyInput(e.target.value) })}
+                                placeholder="예상물품구입(외주)총액"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={r.note || ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { note: e.target.value })}
+                                placeholder="비고"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.prevYear ? formatCurrencyInput(r.prevYear) : ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { prevYear: parseCurrencyInput(e.target.value) })}
+                                placeholder="전년도 구입"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {CASH_FLOW_MONTHS.map((m) => (
+                                <div key={m} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                  <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={r.months[m] ? formatCurrencyInput(r.months[m]) : ''}
+                                    onChange={(e) => updateCashFlowOutflowMonth(r.id, m, parseCurrencyInput(e.target.value))}
+                                    placeholder="0"
+                                    className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
+                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + (Number(r.months[m]) || 0), 0))}원
+                            </p>
+                          </div>
+                        ))}
+                        <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                          매입 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfRowsMonthlyTotal(editingDoc.cashFlowAnnual?.outflows || [], m), 0))}원
+                        </p>
+                      </div>
+                    )}
+
+                    {cashFlowEditTab === 'expenses' && (
+                      <div className="space-y-3">
+                        {(editingDoc.cashFlowAnnual?.expenseGroups || []).map((g) => (
+                          <div key={g.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <input
+                                type="text"
+                                value={g.name}
+                                onChange={(e) => updateCashFlow((cf) => ({ ...cf, expenseGroups: cf.expenseGroups.map((gg) => gg.id === g.id ? { ...gg, name: e.target.value } : gg) }))}
+                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => addCashFlowExpenseItem(g.id)} className="shrink-0 text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                <Plus className="w-3 h-3" /> 항목 추가
+                              </button>
+                            </div>
+                            {g.items.length === 0 && (
+                              <p className="text-[11px] text-slate-400 text-center py-2">아직 항목이 없습니다. "항목 추가"를 눌러주세요.</p>
+                            )}
+                            {g.items.map((it) => (
+                              <div key={it.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={it.label}
+                                    onChange={(e) => updateCashFlowExpenseItemField(g.id, it.id, { label: e.target.value })}
+                                    placeholder="항목명 (예: 급여)"
+                                    className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  {g.name === '부채' && (
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={it.initialAmount ? formatCurrencyInput(it.initialAmount) : ''}
+                                      onChange={(e) => updateCashFlowExpenseItemField(g.id, it.id, { initialAmount: parseCurrencyInput(e.target.value) })}
+                                      placeholder="대출 최초 금액(선택)"
+                                      className="w-36 shrink-0 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                  )}
+                                  <button type="button" onClick={() => removeCashFlowExpenseItem(g.id, it.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {CASH_FLOW_MONTHS.map((m) => (
+                                    <div key={m} className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                      <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={it.months[m] ? formatCurrencyInput(it.months[m]) : ''}
+                                        onChange={(e) => updateCashFlowExpenseItemMonth(g.id, it.id, m, parseCurrencyInput(e.target.value))}
+                                        placeholder="0"
+                                        className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                              {g.name} 소계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfExpenseGroupMonthlyTotal(g, m), 0))}원
+                            </p>
+                          </div>
+                        ))}
+                        <p className="text-right text-xs font-bold text-emerald-600">
+                          경비 총 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfExpenseAllMonthlyTotal(editingDoc.cashFlowAnnual?.expenseGroups || [], m), 0))}원
+                        </p>
+                      </div>
+                    )}
+
+                    {cashFlowEditTab === 'summary' && editingDoc.cashFlowAnnual && (
+                      <div className="bg-white border border-slate-200 rounded-lg p-2.5 overflow-x-auto">
+                        <p className="text-[10px] text-slate-400 mb-2">※ INFLOWS/OUTFLOWS/경비 입력값으로 자동 계산된 미리보기입니다(직접 입력하지 않습니다). 정식 표는 목록에서 인쇄 버튼을 눌러 확인하세요.</p>
+                        <table className="text-[11px] border-collapse w-full min-w-[760px]">
+                          <thead>
+                            <tr className="text-slate-400">
+                              <td className="p-1"></td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right font-bold">{m}월</td>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td className="p-1 text-slate-500 whitespace-nowrap">INFLOWS 합계</td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right">{formatCurrencyInput(cfRowsMonthlyTotal(editingDoc.cashFlowAnnual!.inflows, m))}</td>)}
+                            </tr>
+                            <tr>
+                              <td className="p-1 text-slate-500 whitespace-nowrap">Total OUTFLOWS(매입+경비)</td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right">{formatCurrencyInput(cfTotalOutflowMonthly(editingDoc.cashFlowAnnual!, m))}</td>)}
+                            </tr>
+                            <tr className="font-bold text-slate-700 border-t border-slate-100">
+                              <td className="p-1 whitespace-nowrap">순 현금 흐름</td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right">{new Intl.NumberFormat('ko-KR').format(cfNetCashFlowMonthly(editingDoc.cashFlowAnnual!, m))}</td>)}
+                            </tr>
+                            <tr className="font-bold text-emerald-600">
+                              <td className="p-1 whitespace-nowrap">통장잔고(월말기준)</td>
+                              {cfBankBalances(editingDoc.cashFlowAnnual!).map((v, i) => <td key={i} className="p-1 text-right">{new Intl.NumberFormat('ko-KR').format(v)}</td>)}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* [추가] 근로계약서 전용 입력. 근로자 정보 + 급여 구성만 채우면, 근로시간/
                 연차/퇴직/기밀유지 등 고정 조항은 인쇄할 때 자동으로 다 채워져서 나온다. */}
                 {(activeCategory === 'labor_contract' || activeCategory === 'salary_agreement') && (
@@ -6622,6 +7545,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
               </button>
             </div>
           )}
+          {/* [추가] "현금 흐름"은 INFLOWS/OUTFLOWS/경비/현금흐름 최종 네 표 중 어느 것을
+          인쇄/PDF·엑셀로 볼지 여기서 고른다. "전체"를 고르면 네 표를 표마다 새 페이지로
+          나눠서 한 번에 인쇄/PDF 저장한다. */}
+          {printingDoc.category === 'cash_flow' && (
+            <div className="flex items-center gap-1 mr-auto bg-white border border-slate-200 rounded-xl p-1 flex-wrap">
+              {([
+                { key: 'inflows', label: 'INFLOWS' },
+                { key: 'outflows', label: 'OUTFLOWS' },
+                { key: 'expenses', label: '경비' },
+                { key: 'summary', label: '현금흐름 최종' },
+                { key: 'all', label: '전체' }
+              ] as const).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setCashFlowPrintTab(t.key)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${cashFlowPrintTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
           {/* [추가] "카드별 월 사용 내역"(법인카드 관리)/"차량 과태료 내역"/"관리비내역"은
           화면 표 그대로(노란 헤더/합계 행 색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
           {printingDoc.category === 'corp_card' && (
@@ -6636,6 +7581,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           {printingDoc.category === 'vehicle_fine' && (
             <button
               onClick={handleExportVehicleFineExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'cash_flow' && (
+            <button
+              onClick={handleExportCashFlowExcel}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -6684,7 +7638,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         <div
           className="bg-white shadow-2xl mx-auto"
           style={{
-            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment'].includes(printingDoc.category)
+            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow'].includes(printingDoc.category)
               ? '297mm'
               : '210mm',
           }}
