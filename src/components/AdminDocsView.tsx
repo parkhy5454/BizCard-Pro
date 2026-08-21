@@ -1415,6 +1415,24 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   // [추가] 관리비내역 - "호실 전체 합쳐보기"에서 고를 대상 연도
   const [managementFeeMergeYear, setManagementFeeMergeYear] = useState('');
 
+  // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기"에서 고를 대상 통장(은행+계좌번호)
+  const [bankAccountMergeKey, setBankAccountMergeKey] = useState('');
+
+  // [추가] 통장 출금/입금 내역 - 엑셀 가져오기 시, 파일을 바로 새 문서로 저장하지 않고
+  // "어느 통장 내역인지" 고르게 한 뒤 확정해야 하므로, 확정 전까지 파싱 결과를 잠깐
+  // 담아두는 상태. null이면 선택 화면이 안 보인다.
+  const [pendingBankImport, setPendingBankImport] = useState<{
+    category: 'bank_withdrawal' | 'bank_deposit';
+    fileName: string;
+    entries: { id: string; date: string; project: string; amount: number; description: string; note: string }[];
+    totalAmount: number;
+  } | null>(null);
+  const [bankImportSelectedKey, setBankImportSelectedKey] = useState('__new__');
+  const [bankImportNewBank, setBankImportNewBank] = useState('');
+  const [bankImportNewAccount, setBankImportNewAccount] = useState('');
+  const [bankImportNewSubCategory, setBankImportNewSubCategory] = useState('');
+  const [isSavingBankImport, setIsSavingBankImport] = useState(false);
+
   // [추가] 카드사용내역 인쇄/PDF 화면 - 사용일자 정렬 방향. 예전엔 저장된 순서 그대로(보통
   // "자동 불러오기"로 채워진 순서라 날짜가 뒤죽박죽) 보여줬는데, 최근 날짜가 위로 오게
   // 기본 내림차순으로 바꾸고, 오름차순으로도 바꿔볼 수 있게 한다.
@@ -1567,28 +1585,104 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       }
 
       const totalAmount = entries.reduce((s, e) => s + e.amount, 0);
-      const newDoc: Partial<AdminDoc> = {
-        section,
-        category: activeCategory,
-        title: `${isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'} 엑셀 가져오기 (${file.name.replace(/\.(xlsx|xls|csv)$/i, '')})`,
-        date: new Date().toISOString().split('T')[0],
-        amount: String(totalAmount),
-        bankLedger: { accounts: [{ id: `bacc-${Date.now()}`, bankName: '', accountNumber: '', subCategory: '', entries }] }
-      };
-
-      const res = await fetch('/api/admin-docs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
-        body: JSON.stringify(newDoc)
-      });
-      if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}).`);
-      const saved: AdminDoc = await res.json();
-      setDocs((prev) => [saved, ...prev]);
-      alert(`${entries.length}건을 가져왔습니다. 새로 만들어진 "${saved.title}" 문서를 열어서 은행명/계좌번호를 채우고 내용을 확인해주세요.`);
+      // [수정] 예전엔 바로 은행명/계좌번호가 빈 새 문서로 저장해서 매번 나중에 수동으로
+      // 채워야 했다. 이제는 바로 저장하지 않고, "어느 통장 내역인지" 고르는 화면을 먼저
+      // 보여준다 - 이미 등록된 통장 중 고르면 그 통장에 이어붙이고(중복은 자동으로 걸러짐),
+      // 새 통장이면 은행명/계좌번호/구분을 입력해서 등록한다.
+      setPendingBankImport({ category: activeCategory as 'bank_withdrawal' | 'bank_deposit', fileName: file.name, entries, totalAmount });
+      setBankImportSelectedKey(knownBankAccounts[0]?.key || '__new__');
+      setBankImportNewBank('');
+      setBankImportNewAccount('');
+      setBankImportNewSubCategory('');
     } catch (err: any) {
       alert(`엑셀 가져오기에 실패했습니다.\n${err.message || '파일 형식을 확인해주세요.'}`);
     } finally {
       setIsImportingBankLedger(false);
+    }
+  };
+
+  // [추가] 통장 출금/입금 내역 - 위에서 파일을 가져온 뒤, 관리자가 "어느 통장인지" 고르고
+  // 확정을 누르면 실제로 저장한다. 이미 등록된 통장(은행명+계좌번호가 일치)이 있으면 그
+  // 문서를 찾아 거래를 이어붙이되(날짜+금액+거래내용이 완전히 같은 줄은 중복으로 보고
+  // 자동으로 걸러낸다), 없으면 새 문서를 만든다.
+  const handleConfirmBankImport = async () => {
+    if (!pendingBankImport || !currentUser) return;
+    const { category, entries } = pendingBankImport;
+    const isWithdrawal = category === 'bank_withdrawal';
+
+    let bankName = '';
+    let accountNumber = '';
+    let subCategory = '';
+    if (bankImportSelectedKey === '__new__') {
+      bankName = bankImportNewBank.trim();
+      accountNumber = bankImportNewAccount.trim();
+      subCategory = bankImportNewSubCategory.trim();
+      if (!bankName || !accountNumber) {
+        alert('새 통장으로 등록하려면 은행명과 계좌번호를 입력해주세요.');
+        return;
+      }
+    } else {
+      const picked = knownBankAccounts.find((k) => k.key === bankImportSelectedKey);
+      if (!picked) { alert('통장을 다시 선택해주세요.'); return; }
+      bankName = picked.bankName;
+      accountNumber = picked.accountNumber;
+      subCategory = picked.subCategory;
+    }
+    const normKey = (b: string, a: string) => `${b.replace(/\s/g, '')}__${a.replace(/\s/g, '')}`;
+    const targetKey = normKey(bankName, accountNumber);
+
+    setIsSavingBankImport(true);
+    try {
+      // 같은 카테고리(출금 또는 입금) 문서들 중, 이 통장(은행명+계좌번호 일치)을 이미
+      // 가지고 있는 문서를 찾는다 - 여러 문서에 걸쳐 있을 수 있지만, 그 중 가장 최근
+      // 문서(목록 맨 앞) 하나에 이어붙인다.
+      const existingDoc = docs.find((d) => d.category === category && (d.bankLedger?.accounts || []).some((a) => normKey(a.bankName || '', a.accountNumber || '') === targetKey));
+
+      if (existingDoc) {
+        const targetAcc = existingDoc.bankLedger!.accounts.find((a) => normKey(a.bankName || '', a.accountNumber || '') === targetKey)!;
+        const existingKeys = new Set(targetAcc.entries.map((e) => `${e.date}|${Number(e.amount) || 0}|${(e.description || '').trim()}`));
+        const freshEntries = entries.filter((e) => !existingKeys.has(`${e.date}|${Number(e.amount) || 0}|${(e.description || '').trim()}`));
+        const skipped = entries.length - freshEntries.length;
+        if (freshEntries.length === 0) {
+          alert(`이 파일의 내용이 "${existingDoc.title}" 문서의 ${accountLabel(targetAcc)} 통장에 이미 모두 들어있어(중복) 새로 추가된 내역이 없습니다.`);
+          setPendingBankImport(null);
+          return;
+        }
+        const updatedAccounts = existingDoc.bankLedger!.accounts.map((a) => a.id === targetAcc.id ? { ...a, entries: [...a.entries, ...freshEntries] } : a);
+        const res = await fetch(`/api/admin-docs/${existingDoc.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+          body: JSON.stringify({ bankLedger: { accounts: updatedAccounts } })
+        });
+        if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}).`);
+        const saved: AdminDoc = await res.json();
+        setDocs((prev) => prev.map((d) => d.id === saved.id ? saved : d));
+        alert(`${freshEntries.length}건을 "${saved.title}" 문서의 ${accountLabel(targetAcc)} 통장에 추가했습니다.${skipped > 0 ? ` (이미 있던 ${skipped}건은 중복으로 제외)` : ''}`);
+      } else {
+        const totalAmount = entries.reduce((s, e) => s + e.amount, 0);
+        const newDoc: Partial<AdminDoc> = {
+          section,
+          category,
+          title: `${isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'} 엑셀 가져오기 (${pendingBankImport.fileName.replace(/\.(xlsx|xls|csv)$/i, '')})`,
+          date: new Date().toISOString().split('T')[0],
+          amount: String(totalAmount),
+          bankLedger: { accounts: [{ id: `bacc-${Date.now()}`, bankName, accountNumber, subCategory, entries }] }
+        };
+        const res = await fetch('/api/admin-docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+          body: JSON.stringify(newDoc)
+        });
+        if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}).`);
+        const saved: AdminDoc = await res.json();
+        setDocs((prev) => [saved, ...prev]);
+        alert(`${entries.length}건을 새 통장(${accountLabel({ bankName, accountNumber, subCategory })})으로 가져왔습니다.`);
+      }
+      setPendingBankImport(null);
+    } catch (err: any) {
+      alert(`가져오기 확정에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
+    } finally {
+      setIsSavingBankImport(false);
     }
   };
 
@@ -2487,6 +2581,65 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     return [parts, a.subCategory].filter(Boolean).join('_') || '(계좌 미입력)';
   };
 
+  // [추가] 통장 출금/입금 내역 - "은행명+계좌번호"를 매번 새로 타이핑하지 않고 기존에
+  // 등록된 통장 중에서 골라 이어붙일 수 있도록, 지금 보고 있는 카테고리(출금 또는 입금)의
+  // 문서들에서 이미 쓰인 통장 목록을 은행명+계좌번호 기준으로 중복 제거해 모은다.
+  // 출금 통장과 입금 통장은 서로 다른 문서 목록(카테고리)이라 따로 관리한다.
+  const knownBankAccounts = (() => {
+    const seen = new Set<string>();
+    const list: { key: string; bankName: string; accountNumber: string; subCategory: string; label: string }[] = [];
+    docs.forEach((d) => {
+      if (d.category !== activeCategory || !d.bankLedger) return;
+      d.bankLedger.accounts.forEach((a) => {
+        const normBank = (a.bankName || '').replace(/\s/g, '');
+        const normAcc = (a.accountNumber || '').replace(/\s/g, '');
+        if (!normBank || !normAcc) return; // 은행명/계좌번호가 비어있는(미입력) 통장은 고를 목록에서 제외
+        const key = `${normBank}__${normAcc}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        list.push({ key, bankName: a.bankName || '', accountNumber: a.accountNumber || '', subCategory: a.subCategory || '', label: accountLabel(a) });
+      });
+    });
+    return list;
+  })();
+
+  // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기". 같은 통장(은행명+계좌번호 일치)의
+  // 거래가 여러 문서(가져오기를 여러 번 했거나 수기로도 등록한 경우)에 나뉘어 있어도,
+  // 골라놓은 통장 하나로 전부 모아 한 페이지로 인쇄/PDF 저장할 수 있게 해준다. 혹시라도
+  // 겹치는 줄이 있으면(날짜+금액+거래내용 동일) 중복으로 보고 한 번만 보여준다.
+  const handleViewAllBankAccounts = () => {
+    const targetKey = bankAccountMergeKey || knownBankAccounts[0]?.key;
+    const target = knownBankAccounts.find((k) => k.key === targetKey);
+    if (!target) return;
+    const isWithdrawal = activeCategory === 'bank_withdrawal';
+    const normKey = (b: string, a: string) => `${b.replace(/\s/g, '')}__${a.replace(/\s/g, '')}`;
+    const docsForAccount = docs.filter((d) => d.category === activeCategory && (d.bankLedger?.accounts || []).some((a) => normKey(a.bankName || '', a.accountNumber || '') === target.key));
+    if (docsForAccount.length === 0) return;
+
+    const seen = new Set<string>();
+    const mergedEntries: { id: string; date: string; project: string; amount: number; description: string; note?: string }[] = [];
+    docsForAccount.forEach((d, di) => {
+      (d.bankLedger?.accounts || []).forEach((a) => {
+        if (normKey(a.bankName || '', a.accountNumber || '') !== target.key) return;
+        a.entries.forEach((e) => {
+          const dkey = `${e.date}|${Number(e.amount) || 0}|${(e.description || '').trim()}`;
+          if (seen.has(dkey)) return;
+          seen.add(dkey);
+          mergedEntries.push({ ...e, id: `merged-${di}-${e.id}` });
+        });
+      });
+    });
+    mergedEntries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const base = docsForAccount[0];
+    setPrintingDoc({
+      ...base,
+      id: `merged-bank-ledger-${target.key}`,
+      title: `${target.label} ${isWithdrawal ? '출금' : '입금'} 내역 - 전체`,
+      bankLedger: { accounts: [{ id: `merged-acc-${target.key}`, bankName: target.bankName, accountNumber: target.accountNumber, subCategory: target.subCategory, entries: mergedEntries }] }
+    });
+  };
+
   const renderPrintableCashflow = () => {
     if (!printingDoc || !printingDoc.cashflow) return null;
     const c = printingDoc.cashflow;
@@ -2565,12 +2718,18 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const ledger = printingDoc.bankLedger;
     const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
     const grandTotal = ledger.accounts.reduce((s, a) => s + bankAccountTotal(a), 0);
+    const isMerged = printingDoc.id.startsWith('merged-bank-ledger-');
 
     return (
       <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
-        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>
           &lt;{isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'}&gt;
         </h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 이 통장으로 등록된 여러 문서(가져오기 포함)의 거래를 날짜순으로 모두 모아 보여줍니다. (겹치는 거래는 한 번만 표시)
+          </p>
+        )}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
           <thead>
             <tr style={{ background: '#dbe5f1', fontWeight: 700, textAlign: 'center' }}>
@@ -3637,6 +3796,31 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             <Download className="w-3.5 h-3.5" />
             엑셀 내보내기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 통장 출금/입금 내역 - 가져오기를 여러 번 하거나 수기로도 등록해서 같은
+      통장의 거래가 여러 문서에 나뉘어 있어도, 통장 하나를 골라 전체 거래를 한 페이지로
+      모아 인쇄/PDF 저장할 수 있게 해준다. */}
+      {(activeCategory === 'bank_withdrawal' || activeCategory === 'bank_deposit') && knownBankAccounts.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={bankAccountMergeKey || knownBankAccounts[0]?.key}
+            onChange={(e) => setBankAccountMergeKey(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {knownBankAccounts.map((k) => (
+              <option key={k.key} value={k.key}>{k.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllBankAccounts}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            통장별 전체 합쳐보기
           </button>
         </div>
       )}
@@ -6330,6 +6514,85 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
         </div>
       )}
     </div>
+
+    {/* [추가] 통장 출금/입금 내역 - 엑셀 가져오기 확인 화면. 파일을 바로 새 문서로 만들지
+    않고, 어느 통장(은행+계좌번호)의 내역인지 먼저 고르게 한다. 이미 등록된 통장을 고르면
+    거기에 이어붙이고(중복 자동 제외), 새 통장이면 은행명/계좌번호를 입력해 등록한다. */}
+    {pendingBankImport && (
+      <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">
+              {pendingBankImport.category === 'bank_withdrawal' ? '통장 출금 내역' : '통장 입금 내역'} 가져오기
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              "{pendingBankImport.fileName}"에서 {pendingBankImport.entries.length}건을 찾았습니다. 어느 통장의 내역인지 골라주세요.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-600">통장 선택</label>
+            <select
+              value={bankImportSelectedKey}
+              onChange={(e) => setBankImportSelectedKey(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-500"
+            >
+              {knownBankAccounts.map((k) => (
+                <option key={k.key} value={k.key}>{k.label}</option>
+              ))}
+              <option value="__new__">+ 새 통장으로 등록</option>
+            </select>
+          </div>
+
+          {bankImportSelectedKey === '__new__' && (
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={bankImportNewBank}
+                onChange={(e) => setBankImportNewBank(e.target.value)}
+                placeholder="은행명 (예: 하나은행)"
+                className="col-span-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+              <input
+                type="text"
+                value={bankImportNewAccount}
+                onChange={(e) => setBankImportNewAccount(e.target.value)}
+                placeholder="계좌번호"
+                className="col-span-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+              <input
+                type="text"
+                value={bankImportNewSubCategory}
+                onChange={(e) => setBankImportNewSubCategory(e.target.value)}
+                placeholder="구분 (예: 급여, 선택 사항)"
+                className="col-span-2 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+            </div>
+          )}
+
+          <p className="text-[11px] text-slate-400">
+            이미 등록된 통장을 고르면 그 통장의 기존 문서에 이어붙이며, 날짜·금액·거래내용이 완전히 같은 줄은 중복으로 보고 자동으로 제외합니다.
+          </p>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setPendingBankImport(null)}
+              disabled={isSavingBankImport}
+              className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold transition-colors disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleConfirmBankImport}
+              disabled={isSavingBankImport}
+              className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md transition-all disabled:opacity-50"
+            >
+              {isSavingBankImport ? '가져오는 중...' : '가져오기 확정'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* 인쇄 전 미리보기 + 인쇄 실행 바 (화면에는 보이지만 인쇄될 때는 안 보임) */}
     {printingDoc && (
