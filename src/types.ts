@@ -349,6 +349,7 @@ export interface AdminDoc {
       id: string;
       cardCompany: string;    // 카드사 (예: "국민카드")
       cardNumber: string;      // 카드번호
+      expiry?: string;         // 유효기간 (MM/YY)
       user: string;            // 사용자
       periodLabel?: string;    // 사용일수 (예: "전월 01일~전월 말일")
       paymentDay?: string;     // 출금일자 (예: "15일")
