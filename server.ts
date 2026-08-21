@@ -6364,6 +6364,41 @@ app.get('/api/admin-docs/bank-withdrawal-candidates', (req, res) => {
   res.json(candidates);
 });
 
+// [추가] "현금 흐름"의 INFLOWS가 회계관리 > 통장 입금 내역과 연동되도록 - 위
+// bank-withdrawal-candidates와 같은 방식으로, 이미 등록된 통장 입금 내역(bank_deposit)의
+// 거래 내역을 전부 찾아서 한 목록으로 모아준다.
+app.get('/api/admin-docs/bank-deposit-candidates', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+
+  const candidates: {
+    sourceKey: string;
+    sourceLabel: string;
+    date: string;
+    amount: number;
+    memo?: string;
+  }[] = [];
+
+  for (const doc of (dbData.adminDocs || [])) {
+    if (doc.category !== 'bank_deposit' || !doc.bankLedger) continue;
+    for (const acc of (doc.bankLedger.accounts || [])) {
+      for (const entry of (acc.entries || [])) {
+        candidates.push({
+          sourceKey: `bank_deposit_entry:${doc.id}:${entry.id}`,
+          sourceLabel: '통장 입금 내역',
+          date: entry.date,
+          amount: entry.amount,
+          memo: [entry.description, entry.note].filter(Boolean).join(' · ')
+        });
+      }
+    }
+  }
+
+  candidates.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  res.json(candidates);
+});
+
 // AI 업무일지 정제 (AI Polish) API
 app.post('/api/worklogs/ai-polish', async (req, res) => {
   try {
