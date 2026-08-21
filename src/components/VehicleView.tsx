@@ -442,9 +442,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           registrationDocumentUrl: ''
         });
         if (!reportVehicleId) setReportVehicleId(added.id);
+      } else {
+        // [추가] 서버가 DB 저장 실패를 감지해서 알려주는 경우(등록증 스캔본 등 용량 큰
+        // 데이터 저장 실패 등), 예전엔 조용히 아무 반응 없이 끝났다. 이제 그 사유를
+        // 그대로 알려줘서 "저장한 줄 알았는데 안 됐던" 혼란을 막는다.
+        const data = await res.json().catch(() => null);
+        alert(`차량 저장에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
     } catch (err) {
       console.error(err);
+      alert('차량 저장 중 오류가 발생했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.');
     }
   };
 
@@ -466,9 +473,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const updated = await res.json();
         setVehicles(vehicles.map(v => v.id === updated.id ? updated : v));
         setEditingVehicle(null);
+      } else {
+        // [추가] 위 등록과 동일한 이유로, 저장 실패 시 조용히 넘어가지 않고 알려준다.
+        const data = await res.json().catch(() => null);
+        alert(`차량 수정 저장에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
     } catch (err) {
       console.error('차량 정보 수정 오류:', err);
+      alert('차량 수정 중 오류가 발생했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.');
     }
   };
 
@@ -963,9 +975,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         setDirectContactPhoneOffice('');
         setDirectContactPhoneMobile('');
         setDirectContactEmail('');
+      } else {
+        // [추가] 영수증 스캔본이 포함된 지출 등록이 DB 저장에 실패했을 때, 예전엔 조용히
+        // 아무 반응 없이 끝나서 저장된 줄 알기 쉬웠다. 이제 실패 사유를 알려준다.
+        const data = await res.json().catch(() => null);
+        alert(`지출 내역 저장에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
     } catch (err) {
       console.error(err);
+      alert('지출 내역 저장 중 오류가 발생했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.');
     }
   };
 
@@ -1035,9 +1053,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           payMethod: 'company_card',
           receiptImage: ''
         });
+      } else {
+        // [추가] 정비 영수증 스캔본이 포함된 저장이 DB에 실패했을 때 조용히 넘어가지 않고 알려준다.
+        const data = await res.json().catch(() => null);
+        alert(`정비 기록 저장에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
     } catch (err) {
       console.error(err);
+      alert('정비 기록 저장 중 오류가 발생했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.');
     }
   };
 
@@ -1143,9 +1166,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const updated = await res.json();
         setExpenses(expenses.map(exp => exp.id === updated.id ? updated : exp));
         setEditingExpense(null);
+      } else {
+        // [추가] 저장 실패를 조용히 넘기지 않고 알려준다.
+        const data = await res.json().catch(() => null);
+        alert(`지출 내역 수정 저장에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
     } catch (err) {
       console.error(err);
+      alert('지출 내역 수정 중 오류가 발생했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.');
     }
   };
 
@@ -1171,9 +1199,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const updated = await res.json();
         setMaintenances(maintenances.map(m => m.id === updated.id ? updated : m));
         setEditingMaint(null);
+      } else {
+        // [추가] 정비 영수증 스캔본 등 수정 저장 실패를 조용히 넘기지 않고 알려준다.
+        const data = await res.json().catch(() => null);
+        alert(`정비 기록 수정 저장에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
     } catch (err) {
       console.error(err);
+      alert('정비 기록 수정 중 오류가 발생했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.');
     }
   };
 
