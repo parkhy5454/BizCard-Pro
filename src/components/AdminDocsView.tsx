@@ -428,17 +428,18 @@ function hasCardUsageRecord(allDocs: AdminDoc[], cardCompany: string, cardNumber
   );
 }
 
-// [추가] 법인카드 관리의 "사용일수" 표기(대개 "전월 01일~전월 말일")를 그대로 파싱하기는
-// 어려워서, corpCard.yearMonth를 기준으로 그 "전월" 전체 기간(YYYY-MM-01 ~ 그 달 마지막 날)을
-// 계산한다. 회사에서 흔히 쓰는 "전월 사용분을 이번 달에 결제" 관행에 맞춘 기본값이다.
-function getPrevMonthRange(yearMonth?: string): { start?: string; end?: string } {
+// [수정] 처음엔 "전월 사용분을 이번 달에 결제"하는 관행을 가정해서 corpCard.yearMonth의
+// "전월" 기간으로 카드사용내역을 대조했는데, 실제로는 카드사용내역을 대상 연월과 "같은 달"
+// 날짜로 매일 실시간 입력/확인하는 방식으로 쓰고 계셔서(예: "2026-08" 법인카드 문서에
+// 8월 날짜 카드사용내역을 그때그때 기록) 전월 기준으로는 항상 0으로 집계되는 문제가 있었다.
+// 대상 연월과 같은 달(YYYY-MM-01 ~ 그 달 마지막 날) 기준으로 바꾼다.
+function getTargetMonthRange(yearMonth?: string): { start?: string; end?: string } {
   if (!yearMonth) return {};
   const [y, m] = yearMonth.split('-').map(Number);
   if (!y || !m) return {};
-  const prevMonthDate = new Date(y, m - 2, 1); // m은 1~12, JS Date month는 0~11이므로 m-1이 이번달, m-2가 전달
-  const start = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
-  const lastDay = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0).getDate();
-  const end = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const start = `${y}-${String(m).padStart(2, '0')}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   return { start, end };
 }
 
@@ -578,9 +579,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
     // [추가] 관리자가 매일 확인해야 하는 화면이라, 저장해둔 금액을 그대로 보여주지 않고
     // 회계관리 > 카드사용내역에 실제 기록된 내역에서 "오늘까지" 사용한 금액을 실시간으로
-    // 계산해서 보여준다. 대상 기간은 기존 대조 로직과 동일하게 "대상 연월의 전월"이며,
-    // 그 기간이 아직 안 끝났으면 오늘 날짜까지만 합산한다.
-    const { start, end } = getPrevMonthRange(targetMonth);
+    // 계산해서 보여준다. 대상 기간은 "대상 연월과 같은 달"이며(카드사용내역을 대상 연월과
+    // 같은 달 날짜로 매일 실시간 입력하시는 방식에 맞춘 것), 그 달이 아직 안 끝났으면
+    // 오늘 날짜까지만 합산한다.
+    const { start, end } = getTargetMonthRange(targetMonth);
     const todayStr = new Date().toISOString().slice(0, 10);
     const cappedEnd = end ? (end > todayStr ? todayStr : end) : undefined;
 
@@ -2107,6 +2109,56 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 관리비내역 인쇄용 화면. 공유해주신 "월별 관리비내역" 양식대로 호실(열) × 월(행)
+  // 표로 그리고, 맨 아래 합계 행과(입력해두신 경우) 입금 계좌 등 참고사항을 메모에서
+  // 가져와 표 아래에 각주로 넣는다.
+  const renderPrintableManagementFee = () => {
+    if (!printingDoc || !printingDoc.managementFee) return null;
+    const mf = printingDoc.managementFee;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = managementGrandTotal(mf);
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
+          {firstYear ? `${firstYear.slice(2)}년도 월별 관리비내역` : printingDoc.title}
+        </h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>{firstYear ? `${firstYear}년` : '연도'}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>납부일</td>
+              {mf.units.map((u) => (
+                <td key={u.id} style={{ border: '1px solid #000', padding: '6px' }}>{u.name || '(호실명 미입력)'}</td>
+              ))}
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합계</td>
+            </tr>
+          </thead>
+          <tbody>
+            {mf.months.map((m) => (
+              <tr key={m.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontWeight: 700 }}>{m.label}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{m.paymentDate}</td>
+                {mf.units.map((u) => (
+                  <td key={u.id} style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(managementCellTotal(m.amounts[u.id]))}</td>
+                ))}
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right', fontWeight: 700 }}>{fmt(managementMonthTotal(m, mf.units))}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={2 + mf.units.length}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
+            </tr>
+          </tbody>
+        </table>
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
   // [추가] 근로계약서 인쇄용 화면. 공유해주신 실제 계약서 전문(고정 조항 포함)을 그대로
   // 재현하고, 근로자 정보/급여 구성/계약기간처럼 사람마다 달라지는 부분만 채워 넣는다.
   const renderPrintableLaborContract = () => {
@@ -2588,6 +2640,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
+    if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
     if (printingDoc.category === 'power_of_attorney') return renderPrintablePowerOfAttorney();
@@ -2763,7 +2816,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -3759,7 +3812,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         <Plus className="w-3 h-3" /> 카드 추가
                       </button>
                     </div>
-                    <p className="text-[10px] text-slate-400">※ 회계관리 &gt; 카드사용내역과 대조할 때는 "대상 연월의 전월(前月)" 사용분 합계를 기준으로 비교합니다 (사용일수가 보통 "전월 01일~전월 말일"이기 때문).</p>
+                    <p className="text-[10px] text-slate-400">※ 회계관리 &gt; 카드사용내역과 대조할 때는 "대상 연월과 같은 달" 사용분 합계를 기준으로 비교합니다.</p>
 
                     {(editingDoc.corpCard?.cards || []).map((c) => (
                       <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
@@ -3843,7 +3896,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         카드사용내역 합계(전월 사용분 기준)를 보여주고, 지금 입력된 출금 금액과
                         일치하는지 표시한다. 다르면 카드사용내역 쪽 합계로 바로 맞출 수 있다. */}
                         {c.cardCompany && c.cardNumber && (() => {
-                          const { start, end } = getPrevMonthRange(editingDoc.corpCard?.yearMonth);
+                          const { start, end } = getTargetMonthRange(editingDoc.corpCard?.yearMonth);
                           const matched = sumCardUsageByCard(docs, c.cardCompany, c.cardNumber, start, end);
                           if (matched === 0) return null;
                           const isMatch = matched === Number(c.amount);
