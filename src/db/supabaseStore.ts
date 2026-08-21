@@ -358,9 +358,10 @@ export async function setScopedDoc<T extends { id: string }>(scopeId: string, co
 }
 
 // 여러 문서를 한 번에 upsert (대량 가져오기 등에서 사용)
-export async function setScopedDocs<T extends { id: string }>(scopeId: string, collectionName: string, items: T[]): Promise<void> {
-  if (!isSupabaseConfigured) return;
-  if (!items.length) return;
+// [수정] setScopedDoc과 같은 이유로 성공 여부(boolean)를 반환하도록 바꿨다.
+export async function setScopedDocs<T extends { id: string }>(scopeId: string, collectionName: string, items: T[]): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+  if (!items.length) return true;
   const rows = items.map(item => ({
     scope_id: scopeId,
     collection: collectionName,
@@ -369,18 +370,28 @@ export async function setScopedDocs<T extends { id: string }>(scopeId: string, c
     updated_at: new Date().toISOString()
   }));
   const { error } = await supabase.from('scoped_items').upsert(rows, { onConflict: 'scope_id,collection,doc_id' });
-  if (error) console.error(`setScopedDocs(${scopeId}, ${collectionName}) error:`, error);
+  if (error) {
+    console.error(`setScopedDocs(${scopeId}, ${collectionName}) error:`, error);
+    return false;
+  }
+  return true;
 }
 
-export async function setScopedProfile(scopeId: string, profile: MyProfile): Promise<void> {
-  if (!isSupabaseConfigured) return;
+// [수정] setScopedDoc과 같은 이유로 성공 여부(boolean)를 반환하도록 바꿨다 — "내 명함"
+// 프로필 사진(앞/뒤)도 재스캔되는 경우가 있어서, 저장 실패를 조용히 넘기면 안 된다.
+export async function setScopedProfile(scopeId: string, profile: MyProfile): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
   const { error } = await supabase
     .from('scoped_items')
     .upsert(
       { scope_id: scopeId, collection: 'myProfile', doc_id: 'profile', data: profile, updated_at: new Date().toISOString() },
       { onConflict: 'scope_id,collection,doc_id' }
     );
-  if (error) console.error(`setScopedProfile(${scopeId}) error:`, error);
+  if (error) {
+    console.error(`setScopedProfile(${scopeId}) error:`, error);
+    return false;
+  }
+  return true;
 }
 
 // [수정] 공유 랜딩 페이지(/s/:slug)용: scope_id를 몰라도 shareSlug만으로
@@ -513,12 +524,19 @@ export async function getUsers(): Promise<RegisteredUser[]> {
   return allRows.map(row => row.data as RegisteredUser);
 }
 
-export async function addUser(user: RegisteredUser): Promise<void> {
-  if (!isSupabaseConfigured) return;
+// [수정] setScopedDoc과 같은 이유로 성공 여부(boolean)를 반환하도록 바꿨다 — 전자결재
+// 서명(손글씨) 이미지도 이 함수로 저장되는데, 실패해도 조용히 넘어가면 나중에 서명이
+// 조용히 사라질 수 있었다.
+export async function addUser(user: RegisteredUser): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
   const { error } = await supabase
     .from('app_users')
     .upsert({ id: user.id, data: user }, { onConflict: 'id' });
-  if (error) console.error(`addUser(${user.id}) error:`, error);
+  if (error) {
+    console.error(`addUser(${user.id}) error:`, error);
+    return false;
+  }
+  return true;
 }
 
 // [추가] 회사 가입 승인 거절 시 계정 자체를 삭제하기 위한 함수.
