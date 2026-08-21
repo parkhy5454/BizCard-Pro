@@ -518,6 +518,33 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     })
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
+  // [추가] 법인카드 관리 - 카드 한 장씩 문서를 따로 등록해두신 경우가 많아서, "이번 달에 등록된
+  // 카드 문서를 전부 모아 한 표로 보여달라"는 요청에 맞춰 같은 연월(yearMonth)의 corp_card
+  // 문서를 전부 찾아 카드 목록을 하나로 합쳐서 인쇄 화면(renderPrintableCorpCard)에 넘긴다.
+  // 실제 데이터는 그대로 두고(문서를 합치거나 지우지 않음), 보여줄 때만 화면에서 합친다.
+  const corpCardDocs = docs.filter((d) => d.section === 'management' && d.category === 'corp_card' && d.corpCard);
+  const corpCardMonthSet = new Set<string>();
+  corpCardDocs.forEach((d) => { const ym = d.corpCard?.yearMonth; if (ym) corpCardMonthSet.add(ym); });
+  const corpCardMonths: string[] = Array.from(corpCardMonthSet).sort((a, b) => b.localeCompare(a)); // 최신 연월이 먼저 오도록
+
+  const handleViewAllCorpCards = () => {
+    const targetMonth = corpCardMergeMonth || corpCardMonths[0];
+    if (!targetMonth) return;
+    const docsForMonth = corpCardDocs
+      .filter((d) => (d.corpCard?.yearMonth || '') === targetMonth)
+      .sort((a, b) => (a.personName || a.title || '').localeCompare(b.personName || b.title || '', 'ko'));
+    const mergedCards = docsForMonth.flatMap((d) => d.corpCard?.cards || []).map((c, i) => ({ ...c, id: `merged-${i}-${c.id}` }));
+    if (mergedCards.length === 0) return;
+    const [year, month] = targetMonth.split('-');
+    const base = docsForMonth[0];
+    setPrintingDoc({
+      ...base,
+      id: `merged-corp-card-${targetMonth}`,
+      title: `${year}년도 카드별 월 사용 내역(${Number(month)}월) - 전체`,
+      corpCard: { yearMonth: targetMonth, cards: mergedCards },
+    });
+  };
+
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !files.length || !editingDoc) return;
@@ -596,6 +623,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
   // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
   const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
+
+  // [추가] 법인카드 관리 - "전체 카드 한 페이지로 보기"에서 고를 대상 연월
+  const [corpCardMergeMonth, setCorpCardMergeMonth] = useState('');
 
   // [추가] 월별 자금 현황 - 통장(계좌) 줄 추가·삭제·수정
   const updateCashflowAccounts = (updater: (accounts: NonNullable<AdminDoc['cashflow']>['accounts']) => NonNullable<AdminDoc['cashflow']>['accounts']) => {
@@ -2587,6 +2617,31 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             <Download className="w-3.5 h-3.5" />
             엑셀 내보내기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 법인카드 관리 - 카드별로 문서를 따로 등록해도, 같은 달 것끼리 모아서
+      한 페이지(엑셀표 양식)로 인쇄/미리보기 할 수 있게 해준다. */}
+      {activeCategory === 'corp_card' && corpCardMonths.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={corpCardMergeMonth || corpCardMonths[0]}
+            onChange={(e) => setCorpCardMergeMonth(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {corpCardMonths.map((m) => {
+              const [y, mo] = m.split('-');
+              return <option key={m} value={m}>{y}년 {Number(mo)}월</option>;
+            })}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllCorpCards}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            전체 카드 한 페이지로 보기
           </button>
         </div>
       )}
@@ -5159,7 +5214,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
             인쇄 / PDF 저장
           </button>
         </div>
-        <div className="bg-white shadow-2xl mx-auto" style={{ width: printingDoc.category === 'monthly_cashflow' ? '297mm' : '210mm' }}>
+        <div className="bg-white shadow-2xl mx-auto" style={{ width: (printingDoc.category === 'monthly_cashflow' || printingDoc.category === 'corp_card') ? '297mm' : '210mm' }}>
           {renderActivePrintable()}
         </div>
       </div>
