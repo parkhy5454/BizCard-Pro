@@ -335,15 +335,26 @@ export async function getScopedDoc<T>(scopeId: string, collectionName: string, d
 }
 
 // 단일 문서 생성/전체 덮어쓰기 (Firestore setDoc과 동일하게 upsert)
-export async function setScopedDoc<T extends { id: string }>(scopeId: string, collectionName: string, item: T): Promise<void> {
-  if (!isSupabaseConfigured) return;
+// [수정] 예전엔 반환값이 없어서(void), 이 함수를 부르는 쪽에서는 DB 저장이 실제로 성공했는지
+// 확인할 방법이 없었다. 에러가 나도 서버 콘솔에만 로그를 남기고 조용히 넘어갔기 때문에,
+// 클라이언트는 "저장 성공" 응답을 그대로 받아서 사용자에게 아무 문제 없이 저장된 것처럼
+// 보였다 — 실제로는 메모리 캐시에만 반영되고 DB에는 안 남아서, 서버가 재시작되면 방금
+// 수정한 내용(예: 재스캔한 명함 사진)이 조용히 사라지는 문제가 있었다. 이제 성공 여부를
+// boolean으로 돌려줘서, 중요한 저장 경로(명함 등록/수정 등)에서 실패를 감지해 사용자에게
+// 알릴 수 있게 한다. 기존 호출부들은 반환값을 안 써도 그대로 동작한다(하위 호환).
+export async function setScopedDoc<T extends { id: string }>(scopeId: string, collectionName: string, item: T): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
   const { error } = await supabase
     .from('scoped_items')
     .upsert(
       { scope_id: scopeId, collection: collectionName, doc_id: item.id, data: item, updated_at: new Date().toISOString() },
       { onConflict: 'scope_id,collection,doc_id' }
     );
-  if (error) console.error(`setScopedDoc(${scopeId}, ${collectionName}, ${item.id}) error:`, error);
+  if (error) {
+    console.error(`setScopedDoc(${scopeId}, ${collectionName}, ${item.id}) error:`, error);
+    return false;
+  }
+  return true;
 }
 
 // 여러 문서를 한 번에 upsert (대량 가져오기 등에서 사용)
