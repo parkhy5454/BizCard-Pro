@@ -160,7 +160,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     yearMonth: new Date().toISOString().slice(0, 7),
     cards: [{
       id: `cc-${Date.now()}`,
-      cardCompany: '', cardNumber: '', user: '', periodLabel: '', paymentDay: '',
+      cardCompany: '', cardNumber: '', expiry: '', user: '', periodLabel: '', paymentDay: '',
       amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
     }]
   } : undefined,
@@ -1366,7 +1366,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
   const addCorpCard = () => {
     updateCorpCards((cards) => [...cards, {
       id: `cc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      cardCompany: '', cardNumber: '', user: '', periodLabel: '', paymentDay: '',
+      cardCompany: '', cardNumber: '', expiry: '', user: '', periodLabel: '', paymentDay: '',
       amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
     }]);
   };
@@ -3753,7 +3753,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                         input의 기본 최소 폭 때문에 줄어들지 못하고 셋을 합친 폭이 모달 폭을
                         넘어가 "사용자" 칸이 화면 밖으로 삐져나오는 문제가 있었다. 카드사용내역의
                         카드명/카드번호/소지자와 같은 grid-cols-3(모바일 1열) 패턴으로 맞춘다. */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-1.5">
                           <input
                             type="text"
                             value={c.cardCompany}
@@ -3767,6 +3767,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             onChange={(e) => updateCorpCard(c.id, { cardNumber: e.target.value })}
                             placeholder="카드번호"
                             className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          {/* [추가] 카드 유효기간(MM/YY). 숫자만 입력받아 "00/00" 형태로 자동으로
+                          슬래시를 넣어준다. */}
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={c.expiry || ''}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+                              updateCorpCard(c.id, { expiry: formatted });
+                            }}
+                            placeholder="유효기간(MM/YY)"
+                            maxLength={5}
+                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <div className="flex items-center gap-1">
                             <input
