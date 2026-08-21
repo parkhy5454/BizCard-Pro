@@ -376,7 +376,9 @@ export interface AdminDoc {
       contractAmount?: number;  // 계약금(VAT포함)
       remainingAmount?: number; // 잔여기성
       prevYear?: number;        // 전년도(이월 수금액)
-      months: Record<string, number>; // '1'~'12' 키, 월별 수금액
+      // '1'~'12' 키, 월별 셀. 직접 입력(manual)과 통장 입금 내역에서 "자동 불러오기"로
+      // 채워 넣은 금액(imported)을 둘 다 더해서 그 달 금액이 된다(관리비내역과 동일한 방식).
+      months: Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }>;
     }[];
     // OUTFLOWS(매입) - 프로젝트별 물품 매입처 한 줄.
     outflows: {
@@ -386,7 +388,8 @@ export interface AdminDoc {
       estimatedTotal?: number;  // 예상물품구입(외주)총액
       note?: string;             // 비고
       prevYear?: number;        // 전년도 구입
-      months: Record<string, number>; // '1'~'12' 키, 월별 매입액
+      // '1'~'12' 키, 월별 셀. 직접 입력(manual) + 통장 출금 내역에서 자동 불러온 금액(imported).
+      months: Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }>;
     }[];
     // 경비 - "급여/소득공제", "사업 경비", "부채", "기타 경비" 네 그룹으로 나누고, 그룹
     // 안에서 항목을 자유롭게 추가/삭제할 수 있다.
@@ -397,7 +400,8 @@ export interface AdminDoc {
         id: string;
         label: string;           // 항목명 (예: "급여", "4대보험(퇴직연금/보)")
         initialAmount?: number;  // 부채 항목 등에서 참고용 최초 금액(선택, 없으면 미표시)
-        months: Record<string, number>; // '1'~'12' 키, 월별 금액
+        // '1'~'12' 키, 월별 셀. 직접 입력(manual) + 통장 출금 내역에서 자동 불러온 금액(imported).
+        months: Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }>;
       }[];
     }[];
   };
