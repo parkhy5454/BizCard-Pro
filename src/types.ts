@@ -105,6 +105,7 @@ export type AdminDocCategory =
   | 'office_supplies'     // 사무실 비품 관리
   | 'sales_contract'      // 영업 계약
   | 'corp_card'           // 법인카드 관리
+  | 'cash_flow'           // 현금 흐름 (프로젝트별 INFLOWS/OUTFLOWS + 경비 + 최종 자금흐름)
   // 회계관리
   | 'payslip'             // 급여명세서
   | 'severance'           // 퇴직금 정산
@@ -357,6 +358,47 @@ export interface AdminDoc {
       withdrawBank?: string;   // 출금은행
       withdrawAccount?: string;// 출금계좌
       note?: string;            // 비고
+    }[];
+  };
+  // [추가] 경영지원 > 현금 흐름(category: 'cash_flow') 전용 구조화 필드. "연도 하나 = 문서
+  // 하나"로 저장하고, 그 안에 INFLOWS(프로젝트별 수금)/OUTFLOWS(프로젝트별 매입)/경비
+  // (급여·사업경비·부채·기타경비)를 월별로 입력해두면, "현금 흐름 최종"(매입+경비 합계,
+  // 순현금흐름, 통장잔고)은 화면에서 자동으로 계산해서 보여준다(따로 입력하지 않음).
+  cashFlowAnnual?: {
+    year: string;               // 대상 연도 (예: "2026")
+    openingBalance: number;     // 전년도이월금 (연초 통장잔고 - 1월 통장잔고 계산의 시작값)
+    // INFLOWS(수금) - 프로젝트별 한 줄. "기타 매출" 등 프로젝트명이 없는 합산 줄도 그냥
+    // 이름만 채워서 같은 목록에 추가하면 된다.
+    inflows: {
+      id: string;
+      name: string;             // 프로젝트명
+      recipient?: string;       // 프로젝트 수주자
+      contractAmount?: number;  // 계약금(VAT포함)
+      remainingAmount?: number; // 잔여기성
+      prevYear?: number;        // 전년도(이월 수금액)
+      months: Record<string, number>; // '1'~'12' 키, 월별 수금액
+    }[];
+    // OUTFLOWS(매입) - 프로젝트별 물품 매입처 한 줄.
+    outflows: {
+      id: string;
+      name: string;             // 프로젝트별 물품 매입처
+      recipient?: string;       // 프로젝트 수주자
+      estimatedTotal?: number;  // 예상물품구입(외주)총액
+      note?: string;             // 비고
+      prevYear?: number;        // 전년도 구입
+      months: Record<string, number>; // '1'~'12' 키, 월별 매입액
+    }[];
+    // 경비 - "급여/소득공제", "사업 경비", "부채", "기타 경비" 네 그룹으로 나누고, 그룹
+    // 안에서 항목을 자유롭게 추가/삭제할 수 있다.
+    expenseGroups: {
+      id: string;
+      name: string;              // 그룹명 (예: "급여/소득공제")
+      items: {
+        id: string;
+        label: string;           // 항목명 (예: "급여", "4대보험(퇴직연금/보)")
+        initialAmount?: number;  // 부채 항목 등에서 참고용 최초 금액(선택, 없으면 미표시)
+        months: Record<string, number>; // '1'~'12' 키, 월별 금액
+      }[];
     }[];
   };
   // [추가] 경영지원 > 근로계약서(category: 'labor_contract') 전용 구조화 필드. 회사에서
