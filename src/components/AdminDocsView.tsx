@@ -2109,56 +2109,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
-  // [추가] 관리비내역 인쇄용 화면. 공유해주신 "월별 관리비내역" 양식대로 호실(열) × 월(행)
-  // 표로 그리고, 맨 아래 합계 행과(입력해두신 경우) 입금 계좌 등 참고사항을 메모에서
-  // 가져와 표 아래에 각주로 넣는다.
-  const renderPrintableManagementFee = () => {
-    if (!printingDoc || !printingDoc.managementFee) return null;
-    const mf = printingDoc.managementFee;
-    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
-    const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
-    const grandTotal = managementGrandTotal(mf);
-
-    return (
-      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
-        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
-          {firstYear ? `${firstYear.slice(2)}년도 월별 관리비내역` : printingDoc.title}
-        </h1>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
-          <thead>
-            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
-              <td style={{ border: '1px solid #000', padding: '6px' }}>{firstYear ? `${firstYear}년` : '연도'}</td>
-              <td style={{ border: '1px solid #000', padding: '6px' }}>납부일</td>
-              {mf.units.map((u) => (
-                <td key={u.id} style={{ border: '1px solid #000', padding: '6px' }}>{u.name || '(호실명 미입력)'}</td>
-              ))}
-              <td style={{ border: '1px solid #000', padding: '6px' }}>합계</td>
-            </tr>
-          </thead>
-          <tbody>
-            {mf.months.map((m) => (
-              <tr key={m.id}>
-                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontWeight: 700 }}>{m.label}</td>
-                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{m.paymentDate}</td>
-                {mf.units.map((u) => (
-                  <td key={u.id} style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(managementCellTotal(m.amounts[u.id]))}</td>
-                ))}
-                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right', fontWeight: 700 }}>{fmt(managementMonthTotal(m, mf.units))}</td>
-              </tr>
-            ))}
-            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
-              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={2 + mf.units.length}>합 계</td>
-              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
-            </tr>
-          </tbody>
-        </table>
-        {printingDoc.memo && (
-          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
-        )}
-      </div>
-    );
-  };
-
   // [추가] 근로계약서 인쇄용 화면. 공유해주신 실제 계약서 전문(고정 조항 포함)을 그대로
   // 재현하고, 근로자 정보/급여 구성/계약기간처럼 사람마다 달라지는 부분만 채워 넣는다.
   const renderPrintableLaborContract = () => {
@@ -2640,7 +2590,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
-    if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
     if (printingDoc.category === 'power_of_attorney') return renderPrintablePowerOfAttorney();
@@ -2816,7 +2765,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
