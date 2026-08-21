@@ -3452,6 +3452,16 @@ app.post('/api/scan-receipt', async (req, res) => {
       "- 'company_card' (법인카드, 신용카드 영수증에 법인카드 표시가 있거나 회사 비용인 경우)\n" +
       "- 'personal_card' (개인카드)\n" +
       "- 'cash' (현금 영수증, 간이 영수증, 현금 결제)\n\n" +
+      // [추가] "법인카드 등록 정보와 대조해서 맞으면 법인카드로 우선 판단" 요청에 맞춰,
+      // 영수증에 인쇄된 카드번호(마스킹되어 일부만 보여도 그 보이는 부분)를 같이 추출해달라고
+      // 요청한다. 아래에서 이 값을 경영지원 > 법인카드 관리에 등록된 카드번호들과 대조해서,
+      // 일치하면 AI가 뭐라고 판단했든 payMethod를 company_card로 강제로 바꿔준다 - 영수증에
+      // "법인카드"라는 문구가 안 찍혀 있어서 AI가 애매하게 개인카드/현금으로 잘못 고르는
+      // 경우를 실제 등록된 카드 정보로 보정하기 위함이다.
+      "추가로, 영수증에 카드번호가 인쇄되어 있으면(마스킹되어 일부만 보여도 상관없음) 그 중 " +
+      "실제로 읽을 수 있는 숫자만 순서대로 뽑아서 알려줘 (별표(*)나 마스킹 기호, 하이픈, 공백은 " +
+      "빼고 숫자만. 보통 카드번호 뒤 3~4자리만 보이는 경우가 많음). 카드번호가 아예 안 보이면 " +
+      "빈 문자열로 줘.\n\n" +
       // [수정] 지출 정보뿐 아니라, 사진 속에서 "영수증 실물의 네 꼭짓점이 어디인지"도 같이 알려달라고
       // 요청한다. 화면의 명암 차이만으로 테두리를 찾는 기존 방식은 영수증처럼 휘거나 구겨진 얇은
       // 종이, 또는 배경과 색이 비슷한 경우 실패하기 쉬운데, AI는 "영수증처럼 생긴 패턴" 자체로
@@ -3468,6 +3478,7 @@ app.post('/api/scan-receipt', async (req, res) => {
       '  "memo": "구매 품목 요약 또는 메모 (예: 아메리카노 외 2건)",\n' +
       '  "category": "선택한 카테고리 코드 (예: beverage)",\n' +
       '  "payMethod": "선택한 결제수단 코드 (예: company_card)",\n' +
+      '  "cardNumberVisible": "영수증에서 읽을 수 있는 카드번호 숫자 (마스킹/하이픈/공백 제외, 없으면 빈 문자열)",\n' +
       '  "corners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}}\n' +
       "}"
     ];
@@ -3499,6 +3510,38 @@ app.post('/api/scan-receipt', async (req, res) => {
         category: 'other',
         payMethod: 'company_card'
       };
+    }
+
+    // [추가] "영수증 스캔 시 법인카드 등록 정보(카드번호)와 대조해서 맞으면 법인카드로
+    // 우선 판단" - AI가 영수증에서 읽어낸 카드번호(마스킹되어 일부만 보여도 그 부분)를,
+    // 경영지원 > 법인카드 관리(admin-docs의 corp_card 카테고리)에 등록된 카드번호들과
+    // 대조한다. 영수증엔 보통 카드번호 뒤 3~4자리만 보이므로, 등록된 카드번호가 그
+    // 자리로 끝나면(또는 서로 포함 관계면) 같은 카드로 보고 AI의 판단과 상관없이
+    // payMethod를 company_card로 강제한다. 등록된 카드가 없거나 카드번호를 못 읽었으면
+    // 원래 AI 판단(payMethod)을 그대로 둔다.
+    try {
+      const visibleDigits = String(parsedJson.cardNumberVisible || '').replace(/\D/g, '');
+      if (visibleDigits.length >= 3) {
+        const dbData = getScopedData(req);
+        const registeredCardDigits: string[] = [];
+        for (const doc of (dbData.adminDocs || [])) {
+          if (doc.category !== 'corp_card' || !doc.corpCard) continue;
+          for (const c of (doc.corpCard.cards || [])) {
+            const digits = String(c.cardNumber || '').replace(/\D/g, '');
+            if (digits) registeredCardDigits.push(digits);
+          }
+        }
+        const matchesRegisteredCard = registeredCardDigits.some((full) =>
+          visibleDigits.length >= full.length
+            ? visibleDigits.includes(full)
+            : full.endsWith(visibleDigits)
+        );
+        if (matchesRegisteredCard) {
+          parsedJson.payMethod = 'company_card';
+        }
+      }
+    } catch (matchErr) {
+      console.error('법인카드 등록 정보 대조 실패(원래 AI 판단 그대로 사용):', matchErr);
     }
 
     res.json(parsedJson);
