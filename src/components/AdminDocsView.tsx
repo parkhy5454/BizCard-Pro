@@ -589,7 +589,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       .map((c, i) => {
         const linked = !!(start && cappedEnd) && hasCardUsageRecord(docs, c.cardCompany, c.cardNumber);
         const liveAmount = linked ? sumCardUsageByCard(docs, c.cardCompany, c.cardNumber, start, cappedEnd) : (Number(c.amount) || 0);
-        const note = linked ? `${c.note ? c.note + ' · ' : ''}카드사용내역 연동(${todayStr} 기준)` : c.note;
+        // [수정] 연동 안 된 카드가 왜 안 되는지("카드사용내역에 아직 기록이 없어서"인지) 관리자가
+        // 화면만 보고 바로 알 수 있게, 미연동 카드에도 그 사실을 비고에 명시적으로 남긴다.
+        const note = linked
+          ? `${c.note ? c.note + ' · ' : ''}카드사용내역 연동(${todayStr} 기준)`
+          : `${c.note ? c.note + ' · ' : ''}카드사용내역 미연동(카드사용내역에 이 카드사+카드번호로 기록된 내역 없음)`;
         return { ...c, id: `merged-${i}-${c.id}`, amount: liveAmount, note };
       });
     if (mergedCards.length === 0) return;
@@ -2071,7 +2075,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
               <td style={{ border: '1px solid #000', padding: '5px' }}>사용자</td>
               <td style={{ border: '1px solid #000', padding: '5px' }}>사용일수</td>
               <td style={{ border: '1px solid #000', padding: '5px' }}>출금일자</td>
-              <td style={{ border: '1px solid #000', padding: '5px' }}>금 액</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용금액</td>
               <td style={{ border: '1px solid #000', padding: '5px' }}>출금은행</td>
               <td style={{ border: '1px solid #000', padding: '5px' }}>출금계좌</td>
               <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
