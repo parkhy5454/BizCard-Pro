@@ -150,7 +150,15 @@ body {
   이름 붙은 페이지 규칙을 별도로 둔다(다른 인쇄물에는 영향 없음). */
   @page cashflow-landscape {
     size: A4 landscape;
-    margin: 12mm 10mm;
+    margin: 24mm 10mm 12mm 10mm;
+  }
+  /* [추가] 표가 길어 2페이지 이상으로 넘어가는 문서(가지급내역 등)에서, 이어지는 페이지들은
+  브라우저가 자동으로 붙이는 인쇄 머리글(주소/날짜/페이지 번호 등)과 표 내용이 너무 붙어
+  보인다는 요청에 맞춰, 1페이지의 위쪽 여백(12mm)보다 이어지는 페이지들의 위쪽 여백을 2배
+  (24mm, 위 cashflow-landscape의 기본 margin)로 주고, 1페이지만 :first로 다시 원래 값으로
+  낮춘다. */
+  @page cashflow-landscape:first {
+    margin-top: 12mm;
   }
   /* [수정] 이 클래스가 붙는 div들은 화면 크기와 똑같이 minHeight를 210mm(용지 세로 길이와
   정확히 같은 값)로 주고 있는데, 브라우저가 mm를 실제 픽셀로 변환하는 과정에서 아주 미세한
