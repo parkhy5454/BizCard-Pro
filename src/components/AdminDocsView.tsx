@@ -20,9 +20,10 @@ interface VehicleSearchInputProps {
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
+  inputClassName?: string;
 }
 
-const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value, onChange, placeholder, className }) => {
+const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value, onChange, placeholder, className, inputClassName }) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +49,7 @@ const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value
         onFocus={() => setOpen(true)}
         onChange={(e) => { onChange(e.target.value); setOpen(true); }}
         placeholder={placeholder}
-        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+        className={inputClassName || 'w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500'}
       />
       {open && vehicles.length > 0 && (
         <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
@@ -67,6 +68,76 @@ const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value
                   <span className="font-medium text-slate-700 truncate">{v.modelName}</span>
                   <span className="text-slate-400 truncate">({v.plateNumber})</span>
                   {labelOf(v) === value && <Check className="w-3 h-3 text-indigo-600 ml-auto shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// [추가] 차량 과태료 "내용(위반 상세)"에서 자주 쓰는 항목을 골라 쓰거나, 직접 입력한 값도
+// (호출하는 쪽에서 저장된 데이터로부터 모아서) 다음부터 목록에 나타나 선택할 수 있게 하는
+// 범용 자동완성 입력칸. VehicleSearchInput과 같은 방식이지만 옵션이 문자열 목록이면 어디든
+// 재사용할 수 있게 일반화했다.
+const VEHICLE_FINE_DETAIL_PRESETS = [
+  '주정차 위반',
+  '신호 위반',
+  '어린이보호구역 내 속도 위반',
+  '통행료 미정산',
+  '안전지대 등 진입금지 위반',
+  '단말기 미부착',
+];
+
+interface SuggestTextInputProps {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+const SuggestTextInput: React.FC<SuggestTextInputProps> = ({ options, value, onChange, placeholder, className }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const q = value.toLowerCase();
+  const filtered = options.filter((o) => !q || o.toLowerCase().includes(q)).slice(0, 30);
+
+  return (
+    <div ref={wrapRef} className={`relative ${className || ''}`}>
+      <input
+        type="text"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        placeholder={placeholder}
+        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+      />
+      {open && options.length > 0 && (
+        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-slate-400 text-center py-3">일치하는 항목이 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
+            ) : (
+              filtered.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => { onChange(o); setOpen(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-indigo-50 ${o === value ? 'bg-indigo-50 font-medium text-indigo-700' : 'text-slate-700'}`}
+                >
+                  {o}
                 </button>
               ))
             )}
@@ -582,6 +653,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
       .then((data) => setVehicles(Array.isArray(data) ? data : []))
       .catch((err) => console.error('등록 차량 목록 불러오기 실패:', err));
   }, [currentUser?.id]);
+
+  // [추가] 차량 과태료 "내용(위반 상세)" - 자주 쓰는 항목을 기본 목록으로 두고, 직접
+  // 입력하신 값은 저장된 다른 과태료 문서들에서 모아서 다음부터 목록에 추가로 보이게 한다
+  // (별도 저장 없이, 이미 저장된 데이터에서 매번 다시 모음).
+  const vehicleFineDetailOptions = (() => {
+    const extra = new Set<string>();
+    docs.forEach((d) => {
+      if (d.category !== 'vehicle_fine' || !d.vehicleFine) return;
+      d.vehicleFine.entries.forEach((e) => {
+        const t = (e.detail || '').trim();
+        if (t && !VEHICLE_FINE_DETAIL_PRESETS.includes(t)) extra.add(t);
+      });
+    });
+    return [...VEHICLE_FINE_DETAIL_PRESETS, ...Array.from(extra).sort((a, b) => a.localeCompare(b, 'ko'))];
+  })();
 
   const activeConfig = categories.find((c) => c.id === activeCategory) || categories[0];
 
@@ -2966,12 +3052,23 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">{activeConfig.personLabel}</label>
-                    <input
-                      type="text"
-                      value={editingDoc.personName || ''}
-                      onChange={(e) => setEditingDoc({ ...editingDoc, personName: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
-                    />
+                    {/* [수정] 차량 과태료 내역에서는 이 "차량"도 통합 차량관리 등록 차량에서
+                    골라 쓸 수 있게 한다(다른 서류 종류는 기존 자유 입력 그대로 유지). */}
+                    {activeCategory === 'vehicle_fine' ? (
+                      <VehicleSearchInput
+                        vehicles={vehicles}
+                        value={editingDoc.personName || ''}
+                        onChange={(v) => setEditingDoc({ ...editingDoc, personName: v })}
+                        inputClassName="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={editingDoc.personName || ''}
+                        onChange={(e) => setEditingDoc({ ...editingDoc, personName: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -4375,12 +4472,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                             </button>
                           </div>
                           <div className="flex flex-wrap items-center gap-1">
-                            <input
-                              type="text"
+                            {/* [수정] 자주 쓰는 위반 항목을 목록에서 고르거나 직접 입력할 수 있게
+                            하고, 직접 입력한 값은 저장된 다른 문서에서 모아 다음부터 목록에
+                            나타난다(vehicleFineDetailOptions). */}
+                            <SuggestTextInput
+                              options={vehicleFineDetailOptions}
                               value={e.detail}
-                              onChange={(ev) => updateVehicleFineEntry(e.id, { detail: ev.target.value })}
+                              onChange={(v) => updateVehicleFineEntry(e.id, { detail: v })}
                               placeholder="내용 (위반 상세)"
-                              className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              className="flex-[2] min-w-[140px]"
                             />
                             <input
                               type="text"
