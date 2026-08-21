@@ -29,6 +29,87 @@ const escapeHtml = (value: unknown): string => {
     .replace(/'/g, '&#39;');
 };
 
+// [추가] "손익계산서" 탭에서 전체 프로젝트를 한 표에 다 보여주는 대신, 검색하거나
+// 목록에서 골라 프로젝트 하나를 선택하게 하는 입력칸. AdminDocsView.tsx의
+// VehicleSearchInput/ProjectSearchInput과 같은 방식(포커스하면 목록이 펼쳐지고,
+// 타이핑하면 좁혀짐)이지만, 여기서는 항상 등록된 프로젝트 중에서만 골라야 하므로
+// (자유 입력 결과를 그대로 저장하는 용도가 아니라 특정 프로젝트의 상세 내역을 보여주기
+// 위한 선택용) 고른 프로젝트의 id만 돌려준다.
+interface ProjectPnlPickerProps {
+  projects: Project[];
+  selectedProjectId: string;
+  onSelect: (projectId: string) => void;
+}
+
+const ProjectPnlPicker: React.FC<ProjectPnlPickerProps> = ({ projects, selectedProjectId, onSelect }) => {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const selected = projects.find((p) => p.id === selectedProjectId);
+  const q = query.toLowerCase();
+  const filtered = projects.filter((p) => !q || p.name.toLowerCase().includes(q) || (p.endCustomer || '').toLowerCase().includes(q));
+
+  return (
+    <div ref={wrapRef} className="relative max-w-md">
+      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+      <input
+        type="text"
+        value={open ? query : (selected ? selected.name : '')}
+        onFocus={() => { setOpen(true); setQuery(''); }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        placeholder="프로젝트명으로 검색 또는 목록에서 선택..."
+        className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
+      />
+      {open && (
+        <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="max-h-72 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-4">일치하는 프로젝트가 없습니다</p>
+            ) : (
+              filtered.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => { onSelect(p.id); setQuery(''); setOpen(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 flex items-center justify-between gap-2 ${p.id === selectedProjectId ? 'bg-indigo-50' : ''}`}
+                >
+                  <span className="font-semibold text-slate-700 truncate">{p.name}</span>
+                  {p.id === selectedProjectId && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// [추가] 손익계산서 상세에서 팔로우업 지출(MeetingExpenseItem)의 카테고리/결제수단
+// 코드값을 화면에 보여줄 한글 라벨로 바꿔주는 표. AdminModal 등 다른 화면에서 쓰는
+// 라벨과 동일하게 맞춘다.
+const PNL_EXPENSE_CATEGORY_LABEL: Record<MeetingExpenseItem['category'], string> = {
+  meal: '식대',
+  drinks: '음료(커피)',
+  purchase: '물품 구입',
+  service_fee: '식사 서비스 비용',
+  custom: '직접 입력'
+};
+const PNL_PAY_METHOD_LABEL: Record<MeetingExpenseItem['payMethod'], string> = {
+  company_card: '법인카드',
+  personal_card: '개인카드',
+  cash: '현금'
+};
+
 interface Props {
   contacts: BusinessCard[];
   setContacts: React.Dispatch<React.SetStateAction<BusinessCard[]>>;
@@ -109,10 +190,15 @@ export const ProjectsView: React.FC<Props> = ({
     totalExpense: number;
     profit: number;
     profitMargin: number | null;
+    incomeEntries: { date: string; amount: number; memo?: string }[];
+    cardExpenseEntries: { date: string; amount: number; memo?: string; cardName?: string; holder?: string }[];
   }[]>([]);
   const [pnlUnmatched, setPnlUnmatched] = useState<{ unmatchedIncome: number; unmatchedCardExpense: number }>({ unmatchedIncome: 0, unmatchedCardExpense: 0 });
   const [pnlLoading, setPnlLoading] = useState<boolean>(false);
   const [pnlError, setPnlError] = useState<string>('');
+  // [수정] 프로젝트가 많아지면 전체를 한 표에 다 보여주는 대신, 검색/선택으로 프로젝트
+  // 하나를 고르면 그 프로젝트의 수입·지출 "내역"(건별)까지 보여주는 방식으로 변경.
+  const [pnlSelectedProjectId, setPnlSelectedProjectId] = useState<string>('');
 
   useEffect(() => {
     if (viewMode !== 'pnl') return;
@@ -1980,83 +2066,160 @@ export const ProjectsView: React.FC<Props> = ({
         {viewMode === 'pnl' ? (
           (() => {
             const fmtWon = (n: number) => `${formatCurrencyInput(String(Math.round(n)))}원`;
-            const totalIncome = pnlRows.reduce((s, r) => s + r.income, 0);
-            const totalCardExpense = pnlRows.reduce((s, r) => s + r.cardExpense, 0);
-            const totalFollowupExpense = pnlRows.reduce((s, r) => s + r.followupExpense, 0);
-            const totalExpense = pnlRows.reduce((s, r) => s + r.totalExpense, 0);
-            const totalProfit = pnlRows.reduce((s, r) => s + r.profit, 0);
-            const totalMargin = totalIncome > 0 ? (totalProfit / totalIncome) * 100 : null;
-            const sortedRows = [...pnlRows].sort((a, b) => b.income - a.income);
+            const fmtDate = (d?: string) => d || '-';
+            const selectedRow = pnlRows.find((r) => r.projectId === pnlSelectedProjectId) || null;
+            const selectedProject = projects.find((p) => p.id === pnlSelectedProjectId) || null;
+            // 팔로우업 지출은 projects 프롭에 이미 다 들어있어(followUps[].expenses) 서버를
+            // 다시 부를 필요 없이 화면에서 바로 뽑는다. 표에서는 어느 팔로우업(날짜/차수)에서
+            // 나온 지출인지 알 수 있게 팔로우업 날짜를 함께 붙인다.
+            const followupExpenseRows = selectedProject
+              ? (selectedProject.followUps || [])
+                  .flatMap((fu) => (fu.expenses || []).map((ex) => ({ ...ex, followUpDate: fu.date, followUpId: fu.id })))
+                  .sort((a, b) => (b.followUpDate || '').localeCompare(a.followUpDate || ''))
+              : [];
 
             return (
               <div className="space-y-4">
+                <ProjectPnlPicker
+                  projects={projects}
+                  selectedProjectId={pnlSelectedProjectId}
+                  onSelect={setPnlSelectedProjectId}
+                />
+
+                {/* [추가] projectId가 연결되지 않은(자유 입력만 된) 입금/카드 사용 내역이
+                    있으면, 어느 프로젝트를 보든 그 프로젝트의 집계에선 빠져있을 수 있다는
+                    것을 놓치지 않도록 안내한다. */}
+                {(pnlUnmatched.unmatchedIncome > 0 || pnlUnmatched.unmatchedCardExpense > 0) && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+                    프로젝트가 연결되지 않은(직접 입력만 된) 회계 내역이 있어 아래 집계에서 빠질 수 있습니다.
+                    {pnlUnmatched.unmatchedIncome > 0 && <> 미매칭 입금 {fmtWon(pnlUnmatched.unmatchedIncome)}.</>}
+                    {pnlUnmatched.unmatchedCardExpense > 0 && <> 미매칭 카드 사용 {fmtWon(pnlUnmatched.unmatchedCardExpense)}.</>}
+                    {' '}회계관리 화면에서 해당 내역의 프로젝트를 목록에서 다시 선택해주세요.
+                  </div>
+                )}
+
                 {pnlLoading ? (
                   <p className="text-sm text-slate-400 text-center py-10">불러오는 중...</p>
                 ) : pnlError ? (
                   <p className="text-sm text-rose-500 text-center py-10">{pnlError}</p>
+                ) : !selectedProject ? (
+                  <p className="text-sm text-slate-400 text-center py-14">위에서 프로젝트를 검색하거나 선택하면 수입·지출 내역이 여기에 표시됩니다.</p>
+                ) : !selectedRow ? (
+                  <p className="text-sm text-slate-400 text-center py-10">이 프로젝트의 손익 데이터를 찾을 수 없습니다.</p>
                 ) : (
                   <>
-                    {/* 전체 합계 카드 */}
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-slate-800">{selectedRow.projectName}</h3>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-500">
+                        {{ opportunity: '기회', progress: '진행', completed: '완료', failed: '실패' }[selectedRow.status]}
+                      </span>
+                    </div>
+
+                    {/* 요약 카드 */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">총 입금(수입)</span>
-                        <p className="text-lg font-extrabold text-indigo-600">{fmtWon(totalIncome)}</p>
+                        <span className="text-[11px] text-slate-400 font-medium">입금(수입)</span>
+                        <p className="text-lg font-extrabold text-indigo-600">{fmtWon(selectedRow.income)}</p>
                       </div>
                       <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">총 지출</span>
-                        <p className="text-lg font-extrabold text-rose-500">{fmtWon(totalExpense)}</p>
+                        <span className="text-[11px] text-slate-400 font-medium">지출 합계</span>
+                        <p className="text-lg font-extrabold text-rose-500">{fmtWon(selectedRow.totalExpense)}</p>
                       </div>
                       <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">총 수익금</span>
-                        <p className={`text-lg font-extrabold ${totalProfit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtWon(totalProfit)}</p>
+                        <span className="text-[11px] text-slate-400 font-medium">수익금</span>
+                        <p className={`text-lg font-extrabold ${selectedRow.profit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtWon(selectedRow.profit)}</p>
                       </div>
                       <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">전체 수익률</span>
-                        <p className="text-lg font-extrabold text-emerald-600">{totalMargin === null ? '집계 전' : `${totalMargin.toFixed(1)}%`}</p>
+                        <span className="text-[11px] text-slate-400 font-medium">수익률</span>
+                        <p className="text-lg font-extrabold text-emerald-600">{selectedRow.profitMargin === null ? '집계 전' : `${selectedRow.profitMargin.toFixed(1)}%`}</p>
                       </div>
                     </div>
 
-                    {/* [추가] projectId가 연결되지 않은(자유 입력만 된) 입금/카드 사용 내역이
-                        있으면, 프로젝트별 집계에서 빠져있다는 것을 놓치지 않도록 안내한다. */}
-                    {(pnlUnmatched.unmatchedIncome > 0 || pnlUnmatched.unmatchedCardExpense > 0) && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
-                        프로젝트가 연결되지 않은(직접 입력만 된) 내역이 있어 아래 집계에서 빠져 있습니다.
-                        {pnlUnmatched.unmatchedIncome > 0 && <> 미매칭 입금 {fmtWon(pnlUnmatched.unmatchedIncome)}.</>}
-                        {pnlUnmatched.unmatchedCardExpense > 0 && <> 미매칭 카드 사용 {fmtWon(pnlUnmatched.unmatchedCardExpense)}.</>}
-                        {' '}회계관리 화면에서 해당 내역의 프로젝트를 목록에서 다시 선택해주세요.
-                      </div>
-                    )}
-
+                    {/* 입금(수입) 내역 */}
                     <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
-                      <h3 className="text-sm font-bold text-slate-700">
-                        프로젝트별 손익 ({sortedRows.length}건)
-                      </h3>
-                      {sortedRows.length === 0 ? (
-                        <p className="text-xs text-slate-400 py-4 text-center">등록된 프로젝트가 없습니다.</p>
+                      <h4 className="text-sm font-bold text-slate-700">입금(수입) 내역 ({selectedRow.incomeEntries.length}건)</h4>
+                      {selectedRow.incomeEntries.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-3 text-center">연결된 입금 내역이 없습니다. (회계관리 &gt; 통장 입금 내역에서 이 프로젝트를 선택해주세요)</p>
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="text-slate-400 border-b border-slate-200">
-                                <th className="text-left font-bold py-2">프로젝트명</th>
-                                <th className="text-right font-bold py-2">입금(수입)</th>
-                                <th className="text-right font-bold py-2">카드사용 지출</th>
-                                <th className="text-right font-bold py-2">팔로우업 지출</th>
-                                <th className="text-right font-bold py-2">지출 합계</th>
-                                <th className="text-right font-bold py-2">수익금</th>
-                                <th className="text-right font-bold py-2">수익률</th>
+                                <th className="text-left font-bold py-2">일자</th>
+                                <th className="text-left font-bold py-2">내용</th>
+                                <th className="text-right font-bold py-2">금액</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                              {sortedRows.map((r) => (
-                                <tr key={r.projectId}>
-                                  <td className="py-2 font-semibold text-slate-700">{r.projectName}</td>
-                                  <td className="py-2 text-right text-indigo-600 font-mono">{fmtWon(r.income)}</td>
-                                  <td className="py-2 text-right text-slate-500 font-mono">{fmtWon(r.cardExpense)}</td>
-                                  <td className="py-2 text-right text-slate-500 font-mono">{fmtWon(r.followupExpense)}</td>
-                                  <td className="py-2 text-right text-rose-500 font-mono">{fmtWon(r.totalExpense)}</td>
-                                  <td className={`py-2 text-right font-mono font-bold ${r.profit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtWon(r.profit)}</td>
-                                  <td className="py-2 text-right text-slate-500">{r.profitMargin === null ? '-' : `${r.profitMargin.toFixed(1)}%`}</td>
+                              {selectedRow.incomeEntries.map((e, i) => (
+                                <tr key={i}>
+                                  <td className="py-2 text-slate-500">{fmtDate(e.date)}</td>
+                                  <td className="py-2 text-slate-600">{e.memo || '-'}</td>
+                                  <td className="py-2 text-right text-indigo-600 font-mono">{fmtWon(e.amount)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 법인카드 사용 지출 내역 */}
+                    <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
+                      <h4 className="text-sm font-bold text-slate-700">카드사용 지출 내역 ({selectedRow.cardExpenseEntries.length}건)</h4>
+                      {selectedRow.cardExpenseEntries.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-3 text-center">연결된 카드 사용 내역이 없습니다. (회계관리 &gt; 법인카드 사용 내역에서 이 프로젝트를 선택해주세요)</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-slate-400 border-b border-slate-200">
+                                <th className="text-left font-bold py-2">일자</th>
+                                <th className="text-left font-bold py-2">카드/소지자</th>
+                                <th className="text-left font-bold py-2">비고</th>
+                                <th className="text-right font-bold py-2">금액</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {selectedRow.cardExpenseEntries.map((e, i) => (
+                                <tr key={i}>
+                                  <td className="py-2 text-slate-500">{fmtDate(e.date)}</td>
+                                  <td className="py-2 text-slate-600">{[e.cardName, e.holder].filter(Boolean).join(' · ') || '-'}</td>
+                                  <td className="py-2 text-slate-600">{e.memo || '-'}</td>
+                                  <td className="py-2 text-right text-rose-500 font-mono">{fmtWon(e.amount)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 팔로우업 지출 내역 */}
+                    <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
+                      <h4 className="text-sm font-bold text-slate-700">팔로우업 지출 내역 ({followupExpenseRows.length}건)</h4>
+                      {followupExpenseRows.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-3 text-center">기록된 팔로우업 지출이 없습니다.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-slate-400 border-b border-slate-200">
+                                <th className="text-left font-bold py-2">일자</th>
+                                <th className="text-left font-bold py-2">구분</th>
+                                <th className="text-left font-bold py-2">결제수단</th>
+                                <th className="text-left font-bold py-2">메모</th>
+                                <th className="text-right font-bold py-2">금액</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {followupExpenseRows.map((e) => (
+                                <tr key={e.id}>
+                                  <td className="py-2 text-slate-500">{fmtDate(e.followUpDate)}</td>
+                                  <td className="py-2 text-slate-600">{e.category === 'custom' ? (e.categoryCustom || '직접 입력') : PNL_EXPENSE_CATEGORY_LABEL[e.category]}</td>
+                                  <td className="py-2 text-slate-600">{PNL_PAY_METHOD_LABEL[e.payMethod]}</td>
+                                  <td className="py-2 text-slate-600">{e.memo || '-'}</td>
+                                  <td className="py-2 text-right text-rose-500 font-mono">{fmtWon(e.amount)}</td>
                                 </tr>
                               ))}
                             </tbody>
