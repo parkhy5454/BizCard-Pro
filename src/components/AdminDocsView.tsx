@@ -10,6 +10,13 @@ interface Props {
   currentUser: User | null;
 }
 
+// [추가] 카드번호 입력칸(법인카드 관리/카드사용내역 공용) - 숫자만 입력받아 "0000-0000-0000-0000"
+// 형태로 4자리마다 자동으로 하이픈을 넣어준다.
+function formatCardNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 16);
+  return digits.replace(/(\d{4})(?=\d)/g, '$1-');
+}
+
 // [추가] 경영지원/회계관리 각 섹션의 서브 탭(서류 종류) 정의. 종류마다 필요한 항목이 조금씩
 // 다르지만(예: 근로계약서엔 "직원명"이 중요하고, 통장 출금 내역엔 "금액"이 중요하다), 화면은
 // 하나의 공용 폼(제목/날짜/관련자/금액/메모/첨부파일)을 그대로 쓰고 라벨과 플레이스홀더만
@@ -384,7 +391,9 @@ function sumCardUsageByCard(
   periodStart?: string,
   periodEnd?: string
 ): number {
-  const norm = (s: string) => s.replace(/\s/g, '');
+  // [수정] 카드번호에 "0000-0000-0000-0000"처럼 하이픈 자동 서식이 붙게 되면서, 예전에
+  // 하이픈 없이 저장해둔 카드번호와 비교할 때도 같은 카드로 인식되도록 하이픈도 함께 지운다.
+  const norm = (s: string) => s.replace(/[\s-]/g, '');
   const targetCompany = norm(cardCompany);
   const targetNumber = norm(cardNumber);
   if (!targetCompany || !targetNumber) return 0;
@@ -408,7 +417,7 @@ function sumCardUsageByCard(
 // 기록되어 있는지 확인한다. 있으면 "연동됨" 상태로 보고 실사용 금액을 자동 계산해서 보여주고,
 // 없으면(아직 카드사용내역이 등록 안 된 카드) 입력해두신 금액을 그대로 보여준다.
 function hasCardUsageRecord(allDocs: AdminDoc[], cardCompany: string, cardNumber: string): boolean {
-  const norm = (s: string) => s.replace(/\s/g, '');
+  const norm = (s: string) => s.replace(/[\s-]/g, '');
   const targetCompany = norm(cardCompany);
   const targetNumber = norm(cardNumber);
   if (!targetCompany || !targetNumber) return false;
@@ -551,7 +560,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     docs.forEach((d) => {
       if (d.category !== 'corp_card' || !d.corpCard) return;
       d.corpCard.cards.forEach((c) => {
-        const key = `${c.cardCompany.replace(/\s/g, '')}__${(c.cardNumber || '').replace(/\s/g, '')}`;
+        const key = `${c.cardCompany.replace(/\s/g, '')}__${(c.cardNumber || '').replace(/[\s-]/g, '')}`;
         if (!c.cardCompany || seen.has(key)) return;
         seen.add(key);
         list.push({ key, cardCompany: c.cardCompany, cardNumber: c.cardNumber, user: c.user });
@@ -3637,9 +3646,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                           />
                           <input
                             type="text"
+                            inputMode="numeric"
                             value={c.cardNumber || ''}
-                            onChange={(e) => updateCardField(c.id, { cardNumber: e.target.value })}
-                            placeholder="카드번호"
+                            onChange={(e) => updateCardField(c.id, { cardNumber: formatCardNumber(e.target.value) })}
+                            placeholder="카드번호 (0000-0000-0000-0000)"
                             className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <div className="flex items-center gap-1">
@@ -3763,9 +3773,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                           />
                           <input
                             type="text"
+                            inputMode="numeric"
                             value={c.cardNumber}
-                            onChange={(e) => updateCorpCard(c.id, { cardNumber: e.target.value })}
-                            placeholder="카드번호"
+                            onChange={(e) => updateCorpCard(c.id, { cardNumber: formatCardNumber(e.target.value) })}
+                            placeholder="카드번호 (0000-0000-0000-0000)"
                             className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
                           {/* [추가] 카드 유효기간(MM/YY). 숫자만 입력받아 "00/00" 형태로 자동으로
