@@ -876,6 +876,96 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     URL.revokeObjectURL(url);
   };
 
+  // [추가] 차량 과태료 내역 인쇄 화면(renderPrintableVehicleFine)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 법인카드 관리 엑셀 출력(handleExportCorpCardExcel)과 같은 방식 - 서식 쓰기가
+  // 되는 exceljs로 노란 헤더/합계 행 배경색을 그대로 재현한다.
+  const handleExportVehicleFineExcel = async () => {
+    if (!printingDoc || !printingDoc.vehicleFine) return;
+    const vf = printingDoc.vehicleFine;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('차량_과태료_내역', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['위반일자', '위반차량', '금액', '처리일자', '내용', '비고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    vf.entries.forEach((e, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [fmtDate(e.date), e.vehicle, Number(e.amount) || 0, fmtDate(e.processedDate), e.detail || '', e.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 2 ? 'right' : (colIdx === 4 ? 'left' : 'center'), wrapText: colIdx === 4 };
+        if (colIdx === 2) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = vf.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + vf.entries.length;
+    ws.mergeCells(totalRowIdx, 1, totalRowIdx, 2);
+    ws.mergeCells(totalRowIdx, 4, totalRowIdx, colCount);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(3);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      vf.entries.forEach((e) => {
+        const v = [fmtDate(e.date), e.vehicle, formatCurrencyInput(e.amount || 0), fmtDate(e.processedDate), e.detail, e.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 4 ? 55 : 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '차량_과태료_내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !files.length || !editingDoc) return;
@@ -2426,6 +2516,54 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     );
   };
 
+  // [추가] 차량 과태료 내역 인쇄용 화면. 공유해주신 "OOOO년 법인차량 과태료 내역" 양식대로
+  // 위반일자/위반차량/금액/처리일자/내용/비고 열로 표를 그리고, 맨 아래 합계 행을 넣는다.
+  const renderPrintableVehicleFine = () => {
+    if (!printingDoc || !printingDoc.vehicleFine) return null;
+    const vf = printingDoc.vehicleFine;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const total = vf.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>{printingDoc.title}</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>위반일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>위반차량</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>처리일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>내용</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {vf.entries.map((e) => (
+              <tr key={e.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.date)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.vehicle}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.processedDate)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{e.detail}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={2}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
   // [추가] 근로계약서 인쇄용 화면. 공유해주신 실제 계약서 전문(고정 조항 포함)을 그대로
   // 재현하고, 근로자 정보/급여 구성/계약기간처럼 사람마다 달라지는 부분만 채워 넣는다.
   const renderPrintableLaborContract = () => {
@@ -2908,6 +3046,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
     if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
+    if (printingDoc.category === 'vehicle_fine') return renderPrintableVehicleFine();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
     if (printingDoc.category === 'power_of_attorney') return renderPrintablePowerOfAttorney();
@@ -3083,7 +3222,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'vehicle_fine' && d.vehicleFine) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => setPrintingDoc(d)}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -5643,11 +5782,20 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             닫기
           </button>
-          {/* [추가] "카드별 월 사용 내역"(법인카드 관리)은 화면 표 그대로(노란 헤더/합계 행
-          색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
+          {/* [추가] "카드별 월 사용 내역"(법인카드 관리)/"차량 과태료 내역"은 화면 표
+          그대로(노란 헤더/합계 행 색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
           {printingDoc.category === 'corp_card' && (
             <button
               onClick={handleExportCorpCardExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'vehicle_fine' && (
+            <button
+              onClick={handleExportVehicleFineExcel}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
