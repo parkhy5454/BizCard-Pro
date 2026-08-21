@@ -3749,33 +3749,39 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
 
                     {(editingDoc.corpCard?.cards || []).map((c) => (
                       <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                        <div className="flex items-center gap-1.5">
+                        {/* [수정] 세 입력칸을 flex-1로만 나열하면(카드번호처럼 긴 값이 들어있을 때)
+                        input의 기본 최소 폭 때문에 줄어들지 못하고 셋을 합친 폭이 모달 폭을
+                        넘어가 "사용자" 칸이 화면 밖으로 삐져나오는 문제가 있었다. 카드사용내역의
+                        카드명/카드번호/소지자와 같은 grid-cols-3(모바일 1열) 패턴으로 맞춘다. */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                           <input
                             type="text"
                             value={c.cardCompany}
                             onChange={(e) => updateCorpCard(c.id, { cardCompany: e.target.value })}
                             placeholder="카드사 (예: 국민카드)"
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <input
                             type="text"
                             value={c.cardNumber}
                             onChange={(e) => updateCorpCard(c.id, { cardNumber: e.target.value })}
                             placeholder="카드번호"
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
-                          <input
-                            type="text"
-                            value={c.user}
-                            onChange={(e) => updateCorpCard(c.id, { user: e.target.value })}
-                            placeholder="사용자"
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                          {(editingDoc.corpCard?.cards.length || 0) > 1 && (
-                            <button type="button" onClick={() => removeCorpCard(c.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={c.user}
+                              onChange={(e) => updateCorpCard(c.id, { user: e.target.value })}
+                              placeholder="사용자"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            {(editingDoc.corpCard?.cards.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeCorpCard(c.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
