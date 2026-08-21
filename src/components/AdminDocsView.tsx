@@ -404,6 +404,21 @@ function sumCardUsageByCard(
   return total;
 }
 
+// [추가] 회계관리 > 카드사용내역에 "카드사(cardCompany)+카드번호"가 일치하는 내역이 하나라도
+// 기록되어 있는지 확인한다. 있으면 "연동됨" 상태로 보고 실사용 금액을 자동 계산해서 보여주고,
+// 없으면(아직 카드사용내역이 등록 안 된 카드) 입력해두신 금액을 그대로 보여준다.
+function hasCardUsageRecord(allDocs: AdminDoc[], cardCompany: string, cardNumber: string): boolean {
+  const norm = (s: string) => s.replace(/\s/g, '');
+  const targetCompany = norm(cardCompany);
+  const targetNumber = norm(cardNumber);
+  if (!targetCompany || !targetNumber) return false;
+  return allDocs.some(
+    (doc) =>
+      doc.category === 'card_usage' &&
+      doc.cardUsage?.cards.some((card) => norm(card.cardName || '') === targetCompany && norm(card.cardNumber || '') === targetNumber)
+  );
+}
+
 // [추가] 법인카드 관리의 "사용일수" 표기(대개 "전월 01일~전월 말일")를 그대로 파싱하기는
 // 어려워서, corpCard.yearMonth를 기준으로 그 "전월" 전체 기간(YYYY-MM-01 ~ 그 달 마지막 날)을
 // 계산한다. 회사에서 흔히 쓰는 "전월 사용분을 이번 달에 결제" 관행에 맞춘 기본값이다.
@@ -533,7 +548,23 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const docsForMonth = corpCardDocs
       .filter((d) => (d.corpCard?.yearMonth || '') === targetMonth)
       .sort((a, b) => (a.personName || a.title || '').localeCompare(b.personName || b.title || '', 'ko'));
-    const mergedCards = docsForMonth.flatMap((d) => d.corpCard?.cards || []).map((c, i) => ({ ...c, id: `merged-${i}-${c.id}` }));
+
+    // [추가] 관리자가 매일 확인해야 하는 화면이라, 저장해둔 금액을 그대로 보여주지 않고
+    // 회계관리 > 카드사용내역에 실제 기록된 내역에서 "오늘까지" 사용한 금액을 실시간으로
+    // 계산해서 보여준다. 대상 기간은 기존 대조 로직과 동일하게 "대상 연월의 전월"이며,
+    // 그 기간이 아직 안 끝났으면 오늘 날짜까지만 합산한다.
+    const { start, end } = getPrevMonthRange(targetMonth);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const cappedEnd = end ? (end > todayStr ? todayStr : end) : undefined;
+
+    const mergedCards = docsForMonth
+      .flatMap((d) => d.corpCard?.cards || [])
+      .map((c, i) => {
+        const linked = !!(start && cappedEnd) && hasCardUsageRecord(docs, c.cardCompany, c.cardNumber);
+        const liveAmount = linked ? sumCardUsageByCard(docs, c.cardCompany, c.cardNumber, start, cappedEnd) : (Number(c.amount) || 0);
+        const note = linked ? `${c.note ? c.note + ' · ' : ''}카드사용내역 연동(${todayStr} 기준)` : c.note;
+        return { ...c, id: `merged-${i}-${c.id}`, amount: liveAmount, note };
+      });
     if (mergedCards.length === 0) return;
     const [year, month] = targetMonth.split('-');
     const base = docsForMonth[0];
@@ -1992,12 +2023,18 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
     const total = cc.cards.reduce((s, c) => s + (Number(c.amount) || 0), 0);
     const [year, month] = (cc.yearMonth || '').split('-');
+    const isMerged = printingDoc.id.startsWith('merged-corp-card-');
 
     return (
       <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
-        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, textDecoration: 'underline', marginBottom: '14px' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, textDecoration: 'underline', marginBottom: isMerged ? '4px' : '14px' }}>
           {year && month ? `${year}년도 카드별 월 사용 내역(${Number(month)}월)` : printingDoc.title}
         </h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 금액은 회계관리 &gt; 카드사용내역에 기록된 실제 사용 내역을 기준으로 {new Date().toISOString().slice(0, 10)} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)
+          </p>
+        )}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
           <thead>
             <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
