@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { RemindersBell } from './RemindersBell.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
@@ -24,10 +24,11 @@ interface Props {
   // [수정] 토글(반전) 방식 대신, 각 버튼이 정확히 어느 화면으로 갈지 명시적으로 지정하는 콜백으로 변경.
   // (기존엔 "프로젝트 리스트"를 눌러도 그냥 드롭다운만 열릴 뿐, 카드 화면으로 돌아가지 않는 문제가 있었음)
   // [수정] 카드/리스트출력/파이프라인 3가지 화면을 오가야 해서 boolean 대신 모드 문자열로 변경
-  projectsViewMode?: 'cards' | 'listOutput' | 'pipeline';
+  projectsViewMode?: 'cards' | 'listOutput' | 'pipeline' | 'pnl';
   onShowProjectsCardView?: () => void;
   onShowProjectsListOutput?: () => void;
   onShowProjectsPipeline?: () => void;
+  onShowProjectsPnl?: () => void;
   totalContactsCount: number;
   projectFilterStatus?: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed';
   setProjectFilterStatus?: (status: 'all' | 'opportunity' | 'progress' | 'completed' | 'failed') => void;
@@ -59,6 +60,7 @@ export const Navigation: React.FC<Props> = ({
   onShowProjectsCardView = () => {},
   onShowProjectsListOutput = () => {},
   onShowProjectsPipeline = () => {},
+  onShowProjectsPnl = () => {},
   totalContactsCount,
   projectFilterStatus = 'all',
   setProjectFilterStatus = (_st) => {},
@@ -661,6 +663,24 @@ export const Navigation: React.FC<Props> = ({
                 <FileText className="w-4 h-4" />
                 <span>리스트 출력</span>
               </button>
+
+              {/* [추가] "손익계산서" 탭: 프로젝트별 실제 입금(수입)과 카드사용/팔로우업 지출을
+                  자동 집계해 수익금·수익률을 보여준다. 회계관리(통장 입금/법인카드 내역)와
+                  연동된 회사 전체 재무 데이터라 관리자에게만 노출한다 - 형제 버튼(리스트 출력/
+                  파이프라인)은 원래 전 사용자 공개지만, 이 데이터는 성격이 달라 별도 판단으로 막았다. */}
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={onShowProjectsPnl}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
+                    projectsViewMode === 'pnl'
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                      : 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600'
+                  }`}
+                >
+                  <Calculator className="w-4 h-4" />
+                  <span>손익계산서</span>
+                </button>
+              )}
 
               {/* [수정] "파이프라인" 탭: 영업 깔때기(기회→진행→완료/실패)와 핵심 지표를 한눈에 보는 대시보드 */}
               <button

@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check } from 'lucide-react';
-import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, ProjectFollowUpAttachment, User, Vehicle } from '../types.js';
+import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectFollowUpAttachment, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 interface Props {
   section: AdminDocSection;
   currentUser: User | null;
+  projects: Project[];
 }
 
 // [수정] datalist 자동완성은 브라우저마다 동작이 다르고(포커스만으론 후보가 안 뜨는 경우도
@@ -68,6 +69,73 @@ const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value
                   <span className="font-medium text-slate-700 truncate">{v.modelName}</span>
                   <span className="text-slate-400 truncate">({v.plateNumber})</span>
                   {labelOf(v) === value && <Check className="w-3 h-3 text-indigo-600 ml-auto shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// [추가] 통장 입금/카드 사용 내역의 "프로젝트" 칸을 - 자유 입력 텍스트가 아니라 - 등록된
+// 프로젝트 목록에서 골라 연결할 수 있게 하는 입력칸. VehicleSearchInput과 같은 방식(포커스
+// 시 목록이 펼쳐지고, 타이핑하면 좁혀지며, 자유 입력도 그대로 허용)이지만, 목록에서 실제로
+// 골랐을 때는 표시 이름뿐 아니라 Project.id도 함께 알려줘야 프로젝트 손익계산서에서 정확히
+// 집계할 수 있다 - 그래서 onChange가 (표시 이름, 선택한 경우의 projectId) 두 값을 넘긴다.
+// 직접 타이핑만 하고 목록에서 고르지 않으면 projectId는 undefined로 넘어간다(미매칭 처리).
+interface ProjectSearchInputProps {
+  projects: Project[];
+  value: string;
+  onChange: (name: string, projectId?: string) => void;
+  placeholder?: string;
+  className?: string;
+  inputClassName?: string;
+}
+
+const ProjectSearchInput: React.FC<ProjectSearchInputProps> = ({ projects, value, onChange, placeholder, className, inputClassName }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const q = value.toLowerCase();
+  const filtered = projects
+    .filter((p) => !q || p.name.toLowerCase().includes(q))
+    .slice(0, 30);
+
+  return (
+    <div ref={wrapRef} className={`relative ${className || ''}`}>
+      <input
+        type="text"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value, undefined); setOpen(true); }}
+        placeholder={placeholder}
+        className={inputClassName || 'w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500'}
+      />
+      {open && projects.length > 0 && (
+        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-slate-400 text-center py-3">일치하는 프로젝트가 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
+            ) : (
+              filtered.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => { onChange(p.name, p.id); setOpen(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-indigo-50 flex items-center gap-1.5 ${p.name === value ? 'bg-indigo-50' : ''}`}
+                >
+                  <span className="font-medium text-slate-700 truncate">{p.name}</span>
+                  {p.name === value && <Check className="w-3 h-3 text-indigo-600 ml-auto shrink-0" />}
                 </button>
               ))
             )}
@@ -692,7 +760,7 @@ function calcDeductions(
   });
 }
 
-export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
+export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects }) => {
   const categories = CATEGORY_CONFIG[section];
   const [activeCategory, setActiveCategory] = useState<AdminDocCategory>(categories[0].id);
   const [docs, setDocs] = useState<AdminDoc[]>([]);
@@ -5157,12 +5225,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 onChange={(ev) => updateBankEntry(acc.id, e.id, { date: ev.target.value })}
                                 className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
-                              <input
-                                type="text"
+                              <ProjectSearchInput
+                                projects={projects}
                                 value={e.project}
-                                onChange={(ev) => updateBankEntry(acc.id, e.id, { project: ev.target.value })}
+                                onChange={(name, projectId) => updateBankEntry(acc.id, e.id, { project: name, projectId })}
                                 placeholder="프로젝트"
-                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[90px]"
                               />
                               <input
                                 type="text"
@@ -5596,12 +5664,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
                                 onChange={(ev) => updateCardEntry(c.id, e.id, { date: ev.target.value })}
                                 className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
-                              <input
-                                type="text"
+                              <ProjectSearchInput
+                                projects={projects}
                                 value={e.project || ''}
-                                onChange={(ev) => updateCardEntry(c.id, e.id, { project: ev.target.value })}
+                                onChange={(name, projectId) => updateCardEntry(c.id, e.id, { project: name, projectId })}
                                 placeholder="프로젝트명"
-                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-[90px]"
                               />
                               <input
                                 type="text"

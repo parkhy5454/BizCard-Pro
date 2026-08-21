@@ -43,7 +43,7 @@ interface Props {
   triggerExcelExport?: number;
   triggerPrintPreview?: number;
   // [수정] "리스트 출력"/"파이프라인" 탭 전환을 위한 화면 모드
-  viewMode?: 'cards' | 'listOutput' | 'pipeline';
+  viewMode?: 'cards' | 'listOutput' | 'pipeline' | 'pnl';
   // [추가] 전역 검색에서 특정 프로젝트를 눌렀을 때, 그 프로젝트를 펼쳐서 바로 보여주기 위한
   // 신호. focusProjectId만으로는 같은 프로젝트를 다시 눌러도 값이 안 바뀌어 useEffect가
   // 반응하지 않으므로, 누를 때마다 값이 바뀌는 focusProjectSignal을 함께 쓴다
@@ -94,6 +94,55 @@ export const ProjectsView: React.FC<Props> = ({
     setFollowupBannerDismissedDate('');
   };
   const [companyStaff, setCompanyStaff] = useState<{ id: string; name: string }[]>([]);
+
+  // [추가] "손익계산서" 탭용 - 프로젝트별 자동 집계 데이터(GET /api/projects/pnl)를 담는
+  // 상태. 카드형/리스트출력/파이프라인처럼 projects 프롭만으로 화면에서 계산할 수 있는
+  // 데이터가 아니라(회계관리의 통장 입금/법인카드 내역과 연동해야 해서) 탭이 열릴 때마다
+  // 서버에서 따로 받아온다.
+  const [pnlRows, setPnlRows] = useState<{
+    projectId: string;
+    projectName: string;
+    status: Project['status'];
+    income: number;
+    cardExpense: number;
+    followupExpense: number;
+    totalExpense: number;
+    profit: number;
+    profitMargin: number | null;
+  }[]>([]);
+  const [pnlUnmatched, setPnlUnmatched] = useState<{ unmatchedIncome: number; unmatchedCardExpense: number }>({ unmatchedIncome: 0, unmatchedCardExpense: 0 });
+  const [pnlLoading, setPnlLoading] = useState<boolean>(false);
+  const [pnlError, setPnlError] = useState<string>('');
+
+  useEffect(() => {
+    if (viewMode !== 'pnl') return;
+    let cancelled = false;
+    setPnlLoading(true);
+    setPnlError('');
+    fetch('/api/projects/pnl', {
+      headers: currentUser ? { 'x-user-id': currentUser.id } : {}
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error || `손익계산서 데이터를 불러오지 못했습니다 (상태: ${res.status}).`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setPnlRows(data.rows || []);
+        setPnlUnmatched({ unmatchedIncome: data.unmatchedIncome || 0, unmatchedCardExpense: data.unmatchedCardExpense || 0 });
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        setPnlError(err?.message || '손익계산서 데이터를 불러오지 못했습니다.');
+      })
+      .finally(() => {
+        if (!cancelled) setPnlLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [viewMode, currentUser]);
 
   // 같은 회사(사업자번호)로 가입한 다른 계정들을 "우리 회사 직원" 목록으로 불러옴
   useEffect(() => {
@@ -1928,7 +1977,99 @@ export const ProjectsView: React.FC<Props> = ({
           )}
         </div>
 
-        {viewMode === 'pipeline' ? (
+        {viewMode === 'pnl' ? (
+          (() => {
+            const fmtWon = (n: number) => `${formatCurrencyInput(String(Math.round(n)))}원`;
+            const totalIncome = pnlRows.reduce((s, r) => s + r.income, 0);
+            const totalCardExpense = pnlRows.reduce((s, r) => s + r.cardExpense, 0);
+            const totalFollowupExpense = pnlRows.reduce((s, r) => s + r.followupExpense, 0);
+            const totalExpense = pnlRows.reduce((s, r) => s + r.totalExpense, 0);
+            const totalProfit = pnlRows.reduce((s, r) => s + r.profit, 0);
+            const totalMargin = totalIncome > 0 ? (totalProfit / totalIncome) * 100 : null;
+            const sortedRows = [...pnlRows].sort((a, b) => b.income - a.income);
+
+            return (
+              <div className="space-y-4">
+                {pnlLoading ? (
+                  <p className="text-sm text-slate-400 text-center py-10">불러오는 중...</p>
+                ) : pnlError ? (
+                  <p className="text-sm text-rose-500 text-center py-10">{pnlError}</p>
+                ) : (
+                  <>
+                    {/* 전체 합계 카드 */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
+                        <span className="text-[11px] text-slate-400 font-medium">총 입금(수입)</span>
+                        <p className="text-lg font-extrabold text-indigo-600">{fmtWon(totalIncome)}</p>
+                      </div>
+                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
+                        <span className="text-[11px] text-slate-400 font-medium">총 지출</span>
+                        <p className="text-lg font-extrabold text-rose-500">{fmtWon(totalExpense)}</p>
+                      </div>
+                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
+                        <span className="text-[11px] text-slate-400 font-medium">총 수익금</span>
+                        <p className={`text-lg font-extrabold ${totalProfit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtWon(totalProfit)}</p>
+                      </div>
+                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
+                        <span className="text-[11px] text-slate-400 font-medium">전체 수익률</span>
+                        <p className="text-lg font-extrabold text-emerald-600">{totalMargin === null ? '집계 전' : `${totalMargin.toFixed(1)}%`}</p>
+                      </div>
+                    </div>
+
+                    {/* [추가] projectId가 연결되지 않은(자유 입력만 된) 입금/카드 사용 내역이
+                        있으면, 프로젝트별 집계에서 빠져있다는 것을 놓치지 않도록 안내한다. */}
+                    {(pnlUnmatched.unmatchedIncome > 0 || pnlUnmatched.unmatchedCardExpense > 0) && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+                        프로젝트가 연결되지 않은(직접 입력만 된) 내역이 있어 아래 집계에서 빠져 있습니다.
+                        {pnlUnmatched.unmatchedIncome > 0 && <> 미매칭 입금 {fmtWon(pnlUnmatched.unmatchedIncome)}.</>}
+                        {pnlUnmatched.unmatchedCardExpense > 0 && <> 미매칭 카드 사용 {fmtWon(pnlUnmatched.unmatchedCardExpense)}.</>}
+                        {' '}회계관리 화면에서 해당 내역의 프로젝트를 목록에서 다시 선택해주세요.
+                      </div>
+                    )}
+
+                    <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
+                      <h3 className="text-sm font-bold text-slate-700">
+                        프로젝트별 손익 ({sortedRows.length}건)
+                      </h3>
+                      {sortedRows.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-4 text-center">등록된 프로젝트가 없습니다.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-slate-400 border-b border-slate-200">
+                                <th className="text-left font-bold py-2">프로젝트명</th>
+                                <th className="text-right font-bold py-2">입금(수입)</th>
+                                <th className="text-right font-bold py-2">카드사용 지출</th>
+                                <th className="text-right font-bold py-2">팔로우업 지출</th>
+                                <th className="text-right font-bold py-2">지출 합계</th>
+                                <th className="text-right font-bold py-2">수익금</th>
+                                <th className="text-right font-bold py-2">수익률</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {sortedRows.map((r) => (
+                                <tr key={r.projectId}>
+                                  <td className="py-2 font-semibold text-slate-700">{r.projectName}</td>
+                                  <td className="py-2 text-right text-indigo-600 font-mono">{fmtWon(r.income)}</td>
+                                  <td className="py-2 text-right text-slate-500 font-mono">{fmtWon(r.cardExpense)}</td>
+                                  <td className="py-2 text-right text-slate-500 font-mono">{fmtWon(r.followupExpense)}</td>
+                                  <td className="py-2 text-right text-rose-500 font-mono">{fmtWon(r.totalExpense)}</td>
+                                  <td className={`py-2 text-right font-mono font-bold ${r.profit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtWon(r.profit)}</td>
+                                  <td className="py-2 text-right text-slate-500">{r.profitMargin === null ? '-' : `${r.profitMargin.toFixed(1)}%`}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()
+        ) : viewMode === 'pipeline' ? (
           (() => {
             const parseAmt = (b?: string) => (b && /^\d+$/.test(b) ? parseInt(b, 10) : 0);
             const byStatus = {
