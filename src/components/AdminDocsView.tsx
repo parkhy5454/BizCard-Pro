@@ -1014,6 +1014,117 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
     URL.revokeObjectURL(url);
   };
 
+  // [추가] 관리비내역 인쇄 화면(renderPrintableManagementFee)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 다른 엑셀 출력(법인카드/차량 과태료)과 같은 방식 - exceljs로 노란 헤더/합계
+  // 행 배경색을 화면과 똑같이 재현한다. 호실(열) 개수가 문서마다 달라서 열 구성을 동적으로
+  // 만든다.
+  const handleExportManagementFeeExcel = async () => {
+    if (!printingDoc || !printingDoc.managementFee) return;
+    const mf = printingDoc.managementFee;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = managementGrandTotal(mf);
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('관리비내역', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = [firstYear ? `${firstYear}년` : '연도', '납부일', ...mf.units.map((u) => u.name || '(호실명 미입력)'), '합계'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = firstYear ? `${firstYear.slice(2)}년도 월별 관리비내역` : printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    mf.months.forEach((m, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [
+        m.label,
+        m.paymentDate || '',
+        ...mf.units.map((u) => managementCellTotal(m.amounts[u.id])),
+        managementMonthTotal(m, mf.units),
+      ];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        const isAmountCol = colIdx >= 2;
+        cell.value = isAmountCol ? (fmt(v as number) === '' ? '' : v) : v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 0 ? 'center' : (colIdx === 1 ? 'center' : 'right') };
+        if (isAmountCol) cell.numFmt = '#,##0';
+        if (colIdx === 0) cell.font = { bold: true };
+        if (colIdx === colCount - 1) cell.font = { bold: true };
+      });
+    });
+
+    const totalRowIdx = headerRowIdx + 1 + mf.months.length;
+    ws.mergeCells(totalRowIdx, 1, totalRowIdx, colCount - 1);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const grandTotalCell = totalRow.getCell(colCount);
+    grandTotalCell.value = grandTotal;
+    grandTotalCell.numFmt = '#,##0';
+    grandTotalCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    let nextRowIdx = totalRowIdx + 1;
+    if (printingDoc.memo) {
+      ws.mergeCells(nextRowIdx, 1, nextRowIdx, colCount);
+      const noteCell = ws.getCell(nextRowIdx, 1);
+      noteCell.value = `*${printingDoc.memo}`;
+      noteCell.font = { size: 10, color: { argb: 'FF333333' } };
+      noteCell.alignment = { horizontal: 'left', vertical: 'middle' };
+      nextRowIdx += 1;
+    }
+
+    columns.forEach((label, colIdx) => {
+      const maxLen = Math.max(
+        String(label).length,
+        ...mf.months.map((m, i) => {
+          const v = colIdx === 0 ? m.label : colIdx === 1 ? (m.paymentDate || '') : colIdx === colCount - 1 ? String(managementMonthTotal(m, mf.units)) : String(managementCellTotal(m.amounts[mf.units[colIdx - 2]?.id]));
+          return String(v).length;
+        })
+      );
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '관리비내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !files.length || !editingDoc) return;
@@ -5864,8 +5975,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           >
             닫기
           </button>
-          {/* [추가] "카드별 월 사용 내역"(법인카드 관리)/"차량 과태료 내역"은 화면 표
-          그대로(노란 헤더/합계 행 색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
+          {/* [추가] "카드별 월 사용 내역"(법인카드 관리)/"차량 과태료 내역"/"관리비내역"은
+          화면 표 그대로(노란 헤더/합계 행 색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
           {printingDoc.category === 'corp_card' && (
             <button
               onClick={handleExportCorpCardExcel}
@@ -5878,6 +5989,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser }) => {
           {printingDoc.category === 'vehicle_fine' && (
             <button
               onClick={handleExportVehicleFineExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'management_fee' && (
+            <button
+              onClick={handleExportManagementFeeExcel}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
