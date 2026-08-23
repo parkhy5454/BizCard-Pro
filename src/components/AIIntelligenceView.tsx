@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sparkles, Calendar, Building2, Users, TrendingUp, AlertCircle, Clock, Search, RefreshCw, Briefcase, Phone, ChevronRight, CheckCircle2, ListTodo, UserPlus } from 'lucide-react';
+import { Sparkles, Calendar, Building2, Users, TrendingUp, AlertCircle, Clock, Search, RefreshCw, Briefcase, Phone, ChevronRight, CheckCircle2, ListTodo, UserPlus, X } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project, User as UserType, DailyWorkLog, WeeklyWorkLog } from '../types.js';
 import { getIntelExcludedGroupIds } from '../contactFilters.js';
 
@@ -10,6 +10,7 @@ interface Props {
   currentUser: UserType | null;
   onSelectContact?: (contact: BusinessCard) => void;
   onNavigateToProjects?: () => void;
+  onOpenProject?: (projectId: string) => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -91,7 +92,7 @@ const AiAnalysisPanel: React.FC<{ label: string; endpoint: string; payload: any;
 // (명함/프로젝트/업무일지)를 규칙 기반으로 분석해서 보여주므로 AI 호출이 전혀 없고, "기업
 // 인텔리전스"만 회사 캐시 테이블(company)을 조회/검색한다 — 하루 검색 할당량을 아끼기 위해
 // 꼭 필요한 곳에만 AI를 쓴다.
-export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects, currentUser, onSelectContact, onNavigateToProjects }) => {
+export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects, currentUser, onSelectContact, onNavigateToProjects, onOpenProject }) => {
   const [activeSubTab, setActiveSubTab] = useState<'briefing' | 'company' | 'relationship'>('briefing');
 
   // [추가] "기업 인텔리전스"/"관계·영업 인텔리전스" 두 탭에서만 (1) 우리 회사 자신과
@@ -151,7 +152,7 @@ export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects
       </div>
 
       {activeSubTab === 'briefing' && (
-        <BriefingTab contacts={contacts} projects={projects} currentUser={currentUser} onSelectContact={onSelectContact} onNavigateToProjects={onNavigateToProjects} />
+        <BriefingTab contacts={contacts} projects={projects} currentUser={currentUser} onSelectContact={onSelectContact} onNavigateToProjects={onNavigateToProjects} onOpenProject={onOpenProject} />
       )}
       {activeSubTab === 'company' && <CompanyIntelligenceTab contacts={externalContacts} onSelectContact={onSelectContact} />}
       {activeSubTab === 'relationship' && (
@@ -170,7 +171,8 @@ const BriefingTab: React.FC<{
   currentUser: UserType | null;
   onSelectContact?: (c: BusinessCard) => void;
   onNavigateToProjects?: () => void;
-}> = ({ contacts, projects, currentUser, onSelectContact, onNavigateToProjects }) => {
+  onOpenProject?: (projectId: string) => void;
+}> = ({ contacts, projects, currentUser, onSelectContact, onNavigateToProjects, onOpenProject }) => {
   const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -227,7 +229,10 @@ const BriefingTab: React.FC<{
     return calls.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
   }, [contacts]);
 
-  const inProgressProjectsCount = useMemo(() => projects.filter((p) => p.status === 'progress').length, [projects]);
+  // [수정] "진행 중 N건"을 숫자만 보여주던 것을, 네트워크 섹션의 "최근 신규 명함"처럼
+  // 실제 프로젝트 목록을 눌러서 바로 그 프로젝트로 이동할 수 있게 바꾼다.
+  const inProgressProjects = useMemo(() => projects.filter((p) => p.status === 'progress'), [projects]);
+  const inProgressProjectsCount = inProgressProjects.length;
 
   if (isLoading) {
     return <div className="py-16 text-center text-sm text-slate-400">불러오는 중...</div>;
@@ -305,10 +310,17 @@ const BriefingTab: React.FC<{
                 {dueSoonProjects.map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
               </Section>
             )}
-            {inProgressProjectsCount > 0 && (
-              <button onClick={onNavigateToProjects} className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 inline-block">
-                🟢 진행 중 {inProgressProjectsCount}건
-              </button>
+            {inProgressProjects.length > 0 && (
+              <Section title={`🟢 진행 중 ${inProgressProjects.length}건`} icon={CheckCircle2} tone="indigo">
+                {inProgressProjects.slice(0, 8).map((p) => (
+                  <ProjectRow key={p.id} project={p} onClick={() => onOpenProject?.(p.id)} />
+                ))}
+                {inProgressProjects.length > 8 && (
+                  <button onClick={onNavigateToProjects} className="text-[11px] text-indigo-500 hover:text-indigo-700 font-semibold underline">
+                    전체 {inProgressProjects.length}건 보기
+                  </button>
+                )}
+              </Section>
             )}
           </>
         )}
@@ -363,9 +375,18 @@ const BriefingTab: React.FC<{
                 {[...dueTodayProjects, ...dueSoonProjects].map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
               </Section>
             )}
-            <button onClick={onNavigateToProjects} className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 inline-block">
-              진행 중인 영업 건 {inProgressProjectsCount}건 보기
-            </button>
+            {inProgressProjects.length > 0 && (
+              <Section title={`진행 중인 영업 건 ${inProgressProjects.length}건`} icon={Phone} tone="indigo">
+                {inProgressProjects.slice(0, 8).map((p) => (
+                  <ProjectRow key={p.id} project={p} onClick={() => onOpenProject?.(p.id)} />
+                ))}
+                {inProgressProjects.length > 8 && (
+                  <button onClick={onNavigateToProjects} className="text-[11px] text-indigo-500 hover:text-indigo-700 font-semibold underline">
+                    전체 {inProgressProjects.length}건 보기
+                  </button>
+                )}
+              </Section>
+            )}
           </>
         )}
       </BriefingGroup>
@@ -634,6 +655,29 @@ const RelationshipIntelligenceTab: React.FC<{
 }> = ({ contacts, projects, onSelectContact, onNavigateToProjects }) => {
   const PRIORITY_WEIGHT: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
+  // [추가] CardGrid의 "관계 인텔리전스"와 로직은 동일하되(일관성 유지), 여기 AI
+  // Intelligence 탭에서 건별로 해제한 거래처는 CardGrid 쪽과 섞이지 않도록 별도의
+  // localStorage 키를 쓴다. 날짜와 상관없이 "전체 되돌리기"를 누르기 전까지 계속
+  // 제외되고, 해제해도 다음 순위 거래처가 그 자리를 채운다.
+  const [dismissedContactIds, setDismissedContactIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('bizcard_ai_relationship_intel_dismissed_contact_ids');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const dismissContact = (contactId: string) => {
+    setDismissedContactIds((prev) => {
+      if (prev.includes(contactId)) return prev;
+      const next = [...prev, contactId];
+      try { localStorage.setItem('bizcard_ai_relationship_intel_dismissed_contact_ids', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  const resetDismissedContacts = () => {
+    try { localStorage.removeItem('bizcard_ai_relationship_intel_dismissed_contact_ids'); } catch {}
+    setDismissedContactIds([]);
+  };
+
   // 파이프라인 요약
   const pipelineSummary = useMemo(() => {
     const statuses: Project['status'][] = ['opportunity', 'progress', 'completed', 'failed'];
@@ -720,6 +764,12 @@ const RelationshipIntelligenceTab: React.FC<{
     return list.sort((a, b) => b.score - a.score);
   }, [contacts, projects]);
 
+  // 건별로 해제한 거래처는 목록에서 아예 빼서, 그 자리에 다음 순위 거래처가 채워지게 한다.
+  const rankedInsights = useMemo(
+    () => insights.filter((i) => !dismissedContactIds.includes(i.contact.id)),
+    [insights, dismissedContactIds]
+  );
+
   // [수정] "관계가 깊은 회사"를 단순 명함 수가 아니라, 여러 신호를 합친 관계점수로 판단한다.
   // 관계점수 = 명함 수(x3) + 통화 횟수(x2) + 연결된 프로젝트 건수(x5) + 최근 접촉 가산점(30일
   // 이내 연락 있었으면 +10). 지금 확보된 데이터(명함/통화기록/프로젝트 연결) 안에서만 계산하고,
@@ -795,7 +845,7 @@ const RelationshipIntelligenceTab: React.FC<{
         endpoint="/api/ai-intelligence/relationship-analysis"
         payload={{
           pipeline: pipelineSummary.map((s) => ({ status: statusLabel[s.status], count: s.count, budgetSum: s.budgetSum })),
-          insights: insights.slice(0, 10).map((i) => ({ name: i.contact.name, company: i.contact.company, reason: i.reasonText, daysSince: i.daysSince, urgency: i.urgencyLabel, salesScore: i.salesScore })),
+          insights: rankedInsights.slice(0, 10).map((i) => ({ name: i.contact.name, company: i.contact.company, reason: i.reasonText, daysSince: i.daysSince, urgency: i.urgencyLabel, salesScore: i.salesScore })),
           topCompanies: topCompanies.map((c) => ({ name: c.name, relationshipScore: c.relationshipScore }))
         }}
       />
@@ -803,15 +853,27 @@ const RelationshipIntelligenceTab: React.FC<{
 
       {/* 지금 챙기면 좋은 거래처 */}
       <div>
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-rose-50 text-rose-600 border-rose-100 mb-2">
-          <AlertCircle className="w-3.5 h-3.5" />
-          <span>지금 챙기면 좋은 거래처 {insights.length}곳</span>
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-rose-50 text-rose-600 border-rose-100">
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>지금 챙기면 좋은 거래처 {rankedInsights.length}곳</span>
+          </div>
+          {/* [추가] 건별로 해제한 거래처가 있으면, 실수로 뺐을 때 되돌릴 수 있게 안내 겸
+              복구 버튼을 같이 보여준다. */}
+          {dismissedContactIds.length > 0 && (
+            <button
+              onClick={resetDismissedContacts}
+              className="text-[11px] text-indigo-400 hover:text-indigo-600 underline"
+            >
+              개별 해제한 거래처 {dismissedContactIds.length}곳 있음 · 전체 되돌리기
+            </button>
+          )}
         </div>
-        {insights.length === 0 ? (
+        {rankedInsights.length === 0 ? (
           <p className="text-xs text-slate-400 py-3">지금 특별히 챙길 거래처가 없습니다.</p>
         ) : (
           <div className="space-y-1.5">
-            {insights.slice(0, 15).map((insight, idx) => (
+            {rankedInsights.slice(0, 15).map((insight, idx) => (
               <div key={insight.contact.id} className="p-2.5 rounded-xl bg-white border border-slate-100 space-y-2">
                 <button onClick={() => onSelectContact?.(insight.contact)} className="w-full min-w-0 text-left">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -848,6 +910,16 @@ const RelationshipIntelligenceTab: React.FC<{
                       </a>
                     </>
                   )}
+                  {/* [추가] 이 거래처 하나만 계속 빼고 싶을 때 - 위 "전체 되돌리기" 전까지
+                      이 거래처만 계속 제외된다. */}
+                  <button
+                    type="button"
+                    onClick={() => dismissContact(insight.contact.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors ml-auto"
+                    title="이 거래처는 그만 알려주기"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
