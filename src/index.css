@@ -226,4 +226,28 @@ body {
     padding: 0 !important;
     min-height: auto !important;
   }
+
+  /* [추가] 해외 출장 경비 - 표(사용내역) + 사용구분별 합계 표까지 있어 내용이 길면 2페이지
+  이상으로 넘어갈 수 있다. "페이지가 넘어가면 2페이지부터는 상단 여백을 1페이지의 2배 정도로
+  줘서 자연스럽게 출력되게" 요청에 맞춰, 1페이지 위쪽 여백은 화면 미리보기와 같은 15mm로
+  두고, 2페이지부터는 그 2배인 30mm로 준다 - cashflow-landscape/document-page와 같은 방식으로,
+  @page의 margin은 종이가 몇 장으로 나뉘든 모든 페이지에 똑같이 적용되므로 페이지 경계에서도
+  여백이 자연스럽게 유지된다(바깥 div 자체의 padding만으로는 중간 페이지 경계에 여백이 전혀
+  생기지 않는다는 게 이미 위 문서들에서 확인된 문제라 같은 방식을 그대로 따른다). */
+  @page overseas-trip-page {
+    size: A4 portrait;
+    margin: 30mm 15mm 15mm 15mm;
+  }
+  @page overseas-trip-page:first {
+    margin-top: 15mm;
+  }
+  /* [추가] 위 named page의 margin이 여백을 전담하므로, 화면 미리보기용으로 넣어둔 바깥 div의
+  인라인 padding(15mm)/고정폭(210mm)/최소높이는 인쇄 시엔 없애서 이중 여백이나 폭 초과,
+  불필요한 빈 페이지가 생기지 않게 한다. */
+  .print-overseas-trip-margins {
+    page: overseas-trip-page;
+    width: auto !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
 }
