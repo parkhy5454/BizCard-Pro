@@ -166,6 +166,14 @@ const INCENTIVE_METHOD_PRESETS = ['현금', '상품권', '선물', '신용카드
 // 위 기본 목록에 없는 값(빈 값 포함)은 전부 "직접 입력"으로 취급한다.
 const isIncentiveMethodCustom = (method: string): boolean => !(INCENTIVE_METHOD_PRESETS as readonly string[]).includes(method);
 
+// [추가] 해외 출장 경비 - "사용구분" 드롭다운 기본 항목 순서(공유해주신 양식과 동일한 순서).
+// 이 목록에 없는 값(=직접 입력한 값)은 "직접 입력"을 고른 것으로 보여준다.
+const OVERSEAS_TRIP_CATEGORY_PRESETS = ['항공료', '숙박비', '식비', '교통비', '환전 비용', '직원 선물', '기타'] as const;
+const isOverseasTripCategoryCustom = (category: string): boolean => !(OVERSEAS_TRIP_CATEGORY_PRESETS as readonly string[]).includes(category);
+// [추가] 해외 출장 경비 - "지급방법" 드롭다운 기본 항목.
+const OVERSEAS_TRIP_PAY_METHOD_PRESETS = ['신용카드', '현금'] as const;
+const isOverseasTripPayMethodCustom = (payMethod: string): boolean => !(OVERSEAS_TRIP_PAY_METHOD_PRESETS as readonly string[]).includes(payMethod);
+
 interface SuggestTextInputProps {
   options: string[];
   value: string;
@@ -257,7 +265,8 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'vehicle_fine', label: '차량 과태료 내역', personLabel: '차량', showAmount: true },
     { id: 'tax', label: '각종 세금', personLabel: '내역', showAmount: true },
     { id: 'management_fee', label: '관리비내역', personLabel: '호실', showAmount: true },
-    { id: 'incentive', label: '인센티브(상여금)', personLabel: '수령자', showAmount: true }
+    { id: 'incentive', label: '인센티브(상여금)', personLabel: '수령자', showAmount: true },
+    { id: 'overseas_trip', label: '해외 출장 경비', personLabel: '사용자', showAmount: true }
   ]
 };
 
@@ -436,6 +445,10 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   // [추가] 인센티브 및 명절 상여금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   incentive: category === 'incentive' ? {
     entries: [{ id: `inc-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: 0, method: '현금', description: '', note: '' }]
+  } : undefined,
+  // [추가] 해외 출장 경비 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  overseasTrip: category === 'overseas_trip' ? {
+    entries: [{ id: `ot-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]
   } : undefined,
   // [추가] 현금 흐름 기본값. "연도 하나 = 문서 하나"라서 대상 연도를 먼저 잡고, INFLOWS/
   // OUTFLOWS는 빈 줄 하나씩만 미리 넣어두고 "행 추가"로 늘리게 하며, 경비는 실제로 자주
@@ -831,6 +844,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     return [...VEHICLE_FINE_DETAIL_PRESETS, ...Array.from(extra).sort((a, b) => a.localeCompare(b, 'ko'))];
   })();
 
+  // [추가] 해외 출장 경비 "지급구분"(카드명 등) - 회사마다 쓰는 법인카드 이름이 달라 고정
+  // 목록을 두지 않고, 이미 저장된 다른 해외 출장 경비 문서들에서 값을 모아 자동완성으로
+  // 보여준다(vehicleFineDetailOptions와 같은 방식).
+  const overseasTripPayDetailOptions = (() => {
+    const extra = new Set<string>();
+    docs.forEach((d) => {
+      if (d.category !== 'overseas_trip' || !d.overseasTrip) return;
+      d.overseasTrip.entries.forEach((e) => {
+        const t = (e.payDetail || '').trim();
+        if (t) extra.add(t);
+      });
+    });
+    return Array.from(extra).sort((a, b) => a.localeCompare(b, 'ko'));
+  })();
+
   const activeConfig = categories.find((c) => c.id === activeCategory) || categories[0];
 
   // [추가] 재직증명서를 새로 만드는 중에 신청일을 바꿔서 연도가 달라지면, 문서번호도
@@ -919,6 +947,18 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     });
   });
   const incentiveYears: string[] = Array.from(incentiveYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
+  // [추가] 해외 출장 경비 - 출장 하나(=문서 하나)를 여러 건 등록해두고, 연도별로 모아
+  // 한 페이지로도 볼 수 있게, 개별 출장 건별로도 볼 수 있게 하기 위해 연도 목록을 뽑아둔다.
+  const overseasTripDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'overseas_trip' && d.overseasTrip);
+  const overseasTripYearSet = new Set<string>();
+  overseasTripDocs.forEach((d) => {
+    (d.overseasTrip?.entries || []).forEach((e) => {
+      const y = (e.date || d.date || '').slice(0, 4);
+      if (y) overseasTripYearSet.add(y);
+    });
+  });
+  const overseasTripYears: string[] = Array.from(overseasTripYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
 
   // [추가] 회계관리 > 카드사용내역에서 "카드명/카드번호/소지자"를 매번 직접 타이핑하지 않고,
   // 경영지원 > 법인카드 관리에 이미 등록된 카드 목록에서 골라 그대로 연동해 채울 수 있도록
@@ -1318,6 +1358,189 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const a = document.createElement('a');
     a.href = url;
     a.download = `${printingDoc.title || '인센티브_및_명절_상여금'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 해외 출장 경비 - "년도별로도, 출장 개별 건별로도 확인하고 싶다"는 요청에 맞춰,
+  // 출장 하나 = 문서 하나로 저장해두고(개별 확인은 문서 목록에서 그대로 열어보면 됨),
+  // "연도별로 한 페이지로 보기"를 누르면 인센티브/차량 과태료 내역과 같은 방식으로 선택한
+  // 연도에 해당하는 모든 출장의 항목을 일자순으로 모아 한 표로 보여준다.
+  const handleViewAllOverseasTrips = () => {
+    const targetYear = overseasTripMergeYear || overseasTripYears[0];
+    if (!targetYear) return;
+
+    const matchesYear = (e: NonNullable<AdminDoc['overseasTrip']>['entries'][number], docDate?: string) =>
+      (e.date || docDate || '').slice(0, 4) === targetYear;
+
+    const docsWithMatch = overseasTripDocs.filter((d) => (d.overseasTrip?.entries || []).some((e) => matchesYear(e, d.date)));
+    const base = docsWithMatch[0] || overseasTripDocs[0];
+    if (!base) return;
+
+    const mergedEntries = overseasTripDocs
+      .flatMap((d) => (d.overseasTrip?.entries || []).map((e) => ({ entry: e, docDate: d.date })))
+      .filter(({ entry, docDate }) => matchesYear(entry, docDate))
+      .sort((a, b) => (a.entry.date || '').localeCompare(b.entry.date || ''))
+      .map(({ entry }, i) => ({ ...entry, id: `merged-${i}-${entry.id}` }));
+    if (mergedEntries.length === 0) return;
+
+    setPrintingDoc({
+      ...base,
+      id: `merged-overseas-trip-${targetYear}`,
+      title: `${targetYear}년 해외 출장 경비 사용내역`,
+      memo: undefined,
+      overseasTrip: { entries: mergedEntries },
+    });
+  };
+
+  // [추가] 해외 출장 경비 - 사용구분(항공료/숙박비/식비/교통비/환전 비용/직원 선물/기타)별
+  // 소계를 계산한다. 공유해주신 양식에 있던 구분별 합계 표를 그대로 재현하기 위한 것으로,
+  // 인쇄 화면과 엑셀 출력 둘 다 이 함수를 같이 쓴다. 사전에 정의된 7개 구분에 없는 값(직접
+  // 입력한 값)은 "기타"로 합산해서, 표의 합계가 항상 전체 총액과 일치하게 한다.
+  const overseasTripCategoryBreakdown = (entries: NonNullable<AdminDoc['overseasTrip']>['entries']) => {
+    const sums: Record<string, number> = {};
+    OVERSEAS_TRIP_CATEGORY_PRESETS.forEach((c) => { sums[c] = 0; });
+    entries.forEach((e) => {
+      const key = (OVERSEAS_TRIP_CATEGORY_PRESETS as readonly string[]).includes(e.category) ? e.category : '기타';
+      sums[key] = (sums[key] || 0) + (Number(e.amount) || 0);
+    });
+    return OVERSEAS_TRIP_CATEGORY_PRESETS.map((c) => ({ label: c, amount: sums[c] || 0 }));
+  };
+
+  // [추가] 해외 출장 경비 인쇄 화면(renderPrintableOverseasTrip)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 인센티브/차량 과태료 내역 엑셀 출력과 같은 방식이되, 맨 아래에 사용구분별
+  // 소계 표를 추가로 붙인다.
+  const handleExportOverseasTripExcel = async () => {
+    if (!printingDoc || !printingDoc.overseasTrip) return;
+    const ot = printingDoc.overseasTrip;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('해외_출장_경비_사용내역', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['일자', '금액', '사용구분', '사용내역', '사용자', '지급방법', '지급구분', '비고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    ot.entries.forEach((e, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [fmtDate(e.date), Number(e.amount) || 0, e.category || '', e.description || '', e.user || '', e.payMethod || '', e.payDetail || '', e.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'right' : (colIdx === 3 ? 'left' : 'center'), wrapText: colIdx === 3 };
+        if (colIdx === 1) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = ot.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + ot.entries.length;
+    ws.mergeCells(totalRowIdx, 3, totalRowIdx, colCount);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(2);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    // [추가] 사용구분별 소계 표 - 본문 표 아래 두 줄 띄우고 붙인다.
+    const breakdown = overseasTripCategoryBreakdown(ot.entries);
+    const bdTitleRowIdx = totalRowIdx + 2;
+    ws.mergeCells(bdTitleRowIdx, 1, bdTitleRowIdx, colCount);
+    const bdTitleCell = ws.getCell(bdTitleRowIdx, 1);
+    bdTitleCell.value = '사용구분별 합계';
+    bdTitleCell.font = { bold: true, size: 12 };
+    bdTitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    const bdHeaderRowIdx = bdTitleRowIdx + 1;
+    const bdHeaderRow = ws.getRow(bdHeaderRowIdx);
+    ['구분', '금액'].forEach((label, colIdx) => {
+      const cell = bdHeaderRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+
+    breakdown.forEach((row, i) => {
+      const r = ws.getRow(bdHeaderRowIdx + 1 + i);
+      const labelCell = r.getCell(1);
+      labelCell.value = row.label;
+      labelCell.border = fullBorder;
+      labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const amountCell = r.getCell(2);
+      amountCell.value = row.amount;
+      amountCell.numFmt = '#,##0';
+      amountCell.border = fullBorder;
+      amountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    });
+
+    const bdTotalRowIdx = bdHeaderRowIdx + 1 + breakdown.length;
+    const bdTotalRow = ws.getRow(bdTotalRowIdx);
+    const bdTotalLabelCell = bdTotalRow.getCell(1);
+    bdTotalLabelCell.value = '합 계';
+    bdTotalLabelCell.font = { bold: true };
+    bdTotalLabelCell.fill = yellowFill;
+    bdTotalLabelCell.border = fullBorder;
+    bdTotalLabelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    const bdTotalAmountCell = bdTotalRow.getCell(2);
+    bdTotalAmountCell.value = breakdown.reduce((s, r) => s + r.amount, 0);
+    bdTotalAmountCell.numFmt = '#,##0';
+    bdTotalAmountCell.font = { bold: true };
+    bdTotalAmountCell.fill = yellowFill;
+    bdTotalAmountCell.border = fullBorder;
+    bdTotalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      ot.entries.forEach((e) => {
+        const v = [fmtDate(e.date), formatCurrencyInput(e.amount || 0), e.category, e.description, e.user, e.payMethod, e.payDetail, e.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 3 ? 40 : 18);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '해외_출장_경비_사용내역'}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1958,6 +2181,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 인센티브 및 명절 상여금 - "연도별로 모아보기"에서 고를 대상 연도
   const [incentiveMergeYear, setIncentiveMergeYear] = useState('');
+
+  // [추가] 해외 출장 경비 - "연도별로 모아보기"에서 고를 대상 연도
+  const [overseasTripMergeYear, setOverseasTripMergeYear] = useState('');
 
   // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기"에서 고를 대상 통장(은행+계좌번호)
   const [bankAccountMergeKey, setBankAccountMergeKey] = useState('');
@@ -2748,6 +2974,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     updateIncentiveEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
   };
 
+  // [추가] 해외 출장 경비 - 항목 추가/삭제/수정 (건별로 여러 줄, 인센티브와 같은 패턴)
+  type OverseasTripRow = NonNullable<AdminDoc['overseasTrip']>['entries'][number];
+  const updateOverseasTripEntries = (updater: (entries: OverseasTripRow[]) => OverseasTripRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const overseasTrip = prev.overseasTrip || { entries: [] };
+      return { ...prev, overseasTrip: { ...overseasTrip, entries: updater(overseasTrip.entries || []) } };
+    });
+  };
+  const addOverseasTripEntry = () => {
+    updateOverseasTripEntries((entries) => [...entries, { id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]);
+  };
+  const removeOverseasTripEntry = (id: string) => {
+    updateOverseasTripEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateOverseasTripEntry = (id: string, patch: Partial<OverseasTripRow>) => {
+    updateOverseasTripEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
   // [추가] "자동 불러오기" - 회계관리 > 통장 출금 내역에서 실제 세금 납부 건만 골라
   // 지금 편집 중인 각종 세금 내역에 항목으로 채워 넣는다 (차량 과태료 내역과 같은 패턴).
   type TaxImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
@@ -3145,6 +3390,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       // [추가] 인센티브 및 명절 상여금은 전체 지급 합계를 amount 칸에 표시한다.
       if (payload.category === 'incentive' && payload.incentive) {
         const total = payload.incentive.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 해외 출장 경비는 전체 사용 합계를 amount 칸에 표시한다.
+      if (payload.category === 'overseas_trip' && payload.overseasTrip) {
+        const total = payload.overseasTrip.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
         payload.amount = String(total);
       }
       // [추가] 근로계약서는 월 급여 합계를 amount 칸에 표시하고, 근로자 이름을 검색 대상인
@@ -3982,6 +4232,92 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     );
   };
 
+  // [추가] 해외 출장 경비 인쇄/PDF 화면. 인센티브와 같은 구조에 사용구분별 소계 표를 아래에
+  // 하나 더 붙인다. "출력이 2페이지 넘어가면 2페이지부터 상단 여백을 1페이지의 2배 정도로"
+  // 요청에 맞춰, 이 문서만의 padding 대신 index.css에 새로 정의한 named @page 규칙
+  // (overseas-trip-page)을 쓰는 print-overseas-trip-margins 클래스를 붙인다 - div의 padding은
+  // 문서 맨 처음/끝에만 적용되고 중간 페이지 경계에는 적용되지 않아서, 페이지마다 똑같이
+  // 적용되는 여백은 반드시 @page margin으로 줘야 한다(현금흐름 인쇄에서 이미 검증된 방식).
+  const renderPrintableOverseasTrip = () => {
+    if (!printingDoc || !printingDoc.overseasTrip) return null;
+    const ot = printingDoc.overseasTrip;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const total = ot.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const isMerged = printingDoc.id.startsWith('merged-overseas-trip-');
+    const breakdown = overseasTripCategoryBreakdown(ot.entries);
+
+    return (
+      <div className="print-overseas-trip-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>{printingDoc.title}</h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 출장 건별로 나눠 등록하신 해외 출장 경비 사용내역 중 일자가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>사용구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>사용내역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>사용자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급방법</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {ot.entries.map((e) => (
+              <tr key={e.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.date)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.category}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{e.description}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.user}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.payMethod}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.payDetail}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={6}></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 style={{ fontSize: '13px', fontWeight: 700, marginTop: '18px', marginBottom: '6px' }}>사용구분별 합계</h2>
+        <table style={{ width: '60%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+            </tr>
+          </thead>
+          <tbody>
+            {breakdown.map((row) => (
+              <tr key={row.label}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{row.label}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(row.amount)}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(breakdown.reduce((s, r) => s + r.amount, 0))}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
   // [추가] 현금 흐름 - INFLOWS 표 인쇄/PDF·엑셀 화면. 공유해주신 양식(NO/프로젝트명/
   // 프로젝트 수주자/계약금(VAT포함)/잔여기성/전년도/1~12월 + 합계(1))을 그대로 재현한다.
   const renderCashFlowInflowsTable = (cf: CashFlowAnnual) => {
@@ -4688,6 +5024,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (printingDoc.category === 'advance_payment') return renderPrintableAdvancePayment();
     if (printingDoc.category === 'vehicle_fine') return renderPrintableVehicleFine();
     if (printingDoc.category === 'incentive') return renderPrintableIncentive();
+    if (printingDoc.category === 'overseas_trip') return renderPrintableOverseasTrip();
     if (printingDoc.category === 'cash_flow') return renderPrintableCashFlow();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
@@ -4920,6 +5257,31 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         </div>
       )}
 
+      {/* [추가] 해외 출장 경비 - 출장 하나(=문서 하나)를 여러 건 등록해두고, 개별 확인은
+      문서 목록에서 그대로 열어보고, 이 버튼으로는 일자 기준으로 선택한 연도의 모든 출장
+      항목을 전부 모아 한 페이지(표)로 인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'overseas_trip' && overseasTripYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={overseasTripMergeYear || overseasTripYears[0]}
+            onChange={(e) => setOverseasTripMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {overseasTripYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllOverseasTrips}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            연도별로 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
       {/* 목록 */}
       {loading ? (
         <div className="text-center py-12 text-sm text-slate-400">불러오는 중...</div>
@@ -4969,7 +5331,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -6778,6 +7140,143 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   </div>
                 )}
 
+                {/* [추가] 해외 출장 경비 전용 입력. 출장 하나(=문서 하나) 안에 여러 사용
+                내역을 건별로 입력한다 - 인센티브와 같은 구조에, 사용구분/지급방법 선택 +
+                지급구분(카드명) 자동완성 입력칸을 추가로 둔다. */}
+                {activeCategory === 'overseas_trip' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">해외 출장 경비 사용내역</label>
+                      <button type="button" onClick={addOverseasTripEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 항목 추가
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.overseasTrip?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">일자</label>
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { date: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[90px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">금액</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="금액"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">사용구분</label>
+                              <select
+                                value={isOverseasTripCategoryCustom(e.category) ? '__custom__' : (e.category || '항공료')}
+                                onChange={(ev) => {
+                                  const v = ev.target.value;
+                                  updateOverseasTripEntry(e.id, { category: v === '__custom__' ? '' : v });
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              >
+                                {OVERSEAS_TRIP_CATEGORY_PRESETS.map((c) => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                                <option value="__custom__">직접 입력</option>
+                              </select>
+                              {isOverseasTripCategoryCustom(e.category) && (
+                                <input
+                                  type="text"
+                                  value={e.category}
+                                  onChange={(ev) => updateOverseasTripEntry(e.id, { category: ev.target.value })}
+                                  placeholder="직접 입력"
+                                  autoFocus
+                                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              )}
+                            </div>
+                            <button type="button" onClick={() => removeOverseasTripEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={e.description}
+                            onChange={(ev) => updateOverseasTripEntry(e.id, { description: ev.target.value })}
+                            placeholder="사용내역 (예: 인천-도쿄 왕복 항공권)"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex flex-wrap items-start gap-1">
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">사용자</label>
+                              <input
+                                type="text"
+                                value={e.user}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { user: ev.target.value })}
+                                placeholder="사용자"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">지급방법</label>
+                              <select
+                                value={isOverseasTripPayMethodCustom(e.payMethod) ? '__custom__' : (e.payMethod || '신용카드')}
+                                onChange={(ev) => {
+                                  const v = ev.target.value;
+                                  updateOverseasTripEntry(e.id, { payMethod: v === '__custom__' ? '' : v });
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              >
+                                {OVERSEAS_TRIP_PAY_METHOD_PRESETS.map((m) => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                                <option value="__custom__">직접 입력</option>
+                              </select>
+                              {isOverseasTripPayMethodCustom(e.payMethod) && (
+                                <input
+                                  type="text"
+                                  value={e.payMethod}
+                                  onChange={(ev) => updateOverseasTripEntry(e.id, { payMethod: ev.target.value })}
+                                  placeholder="직접 입력"
+                                  autoFocus
+                                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-[110px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">지급구분 (카드명 등)</label>
+                              <SuggestTextInput
+                                options={overseasTripPayDetailOptions}
+                                value={e.payDetail || ''}
+                                onChange={(v) => updateOverseasTripEntry(e.id, { payDetail: v })}
+                                placeholder="예: 국민카드"
+                              />
+                            </div>
+                          </div>
+                          <input
+                            type="text"
+                            value={e.note || ''}
+                            onChange={(ev) => updateOverseasTripEntry(e.id, { note: ev.target.value })}
+                            placeholder="비고"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.overseasTrip?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
                 {/* [추가] 관리비내역 전용 입력. 가지급내역과 완전히 같은 구조(호실(열) × 월(행)
                 표)를 그대로 쓴다. 관리비는 통장에서 보통 한 번에 통합 출금되므로, "자동
                 불러오기"는 이름 자동 매칭 대신 사람이 먼저 대상 호실을 고르는 방식이다. */}
@@ -8255,6 +8754,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'incentive' && (
             <button
               onClick={handleExportIncentiveExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'overseas_trip' && (
+            <button
+              onClick={handleExportOverseasTripExcel}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
