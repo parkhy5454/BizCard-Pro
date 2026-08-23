@@ -6385,6 +6385,90 @@ app.get('/api/admin-docs/card-usage-candidates', (req, res) => {
   res.json(candidates);
 });
 
+// [추가] "해외 출장 경비"에서 카드로 결제한 항목(항공료/숙박비/식비/교통비/직원 선물/기타 등)을
+// 회계관리 > 카드사용내역 + 업무일지(일일/주간)에서 "자동 불러오기"로 채울 수 있도록 후보를
+// 모아준다. 두 곳을 같이 보여주되, 같은 지출이 두 번 잡히는 걸 막기 위해: 업무일지 지출이
+// 이미 카드사용내역으로 한 번 가져와졌다면(카드사용내역 항목의 sourceKey가 그 업무일지
+// 지출의 sourceKey와 같으면) 업무일지 쪽 후보는 빼고 카드사용내역 쪽만 남긴다 - "겹칠 때는
+// 하나만 보이게" 요청에 맞춘 것. 카드사용내역 자체에 이미 업무일지 등에서 가져온 항목은
+// sourceKey를 그대로 갖고 있으므로(위 card-usage-candidates 참고), 이 값들만 모아두면
+// 중복을 정확히 걸러낼 수 있다.
+app.get('/api/admin-docs/overseas-trip-card-candidates', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const dbData = getScopedData(req);
+
+  const candidates: {
+    sourceKey: string;
+    sourceLabel: string;
+    date: string;
+    amount: number;
+    project?: string;
+    memo?: string;
+    personName?: string;
+  }[] = [];
+
+  // 이미 카드사용내역에 등록된 항목들의 원본 sourceKey 모음 - 업무일지 지출 중 이 값과
+  // 같은 sourceKey를 갖는 건(=이미 카드사용내역으로 한 번 가져와진 것)은 아래에서 뺀다.
+  const reconciledToCardUsage = new Set<string>();
+  for (const doc of (dbData.adminDocs || [])) {
+    if (doc.category !== 'card_usage' || !doc.cardUsage) continue;
+    for (const card of (doc.cardUsage.cards || [])) {
+      for (const entry of (card.entries || [])) {
+        // 1) 카드사용내역 항목 자체를 후보로 추가 (해외 출장 경비는 카드사용내역에 이미
+        // 기록된 실제 결제 내역을 기준으로 가져오는 게 가장 정확하다).
+        candidates.push({
+          sourceKey: `card_usage_entry:${doc.id}:${card.id}:${entry.id}`,
+          sourceLabel: '카드사용내역',
+          date: entry.date,
+          amount: Number(entry.amount) || 0,
+          project: entry.project,
+          memo: entry.note,
+          personName: entry.user || card.holder
+        });
+        if (entry.sourceKey) reconciledToCardUsage.add(entry.sourceKey);
+      }
+    }
+  }
+
+  // 업무일지(일일) - 법인카드 결제 지출 중, 아직 카드사용내역으로 가져오지 않은 것만 추가
+  for (const l of (dbData.dailyLogs || [])) {
+    for (const ex of (l.expenses || [])) {
+      if (ex.payMethod !== 'company_card') continue;
+      const sourceKey = `worklog_daily_expense:${ex.id}`;
+      if (reconciledToCardUsage.has(sourceKey)) continue;
+      candidates.push({
+        sourceKey,
+        sourceLabel: '업무일지(일일)',
+        date: l.date,
+        amount: ex.amount,
+        memo: ex.memo || ex.categoryCustom || ex.category,
+        personName: l.author
+      });
+    }
+  }
+
+  // 업무일지(주간) - 위와 동일
+  for (const l of (dbData.weeklyLogs || [])) {
+    for (const ex of (l.expenses || [])) {
+      if (ex.payMethod !== 'company_card') continue;
+      const sourceKey = `worklog_weekly_expense:${ex.id}`;
+      if (reconciledToCardUsage.has(sourceKey)) continue;
+      candidates.push({
+        sourceKey,
+        sourceLabel: '업무일지(주간)',
+        date: l.startDate,
+        amount: ex.amount,
+        memo: ex.memo || ex.categoryCustom || ex.category,
+        personName: l.author
+      });
+    }
+  }
+
+  candidates.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  res.json(candidates);
+});
+
 // [추가] "가지급내역"이 전자결재 > 가지급금 정산서와 연동되도록 - 결재가 완전히 승인
 // (status === 'approved')된 정산서의 정산 내역(items)을 전부 찾아서 한 목록으로 모아준다.
 // 화면에서 이 목록 중 골라서 "가지급내역"의 해당 인원·해당 월 칸으로 자동 불러올 수 있다.
