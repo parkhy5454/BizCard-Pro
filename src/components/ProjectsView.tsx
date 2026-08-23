@@ -29,71 +29,6 @@ const escapeHtml = (value: unknown): string => {
     .replace(/'/g, '&#39;');
 };
 
-// [추가] "원가계산서" 탭(개별 보기)에서 전체 프로젝트를 한 표에 다 보여주는 대신, 검색하거나
-// 목록에서 골라 프로젝트 하나를 선택하게 하는 입력칸. AdminDocsView.tsx의
-// VehicleSearchInput/ProjectSearchInput과 같은 방식(포커스하면 목록이 펼쳐지고,
-// 타이핑하면 좁혀짐)이지만, 여기서는 항상 등록된 프로젝트 중에서만 골라야 하므로
-// (자유 입력 결과를 그대로 저장하는 용도가 아니라 특정 프로젝트의 상세 내역을 보여주기
-// 위한 선택용) 고른 프로젝트의 id만 돌려준다.
-interface ProjectPnlPickerProps {
-  projects: Project[];
-  selectedProjectId: string;
-  onSelect: (projectId: string) => void;
-}
-
-const ProjectPnlPicker: React.FC<ProjectPnlPickerProps> = ({ projects, selectedProjectId, onSelect }) => {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
-  const selected = projects.find((p) => p.id === selectedProjectId);
-  const q = query.toLowerCase();
-  const filtered = projects.filter((p) => !q || p.name.toLowerCase().includes(q) || (p.endCustomer || '').toLowerCase().includes(q));
-
-  return (
-    <div ref={wrapRef} className="relative max-w-md">
-      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-      <input
-        type="text"
-        value={open ? query : (selected ? selected.name : '')}
-        onFocus={() => { setOpen(true); setQuery(''); }}
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-        placeholder="프로젝트명으로 검색 또는 목록에서 선택..."
-        className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
-      />
-      {open && (
-        <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
-          <div className="max-h-72 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">일치하는 프로젝트가 없습니다</p>
-            ) : (
-              filtered.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => { onSelect(p.id); setQuery(''); setOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 flex items-center justify-between gap-2 ${p.id === selectedProjectId ? 'bg-indigo-50' : ''}`}
-                >
-                  <span className="font-semibold text-slate-700 truncate">{p.name}</span>
-                  {p.id === selectedProjectId && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // [추가] "프로젝트 원가계산서" 계산 로직. 공유해주신 양식(매출액/직접원가/간접원가/
 // 일반관리비/사후관리비용을 직접 입력하면 소계·총원가·경상이익·경상이익율을 자동
 // 계산)을 그대로 반영한 순수 함수들 - 개별 보기(입력폼)와 전체 보기(요약표) 양쪽에서
@@ -255,6 +190,20 @@ const getCostSheetExportData = (project: Project, cs: ProjectCostSheet): CostShe
   };
 };
 
+// [추가] "프로젝트명, 시행사, 시공사로 검색..." 검색창이 카드형/리스트 출력/원가계산서(전체)
+// 등 여러 곳에서 똑같은 기준으로 걸러지도록 한 곳에 모아둔 순수 함수. 프로젝트명/최종고객
+// (endCustomer)/시행사(developer)/시공사(contractor) 중 하나라도 일치하면 통과.
+const matchesProjectSearch = (p: Project, query: string): boolean => {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    p.name.toLowerCase().includes(q) ||
+    (p.endCustomer || '').toLowerCase().includes(q) ||
+    (p.developer || '').toLowerCase().includes(q) ||
+    (p.contractor || '').toLowerCase().includes(q)
+  );
+};
+
 interface Props {
   contacts: BusinessCard[];
   setContacts: React.Dispatch<React.SetStateAction<BusinessCard[]>>;
@@ -333,6 +282,30 @@ export const ProjectsView: React.FC<Props> = ({
   const [costSheetDraft, setCostSheetDraft] = useState<ProjectCostSheet | null>(null);
   const [isSavingCostSheet, setIsSavingCostSheet] = useState<boolean>(false);
   const [costSheetSaveError, setCostSheetSaveError] = useState<string>('');
+
+  // [수정] 예전엔 상단 공통 검색창(카드형/리스트 출력용)과, 원가계산서(개별) 전용
+  // 프로젝트 선택창(ProjectPnlPicker)이 위아래로 따로 있어서 검색창이 두 개로 겹쳐
+  // 보였다. 이제 상단 검색창 하나만 남기고, 원가계산서 탭에서는 이 검색창이 모드에 따라
+  // 역할을 바꾼다 - "개별" 모드에서는 타이핑하면 목록이 펼쳐지는 검색+선택창(예전
+  // ProjectPnlPicker와 동일한 동작)으로, "전체" 모드에서는 요약표를 좁혀서 보여주는
+  // 필터로 동작한다. pnlPickerOpen은 "개별" 모드일 때만 그 드롭다운의 열림 상태를 관리한다.
+  const [pnlPickerOpen, setPnlPickerOpen] = useState<boolean>(false);
+  const pnlPickerWrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (pnlPickerWrapRef.current && !pnlPickerWrapRef.current.contains(e.target as Node)) setPnlPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+  // 화면(카드형/리스트 출력/원가계산서-개별/원가계산서-전체)이 바뀌면, 검색창의 역할이
+  // 완전히 달라지므로(자유 필터 ↔ 프로젝트 선택) 이전 화면에서 입력하던 검색어를 그대로
+  // 들고 가면 혼란스럽다 - 화면이 바뀔 때마다 검색어를 비우고 드롭다운도 닫는다.
+  useEffect(() => {
+    setProjectSearchQuery('');
+    setPnlPickerOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, costSheetMode]);
 
   useEffect(() => {
     if (!pnlSelectedProjectId) { setCostSheetDraft(null); return; }
@@ -596,7 +569,9 @@ export const ProjectsView: React.FC<Props> = ({
   // [추가] 원가계산서(전체) 엑셀 출력 - 화면의 "프로젝트별 원가 계산서" 요약표와 동일한
   // 컬럼 구성(No./프로젝트명/발주처/…/경상이익율/비고)에 합계 행까지 그대로 반영한다.
   const handleExportAllCostSheetsExcel = async () => {
-    const allRows = [...projects].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    // [수정] 화면에 지금 보이는 표(검색어로 좁혀진 결과)와 항상 같은 내용이 나오도록,
+    // 상단 검색창(전체 모드일 때는 필터로 동작)의 검색어를 여기서도 그대로 적용한다.
+    const allRows = [...projects].filter((p) => matchesProjectSearch(p, projectSearchQuery)).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     const headers = ['No.', '프로젝트명', '발주처', '계약번호', '계약일자', '납품기한', '작성일', '작성부서', '매출(원)', '총원가(원)', '경상이익(원)', '경상이익율(%)', '비고'];
     const colCount = headers.length;
 
@@ -703,7 +678,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   // [추가] 원가계산서(전체) 인쇄/PDF 저장 - 위 엑셀과 같은 요약표를 새 창에 띄워 인쇄한다.
   const handlePrintAllCostSheets = () => {
-    const allRows = [...projects].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    const allRows = [...projects].filter((p) => matchesProjectSearch(p, projectSearchQuery)).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     const headers = ['No.', '프로젝트명', '발주처', '계약번호', '계약일자', '납품기한', '작성일', '작성부서', '매출(원)', '총원가(원)', '경상이익(원)', '경상이익율(%)', '비고'];
     const fmtWon = (n: number) => `${formatCurrencyInput(String(Math.round(n)))}원`;
 
@@ -2177,16 +2152,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   const filteredProjects = projects
     .filter((p) => filterStatus === 'all' || p.status === filterStatus)
-    .filter((p) => {
-      const q = projectSearchQuery.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        p.name.toLowerCase().includes(q) ||
-        (p.endCustomer || '').toLowerCase().includes(q) ||
-        (p.developer || '').toLowerCase().includes(q) ||
-        (p.contractor || '').toLowerCase().includes(q)
-      );
-    });
+    .filter((p) => matchesProjectSearch(p, projectSearchQuery));
 
   // [수정] 카드 목록 화면에서만 "50개씩 더 보기"를 적용하기 위한 파생 목록.
   // 엑셀 다운로드/리스트 출력/PDF는 이 제한과 무관하게 항상 filteredProjects 전체를 쓴다.
@@ -2743,25 +2709,66 @@ export const ProjectsView: React.FC<Props> = ({
         onTouchEnd={handleTouchEnd}
         className="touch-pan-y space-y-4"
       >
-        {/* 프로젝트 검색 */}
-        <div className="max-w-md mx-auto relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="프로젝트명, 시행사, 시공사로 검색..."
-            value={projectSearchQuery}
-            onChange={(e) => setProjectSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
-          />
-          {projectSearchQuery && (
-            <button
-              onClick={() => setProjectSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-lg cursor-pointer"
-            >
-              지우기
-            </button>
-          )}
-        </div>
+        {/* [수정] 프로젝트 검색 - 파이프라인(집계 화면)은 걸러볼 개별 목록이 없어 검색창
+        자체를 숨긴다. 원가계산서는 예전엔 이 검색창 아래에 프로젝트 선택창
+        (ProjectPnlPicker)이 따로 하나 더 있어서 검색창이 두 개로 겹쳐 보였는데, 이제
+        이 검색창 하나로 통일했다 - "개별" 모드에서는 타이핑하면 목록이 펼쳐지는
+        검색+선택창으로, "전체" 모드에서는 요약표를 좁혀 보여주는 필터로 동작한다. */}
+        {viewMode !== 'pipeline' && (
+          viewMode === 'pnl' && costSheetMode === 'individual' ? (
+            <div ref={pnlPickerWrapRef} className="max-w-md mx-auto relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="프로젝트명으로 검색 또는 목록에서 선택..."
+                value={pnlPickerOpen ? projectSearchQuery : (projects.find((p) => p.id === pnlSelectedProjectId)?.name || '')}
+                onFocus={() => { setPnlPickerOpen(true); setProjectSearchQuery(''); }}
+                onChange={(e) => { setProjectSearchQuery(e.target.value); setPnlPickerOpen(true); }}
+                className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
+              />
+              {pnlPickerOpen && (
+                <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+                  <div className="max-h-72 overflow-y-auto">
+                    {(() => {
+                      const filtered = projects.filter((p) => matchesProjectSearch(p, projectSearchQuery));
+                      if (filtered.length === 0) return <p className="text-xs text-slate-400 text-center py-4">일치하는 프로젝트가 없습니다</p>;
+                      return filtered.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => { setPnlSelectedProjectId(p.id); setProjectSearchQuery(''); setPnlPickerOpen(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 flex items-center justify-between gap-2 ${p.id === pnlSelectedProjectId ? 'bg-indigo-50' : ''}`}
+                        >
+                          <span className="font-semibold text-slate-700 truncate">{p.name}</span>
+                          {p.id === pnlSelectedProjectId && <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="max-w-md mx-auto relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="프로젝트명, 시행사, 시공사로 검색..."
+                value={projectSearchQuery}
+                onChange={(e) => setProjectSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
+              />
+              {projectSearchQuery && (
+                <button
+                  onClick={() => setProjectSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-lg cursor-pointer"
+                >
+                  지우기
+                </button>
+              )}
+            </div>
+          )
+        )}
 
         {viewMode === 'pnl' ? (
           (() => {
@@ -2836,8 +2843,9 @@ export const ProjectsView: React.FC<Props> = ({
             const tdLabel = `${td} text-slate-700 bg-slate-50`;
             const tdSub = `${td} text-center font-bold text-slate-700 bg-orange-100`;
 
-            // 전체 프로젝트 요약(image 2) - 원가계산서가 있으면 그 값을, 없으면 0으로 계산
-            const allRows = [...projects].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+            // 전체 프로젝트 요약(image 2) - 원가계산서가 있으면 그 값을, 없으면 0으로 계산.
+            // "전체" 모드에서는 상단 검색창이 이 표를 좁혀 보여주는 필터로 동작한다.
+            const allRows = [...projects].filter((p) => matchesProjectSearch(p, projectSearchQuery)).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
             const grandTotal = allRows.reduce((acc, p) => {
               const cs = p.costSheet;
               if (!cs) return acc;
@@ -2850,12 +2858,9 @@ export const ProjectsView: React.FC<Props> = ({
 
             return (
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <ProjectPnlPicker
-                    projects={projects}
-                    selectedProjectId={pnlSelectedProjectId}
-                    onSelect={(id) => { setPnlSelectedProjectId(id); setCostSheetMode('individual'); }}
-                  />
+                {/* [수정] 프로젝트 선택은 이제 위 공통 검색창(개별 모드일 때 검색+선택창으로
+                동작)에서 하므로, 여기는 개별/전체 모드 전환 토글만 남기고 오른쪽으로 정렬한다. */}
+                <div className="flex items-center justify-end gap-3">
                   <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-xl p-1">
                     <button
                       onClick={() => setCostSheetMode('individual')}
