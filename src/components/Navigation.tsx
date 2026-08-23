@@ -159,7 +159,11 @@ export const Navigation: React.FC<Props> = ({
     글자와 시계가 겹치는 등). pt-[env(safe-area-inset-top)]으로 노치/상태 표시줄 높이만큼
     헤더 안쪽에 여백을 줘서, 그 아래로 실제 로고/버튼들이 밀려나게 한다. 노치가 없는
     기기(대부분의 안드로이드, PC 브라우저)에서는 env() 값이 0이라 아무 변화가 없다. */}
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 shadow-xl pt-[env(safe-area-inset-top)]">
+    {/* [수정] shadow-xl이 헤더 아래쪽에 위는 진하고 아래로 갈수록 옅어지는 회색 그림자를
+    만들어서, 실선 구분선(border-b)이 있는데도 그 아래가 회색 그라데이션처럼 보인다는
+    지적이 있었다. 실선 구분선만으로 충분히 구분되므로 그림자를 없애고 그 아래 영역이
+    바로 깔끔한 흰색이 되도록 한다. */}
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between py-4 md:py-0 md:h-16 gap-4">
           
