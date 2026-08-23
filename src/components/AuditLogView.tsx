@@ -144,7 +144,7 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
       </div>
 
       <p className="text-xs text-slate-400">
-        권한 변경, 가입 승인/거절, 회원 탈퇴, 구독/결제, 데이터 백업 등 민감한 작업 기록만 남습니다. 명함/프로젝트 등 일상적인 데이터 입력은 여기 기록되지 않습니다.
+        권한 변경, 가입 승인/거절, 회원 탈퇴, 구독/결제, 데이터 백업 등 민감한 작업 기록만 확인
       </p>
 
       <div className="flex items-center gap-2 flex-wrap">
