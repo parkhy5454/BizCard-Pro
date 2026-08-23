@@ -661,6 +661,14 @@ export const ProjectsView: React.FC<Props> = ({
   const [newSupportNeeded, setNewSupportNeeded] = useState<string>('');
   const [newRemarks, setNewRemarks] = useState<string>('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
+  // [추가] "시공사/건축설계사/…" 등 참여사 칸을 프로젝트명·최종고객·현장지역 정보를 바탕으로
+  // 구글 검색(AI Intelligence의 기업 인텔리전스와 동일한 Gemini+googleSearch 방식)으로
+  // 찾아서 자동으로 채워주는 기능. 이미 직접 입력한 칸은 덮어쓰지 않고 비어있는 칸만
+  // 채우며, 채워진 뒤에도 언제든 직접 수정할 수 있다.
+  const [isSearchingNewRelations, setIsSearchingNewRelations] = useState(false);
+  const [newRelationsSearchNote, setNewRelationsSearchNote] = useState<string | null>(null);
+  const [isSearchingEditRelations, setIsSearchingEditRelations] = useState(false);
+  const [editRelationsSearchNote, setEditRelationsSearchNote] = useState<string | null>(null);
 
   // 프로젝트 정보 수정용 상태
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -812,7 +820,45 @@ export const ProjectsView: React.FC<Props> = ({
     setDirectContactPhoneOffice('');
     setDirectContactPhoneMobile('');
     setDirectContactEmail('');
+    setNewRelationsSearchNote(null);
     setIsNewOpen(false);
+  };
+
+  // [추가] 새 프로젝트 등록 폼에서 "AI로 참여사 찾기" 버튼 핸들러. 프로젝트명(+최종고객/
+  // 현장지역이 있으면 같이)을 바탕으로 서버가 구글 검색으로 시공사/설계사/감리사/운영사를
+  // 찾아서 돌려주면, 이미 직접 입력한 칸은 그대로 두고 비어있는 칸만 채운다.
+  const handleSearchNewProjectRelations = async () => {
+    if (!newName.trim() || isSearchingNewRelations) return;
+    setIsSearchingNewRelations(true);
+    setNewRelationsSearchNote(null);
+    try {
+      const res = await fetch('/api/projects/relations-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectName: newName, endCustomer: newEndCustomer, siteLocation: newSiteLocation })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '검색에 실패했습니다.');
+      const f = data.fields || {};
+      if (f.contractor && !newContractor.trim()) setNewContractor(f.contractor);
+      if (f.architect && !newArchitect.trim()) setNewArchitect(f.architect);
+      if (f.interiorDesigner && !newInteriorDesigner.trim()) setNewInteriorDesigner(f.interiorDesigner);
+      if (f.electricalDesigner && !newElectricalDesigner.trim()) setNewElectricalDesigner(f.electricalDesigner);
+      if (f.mechanicalDesigner && !newMechanicalDesigner.trim()) setNewMechanicalDesigner(f.mechanicalDesigner);
+      if (f.supervisor && !newSupervisor.trim()) setNewSupervisor(f.supervisor);
+      if (f.operator && !newOperator.trim()) setNewOperator(f.operator);
+      const foundCount = [f.contractor, f.architect, f.interiorDesigner, f.electricalDesigner, f.mechanicalDesigner, f.supervisor, f.operator].filter(Boolean).length;
+      setNewRelationsSearchNote(
+        foundCount > 0
+          ? `${foundCount}건을 찾아서 빈 칸에 채웠습니다. 내용은 직접 수정할 수 있어요.`
+          : '검색 결과에서 확인 가능한 참여사를 찾지 못했습니다. 직접 입력해주세요.'
+      );
+    } catch (err: any) {
+      console.error('Failed to search project relations:', err);
+      setNewRelationsSearchNote(err.message || '검색에 실패했습니다.');
+    } finally {
+      setIsSearchingNewRelations(false);
+    }
   };
 
   // 프로젝트 정보(예산 등) 수정 핸들러
@@ -881,6 +927,49 @@ export const ProjectsView: React.FC<Props> = ({
     } catch (err: any) {
       console.error('Failed to update project:', err);
       alert(`프로젝트 수정에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니, 새로고침 후 다시 확인해주세요.`);
+    }
+  };
+
+  // [추가] 프로젝트 수정 폼에서 "AI로 참여사 찾기" 버튼 핸들러. 등록 폼과 동일한 로직이지만
+  // editingProject를 대상으로 하며, 저장(수정 완료) 전까지는 아직 서버에 반영되지 않고
+  // 폼 값만 채운다 - 확인 후 직접 수정하거나 그대로 "저장"을 눌러야 실제 반영된다.
+  const handleSearchEditProjectRelations = async () => {
+    if (!editingProject || !editingProject.name.trim() || isSearchingEditRelations) return;
+    setIsSearchingEditRelations(true);
+    setEditRelationsSearchNote(null);
+    try {
+      const res = await fetch('/api/projects/relations-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectName: editingProject.name, endCustomer: editingProject.endCustomer, siteLocation: editingProject.siteLocation })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '검색에 실패했습니다.');
+      const f = data.fields || {};
+      setEditingProject((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          contractor: !prev.contractor?.trim() && f.contractor ? f.contractor : prev.contractor,
+          architect: !prev.architect?.trim() && f.architect ? f.architect : prev.architect,
+          interiorDesigner: !prev.interiorDesigner?.trim() && f.interiorDesigner ? f.interiorDesigner : prev.interiorDesigner,
+          electricalDesigner: !prev.electricalDesigner?.trim() && f.electricalDesigner ? f.electricalDesigner : prev.electricalDesigner,
+          mechanicalDesigner: !prev.mechanicalDesigner?.trim() && f.mechanicalDesigner ? f.mechanicalDesigner : prev.mechanicalDesigner,
+          supervisor: !prev.supervisor?.trim() && f.supervisor ? f.supervisor : prev.supervisor,
+          operator: !prev.operator?.trim() && f.operator ? f.operator : prev.operator
+        };
+      });
+      const foundCount = [f.contractor, f.architect, f.interiorDesigner, f.electricalDesigner, f.mechanicalDesigner, f.supervisor, f.operator].filter(Boolean).length;
+      setEditRelationsSearchNote(
+        foundCount > 0
+          ? `${foundCount}건을 찾아서 빈 칸에 채웠습니다. 내용은 직접 수정할 수 있어요.`
+          : '검색 결과에서 확인 가능한 참여사를 찾지 못했습니다. 직접 입력해주세요.'
+      );
+    } catch (err: any) {
+      console.error('Failed to search project relations:', err);
+      setEditRelationsSearchNote(err.message || '검색에 실패했습니다.');
+    } finally {
+      setIsSearchingEditRelations(false);
     }
   };
 
@@ -2923,6 +3012,7 @@ export const ProjectsView: React.FC<Props> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingProject(proj);
+                        setEditRelationsSearchNote(null);
                         setUseDirectContact(false);
                         setDirectContactName('');
                         setDirectContactCompany('');
@@ -3722,7 +3812,27 @@ export const ProjectsView: React.FC<Props> = ({
               여전히 PIPELINE_COLUMNS에 정의된 필드만 사용하므로 이 폼 재구성과 무관하게
               그대로 유지된다. */}
               <div className="pt-2 border-t border-slate-200 space-y-3">
-                <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
+                  {/* [추가] 프로젝트 타이틀(+최종고객/현장지역이 입력돼 있으면 같이)을 바탕으로
+                  시공사·설계사·감리사·운영사를 구글 검색으로 찾아서 비어있는 칸만 자동으로
+                  채워주는 버튼. 채워진 뒤에도 아래 칸에서 언제든 직접 수정할 수 있다. */}
+                  <button
+                    type="button"
+                    onClick={handleSearchNewProjectRelations}
+                    disabled={!newName.trim() || isSearchingNewRelations}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    title={!newName.trim() ? '프로젝트 타이틀을 먼저 입력해주세요' : undefined}
+                  >
+                    {isSearchingNewRelations ? (
+                      <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3" />
+                    )}
+                    <span>{isSearchingNewRelations ? '검색 중...' : 'AI로 참여사 찾기'}</span>
+                  </button>
+                </div>
+                {newRelationsSearchNote && <p className="text-[11px] text-indigo-500">{newRelationsSearchNote}</p>}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -3996,7 +4106,25 @@ export const ProjectsView: React.FC<Props> = ({
               경쟁사/비고까지 모든 선택 입력 필드를 "영업 파이프라인 정보 (선택)" 한 섹션으로
               통합했다 (수정 가능). 순서는 등록 폼과 동일하다. */}
               <div className="pt-2 border-t border-slate-200 space-y-3">
-                <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
+                  {/* [추가] 등록 폼과 동일한 "AI로 참여사 찾기" 버튼 - 여기서는 editingProject
+                  값(프로젝트명/최종고객/현장지역)을 기준으로 검색하고, 비어있는 칸만 채운다. */}
+                  <button
+                    type="button"
+                    onClick={handleSearchEditProjectRelations}
+                    disabled={!editingProject.name.trim() || isSearchingEditRelations}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSearchingEditRelations ? (
+                      <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3" />
+                    )}
+                    <span>{isSearchingEditRelations ? '검색 중...' : 'AI로 참여사 찾기'}</span>
+                  </button>
+                </div>
+                {editRelationsSearchNote && <p className="text-[11px] text-indigo-500">{editRelationsSearchNote}</p>}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
