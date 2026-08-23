@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem } from '../types.js';
+import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem, ProjectCostSheet } from '../types.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -29,7 +29,7 @@ const escapeHtml = (value: unknown): string => {
     .replace(/'/g, '&#39;');
 };
 
-// [추가] "손익계산서" 탭에서 전체 프로젝트를 한 표에 다 보여주는 대신, 검색하거나
+// [추가] "원가계산서" 탭(개별 보기)에서 전체 프로젝트를 한 표에 다 보여주는 대신, 검색하거나
 // 목록에서 골라 프로젝트 하나를 선택하게 하는 입력칸. AdminDocsView.tsx의
 // VehicleSearchInput/ProjectSearchInput과 같은 방식(포커스하면 목록이 펼쳐지고,
 // 타이핑하면 좁혀짐)이지만, 여기서는 항상 등록된 프로젝트 중에서만 골라야 하므로
@@ -94,20 +94,64 @@ const ProjectPnlPicker: React.FC<ProjectPnlPickerProps> = ({ projects, selectedP
   );
 };
 
-// [추가] 손익계산서 상세에서 팔로우업 지출(MeetingExpenseItem)의 카테고리/결제수단
-// 코드값을 화면에 보여줄 한글 라벨로 바꿔주는 표. AdminModal 등 다른 화면에서 쓰는
-// 라벨과 동일하게 맞춘다.
-const PNL_EXPENSE_CATEGORY_LABEL: Record<MeetingExpenseItem['category'], string> = {
-  meal: '식대',
-  drinks: '음료(커피)',
-  purchase: '물품 구입',
-  service_fee: '식사 서비스 비용',
-  custom: '직접 입력'
-};
-const PNL_PAY_METHOD_LABEL: Record<MeetingExpenseItem['payMethod'], string> = {
-  company_card: '법인카드',
-  personal_card: '개인카드',
-  cash: '현금'
+// [추가] "프로젝트 원가계산서" 계산 로직. 공유해주신 양식(매출액/직접원가/간접원가/
+// 일반관리비/사후관리비용을 직접 입력하면 소계·총원가·경상이익·경상이익율을 자동
+// 계산)을 그대로 반영한 순수 함수들 - 개별 보기(입력폼)와 전체 보기(요약표) 양쪽에서
+// 똑같은 계산식을 써야 하므로 한 곳에 모아둔다. AdminDocsView.tsx의 cfCellTotal 등과
+// 같은 패턴(컴포넌트 바깥의 순수 함수, 저장은 입력값만 하고 합계는 항상 다시 계산).
+const emptyCostSheet = (): ProjectCostSheet => ({
+  orderer: '',
+  contractNumber: '',
+  contractDate: '',
+  deliveryDeadline: '',
+  preparedDate: new Date().toISOString().split('T')[0],
+  preparedDept: '',
+  contractRevenue: 0,
+  additionalRevenue: 0,
+  rawMaterialCost: 0,
+  outsourcingCost: 0,
+  directLaborCost: 0,
+  directExpense: 0,
+  indirectLaborCost: 0,
+  depreciationCost: 0,
+  qualityControlCost: 0,
+  logisticsCost: 0,
+  laborAllocationCost: 0,
+  rentCost: 0,
+  commsItCost: 0,
+  legalAccountingCost: 0,
+  otherAdminCost: 0,
+  appliedPostSalesCost: 0,
+  contractRevenueNote: 'VAT 별도',
+  totalRevenueNote: '손익 기준',
+  appliedPostSalesNote: '낮은 금액 적용'
+});
+
+// 프로젝트에 원가계산서가 아직 없을 때, 처음 열면 프로젝트 자체 정보(발주처=최종고객,
+// 납품기한=마감일)로 미리 채워서 시작하게 한다 - 그 뒤로는 원가계산서 쪽 값만 독립적으로
+// 수정된다(프로젝트 원본 필드에 다시 영향을 주지 않음).
+const costSheetFromProject = (p: Project): ProjectCostSheet => ({
+  ...emptyCostSheet(),
+  orderer: p.endCustomer || '',
+  deliveryDeadline: p.dueDate || ''
+});
+
+const num = (v: number | undefined | null): number => Number(v) || 0;
+const csRevenueTotal = (cs: ProjectCostSheet): number => num(cs.contractRevenue) + num(cs.additionalRevenue); // 합계(A)
+const csDirectCostSubtotal = (cs: ProjectCostSheet): number => // 소계(B)
+  num(cs.rawMaterialCost) + num(cs.outsourcingCost) + num(cs.directLaborCost) + num(cs.directExpense);
+const csIndirectCostSubtotal = (cs: ProjectCostSheet): number => // 소계(C)
+  num(cs.indirectLaborCost) + num(cs.depreciationCost) + num(cs.qualityControlCost) + num(cs.logisticsCost);
+const csAdminCostSubtotal = (cs: ProjectCostSheet): number => // 소계(D)
+  num(cs.laborAllocationCost) + num(cs.rentCost) + num(cs.commsItCost) + num(cs.legalAccountingCost) + num(cs.otherAdminCost);
+const csExpectedPostSales = (cs: ProjectCostSheet): number => Math.round(csRevenueTotal(cs) * 0.05); // 예상 사후 관리비 = 매출액×5%
+const csPostSalesCap = (cs: ProjectCostSheet): number => Math.round(csRevenueTotal(cs) * 0.06); // 사후 관리비 한도 = 매출액×6%
+const csTotalCost = (cs: ProjectCostSheet): number => // 총원가(F = B+C+D+E)
+  csDirectCostSubtotal(cs) + csIndirectCostSubtotal(cs) + csAdminCostSubtotal(cs) + num(cs.appliedPostSalesCost);
+const csProfit = (cs: ProjectCostSheet): number => csRevenueTotal(cs) - csTotalCost(cs); // 경상 이익(G = A-F)
+const csProfitMargin = (cs: ProjectCostSheet): number | null => { // 경상 이익율(%) = G/A
+  const a = csRevenueTotal(cs);
+  return a > 0 ? (csProfit(cs) / a) * 100 : null;
 };
 
 interface Props {
@@ -176,59 +220,58 @@ export const ProjectsView: React.FC<Props> = ({
   };
   const [companyStaff, setCompanyStaff] = useState<{ id: string; name: string }[]>([]);
 
-  // [추가] "손익계산서" 탭용 - 프로젝트별 자동 집계 데이터(GET /api/projects/pnl)를 담는
-  // 상태. 카드형/리스트출력/파이프라인처럼 projects 프롭만으로 화면에서 계산할 수 있는
-  // 데이터가 아니라(회계관리의 통장 입금/법인카드 내역과 연동해야 해서) 탭이 열릴 때마다
-  // 서버에서 따로 받아온다.
-  const [pnlRows, setPnlRows] = useState<{
-    projectId: string;
-    projectName: string;
-    status: Project['status'];
-    income: number;
-    cardExpense: number;
-    followupExpense: number;
-    totalExpense: number;
-    profit: number;
-    profitMargin: number | null;
-    incomeEntries: { date: string; amount: number; memo?: string }[];
-    cardExpenseEntries: { date: string; amount: number; memo?: string; cardName?: string; holder?: string }[];
-  }[]>([]);
-  const [pnlUnmatched, setPnlUnmatched] = useState<{ unmatchedIncome: number; unmatchedCardExpense: number }>({ unmatchedIncome: 0, unmatchedCardExpense: 0 });
-  const [pnlLoading, setPnlLoading] = useState<boolean>(false);
-  const [pnlError, setPnlError] = useState<string>('');
-  // [수정] 프로젝트가 많아지면 전체를 한 표에 다 보여주는 대신, 검색/선택으로 프로젝트
-  // 하나를 고르면 그 프로젝트의 수입·지출 "내역"(건별)까지 보여주는 방식으로 변경.
+  // [수정] "손익계산서"(회계관리 데이터 자동 집계) → "원가계산서"(공유해주신 정식 양식에
+  // 맞춰 프로젝트별로 직접 입력)로 전면 교체. 검색/선택으로 프로젝트 하나를 고르면 그
+  // 프로젝트의 원가계산서를 입력/수정하는 "개별" 모드와, 전체 프로젝트를 한 표로 요약해
+  // 보여주는 "전체" 모드를 오간다.
   const [pnlSelectedProjectId, setPnlSelectedProjectId] = useState<string>('');
+  const [costSheetMode, setCostSheetMode] = useState<'individual' | 'all'>('individual');
+  // 선택한 프로젝트의 원가계산서를 편집 중인 임시 값. 프로젝트에 저장된 값(projects 프롭)과
+  // 분리해두고 "저장" 버튼을 눌러야 실제로 반영되게 한다 - 다른 프로젝트로 바꾸거나 탭을
+  // 나가도 실수로 반쯤 입력한 값이 그대로 저장되지 않도록.
+  const [costSheetDraft, setCostSheetDraft] = useState<ProjectCostSheet | null>(null);
+  const [isSavingCostSheet, setIsSavingCostSheet] = useState<boolean>(false);
+  const [costSheetSaveError, setCostSheetSaveError] = useState<string>('');
 
   useEffect(() => {
-    if (viewMode !== 'pnl') return;
-    let cancelled = false;
-    setPnlLoading(true);
-    setPnlError('');
-    fetch('/api/projects/pnl', {
-      headers: currentUser ? { 'x-user-id': currentUser.id } : {}
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body?.error || `손익계산서 데이터를 불러오지 못했습니다 (상태: ${res.status}).`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (cancelled) return;
-        setPnlRows(data.rows || []);
-        setPnlUnmatched({ unmatchedIncome: data.unmatchedIncome || 0, unmatchedCardExpense: data.unmatchedCardExpense || 0 });
-      })
-      .catch((err: any) => {
-        if (cancelled) return;
-        setPnlError(err?.message || '손익계산서 데이터를 불러오지 못했습니다.');
-      })
-      .finally(() => {
-        if (!cancelled) setPnlLoading(false);
+    if (!pnlSelectedProjectId) { setCostSheetDraft(null); return; }
+    const p = projects.find((pr) => pr.id === pnlSelectedProjectId);
+    if (!p) { setCostSheetDraft(null); return; }
+    setCostSheetDraft(p.costSheet ? { ...p.costSheet } : costSheetFromProject(p));
+    setCostSheetSaveError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pnlSelectedProjectId]);
+
+  const updateCostSheetField = <K extends keyof ProjectCostSheet>(field: K, value: ProjectCostSheet[K]) => {
+    setCostSheetDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const handleSaveCostSheet = async () => {
+    if (!pnlSelectedProjectId || !costSheetDraft) return;
+    const project = projects.find((p) => p.id === pnlSelectedProjectId);
+    if (!project) return;
+    const updated: Project = { ...project, costSheet: costSheetDraft };
+    setIsSavingCostSheet(true);
+    setCostSheetSaveError('');
+    // 다른 프로젝트 수정(handleUpdateProjectDetails)과 같은 패턴 - 화면은 먼저 반영하고,
+    // 서버 저장이 실패하면 에러를 보여준다.
+    setProjects(projects.map((p) => (p.id === updated.id ? updated : p)));
+    try {
+      const res = await fetch(`/api/projects/${updated.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify(updated)
       });
-    return () => { cancelled = true; };
-  }, [viewMode, currentUser]);
+      if (!res.ok) throw new Error(`원가계산서 저장에 실패했습니다 (상태: ${res.status}).`);
+    } catch (err: any) {
+      setCostSheetSaveError(err?.message || '원가계산서 저장에 실패했습니다. 화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니 다시 시도해주세요.');
+    } finally {
+      setIsSavingCostSheet(false);
+    }
+  };
 
   // 같은 회사(사업자번호)로 가입한 다른 계정들을 "우리 회사 직원" 목록으로 불러옴
   useEffect(() => {
@@ -2066,168 +2109,387 @@ export const ProjectsView: React.FC<Props> = ({
         {viewMode === 'pnl' ? (
           (() => {
             const fmtWon = (n: number) => `${formatCurrencyInput(String(Math.round(n)))}원`;
-            const fmtDate = (d?: string) => d || '-';
-            const selectedRow = pnlRows.find((r) => r.projectId === pnlSelectedProjectId) || null;
             const selectedProject = projects.find((p) => p.id === pnlSelectedProjectId) || null;
-            // 팔로우업 지출은 projects 프롭에 이미 다 들어있어(followUps[].expenses) 서버를
-            // 다시 부를 필요 없이 화면에서 바로 뽑는다. 표에서는 어느 팔로우업(날짜/차수)에서
-            // 나온 지출인지 알 수 있게 팔로우업 날짜를 함께 붙인다.
-            const followupExpenseRows = selectedProject
-              ? (selectedProject.followUps || [])
-                  .flatMap((fu) => (fu.expenses || []).map((ex) => ({ ...ex, followUpDate: fu.date, followUpId: fu.id })))
-                  .sort((a, b) => (b.followUpDate || '').localeCompare(a.followUpDate || ''))
-              : [];
+            const draft = costSheetDraft;
+
+            // 헤더 정보(발주처/계약번호 등) 입력칸 - 전부 문자열 필드
+            const headerField = (field: 'orderer' | 'contractNumber' | 'preparedDept', type: 'text' = 'text') => (
+              <input
+                type={type}
+                value={(draft?.[field] as string) || ''}
+                onChange={(e) => updateCostSheetField(field, e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+              />
+            );
+            const headerDateField = (field: 'contractDate' | 'deliveryDeadline' | 'preparedDate') => (
+              <input
+                type="date"
+                value={(draft?.[field] as string) || ''}
+                onChange={(e) => updateCostSheetField(field, e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
+              />
+            );
+            // 원가 항목 금액 입력칸 - 전부 숫자 필드(천단위 콤마 자동)
+            const moneyField = (field:
+              | 'contractRevenue' | 'additionalRevenue'
+              | 'rawMaterialCost' | 'outsourcingCost' | 'directLaborCost' | 'directExpense'
+              | 'indirectLaborCost' | 'depreciationCost' | 'qualityControlCost' | 'logisticsCost'
+              | 'laborAllocationCost' | 'rentCost' | 'commsItCost' | 'legalAccountingCost' | 'otherAdminCost'
+              | 'appliedPostSalesCost'
+            ) => {
+              const v = num(draft?.[field] as number);
+              return (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={v ? formatCurrencyInput(String(v)) : ''}
+                  onChange={(e) => updateCostSheetField(field, parseCurrencyInput(e.target.value))}
+                  placeholder="0"
+                  className="w-full text-right bg-white border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:border-indigo-500 font-mono"
+                />
+              );
+            };
+            const noteField = (field: 'contractRevenueNote' | 'totalRevenueNote' | 'appliedPostSalesNote') => (
+              <input
+                type="text"
+                value={(draft?.[field] as string) || ''}
+                onChange={(e) => updateCostSheetField(field, e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:border-indigo-500"
+              />
+            );
+            // 읽기 전용 계산값 셀 (합계/소계/총원가 등)
+            const computedCell = (n: number, extraClass = '') => (
+              <span className={`font-mono font-bold ${extraClass}`}>{fmtWon(n)}</span>
+            );
+
+            const A = draft ? csRevenueTotal(draft) : 0;
+            const B = draft ? csDirectCostSubtotal(draft) : 0;
+            const C = draft ? csIndirectCostSubtotal(draft) : 0;
+            const D = draft ? csAdminCostSubtotal(draft) : 0;
+            const expectedPostSales = draft ? csExpectedPostSales(draft) : 0;
+            const postSalesCap = draft ? csPostSalesCap(draft) : 0;
+            const E = num(draft?.appliedPostSalesCost);
+            const F = draft ? csTotalCost(draft) : 0;
+            const G = draft ? csProfit(draft) : 0;
+            const margin = draft ? csProfitMargin(draft) : null;
+
+            // th/td 공통 테두리 - 정식 서류 양식이라 다른 탭보다 진한 테두리를 쓴다
+            const td = 'border border-slate-400 px-2 py-1.5 align-middle';
+            const tdCat = `${td} text-center font-bold text-slate-700 bg-amber-50`;
+            const tdLabel = `${td} text-slate-700 bg-slate-50`;
+            const tdSub = `${td} text-center font-bold text-slate-700 bg-orange-100`;
+
+            // 전체 프로젝트 요약(image 2) - 원가계산서가 있으면 그 값을, 없으면 0으로 계산
+            const allRows = [...projects].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+            const grandTotal = allRows.reduce((acc, p) => {
+              const cs = p.costSheet;
+              if (!cs) return acc;
+              return {
+                revenue: acc.revenue + csRevenueTotal(cs),
+                cost: acc.cost + csTotalCost(cs),
+                profit: acc.profit + csProfit(cs)
+              };
+            }, { revenue: 0, cost: 0, profit: 0 });
 
             return (
               <div className="space-y-4">
-                <ProjectPnlPicker
-                  projects={projects}
-                  selectedProjectId={pnlSelectedProjectId}
-                  onSelect={setPnlSelectedProjectId}
-                />
-
-                {/* [추가] projectId가 연결되지 않은(자유 입력만 된) 입금/카드 사용 내역이
-                    있으면, 어느 프로젝트를 보든 그 프로젝트의 집계에선 빠져있을 수 있다는
-                    것을 놓치지 않도록 안내한다. */}
-                {(pnlUnmatched.unmatchedIncome > 0 || pnlUnmatched.unmatchedCardExpense > 0) && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
-                    프로젝트가 연결되지 않은(직접 입력만 된) 회계 내역이 있어 아래 집계에서 빠질 수 있습니다.
-                    {pnlUnmatched.unmatchedIncome > 0 && <> 미매칭 입금 {fmtWon(pnlUnmatched.unmatchedIncome)}.</>}
-                    {pnlUnmatched.unmatchedCardExpense > 0 && <> 미매칭 카드 사용 {fmtWon(pnlUnmatched.unmatchedCardExpense)}.</>}
-                    {' '}회계관리 화면에서 해당 내역의 프로젝트를 목록에서 다시 선택해주세요.
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <ProjectPnlPicker
+                    projects={projects}
+                    selectedProjectId={pnlSelectedProjectId}
+                    onSelect={(id) => { setPnlSelectedProjectId(id); setCostSheetMode('individual'); }}
+                  />
+                  <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-xl p-1">
+                    <button
+                      onClick={() => setCostSheetMode('individual')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${costSheetMode === 'individual' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      개별
+                    </button>
+                    <button
+                      onClick={() => setCostSheetMode('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${costSheetMode === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      전체
+                    </button>
                   </div>
-                )}
+                </div>
 
-                {pnlLoading ? (
-                  <p className="text-sm text-slate-400 text-center py-10">불러오는 중...</p>
-                ) : pnlError ? (
-                  <p className="text-sm text-rose-500 text-center py-10">{pnlError}</p>
-                ) : !selectedProject ? (
-                  <p className="text-sm text-slate-400 text-center py-14">위에서 프로젝트를 검색하거나 선택하면 수입·지출 내역이 여기에 표시됩니다.</p>
-                ) : !selectedRow ? (
-                  <p className="text-sm text-slate-400 text-center py-10">이 프로젝트의 손익 데이터를 찾을 수 없습니다.</p>
+                {costSheetMode === 'individual' ? (
+                  !selectedProject ? (
+                    <p className="text-sm text-slate-400 text-center py-14">위에서 프로젝트를 검색하거나 선택하면 원가계산서가 여기에 표시됩니다.</p>
+                  ) : !draft ? (
+                    <p className="text-sm text-slate-400 text-center py-10">불러오는 중...</p>
+                  ) : (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <h3 className="text-base font-bold text-slate-800 underline underline-offset-4">프로젝트 원가 계산서</h3>
+                        <div className="flex items-center gap-2">
+                          {costSheetSaveError && <span className="text-xs text-rose-500">{costSheetSaveError}</span>}
+                          <button
+                            onClick={handleSaveCostSheet}
+                            disabled={isSavingCostSheet}
+                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                          >
+                            {isSavingCostSheet ? '저장 중...' : '저장'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* [수정] 표 전체가 실제로는 5개 물리 컬럼이다: 대분류(구분, rowSpan으로
+                          묶임) | 세부 항목명 | 금액(원) | 산출근거 | 비고. 헤더에서는 앞의 두
+                          컬럼을 "구 분" 하나로 합쳐 보여주지만(colSpan=2), 본문에서는 각 대분류의
+                          첫 행에서만 대분류 셀을 rowSpan으로 그리고, 그 아래 행들(소계 포함)은
+                          세부 항목명부터 시작하는 4칸이다 - 그래서 모든 행이 합쳐서 5칸을
+                          채우도록 꼭 맞춰야 표가 어긋나지 않는다. */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border-collapse min-w-[680px]">
+                          <tbody>
+                            <tr><td className={`${tdLabel} w-28`}>프로젝트 명</td><td className={`${td} bg-white`} colSpan={4}>{selectedProject.name}</td></tr>
+                            <tr><td className={tdLabel}>발 주 처</td><td className={`${td} bg-white`} colSpan={4}>{headerField('orderer')}</td></tr>
+                            <tr><td className={tdLabel}>계 약 번 호</td><td className={`${td} bg-white`} colSpan={4}>{headerField('contractNumber')}</td></tr>
+                            <tr><td className={tdLabel}>계 약 일 자</td><td className={`${td} bg-white`} colSpan={4}>{headerDateField('contractDate')}</td></tr>
+                            <tr><td className={tdLabel}>납 품 기 한</td><td className={`${td} bg-white`} colSpan={4}>{headerDateField('deliveryDeadline')}</td></tr>
+                            <tr><td className={tdLabel}>작 성 일</td><td className={`${td} bg-white`} colSpan={4}>{headerDateField('preparedDate')}</td></tr>
+                            <tr><td className={tdLabel}>작 성 부 서</td><td className={`${td} bg-white`} colSpan={4}>{headerField('preparedDept')}</td></tr>
+
+                            <tr className="bg-yellow-300">
+                              <th className={`${td} text-center`} colSpan={2}>구 분</th>
+                              <th className={`${td} text-center`}>금액(원)</th>
+                              <th className={`${td} text-center`}>산출근거</th>
+                              <th className={`${td} text-center`}>비고</th>
+                            </tr>
+
+                            {/* 매출액 */}
+                            <tr>
+                              <td className={tdCat} rowSpan={3}>매 출 액</td>
+                              <td className={tdLabel}>계약 매출액(원)</td>
+                              <td className={td}>{moneyField('contractRevenue')}</td>
+                              <td className={td}></td>
+                              <td className={td}>{noteField('contractRevenueNote')}</td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>추가 매출액(원)</td>
+                              <td className={td}>{moneyField('additionalRevenue')}</td>
+                              <td className={td}></td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdSub}>합 계 ( A )</td>
+                              <td className={`${td} bg-orange-50 text-right`}>{computedCell(A)}</td>
+                              <td className={td}></td>
+                              <td className={td}>{noteField('totalRevenueNote')}</td>
+                            </tr>
+
+                            {/* 직접원가 */}
+                            <tr>
+                              <td className={tdCat} rowSpan={5}>직접 원가</td>
+                              <td className={tdLabel}>원 재료비</td>
+                              <td className={td}>{moneyField('rawMaterialCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>자재 BOM 기준</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>외주 가공비</td>
+                              <td className={td}>{moneyField('outsourcingCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>제작, 조립, 가공 등</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>직접 노무비</td>
+                              <td className={td}>{moneyField('directLaborCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>투입 인원 × 공수</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>직접 경비</td>
+                              <td className={td}>{moneyField('directExpense')}</td>
+                              <td className={`${td} text-center text-slate-500`}>운송, 설치, 시운전 등</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdSub}>소 계 ( B )</td>
+                              <td className={`${td} bg-orange-50 text-right`}>{computedCell(B)}</td>
+                              <td className={td}></td>
+                              <td className={td}></td>
+                            </tr>
+
+                            {/* 간접원가 */}
+                            <tr>
+                              <td className={tdCat} rowSpan={5}>간접 원가</td>
+                              <td className={tdLabel}>간접 노무비</td>
+                              <td className={td}>{moneyField('indirectLaborCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>관리, 기술 지원 인력 등</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>감가 상각비</td>
+                              <td className={td}>{moneyField('depreciationCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>장비, 금형 등</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>품질 관리비</td>
+                              <td className={td}>{moneyField('qualityControlCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>검사, 시험 등</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>물류, 보관비</td>
+                              <td className={td}>{moneyField('logisticsCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>창고, 운송 등</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdSub}>소 계 ( C )</td>
+                              <td className={`${td} bg-orange-50 text-right`}>{computedCell(C)}</td>
+                              <td className={td}></td>
+                              <td className={td}></td>
+                            </tr>
+
+                            {/* 일반관리비 */}
+                            <tr>
+                              <td className={tdCat} rowSpan={6}>일반관리비</td>
+                              <td className={tdLabel}>인건비 배부</td>
+                              <td className={td}>{moneyField('laborAllocationCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>관리부서</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>임차료</td>
+                              <td className={td}>{moneyField('rentCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>사무실, 공장</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>통신, 전산비</td>
+                              <td className={td}>{moneyField('commsItCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>시스템</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>법무, 회계비</td>
+                              <td className={td}>{moneyField('legalAccountingCost')}</td>
+                              <td className={`${td} text-center text-slate-500`}>외주</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>기타 관리비</td>
+                              <td className={td}>{moneyField('otherAdminCost')}</td>
+                              <td className={td}></td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdSub}>소 계 ( D )</td>
+                              <td className={`${td} bg-orange-50 text-right`}>{computedCell(D)}</td>
+                              <td className={td}></td>
+                              <td className={td}></td>
+                            </tr>
+
+                            {/* 사후관리비용 */}
+                            <tr>
+                              <td className={tdCat} rowSpan={4}>사후관리비용</td>
+                              <td className={tdLabel}>예상 사후 관리비</td>
+                              <td className={`${td} text-right`}>{computedCell(expectedPostSales)}</td>
+                              <td className={`${td} text-center text-slate-500`}>매출액 × 5%</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>사후 관리비 한도</td>
+                              <td className={`${td} text-right`}>{computedCell(postSalesCap)}</td>
+                              <td className={`${td} text-center text-slate-500`}>매출액 × 6%</td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdLabel}>적용 사후 관리비</td>
+                              <td className={td}>{moneyField('appliedPostSalesCost')}</td>
+                              <td className={td}></td>
+                              <td className={td}></td>
+                            </tr>
+                            <tr>
+                              <td className={tdSub}>적 용 ( E )</td>
+                              <td className={`${td} bg-orange-50 text-right`}>{computedCell(E)}</td>
+                              <td className={td}></td>
+                              <td className={td}>{noteField('appliedPostSalesNote')}</td>
+                            </tr>
+
+                            {/* 총원가 / 경상이익 */}
+                            <tr>
+                              <td className={tdSub} colSpan={2}>총 원가 ( F = B+C+D+E )</td>
+                              <td className={`${td} bg-orange-50 text-right`} colSpan={3}>{computedCell(F)}</td>
+                            </tr>
+                            <tr className="bg-yellow-300">
+                              <td className={`${td} text-center font-bold`} colSpan={2}>경상 이익 ( G = A - F )</td>
+                              <td className={`${td} text-right`} colSpan={3}>{computedCell(G, G >= 0 ? 'text-emerald-700' : 'text-rose-600')}</td>
+                            </tr>
+                            <tr className="bg-yellow-300">
+                              <td className={`${td} text-center font-bold`} colSpan={2}>경상 이익율 (%) ( G / A )</td>
+                              <td className={`${td} text-right font-mono font-bold`} colSpan={3}>{margin === null ? '집계 전' : `${margin.toFixed(1)}%`}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
                 ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-slate-800">{selectedRow.projectName}</h3>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-500">
-                        {{ opportunity: '기회', progress: '진행', completed: '완료', failed: '실패' }[selectedRow.status]}
-                      </span>
-                    </div>
-
-                    {/* 요약 카드 */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">입금(수입)</span>
-                        <p className="text-lg font-extrabold text-indigo-600">{fmtWon(selectedRow.income)}</p>
-                      </div>
-                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">지출 합계</span>
-                        <p className="text-lg font-extrabold text-rose-500">{fmtWon(selectedRow.totalExpense)}</p>
-                      </div>
-                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">수익금</span>
-                        <p className={`text-lg font-extrabold ${selectedRow.profit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtWon(selectedRow.profit)}</p>
-                      </div>
-                      <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                        <span className="text-[11px] text-slate-400 font-medium">수익률</span>
-                        <p className="text-lg font-extrabold text-emerald-600">{selectedRow.profitMargin === null ? '집계 전' : `${selectedRow.profitMargin.toFixed(1)}%`}</p>
-                      </div>
-                    </div>
-
-                    {/* 입금(수입) 내역 */}
-                    <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
-                      <h4 className="text-sm font-bold text-slate-700">입금(수입) 내역 ({selectedRow.incomeEntries.length}건)</h4>
-                      {selectedRow.incomeEntries.length === 0 ? (
-                        <p className="text-xs text-slate-400 py-3 text-center">연결된 입금 내역이 없습니다. (회계관리 &gt; 통장 입금 내역에서 이 프로젝트를 선택해주세요)</p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-slate-400 border-b border-slate-200">
-                                <th className="text-left font-bold py-2">일자</th>
-                                <th className="text-left font-bold py-2">내용</th>
-                                <th className="text-right font-bold py-2">금액</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200">
-                              {selectedRow.incomeEntries.map((e, i) => (
-                                <tr key={i}>
-                                  <td className="py-2 text-slate-500">{fmtDate(e.date)}</td>
-                                  <td className="py-2 text-slate-600">{e.memo || '-'}</td>
-                                  <td className="py-2 text-right text-indigo-600 font-mono">{fmtWon(e.amount)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 법인카드 사용 지출 내역 */}
-                    <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
-                      <h4 className="text-sm font-bold text-slate-700">카드사용 지출 내역 ({selectedRow.cardExpenseEntries.length}건)</h4>
-                      {selectedRow.cardExpenseEntries.length === 0 ? (
-                        <p className="text-xs text-slate-400 py-3 text-center">연결된 카드 사용 내역이 없습니다. (회계관리 &gt; 법인카드 사용 내역에서 이 프로젝트를 선택해주세요)</p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-slate-400 border-b border-slate-200">
-                                <th className="text-left font-bold py-2">일자</th>
-                                <th className="text-left font-bold py-2">카드/소지자</th>
-                                <th className="text-left font-bold py-2">비고</th>
-                                <th className="text-right font-bold py-2">금액</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200">
-                              {selectedRow.cardExpenseEntries.map((e, i) => (
-                                <tr key={i}>
-                                  <td className="py-2 text-slate-500">{fmtDate(e.date)}</td>
-                                  <td className="py-2 text-slate-600">{[e.cardName, e.holder].filter(Boolean).join(' · ') || '-'}</td>
-                                  <td className="py-2 text-slate-600">{e.memo || '-'}</td>
-                                  <td className="py-2 text-right text-rose-500 font-mono">{fmtWon(e.amount)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 팔로우업 지출 내역 */}
-                    <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
-                      <h4 className="text-sm font-bold text-slate-700">팔로우업 지출 내역 ({followupExpenseRows.length}건)</h4>
-                      {followupExpenseRows.length === 0 ? (
-                        <p className="text-xs text-slate-400 py-3 text-center">기록된 팔로우업 지출이 없습니다.</p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-slate-400 border-b border-slate-200">
-                                <th className="text-left font-bold py-2">일자</th>
-                                <th className="text-left font-bold py-2">구분</th>
-                                <th className="text-left font-bold py-2">결제수단</th>
-                                <th className="text-left font-bold py-2">메모</th>
-                                <th className="text-right font-bold py-2">금액</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200">
-                              {followupExpenseRows.map((e) => (
-                                <tr key={e.id}>
-                                  <td className="py-2 text-slate-500">{fmtDate(e.followUpDate)}</td>
-                                  <td className="py-2 text-slate-600">{e.category === 'custom' ? (e.categoryCustom || '직접 입력') : PNL_EXPENSE_CATEGORY_LABEL[e.category]}</td>
-                                  <td className="py-2 text-slate-600">{PNL_PAY_METHOD_LABEL[e.payMethod]}</td>
-                                  <td className="py-2 text-slate-600">{e.memo || '-'}</td>
-                                  <td className="py-2 text-right text-rose-500 font-mono">{fmtWon(e.amount)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 overflow-x-auto">
+                    <h3 className="text-base font-bold text-slate-800 underline underline-offset-4">프로젝트별 원가 계산서</h3>
+                    <table className="w-full text-xs border-collapse min-w-[900px]">
+                      <thead>
+                        <tr className="bg-yellow-300">
+                          {['No.', '프로젝트명', '발주처', '계약번호', '계약일자', '납품기한', '작성일', '작성부서', '매출(원)', '총원가(원)', '경상이익(원)', '경상이익율(%)', '비고'].map((h) => (
+                            <th key={h} className="border border-slate-400 px-2 py-1.5 text-center whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allRows.map((p, i) => {
+                          const cs = p.costSheet;
+                          const revenue = cs ? csRevenueTotal(cs) : 0;
+                          const cost = cs ? csTotalCost(cs) : 0;
+                          const profit = cs ? csProfit(cs) : 0;
+                          const marginPct = cs ? csProfitMargin(cs) : null;
+                          return (
+                            <tr key={p.id} className="hover:bg-indigo-50">
+                              <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-500">{i + 1}</td>
+                              <td className="border border-slate-300 px-2 py-1.5">
+                                <button
+                                  onClick={() => { setPnlSelectedProjectId(p.id); setCostSheetMode('individual'); }}
+                                  className="font-semibold text-indigo-600 hover:underline text-left"
+                                >
+                                  {p.name}
+                                </button>
+                              </td>
+                              <td className="border border-slate-300 px-2 py-1.5">{cs?.orderer || '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5">{cs?.contractNumber || '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5">{cs?.contractDate || '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5">{cs?.deliveryDeadline || '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5">{cs?.preparedDate || '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5">{cs?.preparedDept || '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5 text-right font-mono text-indigo-600">{cs ? fmtWon(revenue) : '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5 text-right font-mono text-rose-500">{cs ? fmtWon(cost) : '-'}</td>
+                              <td className={`border border-slate-300 px-2 py-1.5 text-right font-mono font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{cs ? fmtWon(profit) : '-'}</td>
+                              <td className="border border-slate-300 px-2 py-1.5 text-right text-slate-500">{marginPct === null ? '-' : `${marginPct.toFixed(1)}%`}</td>
+                              <td className="border border-slate-300 px-2 py-1.5 text-slate-400">{cs ? '' : '미작성'}</td>
+                            </tr>
+                          );
+                        })}
+                        {allRows.length === 0 && (
+                          <tr><td colSpan={13} className="border border-slate-300 px-2 py-6 text-center text-slate-400">등록된 프로젝트가 없습니다.</td></tr>
+                        )}
+                        {allRows.length > 0 && (
+                          <tr className="bg-yellow-100 font-bold">
+                            <td className="border border-slate-400 px-2 py-1.5 text-center" colSpan={8}>합계</td>
+                            <td className="border border-slate-400 px-2 py-1.5 text-right font-mono text-indigo-600">{fmtWon(grandTotal.revenue)}</td>
+                            <td className="border border-slate-400 px-2 py-1.5 text-right font-mono text-rose-500">{fmtWon(grandTotal.cost)}</td>
+                            <td className={`border border-slate-400 px-2 py-1.5 text-right font-mono ${grandTotal.profit >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{fmtWon(grandTotal.profit)}</td>
+                            <td className="border border-slate-400 px-2 py-1.5 text-right text-slate-500">{grandTotal.revenue > 0 ? `${((grandTotal.profit / grandTotal.revenue) * 100).toFixed(1)}%` : '-'}</td>
+                            <td className="border border-slate-400 px-2 py-1.5"></td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             );
