@@ -824,9 +824,11 @@ export const ProjectsView: React.FC<Props> = ({
     setIsNewOpen(false);
   };
 
-  // [추가] 새 프로젝트 등록 폼에서 "AI로 참여사 찾기" 버튼 핸들러. 프로젝트명(+최종고객/
+  // [수정] 새 프로젝트 등록 폼에서 "AI로 참여사 찾기" 버튼 핸들러. 프로젝트명(+최종고객/
   // 현장지역이 있으면 같이)을 바탕으로 서버가 구글 검색으로 시공사/설계사/감리사/운영사를
-  // 찾아서 돌려주면, 이미 직접 입력한 칸은 그대로 두고 비어있는 칸만 채운다.
+  // 찾아서 돌려주면, 비어있는 칸은 바로 채우고, 이미 직접 입력해둔 칸은 검색 결과와 값이
+  // 다를 때만 한 번 물어보고(window.confirm) 확인해야 덮어쓴다 - 실수로 직접 입력한
+  // 내용이 조용히 사라지는 걸 막기 위함.
   const handleSearchNewProjectRelations = async () => {
     if (!newName.trim() || isSearchingNewRelations) return;
     setIsSearchingNewRelations(true);
@@ -840,17 +842,44 @@ export const ProjectsView: React.FC<Props> = ({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '검색에 실패했습니다.');
       const f = data.fields || {};
-      if (f.contractor && !newContractor.trim()) setNewContractor(f.contractor);
-      if (f.architect && !newArchitect.trim()) setNewArchitect(f.architect);
-      if (f.interiorDesigner && !newInteriorDesigner.trim()) setNewInteriorDesigner(f.interiorDesigner);
-      if (f.electricalDesigner && !newElectricalDesigner.trim()) setNewElectricalDesigner(f.electricalDesigner);
-      if (f.mechanicalDesigner && !newMechanicalDesigner.trim()) setNewMechanicalDesigner(f.mechanicalDesigner);
-      if (f.supervisor && !newSupervisor.trim()) setNewSupervisor(f.supervisor);
-      if (f.operator && !newOperator.trim()) setNewOperator(f.operator);
-      const foundCount = [f.contractor, f.architect, f.interiorDesigner, f.electricalDesigner, f.mechanicalDesigner, f.supervisor, f.operator].filter(Boolean).length;
+
+      const fieldDefs: { label: string; current: string; found: string | null | undefined; setter: (v: string) => void }[] = [
+        { label: '시공사', current: newContractor, found: f.contractor, setter: setNewContractor },
+        { label: '건축설계사', current: newArchitect, found: f.architect, setter: setNewArchitect },
+        { label: '인테리어설계사', current: newInteriorDesigner, found: f.interiorDesigner, setter: setNewInteriorDesigner },
+        { label: '전기설계사', current: newElectricalDesigner, found: f.electricalDesigner, setter: setNewElectricalDesigner },
+        { label: '기계설계사', current: newMechanicalDesigner, found: f.mechanicalDesigner, setter: setNewMechanicalDesigner },
+        { label: '감리사', current: newSupervisor, found: f.supervisor, setter: setNewSupervisor },
+        { label: '운영사', current: newOperator, found: f.operator, setter: setNewOperator }
+      ];
+
+      let filledCount = 0;
+      const conflicts: { label: string; current: string; found: string; setter: (v: string) => void }[] = [];
+
+      fieldDefs.forEach((fd) => {
+        if (!fd.found) return;
+        const current = fd.current.trim();
+        if (!current) {
+          fd.setter(fd.found);
+          filledCount++;
+        } else if (fd.found !== current) {
+          conflicts.push({ label: fd.label, current, found: fd.found, setter: fd.setter });
+        }
+      });
+
+      if (conflicts.length > 0) {
+        const msg = `이미 입력된 아래 항목을 검색 결과로 바꿀까요?\n\n` +
+          conflicts.map((c) => `${c.label}: "${c.current}" → "${c.found}"`).join('\n') +
+          `\n\n확인을 누르면 검색 결과로 바뀌고, 취소를 누르면 기존 입력값이 그대로 유지됩니다.`;
+        if (window.confirm(msg)) {
+          conflicts.forEach((c) => c.setter(c.found));
+          filledCount += conflicts.length;
+        }
+      }
+
       setNewRelationsSearchNote(
-        foundCount > 0
-          ? `${foundCount}건을 찾아서 빈 칸에 채웠습니다. 내용은 직접 수정할 수 있어요.`
+        filledCount > 0
+          ? `${filledCount}건을 채웠습니다. 내용은 직접 수정할 수 있어요.`
           : '검색 결과에서 확인 가능한 참여사를 찾지 못했습니다. 직접 입력해주세요.'
       );
     } catch (err: any) {
@@ -930,39 +959,68 @@ export const ProjectsView: React.FC<Props> = ({
     }
   };
 
-  // [추가] 프로젝트 수정 폼에서 "AI로 참여사 찾기" 버튼 핸들러. 등록 폼과 동일한 로직이지만
-  // editingProject를 대상으로 하며, 저장(수정 완료) 전까지는 아직 서버에 반영되지 않고
-  // 폼 값만 채운다 - 확인 후 직접 수정하거나 그대로 "저장"을 눌러야 실제 반영된다.
+  // [수정] 프로젝트 수정 폼에서 "AI로 참여사 찾기" 버튼 핸들러. 등록 폼과 동일하게, 비어있는
+  // 칸은 바로 채우고 이미 값이 있는 칸은 검색 결과와 다를 때만 한 번 물어보고 확인해야
+  // 덮어쓴다. editingProject를 대상으로 하며, 저장(수정 완료) 전까지는 아직 서버에 반영되지
+  // 않고 폼 값만 채운다 - 확인 후 직접 수정하거나 그대로 "저장"을 눌러야 실제 반영된다.
   const handleSearchEditProjectRelations = async () => {
     if (!editingProject || !editingProject.name.trim() || isSearchingEditRelations) return;
+    const base = editingProject;
     setIsSearchingEditRelations(true);
     setEditRelationsSearchNote(null);
     try {
       const res = await fetch('/api/projects/relations-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectName: editingProject.name, endCustomer: editingProject.endCustomer, siteLocation: editingProject.siteLocation })
+        body: JSON.stringify({ projectName: base.name, endCustomer: base.endCustomer, siteLocation: base.siteLocation })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '검색에 실패했습니다.');
       const f = data.fields || {};
-      setEditingProject((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          contractor: !prev.contractor?.trim() && f.contractor ? f.contractor : prev.contractor,
-          architect: !prev.architect?.trim() && f.architect ? f.architect : prev.architect,
-          interiorDesigner: !prev.interiorDesigner?.trim() && f.interiorDesigner ? f.interiorDesigner : prev.interiorDesigner,
-          electricalDesigner: !prev.electricalDesigner?.trim() && f.electricalDesigner ? f.electricalDesigner : prev.electricalDesigner,
-          mechanicalDesigner: !prev.mechanicalDesigner?.trim() && f.mechanicalDesigner ? f.mechanicalDesigner : prev.mechanicalDesigner,
-          supervisor: !prev.supervisor?.trim() && f.supervisor ? f.supervisor : prev.supervisor,
-          operator: !prev.operator?.trim() && f.operator ? f.operator : prev.operator
-        };
+
+      const fieldDefs: { key: 'contractor' | 'architect' | 'interiorDesigner' | 'electricalDesigner' | 'mechanicalDesigner' | 'supervisor' | 'operator'; label: string }[] = [
+        { key: 'contractor', label: '시공사' },
+        { key: 'architect', label: '건축설계사' },
+        { key: 'interiorDesigner', label: '인테리어설계사' },
+        { key: 'electricalDesigner', label: '전기설계사' },
+        { key: 'mechanicalDesigner', label: '기계설계사' },
+        { key: 'supervisor', label: '감리사' },
+        { key: 'operator', label: '운영사' }
+      ];
+
+      const toFill: Partial<Project> = {};
+      let filledCount = 0;
+      const conflicts: { key: typeof fieldDefs[number]['key']; label: string; current: string; found: string }[] = [];
+
+      fieldDefs.forEach((fd) => {
+        const found = f[fd.key];
+        if (!found) return;
+        const current = (base[fd.key] || '').trim();
+        if (!current) {
+          (toFill as any)[fd.key] = found;
+          filledCount++;
+        } else if (found !== current) {
+          conflicts.push({ key: fd.key, label: fd.label, current, found });
+        }
       });
-      const foundCount = [f.contractor, f.architect, f.interiorDesigner, f.electricalDesigner, f.mechanicalDesigner, f.supervisor, f.operator].filter(Boolean).length;
+
+      if (conflicts.length > 0) {
+        const msg = `이미 입력된 아래 항목을 검색 결과로 바꿀까요?\n\n` +
+          conflicts.map((c) => `${c.label}: "${c.current}" → "${c.found}"`).join('\n') +
+          `\n\n확인을 누르면 검색 결과로 바뀌고, 취소를 누르면 기존 입력값이 그대로 유지됩니다.`;
+        if (window.confirm(msg)) {
+          conflicts.forEach((c) => { (toFill as any)[c.key] = c.found; });
+          filledCount += conflicts.length;
+        }
+      }
+
+      if (Object.keys(toFill).length > 0) {
+        setEditingProject((prev) => (prev ? { ...prev, ...toFill } : prev));
+      }
+
       setEditRelationsSearchNote(
-        foundCount > 0
-          ? `${foundCount}건을 찾아서 빈 칸에 채웠습니다. 내용은 직접 수정할 수 있어요.`
+        filledCount > 0
+          ? `${filledCount}건을 채웠습니다. 내용은 직접 수정할 수 있어요.`
           : '검색 결과에서 확인 가능한 참여사를 찾지 못했습니다. 직접 입력해주세요.'
       );
     } catch (err: any) {
