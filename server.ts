@@ -6495,6 +6495,65 @@ app.get('/api/admin-docs/bank-deposit-candidates', (req, res) => {
   res.json(candidates);
 });
 
+// [추가] 프로젝트 탭 > 원가계산서: 직접원가/간접원가/일반관리비 세부 항목(원재료비, 외주
+// 가공비, 간접노무비 등)을 통장 출금내역·카드사용내역에서 "자동 불러오기"로 채울 수
+// 있도록, 특정 프로젝트(projectId)에 연결되고 원가 항목(costCategory)이 태그된 거래를
+// 전부 찾아 후보로 돌려준다. 위 bank-withdrawal-candidates 등과 같은 패턴이지만,
+// 프로젝트와 원가 항목이 둘 다 일치하는 거래만 추린다는 점이 다르다 - 태그는 있는데
+// 프로젝트 연결이 없거나, 프로젝트는 연결됐는데 태그가 없는 거래는 후보에서 빠진다.
+app.get('/api/admin-docs/project-cost-candidates', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const projectId = req.query.projectId as string;
+  if (!projectId) return res.status(400).json({ error: 'projectId가 필요합니다.' });
+  const dbData = getScopedData(req);
+
+  const candidates: {
+    sourceKey: string;
+    sourceLabel: string;
+    date: string;
+    amount: number;
+    category: string;
+    memo?: string;
+  }[] = [];
+
+  for (const doc of (dbData.adminDocs || [])) {
+    if (doc.category === 'bank_withdrawal' && doc.bankLedger) {
+      for (const acc of (doc.bankLedger.accounts || [])) {
+        for (const entry of (acc.entries || [])) {
+          if (entry.projectId !== projectId || !entry.costCategory) continue;
+          candidates.push({
+            sourceKey: `bank_withdrawal_entry:${doc.id}:${entry.id}`,
+            sourceLabel: '통장 출금 내역',
+            date: entry.date,
+            amount: Number(entry.amount) || 0,
+            category: entry.costCategory,
+            memo: [entry.description, entry.note].filter(Boolean).join(' · ')
+          });
+        }
+      }
+    }
+    if (doc.category === 'card_usage' && doc.cardUsage) {
+      for (const card of (doc.cardUsage.cards || [])) {
+        for (const entry of (card.entries || [])) {
+          if (entry.projectId !== projectId || !entry.costCategory) continue;
+          candidates.push({
+            sourceKey: `card_usage_entry:${doc.id}:${card.id}:${entry.id}`,
+            sourceLabel: '카드사용내역',
+            date: entry.date,
+            amount: Number(entry.amount) || 0,
+            category: entry.costCategory,
+            memo: entry.note
+          });
+        }
+      }
+    }
+  }
+
+  candidates.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  res.json(candidates);
+});
+
 // [추가] 프로젝트 탭 > 손익계산서: 프로젝트별로 실제 입금(수입)과 지출(카드 사용 + 팔로우업
 // 지출)을 자동으로 모아서 최종 수익금/수익률을 계산해준다. 수입은 회계관리 > 통장 입금
 // 내역에서 projectId가 이 프로젝트로 연결된 항목의 합, 지출은 (1) 회계관리 > 법인카드 사용
