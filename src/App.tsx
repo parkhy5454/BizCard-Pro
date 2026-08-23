@@ -627,6 +627,7 @@ export default function App() {
                   setSelectedContactDetail(c);
                 }}
                 onNavigateToProjects={() => setActiveTab('projects')}
+                onOpenProject={handleOpenProjectFromSearch}
               />
             )}
           </>
