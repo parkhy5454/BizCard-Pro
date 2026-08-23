@@ -249,7 +249,8 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'advance_payment', label: '가지급내역', personLabel: '인원', showAmount: true },
     { id: 'vehicle_fine', label: '차량 과태료 내역', personLabel: '차량', showAmount: true },
     { id: 'tax', label: '각종 세금', personLabel: '내역', showAmount: true },
-    { id: 'management_fee', label: '관리비내역', personLabel: '호실', showAmount: true }
+    { id: 'management_fee', label: '관리비내역', personLabel: '호실', showAmount: true },
+    { id: 'incentive', label: '인센티브(상여금)', personLabel: '수령자', showAmount: true }
   ]
 };
 
@@ -425,6 +426,10 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       })
     };
   })() : undefined,
+  // [추가] 인센티브 및 명절 상여금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  incentive: category === 'incentive' ? {
+    entries: [{ id: `inc-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: 0, method: '현금' as const, description: '', note: '' }]
+  } : undefined,
   // [추가] 현금 흐름 기본값. "연도 하나 = 문서 하나"라서 대상 연도를 먼저 잡고, INFLOWS/
   // OUTFLOWS는 빈 줄 하나씩만 미리 넣어두고 "행 추가"로 늘리게 하며, 경비는 실제로 자주
   // 쓰시는 네 그룹(급여/소득공제, 사업 경비, 부채, 기타 경비)과 각 그룹의 흔한 항목들을
@@ -895,6 +900,19 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   });
   const managementFeeYears: string[] = Array.from(managementFeeYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
 
+  // [추가] 인센티브 및 명절 상여금 - 차량 과태료 내역과 같은 방식으로, 문서를 여러 개로
+  // 나눠 등록했거나 한 문서에 여러 건을 같이 넣어뒀어도 상관없이 전체 문서의 모든 항목을
+  // 일자 기준 연도로 모을 수 있게 미리 연도 목록을 뽑아둔다.
+  const incentiveDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'incentive' && d.incentive);
+  const incentiveYearSet = new Set<string>();
+  incentiveDocs.forEach((d) => {
+    (d.incentive?.entries || []).forEach((e) => {
+      const y = (e.date || d.date || '').slice(0, 4);
+      if (y) incentiveYearSet.add(y);
+    });
+  });
+  const incentiveYears: string[] = Array.from(incentiveYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
   // [추가] 회계관리 > 카드사용내역에서 "카드명/카드번호/소지자"를 매번 직접 타이핑하지 않고,
   // 경영지원 > 법인카드 관리에 이미 등록된 카드 목록에서 골라 그대로 연동해 채울 수 있도록
   // 전체 문서에서 corp_card 카드 목록을 모아 카드사+카드번호 기준으로 중복 제거한다.
@@ -1173,6 +1191,126 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const a = document.createElement('a');
     a.href = url;
     a.download = `${printingDoc.title || '차량_과태료_내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 인센티브 및 명절 상여금 - "개별이 아니라 년도별로 보이게" 요청에 맞춰, 문서
+  // 여러 개(또는 한 문서 안의 여러 건)에 나눠 등록된 항목들을 일자 기준으로 선택한 연도에
+  // 해당하는 것만 전부 모아 한 표(인쇄 화면)로 보여준다. 차량 과태료 내역과 같은 패턴 -
+  // 실제 문서는 그대로 두고, 보여줄 때만 화면에서 합친다.
+  const handleViewAllIncentives = () => {
+    const targetYear = incentiveMergeYear || incentiveYears[0];
+    if (!targetYear) return;
+
+    const matchesYear = (e: NonNullable<AdminDoc['incentive']>['entries'][number], docDate?: string) =>
+      (e.date || docDate || '').slice(0, 4) === targetYear;
+
+    const docsWithMatch = incentiveDocs.filter((d) => (d.incentive?.entries || []).some((e) => matchesYear(e, d.date)));
+    const base = docsWithMatch[0] || incentiveDocs[0];
+    if (!base) return;
+
+    const mergedEntries = incentiveDocs
+      .flatMap((d) => (d.incentive?.entries || []).map((e) => ({ entry: e, docDate: d.date })))
+      .filter(({ entry, docDate }) => matchesYear(entry, docDate))
+      .sort((a, b) => (a.entry.date || '').localeCompare(b.entry.date || ''))
+      .map(({ entry }, i) => ({ ...entry, id: `merged-${i}-${entry.id}` }));
+    if (mergedEntries.length === 0) return;
+
+    setPrintingDoc({
+      ...base,
+      id: `merged-incentive-${targetYear}`,
+      title: `${targetYear}년 인센티브 및 명절 상여금`,
+      memo: undefined,
+      incentive: { entries: mergedEntries },
+    });
+  };
+
+  // [추가] 인센티브 및 명절 상여금 인쇄 화면(renderPrintableIncentive)을 그대로 엑셀로도
+  // 받을 수 있게 한다. 차량 과태료 내역 엑셀 출력(handleExportVehicleFineExcel)과 같은
+  // 방식 - 서식 쓰기가 되는 exceljs로 노란 헤더/합계 행 배경색을 그대로 재현한다.
+  const handleExportIncentiveExcel = async () => {
+    if (!printingDoc || !printingDoc.incentive) return;
+    const inc = printingDoc.incentive;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('인센티브_및_명절_상여금', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['일자', '금액', '현금/상품권/기타', '내역', '비고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    inc.entries.forEach((e, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [fmtDate(e.date), Number(e.amount) || 0, e.method || '', e.description || '', e.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'right' : (colIdx === 3 ? 'left' : 'center'), wrapText: colIdx === 3 };
+        if (colIdx === 1) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = inc.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + inc.entries.length;
+    ws.mergeCells(totalRowIdx, 3, totalRowIdx, colCount);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(2);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      inc.entries.forEach((e) => {
+        const v = [fmtDate(e.date), formatCurrencyInput(e.amount || 0), e.method, e.description, e.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 3 ? 40 : 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '인센티브_및_명절_상여금'}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1810,6 +1948,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 관리비내역 - "호실 전체 합쳐보기"에서 고를 대상 연도
   const [managementFeeMergeYear, setManagementFeeMergeYear] = useState('');
+
+  // [추가] 인센티브 및 명절 상여금 - "연도별로 모아보기"에서 고를 대상 연도
+  const [incentiveMergeYear, setIncentiveMergeYear] = useState('');
 
   // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기"에서 고를 대상 통장(은행+계좌번호)
   const [bankAccountMergeKey, setBankAccountMergeKey] = useState('');
@@ -2581,6 +2722,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     updateTaxEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
   };
 
+  // [추가] 인센티브 및 명절 상여금 - 항목 추가/삭제/수정 (건별로 여러 줄, 각종 세금과 같은 패턴)
+  type IncentiveRow = NonNullable<AdminDoc['incentive']>['entries'][number];
+  const updateIncentiveEntries = (updater: (entries: IncentiveRow[]) => IncentiveRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const incentive = prev.incentive || { entries: [] };
+      return { ...prev, incentive: { ...incentive, entries: updater(incentive.entries || []) } };
+    });
+  };
+  const addIncentiveEntry = () => {
+    updateIncentiveEntries((entries) => [...entries, { id: `inc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], amount: 0, method: '현금', description: '', note: '' }]);
+  };
+  const removeIncentiveEntry = (id: string) => {
+    updateIncentiveEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateIncentiveEntry = (id: string, patch: Partial<IncentiveRow>) => {
+    updateIncentiveEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
   // [추가] "자동 불러오기" - 회계관리 > 통장 출금 내역에서 실제 세금 납부 건만 골라
   // 지금 편집 중인 각종 세금 내역에 항목으로 채워 넣는다 (차량 과태료 내역과 같은 패턴).
   type TaxImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
@@ -2974,6 +3134,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       // [추가] 관리비내역은 호실×월 전체 칸(직접입력+자동반영)의 총 합계를 amount 칸에 표시한다.
       if (payload.category === 'management_fee' && payload.managementFee) {
         payload.amount = String(managementGrandTotal(payload.managementFee));
+      }
+      // [추가] 인센티브 및 명절 상여금은 전체 지급 합계를 amount 칸에 표시한다.
+      if (payload.category === 'incentive' && payload.incentive) {
+        const total = payload.incentive.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        payload.amount = String(total);
       }
       // [추가] 근로계약서는 월 급여 합계를 amount 칸에 표시하고, 근로자 이름을 검색 대상인
       // personName에도 반영해서 다른 서류들처럼 이름으로 검색할 수 있게 한다.
@@ -3758,6 +3923,58 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     );
   };
 
+  // [추가] 인센티브 및 명절 상여금 인쇄용 화면. 공유해주신 "인센티브 및 명절 상여금" 양식대로
+  // 일자/금액/현금·상품권·기타 구분/내역/비고 열로 표를 그리고, 맨 아래 합계 행을 넣는다.
+  const renderPrintableIncentive = () => {
+    if (!printingDoc || !printingDoc.incentive) return null;
+    const inc = printingDoc.incentive;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const total = inc.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const isMerged = printingDoc.id.startsWith('merged-incentive-');
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>{printingDoc.title}</h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 문서별로 나눠 등록하신 인센티브 및 명절 상여금 내역 중 일자가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>현금/상품권/기타</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>내역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {inc.entries.map((e) => (
+              <tr key={e.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.date)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.method}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{e.description}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
   // [추가] 현금 흐름 - INFLOWS 표 인쇄/PDF·엑셀 화면. 공유해주신 양식(NO/프로젝트명/
   // 프로젝트 수주자/계약금(VAT포함)/잔여기성/전년도/1~12월 + 합계(1))을 그대로 재현한다.
   const renderCashFlowInflowsTable = (cf: CashFlowAnnual) => {
@@ -4463,6 +4680,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
     if (printingDoc.category === 'advance_payment') return renderPrintableAdvancePayment();
     if (printingDoc.category === 'vehicle_fine') return renderPrintableVehicleFine();
+    if (printingDoc.category === 'incentive') return renderPrintableIncentive();
     if (printingDoc.category === 'cash_flow') return renderPrintableCashFlow();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
@@ -4670,6 +4888,31 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         </div>
       )}
 
+      {/* [추가] 인센티브 및 명절 상여금 - 문서를 여러 개로 나눠 등록하거나 한 문서에 여러
+      건을 같이 넣어둬도, 일자 기준으로 선택한 연도의 건을 전부 모아 한 페이지(표)로
+      인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'incentive' && incentiveYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={incentiveMergeYear || incentiveYears[0]}
+            onChange={(e) => setIncentiveMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {incentiveYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllIncentives}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            연도별로 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
       {/* 목록 */}
       {loading ? (
         <div className="text-center py-12 text-sm text-slate-400">불러오는 중...</div>
@@ -4719,7 +4962,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -6402,6 +6645,84 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   </div>
                 )}
 
+                {/* [추가] 인센티브 및 명절 상여금 전용 입력. 공유해주신 "인센티브 및 명절
+                상여금" 양식과 동일하게 일자/금액/현금·상품권·기타 구분/내역/비고로 건별
+                여러 줄을 입력하는 단순한 표(각종 세금과 같은 패턴). */}
+                {activeCategory === 'incentive' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">인센티브 및 명절 상여금 내역</label>
+                      <button type="button" onClick={addIncentiveEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 항목 추가
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.incentive?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">일자</label>
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateIncentiveEntry(e.id, { date: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[90px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">금액</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateIncentiveEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="금액"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">현금/상품권/기타</label>
+                              <select
+                                value={e.method || '현금'}
+                                onChange={(ev) => updateIncentiveEntry(e.id, { method: ev.target.value as '현금' | '상품권' | '기타' })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              >
+                                <option value="현금">현금</option>
+                                <option value="상품권">상품권</option>
+                                <option value="기타">기타</option>
+                              </select>
+                            </div>
+                            <button type="button" onClick={() => removeIncentiveEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <input
+                              type="text"
+                              value={e.description}
+                              onChange={(ev) => updateIncentiveEntry(e.id, { description: ev.target.value })}
+                              placeholder="내역 (예: 박현용 구정 보너스)"
+                              className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={e.note || ''}
+                              onChange={(ev) => updateIncentiveEntry(e.id, { note: ev.target.value })}
+                              placeholder="비고"
+                              className="flex-1 min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.incentive?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
                 {/* [추가] 관리비내역 전용 입력. 가지급내역과 완전히 같은 구조(호실(열) × 월(행)
                 표)를 그대로 쓴다. 관리비는 통장에서 보통 한 번에 통합 출금되므로, "자동
                 불러오기"는 이름 자동 매칭 대신 사람이 먼저 대상 호실을 고르는 방식이다. */}
@@ -7870,6 +8191,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'vehicle_fine' && (
             <button
               onClick={handleExportVehicleFineExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'incentive' && (
+            <button
+              onClick={handleExportIncentiveExcel}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
