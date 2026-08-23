@@ -6040,7 +6040,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* [수정] "연차 현황", "현금 흐름"처럼 관련자 항목 자체가 없는(personLabel: '')
+                서류 종류는, 아래에 각자 전용 입력 블록(대상 연도 등)이 따로 있으므로 여기서
+                빈 라벨의 관련자 칸을 만들지 않는다 — 그렇지 않으면 그 전용 블록 바로 위에
+                이름 없는 빈 칸이 하나 더 떠서 화면이 틀어져 보인다. 날짜 칸은 그대로 두되
+                이 경우엔 한 줄 전체 폭으로 넓힌다. */}
+                <div className={activeConfig.personLabel ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">날짜</label>
                     <input
@@ -6050,26 +6055,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">{activeConfig.personLabel}</label>
-                    {/* [수정] 차량 과태료 내역에서는 이 "차량"도 통합 차량관리 등록 차량에서
-                    골라 쓸 수 있게 한다(다른 서류 종류는 기존 자유 입력 그대로 유지). */}
-                    {activeCategory === 'vehicle_fine' ? (
-                      <VehicleSearchInput
-                        vehicles={vehicles}
-                        value={editingDoc.personName || ''}
-                        onChange={(v) => setEditingDoc({ ...editingDoc, personName: v })}
-                        inputClassName="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={editingDoc.personName || ''}
-                        onChange={(e) => setEditingDoc({ ...editingDoc, personName: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
-                      />
-                    )}
-                  </div>
+                  {activeConfig.personLabel && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{activeConfig.personLabel}</label>
+                      {/* [수정] 차량 과태료 내역에서는 이 "차량"도 통합 차량관리 등록 차량에서
+                      골라 쓸 수 있게 한다(다른 서류 종류는 기존 자유 입력 그대로 유지). */}
+                      {activeCategory === 'vehicle_fine' ? (
+                        <VehicleSearchInput
+                          vehicles={vehicles}
+                          value={editingDoc.personName || ''}
+                          onChange={(v) => setEditingDoc({ ...editingDoc, personName: v })}
+                          inputClassName="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={editingDoc.personName || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, personName: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* [추가] 급여명세서 전용 구조화 입력: 회사에서 실제로 쓰는 양식(사원코드/입사일/
