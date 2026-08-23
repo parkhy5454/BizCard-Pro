@@ -498,9 +498,17 @@ export const Navigation: React.FC<Props> = ({
             </button>
           </nav>
 
+          {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이
+          똑같은 알약형 버튼 스타일이라 구분이 잘 안 된다는 지적이 있었다. 하위 줄이 있는
+          탭에서만 얇은 구분선을 하나 그어서, 상위 탭과 하위 버튼 줄이 서로 다른 영역임을
+          명확히 나눈다. */}
+          {['cards', 'groups', 'io', 'nearby', 'projects'].includes(activeTab) && (
+            <div className="w-full border-t border-slate-200" />
+          )}
+
           {/* 명함 등록 / 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (전체 명함과 이 줄에서 이동하는 탭들에서 계속 노출) */}
           {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full p-1.5 bg-slate-100 border border-slate-200 rounded-xl scrollbar-none">
             <button
               onClick={onOpenScanModal}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95"
@@ -523,7 +531,7 @@ export const Navigation: React.FC<Props> = ({
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'groups'
                   ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200'
               }`}
             >
               <FolderTree className="w-4 h-4 text-amber-400" />
@@ -535,7 +543,7 @@ export const Navigation: React.FC<Props> = ({
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'io'
                   ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200'
               }`}
             >
               <ArrowDownUp className="w-4 h-4 text-emerald-400" />
@@ -555,7 +563,7 @@ export const Navigation: React.FC<Props> = ({
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'nearby'
                   ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200'
               }`}
             >
               <MapPin className="w-4 h-4 text-rose-400 animate-bounce" />
@@ -596,7 +604,7 @@ export const Navigation: React.FC<Props> = ({
 
           {/* 프로젝트 탭일 때: 새 프로젝트 등록 버튼 (상태필터 위) */}
           {activeTab === 'projects' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-none">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full p-1.5 bg-slate-100 border border-slate-200 rounded-xl scrollbar-none">
               <button
                 onClick={onOpenNewProject}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95"
@@ -657,7 +665,7 @@ export const Navigation: React.FC<Props> = ({
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
                   projectsViewMode === 'listOutput'
                     ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                    : 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600'
+                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -675,7 +683,7 @@ export const Navigation: React.FC<Props> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
                     projectsViewMode === 'pnl'
                       ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                      : 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600'
+                      : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
                   }`}
                 >
                   <Calculator className="w-4 h-4" />
@@ -689,7 +697,7 @@ export const Navigation: React.FC<Props> = ({
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
                   projectsViewMode === 'pipeline'
                     ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                    : 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600'
+                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
