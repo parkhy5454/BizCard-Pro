@@ -6038,6 +6038,94 @@ app.delete('/api/approvals/advance/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] "연차 현황"이 전자결재 > 휴가 신청서와 자동으로 연동되도록 - 휴가 신청서가
+// 최종 승인(status === 'approved', leaveCategory === 'annual')되는 순간, 사람이 수동으로
+// "전자결재에서 불러오기" 버튼을 누르지 않아도 자동으로 그 해의 "연차 현황" 문서에 반영한다.
+// 업무일지 차량비용 동기화(syncWorkLogExpenses)와 같은 방식으로, 여기서는 dbData만 직접
+// 고쳐놓고 실제 저장(setScopedDoc)은 호출한 쪽에서 한다.
+function findOrCreateAnnualLeaveStatusDoc(dbData: any, year: string): AdminDoc {
+  dbData.adminDocs = dbData.adminDocs || [];
+  let doc = dbData.adminDocs.find((d: AdminDoc) => d.category === 'annual_leave_status' && d.annualLeaveStatus?.year === year);
+  if (!doc) {
+    doc = {
+      id: `adoc-al-${year}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      section: 'management',
+      category: 'annual_leave_status',
+      title: `${year}년 연차 현황`,
+      date: `${year}-01-01`,
+      createdAt: new Date().toISOString(),
+      annualLeaveStatus: { year, people: [] }
+    } as AdminDoc;
+    dbData.adminDocs.unshift(doc);
+  }
+  if (!doc.annualLeaveStatus) doc.annualLeaveStatus = { year, people: [] };
+  return doc;
+}
+
+// 승인된 연차 신청서 1건을 "연차 현황"의 해당 연도 문서에 반영(같은 이름의 직원이 이미
+// 있으면 그 사람의 연차 사용 내역에 추가/갱신, 없으면 새 직원 줄을 만들어 추가)한다.
+// 승인 상태가 아니거나 연차(annual)가 아니면 아무 것도 하지 않고 null을 반환한다.
+function syncApprovedAnnualLeaveToStatus(dbData: any, leaveReq: LeaveRequest): AdminDoc | null {
+  if (leaveReq.status !== 'approved' || leaveReq.leaveCategory !== 'annual') return null;
+  const author = (leaveReq.author || '').trim();
+  if (!author || !leaveReq.startDate) return null;
+  const year = leaveReq.startDate.slice(0, 4);
+  const doc = findOrCreateAnnualLeaveStatusDoc(dbData, year);
+  const sourceKey = `leave_request:${leaveReq.id}`;
+
+  let person = doc.annualLeaveStatus!.people.find((p) => (p.name || '').trim() === author);
+  if (!person) {
+    person = {
+      id: `alp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: author,
+      hireDate: '',
+      totalAnnualDays: leaveReq.totalAnnualDays || 0,
+      leaveEntries: [],
+      overtimeEntries: [],
+      substituteEntries: []
+    };
+    doc.annualLeaveStatus!.people.push(person);
+  } else if (!person.totalAnnualDays && leaveReq.totalAnnualDays) {
+    person.totalAnnualDays = leaveReq.totalAnnualDays;
+  }
+
+  const entryPatch = {
+    startDate: leaveReq.startDate,
+    endDate: leaveReq.endDate,
+    days: leaveReq.days,
+    note: leaveReq.reason || '',
+    sourceKey,
+    sourceLabel: '전자결재 휴가 신청서'
+  };
+  const existingIdx = person.leaveEntries.findIndex((e) => e.sourceKey === sourceKey);
+  if (existingIdx === -1) {
+    person.leaveEntries.push({ id: `ale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ...entryPatch });
+  } else {
+    person.leaveEntries[existingIdx] = { ...person.leaveEntries[existingIdx], ...entryPatch };
+  }
+  return doc;
+}
+
+// 승인 취소/반려, 연차→다른 종류로 변경, 대상 연도 변경 등으로 더 이상 자동 반영 대상이
+// 아니게 된 신청서가 예전에 자동으로 채워 넣었던 내역을 전부 찾아서 지운다. 연도가 바뀐
+// 경우까지 놓치지 않도록 모든 "연차 현황" 문서를 훑는다.
+function removeSyncedAnnualLeaveEntry(dbData: any, leaveReqId: string): AdminDoc[] {
+  dbData.adminDocs = dbData.adminDocs || [];
+  const sourceKey = `leave_request:${leaveReqId}`;
+  const affected: AdminDoc[] = [];
+  for (const doc of dbData.adminDocs) {
+    if (doc.category !== 'annual_leave_status' || !doc.annualLeaveStatus) continue;
+    let changed = false;
+    for (const person of doc.annualLeaveStatus.people) {
+      const before = person.leaveEntries.length;
+      person.leaveEntries = person.leaveEntries.filter((e: any) => e.sourceKey !== sourceKey);
+      if (person.leaveEntries.length !== before) changed = true;
+    }
+    if (changed) affected.push(doc);
+  }
+  return affected;
+}
+
 // 전자결재: 휴가 신청서 CRUD
 app.get('/api/approvals/leave', (req, res) => {
   const dbData = getScopedData(req);
@@ -6055,7 +6143,14 @@ app.post('/api/approvals/leave', async (req, res) => {
 
   dbData.leaveRequests = dbData.leaveRequests || [];
   dbData.leaveRequests.unshift(doc);
-  await setScopedDoc(scopeId, 'leaveRequests', doc);
+
+  // [추가] 등록과 동시에 이미 승인 상태로 만들어지는 경우(드물지만)에 대비해 여기서도 동기화한다.
+  const syncedAnnualLeaveDocOnCreate = syncApprovedAnnualLeaveToStatus(dbData, doc);
+
+  await Promise.all([
+    setScopedDoc(scopeId, 'leaveRequests', doc),
+    ...(syncedAnnualLeaveDocOnCreate ? [setScopedDoc(scopeId, 'adminDocs', syncedAnnualLeaveDocOnCreate)] : [])
+  ]);
   res.status(201).json(doc);
 
   notifyNextApproverIfChanged(scopeId, '휴가 신청서', doc.draftNumber, doc.author, doc.approvalLine, doc.status)
@@ -6075,7 +6170,21 @@ app.put('/api/approvals/leave/:id', async (req, res) => {
   }
   const updated = { ...before, ...req.body, updatedAt: new Date().toISOString() };
   dbData.leaveRequests[idx] = updated;
-  await setScopedDoc(scopeId, 'leaveRequests', updated);
+
+  // [추가] "연차 현황" 자동 동기화 - 이전에 자동으로 넣어줬던 내역을 먼저 지운 뒤(대상
+  // 연도가 바뀐 경우까지 포함), 지금 상태 기준으로 다시 반영한다. 최종 승인 상태가 아니게
+  // 됐으면 removeSyncedAnnualLeaveEntry만 효과가 있고 syncApprovedAnnualLeaveToStatus는
+  // null을 반환해 아무 것도 새로 넣지 않는다.
+  const removedAnnualLeaveDocs = removeSyncedAnnualLeaveEntry(dbData, updated.id);
+  const syncedAnnualLeaveDoc = syncApprovedAnnualLeaveToStatus(dbData, updated);
+  const affectedAnnualLeaveDocs = new Map<string, AdminDoc>();
+  for (const d of removedAnnualLeaveDocs) affectedAnnualLeaveDocs.set(d.id, d);
+  if (syncedAnnualLeaveDoc) affectedAnnualLeaveDocs.set(syncedAnnualLeaveDoc.id, syncedAnnualLeaveDoc);
+
+  await Promise.all([
+    setScopedDoc(scopeId, 'leaveRequests', updated),
+    ...Array.from(affectedAnnualLeaveDocs.values()).map((d) => setScopedDoc(scopeId, 'adminDocs', d))
+  ]);
   res.json(updated);
 
   notifyNextApproverIfChanged(scopeId, '휴가 신청서', updated.draftNumber, updated.author, updated.approvalLine, updated.status, before.approvalLine)
