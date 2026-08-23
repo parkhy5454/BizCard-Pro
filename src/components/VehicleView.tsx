@@ -3167,7 +3167,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors"
                   >
                     <Camera className="w-4 h-4" />
-                    <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 촬영 (자동으로 아래 항목 채움)'}</span>
+                    <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 촬영'}</span>
                   </button>
                   {newExpense.receiptImage && (
                     <img
@@ -3625,7 +3625,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors"
                   >
                     <Camera className="w-4 h-4" />
-                    <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '정비 영수증/청구서 촬영 (자동으로 아래 항목 채움)'}</span>
+                    <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '영수증/청구서 촬영'}</span>
                   </button>
                   {newMaint.receiptImage && (
                     <img
@@ -4486,7 +4486,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div>
                   <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <FileText className="w-4 h-4 text-indigo-400" />
-                    <span>국세청(NTS) 제출용 업무용승용차 운행기록부 서식</span>
+                    <span>국세청(NTS) 제출용 운행기록부 서식</span>
                   </h2>
                 </div>
                 
