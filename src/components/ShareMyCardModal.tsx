@@ -124,7 +124,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
     : 'https://bizcard-pro.onrender.com/kakao-share-thumb.png';
 
   // 공유 메시지 텍스트 (링크를 포함해서, 문자/이메일/트위터로 보내도 상대방이 눌러서 실제 명함 페이지를 볼 수 있게 한다)
-  const shareMessage = `[디지털 명함 전달]\n${profile.company} ${profile.department} ${profile.name} ${profile.title}\n📞 핸드폰: ${profile.phoneMobile}\n📧 이메일: ${profile.email}\n🏢 주소: ${profile.address}\n🔗 명함 보기: ${shareUrl}`;
+  const shareMessage = `${profile.company} ${profile.department} ${profile.name} ${profile.title}\n📞 핸드폰: ${profile.phoneMobile}\n📧 이메일: ${profile.email}\n🏢 주소: ${profile.address}\n🔗 명함 보기: ${shareUrl}`;
 
   // 카카오톡 공유: 카카오 JS SDK를 최초 1회만 지연 로딩 후 초기화
   const KAKAO_JS_KEY = 'cb1b045b76bfb5a7d4deaf6985b50a2a';
