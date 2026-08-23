@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check } from 'lucide-react';
-import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectFollowUpAttachment, User, Vehicle } from '../types.js';
+import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 
 interface Props {
@@ -5482,6 +5482,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 placeholder="프로젝트"
                                 className="flex-1 min-w-[90px]"
                               />
+                              {/* [추가] 프로젝트가 연결된 거래만, 원가계산서의 어느 항목(원재료비/
+                              외주가공비 등)에 해당하는 지출인지 태그할 수 있게 한다 - 원가계산서
+                              "자동 불러오기"가 이 값과 프로젝트를 기준으로 거래를 찾는다. */}
+                              {e.projectId && (
+                                <select
+                                  value={e.costCategory || ''}
+                                  onChange={(ev) => updateBankEntry(acc.id, e.id, { costCategory: (ev.target.value || undefined) as ProjectCostCategory | undefined })}
+                                  className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                >
+                                  <option value="">원가 항목 (선택 안 함)</option>
+                                  {PROJECT_COST_CATEGORY_ORDER.map((c) => (
+                                    <option key={c} value={c}>{PROJECT_COST_CATEGORY_LABELS[c]}</option>
+                                  ))}
+                                </select>
+                              )}
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -5921,6 +5936,20 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 placeholder="프로젝트명"
                                 className="flex-1 min-w-[90px]"
                               />
+                              {/* [추가] 통장 출금 내역과 같은 이유 - 프로젝트가 연결된 사용 건만
+                              원가계산서 항목을 태그할 수 있게 한다. */}
+                              {e.projectId && (
+                                <select
+                                  value={e.costCategory || ''}
+                                  onChange={(ev) => updateCardEntry(c.id, e.id, { costCategory: (ev.target.value || undefined) as ProjectCostCategory | undefined })}
+                                  className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                >
+                                  <option value="">원가 항목 (선택 안 함)</option>
+                                  {PROJECT_COST_CATEGORY_ORDER.map((c2) => (
+                                    <option key={c2} value={c2}>{PROJECT_COST_CATEGORY_LABELS[c2]}</option>
+                                  ))}
+                                </select>
+                              )}
                               <input
                                 type="text"
                                 value={e.user || ''}

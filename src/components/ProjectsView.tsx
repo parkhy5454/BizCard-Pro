@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem, ProjectCostSheet } from '../types.js';
+import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem, ProjectCostSheet, ProjectCostSheetAmount, ProjectCostCategory, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER } from '../types.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -34,6 +34,9 @@ const escapeHtml = (value: unknown): string => {
 // 계산)을 그대로 반영한 순수 함수들 - 개별 보기(입력폼)와 전체 보기(요약표) 양쪽에서
 // 똑같은 계산식을 써야 하므로 한 곳에 모아둔다. AdminDocsView.tsx의 cfCellTotal 등과
 // 같은 패턴(컴포넌트 바깥의 순수 함수, 저장은 입력값만 하고 합계는 항상 다시 계산).
+// [추가] 직접원가/간접원가/일반관리비 세부 항목의 빈 값 - manual(직접 입력) 0에 자동
+// 불러온 내역(imported) 없음으로 시작한다.
+const emptyCostAmount = (): ProjectCostSheetAmount => ({ manual: 0, imported: [] });
 const emptyCostSheet = (): ProjectCostSheet => ({
   orderer: '',
   contractNumber: '',
@@ -43,24 +46,55 @@ const emptyCostSheet = (): ProjectCostSheet => ({
   preparedDept: '',
   contractRevenue: 0,
   additionalRevenue: 0,
-  rawMaterialCost: 0,
-  outsourcingCost: 0,
-  directLaborCost: 0,
-  directExpense: 0,
-  indirectLaborCost: 0,
-  depreciationCost: 0,
-  qualityControlCost: 0,
-  logisticsCost: 0,
-  laborAllocationCost: 0,
-  rentCost: 0,
-  commsItCost: 0,
-  legalAccountingCost: 0,
-  otherAdminCost: 0,
+  rawMaterialCost: emptyCostAmount(),
+  outsourcingCost: emptyCostAmount(),
+  directLaborCost: emptyCostAmount(),
+  directExpense: emptyCostAmount(),
+  indirectLaborCost: emptyCostAmount(),
+  depreciationCost: emptyCostAmount(),
+  qualityControlCost: emptyCostAmount(),
+  logisticsCost: emptyCostAmount(),
+  laborAllocationCost: emptyCostAmount(),
+  rentCost: emptyCostAmount(),
+  commsItCost: emptyCostAmount(),
+  legalAccountingCost: emptyCostAmount(),
+  otherAdminCost: emptyCostAmount(),
   appliedPostSalesCost: 0,
   contractRevenueNote: 'VAT 별도',
   totalRevenueNote: '손익 기준',
   appliedPostSalesNote: '낮은 금액 적용'
 });
+
+// [추가] 통장 출금내역/카드사용내역에서 이 프로젝트 이 항목으로 태그된 거래를 "자동
+// 불러오기"로 채우는 대상 13개 필드 키. 관리비내역/가지급내역과 같은 이유로 순서/이름을
+// 한 곳(types.ts)에서 관리한다.
+const COST_SHEET_CATEGORY_FIELDS = PROJECT_COST_CATEGORY_ORDER;
+
+// [추가] 위 13개 항목은 예전엔 그냥 숫자(number)로 저장했는데, "자동 불러오기"를 다시
+// 눌러도 직접 입력해둔 값을 잃지 않으려면 manual+imported 구조가 필요해서 타입을
+// 바꿨다. 예전에 저장된 문서는 여전히 숫자일 수 있으므로, 숫자/객체/undefined 세 가지
+// 형태를 모두 안전하게 합계 내는 헬퍼로만 이 필드들을 읽는다 - 절대 cs.xxx를 직접
+// 숫자로 취급하지 않는다.
+const csFieldTotal = (v: ProjectCostSheetAmount | number | undefined | null): number => {
+  if (v == null) return 0;
+  if (typeof v === 'number') return v;
+  const imported = (v.imported || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
+  return (Number(v.manual) || 0) + imported;
+};
+// 위와 같은 이유로, 기존 저장 데이터(숫자)를 새 화면에서 편집할 때는 manual 칸에 그
+// 숫자를 그대로 옮겨서 시작한다(자동 불러온 내역은 없는 것으로 취급 - 처음부터 없었으므로).
+const normalizeCostAmount = (v: ProjectCostSheetAmount | number | undefined | null): ProjectCostSheetAmount => {
+  if (v == null) return emptyCostAmount();
+  if (typeof v === 'number') return { manual: v, imported: [] };
+  return { manual: Number(v.manual) || 0, imported: v.imported || [] };
+};
+const normalizeCostSheet = (cs: ProjectCostSheet): ProjectCostSheet => {
+  const normalized: any = { ...cs };
+  for (const field of COST_SHEET_CATEGORY_FIELDS) {
+    normalized[field] = normalizeCostAmount((cs as any)[field]);
+  }
+  return normalized as ProjectCostSheet;
+};
 
 // 프로젝트에 원가계산서가 아직 없을 때, 처음 열면 프로젝트 자체 정보(발주처=최종고객,
 // 납품기한=마감일)로 미리 채워서 시작하게 한다 - 그 뒤로는 원가계산서 쪽 값만 독립적으로
@@ -74,11 +108,11 @@ const costSheetFromProject = (p: Project): ProjectCostSheet => ({
 const num = (v: number | undefined | null): number => Number(v) || 0;
 const csRevenueTotal = (cs: ProjectCostSheet): number => num(cs.contractRevenue) + num(cs.additionalRevenue); // 합계(A)
 const csDirectCostSubtotal = (cs: ProjectCostSheet): number => // 소계(B)
-  num(cs.rawMaterialCost) + num(cs.outsourcingCost) + num(cs.directLaborCost) + num(cs.directExpense);
+  csFieldTotal(cs.rawMaterialCost) + csFieldTotal(cs.outsourcingCost) + csFieldTotal(cs.directLaborCost) + csFieldTotal(cs.directExpense);
 const csIndirectCostSubtotal = (cs: ProjectCostSheet): number => // 소계(C)
-  num(cs.indirectLaborCost) + num(cs.depreciationCost) + num(cs.qualityControlCost) + num(cs.logisticsCost);
+  csFieldTotal(cs.indirectLaborCost) + csFieldTotal(cs.depreciationCost) + csFieldTotal(cs.qualityControlCost) + csFieldTotal(cs.logisticsCost);
 const csAdminCostSubtotal = (cs: ProjectCostSheet): number => // 소계(D)
-  num(cs.laborAllocationCost) + num(cs.rentCost) + num(cs.commsItCost) + num(cs.legalAccountingCost) + num(cs.otherAdminCost);
+  csFieldTotal(cs.laborAllocationCost) + csFieldTotal(cs.rentCost) + csFieldTotal(cs.commsItCost) + csFieldTotal(cs.legalAccountingCost) + csFieldTotal(cs.otherAdminCost);
 const csExpectedPostSales = (cs: ProjectCostSheet): number => Math.round(csRevenueTotal(cs) * 0.05); // 예상 사후 관리비 = 매출액×5%
 const csPostSalesCap = (cs: ProjectCostSheet): number => Math.round(csRevenueTotal(cs) * 0.06); // 사후 관리비 한도 = 매출액×6%
 const csTotalCost = (cs: ProjectCostSheet): number => // 총원가(F = B+C+D+E)
@@ -147,29 +181,29 @@ const getCostSheetExportData = (project: Project, cs: ProjectCostSheet): CostShe
       },
       {
         category: '직접 원가', rows: [
-          { label: '원 재료비', value: num(cs.rawMaterialCost), basis: '자재 BOM 기준' },
-          { label: '외주 가공비', value: num(cs.outsourcingCost), basis: '제작, 조립, 가공 등' },
-          { label: '직접 노무비', value: num(cs.directLaborCost), basis: '투입 인원 × 공수' },
-          { label: '직접 경비', value: num(cs.directExpense), basis: '운송, 설치, 시운전 등' },
+          { label: '원 재료비', value: csFieldTotal(cs.rawMaterialCost), basis: '자재 BOM 기준' },
+          { label: '외주 가공비', value: csFieldTotal(cs.outsourcingCost), basis: '제작, 조립, 가공 등' },
+          { label: '직접 노무비', value: csFieldTotal(cs.directLaborCost), basis: '투입 인원 × 공수' },
+          { label: '직접 경비', value: csFieldTotal(cs.directExpense), basis: '운송, 설치, 시운전 등' },
           { label: '소 계 ( B )', value: B, isSubtotal: true }
         ]
       },
       {
         category: '간접 원가', rows: [
-          { label: '간접 노무비', value: num(cs.indirectLaborCost), basis: '관리, 기술 지원 인력 등' },
-          { label: '감가 상각비', value: num(cs.depreciationCost), basis: '장비, 금형 등' },
-          { label: '품질 관리비', value: num(cs.qualityControlCost), basis: '검사, 시험 등' },
-          { label: '물류, 보관비', value: num(cs.logisticsCost), basis: '창고, 운송 등' },
+          { label: '간접 노무비', value: csFieldTotal(cs.indirectLaborCost), basis: '관리, 기술 지원 인력 등' },
+          { label: '감가 상각비', value: csFieldTotal(cs.depreciationCost), basis: '장비, 금형 등' },
+          { label: '품질 관리비', value: csFieldTotal(cs.qualityControlCost), basis: '검사, 시험 등' },
+          { label: '물류, 보관비', value: csFieldTotal(cs.logisticsCost), basis: '창고, 운송 등' },
           { label: '소 계 ( C )', value: C, isSubtotal: true }
         ]
       },
       {
         category: '일반관리비', rows: [
-          { label: '인건비 배부', value: num(cs.laborAllocationCost), basis: '관리부서' },
-          { label: '임차료', value: num(cs.rentCost), basis: '사무실, 공장' },
-          { label: '통신, 전산비', value: num(cs.commsItCost), basis: '시스템' },
-          { label: '법무, 회계비', value: num(cs.legalAccountingCost), basis: '외주' },
-          { label: '기타 관리비', value: num(cs.otherAdminCost) },
+          { label: '인건비 배부', value: csFieldTotal(cs.laborAllocationCost), basis: '관리부서' },
+          { label: '임차료', value: csFieldTotal(cs.rentCost), basis: '사무실, 공장' },
+          { label: '통신, 전산비', value: csFieldTotal(cs.commsItCost), basis: '시스템' },
+          { label: '법무, 회계비', value: csFieldTotal(cs.legalAccountingCost), basis: '외주' },
+          { label: '기타 관리비', value: csFieldTotal(cs.otherAdminCost) },
           { label: '소 계 ( D )', value: D, isSubtotal: true }
         ]
       },
@@ -281,6 +315,9 @@ export const ProjectsView: React.FC<Props> = ({
   // 나가도 실수로 반쯤 입력한 값이 그대로 저장되지 않도록.
   const [costSheetDraft, setCostSheetDraft] = useState<ProjectCostSheet | null>(null);
   const [isSavingCostSheet, setIsSavingCostSheet] = useState<boolean>(false);
+  // [추가] 원가계산서 "자동 불러오기"(통장 출금내역·카드사용내역에서 태그된 거래를
+  // 가져오는 중) 로딩 상태
+  const [isImportingCostSheet, setIsImportingCostSheet] = useState<boolean>(false);
   const [costSheetSaveError, setCostSheetSaveError] = useState<string>('');
 
   // [수정] 예전엔 상단 공통 검색창(카드형/리스트 출력용)과, 원가계산서(개별) 전용
@@ -311,7 +348,11 @@ export const ProjectsView: React.FC<Props> = ({
     if (!pnlSelectedProjectId) { setCostSheetDraft(null); return; }
     const p = projects.find((pr) => pr.id === pnlSelectedProjectId);
     if (!p) { setCostSheetDraft(null); return; }
-    setCostSheetDraft(p.costSheet ? { ...p.costSheet } : costSheetFromProject(p));
+    // [수정] p.costSheet가 이 기능이 생기기 전에 저장된 문서라면 13개 항목이 그냥 숫자일 수
+    // 있어서, 화면에서 편집 가능한 manual+imported 구조로 정규화(normalizeCostSheet)해서
+    // 담는다 - 기존 숫자값은 manual로 그대로 옮겨지고, 자동 불러온 내역은 없는 것으로
+    // 시작한다(예전엔 그 개념 자체가 없었으므로).
+    setCostSheetDraft(p.costSheet ? normalizeCostSheet(p.costSheet) : costSheetFromProject(p));
     setCostSheetSaveError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pnlSelectedProjectId]);
@@ -344,6 +385,75 @@ export const ProjectsView: React.FC<Props> = ({
       setCostSheetSaveError(err?.message || '원가계산서 저장에 실패했습니다. 화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니 다시 시도해주세요.');
     } finally {
       setIsSavingCostSheet(false);
+    }
+  };
+
+  // [추가] 원가계산서 "자동 불러오기" - 회계관리 > 통장 출금내역·카드사용내역에서 이
+  // 프로젝트로 연결되고 원가 항목(costCategory)이 태그된 거래를 찾아, 아직 반영 안 된
+  // 것만 골라 각 항목의 imported 목록에 더한다. 직접 입력해둔 manual 값은 절대 건드리지
+  // 않고, 이미 가져온 거래(sourceKey로 판단)도 다시 더하지 않는다 - 그래서 이 버튼은
+  // 몇 번을 다시 눌러도 안전하다(관리비내역/가지급내역과 같은 원칙). 회계관리 데이터라
+  // 서버가 관리자 계정만 허용한다(requireAdmin) - 관리자가 아니면 안내만 보여준다.
+  const handleImportCostSheetFromLedger = async () => {
+    if (!pnlSelectedProjectId || !costSheetDraft || !currentUser) return;
+    setIsImportingCostSheet(true);
+    try {
+      const res = await fetch(`/api/admin-docs/project-cost-candidates?projectId=${encodeURIComponent(pnlSelectedProjectId)}`, {
+        headers: { 'x-user-id': currentUser.id }
+      });
+      if (!res.ok) {
+        alert(res.status === 403
+          ? '통장 출금내역/카드사용내역은 관리자 계정만 불러올 수 있습니다.'
+          : '통장 출금내역/카드사용내역을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+      const candidates: { sourceKey: string; sourceLabel: string; date: string; amount: number; category: string; memo?: string }[] = await res.json();
+
+      const alreadyImported = new Set<string>();
+      for (const field of COST_SHEET_CATEGORY_FIELDS) {
+        normalizeCostAmount((costSheetDraft as any)[field]).imported.forEach((it) => alreadyImported.add(it.sourceKey));
+      }
+
+      const categorySet = new Set<string>(COST_SHEET_CATEGORY_FIELDS as string[]);
+      const fresh = candidates.filter((c) => categorySet.has(c.category) && !alreadyImported.has(c.sourceKey));
+      if (fresh.length === 0) {
+        alert('새로 가져올 내역이 없습니다.\n통장 출금내역·카드사용내역에서 이 프로젝트를 연결하고 원가 항목을 태그해주세요.');
+        return;
+      }
+
+      const byCategory: Record<string, { count: number; total: number }> = {};
+      fresh.forEach((c) => {
+        const b = byCategory[c.category] || { count: 0, total: 0 };
+        b.count += 1;
+        b.total += Number(c.amount) || 0;
+        byCategory[c.category] = b;
+      });
+      const summary = COST_SHEET_CATEGORY_FIELDS
+        .filter((f) => byCategory[f])
+        .map((f) => `${PROJECT_COST_CATEGORY_LABELS[f]}: ${byCategory[f].count}건 ${formatCurrencyInput(byCategory[f].total)}원`)
+        .join('\n');
+      const ok = window.confirm(`통장 출금내역·카드사용내역에서 새로 가져올 내역입니다.\n\n${summary}\n\n총 ${fresh.length}건을 원가계산서에 반영할까요?\n(이미 직접 입력해둔 금액은 그대로 유지되고, 위 내역이 추가로 더해집니다)`);
+      if (!ok) return;
+
+      setCostSheetDraft((prev) => {
+        if (!prev) return prev;
+        const next: any = { ...prev };
+        for (const field of COST_SHEET_CATEGORY_FIELDS) {
+          const matched = fresh.filter((c) => c.category === field);
+          if (matched.length === 0) continue;
+          const cell = normalizeCostAmount(next[field]);
+          next[field] = {
+            ...cell,
+            imported: [...cell.imported, ...matched.map((c) => ({ sourceKey: c.sourceKey, sourceLabel: c.sourceLabel, amount: c.amount }))]
+          };
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error('원가계산서 자동 불러오기 실패:', err);
+      alert('통장 출금내역/카드사용내역을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setIsImportingCostSheet(false);
     }
   };
 
@@ -2793,14 +2903,9 @@ export const ProjectsView: React.FC<Props> = ({
                 className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:border-indigo-500"
               />
             );
-            // 원가 항목 금액 입력칸 - 전부 숫자 필드(천단위 콤마 자동)
-            const moneyField = (field:
-              | 'contractRevenue' | 'additionalRevenue'
-              | 'rawMaterialCost' | 'outsourcingCost' | 'directLaborCost' | 'directExpense'
-              | 'indirectLaborCost' | 'depreciationCost' | 'qualityControlCost' | 'logisticsCost'
-              | 'laborAllocationCost' | 'rentCost' | 'commsItCost' | 'legalAccountingCost' | 'otherAdminCost'
-              | 'appliedPostSalesCost'
-            ) => {
+            // 원가 항목 금액 입력칸 - 매출액/적용 사후관리비처럼 자동 불러오기 대상이
+            // 아닌, 항상 직접 입력만 하는 순수 숫자 필드용(천단위 콤마 자동).
+            const moneyField = (field: 'contractRevenue' | 'additionalRevenue' | 'appliedPostSalesCost') => {
               const v = num(draft?.[field] as number);
               return (
                 <input
@@ -2811,6 +2916,30 @@ export const ProjectsView: React.FC<Props> = ({
                   placeholder="0"
                   className="w-full text-right bg-white border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:border-indigo-500 font-mono"
                 />
+              );
+            };
+            // [추가] 직접원가/간접원가/일반관리비 13개 항목 전용 입력칸 - manual(직접 입력)
+            // 금액을 수정하는 숫자 입력칸 아래에, 통장 출금내역·카드사용내역에서 "자동
+            // 불러오기"로 이미 반영된 금액이 있으면 "+N건 자동반영" 안내를 작게 보여준다
+            // (관리비내역 칸 입력과 같은 패턴). 직접 입력값과 자동 반영값은 항상 따로
+            // 보관되므로, "자동 불러오기"를 다시 눌러도 여기 직접 고친 값은 안 사라진다.
+            const costCategoryField = (field: ProjectCostCategory) => {
+              const cell = normalizeCostAmount(draft?.[field]);
+              const importedSum = cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+              return (
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={cell.manual ? formatCurrencyInput(String(cell.manual)) : ''}
+                    onChange={(e) => updateCostSheetField(field, { ...cell, manual: parseCurrencyInput(e.target.value) })}
+                    placeholder="0"
+                    className="w-full text-right bg-white border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:border-indigo-500 font-mono"
+                  />
+                  {importedSum > 0 && (
+                    <p className="text-[10px] text-emerald-600 mt-0.5 text-right">+{formatCurrencyInput(importedSum)} 자동반영({cell.imported.length}건)</p>
+                  )}
+                </div>
               );
             };
             const noteField = (field: 'contractRevenueNote' | 'totalRevenueNote' | 'appliedPostSalesNote') => (
@@ -2888,6 +3017,17 @@ export const ProjectsView: React.FC<Props> = ({
                         <h3 className="text-base font-bold text-slate-800 underline underline-offset-4">프로젝트 원가 계산서</h3>
                         <div className="flex items-center gap-2">
                           {costSheetSaveError && <span className="text-xs text-rose-500">{costSheetSaveError}</span>}
+                          {/* [추가] 통장 출금내역·카드사용내역에서 이 프로젝트+원가 항목으로
+                          태그해둔 거래를 직접원가/간접원가/일반관리비 칸에 자동으로 채워준다. */}
+                          <button
+                            type="button"
+                            onClick={handleImportCostSheetFromLedger}
+                            disabled={isImportingCostSheet}
+                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-indigo-200 hover:bg-indigo-50 disabled:opacity-50 text-indigo-600 text-xs font-bold transition-all active:scale-95"
+                          >
+                            <ArrowDownUp className="w-3.5 h-3.5" />
+                            <span>{isImportingCostSheet ? '불러오는 중...' : '자동 불러오기'}</span>
+                          </button>
                           {/* [추가] 원가계산서(개별)도 프로젝트 파이프라인과 동일하게 엑셀 출력/
                           인쇄(PDF 저장)를 지원한다. */}
                           <button
@@ -2965,25 +3105,25 @@ export const ProjectsView: React.FC<Props> = ({
                             <tr>
                               <td className={tdCat} rowSpan={5}>직접 원가</td>
                               <td className={tdLabel}>원 재료비</td>
-                              <td className={td}>{moneyField('rawMaterialCost')}</td>
+                              <td className={td}>{costCategoryField('rawMaterialCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>자재 BOM 기준</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>외주 가공비</td>
-                              <td className={td}>{moneyField('outsourcingCost')}</td>
+                              <td className={td}>{costCategoryField('outsourcingCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>제작, 조립, 가공 등</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>직접 노무비</td>
-                              <td className={td}>{moneyField('directLaborCost')}</td>
+                              <td className={td}>{costCategoryField('directLaborCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>투입 인원 × 공수</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>직접 경비</td>
-                              <td className={td}>{moneyField('directExpense')}</td>
+                              <td className={td}>{costCategoryField('directExpense')}</td>
                               <td className={`${td} text-center text-slate-500`}>운송, 설치, 시운전 등</td>
                               <td className={td}></td>
                             </tr>
@@ -2998,25 +3138,25 @@ export const ProjectsView: React.FC<Props> = ({
                             <tr>
                               <td className={tdCat} rowSpan={5}>간접 원가</td>
                               <td className={tdLabel}>간접 노무비</td>
-                              <td className={td}>{moneyField('indirectLaborCost')}</td>
+                              <td className={td}>{costCategoryField('indirectLaborCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>관리, 기술 지원 인력 등</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>감가 상각비</td>
-                              <td className={td}>{moneyField('depreciationCost')}</td>
+                              <td className={td}>{costCategoryField('depreciationCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>장비, 금형 등</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>품질 관리비</td>
-                              <td className={td}>{moneyField('qualityControlCost')}</td>
+                              <td className={td}>{costCategoryField('qualityControlCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>검사, 시험 등</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>물류, 보관비</td>
-                              <td className={td}>{moneyField('logisticsCost')}</td>
+                              <td className={td}>{costCategoryField('logisticsCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>창고, 운송 등</td>
                               <td className={td}></td>
                             </tr>
@@ -3031,31 +3171,31 @@ export const ProjectsView: React.FC<Props> = ({
                             <tr>
                               <td className={tdCat} rowSpan={6}>일반관리비</td>
                               <td className={tdLabel}>인건비 배부</td>
-                              <td className={td}>{moneyField('laborAllocationCost')}</td>
+                              <td className={td}>{costCategoryField('laborAllocationCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>관리부서</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>임차료</td>
-                              <td className={td}>{moneyField('rentCost')}</td>
+                              <td className={td}>{costCategoryField('rentCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>사무실, 공장</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>통신, 전산비</td>
-                              <td className={td}>{moneyField('commsItCost')}</td>
+                              <td className={td}>{costCategoryField('commsItCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>시스템</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>법무, 회계비</td>
-                              <td className={td}>{moneyField('legalAccountingCost')}</td>
+                              <td className={td}>{costCategoryField('legalAccountingCost')}</td>
                               <td className={`${td} text-center text-slate-500`}>외주</td>
                               <td className={td}></td>
                             </tr>
                             <tr>
                               <td className={tdLabel}>기타 관리비</td>
-                              <td className={td}>{moneyField('otherAdminCost')}</td>
+                              <td className={td}>{costCategoryField('otherAdminCost')}</td>
                               <td className={td}></td>
                               <td className={td}></td>
                             </tr>
