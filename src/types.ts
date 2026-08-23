@@ -117,7 +117,8 @@ export type AdminDocCategory =
   | 'advance_payment'     // 가지급내역
   | 'vehicle_fine'        // 차량 과태료 내역
   | 'tax'                 // 각종 세금
-  | 'management_fee';     // 관리비내역
+  | 'management_fee'      // 관리비내역
+  | 'incentive';          // 인센티브 및 명절 상여금
 
 export interface AdminDocLineItem {
   id: string;
@@ -346,6 +347,19 @@ export interface AdminDoc {
         imported: { sourceKey: string; sourceLabel: string; amount: number }[];
       }>;
       note?: string;
+    }[];
+  };
+  // [추가] 회계관리 > 인센티브(상여금)(category: 'incentive') 전용 구조화 필드. 공유해주신
+  // "인센티브 및 명절 상여금" 양식과 동일하게 일자/금액/현금·상품권·기타 구분/내역/비고
+  // 열로 건별 여러 줄을 입력하는 단순한 표다 - 차량 과태료 내역, 각종 세금과 같은 구조.
+  incentive?: {
+    entries: {
+      id: string;
+      date: string;               // 일자
+      amount: number;              // 금액(원)
+      method: '현금' | '상품권' | '기타'; // 현금/상품권/기타 구분
+      description: string;         // 내역 (예: "박현용 구정 보너스")
+      note?: string;                 // 비고
     }[];
   };
   // [추가] 경영지원 > 법인카드 관리(category: 'corp_card') 전용 구조화 필드. 카드사용내역
