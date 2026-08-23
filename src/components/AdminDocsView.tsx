@@ -173,6 +173,13 @@ const isOverseasTripCategoryCustom = (category: string): boolean => !(OVERSEAS_T
 // [추가] 해외 출장 경비 - "지급방법" 드롭다운 기본 항목.
 const OVERSEAS_TRIP_PAY_METHOD_PRESETS = ['신용카드', '현금'] as const;
 const isOverseasTripPayMethodCustom = (payMethod: string): boolean => !(OVERSEAS_TRIP_PAY_METHOD_PRESETS as readonly string[]).includes(payMethod);
+// [추가] 해외 출장 경비 - 항목이 "어느 해 출장 경비"로 잡힐지 판단하는 연도. 전시회가
+// 다음 해 초라 항공권 등을 그 전 해 말에 미리 결제하는 경우, 실제 결제일(date)의 연도와
+// 이 경비가 귀속될 연도(fiscalYear)가 다를 수 있다. fiscalYear를 직접 지정해뒀으면 그 값을,
+// 비어있으면 결제일(또는 문서 기준일)의 연도를 그대로 쓴다. 연도 목록/연도별 모아보기 모두
+// 이 함수 하나로 통일해서, "어느 연도로 잡히는지"가 항상 한 곳(이 함수)에서만 결정되게 한다.
+const overseasTripEntryYear = (e: { date?: string; fiscalYear?: string }, docDate?: string): string =>
+  (e.fiscalYear && e.fiscalYear.trim()) || (e.date || docDate || '').slice(0, 4);
 
 interface SuggestTextInputProps {
   options: string[];
@@ -950,11 +957,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 해외 출장 경비 - 출장 하나(=문서 하나)를 여러 건 등록해두고, 연도별로 모아
   // 한 페이지로도 볼 수 있게, 개별 출장 건별로도 볼 수 있게 하기 위해 연도 목록을 뽑아둔다.
+  // [수정] 항공권처럼 결제일과 실제 출장(귀속)연도가 다른 항목은 overseasTripEntryYear가
+  // fiscalYear를 우선해서 판단하므로, 연도 목록도 결제일이 아니라 귀속연도 기준으로 잡힌다.
   const overseasTripDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'overseas_trip' && d.overseasTrip);
   const overseasTripYearSet = new Set<string>();
   overseasTripDocs.forEach((d) => {
     (d.overseasTrip?.entries || []).forEach((e) => {
-      const y = (e.date || d.date || '').slice(0, 4);
+      const y = overseasTripEntryYear(e, d.date);
       if (y) overseasTripYearSet.add(y);
     });
   });
@@ -1372,8 +1381,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const targetYear = overseasTripMergeYear || overseasTripYears[0];
     if (!targetYear) return;
 
+    // [수정] 결제일이 아니라 귀속연도(fiscalYear, 없으면 결제일의 연도) 기준으로 모은다 -
+    // 항공권처럼 전 해 말에 미리 결제한 항목도 지정해둔 귀속연도로 정확히 잡힌다.
     const matchesYear = (e: NonNullable<AdminDoc['overseasTrip']>['entries'][number], docDate?: string) =>
-      (e.date || docDate || '').slice(0, 4) === targetYear;
+      overseasTripEntryYear(e, docDate) === targetYear;
 
     const docsWithMatch = overseasTripDocs.filter((d) => (d.overseasTrip?.entries || []).some((e) => matchesYear(e, d.date)));
     const base = docsWithMatch[0] || overseasTripDocs[0];
@@ -1428,6 +1439,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
     const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
     const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    // [추가] 결제일과 귀속연도(fiscalYear)가 다른 항목(예: 전 해 말에 미리 결제한 항공권)은
+    // "일자" 칸에 "2025.12.10 (2026년 귀속)"처럼 귀속연도를 같이 표시해서, 엑셀만 봐도 어느
+    // 해 출장 경비로 잡힌 건지 바로 알 수 있게 한다.
+    const fmtDateWithFiscal = (e: { date?: string; fiscalYear?: string }) => {
+      const base = fmtDate(e.date);
+      const fy = (e.fiscalYear || '').trim();
+      if (fy && fy !== (e.date || '').slice(0, 4)) return `${base} (${fy}년 귀속)`;
+      return base;
+    };
 
     ws.mergeCells(1, 1, 1, colCount);
     const titleCell = ws.getCell(1, 1);
@@ -1450,7 +1470,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     ot.entries.forEach((e, i) => {
       const row = ws.getRow(headerRowIdx + 1 + i);
-      const values: (string | number)[] = [fmtDate(e.date), Number(e.amount) || 0, e.category || '', e.description || '', e.user || '', e.payMethod || '', e.payDetail || '', e.note || ''];
+      const values: (string | number)[] = [fmtDateWithFiscal(e), Number(e.amount) || 0, e.category || '', e.description || '', e.user || '', e.payMethod || '', e.payDetail || '', e.note || ''];
       values.forEach((v, colIdx) => {
         const cell = row.getCell(colIdx + 1);
         cell.value = v;
@@ -1529,7 +1549,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     columns.forEach((label, colIdx) => {
       let maxLen = label.length;
       ot.entries.forEach((e) => {
-        const v = [fmtDate(e.date), formatCurrencyInput(e.amount || 0), e.category, e.description, e.user, e.payMethod, e.payDetail, e.note][colIdx];
+        const v = [fmtDateWithFiscal(e), formatCurrencyInput(e.amount || 0), e.category, e.description, e.user, e.payMethod, e.payDetail, e.note][colIdx];
         if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
       });
       ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 3 ? 40 : 18);
@@ -4252,7 +4272,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>{printingDoc.title}</h1>
         {isMerged && (
           <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
-            ※ 출장 건별로 나눠 등록하신 해외 출장 경비 사용내역 중 일자가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+            ※ 출장 건별로 나눠 등록하신 해외 출장 경비 사용내역 중 귀속연도가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+            결제일과 귀속연도가 다른 항목은 일자 아래에 "(YYYY년 귀속)"으로 표시됩니다.
           </p>
         )}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
@@ -4271,7 +4292,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <tbody>
             {ot.entries.map((e) => (
               <tr key={e.id}>
-                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.date)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
+                  {fmtDate(e.date)}
+                  {/* [추가] 결제일과 귀속연도가 다른 항목(예: 전 해 말에 미리 결제한 항공권)은
+                  일자 아래에 작게 "(YYYY년 귀속)"을 표시해서, 표에 찍힌 결제일만 보고 다른
+                  연도 출장 경비로 착각하지 않게 한다. */}
+                  {e.fiscalYear && e.fiscalYear.trim() && e.fiscalYear !== (e.date || '').slice(0, 4) && (
+                    <div style={{ fontSize: '9px', color: '#c2410c', marginTop: '2px' }}>({e.fiscalYear}년 귀속)</div>
+                  )}
+                </td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
                 <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.category}</td>
                 <td style={{ border: '1px solid #000', padding: '6px' }}>{e.description}</td>
@@ -7157,12 +7186,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
                           <div className="flex flex-wrap items-center gap-1">
                             <div className="flex-1 min-w-[120px]">
-                              <label className="block text-[9px] text-slate-400 mb-0.5">일자</label>
+                              <label className="block text-[9px] text-slate-400 mb-0.5">일자(결제일)</label>
                               <input
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateOverseasTripEntry(e.id, { date: ev.target.value })}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[80px]">
+                              {/* [추가] 귀속연도 - 전시회가 다음 해 초라 항공권 등을 그 전 해 말에
+                              미리 결제하는 경우, 실제 결제일과 이 경비가 잡힐 연도가 다를 수 있다.
+                              비워두면 결제일의 연도를 그대로 쓰고, 다르게 잡고 싶을 때만 직접
+                              지정한다(예: 2025년 12월 결제 항공권을 2026년 출장 경비로). */}
+                              <label className="block text-[9px] text-slate-400 mb-0.5">귀속연도</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.fiscalYear || ''}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { fiscalYear: ev.target.value.replace(/\D/g, '').slice(0, 4) })}
+                                placeholder={(e.date || '').slice(0, 4) || 'YYYY'}
+                                title="비워두면 결제일의 연도를 그대로 씁니다. 결제일과 다른 해 출장 경비로 잡으려면 여기에 연도를 입력하세요."
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-center text-slate-700 outline-none focus:border-indigo-500"
                               />
                             </div>
                             <div className="flex-1 min-w-[90px]">
