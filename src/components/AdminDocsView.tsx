@@ -159,6 +159,13 @@ const VEHICLE_FINE_DETAIL_PRESETS = [
   '단말기 미부착',
 ];
 
+// [추가] 인센티브(상여금) - "지급 내역" 드롭다운에서 고를 수 있는 기본 항목 순서.
+// 이 목록에 없는 값(=직접 입력한 값)이 저장돼 있으면 드롭다운은 "직접 입력"을 고른
+// 것으로 보여주고, 그 값을 자유 입력칸에 그대로 채워서 계속 고칠 수 있게 한다.
+const INCENTIVE_METHOD_PRESETS = ['현금', '상품권', '선물', '신용카드', '기타'] as const;
+// 위 기본 목록에 없는 값(빈 값 포함)은 전부 "직접 입력"으로 취급한다.
+const isIncentiveMethodCustom = (method: string): boolean => !(INCENTIVE_METHOD_PRESETS as readonly string[]).includes(method);
+
 interface SuggestTextInputProps {
   options: string[];
   value: string;
@@ -428,7 +435,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   })() : undefined,
   // [추가] 인센티브 및 명절 상여금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   incentive: category === 'incentive' ? {
-    entries: [{ id: `inc-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: 0, method: '현금' as const, description: '', note: '' }]
+    entries: [{ id: `inc-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: 0, method: '현금', description: '', note: '' }]
   } : undefined,
   // [추가] 현금 흐름 기본값. "연도 하나 = 문서 하나"라서 대상 연도를 먼저 잡고, INFLOWS/
   // OUTFLOWS는 빈 줄 하나씩만 미리 넣어두고 "행 추가"로 늘리게 하며, 경비는 실제로 자주
@@ -6683,15 +6690,34 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             </div>
                             <div className="flex-1 min-w-[100px]">
                               <label className="block text-[9px] text-slate-400 mb-0.5">지급 내역</label>
+                              {/* [수정] "현금/상품권/선물/신용카드/기타" 중 골라 쓰는 게 보통이지만,
+                              여기 없는 지급 방식도 있을 수 있어 "직접 입력"을 고르면 아래에
+                              자유 입력칸이 나타난다. 이미 저장된 값이 이 목록에 없는 경우(=예전에
+                              직접 입력해둔 값)도 자동으로 "직접 입력"으로 보여주고 그 값을 그대로
+                              고칠 수 있게 한다. */}
                               <select
-                                value={e.method || '현금'}
-                                onChange={(ev) => updateIncentiveEntry(e.id, { method: ev.target.value as '현금' | '상품권' | '기타' })}
+                                value={isIncentiveMethodCustom(e.method) ? '__custom__' : (e.method || '현금')}
+                                onChange={(ev) => {
+                                  const v = ev.target.value;
+                                  updateIncentiveEntry(e.id, { method: v === '__custom__' ? '' : v });
+                                }}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               >
-                                <option value="현금">현금</option>
-                                <option value="상품권">상품권</option>
-                                <option value="기타">기타</option>
+                                {INCENTIVE_METHOD_PRESETS.map((m) => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                                <option value="__custom__">직접 입력</option>
                               </select>
+                              {isIncentiveMethodCustom(e.method) && (
+                                <input
+                                  type="text"
+                                  value={e.method}
+                                  onChange={(ev) => updateIncentiveEntry(e.id, { method: ev.target.value })}
+                                  placeholder="직접 입력"
+                                  autoFocus
+                                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              )}
                             </div>
                             <button type="button" onClick={() => removeIncentiveEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
                               <X className="w-3.5 h-3.5" />
