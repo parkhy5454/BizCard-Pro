@@ -759,7 +759,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <ScanLine className="w-5 h-5 text-blue-400 animate-pulse" />
-                    <h3 className="font-bold text-base text-slate-900">명함 스캔 & 이미지 저장</h3>
+                    <h3 className="font-bold text-base text-slate-900">명함 스캔</h3>
                   </div>
                   <span className="text-xs bg-blue-50 text-blue-700 border border-blue-500/30 px-2 py-0.5 rounded font-mono">앞·뒤 동시지원</span>
                 </div>
@@ -771,7 +771,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   className="w-full mb-4 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 hover:text-indigo-800 text-xs font-bold transition-colors"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  명함이 여러 장이면 연속 촬영 모드
+                  명함 연속 스캔
                 </button>
 
                 <div className="space-y-3">
@@ -912,7 +912,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                     </div>
 
                     <div>
-                      <label className="text-xs text-slate-500 block mb-1 font-medium">그룹 지정 <span className="text-[10px] text-slate-400 font-normal">(여러 개 선택 가능, 아무것도 안 고르면 전체보기에서만 표시)</span></label>
+                      <label className="text-xs text-slate-500 block mb-1 font-medium">그룹 지정 <span className="text-[10px] text-slate-400 font-normal">(복수 선택 가능)</span></label>
                       <GroupMultiSelect
                         groups={groups}
                         value={form.groupIds || []}
@@ -938,8 +938,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                   {/* 요구사항: 연락처 핸드폰/사무실/팩스 나누어 입력 */}
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
-                    <span className="text-xs font-bold text-slate-500 uppercase font-mono tracking-wider">연락처 세부 분리</span>
-
                     <div className="grid grid-cols-1 gap-2">
                       <div>
                         <label className="text-[11px] text-emerald-400 block mb-0.5 font-medium">핸드폰 번호 (Mobile)</label>
@@ -956,7 +954,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                       <div>
                         <label className="text-[11px] text-cyan-400 block mb-0.5 font-medium flex items-center justify-between">
                           <span>사무실 유선전화 2 / 직통번호 (Office 2)</span>
-                          <span className="text-[9px] bg-cyan-500/10 text-cyan-400 px-1 py-0.2 rounded font-mono font-bold">스캔 분리</span>
                         </label>
                         <input type="text" inputMode="numeric" placeholder="지사번호, 직통번호 등이 표기된 경우 분리 인식됩니다." value={form.phoneOffice2 || ''} onChange={(e) => setForm({ ...form, phoneOffice2: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-cyan-500" />
                       </div>
@@ -982,7 +979,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
                       <span>회사 주소 2 (지사/공장 등 2번째 주소)</span>
-                      <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded">분리 인식</span>
                     </label>
                     <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
@@ -995,13 +991,12 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
                       <span>집 주소</span>
-                      <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded">개인정보 · 명함 이미지엔 안 나옴</span>
                     </label>
                     <input type="text" placeholder="필요한 경우에만 입력 (회사 주소와 별도 관리)" value={form.homeAddress || ''} onChange={(e) => setForm({ ...form, homeAddress: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>
-                    <label className="text-xs text-slate-500 block mb-1">메모 / 슬로건 요약</label>
+                    <label className="text-xs text-slate-500 block mb-1">메모</label>
                     <textarea rows={2} placeholder="주요 협의 사항이나 메모 작성" value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
                 </div>
