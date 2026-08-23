@@ -105,6 +105,28 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     try { localStorage.removeItem('bizcard_relationship_intel_dismissed_date'); } catch {}
     setIntelDismissedDate('');
   };
+  // [추가] "오늘 하루 닫기"(패널 전체, 날짜 지나면 자동 복구)와는 별개로, 특정 거래처 하나만
+  // "관계 인텔리전스"에서 계속 빼고 싶을 때를 위한 건별 해제. 날짜와 상관없이 다시 켜기 전까지
+  // 계속 유지되고, 로그인한 브라우저(계정)별로만 적용된다(localStorage - 서버에 저장/동기화하지
+  // 않으므로 다른 기기·다른 직원에게는 영향 없음).
+  const [intelDismissedContactIds, setIntelDismissedContactIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('bizcard_relationship_intel_dismissed_contact_ids');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const dismissIntelContact = (contactId: string) => {
+    setIntelDismissedContactIds((prev) => {
+      if (prev.includes(contactId)) return prev;
+      const next = [...prev, contactId];
+      try { localStorage.setItem('bizcard_relationship_intel_dismissed_contact_ids', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  const resetDismissedIntelContacts = () => {
+    try { localStorage.removeItem('bizcard_relationship_intel_dismissed_contact_ids'); } catch {}
+    setIntelDismissedContactIds([]);
+  };
   const swipeStartX = useRef<number>(0);
 
   const handleImageSwipeStart = (e: React.TouchEvent) => {
@@ -259,7 +281,10 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         });
 
         insights.sort((a, b) => b.score - a.score);
-        const topInsights = insights.slice(0, 5);
+        // [수정] 건별로 해제한 거래처는 순위 계산에서 아예 빼서, 그 자리에 다음 순위
+        // 거래처가 대신 올라오게 한다(해제해도 계속 5곳이 채워져 보이도록).
+        const rankedInsights = insights.filter((i) => !intelDismissedContactIds.includes(i.contact.id));
+        const topInsights = rankedInsights.slice(0, 5);
 
         if (topInsights.length === 0) return null;
 
@@ -295,6 +320,16 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               <div className="pr-6">
                 <h4 className="text-sm font-bold text-indigo-700">🧠 관계 인텔리전스 · 지금 챙기면 좋은 거래처 {topInsights.length}곳</h4>
                 <p className="text-xs text-slate-500 mt-0.5">진행중인 프로젝트와 마지막 연락 시점을 같이 분석했어요.</p>
+                {/* [추가] 건별로 해제한 거래처가 있으면, 실수로 뺐을 때 되돌릴 수 있게 안내 겸
+                    복구 버튼을 같이 보여준다. */}
+                {intelDismissedContactIds.length > 0 && (
+                  <button
+                    onClick={resetDismissedIntelContacts}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-600 underline mt-1"
+                  >
+                    개별 해제한 거래처 {intelDismissedContactIds.length}곳 있음 · 전체 되돌리기
+                  </button>
+                )}
               </div>
             </div>
 
@@ -343,6 +378,16 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     >
                       <span>상세보기</span>
                       <ArrowRight className="w-3 h-3" />
+                    </button>
+                    {/* [추가] 이 거래처 하나만 관계 인텔리전스에서 계속 빼고 싶을 때 - 패널
+                        전체를 닫는 우측 상단 X("오늘 하루 닫기")와 달리, 이건 날짜와 상관없이
+                        다시 켜기(위 "전체 되돌리기") 전까지 이 거래처만 계속 제외된다. */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); dismissIntelContact(insight.contact.id); }}
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+                      title="이 거래처는 관계 인텔리전스에서 그만 알려주기"
+                    >
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
