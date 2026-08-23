@@ -154,6 +154,107 @@ const csProfitMargin = (cs: ProjectCostSheet): number | null => { // 경상 이�
   return a > 0 ? (csProfit(cs) / a) * 100 : null;
 };
 
+// [추가] "프로젝트 원가계산서"(개별 보기)도 엑셀 출력/인쇄(PDF 저장)를 지원하기 위해, 화면
+// 표와 완전히 같은 내용(헤더 정보/항목별 그룹/최종 합계 행)을 한 번만 계산해두는 순수 함수.
+// 엑셀 내보내기와 인쇄용 HTML 둘 다 이 데이터를 그대로 재사용하므로, 화면에 보이는 값과
+// 다른 값이 나올 걱정이 없다(rowSpan으로 묶이는 대분류 구조까지 groups로 그대로 반영).
+interface CostSheetExportRow {
+  label: string;
+  value: number;
+  basis?: string;
+  note?: string;
+  isSubtotal?: boolean;
+}
+interface CostSheetExportGroup {
+  category: string;
+  rows: CostSheetExportRow[];
+}
+interface CostSheetExportFinalRow {
+  label: string;
+  value?: number;
+  valueText?: string;
+}
+interface CostSheetExportData {
+  headerInfo: [string, string][];
+  groups: CostSheetExportGroup[];
+  finalRows: CostSheetExportFinalRow[];
+}
+
+const getCostSheetExportData = (project: Project, cs: ProjectCostSheet): CostSheetExportData => {
+  const A = csRevenueTotal(cs);
+  const B = csDirectCostSubtotal(cs);
+  const C = csIndirectCostSubtotal(cs);
+  const D = csAdminCostSubtotal(cs);
+  const expectedPostSales = csExpectedPostSales(cs);
+  const postSalesCap = csPostSalesCap(cs);
+  const E = num(cs.appliedPostSalesCost);
+  const F = csTotalCost(cs);
+  const G = csProfit(cs);
+  const margin = csProfitMargin(cs);
+
+  return {
+    headerInfo: [
+      ['프로젝트 명', project.name],
+      ['발 주 처', cs.orderer || ''],
+      ['계 약 번 호', cs.contractNumber || ''],
+      ['계 약 일 자', cs.contractDate || ''],
+      ['납 품 기 한', cs.deliveryDeadline || ''],
+      ['작 성 일', cs.preparedDate || ''],
+      ['작 성 부 서', cs.preparedDept || '']
+    ],
+    groups: [
+      {
+        category: '매 출 액', rows: [
+          { label: '계약 매출액(원)', value: num(cs.contractRevenue), note: cs.contractRevenueNote || '' },
+          { label: '추가 매출액(원)', value: num(cs.additionalRevenue) },
+          { label: '합 계 ( A )', value: A, note: cs.totalRevenueNote || '', isSubtotal: true }
+        ]
+      },
+      {
+        category: '직접 원가', rows: [
+          { label: '원 재료비', value: num(cs.rawMaterialCost), basis: '자재 BOM 기준' },
+          { label: '외주 가공비', value: num(cs.outsourcingCost), basis: '제작, 조립, 가공 등' },
+          { label: '직접 노무비', value: num(cs.directLaborCost), basis: '투입 인원 × 공수' },
+          { label: '직접 경비', value: num(cs.directExpense), basis: '운송, 설치, 시운전 등' },
+          { label: '소 계 ( B )', value: B, isSubtotal: true }
+        ]
+      },
+      {
+        category: '간접 원가', rows: [
+          { label: '간접 노무비', value: num(cs.indirectLaborCost), basis: '관리, 기술 지원 인력 등' },
+          { label: '감가 상각비', value: num(cs.depreciationCost), basis: '장비, 금형 등' },
+          { label: '품질 관리비', value: num(cs.qualityControlCost), basis: '검사, 시험 등' },
+          { label: '물류, 보관비', value: num(cs.logisticsCost), basis: '창고, 운송 등' },
+          { label: '소 계 ( C )', value: C, isSubtotal: true }
+        ]
+      },
+      {
+        category: '일반관리비', rows: [
+          { label: '인건비 배부', value: num(cs.laborAllocationCost), basis: '관리부서' },
+          { label: '임차료', value: num(cs.rentCost), basis: '사무실, 공장' },
+          { label: '통신, 전산비', value: num(cs.commsItCost), basis: '시스템' },
+          { label: '법무, 회계비', value: num(cs.legalAccountingCost), basis: '외주' },
+          { label: '기타 관리비', value: num(cs.otherAdminCost) },
+          { label: '소 계 ( D )', value: D, isSubtotal: true }
+        ]
+      },
+      {
+        category: '사후관리비용', rows: [
+          { label: '예상 사후 관리비', value: expectedPostSales, basis: '매출액 × 5%' },
+          { label: '사후 관리비 한도', value: postSalesCap, basis: '매출액 × 6%' },
+          { label: '적용 사후 관리비', value: num(cs.appliedPostSalesCost) },
+          { label: '적 용 ( E )', value: E, note: cs.appliedPostSalesNote || '', isSubtotal: true }
+        ]
+      }
+    ],
+    finalRows: [
+      { label: '총 원가 ( F = B+C+D+E )', value: F },
+      { label: '경상 이익 ( G = A - F )', value: G },
+      { label: '경상 이익율 (%) ( G / A )', valueText: margin === null ? '집계 전' : `${margin.toFixed(1)}%` }
+    ]
+  };
+};
+
 interface Props {
   contacts: BusinessCard[];
   setContacts: React.Dispatch<React.SetStateAction<BusinessCard[]>>;
@@ -271,6 +372,415 @@ export const ProjectsView: React.FC<Props> = ({
     } finally {
       setIsSavingCostSheet(false);
     }
+  };
+
+  // [추가] 원가계산서(개별) 엑셀 출력 - 위 getCostSheetExportData가 만들어준 데이터를
+  // 그대로 셀에 채워 넣는다. 화면 표와 동일하게 대분류(구분) 칸은 세로로 병합한다.
+  const handleExportCostSheetExcel = async () => {
+    const project = projects.find((p) => p.id === pnlSelectedProjectId);
+    if (!project || !costSheetDraft) return;
+    const { headerInfo, groups, finalRows } = getCostSheetExportData(project, costSheetDraft);
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('원가계산서', {
+      pageSetup: {
+        orientation: 'portrait', paperSize: 9 /* A4 */, fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 }
+      }
+    });
+    const colCount = 5;
+    const thin = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thin, left: thin, right: thin, bottom: thin };
+    const yellow = 'FFFDE68A';
+    const orange = 'FFFFEDD5';
+    const gray = 'FFF9FAFB';
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = '프로젝트 원가 계산서';
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 26;
+
+    let r = 2;
+    headerInfo.forEach(([label, value]) => {
+      const labelCell = ws.getCell(r, 1);
+      labelCell.value = label;
+      labelCell.font = { bold: true };
+      labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: gray } };
+      labelCell.alignment = { vertical: 'middle' };
+      labelCell.border = fullBorder;
+      ws.mergeCells(r, 2, r, colCount);
+      const valueCell = ws.getCell(r, 2);
+      valueCell.value = value;
+      valueCell.alignment = { vertical: 'middle' };
+      valueCell.border = fullBorder;
+      r++;
+    });
+
+    ws.mergeCells(r, 1, r, 2);
+    const catHeaderCell = ws.getCell(r, 1);
+    catHeaderCell.value = '구 분';
+    const amtHeaderCell = ws.getCell(r, 3);
+    amtHeaderCell.value = '금액(원)';
+    const basisHeaderCell = ws.getCell(r, 4);
+    basisHeaderCell.value = '산출근거';
+    const noteHeaderCell = ws.getCell(r, 5);
+    noteHeaderCell.value = '비고';
+    [catHeaderCell, amtHeaderCell, basisHeaderCell, noteHeaderCell].forEach((c) => {
+      c.font = { bold: true };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: yellow } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = fullBorder;
+    });
+    r++;
+
+    groups.forEach((g) => {
+      const groupStartRow = r;
+      g.rows.forEach((row) => {
+        const labelCell = ws.getCell(r, 2);
+        labelCell.value = row.label;
+        labelCell.border = fullBorder;
+        const amtCell = ws.getCell(r, 3);
+        amtCell.value = row.value;
+        amtCell.numFmt = '#,##0';
+        amtCell.alignment = { horizontal: 'right' };
+        amtCell.border = fullBorder;
+        const basisCell = ws.getCell(r, 4);
+        basisCell.value = row.basis || '';
+        basisCell.alignment = { horizontal: 'center' };
+        basisCell.border = fullBorder;
+        const noteCell = ws.getCell(r, 5);
+        noteCell.value = row.note || '';
+        noteCell.border = fullBorder;
+        if (row.isSubtotal) {
+          [labelCell, amtCell].forEach((c) => {
+            c.font = { bold: true };
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: orange } };
+          });
+        }
+        r++;
+      });
+      const groupEndRow = r - 1;
+      ws.mergeCells(groupStartRow, 1, groupEndRow, 1);
+      const catCell = ws.getCell(groupStartRow, 1);
+      catCell.value = g.category;
+      catCell.font = { bold: true };
+      catCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: yellow } };
+      for (let rr = groupStartRow; rr <= groupEndRow; rr++) {
+        ws.getCell(rr, 1).border = fullBorder;
+      }
+    });
+
+    finalRows.forEach((row) => {
+      ws.mergeCells(r, 1, r, 2);
+      const labelCell = ws.getCell(r, 1);
+      labelCell.value = row.label;
+      labelCell.font = { bold: true };
+      labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: yellow } };
+      labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      labelCell.border = fullBorder;
+      ws.mergeCells(r, 3, r, colCount);
+      const valueCell = ws.getCell(r, 3);
+      if (row.valueText) {
+        valueCell.value = row.valueText;
+      } else {
+        valueCell.value = row.value;
+        valueCell.numFmt = '#,##0';
+      }
+      valueCell.font = { bold: true };
+      valueCell.alignment = { horizontal: 'right', vertical: 'middle' };
+      valueCell.border = fullBorder;
+      r++;
+    });
+
+    ws.getColumn(1).width = 13;
+    ws.getColumn(2).width = 22;
+    ws.getColumn(3).width = 16;
+    ws.getColumn(4).width = 20;
+    ws.getColumn(5).width = 20;
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `원가계산서_${project.name}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 원가계산서(개별) 인쇄/PDF 저장 - "프로젝트 파이프라인" 인쇄와 동일하게, 이 표
+  // 하나만 담긴 완전히 독립된 새 창을 열어서 그 창 안에서 인쇄한다(브라우저 인쇄 대화상자의
+  // "PDF로 저장"을 고르면 그대로 PDF 저장도 된다).
+  const handlePrintCostSheet = () => {
+    const project = projects.find((p) => p.id === pnlSelectedProjectId);
+    if (!project || !costSheetDraft) return;
+    const { headerInfo, groups, finalRows } = getCostSheetExportData(project, costSheetDraft);
+    const fmt = (n: number) => `${formatCurrencyInput(String(Math.round(n)))}원`;
+
+    const headerRowsHtml = headerInfo.map(([label, value]) => `
+      <tr><td class="label">${escapeHtml(label)}</td><td colspan="4">${escapeHtml(value)}</td></tr>`).join('');
+
+    const groupsHtml = groups.map((g) => g.rows.map((row, idx) => `
+      <tr>
+        ${idx === 0 ? `<td class="cat" rowspan="${g.rows.length}">${escapeHtml(g.category)}</td>` : ''}
+        <td class="${row.isSubtotal ? 'sub' : 'itemlabel'}">${escapeHtml(row.label)}</td>
+        <td class="${row.isSubtotal ? 'sub amt' : 'amt'}">${escapeHtml(fmt(row.value))}</td>
+        <td class="basis">${escapeHtml(row.basis || '')}</td>
+        <td>${escapeHtml(row.note || '')}</td>
+      </tr>`).join('')).join('');
+
+    const finalRowsHtml = finalRows.map((row) => `
+      <tr class="final">
+        <td colspan="2" class="sub">${escapeHtml(row.label)}</td>
+        <td colspan="3" class="amt">${escapeHtml(row.valueText || fmt(row.value || 0))}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>프로젝트 원가 계산서 - ${escapeHtml(project.name)}</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm 18mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #000; }
+  .title { text-align: center; margin-bottom: 16px; }
+  .title h1 { display: inline-block; border-bottom: 4px double #000; padding-bottom: 4px; margin: 0; font-size: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+  th, td { border: 1px solid #000; padding: 5px 6px; vertical-align: middle; }
+  td.label { background: #f3f4f6; font-weight: 700; width: 110px; }
+  td.itemlabel { background: #f9fafb; }
+  td.cat { text-align: center; font-weight: 700; background: #fef3c7; width: 70px; }
+  td.sub { text-align: center; font-weight: 700; background: #ffedd5; }
+  td.amt { text-align: right; font-family: monospace; }
+  td.basis { text-align: center; color: #6b7280; }
+  th.colhead { background: #fde68a; font-weight: 700; text-align: center; }
+  tr.final td { background: #fde68a; font-weight: 700; text-align: right; }
+  tr.final td.sub { text-align: center; }
+</style>
+</head>
+<body>
+  <div class="title"><h1>프로젝트 원가 계산서</h1></div>
+  <table>
+    <tbody>
+      ${headerRowsHtml}
+      <tr>
+        <th class="colhead" colspan="2">구 분</th>
+        <th class="colhead">금액(원)</th>
+        <th class="colhead">산출근거</th>
+        <th class="colhead">비고</th>
+      </tr>
+      ${groupsHtml}
+      ${finalRowsHtml}
+    </tbody>
+  </table>
+  <script>window.onload = function () { window.focus(); window.print(); };</script>
+</body>
+</html>`;
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.');
+      return;
+    }
+    printWin.document.write(html);
+    printWin.document.close();
+  };
+
+  // [추가] 원가계산서(전체) 엑셀 출력 - 화면의 "프로젝트별 원가 계산서" 요약표와 동일한
+  // 컬럼 구성(No./프로젝트명/발주처/…/경상이익율/비고)에 합계 행까지 그대로 반영한다.
+  const handleExportAllCostSheetsExcel = async () => {
+    const allRows = [...projects].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    const headers = ['No.', '프로젝트명', '발주처', '계약번호', '계약일자', '납품기한', '작성일', '작성부서', '매출(원)', '총원가(원)', '경상이익(원)', '경상이익율(%)', '비고'];
+    const colCount = headers.length;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('전체_원가계산서', {
+      pageSetup: {
+        orientation: 'landscape', paperSize: 9 /* A4 */,
+        margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 }
+      }
+    });
+    const thin = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thin, left: thin, right: thin, bottom: thin };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = '프로젝트별 원가 계산서';
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 26;
+
+    ws.mergeCells(2, 1, 2, colCount);
+    const dateCell = ws.getCell(2, 1);
+    dateCell.value = `출력일: ${new Date().toLocaleDateString('ko-KR')}`;
+    dateCell.font = { size: 9, color: { argb: 'FF6B7280' } };
+    dateCell.alignment = { horizontal: 'center' };
+
+    const headerRowIdx = 4;
+    const headerRow = ws.getRow(headerRowIdx);
+    headers.forEach((h, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = h;
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE68A' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    let grandRevenue = 0, grandCost = 0, grandProfit = 0;
+    allRows.forEach((p, idx) => {
+      const cs = p.costSheet;
+      const revenue = cs ? csRevenueTotal(cs) : 0;
+      const cost = cs ? csTotalCost(cs) : 0;
+      const profit = cs ? csProfit(cs) : 0;
+      const marginPct = cs ? csProfitMargin(cs) : null;
+      if (cs) { grandRevenue += revenue; grandCost += cost; grandProfit += profit; }
+      const row = ws.getRow(headerRowIdx + 1 + idx);
+      const values: (string | number)[] = [
+        idx + 1, p.name, cs?.orderer || '-', cs?.contractNumber || '-', cs?.contractDate || '-',
+        cs?.deliveryDeadline || '-', cs?.preparedDate || '-', cs?.preparedDept || '-',
+        cs ? revenue : '-', cs ? cost : '-', cs ? profit : '-',
+        marginPct === null ? '-' : `${marginPct.toFixed(1)}%`, cs ? '' : '미작성'
+      ];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { horizontal: colIdx === 1 ? 'left' : (colIdx >= 8 && colIdx <= 10 ? 'right' : 'center'), vertical: 'middle' };
+        if (colIdx >= 8 && colIdx <= 10 && typeof v === 'number') cell.numFmt = '#,##0';
+      });
+    });
+
+    const totalsRowIdx = headerRowIdx + 1 + allRows.length;
+    if (allRows.length > 0) {
+      ws.mergeCells(totalsRowIdx, 1, totalsRowIdx, 8);
+      const labelCell = ws.getCell(totalsRowIdx, 1);
+      labelCell.value = '합계';
+      labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const revenueCell = ws.getCell(totalsRowIdx, 9);
+      revenueCell.value = grandRevenue; revenueCell.numFmt = '#,##0'; revenueCell.alignment = { horizontal: 'right' };
+      const costCell = ws.getCell(totalsRowIdx, 10);
+      costCell.value = grandCost; costCell.numFmt = '#,##0'; costCell.alignment = { horizontal: 'right' };
+      const profitCell = ws.getCell(totalsRowIdx, 11);
+      profitCell.value = grandProfit; profitCell.numFmt = '#,##0'; profitCell.alignment = { horizontal: 'right' };
+      const marginCell = ws.getCell(totalsRowIdx, 12);
+      marginCell.value = grandRevenue > 0 ? `${((grandProfit / grandRevenue) * 100).toFixed(1)}%` : '-';
+      marginCell.alignment = { horizontal: 'center' };
+      const totalsRow = ws.getRow(totalsRowIdx);
+      for (let c = 1; c <= colCount; c++) {
+        const cell = totalsRow.getCell(c);
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        cell.border = fullBorder;
+      }
+    }
+
+    headers.forEach((h, colIdx) => {
+      ws.getColumn(colIdx + 1).width = colIdx === 1 ? 26 : Math.max(h.length + 4, 12);
+    });
+    ws.views = [{ state: 'frozen', ySplit: headerRowIdx }];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `전체_프로젝트_원가계산서_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 원가계산서(전체) 인쇄/PDF 저장 - 위 엑셀과 같은 요약표를 새 창에 띄워 인쇄한다.
+  const handlePrintAllCostSheets = () => {
+    const allRows = [...projects].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    const headers = ['No.', '프로젝트명', '발주처', '계약번호', '계약일자', '납품기한', '작성일', '작성부서', '매출(원)', '총원가(원)', '경상이익(원)', '경상이익율(%)', '비고'];
+    const fmtWon = (n: number) => `${formatCurrencyInput(String(Math.round(n)))}원`;
+
+    let grandRevenue = 0, grandCost = 0, grandProfit = 0;
+    const rowsHtml = allRows.length === 0
+      ? `<tr><td colspan="${headers.length}" style="text-align:center;color:#9ca3af;padding:24px 8px;">등록된 프로젝트가 없습니다.</td></tr>`
+      : allRows.map((p, idx) => {
+        const cs = p.costSheet;
+        const revenue = cs ? csRevenueTotal(cs) : 0;
+        const cost = cs ? csTotalCost(cs) : 0;
+        const profit = cs ? csProfit(cs) : 0;
+        const marginPct = cs ? csProfitMargin(cs) : null;
+        if (cs) { grandRevenue += revenue; grandCost += cost; grandProfit += profit; }
+        return `<tr>
+          <td style="text-align:center;">${idx + 1}</td>
+          <td>${escapeHtml(p.name)}</td>
+          <td>${escapeHtml(cs?.orderer || '-')}</td>
+          <td>${escapeHtml(cs?.contractNumber || '-')}</td>
+          <td>${escapeHtml(cs?.contractDate || '-')}</td>
+          <td>${escapeHtml(cs?.deliveryDeadline || '-')}</td>
+          <td>${escapeHtml(cs?.preparedDate || '-')}</td>
+          <td>${escapeHtml(cs?.preparedDept || '-')}</td>
+          <td style="text-align:right;">${cs ? escapeHtml(fmtWon(revenue)) : '-'}</td>
+          <td style="text-align:right;">${cs ? escapeHtml(fmtWon(cost)) : '-'}</td>
+          <td style="text-align:right;">${cs ? escapeHtml(fmtWon(profit)) : '-'}</td>
+          <td style="text-align:center;">${marginPct === null ? '-' : `${marginPct.toFixed(1)}%`}</td>
+          <td>${cs ? '' : '미작성'}</td>
+        </tr>`;
+      }).join('');
+
+    const totalsHtml = allRows.length === 0 ? '' : `
+      <tr style="background:#fef3c7;font-weight:700;">
+        <td colspan="8" style="text-align:center;">합계</td>
+        <td style="text-align:right;">${escapeHtml(fmtWon(grandRevenue))}</td>
+        <td style="text-align:right;">${escapeHtml(fmtWon(grandCost))}</td>
+        <td style="text-align:right;">${escapeHtml(fmtWon(grandProfit))}</td>
+        <td style="text-align:center;">${grandRevenue > 0 ? `${((grandProfit / grandRevenue) * 100).toFixed(1)}%` : '-'}</td>
+        <td></td>
+      </tr>`;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>프로젝트별 원가 계산서</title>
+<style>
+  @page { size: A4 landscape; margin: 15mm 18mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #000; }
+  .title { text-align: center; margin-bottom: 16px; }
+  .title h1 { display: inline-block; border-bottom: 4px double #000; padding-bottom: 4px; margin: 0; font-size: 20px; }
+  .title p { font-size: 10px; color: #666; margin: 4px 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: auto; }
+  th, td { border: 1px solid #000; padding: 4px 5px; }
+  th { background: #fde68a; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="title">
+    <h1>프로젝트별 원가 계산서</h1>
+    <p>출력일: ${escapeHtml(new Date().toLocaleDateString('ko-KR'))}</p>
+  </div>
+  <table>
+    <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rowsHtml}${totalsHtml}</tbody>
+  </table>
+  <script>window.onload = function () { window.focus(); window.print(); };</script>
+</body>
+</html>`;
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.');
+      return;
+    }
+    printWin.document.write(html);
+    printWin.document.close();
   };
 
   // 같은 회사(사업자번호)로 가입한 다른 계정들을 "우리 회사 직원" 목록으로 불러옴
@@ -2373,6 +2883,24 @@ export const ProjectsView: React.FC<Props> = ({
                         <h3 className="text-base font-bold text-slate-800 underline underline-offset-4">프로젝트 원가 계산서</h3>
                         <div className="flex items-center gap-2">
                           {costSheetSaveError && <span className="text-xs text-rose-500">{costSheetSaveError}</span>}
+                          {/* [추가] 원가계산서(개별)도 프로젝트 파이프라인과 동일하게 엑셀 출력/
+                          인쇄(PDF 저장)를 지원한다. */}
+                          <button
+                            type="button"
+                            onClick={handleExportCostSheetExcel}
+                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                          >
+                            <FileSpreadsheet className="w-3.5 h-3.5" />
+                            <span>엑셀 출력</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handlePrintCostSheet}
+                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow-md shadow-slate-700/20 transition-all active:scale-95"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>인쇄 / PDF 저장</span>
+                          </button>
                           <button
                             onClick={handleSaveCostSheet}
                             disabled={isSavingCostSheet}
@@ -2580,7 +3108,28 @@ export const ProjectsView: React.FC<Props> = ({
                   )
                 ) : (
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 overflow-x-auto">
-                    <h3 className="text-base font-bold text-slate-800 underline underline-offset-4">프로젝트별 원가 계산서</h3>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h3 className="text-base font-bold text-slate-800 underline underline-offset-4">프로젝트별 원가 계산서</h3>
+                      {/* [추가] 원가계산서(전체) 엑셀 출력/인쇄(PDF 저장) */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleExportAllCostSheetsExcel}
+                          className="flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          <span>엑셀 출력</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handlePrintAllCostSheets}
+                          className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow-md shadow-slate-700/20 transition-all active:scale-95"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>인쇄 / PDF 저장</span>
+                        </button>
+                      </div>
+                    </div>
                     <table className="w-full text-xs border-collapse min-w-[900px]">
                       <thead>
                         <tr className="bg-yellow-300">
