@@ -6507,6 +6507,50 @@ app.get('/api/admin-docs/advance-payment-candidates', (req, res) => {
   res.json(candidates);
 });
 
+// [추가] "연차 현황"이 전자결재 > 휴가 신청서와 연동되도록 - 완전히 승인(status ===
+// 'approved')된 연차(leaveCategory === 'annual') 신청서를 전부 찾아서 한 목록으로 모아준다.
+// 화면에서 이 목록을 사람 이름(author) 기준으로 자동으로 묶어서, 아직 등록 안 된 사람은
+// 새 줄로 만들고 그 사람의 연차 사용 내역으로 채워 넣는다. totalAnnualDays(총 년차일수)도
+// 신청서에 이미 적혀있는 값을 그대로 같이 내려줘서, 사람을 새로 등록할 때 자동으로 채워지게
+// 한다. 대상 연도(year 쿼리)를 넘기면 그 해에 시작하는 신청서만 걸러서 돌려준다(연도별
+// 현황판이므로 - 현금 흐름/관리비내역과 같은 "연도 하나 = 문서 하나" 방식).
+app.get('/api/admin-docs/annual-leave-candidates', (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const year = req.query.year as string | undefined;
+  const dbData = getScopedData(req);
+
+  const candidates: {
+    sourceKey: string;
+    sourceLabel: string;
+    author: string;
+    startDate: string;
+    endDate?: string;
+    days: number;
+    note: string;
+    totalAnnualDays?: number;
+  }[] = [];
+
+  for (const doc of (dbData.leaveRequests || [])) {
+    if (doc.status !== 'approved') continue;
+    if (doc.leaveCategory !== 'annual') continue;
+    if (year && (doc.startDate || '').slice(0, 4) !== year) continue;
+    candidates.push({
+      sourceKey: `leave_request:${doc.id}`,
+      sourceLabel: '전자결재 휴가 신청서',
+      author: doc.author,
+      startDate: doc.startDate,
+      endDate: doc.endDate,
+      days: doc.days,
+      note: doc.reason,
+      totalAnnualDays: doc.totalAnnualDays
+    });
+  }
+
+  candidates.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+  res.json(candidates);
+});
+
 // [수정] "차량 과태료 내역"/"각종 세금"/"관리비내역" 세 곳 모두 회계관리 > 통장 출금
 // 내역과 연동되도록 - 이미 등록된 통장 출금 내역(bank_withdrawal)의 거래 내역을 전부
 // 찾아서 한 목록으로 모아주는 공용 엔드포인트로 일반화했다(원래는 차량 과태료 전용이었음).
