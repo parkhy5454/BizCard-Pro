@@ -568,6 +568,59 @@ export interface Project {
   competitor?: string;    // 경쟁사
   supportNeeded?: string; // ABB 지원요청
   remarks?: string;       // 비고 (리스트 출력 전용 - 메모(description)와는 별개 칸)
+  // [추가] 프로젝트 탭 > "프로젝트 원가계산서" 서브탭 전용 데이터. 공유해주신 "프로젝트 원가
+  // 계산서" 양식(매출액/직접원가/간접원가/일반관리비/사후관리비용을 항목별로 직접 입력하면
+  // 소계·총원가·경상이익·경상이익율을 자동 계산)을 그대로 반영한다. 프로젝트 하나에 원가
+  // 계산서 하나가 매칭되는 구조라 별도 컬렉션으로 안 빼고 Project 안에 그대로 둔다 - 기존
+  // 프로젝트 CRUD API(PUT /api/projects/:id가 body를 그대로 병합 저장)를 그대로 재사용할
+  // 수 있어서 서버 쪽 변경 없이 구현 가능하다.
+  costSheet?: ProjectCostSheet;
+}
+
+// [추가] 위 Project.costSheet의 실제 타입 - "프로젝트 원가 계산서" 양식 그대로.
+export interface ProjectCostSheet {
+  // 상단 기본 정보. Project 자체에도 비슷한 필드(endCustomer/dueDate 등)가 있지만, 원가
+  // 계산서는 "정식 계약서 기준" 값을 별도로 관리하는 문서라 독립된 값으로 둔다 - 처음 열 때만
+  // Project 값으로 미리 채워주고, 그 뒤로는 서로 영향을 주지 않는다.
+  orderer?: string;            // 발주처
+  contractNumber?: string;     // 계약번호
+  contractDate?: string;       // 계약일자 (YYYY-MM-DD)
+  deliveryDeadline?: string;   // 납품기한 (YYYY-MM-DD)
+  preparedDate?: string;       // 작성일 (YYYY-MM-DD)
+  preparedDept?: string;       // 작성부서
+
+  // 매출액
+  contractRevenue: number;     // 계약 매출액(원)
+  additionalRevenue: number;   // 추가 매출액(원)
+
+  // 직접원가 (소계 B)
+  rawMaterialCost: number;     // 원재료비 - 자재 BOM 기준
+  outsourcingCost: number;     // 외주 가공비 - 제작, 조립, 가공 등
+  directLaborCost: number;     // 직접 노무비 - 투입 인원 × 공수
+  directExpense: number;       // 직접 경비 - 운송, 설치, 시운전 등
+
+  // 간접원가 (소계 C)
+  indirectLaborCost: number;   // 간접 노무비 - 관리, 기술 지원 인력 등
+  depreciationCost: number;    // 감가상각비 - 장비, 금형 등
+  qualityControlCost: number;  // 품질 관리비 - 검사, 시험 등
+  logisticsCost: number;       // 물류, 보관비 - 창고, 운송 등
+
+  // 일반관리비 (소계 D)
+  laborAllocationCost: number; // 인건비 배부 - 관리부서
+  rentCost: number;            // 임차료 - 사무실, 공장
+  commsItCost: number;         // 통신, 전산비 - 시스템
+  legalAccountingCost: number; // 법무, 회계비 - 외주
+  otherAdminCost: number;      // 기타 관리비
+
+  // 사후관리비용. "예상 사후 관리비"(매출액×5%)와 "사후 관리비 한도"(매출액×6%)는 매출액
+  // 합계(A)에서 자동 계산되는 참고값이라 따로 저장하지 않고 화면에서 그때그때 계산한다.
+  // 실제로 총원가에 반영되는 값(적용(E))만 직접 입력/조정하도록 저장한다.
+  appliedPostSalesCost: number; // 적용 사후 관리비 = 적용(E)
+
+  // 비고 - 양식에 기본 문구가 있는 3개 행만 별도 필드로 관리(나머지 행은 비고 없음)
+  contractRevenueNote?: string;  // 계약 매출액 행 비고 (기본값 "VAT 별도")
+  totalRevenueNote?: string;     // 합계(A) 행 비고 (기본값 "손익 기준")
+  appliedPostSalesNote?: string; // 적용(E) 행 비고 (기본값 "낮은 금액 적용")
 }
 
 export interface MyProfile {
