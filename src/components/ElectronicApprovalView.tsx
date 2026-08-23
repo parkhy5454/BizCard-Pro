@@ -395,10 +395,6 @@ const ApprovalLineEditor: React.FC<{
         {companyPositions.map((p) => <option key={p} value={p} />)}
       </datalist>
     )}
-    <p className="text-[10px] text-slate-400">
-      여기 적는 직책이 회원가입 시 등록한 직책과 정확히 일치해야 결재 요청 이메일이 그 사람에게 자동으로 전달됩니다.
-      "우리 회사 기본값으로 저장"을 누르면 다음부터 새 문서 작성 시 이 결재선이 자동으로 채워집니다.
-    </p>
   </div>
 );
 

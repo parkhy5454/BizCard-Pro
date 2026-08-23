@@ -6971,7 +6971,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {(activeCategory === 'labor_contract' || activeCategory === 'salary_agreement') && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">회사 정보 (사업체명·대표·사업자등록번호는 로그인 계정에서 자동 입력됨 / 사업종류·주소는 한 번 입력해두면 다음부터 자동으로 채워집니다)</label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         <input
                           type="text"
@@ -7128,7 +7127,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'employment_cert' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div>
-                      <label className="block text-[10px] text-slate-400 mb-0.5">사업체 주소 (한 번 입력해두면 다음부터 자동으로 채워집니다)</label>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">사업체 주소</label>
                       <input
                         type="text"
                         value={editingDoc.employmentCert?.companyAddress || ''}

@@ -1935,7 +1935,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
               <Calendar className="w-4 h-4 text-emerald-400" />
               {monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월
-              <span className="text-[10px] text-slate-400 font-normal ml-2">같은 회사 직원 전체 업무 (일일+주간)</span>
             </div>
             <button
               type="button"
@@ -2620,7 +2619,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       {editingLogId ? '업무일지 수정' : activeSubTab === 'daily' ? '일일 업무일지 작성' : '주간 업무일지 작성'}
                     </h2>
                   </div>
-                  <p className="text-xs text-slate-500">명확하고 논리적인 업무 성과 정리를 지원합니다.</p>
                 </div>
 
                 <form onSubmit={handleSaveLog} className="space-y-5">
