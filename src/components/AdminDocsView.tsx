@@ -6723,22 +6723,22 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1">
-                            <input
-                              type="text"
-                              value={e.description}
-                              onChange={(ev) => updateIncentiveEntry(e.id, { description: ev.target.value })}
-                              placeholder="지급 대상자 (예: 박현용 구정 보너스)"
-                              className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
-                            />
-                            <input
-                              type="text"
-                              value={e.note || ''}
-                              onChange={(ev) => updateIncentiveEntry(e.id, { note: ev.target.value })}
-                              placeholder="비고"
-                              className="flex-1 min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
-                            />
-                          </div>
+                          {/* [수정] "비고"를 지급 대상자 옆 좁은 칸에 같이 넣었더니 입력할 공간이
+                          너무 좁다는 지적이 있어, 아래 줄로 내려서 폭 전체를 쓸 수 있게 한다. */}
+                          <input
+                            type="text"
+                            value={e.description}
+                            onChange={(ev) => updateIncentiveEntry(e.id, { description: ev.target.value })}
+                            placeholder="지급 대상자 (예: 박현용 구정 보너스)"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={e.note || ''}
+                            onChange={(ev) => updateIncentiveEntry(e.id, { note: ev.target.value })}
+                            placeholder="비고"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
                         </div>
                       ))}
                     </div>
