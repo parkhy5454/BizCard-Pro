@@ -1241,7 +1241,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
     });
 
-    const columns = ['일자', '금액', '현금/상품권/기타', '내역', '비고'];
+    const columns = ['일자', '금액', '지급 내역', '지급 대상자', '비고'];
     const colCount = columns.length;
     const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
     const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
@@ -3946,8 +3946,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
               <td style={{ border: '1px solid #000', padding: '6px' }}>일자</td>
               <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
-              <td style={{ border: '1px solid #000', padding: '6px' }}>현금/상품권/기타</td>
-              <td style={{ border: '1px solid #000', padding: '6px' }}>내역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급 내역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급 대상자</td>
               <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
             </tr>
           </thead>
@@ -6682,7 +6682,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               />
                             </div>
                             <div className="flex-1 min-w-[100px]">
-                              <label className="block text-[9px] text-slate-400 mb-0.5">현금/상품권/기타</label>
+                              <label className="block text-[9px] text-slate-400 mb-0.5">지급 내역</label>
                               <select
                                 value={e.method || '현금'}
                                 onChange={(ev) => updateIncentiveEntry(e.id, { method: ev.target.value as '현금' | '상품권' | '기타' })}
@@ -6702,7 +6702,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="text"
                               value={e.description}
                               onChange={(ev) => updateIncentiveEntry(e.id, { description: ev.target.value })}
-                              placeholder="내역 (예: 박현용 구정 보너스)"
+                              placeholder="지급 대상자 (예: 박현용 구정 보너스)"
                               className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
                             />
                             <input
