@@ -2354,7 +2354,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             ? '영수증 스캔 중...'
                             : drivingReceipts.length > 0
                               ? `영수증 추가로 촬영 (지금 ${drivingReceipts.length}건 담김)`
-                              : '통행료/주차비/식대 등 영수증 촬영 (비용관리에 자동 연동 등록, 여러 장 가능)'}
+                              : '영수증 촬영 (여러 장 가능)'}
                         </span>
                       </button>
                     </div>
