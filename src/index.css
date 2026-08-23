@@ -250,4 +250,24 @@ body {
     padding: 0 !important;
     min-height: auto !important;
   }
+
+  /* [추가] 연차 현황 - 이름/입사일자/총년차일수/휴가일/사용연차일수/잔여일수/비고 +
+  휴일(초과)근무(일자/기간/시간/현장) + 대체휴가 + 비고까지 열이 많아 표가 가로로 넓으므로
+  월별 자금 현황(cashflow-landscape)과 같이 가로(landscape)로 인쇄한다. 직원이 많아 내용이
+  길면 2페이지 이상으로 넘어갈 수 있어, 위 해외 출장 경비와 같은 이유로 - 페이지 경계에서도
+  여백이 유지되도록 - 1페이지 위쪽 여백(15mm)의 2배(30mm)를 2페이지부터 적용하는 전용
+  named page를 둔다. */
+  @page annual-leave-page {
+    size: A4 landscape;
+    margin: 30mm 15mm 15mm 15mm;
+  }
+  @page annual-leave-page:first {
+    margin-top: 15mm;
+  }
+  .print-annual-leave-margins {
+    page: annual-leave-page;
+    width: auto !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
 }

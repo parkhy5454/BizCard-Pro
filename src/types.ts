@@ -101,6 +101,7 @@ export type AdminDocCategory =
   | 'labor_contract'      // 근로계약서
   | 'salary_agreement'    // 연봉협약서
   | 'employment_cert'     // 재직증명서
+  | 'annual_leave_status' // 연차/휴일근무 및 대체 휴가 현황
   | 'power_of_attorney'   // 위임장
   | 'office_supplies'     // 사무실 비품 관리
   | 'sales_contract'      // 영업 계약
@@ -507,6 +508,51 @@ export interface AdminDoc {
     position?: string;            // 직위
     documentNumber?: string;      // 문서번호 (예: "제 2026-0001호")
     issueDate?: string;           // 증명 발급일
+  };
+  // [추가] 경영지원 > 연차 현황(category: 'annual_leave_status') 전용 구조화 필드. 공유해주신
+  // "OOOO년 연차 / 휴일근무 및 대체 휴가" 양식과 동일하게, 연도 하나 = 문서 하나로 저장하고
+  // 그 안에 직원별로 (1) 연차 사용 내역, (2) 휴일(초과) 근무, (3) 대체휴가 세 목록을 각각
+  // 여러 줄 입력한다(현금 흐름의 "연도 하나 = 문서 하나" 방식과 동일). 총 년차일수/잔여일수는
+  // 사람마다 한 번만 있고, 사용/휴일근무/대체휴가는 각각 여러 건일 수 있다.
+  annualLeaveStatus?: {
+    year: string; // 대상 연도 (예: "2026")
+    people: {
+      id: string;
+      name: string;                 // 이름
+      hireDate?: string;            // 입사일자
+      // 총 년차일수 - 전자결재 > 휴가 신청서에서 이미 사람마다 관리하고 있는 값(총 부여
+      // 연차일수)과 같은 개념. "전자결재에서 불러오기"를 쓰면 그 사람의 최근 승인된 연차
+      // 신청서에 적힌 값을 그대로 가져와 채워준다(직접 수정도 가능).
+      totalAnnualDays: number;
+      // 연차 사용 내역 - 휴가일/사용연차일수/비고. "전자결재에서 불러오기"로 승인된 연차
+      // 신청서를 그대로 가져올 수 있다(가져온 항목은 sourceKey로 표시되어 중복으로 다시
+      // 가져오지 않는다).
+      leaveEntries: {
+        id: string;
+        startDate: string;           // 휴가 시작일
+        endDate?: string;             // 휴가 종료일 (하루짜리면 비워두거나 startDate와 동일)
+        days: number;                  // 사용연차일수
+        note: string;                  // 비고 (예: "전체년차", "장모님기일" 등 사유)
+        sourceKey?: string;
+        sourceLabel?: string; // 예: "전자결재 휴가 신청서"
+      }[];
+      // 휴일(초과) 근무 - 일자/기간(일)/시간/현장. 전자결재와 연동되는 데이터가 따로 없어
+      // 직접 입력으로만 관리한다.
+      overtimeEntries: {
+        id: string;
+        date: string;      // 일자
+        periodDays?: number; // 기간(일)
+        hours?: number;      // 시간
+        site?: string;        // 현장
+        note?: string;         // 비고 (예: "휴일근무 근무수당지급완료(04.30)")
+      }[];
+      // 대체휴가 - 사용일 + 비고(예: "20일 대체휴가_정리완료"). 직접 입력으로만 관리한다.
+      substituteEntries: {
+        id: string;
+        date: string;
+        note?: string;
+      }[];
+    }[];
   };
   // [추가] 경영지원 > 위임장(category: 'power_of_attorney') 전용 구조화 필드. 공유해주신
   // 양식을 그대로 재현한다 - 위임받는 사람의 정보와 위임 업무 내용만 채우면 된다.
