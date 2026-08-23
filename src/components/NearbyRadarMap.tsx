@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw, Search, LocateFixed } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -414,7 +415,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   // 순서로 이어서).
   const [isAutoRegeocoding, setIsAutoRegeocoding] = useState<boolean>(false);
   useEffect(() => {
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = getTodayLocalStr();
     const lastRunKey = 'bizcard_radar_last_autoregeocode';
     if (localStorage.getItem(lastRunKey) === todayKey) return; // 오늘 이미 돌았으면 건너뜀
 

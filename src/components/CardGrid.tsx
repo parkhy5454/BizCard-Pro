@@ -5,6 +5,7 @@ import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
 import { downloadContactVCard } from '../vcardUtils.js';
 import { filterContactsForIntel } from '../contactFilters.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -91,7 +92,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
   const [expandedCallsId, setExpandedCallsId] = useState<string | null>(null);
   const [expandedNavId, setExpandedNavId] = useState<string | null>(null);
   const [cardImageSide, setCardImageSide] = useState<Record<string, 'front' | 'back'>>({});
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayLocalStr();
   // [수정] "관계 인텔리전스" 패널의 닫기 상태 (오늘 하루만 닫기, 날짜 바뀌면 자동 재표시)
   const [intelDismissedDate, setIntelDismissedDate] = useState<string>(() => {
     try { return localStorage.getItem('bizcard_relationship_intel_dismissed_date') || ''; } catch { return ''; }

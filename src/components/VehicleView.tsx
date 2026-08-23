@@ -12,6 +12,7 @@ import { ProjectSearchSelect } from './ProjectPicker.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 
 // [추가] 운행기록부 인쇄/엑셀 내보내기(buildReportTableHtml)는 운전자명·부서·주행목적·
 // 출발지/도착지 주소 등 사용자가 직접 입력한 값을 HTML 문자열로 조립해서 그대로
@@ -185,7 +186,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     modelName: '',
     plateNumber: '',
     owner: currentUser.name,
-    purchaseDate: new Date().toISOString().split('T')[0],
+    purchaseDate: getTodayLocalStr(),
     initialMileage: 0,
     fuelType: 'gasoline' as Vehicle['fuelType'],
     status: 'active' as Vehicle['status'],
@@ -206,7 +207,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [newDriving, setNewDriving] = useState({
     vehicleId: '',
     driverName: currentUser.name,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalStr(),
     purpose: '일반 업무용',
     startMileage: 0,
     endMileage: 0,
@@ -300,7 +301,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 3. 지출비용 폼
   const [newExpense, setNewExpense] = useState({
     vehicleId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalStr(),
     category: 'fuel' as VehicleExpense['category'],
     categoryCustom: '',
     amount: 0,
@@ -327,7 +328,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // 4. 정비기록 폼
   const [newMaint, setNewMaint] = useState({
     vehicleId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalStr(),
     title: '엔진오일 교환',
     cost: 0,
     mileage: 0,
@@ -350,14 +351,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     intervalKm: 5000,
     intervalDays: 180,
     lastServiceMileage: 0,
-    lastServiceDate: new Date().toISOString().split('T')[0],
+    lastServiceDate: getTodayLocalStr(),
     alertKmBefore: 500,
     alertDaysBefore: 7
   });
 
   // 국세청 리포트용 차량 및 기간 선택
   const [reportVehicleId, setReportVehicleId] = useState<string>('');
-  const [reportYearMonth, setReportYearMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [reportYearMonth, setReportYearMonth] = useState<string>(getTodayLocalStr().slice(0, 7)); // YYYY-MM
 
   // 헤더 설정
   const getHeaders = () => ({
@@ -426,7 +427,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           modelName: '',
           plateNumber: '',
           owner: currentUser.name,
-          purchaseDate: new Date().toISOString().split('T')[0],
+          purchaseDate: getTodayLocalStr(),
           initialMileage: 0,
           fuelType: 'gasoline',
           status: 'active',
@@ -830,7 +831,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         setNewDriving({
           vehicleId: '',
           driverName: currentUser.name,
-          date: new Date().toISOString().split('T')[0],
+          date: getTodayLocalStr(),
           purpose: '일반 업무용',
           startMileage: 0,
           endMileage: 0,
@@ -954,7 +955,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         setShowExpenseForm(false);
         setNewExpense({
           vehicleId: '',
-          date: new Date().toISOString().split('T')[0],
+          date: getTodayLocalStr(),
           category: 'fuel',
           categoryCustom: '',
           amount: 0,
@@ -1043,7 +1044,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         setShowMaintForm(false);
         setNewMaint({
           vehicleId: '',
-          date: new Date().toISOString().split('T')[0],
+          date: getTodayLocalStr(),
           title: '',
           cost: 0,
           mileage: 0,
@@ -1245,7 +1246,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           intervalKm: 5000,
           intervalDays: 180,
           lastServiceMileage: 0,
-          lastServiceDate: new Date().toISOString().split('T')[0],
+          lastServiceDate: getTodayLocalStr(),
           alertKmBefore: 500,
           alertDaysBefore: 7
         });
@@ -1361,7 +1362,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     now.setHours(0,0,0,0);
 
     if (period === 'today') {
-      return dateStr === now.toISOString().split('T')[0];
+      return dateStr === getTodayLocalStr();
     }
     if (period === 'week') {
       const startOfWeek = new Date(now);

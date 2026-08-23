@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Calendar, Building2, Users, TrendingUp, AlertCircle, Clock, Search, RefreshCw, Briefcase, Phone, ChevronRight, CheckCircle2, ListTodo, UserPlus, X } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project, User as UserType, DailyWorkLog, WeeklyWorkLog } from '../types.js';
 import { getIntelExcludedGroupIds } from '../contactFilters.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -186,7 +187,7 @@ const BriefingTab: React.FC<{
       .finally(() => setIsLoading(false));
   }, [currentUser?.id]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayLocalStr();
   const todayLogs = useMemo(() => dailyLogs.filter((l) => l.date === todayStr), [dailyLogs, todayStr]);
   const myTodayLog = useMemo(() => todayLogs.find((l) => l.author === currentUser?.name), [todayLogs, currentUser]);
 

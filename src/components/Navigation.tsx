@@ -3,6 +3,7 @@ import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, B
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { RemindersBell } from './RemindersBell.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 
 interface Props {
   activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence';
@@ -95,7 +96,7 @@ export const Navigation: React.FC<Props> = ({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `bizcard-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `bizcard-backup-${getTodayLocalStr()}.json`;
       document.body.appendChild(a);
       a.click();
       a.remove();

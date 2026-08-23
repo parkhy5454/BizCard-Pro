@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText, Camera } from 'lucide-react';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 
@@ -32,7 +33,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   // 파싱 결과 상태
   const [form, setForm] = useState({
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalStr(),
     merchantName: '',
     memo: '',
     category: '',
@@ -138,7 +139,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
 
       setForm({
         amount: Number(data.amount) || 0,
-        date: data.date || new Date().toISOString().split('T')[0],
+        date: data.date || getTodayLocalStr(),
         merchantName: data.merchantName || '',
         memo: data.memo || '',
         category: mappedCategory,

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
 import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
@@ -27,7 +28,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     d.setDate(1);
     return d;
   });
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(getTodayLocalStr());
   // [추가] 예전엔 캘린더에서 날짜를 클릭하면 선택만 되고, 상세 목록은 화면 맨 아래
   // 별도 영역에 떠서 스크롤해서 내려가야 보였다. 이제 날짜를 클릭하면 그 자리에서 바로
   // 팝업(모달)으로 상세 목록이 뜨도록 바꿔서, 스크롤 없이 바로 확인·작성할 수 있게 한다.
@@ -306,7 +307,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 선택한 날짜로 바로 채워서 열리도록 presetDate를 받을 수 있게 했다.
   const handleOpenNewLog = (presetDate?: string) => {
     setEditingLogId(null);
-    const todayStr = presetDate || new Date().toISOString().split('T')[0];
+    const todayStr = presetDate || getTodayLocalStr();
     
     // 주간 기본 범위 (이번주 월~금)
     const today = new Date();
@@ -317,13 +318,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     friday.setDate(friday.getDate() + 4);
     
     setFormDate(todayStr);
-    setFormStartDate(monday.toISOString().split('T')[0]);
-    setFormEndDate(friday.toISOString().split('T')[0]);
-    
+    setFormStartDate(dateToLocalStr(monday));
+    setFormEndDate(dateToLocalStr(friday));
+
     if (activeSubTab === 'daily') {
       setFormTitle(`${todayStr} 일일 업무일지`);
     } else {
-      setFormTitle(`${monday.toISOString().split('T')[0]} ~ ${friday.toISOString().split('T')[0]} 주간 업무일지`);
+      setFormTitle(`${dateToLocalStr(monday)} ~ ${dateToLocalStr(friday)} 주간 업무일지`);
     }
     
     // 프로필 정보가 있으면 기본값으로 주입
@@ -613,7 +614,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     // - 주간: 이번 주 월요일부터 오늘까지 누적 합계
     // - 월간: 이번 달 1일부터 오늘까지 누적 합계
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = dateToLocalStr(today);
 
     const sumExpenses = (logs: DailyWorkLog[]) =>
       logs.reduce((sum, dl) => sum + (dl.expenses || []).reduce((s, e) => s + (e.amount || 0), 0), 0);
@@ -625,7 +626,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const mondayOfThisWeek = new Date(today);
     mondayOfThisWeek.setDate(today.getDate() - daysSinceMonday);
-    const mondayStr = mondayOfThisWeek.toISOString().split('T')[0];
+    const mondayStr = dateToLocalStr(mondayOfThisWeek);
     const weeklyExpensesSum = sumExpenses(dailyLogs.filter(dl => dl.date >= mondayStr && dl.date <= todayStr));
     setReportExpenseWeekly(weeklyExpensesSum);
 
@@ -1688,8 +1689,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     XLSX.utils.book_append_sheet(wb, ws, isDaily ? '일일 업무일지' : '주간 업무일지');
     
     const fileName = isDaily 
-      ? `일일업무일지_${new Date().toISOString().split('T')[0]}.xlsx`
-      : `주간업무일지_${new Date().toISOString().split('T')[0]}.xlsx`;
+      ? `일일업무일지_${getTodayLocalStr()}.xlsx`
+      : `주간업무일지_${getTodayLocalStr()}.xlsx`;
       
     XLSX.writeFile(wb, fileName);
   };
@@ -1973,7 +1974,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             for (let d = 1; d <= daysInMonth; d++) {
               cells.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
             }
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = getTodayLocalStr();
             const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
             return (

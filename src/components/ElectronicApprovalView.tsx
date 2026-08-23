@@ -8,6 +8,7 @@ import {
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 import { SignaturePadModal } from './SignaturePadModal.js';
 
 interface Props {
@@ -213,7 +214,7 @@ const YMDInput: React.FC<{ value: string; onChange: (v: string) => void; classNa
 };
 
 function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return getTodayLocalStr();
 }
 
 // 'YYYY-MM-DD' -> 'YYYY년 MM월 DD일'

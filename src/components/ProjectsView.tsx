@@ -5,6 +5,7 @@ import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, Meet
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { ContactMultiSearchSelect } from './ContactPicker.js';
 import { AttendeeContactSearchAdd } from './AttendeeContactSearchAdd.js';
@@ -42,7 +43,7 @@ const emptyCostSheet = (): ProjectCostSheet => ({
   contractNumber: '',
   contractDate: '',
   deliveryDeadline: '',
-  preparedDate: new Date().toISOString().split('T')[0],
+  preparedDate: getTodayLocalStr(),
   preparedDept: '',
   contractRevenue: 0,
   additionalRevenue: 0,
@@ -292,7 +293,7 @@ export const ProjectsView: React.FC<Props> = ({
   const [followupBannerDismissedDate, setFollowupBannerDismissedDate] = useState<string>(() => {
     try { return localStorage.getItem('bizcard_followup_banner_dismissed_date') || ''; } catch { return ''; }
   });
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayLocalStr();
   const isFollowupBannerDismissed = followupBannerDismissedDate === todayStr;
   const dismissFollowupBannerForToday = () => {
     try { localStorage.setItem('bizcard_followup_banner_dismissed_date', todayStr); } catch {}
@@ -590,7 +591,7 @@ export const ProjectsView: React.FC<Props> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `원가계산서_${project.name}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.download = `원가계산서_${project.name}_${getTodayLocalStr()}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -779,7 +780,7 @@ export const ProjectsView: React.FC<Props> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `전체_프로젝트_원가계산서_${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.download = `전체_프로젝트_원가계산서_${getTodayLocalStr()}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1037,7 +1038,7 @@ export const ProjectsView: React.FC<Props> = ({
         const names = related.map(r => r.name).join(', ');
         setMeetingAttendee(names);
         
-        setMeetingDate(new Date().toISOString().split('T')[0]);
+        setMeetingDate(getTodayLocalStr());
         setMeetingContent('');
         
         // 녹음 초기화
@@ -1148,7 +1149,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   // 마지막 미팅(또는 프로젝트 생성일)로부터 경과된 일수 계산 함수
   const getDaysSinceLastActivity = (proj: Project): { days: number; lastDate: string; reason: 'createdAt' | 'followUp' } => {
-    let lastDateStr = proj.createdAt ? proj.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+    let lastDateStr = proj.createdAt ? proj.createdAt.split('T')[0] : getTodayLocalStr();
     let reason: 'createdAt' | 'followUp' = 'createdAt';
 
     if (proj.followUps && proj.followUps.length > 0) {
@@ -1171,7 +1172,7 @@ export const ProjectsView: React.FC<Props> = ({
     };
 
     const lastDateObj = parseLocalDate(lastDateStr);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getTodayLocalStr();
     const todayObj = parseLocalDate(todayStr);
 
     const diffTime = todayObj.getTime() - lastDateObj.getTime();
@@ -1238,7 +1239,7 @@ export const ProjectsView: React.FC<Props> = ({
   const [newStatus, setNewStatus] = useState<Project['status']>('opportunity');
   const [newPriority, setNewPriority] = useState<Project['priority']>('high');
   // [수정] "마감 기한" 대신 "프로젝트 등록일" 개념으로 변경 - 기본값을 오늘 날짜로
-  const [newDueDate, setNewDueDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [newDueDate, setNewDueDate] = useState<string>(getTodayLocalStr());
   const [newBudget, setNewBudget] = useState<string>('');
   // [추가] 새 프로젝트 등록 시 메모를 남길 수 있는 칸. Project 타입에는 description
   // 필드가 이미 있었는데, 등록 폼에는 입력 칸이 빠져 있어서 등록할 때 메모를 못 남기고
@@ -1387,7 +1388,7 @@ export const ProjectsView: React.FC<Props> = ({
     setNewName('');
     setNewDescription('');
     setNewSalesRep(currentUser?.name || '');
-    setNewDueDate(new Date().toISOString().split('T')[0]);
+    setNewDueDate(getTodayLocalStr());
     setNewContractor('');
     setNewArchitect('');
     setNewElectricalDesigner('');
@@ -2164,7 +2165,7 @@ export const ProjectsView: React.FC<Props> = ({
 
     const payload = {
       content: meetingContent,
-      date: meetingDate || new Date().toISOString().split('T')[0],
+      date: meetingDate || getTodayLocalStr(),
       status: 'done' as const,
       meetingDegree: meetingDegree || undefined,
       meetingType: meetingDegree ? meetingType : undefined,
@@ -2473,7 +2474,7 @@ export const ProjectsView: React.FC<Props> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `전체_프로젝트_목록_${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.download = `전체_프로젝트_목록_${getTodayLocalStr()}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();

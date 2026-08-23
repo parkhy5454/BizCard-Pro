@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 
 interface Props {
   section: AdminDocSection;
@@ -373,7 +374,7 @@ function loadSavedRates(): typeof DEFAULT_RATES {
 const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   category,
   title: '',
-  date: new Date().toISOString().split('T')[0],
+  date: getTodayLocalStr(),
   personName: '',
   amount: '',
   memo: '',
@@ -384,8 +385,8 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   // 식대·차량유지비는 비과세 항목이라 4대보험 계산 기준(과세 대상 급여)에서 빠지도록
   // taxable: false로 시작한다.
   payslip: category === 'payslip' ? {
-    payMonth: new Date().toISOString().slice(0, 7),
-    paymentDate: new Date().toISOString().split('T')[0],
+    payMonth: getTodayLocalStr().slice(0, 7),
+    paymentDate: getTodayLocalStr(),
     payItems: [
       { id: `li-${Date.now()}-1`, label: '기본급', amount: 0, taxable: true },
       { id: `li-${Date.now()}-2`, label: '연장수당', amount: 0, taxable: true },
@@ -406,8 +407,8 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   // 늘릴 수 있게 한다. periodStart/End는 선택한 date의 월 시작~끝으로 기본값을 잡는다.
   cashflow: category === 'monthly_cashflow' ? (() => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    const start = dateToLocalStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    const end = dateToLocalStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
     return {
       periodStart: start,
       periodEnd: end,
@@ -422,7 +423,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       bankName: '',
       accountNumber: '',
       subCategory: '',
-      entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
+      entries: [{ id: `be-${Date.now()}`, date: getTodayLocalStr(), project: '', amount: 0, description: '', note: '' }]
     }]
   } : undefined,
   // [추가] 대출 현황 기본값. 대출 하나를 빈 줄로 미리 넣어두고, "대출 추가"로 늘릴 수 있게 한다.
@@ -453,13 +454,13 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       cardName: '',
       cardNumber: '',
       holder: '',
-      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: new Date().toISOString().split('T')[0], project: '', user: '', note: '' }]
+      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: getTodayLocalStr(), project: '', user: '', note: '' }]
     }]
   } : undefined,
   // [추가] 법인카드 관리(월별 카드별 사용 요약) 기본값. 카드 한 장을 빈 줄로 미리 넣어두고
   // "카드 추가"로 늘릴 수 있게 한다.
   corpCard: category === 'corp_card' ? {
-    yearMonth: new Date().toISOString().slice(0, 7),
+    yearMonth: getTodayLocalStr().slice(0, 7),
     cards: [{
       id: `cc-${Date.now()}`,
       cardCompany: '', cardNumber: '', expiry: '', user: '', periodLabel: '', paymentDay: '',
@@ -488,7 +489,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   })() : undefined,
   // [추가] 차량 과태료 내역 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   vehicleFine: category === 'vehicle_fine' ? {
-    entries: [{ id: `vf-${Date.now()}`, date: new Date().toISOString().split('T')[0], vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]
+    entries: [{ id: `vf-${Date.now()}`, date: getTodayLocalStr(), vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]
   } : undefined,
   // [추가] 각종 세금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   taxPayment: category === 'tax' ? {
@@ -515,11 +516,11 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   })() : undefined,
   // [추가] 인센티브 및 명절 상여금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   incentive: category === 'incentive' ? {
-    entries: [{ id: `inc-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: 0, method: '현금', description: '', note: '' }]
+    entries: [{ id: `inc-${Date.now()}`, date: getTodayLocalStr(), amount: 0, method: '현금', description: '', note: '' }]
   } : undefined,
   // [추가] 해외 출장 경비 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
   overseasTrip: category === 'overseas_trip' ? {
-    entries: [{ id: `ot-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]
+    entries: [{ id: `ot-${Date.now()}`, date: getTodayLocalStr(), amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]
   } : undefined,
   // [추가] 현금 흐름 기본값. "연도 하나 = 문서 하나"라서 대상 연도를 먼저 잡고, INFLOWS/
   // OUTFLOWS는 빈 줄 하나씩만 미리 넣어두고 "행 추가"로 늘리게 하며, 경비는 실제로 자주
@@ -581,33 +582,33 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       { id: `sal-${Date.now()}-3`, label: '차량 유지비', amount: 0 },
       { id: `sal-${Date.now()}-4`, label: '식대', amount: 0 }
     ],
-    contractStartDate: new Date().toISOString().split('T')[0],
-    contractEndDate: category === 'salary_agreement' ? new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0] : '',
+    contractStartDate: getTodayLocalStr(),
+    contractEndDate: category === 'salary_agreement' ? dateToLocalStr(new Date(new Date().setFullYear(new Date().getFullYear() + 1))) : '',
     workLocation: category === 'salary_agreement' ? '주소지 회사(회사 사정이 있을 시 변경 가능)' : '주소지 회사(회사 사정이 있을 시 변경 가능) 및 프로젝트 현장',
     jobDuties: '기술 영업 및 기술 지원(회사 사정이 있을 시 변경 가능)',
-    contractDate: new Date().toISOString().split('T')[0]
+    contractDate: getTodayLocalStr()
   } : undefined,
   // [추가] 재직증명서 기본값
   employmentCert: category === 'employment_cert' ? {
     companyAddress: '', employeeAddress: '', employeeName: '', residentNumberMasked: '',
     hireDate: '', purpose: '제출용', submitTo: '',
-    applicationDate: new Date().toISOString().split('T')[0],
+    applicationDate: getTodayLocalStr(),
     department: '', position: '',
-    documentNumber: '', issueDate: new Date().toISOString().split('T')[0]
+    documentNumber: '', issueDate: getTodayLocalStr()
   } : undefined,
   // [추가] 위임장 기본값
   powerOfAttorney: category === 'power_of_attorney' ? {
     employeeAddress: '', employeeName: '', residentNumberMasked: '',
     purpose: '', submitTo: '', taskDescription: '',
-    issueDate: new Date().toISOString().split('T')[0]
+    issueDate: getTodayLocalStr()
   } : undefined,
   // [추가] 영업 계약서 기본값. 매출구간별 누진 수수료율 등은 공유해주신 예시 계약의
   // 표준 조건을 기본값으로 깔아두고, 거래처마다 조건이 다르면 직접 고쳐 쓸 수 있게 한다.
   salesContract: category === 'sales_contract' ? {
     counterpartyName: '', counterpartyAddress: '', counterpartyBizNumber: '', counterpartyRepName: '',
-    contractDate: new Date().toISOString().split('T')[0],
-    contractStartDate: new Date().toISOString().split('T')[0],
-    contractEndDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+    contractDate: getTodayLocalStr(),
+    contractStartDate: getTodayLocalStr(),
+    contractEndDate: dateToLocalStr(new Date(new Date().setFullYear(new Date().getFullYear() + 1))),
     feeTier1Max: 1800000000, feeTier1Rate: 5,
     feeTier2Max: 3000000000, feeTier2Rate: 4,
     feeTier3Rate: 3,
@@ -619,9 +620,9 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   severance: category === 'severance' ? {
     employeeName: '', residentNumberMasked: '', hireYearMonth: '',
     periodStart: '', periodEnd: '', reason: '',
-    companyAdvanceAmount: 0, companyAdvanceDate: new Date().toISOString().split('T')[0], companyAdvanceBank: '',
+    companyAdvanceAmount: 0, companyAdvanceDate: getTodayLocalStr(), companyAdvanceBank: '',
     bankAccrualAmount: 0,
-    receiveDate: new Date().toISOString().split('T')[0]
+    receiveDate: getTodayLocalStr()
   } : undefined
 });
 
@@ -1071,7 +1072,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     // 같은 달 날짜로 매일 실시간 입력하시는 방식에 맞춘 것), 그 달이 아직 안 끝났으면
     // 오늘 날짜까지만 합산한다.
     const { start, end } = getTargetMonthRange(targetMonth);
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getTodayLocalStr();
     const cappedEnd = end ? (end > todayStr ? todayStr : end) : undefined;
 
     const mergedCards = docsForMonth
@@ -1132,7 +1133,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (isMerged) {
       ws.mergeCells(2, 1, 2, colCount);
       const noteCell = ws.getCell(2, 1);
-      noteCell.value = `※ 금액은 회계관리 > 카드사용내역에 기록된 실제 사용 내역을 기준으로 ${new Date().toISOString().slice(0, 10)} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)`;
+      noteCell.value = `※ 금액은 회계관리 > 카드사용내역에 기록된 실제 사용 내역을 기준으로 ${getTodayLocalStr()} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)`;
       noteCell.font = { size: 9, color: { argb: 'FF555555' } };
       noteCell.alignment = { horizontal: 'center' };
       headerRowIdx = 3;
@@ -2638,7 +2639,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       bankName: '',
       accountNumber: '',
       subCategory: '',
-      entries: [{ id: `be-${Date.now()}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }]
+      entries: [{ id: `be-${Date.now()}`, date: getTodayLocalStr(), project: '', amount: 0, description: '', note: '' }]
     }]);
   };
   const removeBankAccount = (accId: string) => {
@@ -2649,7 +2650,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   };
   const addBankEntry = (accId: string) => {
     updateBankAccounts((accounts) => accounts.map((a) => a.id === accId
-      ? { ...a, entries: [...a.entries, { id: `be-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], project: '', amount: 0, description: '', note: '' }] }
+      ? { ...a, entries: [...a.entries, { id: `be-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), project: '', amount: 0, description: '', note: '' }] }
       : a));
   };
   const removeBankEntry = (accId: string, entryId: string) => {
@@ -2690,7 +2691,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       return { wch: maxLen + 2 };
     });
     XLSX.utils.book_append_sheet(wb, ws, isWithdrawal ? '통장 출금 내역' : '통장 입금 내역');
-    XLSX.writeFile(wb, `${isWithdrawal ? '통장출금내역' : '통장입금내역'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `${isWithdrawal ? '통장출금내역' : '통장입금내역'}_${getTodayLocalStr()}.xlsx`);
   };
 
   // [추가] 통장 출금/입금 내역 - 엑셀 가져오기. 위 "엑셀 내보내기"로 받은 파일이나, 은행에서
@@ -2828,7 +2829,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           section,
           category,
           title: `${isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'} 엑셀 가져오기 (${pendingBankImport.fileName.replace(/\.(xlsx|xls|csv)$/i, '')})`,
-          date: new Date().toISOString().split('T')[0],
+          date: getTodayLocalStr(),
           amount: String(totalAmount),
           bankLedger: { accounts: [{ id: `bacc-${Date.now()}`, bankName, accountNumber, subCategory, entries }] }
         };
@@ -3031,7 +3032,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     updateCards((cards) => [...cards, {
       id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       cardName: '', cardNumber: '', holder: '',
-      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: new Date().toISOString().split('T')[0], project: '', user: '', note: '' }]
+      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: getTodayLocalStr(), project: '', user: '', note: '' }]
     }]);
   };
   const removeCard = (cardId: string) => {
@@ -3042,7 +3043,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   };
   const addCardEntry = (cardId: string) => {
     updateCards((cards) => cards.map((c) => c.id === cardId
-      ? { ...c, entries: [...c.entries, { id: `cue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, amount: 0, date: new Date().toISOString().split('T')[0], project: '', user: '', note: '' }] }
+      ? { ...c, entries: [...c.entries, { id: `cue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, amount: 0, date: getTodayLocalStr(), project: '', user: '', note: '' }] }
       : c));
   };
   const removeCardEntry = (cardId: string, entryId: string) => {
@@ -3250,7 +3251,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     });
   };
   const addVehicleFineEntry = () => {
-    updateVehicleFineEntries((entries) => [...entries, { id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]);
+    updateVehicleFineEntries((entries) => [...entries, { id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]);
   };
   const removeVehicleFineEntry = (id: string) => {
     updateVehicleFineEntries((entries) => entries.filter((e) => e.id !== id));
@@ -3354,7 +3355,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     });
   };
   const addIncentiveEntry = () => {
-    updateIncentiveEntries((entries) => [...entries, { id: `inc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], amount: 0, method: '현금', description: '', note: '' }]);
+    updateIncentiveEntries((entries) => [...entries, { id: `inc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), amount: 0, method: '현금', description: '', note: '' }]);
   };
   const removeIncentiveEntry = (id: string) => {
     updateIncentiveEntries((entries) => entries.filter((e) => e.id !== id));
@@ -3373,7 +3374,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     });
   };
   const addOverseasTripEntry = () => {
-    updateOverseasTripEntries((entries) => [...entries, { id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]);
+    updateOverseasTripEntries((entries) => [...entries, { id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]);
   };
   const removeOverseasTripEntry = (id: string) => {
     updateOverseasTripEntries((entries) => entries.filter((e) => e.id !== id));
@@ -3415,7 +3416,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const addAnnualLeaveEntry = (personId: string) => {
     updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
-      ...p, leaveEntries: [...p.leaveEntries, { id: `ale-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: new Date().toISOString().split('T')[0], endDate: '', days: 1, note: '' }]
+      ...p, leaveEntries: [...p.leaveEntries, { id: `ale-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: getTodayLocalStr(), endDate: '', days: 1, note: '' }]
     } : p));
   };
   const removeAnnualLeaveEntry = (personId: string, entryId: string) => {
@@ -3427,7 +3428,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const addAnnualLeaveOvertime = (personId: string) => {
     updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
-      ...p, overtimeEntries: [...p.overtimeEntries, { id: `alo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], periodDays: 1, hours: 0, site: '', note: '' }]
+      ...p, overtimeEntries: [...p.overtimeEntries, { id: `alo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), periodDays: 1, hours: 0, site: '', note: '' }]
     } : p));
   };
   const removeAnnualLeaveOvertime = (personId: string, entryId: string) => {
@@ -3439,7 +3440,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const addAnnualLeaveSubstitute = (personId: string) => {
     updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
-      ...p, substituteEntries: [...p.substituteEntries, { id: `als-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], note: '' }]
+      ...p, substituteEntries: [...p.substituteEntries, { id: `als-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), note: '' }]
     } : p));
   };
   const removeAnnualLeaveSubstitute = (personId: string, entryId: string) => {
@@ -4512,7 +4513,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         </h1>
         {isMerged && (
           <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
-            ※ 금액은 회계관리 &gt; 카드사용내역에 기록된 실제 사용 내역을 기준으로 {new Date().toISOString().slice(0, 10)} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)
+            ※ 금액은 회계관리 &gt; 카드사용내역에 기록된 실제 사용 내역을 기준으로 {getTodayLocalStr()} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)
           </p>
         )}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
@@ -5734,7 +5735,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             // (예: 2026년 첫 신청 2026-001, 두 번째 2026-002...). 그 해에 이미 만들어진
             // 재직증명서 개수를 세어서 다음 번호를 매긴다.
             if (fresh.employmentCert) {
-              const year = (fresh.employmentCert.applicationDate || new Date().toISOString().split('T')[0]).slice(0, 4);
+              const year = (fresh.employmentCert.applicationDate || getTodayLocalStr()).slice(0, 4);
               const countThisYear = docs.filter((d) => d.category === 'employment_cert' && d.employmentCert?.documentNumber?.startsWith(`${year}-`)).length;
               fresh.employmentCert.documentNumber = `${year}-${String(countThisYear + 1).padStart(3, '0')}`;
             }
