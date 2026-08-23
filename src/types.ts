@@ -212,6 +212,11 @@ export interface AdminDoc {
         amount: number;       // 금액(원)
         description: string;  // 거래내용
         note?: string;         // 비고
+        // [추가] 프로젝트 원가계산서(costSheet)의 직접원가/간접원가/일반관리비 항목 중
+        // 어디에 해당하는 지출인지 표시. projectId가 같이 있어야 원가계산서 "자동
+        // 불러오기"에서 실제로 반영된다 - 프로젝트 연결 없이 이 값만 있어도 아무 효과가
+        // 없다(어느 프로젝트 원가인지 알 수 없으므로).
+        costCategory?: ProjectCostCategory;
       }[];
     }[];
   };
@@ -268,6 +273,9 @@ export interface AdminDoc {
         // 원본을 중복으로 다시 가져오지 않도록 막는다.
         sourceKey?: string;
         sourceLabel?: string; // 화면에 보여줄 원본 이름 (예: "차량 비용관리")
+        // [추가] 위 bankLedger entries의 costCategory와 같은 목적 - 프로젝트 원가계산서
+        // 항목 자동 불러오기에 쓰인다. projectId가 같이 있어야 반영된다.
+        costCategory?: ProjectCostCategory;
       }[];
     }[];
   };
@@ -594,6 +602,50 @@ export interface Project {
   costSheet?: ProjectCostSheet;
 }
 
+// [추가] 프로젝트 원가계산서의 직접원가/간접원가/일반관리비 세부 항목을 통장 출금내역·
+// 카드사용내역 거래에서 "자동 불러오기"로 채워 넣을 수 있게 하기 위한 항목 키 목록.
+// 거래 항목에 이 값 중 하나를 태그해두면(costCategory, AdminDoc.bankLedger/cardUsage
+// entries 참고) 원가계산서에서 프로젝트+항목이 일치하는 거래를 찾아 자동으로 가져온다.
+export type ProjectCostCategory =
+  | 'rawMaterialCost' | 'outsourcingCost' | 'directLaborCost' | 'directExpense'
+  | 'indirectLaborCost' | 'depreciationCost' | 'qualityControlCost' | 'logisticsCost'
+  | 'laborAllocationCost' | 'rentCost' | 'commsItCost' | 'legalAccountingCost' | 'otherAdminCost';
+
+// 화면(거래 항목 태그 드롭다운, 원가계산서 자동 불러오기 요약 등)에 공통으로 쓰는 한글
+// 이름 - 한 곳에서만 관리해서 두 화면(AdminDocsView/ProjectsView)의 이름이 어긋나지
+// 않게 한다.
+export const PROJECT_COST_CATEGORY_LABELS: Record<ProjectCostCategory, string> = {
+  rawMaterialCost: '원재료비',
+  outsourcingCost: '외주 가공비',
+  directLaborCost: '직접 노무비',
+  directExpense: '직접 경비',
+  indirectLaborCost: '간접 노무비',
+  depreciationCost: '감가상각비',
+  qualityControlCost: '품질 관리비',
+  logisticsCost: '물류, 보관비',
+  laborAllocationCost: '인건비 배부',
+  rentCost: '임차료',
+  commsItCost: '통신, 전산비',
+  legalAccountingCost: '법무, 회계비',
+  otherAdminCost: '기타 관리비'
+};
+
+// 원가계산서 양식에 나오는 순서 그대로 - 드롭다운/자동 불러오기 요약에서 이 순서로 보여준다.
+export const PROJECT_COST_CATEGORY_ORDER: ProjectCostCategory[] = [
+  'rawMaterialCost', 'outsourcingCost', 'directLaborCost', 'directExpense',
+  'indirectLaborCost', 'depreciationCost', 'qualityControlCost', 'logisticsCost',
+  'laborAllocationCost', 'rentCost', 'commsItCost', 'legalAccountingCost', 'otherAdminCost'
+];
+
+// [추가] 위 13개 항목의 실제 저장 값 - 관리비내역/가지급내역과 동일하게 manual(직접 입력)
+// + imported(통장 출금내역·카드사용내역에서 자동 불러온 값, sourceKey로 중복 방지)를
+// 더한 값이 최종 금액이다. 이렇게 해야 "자동 불러오기"를 다시 눌러도 이미 직접 입력해둔
+// 값을 덮어쓰지 않고, 새로 태그된 거래만 추가로 더해진다.
+export interface ProjectCostSheetAmount {
+  manual: number;
+  imported: { sourceKey: string; sourceLabel: string; amount: number }[];
+}
+
 // [추가] 위 Project.costSheet의 실제 타입 - "프로젝트 원가 계산서" 양식 그대로.
 export interface ProjectCostSheet {
   // 상단 기본 정보. Project 자체에도 비슷한 필드(endCustomer/dueDate 등)가 있지만, 원가
@@ -610,24 +662,26 @@ export interface ProjectCostSheet {
   contractRevenue: number;     // 계약 매출액(원)
   additionalRevenue: number;   // 추가 매출액(원)
 
-  // 직접원가 (소계 B)
-  rawMaterialCost: number;     // 원재료비 - 자재 BOM 기준
-  outsourcingCost: number;     // 외주 가공비 - 제작, 조립, 가공 등
-  directLaborCost: number;     // 직접 노무비 - 투입 인원 × 공수
-  directExpense: number;       // 직접 경비 - 운송, 설치, 시운전 등
+  // 직접원가 (소계 B) - 통장 출금내역·카드사용내역에서 "자동 불러오기"로 채울 수 있어
+  // manual(직접 입력)+imported(자동 반영) 구조다. 예전에 저장된 문서는 이 값이 그냥
+  // 숫자(number)일 수 있으니, 읽는 쪽(csFieldTotal)에서 두 형태를 모두 다룬다.
+  rawMaterialCost: ProjectCostSheetAmount;     // 원재료비 - 자재 BOM 기준
+  outsourcingCost: ProjectCostSheetAmount;     // 외주 가공비 - 제작, 조립, 가공 등
+  directLaborCost: ProjectCostSheetAmount;     // 직접 노무비 - 투입 인원 × 공수
+  directExpense: ProjectCostSheetAmount;       // 직접 경비 - 운송, 설치, 시운전 등
 
   // 간접원가 (소계 C)
-  indirectLaborCost: number;   // 간접 노무비 - 관리, 기술 지원 인력 등
-  depreciationCost: number;    // 감가상각비 - 장비, 금형 등
-  qualityControlCost: number;  // 품질 관리비 - 검사, 시험 등
-  logisticsCost: number;       // 물류, 보관비 - 창고, 운송 등
+  indirectLaborCost: ProjectCostSheetAmount;   // 간접 노무비 - 관리, 기술 지원 인력 등
+  depreciationCost: ProjectCostSheetAmount;    // 감가상각비 - 장비, 금형 등
+  qualityControlCost: ProjectCostSheetAmount;  // 품질 관리비 - 검사, 시험 등
+  logisticsCost: ProjectCostSheetAmount;       // 물류, 보관비 - 창고, 운송 등
 
   // 일반관리비 (소계 D)
-  laborAllocationCost: number; // 인건비 배부 - 관리부서
-  rentCost: number;            // 임차료 - 사무실, 공장
-  commsItCost: number;         // 통신, 전산비 - 시스템
-  legalAccountingCost: number; // 법무, 회계비 - 외주
-  otherAdminCost: number;      // 기타 관리비
+  laborAllocationCost: ProjectCostSheetAmount; // 인건비 배부 - 관리부서
+  rentCost: ProjectCostSheetAmount;            // 임차료 - 사무실, 공장
+  commsItCost: ProjectCostSheetAmount;         // 통신, 전산비 - 시스템
+  legalAccountingCost: ProjectCostSheetAmount; // 법무, 회계비 - 외주
+  otherAdminCost: ProjectCostSheetAmount;      // 기타 관리비
 
   // 사후관리비용. "예상 사후 관리비"(매출액×5%)와 "사후 관리비 한도"(매출액×6%)는 매출액
   // 합계(A)에서 자동 계산되는 참고값이라 따로 저장하지 않고 화면에서 그때그때 계산한다.
