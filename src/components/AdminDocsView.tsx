@@ -245,6 +245,69 @@ function formatCardNumber(raw: string): string {
   return digits.replace(/(\d{4})(?=\d)/g, '$1-');
 }
 
+// [추가] 연차 현황 - 휴가일 한 건(시작일~종료일)을 표에 보여줄 짧은 텍스트로 바꾼다.
+// 하루짜리는 "01월 02일", 같은 달 안에서 며칠 걸치면 "02월 02~06일", 달이 다르면
+// "02.28~03.02"처럼 점으로 구분해서 보여준다.
+function formatAnnualLeaveRange(startDate?: string, endDate?: string): string {
+  if (!startDate) return '';
+  const s = startDate.split('-');
+  if (s.length < 3) return startDate;
+  const [sYY, sMM, sDD] = s;
+  if (!endDate || endDate === startDate) return `${sMM}월 ${sDD}일`;
+  const e = endDate.split('-');
+  if (e.length < 3) return `${sMM}월 ${sDD}일~${endDate}`;
+  const [eYY, eMM, eDD] = e;
+  if (eYY === sYY && eMM === sMM) return `${sMM}월 ${sDD}~${eDD}일`;
+  return `${sMM}.${sDD}~${eMM}.${eDD}`;
+}
+
+// [추가] 연차 현황 - 직원 한 명의 표 안 "데이터 행" 개수. 연차 사용/휴일근무/대체휴가 세
+// 목록의 길이가 서로 다를 수 있어(예: 연차는 5건인데 휴일근무는 2건), 가장 긴 목록 기준으로
+// 행 수를 잡고 짧은 목록은 그만큼 빈 칸으로 둔다. 한 건도 없어도 최소 1행은 보여준다.
+function annualLeavePersonRowCount(p: { leaveEntries: any[]; overtimeEntries: any[]; substituteEntries: any[] }): number {
+  return Math.max(1, p.leaveEntries.length, p.overtimeEntries.length, p.substituteEntries.length);
+}
+function annualLeaveUsedTotal(p: { leaveEntries: { days: number }[] }): number {
+  return p.leaveEntries.reduce((s, e) => s + (Number(e.days) || 0), 0);
+}
+function annualLeaveRemaining(p: { totalAnnualDays: number; leaveEntries: { days: number }[] }): number {
+  return (Number(p.totalAnnualDays) || 0) - annualLeaveUsedTotal(p);
+}
+function annualLeaveOvertimeHoursTotal(p: { overtimeEntries: { hours?: number }[] }): number {
+  return p.overtimeEntries.reduce((s, e) => s + (Number(e.hours) || 0), 0);
+}
+function annualLeaveOvertimePeriodTotal(p: { overtimeEntries: { periodDays?: number }[] }): number {
+  return p.overtimeEntries.reduce((s, e) => s + (Number(e.periodDays) || 0), 0);
+}
+
+// [추가] 연차 현황 - "총 년차일수"를 입사일 기준으로 근로기준법 표준 규정에 맞춰 자동
+// 계산한다. 근속 1년 미만은 개근한 달마다 1일(최대 11일), 1년 이상은 15일에 매 2년마다
+// 1일씩 가산(최대 25일)하는 방식 - 실무에서 가장 널리 쓰이는 "입사일 기준" 계산법이다.
+// 회사마다 실제 부여 기준이 조금씩 다를 수 있어(자체 정책, 특별 가산 등) 어디까지나
+// 기본값 계산이고, 계산 후에도 총년차일수는 직접 고칠 수 있게 해준다.
+function calcStatutoryAnnualLeaveDays(hireDate: string, targetYear: string): number | null {
+  if (!hireDate || !targetYear) return null;
+  const parts = hireDate.split('-');
+  if (parts.length < 3) return null;
+  const hireYear = Number(parts[0]);
+  const hireMonth = Number(parts[1]);
+  const hireDay = Number(parts[2]);
+  const ty = Number(targetYear);
+  if (!hireYear || !hireMonth || !hireDay || !ty) return null;
+
+  const years = ty - hireYear;
+  if (years < 0) return null; // 입사 전 연도
+  if (years === 0) {
+    // 입사한 해 자체: 그 해 안에서 개근한 달 수(최대 11개월 → 11일)만큼만 발생한다.
+    // 12월 입사 등 아직 한 달도 안 채웠으면 0일.
+    const monthsElapsed = Math.max(0, 12 - hireMonth) + (hireDay === 1 ? 1 : 0);
+    return Math.min(11, monthsElapsed);
+  }
+  // 근속 1년 이상 - 15일 + 3년차부터 매 2년마다 1일 가산, 최대 25일
+  const bonus = Math.floor((years - 1) / 2);
+  return Math.min(25, 15 + bonus);
+}
+
 // [추가] 경영지원/회계관리 각 섹션의 서브 탭(서류 종류) 정의. 종류마다 필요한 항목이 조금씩
 // 다르지만(예: 근로계약서엔 "직원명"이 중요하고, 통장 출금 내역엔 "금액"이 중요하다), 화면은
 // 하나의 공용 폼(제목/날짜/관련자/금액/메모/첨부파일)을 그대로 쓰고 라벨과 플레이스홀더만
@@ -254,6 +317,7 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'labor_contract', label: '근로계약서', personLabel: '직원명', showAmount: false },
     { id: 'salary_agreement', label: '연봉협약서', personLabel: '직원명', showAmount: true },
     { id: 'employment_cert', label: '재직증명서', personLabel: '직원명', showAmount: false },
+    { id: 'annual_leave_status', label: '연차 현황', personLabel: '', showAmount: false },
     { id: 'power_of_attorney', label: '위임장', personLabel: '위임받는 사람', showAmount: false },
     { id: 'office_supplies', label: '사무실 비품 관리', personLabel: '담당자/비품명', showAmount: true },
     { id: 'sales_contract', label: '영업 계약', personLabel: '거래처명', showAmount: true },
@@ -495,6 +559,13 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
       ]
     };
   })() : undefined,
+  // [추가] 연차 현황 기본값. 현금 흐름과 동일하게 "연도 하나 = 문서 하나"라서 대상 연도만
+  // 먼저 잡아두고, 직원은 빈 목록으로 시작한다("직원 추가"로 늘리거나, "전자결재에서
+  // 불러오기"로 승인된 연차 신청서에서 자동으로 만들어진다).
+  annualLeaveStatus: category === 'annual_leave_status' ? {
+    year: String(new Date().getFullYear()),
+    people: []
+  } : undefined,
   // [추가] 근로계약서 기본값. 급여 구성 항목을 실제 회사 양식(기본급/연장근로수당/
   // 차량유지비/식대)에 맞춰 미리 채워두고, 필요하면 항목을 더 추가/삭제할 수 있다.
   laborContract: (category === 'labor_contract' || category === 'salary_agreement') ? {
@@ -1561,6 +1632,172 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const a = document.createElement('a');
     a.href = url;
     a.download = `${printingDoc.title || '해외_출장_경비_사용내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 연차 현황 - 공유해주신 "OOOO년 연차 / 휴일근무 및 대체 휴가" 양식을 그대로
+  // 엑셀로 재현한다. 이름/입사일자/총년차일수는 그 직원의 전체 행(연차 사용 내역 + 맨 아래
+  // 합계 행)에 걸쳐 세로로 병합하고, 연차 사용/휴일(초과)근무/대체휴가 세 목록은 각각
+  // 독립적인 목록이라 행 번호가 같아도 서로 다른 내용일 수 있다(짧은 목록은 그만큼
+  // 빈칸으로 둔다) - annualLeavePersonRowCount와 같은 규칙.
+  const handleExportAnnualLeaveStatusExcel = async () => {
+    if (!printingDoc || !printingDoc.annualLeaveStatus) return;
+    const al = printingDoc.annualLeaveStatus;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('연차_현황', {
+      pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.59, right: 0.59, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const colCount = 13;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const applyBorder = (row: number, col: number) => { ws.getCell(row, col).border = fullBorder; };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title || `${al.year}년 연차 / 휴일근무 및 대체 휴가`;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    // 2행짜리 헤더(2~3행) - 대부분 열은 세로로 2행 병합, "휴일(초과) 근무"만 4개 하위 열을
+    // 거느린 그룹 헤더라서 2행에서는 가로로만 병합하고 3행에 하위 이름을 따로 적는다.
+    const singleHeaders: [number, string][] = [
+      [1, '이름'], [2, '입사일자'], [3, '총 년차일수'], [4, '휴가일'], [5, '사용연차일수'],
+      [6, '잔여일수'], [7, '비고'], [12, '대체휴가'], [13, '비고']
+    ];
+    singleHeaders.forEach(([col, label]) => {
+      ws.mergeCells(2, col, 3, col);
+      const cell = ws.getCell(2, col);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      for (let r = 2; r <= 3; r++) applyBorder(r, col);
+    });
+    ws.mergeCells(2, 8, 2, 11);
+    const overtimeGroupCell = ws.getCell(2, 8);
+    overtimeGroupCell.value = '휴 일 (초과) 근 무';
+    overtimeGroupCell.font = { bold: true };
+    overtimeGroupCell.fill = yellowFill;
+    overtimeGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    for (let c = 8; c <= 11; c++) applyBorder(2, c);
+    (['일자', '기간(일)', '시간', '현장'] as const).forEach((label, i) => {
+      const cell = ws.getCell(3, 8 + i);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      applyBorder(3, 8 + i);
+    });
+    ws.getRow(2).height = 18;
+    ws.getRow(3).height = 18;
+
+    let cursor = 4;
+    for (const p of al.people) {
+      const rowCount = annualLeavePersonRowCount(p);
+      const blockStart = cursor;
+      const blockEnd = cursor + rowCount; // 데이터 행 + 합계 행까지 포함해서 이름/입사일자/총년차일수를 병합
+
+      for (let i = 0; i < rowCount; i++) {
+        const r = cursor + i;
+        const row = ws.getRow(r);
+        const leaveEntry = p.leaveEntries[i];
+        const overtimeEntry = p.overtimeEntries[i];
+        const substituteEntry = p.substituteEntries[i];
+        const values: (string | number)[] = [
+          '', '', '', // 1~3열은 아래에서 병합 처리
+          leaveEntry ? formatAnnualLeaveRange(leaveEntry.startDate, leaveEntry.endDate) : '',
+          leaveEntry ? (leaveEntry.days || 0) : '',
+          '', // 잔여일수는 합계 행에서만 표시
+          leaveEntry?.note || '',
+          overtimeEntry?.date ? fmtDate(overtimeEntry.date) : '',
+          overtimeEntry?.periodDays || '',
+          overtimeEntry?.hours || '',
+          overtimeEntry?.site || '',
+          substituteEntry?.date ? fmtDate(substituteEntry.date) : '',
+          substituteEntry?.note || ''
+        ];
+        values.forEach((v, colIdx) => {
+          const col = colIdx + 1;
+          if (col <= 3) return; // 병합 영역 - 아래에서 따로 값/서식 지정
+          const cell = row.getCell(col);
+          cell.value = v;
+          cell.border = fullBorder;
+          cell.alignment = { vertical: 'middle', horizontal: (col === 4 || col === 7 || col === 13) ? 'left' : 'center', wrapText: col === 7 || col === 13 };
+          if (col === 5 || col === 9 || col === 10) cell.numFmt = '#,##0.##';
+        });
+      }
+
+      // 합계 행 - 사용연차일수 합계/잔여일수/휴일근무 시간·기간 합계를 노란 배경으로 표시
+      const totalR = cursor + rowCount;
+      const totalRow = ws.getRow(totalR);
+      for (let c = 4; c <= colCount; c++) {
+        const cell = totalRow.getCell(c);
+        cell.border = fullBorder;
+        cell.fill = yellowFill;
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      }
+      totalRow.getCell(4).value = '합 계';
+      totalRow.getCell(5).value = annualLeaveUsedTotal(p);
+      totalRow.getCell(5).numFmt = '#,##0.##';
+      totalRow.getCell(6).value = annualLeaveRemaining(p);
+      totalRow.getCell(6).numFmt = '#,##0.##';
+      const overtimePeriodTotal = annualLeaveOvertimePeriodTotal(p);
+      const overtimeHoursTotal = annualLeaveOvertimeHoursTotal(p);
+      totalRow.getCell(9).value = overtimePeriodTotal || 0;
+      totalRow.getCell(10).value = overtimeHoursTotal || 0;
+
+      // 이름/입사일자/총년차일수 - 데이터 행 + 합계 행 전체에 걸쳐 세로 병합
+      ws.mergeCells(blockStart, 1, blockEnd, 1);
+      ws.mergeCells(blockStart, 2, blockEnd, 2);
+      ws.mergeCells(blockStart, 3, blockEnd, 3);
+      const nameCell = ws.getCell(blockStart, 1);
+      nameCell.value = p.name;
+      nameCell.font = { bold: true };
+      nameCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const hireCell = ws.getCell(blockStart, 2);
+      hireCell.value = fmtDate(p.hireDate);
+      hireCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const totalCell = ws.getCell(blockStart, 3);
+      totalCell.value = p.totalAnnualDays;
+      totalCell.numFmt = '#,##0.##';
+      totalCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      for (let r = blockStart; r <= blockEnd; r++) {
+        for (let c = 1; c <= 3; c++) applyBorder(r, c);
+      }
+
+      cursor = blockEnd + 1;
+    }
+
+    ws.getColumn(1).width = 12;
+    ws.getColumn(2).width = 12;
+    ws.getColumn(3).width = 11;
+    ws.getColumn(4).width = 14;
+    ws.getColumn(5).width = 10;
+    ws.getColumn(6).width = 9;
+    ws.getColumn(7).width = 22;
+    ws.getColumn(8).width = 12;
+    ws.getColumn(9).width = 8;
+    ws.getColumn(10).width = 7;
+    ws.getColumn(11).width = 10;
+    ws.getColumn(12).width = 12;
+    ws.getColumn(13).width = 22;
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || al.year + '년_연차_현황'}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -3145,6 +3382,158 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     updateOverseasTripEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
   };
 
+  // [추가] 연차 현황 - 직원 추가/삭제/필드 수정 + 직원별 연차 사용/휴일(초과)근무/대체휴가
+  // 세 목록 각각의 항목 추가/삭제/수정. 인센티브·해외 출장 경비와 같은 패턴이지만, 이건
+  // "직원(사람) 목록 안에 목록이 세 개씩 더 있는" 한 단계 더 깊은 구조라 person을 먼저
+  // 찾아 그 사람만 업데이트하는 방식으로 처리한다.
+  type AnnualLeavePerson = NonNullable<AdminDoc['annualLeaveStatus']>['people'][number];
+  type AnnualLeaveEntry = AnnualLeavePerson['leaveEntries'][number];
+  type AnnualLeaveOvertimeEntry = AnnualLeavePerson['overtimeEntries'][number];
+  type AnnualLeaveSubstituteEntry = AnnualLeavePerson['substituteEntries'][number];
+
+  const updateAnnualLeavePeople = (updater: (people: AnnualLeavePerson[]) => AnnualLeavePerson[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const annualLeaveStatus = prev.annualLeaveStatus || { year: String(new Date().getFullYear()), people: [] };
+      return { ...prev, annualLeaveStatus: { ...annualLeaveStatus, people: updater(annualLeaveStatus.people || []) } };
+    });
+  };
+
+  const addAnnualLeavePerson = () => {
+    updateAnnualLeavePeople((people) => [...people, {
+      id: `alp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: '', hireDate: '', totalAnnualDays: 0,
+      leaveEntries: [], overtimeEntries: [], substituteEntries: []
+    }]);
+  };
+  const removeAnnualLeavePerson = (id: string) => {
+    updateAnnualLeavePeople((people) => people.filter((p) => p.id !== id));
+  };
+  const updateAnnualLeavePersonField = (id: string, patch: Partial<AnnualLeavePerson>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === id ? { ...p, ...patch } : p));
+  };
+
+  const addAnnualLeaveEntry = (personId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
+      ...p, leaveEntries: [...p.leaveEntries, { id: `ale-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: new Date().toISOString().split('T')[0], endDate: '', days: 1, note: '' }]
+    } : p));
+  };
+  const removeAnnualLeaveEntry = (personId: string, entryId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, leaveEntries: p.leaveEntries.filter((e) => e.id !== entryId) } : p));
+  };
+  const updateAnnualLeaveEntry = (personId: string, entryId: string, patch: Partial<AnnualLeaveEntry>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, leaveEntries: p.leaveEntries.map((e) => e.id === entryId ? { ...e, ...patch } : e) } : p));
+  };
+
+  const addAnnualLeaveOvertime = (personId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
+      ...p, overtimeEntries: [...p.overtimeEntries, { id: `alo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], periodDays: 1, hours: 0, site: '', note: '' }]
+    } : p));
+  };
+  const removeAnnualLeaveOvertime = (personId: string, entryId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, overtimeEntries: p.overtimeEntries.filter((e) => e.id !== entryId) } : p));
+  };
+  const updateAnnualLeaveOvertime = (personId: string, entryId: string, patch: Partial<AnnualLeaveOvertimeEntry>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, overtimeEntries: p.overtimeEntries.map((e) => e.id === entryId ? { ...e, ...patch } : e) } : p));
+  };
+
+  const addAnnualLeaveSubstitute = (personId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
+      ...p, substituteEntries: [...p.substituteEntries, { id: `als-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: new Date().toISOString().split('T')[0], note: '' }]
+    } : p));
+  };
+  const removeAnnualLeaveSubstitute = (personId: string, entryId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, substituteEntries: p.substituteEntries.filter((e) => e.id !== entryId) } : p));
+  };
+  const updateAnnualLeaveSubstitute = (personId: string, entryId: string, patch: Partial<AnnualLeaveSubstituteEntry>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, substituteEntries: p.substituteEntries.map((e) => e.id === entryId ? { ...e, ...patch } : e) } : p));
+  };
+
+  // [추가] 연차 현황 - "전자결재에서 불러오기" 패널 상태. 승인된 연차 신청서를 골라서
+  // 이름이 같은 직원에게 자동으로 채워 넣는다(없으면 새 직원으로 자동 등록).
+  type AnnualLeaveImportCandidate = { sourceKey: string; sourceLabel: string; author: string; startDate: string; endDate?: string; days: number; note: string; totalAnnualDays?: number };
+  const [annualLeaveImportCandidates, setAnnualLeaveImportCandidates] = useState<AnnualLeaveImportCandidate[]>([]);
+  const [showAnnualLeaveImportPanel, setShowAnnualLeaveImportPanel] = useState(false);
+  const [isLoadingAnnualLeaveImportCandidates, setIsLoadingAnnualLeaveImportCandidates] = useState(false);
+  const [selectedAnnualLeaveImportKeys, setSelectedAnnualLeaveImportKeys] = useState<Set<string>>(new Set());
+
+  // 이미 이 문서의 어느 직원에게든 가져와져 있는 sourceKey 모음 - 중복 방지용.
+  const alreadyImportedAnnualLeaveKeys = new Set<string>();
+  for (const p of (editingDoc?.annualLeaveStatus?.people || [])) {
+    for (const e of p.leaveEntries) {
+      if (e.sourceKey) alreadyImportedAnnualLeaveKeys.add(e.sourceKey);
+    }
+  }
+
+  const handleOpenAnnualLeaveImportPanel = async () => {
+    if (!currentUser) return;
+    setShowAnnualLeaveImportPanel(true);
+    setIsLoadingAnnualLeaveImportCandidates(true);
+    try {
+      const year = editingDoc?.annualLeaveStatus?.year || String(new Date().getFullYear());
+      const res = await fetch(`/api/admin-docs/annual-leave-candidates?year=${encodeURIComponent(year)}`, { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: AnnualLeaveImportCandidate[] = await res.json();
+      setAnnualLeaveImportCandidates(data);
+    } catch (err: any) {
+      alert(`전자결재 휴가 신청서를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowAnnualLeaveImportPanel(false);
+    } finally {
+      setIsLoadingAnnualLeaveImportCandidates(false);
+    }
+  };
+
+  const toggleAnnualLeaveImportKey = (key: string) => {
+    setSelectedAnnualLeaveImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // [추가] 골라온 승인된 연차 신청서들을 이름(author) 기준으로 자동 매칭해서, 이미 등록된
+  // 직원이면 그 사람의 연차 사용 내역에 추가하고, 아직 없는 이름이면 새 직원 줄을 만들어서
+  // (총 년차일수도 신청서에 있던 값으로 같이 채워서) 추가한다. 여러 건이 같은(아직 없는)
+  // 사람 것이어도 새 직원 줄이 중복으로 만들어지지 않도록, 이번에 새로 만든 사람은
+  // next 배열 안에서 계속 찾아 재사용한다.
+  const handleImportAnnualLeaveSelected = () => {
+    if (selectedAnnualLeaveImportKeys.size === 0) return;
+    const toImport = annualLeaveImportCandidates.filter((c) => selectedAnnualLeaveImportKeys.has(c.sourceKey));
+    updateAnnualLeavePeople((people) => {
+      const next = people.map((p) => ({ ...p, leaveEntries: [...p.leaveEntries] }));
+      for (const cand of toImport) {
+        const normalizedAuthor = (cand.author || '').trim();
+        let person = next.find((p) => p.name.trim() === normalizedAuthor);
+        if (!person) {
+          person = {
+            id: `alp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name: normalizedAuthor,
+            hireDate: '',
+            totalAnnualDays: cand.totalAnnualDays || 0,
+            leaveEntries: [],
+            overtimeEntries: [],
+            substituteEntries: []
+          };
+          next.push(person);
+        } else if (!person.totalAnnualDays && cand.totalAnnualDays) {
+          person.totalAnnualDays = cand.totalAnnualDays;
+        }
+        person.leaveEntries.push({
+          id: `ale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          startDate: cand.startDate,
+          endDate: cand.endDate,
+          days: cand.days,
+          note: cand.note || '',
+          sourceKey: cand.sourceKey,
+          sourceLabel: cand.sourceLabel
+        });
+      }
+      return next;
+    });
+    setSelectedAnnualLeaveImportKeys(new Set());
+    setShowAnnualLeaveImportPanel(false);
+  };
+
   // [추가] "자동 불러오기" - 회계관리 > 통장 출금 내역에서 실제 세금 납부 건만 골라
   // 지금 편집 중인 각종 세금 내역에 항목으로 채워 넣는다 (차량 과태료 내역과 같은 패턴).
   type TaxImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
@@ -4479,6 +4868,104 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     );
   };
 
+  // [추가] 연차 현황 인쇄/PDF 화면. 공유해주신 "OOOO년 연차 / 휴일근무 및 대체 휴가" 양식과
+  // 같은 열 구성(이름/입사일자/총년차일수/휴가일/사용연차일수/잔여일수/비고 + 휴일(초과)
+  // 근무 4열 + 대체휴가 + 비고)으로 재현한다. 표가 가로로 넓어 가로(landscape)로 인쇄하고,
+  // 페이지가 넘어가면 2페이지부터 상단 여백이 2배가 되도록 print-annual-leave-margins
+  // 클래스를 쓴다(해외 출장 경비와 동일한 방식).
+  const renderPrintableAnnualLeaveStatus = () => {
+    if (!printingDoc || !printingDoc.annualLeaveStatus) return null;
+    const al = printingDoc.annualLeaveStatus;
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const th: React.CSSProperties = { border: '1px solid #000', padding: '5px', background: '#ffe600', fontWeight: 700, textAlign: 'center' };
+    const td: React.CSSProperties = { border: '1px solid #000', padding: '5px', textAlign: 'center' };
+
+    return (
+      <div className="print-landscape print-annual-leave-margins" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>{printingDoc.title || `${al.year}년 연차 / 휴일근무 및 대체 휴가`}</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', border: '1px solid #000' }}>
+          <thead>
+            <tr>
+              <td style={th} rowSpan={2}>이름</td>
+              <td style={th} rowSpan={2}>입사일자</td>
+              <td style={th} rowSpan={2}>총 년차일수</td>
+              <td style={th} rowSpan={2}>휴가일</td>
+              <td style={th} rowSpan={2}>사용<br />연차일수</td>
+              <td style={th} rowSpan={2}>잔여일수</td>
+              <td style={th} rowSpan={2}>비고</td>
+              <td style={th} colSpan={4}>휴 일 (초과) 근 무</td>
+              <td style={th} rowSpan={2}>대체휴가</td>
+              <td style={th} rowSpan={2}>비고</td>
+            </tr>
+            <tr>
+              <td style={th}>일자</td>
+              <td style={th}>기간(일)</td>
+              <td style={th}>시간</td>
+              <td style={th}>현장</td>
+            </tr>
+          </thead>
+          <tbody>
+            {al.people.map((p) => {
+              const rowCount = annualLeavePersonRowCount(p);
+              const used = annualLeaveUsedTotal(p);
+              const remaining = annualLeaveRemaining(p);
+              const overtimePeriodTotal = annualLeaveOvertimePeriodTotal(p);
+              const overtimeHoursTotal = annualLeaveOvertimeHoursTotal(p);
+              return (
+                <React.Fragment key={p.id}>
+                  {Array.from({ length: rowCount }, (_, i) => {
+                    const leaveEntry = p.leaveEntries[i];
+                    const overtimeEntry = p.overtimeEntries[i];
+                    const substituteEntry = p.substituteEntries[i];
+                    return (
+                      <tr key={i}>
+                        {i === 0 && (
+                          <>
+                            <td style={{ ...td, fontWeight: 700, verticalAlign: 'middle' }} rowSpan={rowCount + 1}>{p.name}</td>
+                            <td style={{ ...td, verticalAlign: 'middle' }} rowSpan={rowCount + 1}>{fmtDate(p.hireDate)}</td>
+                            <td style={{ ...td, verticalAlign: 'middle' }} rowSpan={rowCount + 1}>{p.totalAnnualDays || 0}</td>
+                          </>
+                        )}
+                        <td style={{ ...td, textAlign: 'left' }}>{leaveEntry ? formatAnnualLeaveRange(leaveEntry.startDate, leaveEntry.endDate) : ''}</td>
+                        <td style={td}>{leaveEntry ? (leaveEntry.days || 0) : ''}</td>
+                        <td style={td}></td>
+                        <td style={{ ...td, textAlign: 'left' }}>{leaveEntry?.note || ''}</td>
+                        <td style={td}>{overtimeEntry?.date ? fmtDate(overtimeEntry.date) : ''}</td>
+                        <td style={td}>{overtimeEntry?.periodDays || ''}</td>
+                        <td style={td}>{overtimeEntry?.hours || ''}</td>
+                        <td style={td}>{overtimeEntry?.site || ''}</td>
+                        <td style={td}>{substituteEntry?.date ? fmtDate(substituteEntry.date) : ''}</td>
+                        <td style={{ ...td, textAlign: 'left' }}>{substituteEntry?.note || ''}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+                    <td style={td}>합 계</td>
+                    <td style={td}>{used}</td>
+                    <td style={td}>{remaining}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                    <td style={td}>{overtimePeriodTotal || 0}</td>
+                    <td style={td}>{overtimeHoursTotal || 0}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+        {al.people.length === 0 && (
+          <p style={{ textAlign: 'center', fontSize: '12px', color: '#888', marginTop: '16px' }}>등록된 직원이 없습니다.</p>
+        )}
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
   // [추가] 현금 흐름 - INFLOWS 표 인쇄/PDF·엑셀 화면. 공유해주신 양식(NO/프로젝트명/
   // 프로젝트 수주자/계약금(VAT포함)/잔여기성/전년도/1~12월 + 합계(1))을 그대로 재현한다.
   const renderCashFlowInflowsTable = (cf: CashFlowAnnual) => {
@@ -5186,6 +5673,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (printingDoc.category === 'vehicle_fine') return renderPrintableVehicleFine();
     if (printingDoc.category === 'incentive') return renderPrintableIncentive();
     if (printingDoc.category === 'overseas_trip') return renderPrintableOverseasTrip();
+    if (printingDoc.category === 'annual_leave_status') return renderPrintableAnnualLeaveStatus();
     if (printingDoc.category === 'cash_flow') return renderPrintableCashFlow();
     if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
     if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
@@ -5492,7 +5980,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
                     <button
                       onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -7825,6 +8313,320 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   </div>
                 )}
 
+                {/* [추가] 연차 현황 전용 입력. "연도 하나 = 문서 하나"이고, 그 안에 직원별로
+                연차 사용 내역/휴일(초과)근무/대체휴가 세 목록을 각각 여러 줄 입력한다.
+                "전자결재에서 불러오기"로 승인된 연차 신청서를 이름 기준 자동 매칭해서
+                채울 수 있고, 총 년차일수는 입사일 기준으로 자동 계산하는 버튼도 있다. */}
+                {activeCategory === 'annual_leave_status' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <label className="text-[11px] font-bold text-slate-600">연차 현황 (연도별)</label>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">대상 연도</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editingDoc.annualLeaveStatus?.year || ''}
+                            onChange={(e) => setEditingDoc((prev) => prev ? { ...prev, annualLeaveStatus: { ...(prev.annualLeaveStatus || { year: '', people: [] }), year: e.target.value.replace(/\D/g, '').slice(0, 4) } } : prev)}
+                            placeholder="2026"
+                            className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenAnnualLeaveImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 전자결재에서 불러오기
+                        </button>
+                        <button type="button" onClick={addAnnualLeavePerson} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 직원 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 승인된 연차 신청서 중, 이름이 같은 직원이 이미 있으면 그 사람의
+                    연차 사용 내역에, 없으면 새 직원으로 자동 등록하며 채워 넣는다. */}
+                    {showAnnualLeaveImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">전자결재 휴가 신청서에서 불러오기 (승인된 연차만)</span>
+                          <button type="button" onClick={() => setShowAnnualLeaveImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isLoadingAnnualLeaveImportCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = annualLeaveImportCandidates.filter((c) => !alreadyImportedAnnualLeaveKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 승인된 연차 신청서가 없습니다 (전부 이미 가져왔거나, 이 연도에 승인된 연차 신청이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedAnnualLeaveImportKeys.has(c.sourceKey))}
+                                      onChange={(ev) => {
+                                        if (ev.target.checked) {
+                                          setSelectedAnnualLeaveImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedAnnualLeaveImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedAnnualLeaveImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleAnnualLeaveImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{c.author}</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{formatAnnualLeaveRange(c.startDate, c.endDate)}</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span className="font-bold">{c.days}일</span>
+                                          {c.note && <span className="text-slate-400"> · {c.note}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportAnnualLeaveSelected}
+                              disabled={selectedAnnualLeaveImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedAnnualLeaveImportKeys.size}건 가져오기 (이름이 같은 직원이 없으면 새로 등록됩니다)
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      {(editingDoc.annualLeaveStatus?.people || []).map((p) => {
+                        const used = annualLeaveUsedTotal(p);
+                        const remaining = annualLeaveRemaining(p);
+                        const calcYear = editingDoc.annualLeaveStatus?.year || '';
+                        const calculated = calcStatutoryAnnualLeaveDays(p.hireDate || '', calcYear);
+                        return (
+                          <div key={p.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                            <div className="flex flex-wrap items-end gap-1.5">
+                              <div className="flex-1 min-w-[110px]">
+                                <label className="block text-[9px] text-slate-400 mb-0.5">이름</label>
+                                <input
+                                  type="text"
+                                  value={p.name}
+                                  onChange={(e) => updateAnnualLeavePersonField(p.id, { name: e.target.value })}
+                                  placeholder="이름"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-[9px] text-slate-400 mb-0.5">입사일자</label>
+                                <input
+                                  type="date"
+                                  value={p.hireDate || ''}
+                                  // [수정] 입사일자를 입력/수정하면 총 년차일수를 버튼을 따로 누르지
+                                  // 않아도 근로기준법 표준 계산으로 바로 채워준다("자동으로 입력되게
+                                  // 해줘" 요청 반영) - 계산된 값은 위 "총 년차일수" 칸에서 언제든
+                                  // 직접 고칠 수 있다.
+                                  onChange={(e) => {
+                                    const newHireDate = e.target.value;
+                                    const autoCalc = calcStatutoryAnnualLeaveDays(newHireDate, calcYear);
+                                    updateAnnualLeavePersonField(p.id, autoCalc !== null ? { hireDate: newHireDate, totalAnnualDays: autoCalc } : { hireDate: newHireDate });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[90px]">
+                                <label className="block text-[9px] text-slate-400 mb-0.5">총 년차일수</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={p.totalAnnualDays || ''}
+                                  onChange={(e) => updateAnnualLeavePersonField(p.id, { totalAnnualDays: Number(e.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              {/* [추가] 근로기준법 표준 계산(1년 미만 개근 월 1일씩, 1년 이상 15일
+                              + 매 2년마다 1일 가산, 최대 25일)으로 총 년차일수를 자동 채운다.
+                              회사 자체 기준과 다를 수 있어 채운 뒤에도 위 칸에서 직접 고칠 수
+                              있다. */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (calculated === null) { alert('입사일자와 대상 연도를 먼저 입력해주세요.'); return; }
+                                  updateAnnualLeavePersonField(p.id, { totalAnnualDays: calculated });
+                                }}
+                                title="근로기준법 표준 계산: 1년 미만은 개근 월마다 1일(최대 11일), 1년 이상은 15일+매 2년마다 1일 가산(최대 25일). 회사 자체 기준과 다를 수 있어 채운 뒤 직접 수정 가능합니다."
+                                className="text-[10px] text-indigo-600 font-bold px-2 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 whitespace-nowrap"
+                              >
+                                입사일 기준 자동계산{calculated !== null ? ` (${calculated}일)` : ''}
+                              </button>
+                              <button type="button" onClick={() => removeAnnualLeavePerson(p.id)} className="shrink-0 p-1.5 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <p className="text-[11px] text-slate-500">
+                              사용연차일수 <b className="text-slate-700">{used}</b>일 · 잔여일수 <b className={remaining < 0 ? 'text-rose-600' : 'text-emerald-600'}>{remaining}</b>일
+                            </p>
+
+                            {/* 연차 사용 내역 */}
+                            <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">연차 사용 내역</span>
+                                <button type="button" onClick={() => addAnnualLeaveEntry(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                  <Plus className="w-3 h-3" /> 추가
+                                </button>
+                              </div>
+                              {p.leaveEntries.map((e) => (
+                                <div key={e.id} className="space-y-0.5">
+                                  {e.sourceLabel && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                                      <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                                    </span>
+                                  )}
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <input
+                                      type="date"
+                                      value={e.startDate}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { startDate: ev.target.value })}
+                                      className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <span className="text-[10px] text-slate-400">~</span>
+                                    <input
+                                      type="date"
+                                      value={e.endDate || ''}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { endDate: ev.target.value })}
+                                      placeholder="(하루면 비워둠)"
+                                      className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={e.days || ''}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { days: Number(ev.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                      placeholder="일수"
+                                      className="w-16 bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={e.note}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { note: ev.target.value })}
+                                      placeholder="비고 (예: 전체년차)"
+                                      className="flex-[2] min-w-[120px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <button type="button" onClick={() => removeAnnualLeaveEntry(p.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* 휴일(초과) 근무 */}
+                            <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">휴일(초과) 근무</span>
+                                <button type="button" onClick={() => addAnnualLeaveOvertime(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                  <Plus className="w-3 h-3" /> 추가
+                                </button>
+                              </div>
+                              {p.overtimeEntries.map((e) => (
+                                <div key={e.id} className="flex flex-wrap items-center gap-1">
+                                  <input
+                                    type="date"
+                                    value={e.date}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { date: ev.target.value })}
+                                    className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={e.periodDays || ''}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { periodDays: Number(ev.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                    placeholder="기간(일)"
+                                    className="w-20 bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={e.hours || ''}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { hours: Number(ev.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                    placeholder="시간"
+                                    className="w-16 bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={e.site || ''}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { site: ev.target.value })}
+                                    placeholder="현장"
+                                    className="flex-1 min-w-[100px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <button type="button" onClick={() => removeAnnualLeaveOvertime(p.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* 대체휴가 */}
+                            <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">대체휴가</span>
+                                <button type="button" onClick={() => addAnnualLeaveSubstitute(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                  <Plus className="w-3 h-3" /> 추가
+                                </button>
+                              </div>
+                              {p.substituteEntries.map((e) => (
+                                <div key={e.id} className="flex flex-wrap items-center gap-1">
+                                  <input
+                                    type="date"
+                                    value={e.date}
+                                    onChange={(ev) => updateAnnualLeaveSubstitute(p.id, e.id, { date: ev.target.value })}
+                                    className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={e.note || ''}
+                                    onChange={(ev) => updateAnnualLeaveSubstitute(p.id, e.id, { note: ev.target.value })}
+                                    placeholder="비고 (예: 20일 대체휴가_정리완료)"
+                                    className="flex-[2] min-w-[140px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <button type="button" onClick={() => removeAnnualLeaveSubstitute(p.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {(editingDoc.annualLeaveStatus?.people || []).length === 0 && (
+                        <p className="text-center text-[11px] text-slate-400 py-4">등록된 직원이 없습니다. "직원 추가" 또는 "전자결재에서 불러오기"로 시작하세요.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* [추가] 현금 흐름 전용 입력. "연도 하나 = 문서 하나"이고, 그 안에서
                 INFLOWS/OUTFLOWS/경비 세 표를 서브탭으로 전환하며 입력한다. "현금흐름
                 최종"은 따로 입력하지 않고 세 표 입력값으로 자동 계산된 미리보기만 보여준다
@@ -9116,6 +9918,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               엑셀 출력
             </button>
           )}
+          {printingDoc.category === 'annual_leave_status' && (
+            <button
+              onClick={handleExportAnnualLeaveStatusExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
           {printingDoc.category === 'cash_flow' && (
             <button
               onClick={handleExportCashFlowExcel}
@@ -9167,7 +9978,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         <div
           className="bg-white shadow-2xl mx-auto"
           style={{
-            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow'].includes(printingDoc.category)
+            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category)
               ? '297mm'
               : '210mm',
           }}
