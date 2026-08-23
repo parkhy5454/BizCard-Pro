@@ -2205,6 +2205,138 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 해외 출장 경비 - "연도별로 모아보기"에서 고를 대상 연도
   const [overseasTripMergeYear, setOverseasTripMergeYear] = useState('');
 
+  // [추가] 해외 출장 경비 - "카드 사용내역에서 가져오기"(카드사용내역 + 업무일지) 패널 상태.
+  // 카드사용내역·업무일지에서 실제 결제 항목을 골라 항공료/숙박비/식비/교통비 등 항목으로
+  // 바로 채워 넣을 수 있게 한다.
+  type OverseasTripImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; project?: string; memo?: string; personName?: string };
+  const [overseasTripCardCandidates, setOverseasTripCardCandidates] = useState<OverseasTripImportCandidate[]>([]);
+  const [showOverseasTripCardImportPanel, setShowOverseasTripCardImportPanel] = useState(false);
+  const [isLoadingOverseasTripCardCandidates, setIsLoadingOverseasTripCardCandidates] = useState(false);
+  const [selectedOverseasTripCardImportKeys, setSelectedOverseasTripCardImportKeys] = useState<Set<string>>(new Set());
+
+  // [추가] 해외 출장 경비 - "통장 출금내역에서 가져오기" 패널 상태. 환전 비용처럼 통장에서
+  // 바로 출금한 경우, 또는 현금으로 지급한 항목(현금 인출)을 통장 출금 내역에서 가져온다.
+  const [overseasTripBankCandidates, setOverseasTripBankCandidates] = useState<OverseasTripImportCandidate[]>([]);
+  const [showOverseasTripBankImportPanel, setShowOverseasTripBankImportPanel] = useState(false);
+  const [isLoadingOverseasTripBankCandidates, setIsLoadingOverseasTripBankCandidates] = useState(false);
+  const [selectedOverseasTripBankImportKeys, setSelectedOverseasTripBankImportKeys] = useState<Set<string>>(new Set());
+
+  // 이미 어딘가(저장된 문서든, 지금 편집 중인 폼이든)의 해외 출장 경비 항목으로 가져와져
+  // 있는 sourceKey 모음 - 카드사용내역의 alreadyImportedKeys와 같은 방식.
+  const alreadyImportedOverseasTripKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'overseas_trip' || !d.overseasTrip) continue;
+    for (const e of d.overseasTrip.entries) {
+      if (e.sourceKey) alreadyImportedOverseasTripKeys.add(e.sourceKey);
+    }
+  }
+  for (const e of (editingDoc?.overseasTrip?.entries || [])) {
+    if (e.sourceKey) alreadyImportedOverseasTripKeys.add(e.sourceKey);
+  }
+
+  const handleOpenOverseasTripCardImportPanel = async () => {
+    if (!currentUser) return;
+    setShowOverseasTripCardImportPanel(true);
+    setIsLoadingOverseasTripCardCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/overseas-trip-card-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: OverseasTripImportCandidate[] = await res.json();
+      setOverseasTripCardCandidates(data);
+    } catch (err: any) {
+      alert(`카드사용내역/업무일지를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowOverseasTripCardImportPanel(false);
+    } finally {
+      setIsLoadingOverseasTripCardCandidates(false);
+    }
+  };
+
+  const handleOpenOverseasTripBankImportPanel = async () => {
+    if (!currentUser) return;
+    setShowOverseasTripBankImportPanel(true);
+    setIsLoadingOverseasTripBankCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: OverseasTripImportCandidate[] = await res.json();
+      setOverseasTripBankCandidates(data);
+    } catch (err: any) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowOverseasTripBankImportPanel(false);
+    } finally {
+      setIsLoadingOverseasTripBankCandidates(false);
+    }
+  };
+
+  const toggleOverseasTripCardImportKey = (key: string) => {
+    setSelectedOverseasTripCardImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const toggleOverseasTripBankImportKey = (key: string) => {
+    setSelectedOverseasTripBankImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // [추가] 카드사용내역/업무일지에서 고른 항목들을 해외 출장 경비 항목으로 채워 넣는다.
+  // 카드 결제 항목이라 지급방법은 "신용카드"로 기본 잡고, 사용구분은 사람마다 다를 수
+  // 있어 일단 "기타"로 넣어두고 필요하면 직접 골라 바꾸게 한다. 지급구분(카드명)은 후보의
+  // 메모/거래처 정보만으론 정확히 알 수 없어 비워두고, 비고에 원본 정보를 남겨 참고할 수
+  // 있게 한다.
+  const handleImportOverseasTripCardSelected = () => {
+    if (selectedOverseasTripCardImportKeys.size === 0) return;
+    const toImport = overseasTripCardCandidates.filter((c) => selectedOverseasTripCardImportKeys.has(c.sourceKey));
+    updateOverseasTripEntries((entries) => [
+      ...entries,
+      ...toImport.map((cand) => ({
+        id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: cand.date,
+        amount: cand.amount,
+        category: '기타',
+        description: cand.memo || cand.sourceLabel,
+        user: cand.personName || '',
+        payMethod: '신용카드',
+        payDetail: '',
+        note: `[${cand.sourceLabel}에서 자동 불러옴]`,
+        sourceKey: cand.sourceKey,
+        sourceLabel: cand.sourceLabel
+      }))
+    ]);
+    setSelectedOverseasTripCardImportKeys(new Set());
+    setShowOverseasTripCardImportPanel(false);
+  };
+
+  // [추가] 통장 출금 내역에서 고른 항목들을 해외 출장 경비 항목으로 채워 넣는다. 주로
+  // 환전 비용(은행에서 바로 환전) 또는 현금으로 지급하기 위해 인출한 경우라, 사용구분은
+  // "환전 비용", 지급방법은 "현금"으로 기본 잡아두고 필요하면 직접 바꾸게 한다.
+  const handleImportOverseasTripBankSelected = () => {
+    if (selectedOverseasTripBankImportKeys.size === 0) return;
+    const toImport = overseasTripBankCandidates.filter((c) => selectedOverseasTripBankImportKeys.has(c.sourceKey));
+    updateOverseasTripEntries((entries) => [
+      ...entries,
+      ...toImport.map((cand) => ({
+        id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: cand.date,
+        amount: cand.amount,
+        category: '환전 비용',
+        description: cand.memo || cand.sourceLabel,
+        user: '',
+        payMethod: '현금',
+        payDetail: '',
+        note: `[${cand.sourceLabel}에서 자동 불러옴]`,
+        sourceKey: cand.sourceKey,
+        sourceLabel: cand.sourceLabel
+      }))
+    ]);
+    setSelectedOverseasTripBankImportKeys(new Set());
+    setShowOverseasTripBankImportPanel(false);
+  };
+
   // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기"에서 고를 대상 통장(은행+계좌번호)
   const [bankAccountMergeKey, setBankAccountMergeKey] = useState('');
 
@@ -7176,14 +7308,184 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
                       <label className="text-[11px] font-bold text-slate-600">해외 출장 경비 사용내역</label>
-                      <button type="button" onClick={addOverseasTripEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
-                        <Plus className="w-3 h-3" /> 항목 추가
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleOpenOverseasTripCardImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 카드 사용내역에서 가져오기
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenOverseasTripBankImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 통장 출금내역에서 가져오기
+                        </button>
+                        <button type="button" onClick={addOverseasTripEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
                     </div>
+
+                    {/* [추가] 회계관리 > 카드사용내역 + 업무일지(일일/주간)에서 법인카드로
+                    결제한 지출들을 모아 보여주고, 고른 것만 해외 출장 경비 항목으로 채워
+                    넣는다. 같은 지출이 카드사용내역/업무일지 양쪽에 다 걸려 있으면(=업무일지
+                    지출이 이미 카드사용내역으로 한 번 가져와졌으면) 서버에서 카드사용내역
+                    쪽만 남기고 미리 걸러서 내려주므로 중복으로 보이지 않는다. */}
+                    {showOverseasTripCardImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">카드사용내역·업무일지에서 법인카드 지출 불러오기</span>
+                          <button type="button" onClick={() => setShowOverseasTripCardImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isLoadingOverseasTripCardCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = overseasTripCardCandidates.filter((c) => !alreadyImportedOverseasTripKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 법인카드 지출이 없습니다 (전부 이미 가져왔거나, 법인카드로 결제된 기록이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedOverseasTripCardImportKeys.has(c.sourceKey))}
+                                      onChange={(ev) => {
+                                        if (ev.target.checked) {
+                                          setSelectedOverseasTripCardImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedOverseasTripCardImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedOverseasTripCardImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleOverseasTripCardImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.project && <span className="text-slate-400"> · {c.project}</span>}
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                          {c.personName && <span className="text-slate-400"> · {c.personName}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportOverseasTripCardSelected}
+                              disabled={selectedOverseasTripCardImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedOverseasTripCardImportKeys.size}건 가져오기 (사용구분·지급구분은 가져온 뒤 확인해서 골라주세요)
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* [추가] 통장 출금 내역에서 항목을 골라 해외 출장 경비로 가져온다. 환전
+                    비용처럼 은행에서 바로 처리한 지출, 또는 현금으로 지급하려고 인출한 경우에
+                    쓴다 - 기본값은 "환전 비용/현금"으로 채워지지만, 가져온 뒤 다른 사용구분으로
+                    바꿀 수 있다. */}
+                    {showOverseasTripBankImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 불러오기 (환전 비용·현금 지급용)</span>
+                          <button type="button" onClick={() => setShowOverseasTripBankImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isLoadingOverseasTripBankCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = overseasTripBankCandidates.filter((c) => !alreadyImportedOverseasTripKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 통장 출금 내역이 없습니다 (전부 이미 가져왔거나, 등록된 출금 내역이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedOverseasTripBankImportKeys.has(c.sourceKey))}
+                                      onChange={(ev) => {
+                                        if (ev.target.checked) {
+                                          setSelectedOverseasTripBankImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedOverseasTripBankImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedOverseasTripBankImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleOverseasTripBankImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportOverseasTripBankSelected}
+                              disabled={selectedOverseasTripBankImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedOverseasTripBankImportKeys.size}건 가져오기 (기본: 환전 비용/현금)
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     <div className="space-y-1.5">
                       {(editingDoc.overseasTrip?.entries || []).map((e) => (
                         <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          {e.sourceLabel && (
+                            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                              <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                            </span>
+                          )}
                           <div className="flex flex-wrap items-center gap-1">
                             <div className="flex-1 min-w-[120px]">
                               <label className="block text-[9px] text-slate-400 mb-0.5">일자(결제일)</label>
