@@ -3792,6 +3792,102 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
   }
 });
 
+// [추가] 프로젝트 등록/수정 화면의 "시공사/건축설계사/인테리어설계사/전기설계사/
+// 기계설계사/감리사/운영사" 칸을 직접 입력하는 대신, 프로젝트명(+최종고객/현장지역이
+// 있으면 같이)을 바탕으로 구글 검색(googleSearch)으로 실제 참여사를 찾아서 자동으로
+// 채워주는 기능. 위 회사 요약(generateCompanySummary)과 같은 Gemini+googleSearch
+// 방식이지만, 회사 "하나"의 일반 정보가 아니라 특정 "프로젝트"에 관련된 여러 회사를
+// 한 번에 찾는 것이라 별도 함수/캐시 없이(프로젝트마다 내용이 달라 회사명 캐시처럼
+// 재사용할 수 없음) 매번 새로 검색한다. 확인이 어려운 항목은 추측하지 말고 반드시
+// null로 두도록 프롬프트에서 명시한다 - 잘못된 회사명을 지어내는 것보다 빈 칸으로
+// 남겨서 사용자가 직접 입력하게 하는 편이 안전하다.
+interface ProjectRelationsFields {
+  contractor: string | null;
+  architect: string | null;
+  interiorDesigner: string | null;
+  electricalDesigner: string | null;
+  mechanicalDesigner: string | null;
+  supervisor: string | null;
+  operator: string | null;
+}
+
+async function searchProjectRelations(input: { projectName: string; endCustomer?: string; siteLocation?: string }): Promise<{ fields: ProjectRelationsFields; sourceUrls: string[] }> {
+  const emptyFields: ProjectRelationsFields = {
+    contractor: null, architect: null, interiorDesigner: null, electricalDesigner: null,
+    mechanicalDesigner: null, supervisor: null, operator: null
+  };
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return { fields: emptyFields, sourceUrls: [] };
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const contextLines = [`프로젝트명(공사명/건물명 등): "${input.projectName}"`];
+  if (input.endCustomer?.trim()) contextLines.push(`최종고객(발주처): "${input.endCustomer.trim()}"`);
+  if (input.siteLocation?.trim()) contextLines.push(`현장/지역: "${input.siteLocation.trim()}"`);
+
+  const prompt = `아래 건설/부동산/시설 프로젝트에 대해 실시간 구글 검색(googleSearch)으로 참여사를 조사해줘.\n\n` +
+    `${contextLines.join('\n')}\n\n` +
+    `찾아야 할 항목:\n` +
+    `- contractor: 시공사\n- architect: 건축설계사\n- interiorDesigner: 인테리어설계사\n` +
+    `- electricalDesigner: 전기설계사\n- mechanicalDesigner: 기계설계사\n- supervisor: 감리사\n- operator: 운영사\n\n` +
+    `중요: 뉴스, 공식 발표, 입찰/수주 공고 등 신뢰할 수 있는 출처로 실제 확인되는 경우만 회사명을 채우고, ` +
+    `검색으로 확인이 어렵거나 추측이 필요한 항목은 절대 지어내지 말고 반드시 null로 남겨줘.\n\n` +
+    `응답은 반드시 아래 JSON 형식으로만, 마크다운 백틱이나 다른 설명 없이 순수 JSON만 반환해줘:\n` +
+    `{"contractor": string|null, "architect": string|null, "interiorDesigner": string|null, "electricalDesigner": string|null, "mechanicalDesigner": string|null, "supervisor": string|null, "operator": string|null}`;
+
+  const response = await generateContentWithRetry(ai, {
+    model: PRIMARY_GEMINI_MODEL,
+    contents: prompt,
+    config: { tools: [{ googleSearch: {} }] }
+  });
+
+  let fields: ProjectRelationsFields = { ...emptyFields };
+  try {
+    const jsonStr = (response.text || '').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+    const parsed = JSON.parse(jsonStr);
+    fields = {
+      contractor: parsed.contractor || null,
+      architect: parsed.architect || null,
+      interiorDesigner: parsed.interiorDesigner || null,
+      electricalDesigner: parsed.electricalDesigner || null,
+      mechanicalDesigner: parsed.mechanicalDesigner || null,
+      supervisor: parsed.supervisor || null,
+      operator: parsed.operator || null
+    };
+  } catch (e) {
+    console.error('프로젝트 참여사 검색 JSON 파싱 실패:', response.text);
+  }
+
+  const sourceUrls: string[] = [];
+  try {
+    const chunks = (response as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    for (const chunk of chunks) {
+      const uri = chunk?.web?.uri;
+      if (uri && !sourceUrls.includes(uri)) sourceUrls.push(uri);
+    }
+  } catch (e) {
+    // 출처 URL은 있으면 좋고 없어도 치명적이지 않으므로 조용히 넘어간다.
+  }
+
+  return { fields, sourceUrls };
+}
+
+app.post('/api/projects/relations-search', async (req, res) => {
+  try {
+    const { projectName, endCustomer, siteLocation } = req.body as { projectName?: string; endCustomer?: string; siteLocation?: string };
+    if (!projectName || !projectName.trim()) {
+      return res.status(400).json({ error: '프로젝트명이 필요합니다.' });
+    }
+    const { fields, sourceUrls } = await searchProjectRelations({ projectName, endCustomer, siteLocation });
+    res.json({ fields, sourceUrls });
+  } catch (error: any) {
+    console.error('Project relations search error:', error);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  }
+});
+
 // [추가] AI Intelligence의 세 서브탭은 기본적으로 전부 규칙/DB 기반이라 AI 호출이
 // 전혀 없다. 사용자가 "정말 궁금할 때만" 아래 버튼을 눌러야 그때 딱 한 번 Gemini를
 // 부른다 - 화면을 열자마자 자동으로 도는 게 아니라, 실제 클릭한 만큼만 비용/할당량이
