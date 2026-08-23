@@ -118,7 +118,8 @@ export type AdminDocCategory =
   | 'vehicle_fine'        // 차량 과태료 내역
   | 'tax'                 // 각종 세금
   | 'management_fee'      // 관리비내역
-  | 'incentive';          // 인센티브 및 명절 상여금
+  | 'incentive'           // 인센티브 및 명절 상여금
+  | 'overseas_trip';      // 해외 출장 경비
 
 export interface AdminDocLineItem {
   id: string;
@@ -371,6 +372,28 @@ export interface AdminDoc {
       method: string;               // 지급 내역 (예: "현금", "상품권", 또는 직접 입력한 값)
       description: string;         // 지급 대상자 (예: "박현용")
       note?: string;                 // 비고
+    }[];
+  };
+  // [추가] 회계관리 > 해외 출장 경비(category: 'overseas_trip') 전용 구조화 필드. 공유해주신
+  // "해외 출장 경비 사용내역" 양식과 동일하게 일자/금액/사용구분(항공료·숙박비·식비·교통비·
+  // 환전 비용·직원 선물·기타)/사용내역/사용자/지급방법/지급구분/비고 열로 건별 여러 줄을
+  // 입력한다. 출장 하나 = 문서(AdminDoc) 하나로 저장해서, 개별 출장 건별로도 확인하고
+  // 여러 출장을 연도별로 합쳐서도 확인할 수 있게 한다(차량 과태료 내역과 동일한 방식).
+  overseasTrip?: {
+    entries: {
+      id: string;
+      date: string;               // 일자
+      amount: number;              // 금액(원)
+      // 사용구분 - 화면에는 "항공료/숙박비/식비/교통비/환전 비용/직원 선물/기타/직접 입력"
+      // 순서로 고르는 드롭다운이지만, "직접 입력"을 고르면 자유 텍스트를 쓸 수 있어야 해서
+      // 저장 타입은 고정된 값 목록이 아니라 자유 문자열로 둔다.
+      category: string;            // 사용구분 (예: "항공료", 또는 직접 입력한 값)
+      description: string;        // 사용내역 (구체적 내용, 예: "인천-도쿄 왕복")
+      user: string;                // 사용자
+      // 지급방법 - "신용카드/현금/직접 입력" 드롭다운, category와 동일한 방식.
+      payMethod: string;            // 지급방법 (예: "신용카드")
+      payDetail?: string;          // 지급구분 (예: 카드명 - 자유 입력, 자동완성 제공)
+      note?: string;                // 비고
     }[];
   };
   // [추가] 경영지원 > 법인카드 관리(category: 'corp_card') 전용 구조화 필드. 카드사용내역
