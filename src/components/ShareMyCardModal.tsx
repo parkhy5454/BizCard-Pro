@@ -316,7 +316,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-900 tracking-tight">내 명함 공유 및 전송</h3>
-              <p className="text-xs text-slate-600">QR 스캔, 카카오톡, 문자, 이메일, SNS로 내 명함을 즉시 전달하세요</p>
             </div>
           </div>
           <button
@@ -373,10 +372,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                 <img src={qrImageUrl} alt="My QR Code" className="w-56 h-56 object-contain" />
               </div>
 
-              <div className="text-center space-y-1">
-                <p className="text-sm font-bold text-slate-800">상대방 스마트폰 기본 카메라로 스캔하세요</p>
-              </div>
-
               <div className="w-full pt-2 flex gap-3">
                 <a
                   href={vCardDataUrl}
@@ -416,7 +411,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                   </div>
                   <div className="text-left">
                     <div className="text-xs font-bold text-black">카카오톡 공유</div>
-                    <div className="text-[11px] text-black/60">카카오톡으로 명함 카드 전달</div>
                   </div>
                 </button>
 
@@ -430,7 +424,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                     </div>
                     <div>
                       <div className="text-xs font-bold text-slate-800">문자(SMS) 전송</div>
-                      <div className="text-[11px] text-slate-500">문자 앱 자동 연결</div>
                     </div>
                   </a>
 
@@ -443,7 +436,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                     </div>
                     <div>
                       <div className="text-xs font-bold text-slate-800">이메일 전송</div>
-                      <div className="text-[11px] text-slate-500">메일 클라이언트 열기</div>
                     </div>
                   </a>
                 </div>
@@ -628,7 +620,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                     )}
                   </div>
                 )}
-                <p className="text-slate-400">사진을 올리면 아래 항목들이 자동으로 채워져요. 채워진 내용은 저장 전에 직접 수정할 수 있어요.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
