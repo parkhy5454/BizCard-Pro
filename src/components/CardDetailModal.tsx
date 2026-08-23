@@ -1088,7 +1088,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
 
               <div>
                 <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
-                  <span>회사 주소 2 (지사/공장 등 2번째 주소)</span>
+                  <span>회사 주소 2 (지사/공장 등)</span>
                   <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded font-mono">분리 인식</span>
                 </label>
                 <input type="text" value={editForm.address2 || ''} onChange={e=>setEditForm({...editForm, address2:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />

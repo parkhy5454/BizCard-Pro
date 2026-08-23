@@ -800,7 +800,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                   {scanSide === 'front' ? (
                     <div>
-                      <span className="text-[11px] text-slate-400 block mb-1.5 font-mono">명함 앞면 (Front Side)</span>
                       <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-500/60 bg-slate-100 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
                         {frontImg ? (
                           <>
@@ -834,7 +833,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                     </div>
                   ) : (
                     <div>
-                      <span className="text-[11px] text-slate-400 block mb-1.5 font-mono">명함 뒷면 (Back Side - 선택사항)</span>
                       <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-600 bg-white/30 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
                         {backImg ? (
                           <>
@@ -900,7 +898,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
             <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between md:overflow-y-auto">
               <div>
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
-                  <h3 className="font-bold text-lg text-slate-900">스캔 정보 확인 및 입력</h3>
+                  <h3 className="font-bold text-lg text-slate-900">스캔 정보</h3>
                   <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-700 p-1 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
                 </div>
 
@@ -978,7 +976,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
-                      <span>회사 주소 2 (지사/공장 등 2번째 주소)</span>
+                      <span>회사 주소 2 (지사/공장 등)</span>
                     </label>
                     <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
