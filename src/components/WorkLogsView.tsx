@@ -1536,11 +1536,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     }
   };
 
-  // [수정] 등록일자(생성일) 최신순으로 위에 오도록 정렬한다 - 예전엔 정렬 없이 저장된
-  // 순서 그대로 보여줘서, 수정한 오래된 일지가 새로 쓴 일지보다 위에 뜨는 등 목록이
-  // 뒤죽박죽으로 보였다.
-  const byCreatedAtDesc = (a: { createdAt?: string }, b: { createdAt?: string }) =>
-    new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  // [수정] 목록을 "등록(생성) 시각" 대신 카드에 실제로 보이는 "업무 날짜"(일일은 date,
+  // 주간은 시작일) 기준 최신순으로 정렬한다. 등록 시각 기준으로 정렬했더니 화면에 보이는
+  // 날짜와 목록 순서가 안 맞아 보여서 헷갈린다는 피드백이 있었다 - 화면에 보이는 날짜와
+  // 정렬 기준을 같게 맞춰서 순서를 바로 눈으로 이해할 수 있게 했다. 업무 날짜가 같으면
+  // (예: 하루에 여러 건) 등록 시각이 최신인 것을 위로 올린다.
+  const byWorkDateDesc = (aDate: string | undefined, bDate: string | undefined, aCreatedAt?: string, bCreatedAt?: string) => {
+    const byDate = (bDate || '').localeCompare(aDate || '');
+    if (byDate !== 0) return byDate;
+    return new Date(bCreatedAt || 0).getTime() - new Date(aCreatedAt || 0).getTime();
+  };
 
   // 필터링 적용된 목록
   const filteredDailyLogs = dailyLogs.filter(log => {
@@ -1554,7 +1559,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const matchesProject = selectedProjectFilter === 'all' || (log.projectIds || []).includes(selectedProjectFilter);
     const matchesContact = selectedContactFilter === 'all' || (log.contactIds || []).includes(selectedContactFilter);
     return matchesSearch && matchesProject && matchesContact;
-  }).sort(byCreatedAtDesc);
+  }).sort((a, b) => byWorkDateDesc(a.date, b.date, a.createdAt, b.createdAt));
 
   const filteredWeeklyLogs = weeklyLogs.filter(log => {
     const q = searchQuery.toLowerCase().trim();
@@ -1567,7 +1572,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const matchesProject = selectedProjectFilter === 'all' || (log.projectIds || []).includes(selectedProjectFilter);
     const matchesContact = selectedContactFilter === 'all' || (log.contactIds || []).includes(selectedContactFilter);
     return matchesSearch && matchesProject && matchesContact;
-  }).sort(byCreatedAtDesc);
+  }).sort((a, b) => byWorkDateDesc(a.startDate, b.startDate, a.createdAt, b.createdAt));
 
   // 엑셀 다운로드 (목록 전체)
   const downloadAllToExcel = () => {
