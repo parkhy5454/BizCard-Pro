@@ -1188,12 +1188,55 @@ export const ProjectsView: React.FC<Props> = ({
   // 새 프로젝트 생성 모달 상태
   const [isNewOpen, setIsNewOpen] = useState<boolean>(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState<string>('');
+  // [추가] 프로젝트 카드 목록 정렬 방식. 기본값은 "관리 시급도순"(기회/진행 중인 프로젝트를
+  // 우선순위 x 마지막 활동 후 경과일수로 계산해서 가장 급한 것부터 위로) - 위 "팔로우업
+  // 필요" 배너·뱃지가 쓰는 것과 같은 기준을 목록 정렬에도 그대로 적용한 것. 완료/실패
+  // 프로젝트는 더 이상 급하지 않으므로 항상 맨 아래로 내려간다. "최근 등록순"(기존 방식) ·
+  // "마감임박순" · "이름순"으로도 바꿔볼 수 있다. 브라우저(계정)별로 마지막 선택을 기억한다.
+  const [projectSortOrder, setProjectSortOrder] = useState<'urgency' | 'recent' | 'dueDate' | 'name'>(() => {
+    try {
+      const saved = localStorage.getItem('bizcard_project_sort_order');
+      if (saved === 'urgency' || saved === 'recent' || saved === 'dueDate' || saved === 'name') return saved;
+    } catch {}
+    return 'urgency';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('bizcard_project_sort_order', projectSortOrder); } catch {}
+  }, [projectSortOrder]);
+  // [추가] 위 정렬 방식을 실제로 적용하는 함수. "카드로 이동"(전역 검색·팔로우업 알림에서
+  // 특정 프로젝트를 눌러 그 카드로 스크롤하는 기능)이 화면에 실제로 보일 순번을 알아야
+  // 하므로, 아래 filteredProjects 계산과 별개로 재사용 가능한 함수로 뺐다.
+  const PROJECT_SORT_PRIORITY_WEIGHT: Record<string, number> = { high: 3, medium: 2, low: 1 };
+  const getProjectUrgencyScore = (p: Project): number => {
+    // 완료/실패 프로젝트는 더 이상 챙길 필요가 없으므로 항상 맨 아래로 내려간다.
+    if (p.status !== 'opportunity' && p.status !== 'progress') return -1;
+    const { days } = getDaysSinceLastActivity(p);
+    return days * (PROJECT_SORT_PRIORITY_WEIGHT[p.priority] || 1);
+  };
+  const sortProjectsForCardView = (list: Project[]): Project[] => {
+    if (projectSortOrder === 'recent') return list; // 기존 방식: 최근 등록순
+    const sorted = [...list];
+    if (projectSortOrder === 'urgency') {
+      sorted.sort((a, b) => getProjectUrgencyScore(b) - getProjectUrgencyScore(a));
+    } else if (projectSortOrder === 'dueDate') {
+      sorted.sort((a, b) => {
+        const aHas = !!a.dueDate, bHas = !!b.dueDate;
+        if (aHas && bHas) return a.dueDate.localeCompare(b.dueDate);
+        if (aHas) return -1;
+        if (bHas) return 1;
+        return 0;
+      });
+    } else if (projectSortOrder === 'name') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    }
+    return sorted;
+  };
   // [수정] 프로젝트가 몇백 개로 늘어나도 카드 목록 화면이 느려지지 않도록, 처음엔 50개만
   // 화면에 그린다. 엑셀/PDF/리스트 출력은 이 제한과 무관하게 항상 전체(filteredProjects)를 쓴다.
   const [visibleProjectCount, setVisibleProjectCount] = useState<number>(50);
   useEffect(() => {
     setVisibleProjectCount(50);
-  }, [filterStatus, projectSearchQuery]);
+  }, [filterStatus, projectSearchQuery, projectSortOrder]);
   // [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하기 위한 상태
   const [showProjectsPrintPreview, setShowProjectsPrintPreview] = useState<boolean>(false);
   // [추가] "리스트 출력" 표에서 개별/전체 선택 삭제를 위한 선택된 프로젝트 id 목록.
@@ -1210,7 +1253,7 @@ export const ProjectsView: React.FC<Props> = ({
     setFilterStatus('all');
     setProjectSearchQuery('');
     setExpandedId(focusProjectId);
-    const idx = projects.findIndex((p) => p.id === focusProjectId);
+    const idx = sortProjectsForCardView(projects).findIndex((p) => p.id === focusProjectId);
     if (idx >= 0) setVisibleProjectCount((prev) => Math.max(prev, idx + 1));
     setTimeout(() => {
       document.getElementById(`project-card-${focusProjectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1226,7 +1269,7 @@ export const ProjectsView: React.FC<Props> = ({
     setFilterStatus('all');
     setProjectSearchQuery('');
     setExpandedId(projectId);
-    const idx = projects.findIndex((p) => p.id === projectId);
+    const idx = sortProjectsForCardView(projects).findIndex((p) => p.id === projectId);
     if (idx >= 0) setVisibleProjectCount((prev) => Math.max(prev, idx + 1));
     setTimeout(() => {
       document.getElementById(`project-card-${projectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2280,9 +2323,15 @@ export const ProjectsView: React.FC<Props> = ({
     .filter((p) => filterStatus === 'all' || p.status === filterStatus)
     .filter((p) => matchesProjectSearch(p, projectSearchQuery));
 
+  // [추가] "카드" 목록 화면에서만 정렬 방식(관리 시급도순/최근 등록순/마감임박순/이름순)을
+  // 적용한다. 엑셀 다운로드·PDF·리스트 출력·합계 계산은 항상 filteredProjects(기존과
+  // 동일한 등록 순서)를 그대로 쓴다 - 카드 화면 정렬을 바꿔도 저장/출력 결과가 달라지지
+  // 않도록 하기 위함.
+  const sortedForCards = sortProjectsForCardView(filteredProjects);
+
   // [수정] 카드 목록 화면에서만 "50개씩 더 보기"를 적용하기 위한 파생 목록.
   // 엑셀 다운로드/리스트 출력/PDF는 이 제한과 무관하게 항상 filteredProjects 전체를 쓴다.
-  const visibleProjects = filteredProjects.slice(0, visibleProjectCount);
+  const visibleProjects = sortedForCards.slice(0, visibleProjectCount);
 
   // [수정] 전체 프로젝트 목록을 엑셀(.xls)로 다운로드. 현재 화면에 적용된 상태 필터/검색어를 그대로 반영한다.
   const STATUS_LABEL_KO: Record<Project['status'], string> = { opportunity: '기회', progress: '진행', completed: '완료', failed: '실패' };
@@ -2876,22 +2925,42 @@ export const ProjectsView: React.FC<Props> = ({
               )}
             </div>
           ) : (
-            <div className="max-w-md mx-auto relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                placeholder="프로젝트명, 시행사, 시공사로 검색..."
-                value={projectSearchQuery}
-                onChange={(e) => setProjectSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
-              />
-              {projectSearchQuery && (
-                <button
-                  onClick={() => setProjectSearchQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-lg cursor-pointer"
-                >
-                  지우기
-                </button>
+            <div className="max-w-md mx-auto flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="프로젝트명, 시행사, 시공사로 검색..."
+                  value={projectSearchQuery}
+                  onChange={(e) => setProjectSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
+                />
+                {projectSearchQuery && (
+                  <button
+                    onClick={() => setProjectSearchQuery('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-lg cursor-pointer"
+                  >
+                    지우기
+                  </button>
+                )}
+              </div>
+              {/* [추가] 프로젝트 카드 정렬 방식 선택 - "카드" 목록 화면에서만 보여준다
+                  (리스트 출력/원가계산서 요약 표는 항상 등록 순서를 그대로 쓴다). */}
+              {viewMode === 'cards' && (
+                <div className="relative shrink-0">
+                  <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <select
+                    value={projectSortOrder}
+                    onChange={(e) => setProjectSortOrder(e.target.value as 'urgency' | 'recent' | 'dueDate' | 'name')}
+                    className="pl-8 pr-3 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer shadow-inner"
+                    title="프로젝트 정렬 방식"
+                  >
+                    <option value="urgency">관리 시급도순</option>
+                    <option value="recent">최근 등록순</option>
+                    <option value="dueDate">마감임박순</option>
+                    <option value="name">이름순</option>
+                  </select>
+                </div>
               )}
             </div>
           )
