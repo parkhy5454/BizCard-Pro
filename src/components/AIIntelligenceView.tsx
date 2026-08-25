@@ -298,17 +298,17 @@ const BriefingTab: React.FC<{
           <>
             {overdueProjects.length > 0 && (
               <Section title={`🔴 마감 지남 ${overdueProjects.length}건`} icon={AlertCircle} tone="rose">
-                {overdueProjects.slice(0, 5).map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+                {overdueProjects.slice(0, 5).map((p) => <ProjectRow key={p.id} project={p} onClick={() => (onOpenProject ? onOpenProject(p.id) : onNavigateToProjects?.())} />)}
               </Section>
             )}
             {dueTodayProjects.length > 0 && (
               <Section title={`🟠 오늘 마감 ${dueTodayProjects.length}건`} icon={Clock} tone="amber">
-                {dueTodayProjects.map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+                {dueTodayProjects.map((p) => <ProjectRow key={p.id} project={p} onClick={() => (onOpenProject ? onOpenProject(p.id) : onNavigateToProjects?.())} />)}
               </Section>
             )}
             {dueSoonProjects.length > 0 && (
               <Section title={`🟠 3일 이내 마감 ${dueSoonProjects.length}건`} icon={Clock} tone="amber">
-                {dueSoonProjects.map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+                {dueSoonProjects.map((p) => <ProjectRow key={p.id} project={p} onClick={() => (onOpenProject ? onOpenProject(p.id) : onNavigateToProjects?.())} />)}
               </Section>
             )}
             {inProgressProjects.length > 0 && (
@@ -373,7 +373,7 @@ const BriefingTab: React.FC<{
           <>
             {(dueTodayProjects.length > 0 || dueSoonProjects.length > 0) && (
               <Section title={`오늘 후속 연락 대상 ${dueTodayProjects.length + dueSoonProjects.length}건`} icon={Phone} tone="rose">
-                {[...dueTodayProjects, ...dueSoonProjects].map((p) => <ProjectRow key={p.id} project={p} onClick={onNavigateToProjects} />)}
+                {[...dueTodayProjects, ...dueSoonProjects].map((p) => <ProjectRow key={p.id} project={p} onClick={() => (onOpenProject ? onOpenProject(p.id) : onNavigateToProjects?.())} />)}
               </Section>
             )}
             {inProgressProjects.length > 0 && (
