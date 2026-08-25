@@ -1218,6 +1218,21 @@ export const ProjectsView: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusProjectSignal]);
 
+  // [추가] "신속한 팔로우업이 필요한 활성 프로젝트" 알림에서 프로젝트 이름을 누르면, 위
+  // focusProjectId와 같은 방식으로 - 필터/검색어에 가려져 있어도 전체보기로 풀고, 아래
+  // "더 보기" 제한 밖에 있어도 보이는 순번까지 늘린 뒤, 그 프로젝트 카드로 부드럽게
+  // 스크롤하며 펼쳐서 바로 확인할 수 있게 한다.
+  const handleJumpToProject = (projectId: string) => {
+    setFilterStatus('all');
+    setProjectSearchQuery('');
+    setExpandedId(projectId);
+    const idx = projects.findIndex((p) => p.id === projectId);
+    if (idx >= 0) setVisibleProjectCount((prev) => Math.max(prev, idx + 1));
+    setTimeout(() => {
+      document.getElementById(`project-card-${projectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  };
+
   // 상단 메뉴의 '새 프로젝트 등록' 버튼에서 신호가 오면 등록 모달을 엽니다.
   useEffect(() => {
     if (triggerNewProject) setIsNewOpen(true);
@@ -2797,7 +2812,8 @@ export const ProjectsView: React.FC<Props> = ({
                     return (
                       <button
                         key={p.id}
-                        onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                        onClick={() => handleJumpToProject(p.id)}
+                        title="눌러서 이 프로젝트로 이동"
                         className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-rose-500 text-white border-rose-400 shadow animate-pulse' : 'bg-slate-50 hover:bg-white border-rose-500/20 hover:border-rose-500/40 text-rose-600'}`}
                       >
                         <span className="font-bold">{p.name}</span>
