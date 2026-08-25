@@ -2827,7 +2827,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>명일 예정 사항</span>
+                            <span>명일 예정 사항 (선택)</span>
                           </label>
                           <button
                             type="button"
@@ -2845,7 +2845,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           value={formTasksTomorrow}
                           onChange={(e) => setFormTasksTomorrow(e.target.value)}
                           className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
-                          required
                         />
                       </div>
 
@@ -2984,7 +2983,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                            <span>차주 예정 사항</span>
+                            <span>차주 예정 사항 (선택)</span>
                           </label>
                           <button
                             type="button"
@@ -3002,7 +3001,6 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           value={formPlansNextWeek}
                           onChange={(e) => setFormPlansNextWeek(e.target.value)}
                           className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
-                          required
                         />
                       </div>
 
