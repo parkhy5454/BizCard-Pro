@@ -488,7 +488,8 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         />
       )}
 
-      {/* [수정] 영수증 미리보기 확대보기 라이트박스 */}
+      {/* [수정] 영수증 미리보기 확대보기 라이트박스 - 닫기 버튼이 휴대폰 상태바(배터리 등)와
+      겹쳐 안 눌리는 문제가 있어, env(safe-area-inset-top)만큼 아래로 내려서 배치한다. */}
       {isReceiptEnlarged && receiptImg && (
         <div
           className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[110] flex items-center justify-center p-4"
@@ -496,7 +497,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         >
           <button
             onClick={() => setIsReceiptEnlarged(false)}
-            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
           >
             닫기
           </button>

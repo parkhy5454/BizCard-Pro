@@ -3858,8 +3858,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       {/* 6. 영수증 이미지 라이트박스 모달 */}
       <AnimatePresence>
         {viewingReceiptImage && (
-          <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4">
-            <div className="absolute top-4 right-4 z-20 flex gap-2">
+          // [수정] 닫기(X) 버튼이 화면 맨 위 오른쪽 모서리에 딱 붙어 있어서, 휴대폰의
+          // 상태바(배터리·시간 표시)와 겹쳐 눌리지 않는다는 문제가 있었다. env(safe-area-inset-top)
+          // 만큼 위 여백을 추가로 띄워서 상태바 아래로 내려오게 하고, 배경(어두운 부분)을
+          // 눌러도 닫히게 해서 버튼을 못 눌러도 어디든 탭하면 닫히도록 했다.
+          <div
+            className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4"
+            onClick={() => setViewingReceiptImage(null)}
+          >
+            <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 flex gap-2">
               <button
                 type="button"
                 onClick={() => setViewingReceiptImage(null)}
@@ -3869,10 +3876,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="max-w-3xl max-h-[85vh] overflow-hidden flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-2xl">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-3xl max-h-[85vh] overflow-hidden flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-2xl"
+            >
               <img src={viewingReceiptImage} alt="영수증 원본 이미지" className="max-w-full max-h-[80vh] object-contain rounded-xl" />
             </div>
-            <p className="text-slate-500 text-xs mt-3.5 font-sans">우측 상단 X 단추로 닫을 수 있습니다.</p>
+            <p className="text-slate-500 text-xs mt-3.5 font-sans">우측 상단 X 단추 또는 바깥 배경을 눌러서 닫을 수 있습니다.</p>
           </div>
         )}
       </AnimatePresence>

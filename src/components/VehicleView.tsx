@@ -5265,7 +5265,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         </div>
       )}
 
-      {/* [수정] 영수증 썸네일 확대보기 라이트박스 */}
+      {/* [수정] 영수증 썸네일 확대보기 라이트박스 - 닫기 버튼이 휴대폰 상태바(배터리 등)와
+      겹쳐 안 눌리는 문제가 있어, env(safe-area-inset-top)만큼 아래로 내려서 배치한다. */}
       {enlargedReceiptUrl && (
         <div
           className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[110] flex items-center justify-center p-4"
@@ -5273,7 +5274,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         >
           <button
             onClick={() => setEnlargedReceiptUrl(null)}
-            className="absolute top-4 right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
           >
             닫기
           </button>
@@ -5288,10 +5289,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
       {/* ========================================== */}
       {/* 9. 자동차 등록증 원본 뷰어 라이트박스 오버레이 모달 */}
+      {/* [수정] 버튼들이 휴대폰 상태바(배터리 등)와 겹쳐 안 눌리는 문제가 있어, */}
+      {/* env(safe-area-inset-top)만큼 아래로 내리고, 배경을 눌러도 닫히게 했다. */}
       {/* ========================================== */}
       {viewDocUrl && (
-        <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-4">
-          <div className="absolute top-4 right-4 flex items-center gap-3">
+        <div
+          className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-4"
+          onClick={() => setViewDocUrl(null)}
+        >
+          <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
             <a 
               href={viewDocUrl}
               download={viewDocUrl.startsWith('data:application/pdf') ? 'car_registration.pdf' : 'car_registration.png'}
@@ -5324,7 +5330,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             </button>
           </div>
           
-          <div className="w-full max-w-4xl h-[78vh] flex flex-col items-center justify-center space-y-3">
+          <div className="w-full max-w-4xl h-[78vh] flex flex-col items-center justify-center space-y-3" onClick={(e) => e.stopPropagation()}>
             {viewDocUrl.startsWith('data:application/pdf') ? (
               <iframe 
                 src={viewDocUrl} 
