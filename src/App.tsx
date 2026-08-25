@@ -495,6 +495,7 @@ export default function App() {
                 }}
                 onDeleteContact={handleDeleteCard}
                 onNavigateToProjects={() => setActiveTab('projects')}
+                onOpenProject={handleOpenProjectFromSearch}
                 onAddCallHistory={handleAddCallHistory}
                 sortOrder={contactSortOrder}
                 setSortOrder={setContactSortOrder}
