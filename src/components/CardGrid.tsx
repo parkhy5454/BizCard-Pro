@@ -6,6 +6,7 @@ import { getContactImageProxyUrl } from '../imageProxy.js';
 import { downloadContactVCard } from '../vcardUtils.js';
 import { filterContactsForIntel } from '../contactFilters.js';
 import { getTodayLocalStr } from '../dateUtils.js';
+import { computeRelationshipInsights, computeMissingParticipants } from '../relationshipIntel.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -25,6 +26,9 @@ interface Props {
   onUpdateContact?: (contact: BusinessCard) => void;
   // [수정] 인텔리전스 패널에서 "프로젝트 보기"를 누르면 프로젝트 탭으로 이동시키기 위한 콜백 (선택)
   onNavigateToProjects?: () => void;
+  // [추가] "관계 인텔리전스" 패널 중 "아직 등록 안 된 참여사" 목록에서 특정 프로젝트로 바로
+  // 이동하기 위한 콜백. 안 넘겨주면 onNavigateToProjects로 프로젝트 탭까지만 이동한다.
+  onOpenProject?: (projectId: string) => void;
   // [추가] "관계 인텔리전스" 패널의 전화 버튼에서도, 눌렀을 때 자동으로 통화 시도 기록을
   // 남기기 위해 필요. 선택값이라, 이 prop을 안 넘겨도 기존처럼 그냥 전화만 걸린다.
   onAddCallHistory?: (contactId: string, record: { type: 'incoming' | 'outgoing' | 'missed'; note?: string }) => void;
@@ -52,7 +56,7 @@ const formatCallDate = (isoStr: string) => {
   }
 };
 
-export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], currentUser, searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onAddCallHistory, sortOrder = 'recent', setSortOrder, isAdmin, onOpenAddressCleanup }) => {
+export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], currentUser, searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onOpenProject, onAddCallHistory, sortOrder = 'recent', setSortOrder, isAdmin, onOpenAddressCleanup }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -206,88 +210,28 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
       {/* 🧠 관계 인텔리전스: 명함 + 프로젝트 + 팔로우업 + 통화기록을 엮어서
           "지금 누구를 챙겨야 하는지, 왜"까지 알려주는 패널 */}
       {(() => {
-        const now = Date.now();
-        const DAY_MS = 24 * 60 * 60 * 1000;
-        const PRIORITY_WEIGHT: Record<string, number> = { high: 3, medium: 2, low: 1 };
-
-        interface Insight {
-          contact: BusinessCard;
-          reasonText: string;
-          daysSince: number;
-          urgencyLabel: '높음' | '보통';
-          score: number;
-          linkedProjectName?: string;
-        }
-
-        const insights: Insight[] = [];
-
         // [추가] 회사(company) 계정에 한해서만 "나만 보기(비공개)" 그룹 + 은행/보증/보험/
         // 컨설팅/투자/변호사/변리사, 인증/연구소/협회 그룹에 속한 명함을 실제 영업 대상
         // 거래처가 아니므로 이 패널의 분석 대상에서 제외한다. 개인(individual) 계정은
         // 모든 명함을 그대로 쓴다.
         const intelContacts = filterContactsForIntel(contacts, groups, currentUser?.type);
 
-        intelContacts.forEach((c) => {
-          // 이 명함과 연결된 프로젝트 중, 아직 끝나지 않은(진행중/기회) 것만 대상으로 한다
-          const linkedActiveProjects = projects.filter(
-            (p) => (p.contactIds || []).includes(c.id) && (p.status === 'opportunity' || p.status === 'progress')
-          );
-
-          let best: Insight | null = null;
-
-          for (const p of linkedActiveProjects) {
-            // 이 프로젝트의 "마지막 활동일" = 가장 최근 팔로우업 날짜, 없으면 프로젝트 등록일
-            const followUpDates = (p.followUps || []).map((f) => new Date(f.date || '').getTime()).filter((t) => !isNaN(t));
-            const lastActivity = followUpDates.length > 0 ? Math.max(...followUpDates) : new Date(p.createdAt).getTime();
-            if (isNaN(lastActivity)) continue;
-            const daysSince = Math.floor((now - lastActivity) / DAY_MS);
-            if (daysSince < 7) continue; // 일주일 안 됐으면 아직 급하지 않다고 판단
-
-            const weight = PRIORITY_WEIGHT[p.priority] || 1;
-            const score = daysSince * weight;
-
-            if (!best || score > best.score) {
-              best = {
-                contact: c,
-                reasonText: `"${p.name}" 프로젝트 연결 · ${p.priority === 'high' ? '우선순위 높음' : p.priority === 'medium' ? '우선순위 보통' : '우선순위 낮음'}`,
-                daysSince,
-                urgencyLabel: score >= 40 ? '높음' : '보통',
-                score,
-                linkedProjectName: p.name
-              };
-            }
-          }
-
-          // 연결된 활성 프로젝트가 없으면, 기존처럼 통화기록 기준으로 판단(최소한의 안전망)
-          if (!best && c.callHistory && c.callHistory.length > 0) {
-            const lastCall = c.callHistory.reduce((latest, cur) => {
-              const t = new Date(cur.timestamp).getTime();
-              return t > latest ? t : latest;
-            }, 0);
-            if (lastCall) {
-              const daysSince = Math.floor((now - lastCall) / DAY_MS);
-              if (daysSince >= 10) {
-                best = {
-                  contact: c,
-                  reasonText: '연결된 진행중 프로젝트는 없지만, 통화 기록 기준 연락이 뜸함',
-                  daysSince,
-                  urgencyLabel: daysSince >= 20 ? '높음' : '보통',
-                  score: daysSince
-                };
-              }
-            }
-          }
-
-          if (best) insights.push(best);
-        });
-
-        insights.sort((a, b) => b.score - a.score);
+        // [수정] 채점 로직은 CardGrid·AIIntelligenceView가 공유하는 relationshipIntel.ts로
+        // 옮겼다. 프로젝트에 명함이 직접 연결(contactIds)돼 있지 않아도, 명함 회사명이
+        // 프로젝트의 "영업 파이프라인 정보"(최종고객/발주처, 시공사, 건축설계사 등) 칸과
+        // 일치하면 관련 있는 것으로 보고 함께 분석한다.
+        const insights = computeRelationshipInsights(intelContacts, projects);
         // [수정] 건별로 해제한 거래처는 순위 계산에서 아예 빼서, 그 자리에 다음 순위
         // 거래처가 대신 올라오게 한다(해제해도 계속 5곳이 채워져 보이도록).
         const rankedInsights = insights.filter((i) => !intelDismissedContactIds.includes(i.contact.id));
         const topInsights = rankedInsights.slice(0, 5);
 
-        if (topInsights.length === 0) return null;
+        // [추가] 진행중/기회 프로젝트의 파이프라인 참여사 칸에는 회사명이 적혀 있는데, 그
+        // 회사의 명함이 아직 하나도 등록돼 있지 않은 경우를 찾아서 같이 안내한다. 그룹
+        // 필터링 전의 전체 명함(contacts)을 기준으로 "이미 있는데 못 찾은" 오탐을 막는다.
+        const missingParticipants = computeMissingParticipants(projects, contacts).slice(0, 5);
+
+        if (topInsights.length === 0 && missingParticipants.length === 0) return null;
 
         // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
         if (isIntelDismissed) {
@@ -298,7 +242,10 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition-all animate-fadeIn"
               >
                 <Brain className="w-3.5 h-3.5" />
-                <span>관계 인텔리전스 · 챙길 거래처 {topInsights.length}건</span>
+                <span>
+                  관계 인텔리전스 · 챙길 거래처 {topInsights.length}건
+                  {missingParticipants.length > 0 && ` · 미등록 참여사 ${missingParticipants.length}곳`}
+                </span>
               </button>
             </div>
           );
@@ -319,8 +266,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 <Brain className="w-5 h-5" />
               </div>
               <div className="pr-6">
-                <h4 className="text-sm font-bold text-indigo-700">🧠 관계 인텔리전스 · 지금 챙기면 좋은 거래처 {topInsights.length}곳</h4>
-                <p className="text-xs text-slate-500 mt-0.5">진행중인 프로젝트와 마지막 연락 시점을 같이 분석했어요.</p>
+                <h4 className="text-sm font-bold text-indigo-700">
+                  🧠 관계 인텔리전스
+                  {topInsights.length > 0 && ` · 지금 챙기면 좋은 거래처 ${topInsights.length}곳`}
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">진행중인 프로젝트와 마지막 연락 시점, 파이프라인 참여사를 같이 분석했어요.</p>
                 {/* [추가] 건별로 해제한 거래처가 있으면, 실수로 뺐을 때 되돌릴 수 있게 안내 겸
                     복구 버튼을 같이 보여준다. */}
                 {intelDismissedContactIds.length > 0 && (
@@ -334,6 +284,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               </div>
             </div>
 
+            {topInsights.length > 0 && (
             <div className="space-y-2">
               {topInsights.map((insight) => (
                 <div
@@ -394,6 +345,37 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 </div>
               ))}
             </div>
+            )}
+
+            {/* [추가] 진행중/기회 프로젝트의 "영업 파이프라인 정보"(최종고객·시공사·설계사 등)
+                칸에는 회사명이 적혀 있는데, 그 회사의 명함이 아직 하나도 등록돼 있지 않은
+                경우를 같이 안내한다. 명함 등록을 놓친 참여사를 챙길 수 있게 하기 위함. */}
+            {missingParticipants.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-indigo-200/60">
+                <p className="text-xs font-bold text-indigo-700 mb-2">
+                  📇 아직 명함이 없는 프로젝트 참여사 {missingParticipants.length}곳
+                </p>
+                <div className="space-y-1.5">
+                  {missingParticipants.map((mp) => (
+                    <div
+                      key={`${mp.projectId}-${mp.roleLabel}-${mp.companyName}`}
+                      className="flex items-center justify-between gap-3 bg-white/70 border border-indigo-100 rounded-xl px-3 py-2"
+                    >
+                      <p className="min-w-0 flex-1 text-[11px] text-slate-600 truncate">
+                        <span className="font-bold text-slate-700">{mp.companyName}</span>
+                        <span className="text-slate-400"> · {mp.roleLabel} · "{mp.projectName}"</span>
+                      </p>
+                      <button
+                        onClick={() => (onOpenProject ? onOpenProject(mp.projectId) : onNavigateToProjects?.())}
+                        className="shrink-0 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[11px] font-bold transition-colors"
+                      >
+                        프로젝트 보기
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}

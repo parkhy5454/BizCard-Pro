@@ -3,6 +3,7 @@ import { Sparkles, Calendar, Building2, Users, TrendingUp, AlertCircle, Clock, S
 import { BusinessCard, ContactGroup, Project, User as UserType, DailyWorkLog, WeeklyWorkLog } from '../types.js';
 import { getIntelExcludedGroupIds } from '../contactFilters.js';
 import { getTodayLocalStr } from '../dateUtils.js';
+import { computeRelationshipInsights, computeMissingParticipants } from '../relationshipIntel.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -157,7 +158,7 @@ export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects
       )}
       {activeSubTab === 'company' && <CompanyIntelligenceTab contacts={externalContacts} onSelectContact={onSelectContact} />}
       {activeSubTab === 'relationship' && (
-        <RelationshipIntelligenceTab contacts={externalContacts} projects={projects} onSelectContact={onSelectContact} onNavigateToProjects={onNavigateToProjects} />
+        <RelationshipIntelligenceTab contacts={externalContacts} allContacts={contacts} projects={projects} onSelectContact={onSelectContact} onNavigateToProjects={onNavigateToProjects} onOpenProject={onOpenProject} />
       )}
     </div>
   );
@@ -650,12 +651,15 @@ const CompanyIntelligenceTab: React.FC<{ contacts: BusinessCard[]; onSelectConta
 // ============================================================
 const RelationshipIntelligenceTab: React.FC<{
   contacts: BusinessCard[];
+  // [추가] "아직 명함이 없는 프로젝트 참여사" 판단용 - 그룹 제외 등으로 걸러지지 않은 전체
+  // 명함 목록. 안 넘겨주면 걸러진 contacts로 대체(오탐 가능성은 있지만 동작은 함).
+  allContacts?: BusinessCard[];
   projects: Project[];
   onSelectContact?: (c: BusinessCard) => void;
   onNavigateToProjects?: () => void;
-}> = ({ contacts, projects, onSelectContact, onNavigateToProjects }) => {
-  const PRIORITY_WEIGHT: Record<string, number> = { high: 3, medium: 2, low: 1 };
-
+  // [추가] "아직 명함이 없는 프로젝트 참여사" 목록에서 해당 프로젝트로 바로 이동하기 위한 콜백
+  onOpenProject?: (projectId: string) => void;
+}> = ({ contacts, allContacts, projects, onSelectContact, onNavigateToProjects, onOpenProject }) => {
   // [추가] CardGrid의 "관계 인텔리전스"와 로직은 동일하되(일관성 유지), 여기 AI
   // Intelligence 탭에서 건별로 해제한 거래처는 CardGrid 쪽과 섞이지 않도록 별도의
   // localStorage 키를 쓴다. 날짜와 상관없이 "전체 되돌리기"를 누르기 전까지 계속
@@ -700,70 +704,20 @@ const RelationshipIntelligenceTab: React.FC<{
     failed: 'bg-slate-100 text-slate-500 border-slate-200'
   };
 
-  // "지금 챙기면 좋은 거래처" - CardGrid의 관계 인텔리전스와 동일한 채점 로직(일관성 유지).
-  // [추가] 연결된 활성 프로젝트 "건수"와, 0~99 범위로 보기 쉽게 정규화한 "영업점수"를 같이
-  // 계산해서 화면에 숫자로 보여준다(예: "영업점수 94").
-  const insights = useMemo(() => {
-    const now = Date.now();
-    interface Insight { contact: BusinessCard; reasonText: string; daysSince: number; urgencyLabel: '높음' | '보통'; score: number; linkedProjectCount: number; salesScore: number; }
-    const list: Insight[] = [];
+  // "지금 챙기면 좋은 거래처" - CardGrid의 관계 인텔리전스와 동일한 공용 채점 로직
+  // (relationshipIntel.ts, 일관성 유지). 프로젝트에 직접 연결(contactIds)된 명함뿐 아니라,
+  // 명함 회사명이 프로젝트의 "영업 파이프라인 정보"(최종고객/발주처, 시공사, 건축설계사 등)
+  // 칸과 일치하면 그것도 관련 있는 것으로 보고 함께 분석한다. 연결된 활성 프로젝트 "건수"와,
+  // 0~99 범위로 보기 쉽게 정규화한 "영업점수"를 같이 계산해서 화면에 숫자로 보여준다.
+  const insights = useMemo(() => computeRelationshipInsights(contacts, projects), [contacts, projects]);
 
-    contacts.forEach((c) => {
-      const linkedActiveProjects = projects.filter((p) => (p.contactIds || []).includes(c.id) && (p.status === 'opportunity' || p.status === 'progress'));
-      let best: Insight | null = null;
-
-      for (const p of linkedActiveProjects) {
-        const followUpDates = (p.followUps || []).map((f) => new Date(f.date || '').getTime()).filter((t) => !isNaN(t));
-        const lastActivity = followUpDates.length > 0 ? Math.max(...followUpDates) : new Date(p.createdAt).getTime();
-        if (isNaN(lastActivity)) continue;
-        const daysSince = Math.floor((now - lastActivity) / DAY_MS);
-        if (daysSince < 7) continue;
-        const weight = PRIORITY_WEIGHT[p.priority] || 1;
-        const score = daysSince * weight;
-        if (!best || score > best.score) {
-          // 영업점수 = 기본 50점 + (연결 프로젝트 수 가중치) + (우선순위 가중치) + (방치 일수, 30일 상한)
-          // - 챙길수록 급한 거래처일수록 점수가 높게 나오도록 설계 (0~99 범위로 clamp)
-          // 영업점수 = 기본 40점 + (연결 프로젝트 수 x6, 상한 있음) + (우선순위 가중치 x6) +
-          // (방치 일수, 25일 상한) - 0~99 범위로 clamp. 챙길수록 급한 거래처일수록 높게 나온다.
-          const salesScore = Math.min(99, Math.round(40 + Math.min(linkedActiveProjects.length, 6) * 6 + weight * 6 + Math.min(daysSince, 25)));
-          best = {
-            contact: c,
-            reasonText: `"${p.name}" 프로젝트 연결 · ${p.priority === 'high' ? '우선순위 높음' : p.priority === 'medium' ? '우선순위 보통' : '우선순위 낮음'}`,
-            daysSince,
-            urgencyLabel: score >= 40 ? '높음' : '보통',
-            score,
-            linkedProjectCount: linkedActiveProjects.length,
-            salesScore
-          };
-        }
-      }
-
-      if (!best && c.callHistory && c.callHistory.length > 0) {
-        const lastCall = c.callHistory.reduce((latest, cur) => {
-          const t = new Date(cur.timestamp).getTime();
-          return t > latest ? t : latest;
-        }, 0);
-        if (lastCall) {
-          const daysSince = Math.floor((now - lastCall) / DAY_MS);
-          if (daysSince >= 10) {
-            best = {
-              contact: c,
-              reasonText: '연결된 진행중 프로젝트는 없지만, 통화 기록 기준 연락이 뜸함',
-              daysSince,
-              urgencyLabel: daysSince >= 20 ? '높음' : '보통',
-              score: daysSince,
-              linkedProjectCount: 0,
-              salesScore: Math.min(99, Math.round(30 + Math.min(daysSince, 60)))
-            };
-          }
-        }
-      }
-
-      if (best) list.push(best);
-    });
-
-    return list.sort((a, b) => b.score - a.score);
-  }, [contacts, projects]);
+  // [추가] 진행중/기회 프로젝트의 파이프라인 참여사 칸에는 회사명이 적혀 있는데, 그 회사의
+  // 명함이 아직 하나도 등록되어 있지 않은 경우를 찾아준다. allContacts(그룹 제외 등으로
+  // 걸러지지 않은 전체 명함)를 기준으로 삼아 "이미 있는데 못 찾은" 오탐을 막는다.
+  const missingParticipants = useMemo(
+    () => computeMissingParticipants(projects, allContacts || contacts),
+    [projects, allContacts, contacts]
+  );
 
   // 건별로 해제한 거래처는 목록에서 아예 빼서, 그 자리에 다음 순위 거래처가 채워지게 한다.
   const rankedInsights = useMemo(
@@ -927,6 +881,36 @@ const RelationshipIntelligenceTab: React.FC<{
           </div>
         )}
       </div>
+
+      {/* [추가] 진행중/기회 프로젝트의 "영업 파이프라인 정보"(최종고객·시공사·설계사 등) 칸에는
+          회사명이 적혀 있는데, 그 회사의 명함이 아직 하나도 등록돼 있지 않은 경우를 안내한다. */}
+      {missingParticipants.length > 0 && (
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border bg-indigo-50 text-indigo-600 border-indigo-100 mb-2">
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>아직 명함이 없는 프로젝트 참여사 {missingParticipants.length}곳</span>
+          </div>
+          <div className="space-y-1.5">
+            {missingParticipants.map((mp) => (
+              <div
+                key={`${mp.projectId}-${mp.roleLabel}-${mp.companyName}`}
+                className="flex items-center justify-between gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2"
+              >
+                <p className="min-w-0 flex-1 text-[11px] text-slate-600 truncate">
+                  <span className="font-bold text-slate-700">{mp.companyName}</span>
+                  <span className="text-slate-400"> · {mp.roleLabel} · "{mp.projectName}"</span>
+                </p>
+                <button
+                  onClick={() => (onOpenProject ? onOpenProject(mp.projectId) : onNavigateToProjects?.())}
+                  className="shrink-0 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[11px] font-bold transition-colors"
+                >
+                  프로젝트 보기
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 관계가 깊은 회사 TOP - 명함수+통화횟수+프로젝트연결+최근접촉을 합친 관계점수 기준 */}
       <div>
