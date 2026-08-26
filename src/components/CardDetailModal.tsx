@@ -297,15 +297,37 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
       contact.address ? `🏢 ${contact.address}` : ''
     ].filter(Boolean).join('\n');
 
+    // [추가] 예전에는 텍스트(+vCard 파일)만 공유해서, 카카오톡 등으로 전달하면 명함 사진 없이
+    // 글자만 덜렁 가서 밋밋하다는 피드백이 있었다. 스캔해둔 명함 원본 이미지(수동 입력 등으로
+    // 원본이 없으면 자동 생성된 표준 명함 이미지)를 함께 공유 파일에 넣어서, 사진과 텍스트가
+    // 같이 전달되도록 한다. data URL 상태로는 공유 시트에 못 넘기므로 실제 파일로 변환한다.
+    const shareFiles: File[] = [];
+    if (contact.frontImage) {
+      try {
+        const res = await fetch(contact.frontImage);
+        const blob = await res.blob();
+        shareFiles.push(new File([blob], `${contact.name}_명함.jpg`, { type: blob.type || 'image/jpeg' }));
+      } catch {
+        // 이미지를 파일로 바꾸는 데 실패해도 아래 텍스트/vCard 공유는 그대로 진행한다
+      }
+    }
+
     try {
       const nav = navigator as any;
-      // 1) vCard 파일까지 함께 공유 가능한 환경이면 파일로 전달 (상대방이 바로 연락처 저장 가능)
+      // 1) 파일 공유가 가능한 환경이면 명함 이미지 + vCard 파일을 함께 전달 (상대방이 명함
+      // 사진도 보고 바로 연락처 저장도 가능)
       if (nav.canShare && typeof File !== 'undefined') {
         try {
           const vcardText = generateContactVCardText(contact);
-          const file = new File([vcardText], `${contact.name}.vcf`, { type: 'text/vcard' });
-          if (nav.canShare({ files: [file] })) {
-            await nav.share({ title: `${contact.name} 명함`, text, files: [file] });
+          const vcardFile = new File([vcardText], `${contact.name}.vcf`, { type: 'text/vcard' });
+          const filesWithVCard = [...shareFiles, vcardFile];
+          if (nav.canShare({ files: filesWithVCard })) {
+            await nav.share({ title: `${contact.name} 명함`, text, files: filesWithVCard });
+            return;
+          }
+          // vCard까지 같이 보내는 건 안 되지만, 명함 이미지만은 같이 보낼 수 있는 환경
+          if (shareFiles.length > 0 && nav.canShare({ files: shareFiles })) {
+            await nav.share({ title: `${contact.name} 명함`, text, files: shareFiles });
             return;
           }
         } catch {
