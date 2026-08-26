@@ -3,7 +3,7 @@ import { Sparkles, Calendar, Building2, Users, TrendingUp, AlertCircle, Clock, S
 import { BusinessCard, ContactGroup, Project, User as UserType, DailyWorkLog, WeeklyWorkLog } from '../types.js';
 import { getIntelExcludedGroupIds } from '../contactFilters.js';
 import { getTodayLocalStr } from '../dateUtils.js';
-import { computeRelationshipInsights, computeMissingParticipants } from '../relationshipIntel.js';
+import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -660,28 +660,14 @@ const RelationshipIntelligenceTab: React.FC<{
   // [추가] "아직 명함이 없는 프로젝트 참여사" 목록에서 해당 프로젝트로 바로 이동하기 위한 콜백
   onOpenProject?: (projectId: string) => void;
 }> = ({ contacts, allContacts, projects, onSelectContact, onNavigateToProjects, onOpenProject }) => {
-  // [추가] CardGrid의 "관계 인텔리전스"와 로직은 동일하되(일관성 유지), 여기 AI
-  // Intelligence 탭에서 건별로 해제한 거래처는 CardGrid 쪽과 섞이지 않도록 별도의
-  // localStorage 키를 쓴다. 날짜와 상관없이 "전체 되돌리기"를 누르기 전까지 계속
-  // 제외되고, 해제해도 다음 순위 거래처가 그 자리를 채운다.
-  const [dismissedContactIds, setDismissedContactIds] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem('bizcard_ai_relationship_intel_dismissed_contact_ids');
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-  const dismissContact = (contactId: string) => {
-    setDismissedContactIds((prev) => {
-      if (prev.includes(contactId)) return prev;
-      const next = [...prev, contactId];
-      try { localStorage.setItem('bizcard_ai_relationship_intel_dismissed_contact_ids', JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-  const resetDismissedContacts = () => {
-    try { localStorage.removeItem('bizcard_ai_relationship_intel_dismissed_contact_ids'); } catch {}
-    setDismissedContactIds([]);
-  };
+  // [수정] 예전에는 여기 AI Intelligence 탭에서 건별로 해제한 거래처를 CardGrid("전체
+  // 명함")와 섞이지 않도록 별도의 localStorage 키로 관리했다. 하지만 그 때문에 한쪽
+  // 화면에서 해제해도 다른 화면에는 반영되지 않아, 은행·보증·보험·컨설팅·인증·연구소·협회처럼
+  // 원래 영업 대상이 아닌 거래처를 두 화면에서 매번 따로 해제해야 하는 불편이 있었다. 이제는
+  // CardGrid와 같은 저장소를 공유(useDismissedContactIds)해서, 어느 화면에서 해제하든
+  // 그 이후로는 두 화면 모두에서 계속 보이지 않는다. 날짜와 상관없이 "전체 되돌리기"를
+  // 누르기 전까지 계속 제외되고, 해제해도 다음 순위 거래처가 그 자리를 채운다.
+  const { dismissedContactIds, dismissContact, resetDismissedContacts } = useDismissedContactIds();
 
   // 파이프라인 요약
   const pipelineSummary = useMemo(() => {

@@ -6,7 +6,7 @@ import { getContactImageProxyUrl } from '../imageProxy.js';
 import { downloadContactVCard } from '../vcardUtils.js';
 import { filterContactsForIntel } from '../contactFilters.js';
 import { getTodayLocalStr } from '../dateUtils.js';
-import { computeRelationshipInsights, computeMissingParticipants } from '../relationshipIntel.js';
+import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -110,28 +110,12 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     try { localStorage.removeItem('bizcard_relationship_intel_dismissed_date'); } catch {}
     setIntelDismissedDate('');
   };
-  // [추가] "오늘 하루 닫기"(패널 전체, 날짜 지나면 자동 복구)와는 별개로, 특정 거래처 하나만
+  // [수정] "오늘 하루 닫기"(패널 전체, 날짜 지나면 자동 복구)와는 별개로, 특정 거래처 하나만
   // "관계 인텔리전스"에서 계속 빼고 싶을 때를 위한 건별 해제. 날짜와 상관없이 다시 켜기 전까지
   // 계속 유지되고, 로그인한 브라우저(계정)별로만 적용된다(localStorage - 서버에 저장/동기화하지
-  // 않으므로 다른 기기·다른 직원에게는 영향 없음).
-  const [intelDismissedContactIds, setIntelDismissedContactIds] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem('bizcard_relationship_intel_dismissed_contact_ids');
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-  const dismissIntelContact = (contactId: string) => {
-    setIntelDismissedContactIds((prev) => {
-      if (prev.includes(contactId)) return prev;
-      const next = [...prev, contactId];
-      try { localStorage.setItem('bizcard_relationship_intel_dismissed_contact_ids', JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-  const resetDismissedIntelContacts = () => {
-    try { localStorage.removeItem('bizcard_relationship_intel_dismissed_contact_ids'); } catch {}
-    setIntelDismissedContactIds([]);
-  };
+  // 않으므로 다른 기기·다른 직원에게는 영향 없음). AIIntelligenceView의 "AI 인텔리전스" 탭과
+  // 같은 저장소(useDismissedContactIds)를 공유해서, 어느 화면에서 해제하든 양쪽 다 반영된다.
+  const { dismissedContactIds: intelDismissedContactIds, dismissContact: dismissIntelContact, resetDismissedContacts: resetDismissedIntelContacts } = useDismissedContactIds();
   const swipeStartX = useRef<number>(0);
 
   const handleImageSwipeStart = (e: React.TouchEvent) => {
