@@ -2634,8 +2634,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 </div>
 
                 <form onSubmit={handleSaveLog} className="space-y-5">
+                  {/* [수정] 아이패드 분할 화면처럼 좁은 화면에서 날짜/제목 칸이 옆으로
+                      욱여넣어져 보이던 문제 - 가로로 나란히 놓이는 기준을 훨씬 넓은 화면(lg,
+                      1024px 이상)에서만 적용하도록 올렸다. */}
                   {/* 날짜 선택 및 일지 제목 */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {activeSubTab === 'daily' ? (
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-600">작성 일자</label>
@@ -2678,7 +2681,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       </>
                     )}
 
-                    <div className={`${activeSubTab === 'daily' ? 'sm:col-span-2' : 'sm:col-span-1'} space-y-1.5`}>
+                    <div className={`${activeSubTab === 'daily' ? 'lg:col-span-2' : 'lg:col-span-1'} space-y-1.5`}>
                       <label className="text-xs font-bold text-slate-600">일지 제목</label>
                       <input
                         type="text"
@@ -2692,7 +2695,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </div>
 
                   {/* 작성자 및 부서 정보 */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-600">작성자</label>
                       <input
@@ -3097,7 +3100,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               </button>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                               {/* 1. 카테고리 선택 */}
                               <div className="space-y-1">
                                 <label className="text-[11px] font-semibold text-slate-500">지출 분류</label>
@@ -3148,7 +3151,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             </div>
 
                             {/* 상세 내용 및 연동 */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                               {/* 직접 입력일 때 분류 이름 */}
                               {expense.category === 'custom' && (
                                 <div className="space-y-1">
@@ -3202,7 +3205,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </div>
 
                   {/* 연관 프로젝트 및 거래처 매핑 (CRM 연동) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
                     {/* 연관 프로젝트 멀티플 선택 */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">

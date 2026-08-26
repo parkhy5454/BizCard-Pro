@@ -1327,6 +1327,11 @@ export const ProjectsView: React.FC<Props> = ({
   // 프로젝트 정보 수정용 상태
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
+  // [추가] "새로운 미팅/팔로우업 기록 추가" 폼을 아이패드 분할 화면처럼 좁은 화면에서도
+  // 편하게 쓸 수 있도록, 프로젝트 카드 안에 항상 끼워 넣는 대신 전체화면 팝업으로 열리게
+  // 한다. 값은 이 프로젝트 id(문자열)이고, null이면 닫힌 상태.
+  const [followupFormOpenForProjectId, setFollowupFormOpenForProjectId] = useState<string | null>(null);
+
   // 미팅 기록(팔로우업) 수정용 상태
   const [editingFollowup, setEditingFollowup] = useState<{ projectId: string; followup: ProjectFollowUp } | null>(null);
   const [editAttendeeNameInput, setEditAttendeeNameInput] = useState<string>('');
@@ -3986,13 +3991,43 @@ export const ProjectsView: React.FC<Props> = ({
                         <span className="text-[11px] text-slate-400">체계적인 미팅 관리</span>
                       </div>
 
-                      {/* 미팅 입력 폼 */}
-                      <form onSubmit={(e) => handleAddFollowup(proj.id, e)} className="bg-slate-100 border border-slate-200 p-4 rounded-2xl space-y-3.5">
-                        <span className="text-xs font-bold text-slate-600 block">📝 새로운 미팅/팔로우업 기록 추가</span>
-                        
-                        <div className="flex flex-col md:flex-row gap-3">
+                      {/* [수정] 예전에는 이 폼이 프로젝트 카드 안에 항상 펼쳐져 있어서, 아이패드
+                          분할 화면처럼 좁은 화면에서는 여러 입력칸이 옆으로 욱여넣어져 답답했다.
+                          이제는 버튼을 눌러야 전체화면 팝업으로 열리게 해서, 화면 폭과 상관없이
+                          넉넉하게 작성할 수 있게 했다. */}
+                      <button
+                        type="button"
+                        onClick={() => setFollowupFormOpenForProjectId(proj.id)}
+                        className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 border border-dashed border-slate-300 hover:border-indigo-300 text-slate-600 hover:text-indigo-700 font-bold text-xs py-3.5 rounded-2xl transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        새로운 미팅/팔로우업 기록 추가
+                      </button>
+
+                      {followupFormOpenForProjectId === proj.id && (
+                        <div className="fixed inset-0 z-50 overflow-y-auto">
+                          <div
+                            onClick={() => setFollowupFormOpenForProjectId(null)}
+                            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+                          />
+                          <div className="flex min-h-screen items-start sm:items-center justify-center p-2 sm:p-4">
+                            <div className="relative w-full max-w-3xl bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-2xl space-y-4 z-10 my-4">
+                              <button
+                                type="button"
+                                onClick={() => setFollowupFormOpenForProjectId(null)}
+                                className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                              <div className="pr-8">
+                                <span className="text-sm font-bold text-slate-700 block">📝 새로운 미팅/팔로우업 기록 추가</span>
+                                <p className="text-[11px] text-slate-400 mt-0.5 truncate">{proj.name}</p>
+                              </div>
+
+                      <form onSubmit={(e) => handleAddFollowup(proj.id, e)} className="space-y-3.5">
+                        <div className="flex flex-col lg:flex-row gap-3">
                           {/* 미팅/팔로우업 차수 (제한 없음, 이미 기록된 차수는 건너뛰고 다음 차수를 자동 선택) */}
-                          <div className="w-full md:w-1/4">
+                          <div className="w-full lg:w-1/4">
                             <label className="block text-[10px] text-slate-500 font-bold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
                             <select
                               value={`${meetingDegree}-${meetingType}`}
@@ -4013,7 +4048,7 @@ export const ProjectsView: React.FC<Props> = ({
                           </div>
 
                           {/* 미팅일자 */}
-                          <div className="w-full md:w-1/4">
+                          <div className="w-full lg:w-1/4">
                             <label className="block text-[10px] text-slate-500 font-bold mb-1">미팅일자</label>
                             <input
                               type="date"
@@ -4024,7 +4059,7 @@ export const ProjectsView: React.FC<Props> = ({
                           </div>
 
                           {/* 우리 회사 담당 직원 */}
-                          <div className="w-full md:w-1/4">
+                          <div className="w-full lg:w-1/4">
                             <label className="block text-[10px] text-slate-500 font-bold mb-1">담당 직원 (우리 회사)</label>
                             {companyStaff.length > 0 ? (
                               <select
@@ -4074,7 +4109,7 @@ export const ProjectsView: React.FC<Props> = ({
                         {/* 미팅자 이름·연락처 직접 입력해서 추가 (명함 연동 없이도 바로 입력 가능) */}
                         <div className="border border-slate-200 bg-slate-50 rounded-xl p-3 space-y-2">
                           <span className="text-[10px] text-slate-500 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
-                          <div className="flex flex-col md:flex-row gap-2">
+                          <div className="flex flex-col lg:flex-row gap-2">
                             <input
                               type="text"
                               value={attendeeNameInput}
@@ -4365,6 +4400,10 @@ export const ProjectsView: React.FC<Props> = ({
                           </button>
                         </div>
                       </form>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* 히스토리 아이템들 */}
                       <div className="space-y-3 pt-1 max-h-96 overflow-y-auto pr-1">
@@ -5203,8 +5242,11 @@ export const ProjectsView: React.FC<Props> = ({
         const relatedContactsForEdit = targetProject ? contacts.filter((c) => (targetProject.contactIds || []).includes(c.id)) : [];
         const fu = editingFollowup.followup;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-            <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn overflow-y-auto">
+            {/* [수정] 아이패드 분할 화면처럼 좁은 화면에서 차수/일자/담당 입력칸이 옆으로
+                욱여넣어져 보이던 문제 - 모달 폭을 넓히고(max-w-lg → max-w-2xl), 가로로
+                나란히 놓이는 기준을 훨씬 넓은 화면(lg, 1024px 이상)에서만 적용하도록 올렸다. */}
+            <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto my-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                   <Edit2 className="w-5 h-5 text-indigo-400" /> 미팅 기록 수정
@@ -5213,8 +5255,8 @@ export const ProjectsView: React.FC<Props> = ({
               </div>
 
               <form onSubmit={handleUpdateFollowup} className="space-y-4 text-xs">
-                <div className="flex flex-col md:flex-row gap-3">
-                  <div className="w-full md:w-1/3">
+                <div className="flex flex-col lg:flex-row gap-3">
+                  <div className="w-full lg:w-1/3">
                     <label className="block text-slate-600 font-semibold mb-1">미팅/팔로우업 차수 (선택, 제한 없음)</label>
                     <select
                       value={`${fu.meetingDegree || 0}-${fu.meetingType || 'meeting'}`}
@@ -5232,7 +5274,7 @@ export const ProjectsView: React.FC<Props> = ({
                       ))}
                     </select>
                   </div>
-                  <div className="w-full md:w-1/3">
+                  <div className="w-full lg:w-1/3">
                     <label className="block text-slate-600 font-semibold mb-1">미팅일자</label>
                     <input
                       type="date"
@@ -5241,7 +5283,7 @@ export const ProjectsView: React.FC<Props> = ({
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500"
                     />
                   </div>
-                  <div className="w-full md:w-1/3">
+                  <div className="w-full lg:w-1/3">
                     <label className="block text-slate-600 font-semibold mb-1">담당 직원 (우리 회사)</label>
                     {companyStaff.length > 0 ? (
                       <select
@@ -5289,7 +5331,7 @@ export const ProjectsView: React.FC<Props> = ({
                   {/* 미팅자 이름·연락처 직접 입력해서 추가 */}
                   <div className="border border-slate-200 bg-slate-50 rounded-xl p-3 space-y-2 mt-2">
                     <span className="text-[10px] text-slate-500 font-bold block">📇 미팅자 이름 · 연락처 입력해서 추가</span>
-                    <div className="flex flex-col md:flex-row gap-2">
+                    <div className="flex flex-col lg:flex-row gap-2">
                       <input
                         type="text"
                         value={editAttendeeNameInput}
