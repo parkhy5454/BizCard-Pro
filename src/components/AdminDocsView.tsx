@@ -5210,9 +5210,114 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const cellStyle: React.CSSProperties = { border: '0.5px solid #999', padding: '5px 8px', fontSize: '11px' };
     const labelCellStyle: React.CSSProperties = { ...cellStyle, background: '#f5f5f5', fontWeight: 700, width: '18%', textAlign: 'center' };
 
+    // [추가] 연봉협약서(salary_agreement)는 공유해주신 실제 "연봉 계약서" 양식(표 3개로
+    // 구성된 짧은 A4 1장짜리 양식)을 그대로 재현한다. 근로계약서(labor_contract)의 9개
+    // 조항짜리 긴 양식과는 구조가 아예 달라서 별도로 분기한다.
+    if (isSalaryAgreement) {
+      const cellStyle2: React.CSSProperties = { border: '0.5px solid #999', padding: '6px 8px', fontSize: '11px', verticalAlign: 'middle' };
+      const labelCellStyle2: React.CSSProperties = { ...cellStyle2, background: '#f5f5f5', fontWeight: 700, textAlign: 'center' };
+      const sectionHeaderStyle: React.CSSProperties = { background: '#e8e8e8', fontWeight: 700, padding: '6px 10px', border: '0.5px solid #999', fontSize: '12px' };
+
+      return (
+        <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
+          <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, marginBottom: '20px' }}>연봉 계약서</h1>
+
+          <p style={{ margin: '0 0 16px' }}>
+            <b>{companyName}</b>과 근로자 {lc.employeeName}은 연봉 제 규정에 따라 아래와 같이 연봉 계약을 체결하고, 본 계약에 정함이 없는 사항은 당사 취업규칙 및 제규정에 따른다.
+          </p>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', breakInside: 'avoid' }}>
+            <tbody>
+              <tr><td colSpan={6} style={sectionHeaderStyle}>인적 사항 및 근무 정보</td></tr>
+              <tr>
+                <td style={{ ...labelCellStyle2, width: '14%' }}>성 명</td>
+                <td style={{ ...cellStyle2, width: '19%' }}>{lc.employeeName}</td>
+                <td style={{ ...labelCellStyle2, width: '14%' }}>생년월일</td>
+                <td style={{ ...cellStyle2, width: '19%' }}>{fmtDateKo(lc.employeeBirthDate)}</td>
+                <td style={{ ...labelCellStyle2, width: '14%' }}>입사일</td>
+                <td style={{ ...cellStyle2, width: '20%' }}>{fmtDateKo(lc.hireDate)}</td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>소 속</td>
+                <td style={cellStyle2} colSpan={2}>{lc.department}</td>
+                <td style={labelCellStyle2}>현재직급</td>
+                <td style={cellStyle2} colSpan={2}>{lc.position}</td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>근로 시간</td>
+                <td style={cellStyle2} colSpan={3}>
+                  <p style={{ margin: 0 }}>매주 월요일 ~ 금요일 09:00~18:00(휴게시간 : 12:00~13:00)</p>
+                  <p style={{ margin: 0 }}>-주간 40시간 만근 시 일요일 유급 휴일, 토요일 무급 휴일</p>
+                  <p style={{ margin: 0 }}>-주 12시간의 연장 근로를 할 수 있음에 동의하고 이에 해당하는 수당은 급여에 포함한 금액으로 한다.</p>
+                </td>
+                <td style={labelCellStyle2}>근무 장소</td>
+                <td style={cellStyle2}>{lc.workLocation}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', breakInside: 'avoid' }}>
+            <tbody>
+              <tr><td colSpan={2} style={sectionHeaderStyle}>연봉 산정 및 지급내용</td></tr>
+              <tr>
+                <td style={{ ...labelCellStyle2, width: '18%' }}>가. 임금계산 원칙</td>
+                <td style={{ padding: 0 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <tbody>
+                      {lc.salaryItems.map((it) => (
+                        <tr key={it.id}>
+                          <td style={{ ...cellStyle2, width: '25%' }}>{it.label}</td>
+                          <td style={{ ...cellStyle2, textAlign: 'right' }}>{fmt(it.amount)}</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td style={{ ...cellStyle2, fontWeight: 700, textAlign: 'center' }}>지급합계</td>
+                        <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ ...cellStyle2, fontWeight: 700, background: '#fff7cc', textAlign: 'center' }}>총액</td>
+                        <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>나. 계산기간 및 계산방법</td>
+                <td style={cellStyle2}>월 급여의 계산 기간은 초일부터 기산하여 당월 말일로 마감한다.</td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>다. 지급일 및 지급방법</td>
+                <td style={cellStyle2}>월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>라. 연봉협약기간</td>
+                <td style={cellStyle2}>{fmtDateKo(lc.contractStartDate)} ~ {fmtDateKo(lc.contractEndDate)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px', breakInside: 'avoid' }}>
+            <tbody>
+              <tr><td style={sectionHeaderStyle}>특이사항</td></tr>
+              <tr><td style={{ ...cellStyle2, padding: '10px' }}>연봉과 관련된 사항을 회사 직원이나 업무적으로 관련 있는 사람에게 공해하지 않으며 이를 어겼을 때 회사 인사 규정에 따른다.</td></tr>
+            </tbody>
+          </table>
+
+          <p style={{ textAlign: 'center', margin: '10px 0 6px' }}>위 내용을 증명하기 위하여 본 계약서 2부를 작성하여 상호 서명 후 각각 1부씩 보관한다.</p>
+          <p style={{ textAlign: 'center', margin: '0 0 30px', fontWeight: 700 }}>{fmtDateKo(lc.contractDate)}</p>
+
+          <div style={{ marginLeft: 'auto', width: '260px' }}>
+            <p style={{ textAlign: 'right', margin: '6px 0' }}>근로자&nbsp;&nbsp;&nbsp;{lc.employeeName} (인)</p>
+            <p style={{ textAlign: 'right', margin: '6px 0' }}>대표자&nbsp;&nbsp;&nbsp;{repName} (인)</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
-        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>{isSalaryAgreement ? '연봉 계약서' : '근로 계약서'}</h1>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>근로 계약서</h1>
 
         <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>1. 계약 당사자</p>
         <div style={{ breakInside: 'avoid' }}>
@@ -5260,9 +5365,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         </table>
         <p style={{ margin: '4px 0', paddingLeft: '10px' }}>나. 계산기간 및 계산방법 - 월 급여의 계산기간은 초일부터 기산하여 당월 말일로 마감한다.</p>
         <p style={{ margin: '4px 0 8px', paddingLeft: '10px' }}>다. 지급일 및 지급방법 - 월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</p>
-        {isSalaryAgreement && (
-          <p style={{ margin: '4px 0 8px' }}>- 단, 경력직의 경우 1년 동안은 업무 적응 기간으로, 업무 적응 기간의 보수는 근로자의 경력, 자질, 업무 능력, 업무 적응도 및 적성 등 각종 제반 상황을 종합적으로 판단하여 최초 연봉 계약 금액의 가감이 가능.</p>
-        )}
         <p style={{ margin: '4px 0' }}>2) 급여 외 수당 : 없음 - 주 12시간의 연장 근로를 할 수 있음에 동의하고 이에 해당하는 수당은 급여에 포함한 금액으로 한다.</p>
         <p style={{ margin: '4px 0' }}>3) 근로 시간 : 매주 월요일 ~ 금요일 09:00~18:00(휴게시간 : 12:00~13:00) - 주간 40시간 만근 시 일요일 유급 휴일, 토요일 무급 휴일</p>
         <p style={{ margin: '4px 0' }}>4) 근무 장소 : {lc.workLocation}</p>
@@ -5271,14 +5373,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
         <div style={{ breakInside: 'avoid' }}>
           <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>3. 고용 기간</p>
-          {isSalaryAgreement ? (
-            <p style={{ margin: '4px 0 8px' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {fmtDateKo(lc.contractEndDate)} 까지(1년) (단, 기간 만료일까지 별도 의사표시 없을 시 본 계약은 자동 연장)</p>
-          ) : (
-            <>
-              <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
-              <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
-            </>
-          )}
+          <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
+          <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
         </div>
 
         <div style={{ breakInside: 'avoid' }}>
@@ -9002,26 +9098,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 연차/퇴직/기밀유지 등 고정 조항은 인쇄할 때 자동으로 다 채워져서 나온다. */}
                 {(activeCategory === 'labor_contract' || activeCategory === 'salary_agreement') && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        <input
-                          type="text"
-                          value={editingDoc.laborContract?.companyBusinessType || ''}
-                          onChange={(e) => updateLaborContractField({ companyBusinessType: e.target.value })}
-                          onBlur={(e) => persistCompanySettings({ businessType: e.target.value })}
-                          placeholder="사업 종류 (예: 제조업)"
-                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
-                        />
-                        <input
-                          type="text"
-                          value={editingDoc.laborContract?.companyAddress || ''}
-                          onChange={(e) => updateLaborContractField({ companyAddress: e.target.value })}
-                          onBlur={(e) => persistCompanySettings({ address: e.target.value })}
-                          placeholder="사업체 주소"
-                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
-                        />
+                    {activeCategory === 'labor_contract' && (
+                      <div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={editingDoc.laborContract?.companyBusinessType || ''}
+                            onChange={(e) => updateLaborContractField({ companyBusinessType: e.target.value })}
+                            onBlur={(e) => persistCompanySettings({ businessType: e.target.value })}
+                            placeholder="사업 종류 (예: 제조업)"
+                            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={editingDoc.laborContract?.companyAddress || ''}
+                            onChange={(e) => updateLaborContractField({ companyAddress: e.target.value })}
+                            onBlur={(e) => persistCompanySettings({ address: e.target.value })}
+                            placeholder="사업체 주소"
+                            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                       <input
@@ -9039,33 +9137,68 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <input
-                      type="text"
-                      value={editingDoc.laborContract?.employeeAddress || ''}
-                      onChange={(e) => updateLaborContractField({ employeeAddress: e.target.value })}
-                      placeholder="근로자 주소"
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
-                    />
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">고용형태</label>
-                      <div className="flex gap-1.5">
-                        {([['regular', '정규직'], ['contract', '계약직'], ['intern', '인턴']] as const).map(([val, label]) => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => updateLaborContractField({ employmentType: val })}
-                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                              editingDoc.laborContract?.employmentType === val
-                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                : 'bg-white text-slate-500 border-slate-200'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                    {/* [추가] 연봉협약서 전용 - 공유해주신 "연봉 계약서" 양식의 "인적 사항 및
+                    근무 정보" 표에 필요한 입사일/소속/현재직급. 근로계약서에는 없는 항목. */}
+                    {activeCategory === 'salary_agreement' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">입사일</label>
+                          <input
+                            type="date"
+                            value={editingDoc.laborContract?.hireDate || ''}
+                            onChange={(e) => updateLaborContractField({ hireDate: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.department || ''}
+                          onChange={(e) => updateLaborContractField({ department: e.target.value })}
+                          placeholder="소속"
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
+                        />
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.position || ''}
+                          onChange={(e) => updateLaborContractField({ position: e.target.value })}
+                          placeholder="현재직급"
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
+                        />
                       </div>
-                    </div>
+                    )}
+
+                    {activeCategory === 'labor_contract' && (
+                      <>
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.employeeAddress || ''}
+                          onChange={(e) => updateLaborContractField({ employeeAddress: e.target.value })}
+                          placeholder="근로자 주소"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">고용형태</label>
+                          <div className="flex gap-1.5">
+                            {([['regular', '정규직'], ['contract', '계약직'], ['intern', '인턴']] as const).map(([val, label]) => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => updateLaborContractField({ employmentType: val })}
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                  editingDoc.laborContract?.employmentType === val
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-slate-500 border-slate-200'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
@@ -9134,15 +9267,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-400 mb-0.5">담당 업무</label>
-                      <input
-                        type="text"
-                        value={editingDoc.laborContract?.jobDuties || ''}
-                        onChange={(e) => updateLaborContractField({ jobDuties: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
-                      />
-                    </div>
+                    {activeCategory === 'labor_contract' && (
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">담당 업무</label>
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.jobDuties || ''}
+                          onChange={(e) => updateLaborContractField({ jobDuties: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-[10px] text-slate-400 mb-0.5">계약서 작성일 (서명 날짜)</label>
                       <input
