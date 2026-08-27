@@ -486,6 +486,12 @@ export interface AdminDoc {
     employeeBirthDate?: string;  // 생년월일 (YYYY-MM-DD)
     employeeAddress?: string;    // 근로자 주소
     employmentType?: 'regular' | 'contract' | 'intern'; // 고용형태 (정규직/계약직/인턴)
+    // [추가] 연봉협약서(category: 'salary_agreement') 전용 - 공유해주신 "연봉 계약서" 실제
+    // 양식(인적 사항 및 근무 정보 표)에 맞춰 추가한 필드. 근로계약서(labor_contract)에서는
+    // 쓰지 않는다.
+    hireDate?: string;           // 입사일 (YYYY-MM-DD)
+    department?: string;         // 소속
+    position?: string;           // 현재직급
     salaryItems: AdminDocLineItem[]; // 급여 구성 항목 (기본급/연장근로수당/차량유지비/식대 등)
     contractStartDate?: string;  // 계약 시작일
     contractEndDate?: string;    // 계약 종료일 (정규직 등 기간 정함이 없으면 비워둠)
