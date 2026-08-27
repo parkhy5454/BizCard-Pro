@@ -575,7 +575,8 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     salaryItems: category === 'salary_agreement' ? [
       { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
       { id: `sal-${Date.now()}-2`, label: '연장근로수당', amount: 0 },
-      { id: `sal-${Date.now()}-3`, label: '식대', amount: 0 }
+      { id: `sal-${Date.now()}-3`, label: '차량 유지비', amount: 0 },
+      { id: `sal-${Date.now()}-4`, label: '식대', amount: 0 }
     ] : [
       { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
       { id: `sal-${Date.now()}-2`, label: '연장근로수당', amount: 0 },
