@@ -5264,7 +5264,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               <tr><td colSpan={2} style={sectionHeaderStyle}>연봉 산정 및 지급내용</td></tr>
               <tr>
                 <td style={{ ...labelCellStyle2, width: '26%', whiteSpace: 'nowrap' }}>가. 임금계산 원칙</td>
-                <td style={{ padding: 0 }}>
+                <td style={{ ...cellStyle2, padding: 0 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                       {lc.salaryItems.map((it) => (
