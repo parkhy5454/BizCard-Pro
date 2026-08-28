@@ -5259,43 +5259,44 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             </tbody>
           </table>
 
+          {/* [수정] 원래는 "가. 임금계산 원칙" 칸 안에 급여 항목들을 별도의 중첩 <table>로
+          넣었었다. 그런데 border-collapse는 "같은 표 안"에서만 인접한 셀의 테두리를 하나로
+          합쳐준다 - 중첩된 표는 바깥 표와는 별개의 표라서 합쳐지지 않고, 바깥 셀 테두리와
+          안쪽 표 첫/끝 행 테두리가 같은 자리에 각각 따로 그려지면서 그 부분만 다른 곳보다
+          두 배로 겹쳐 두껍게 보였다. 표를 중첩하지 않고, "가." 라벨 칸을 급여 항목
+          개수만큼 rowSpan으로 늘려서 표 하나로 합쳤다 - 이제 모든 테두리가 같은 표의
+          border-collapse로 처리되어 두께가 완전히 통일된다. */}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', breakInside: 'avoid' }}>
             <tbody>
-              <tr><td colSpan={2} style={sectionHeaderStyle}>연봉 산정 및 지급내용</td></tr>
+              <tr><td colSpan={3} style={sectionHeaderStyle}>연봉 산정 및 지급내용</td></tr>
+              {(lc.salaryItems.length > 0 ? lc.salaryItems : [{ id: 'empty-placeholder', label: '', amount: 0 }]).map((it, idx, arr) => (
+                <tr key={it.id}>
+                  {idx === 0 && (
+                    <td style={{ ...labelCellStyle2, width: '26%', whiteSpace: 'nowrap' }} rowSpan={arr.length + 2}>가. 임금계산 원칙</td>
+                  )}
+                  <td style={{ ...cellStyle2, width: '25%' }}>{it.label}</td>
+                  <td style={{ ...cellStyle2, textAlign: 'right' }}>{fmt(it.amount)}</td>
+                </tr>
+              ))}
               <tr>
-                <td style={{ ...labelCellStyle2, width: '26%', whiteSpace: 'nowrap' }}>가. 임금계산 원칙</td>
-                <td style={{ ...cellStyle2, padding: 0 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <tbody>
-                      {lc.salaryItems.map((it) => (
-                        <tr key={it.id}>
-                          <td style={{ ...cellStyle2, width: '25%' }}>{it.label}</td>
-                          <td style={{ ...cellStyle2, textAlign: 'right' }}>{fmt(it.amount)}</td>
-                        </tr>
-                      ))}
-                      <tr>
-                        <td style={{ ...cellStyle2, fontWeight: 700, textAlign: 'center' }}>지급합계</td>
-                        <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ ...cellStyle2, fontWeight: 700, background: '#fff7cc', textAlign: 'center' }}>총액</td>
-                        <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </td>
+                <td style={{ ...cellStyle2, fontWeight: 700, textAlign: 'center' }}>지급합계</td>
+                <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cellStyle2, fontWeight: 700, background: '#fff7cc', textAlign: 'center' }}>총액</td>
+                <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td>
               </tr>
               <tr>
                 <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>나. 계산기간 및 계산방법</td>
-                <td style={cellStyle2}>월 급여의 계산 기간은 초일부터 기산하여 당월 말일로 마감한다.</td>
+                <td style={cellStyle2} colSpan={2}>월 급여의 계산 기간은 초일부터 기산하여 당월 말일로 마감한다.</td>
               </tr>
               <tr>
                 <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>다. 지급일 및 지급방법</td>
-                <td style={cellStyle2}>월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</td>
+                <td style={cellStyle2} colSpan={2}>월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</td>
               </tr>
               <tr>
                 <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>라. 연봉협약기간</td>
-                <td style={cellStyle2}>{fmtDateKo(lc.contractStartDate)} ~ {fmtDateKo(lc.contractEndDate)}</td>
+                <td style={cellStyle2} colSpan={2}>{fmtDateKo(lc.contractStartDate)} ~ {fmtDateKo(lc.contractEndDate)}</td>
               </tr>
             </tbody>
           </table>
