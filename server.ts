@@ -3458,10 +3458,18 @@ app.post('/api/scan-receipt', async (req, res) => {
       // 일치하면 AI가 뭐라고 판단했든 payMethod를 company_card로 강제로 바꿔준다 - 영수증에
       // "법인카드"라는 문구가 안 찍혀 있어서 AI가 애매하게 개인카드/현금으로 잘못 고르는
       // 경우를 실제 등록된 카드 정보로 보정하기 위함이다.
-      "추가로, 영수증에 카드번호가 인쇄되어 있으면(마스킹되어 일부만 보여도 상관없음) 그 중 " +
-      "실제로 읽을 수 있는 숫자만 순서대로 뽑아서 알려줘 (별표(*)나 마스킹 기호, 하이픈, 공백은 " +
-      "빼고 숫자만. 보통 카드번호 뒤 3~4자리만 보이는 경우가 많음). 카드번호가 아예 안 보이면 " +
-      "빈 문자열로 줘.\n\n" +
+      // [수정] 처음엔 "보이는 숫자를 순서대로 이어붙여서" 한 필드로만 받았는데, 실제
+      // 영수증은 "앞자리 일부 + 중간 마스킹 + 뒷자리 일부"가 같이 찍히는 경우가 흔하다
+      // (예: "5229715 1**686*"). 이걸 그냥 이어붙이면("52297151686") 등록 카드번호의
+      // 앞부분도 뒷부분도 아닌 애매한 문자열이 돼서 대조에 실패한다. 그래서 앞쪽에 연속으로
+      // 보이는 숫자와 뒤쪽에 연속으로 보이는 숫자를 별도 필드로 나눠 받아, 아래에서 각각
+      // 등록 카드번호의 앞부분/끝부분과 정확히 대조한다.
+      "추가로, 영수증에 카드번호가 인쇄되어 있으면(마스킹되어 일부만 보여도 상관없음) 다음 두 " +
+      "부분을 각각 알려줘 (별표(*)나 마스킹 기호, 하이픈, 공백은 빼고 숫자만):\n" +
+      "1) 카드번호 맨 앞쪽에서부터 마스킹되기 전까지 연속으로 보이는 숫자\n" +
+      "2) 카드번호 맨 뒤쪽에서 마스킹이 끝난 다음부터 끝까지 연속으로 보이는 숫자\n" +
+      "(앞쪽 또는 뒤쪽이 아예 안 보이면 그 항목은 빈 문자열로 주고, 카드번호 자체가 전혀 " +
+      "안 보이면 둘 다 빈 문자열로 줘.)\n\n" +
       // [수정] 지출 정보뿐 아니라, 사진 속에서 "영수증 실물의 네 꼭짓점이 어디인지"도 같이 알려달라고
       // 요청한다. 화면의 명암 차이만으로 테두리를 찾는 기존 방식은 영수증처럼 휘거나 구겨진 얇은
       // 종이, 또는 배경과 색이 비슷한 경우 실패하기 쉬운데, AI는 "영수증처럼 생긴 패턴" 자체로
@@ -3478,7 +3486,8 @@ app.post('/api/scan-receipt', async (req, res) => {
       '  "memo": "구매 품목 요약 또는 메모 (예: 아메리카노 외 2건)",\n' +
       '  "category": "선택한 카테고리 코드 (예: beverage)",\n' +
       '  "payMethod": "선택한 결제수단 코드 (예: company_card)",\n' +
-      '  "cardNumberVisible": "영수증에서 읽을 수 있는 카드번호 숫자 (마스킹/하이픈/공백 제외, 없으면 빈 문자열)",\n' +
+      '  "cardNumberFrontVisible": "카드번호 앞쪽에서 마스킹 전까지 보이는 숫자 (하이픈/공백 제외, 없으면 빈 문자열)",\n' +
+      '  "cardNumberLastVisible": "카드번호 뒤쪽에서 마스킹 이후 보이는 숫자 (하이픈/공백 제외, 없으면 빈 문자열)",\n' +
       '  "corners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}}\n' +
       "}"
     ];
@@ -3512,16 +3521,20 @@ app.post('/api/scan-receipt', async (req, res) => {
       };
     }
 
-    // [추가] "영수증 스캔 시 법인카드 등록 정보(카드번호)와 대조해서 맞으면 법인카드로
-    // 우선 판단" - AI가 영수증에서 읽어낸 카드번호(마스킹되어 일부만 보여도 그 부분)를,
-    // 경영지원 > 법인카드 관리(admin-docs의 corp_card 카테고리)에 등록된 카드번호들과
-    // 대조한다. 영수증엔 보통 카드번호 뒤 3~4자리만 보이므로, 등록된 카드번호가 그
-    // 자리로 끝나면(또는 서로 포함 관계면) 같은 카드로 보고 AI의 판단과 상관없이
-    // payMethod를 company_card로 강제한다. 등록된 카드가 없거나 카드번호를 못 읽었으면
-    // 원래 AI 판단(payMethod)을 그대로 둔다.
+    // [수정] "영수증 스캔 시 법인카드 등록 정보(카드번호)와 대조해서 맞으면 법인카드로
+    // 우선 판단" - AI가 영수증에서 읽어낸 카드번호 앞쪽/뒤쪽 노출 숫자를, 경영지원 >
+    // 법인카드 관리(admin-docs의 corp_card 카테고리)에 등록된 카드번호들과 각각 대조한다.
+    // 예전에는 "보이는 숫자를 이어붙인 한 문자열"만으로 대조해서, "앞자리 일부 + 뒷자리
+    // 일부"가 같이 찍히는 흔한 마스킹(예: "5229715 1**686*")에서는 이어붙인 값이 등록
+    // 카드번호의 앞부분도 뒷부분도 아니게 돼 매칭이 실패했다. 이제는 앞/뒤를 따로 받아서
+    // "앞쪽 노출 숫자로 시작하는지" / "뒤쪽 노출 숫자로 끝나는지"를 각각 확인하고, 둘 다
+    // 읽혔으면 둘 다(앞뒤 모두) 일치할 때만, 하나만 읽혔으면(카드번호가 짧게 일부만
+    // 보이는 경우) 그 하나가 일치하고 자릿수가 충분할 때만(오탐 방지) 같은 카드로 본다.
+    // 등록된 카드가 없거나 카드번호를 전혀 못 읽었으면 원래 AI 판단(payMethod)을 그대로 둔다.
     try {
-      const visibleDigits = String(parsedJson.cardNumberVisible || '').replace(/\D/g, '');
-      if (visibleDigits.length >= 3) {
+      const frontDigits = String(parsedJson.cardNumberFrontVisible || '').replace(/\D/g, '');
+      const lastDigits = String(parsedJson.cardNumberLastVisible || '').replace(/\D/g, '');
+      if (frontDigits.length >= 3 || lastDigits.length >= 3) {
         const dbData = getScopedData(req);
         const registeredCardDigits: string[] = [];
         for (const doc of (dbData.adminDocs || [])) {
@@ -3531,11 +3544,12 @@ app.post('/api/scan-receipt', async (req, res) => {
             if (digits) registeredCardDigits.push(digits);
           }
         }
-        const matchesRegisteredCard = registeredCardDigits.some((full) =>
-          visibleDigits.length >= full.length
-            ? visibleDigits.includes(full)
-            : full.endsWith(visibleDigits)
-        );
+        const matchesRegisteredCard = registeredCardDigits.some((full) => {
+          const frontOk = frontDigits.length >= 3 && full.length >= frontDigits.length && full.startsWith(frontDigits);
+          const lastOk = lastDigits.length >= 3 && full.length >= lastDigits.length && full.endsWith(lastDigits);
+          if (frontDigits.length >= 3 && lastDigits.length >= 3) return frontOk && lastOk; // 앞뒤 다 읽혔으면 둘 다 맞아야 함
+          return frontOk || lastOk; // 한쪽만 읽혔으면 그 한쪽만 확인
+        });
         if (matchesRegisteredCard) {
           parsedJson.payMethod = 'company_card';
         }
