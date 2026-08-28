@@ -1214,8 +1214,27 @@ export const ProjectsView: React.FC<Props> = ({
     return days * (PROJECT_SORT_PRIORITY_WEIGHT[p.priority] || 1);
   };
   const sortProjectsForCardView = (list: Project[]): Project[] => {
-    if (projectSortOrder === 'recent') return list; // 기존 방식: 최근 등록순
     const sorted = [...list];
+    // [수정] "최근 등록순"이 예전엔 그냥 "지금 배열에 들어있는 순서를 그대로 보여주기"
+    // 방식이었다. 이건 새 프로젝트를 만들 때마다 배열 맨 앞에 끼워 넣는 방식으로만
+    // 유지되는 순서라, 서버가 재시작(예: Render 재배포)돼서 DB에서 다시 불러오면 그
+    // 순서가 깨진다 - 다시 불러올 때는 등록일이 아니라 문서 ID 오름차순으로 가져오기
+    // 때문에, 재시작 이후엔 "최근 등록순"이 사실상 "오래된 순"으로 뒤집혀 보였다.
+    // 이제는 배열 순서에 기대지 않고 각 프로젝트의 실제 등록일(createdAt)을 직접
+    // 내림차순으로 정렬해서, 서버가 방금 켜졌든 오래 켜져 있었든 항상 정확하게 최근
+    // 등록한 프로젝트가 위로 오게 한다. 등록일이 없는(옛날 데이터) 항목은 맨 뒤로 보낸다.
+    if (projectSortOrder === 'recent') {
+      sorted.sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : NaN;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : NaN;
+        const aValid = !isNaN(aTime), bValid = !isNaN(bTime);
+        if (aValid && bValid) return bTime - aTime;
+        if (aValid) return -1;
+        if (bValid) return 1;
+        return 0;
+      });
+      return sorted;
+    }
     if (projectSortOrder === 'urgency') {
       sorted.sort((a, b) => getProjectUrgencyScore(b) - getProjectUrgencyScore(a));
     } else if (projectSortOrder === 'dueDate') {
