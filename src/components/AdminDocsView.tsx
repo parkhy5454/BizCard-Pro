@@ -5246,13 +5246,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               </tr>
               <tr>
                 <td style={labelCellStyle2}>근로 시간</td>
-                <td style={cellStyle2} colSpan={3}>
+                <td style={cellStyle2} colSpan={5}>
                   <p style={{ margin: 0 }}>매주 월요일 ~ 금요일 09:00~18:00(휴게시간 : 12:00~13:00)</p>
                   <p style={{ margin: 0 }}>-주간 40시간 만근 시 일요일 유급 휴일, 토요일 무급 휴일</p>
                   <p style={{ margin: 0 }}>-주 12시간의 연장 근로를 할 수 있음에 동의하고 이에 해당하는 수당은 급여에 포함한 금액으로 한다.</p>
                 </td>
+              </tr>
+              <tr>
                 <td style={labelCellStyle2}>근무 장소</td>
-                <td style={cellStyle2}>{lc.workLocation}</td>
+                <td style={cellStyle2} colSpan={5}>{lc.workLocation}</td>
               </tr>
             </tbody>
           </table>
