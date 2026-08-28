@@ -63,6 +63,14 @@ export default function App() {
   const [isVoiceQuickAddOpen, setIsVoiceQuickAddOpen] = useState<boolean>(false);
   const [isTaxPackageOpen, setIsTaxPackageOpen] = useState<boolean>(false);
   const [triggerNewProject, setTriggerNewProject] = useState<number>(0);
+  // [추가] 상단 메인 탭(홈/전체 명함/프로젝트/업무일지/전자결재/경영지원/회계관리/활동
+  // 로그/AI Intelligence)을 "이미 그 탭에 있는 상태에서 또 눌렀을 때" 그 화면을 처음
+  // 상태(검색어/필터/펼쳐둔 상세화면/스크롤 위치 모두 초기화)로 되돌리기 위한 신호값.
+  // 같은 탭을 다시 눌러도 activeTab 값 자체는 안 바뀌어서 화면이 새로 그려지지 않는데,
+  // 이 값을 각 화면 컴포넌트의 key에 섞어주면 값이 바뀔 때마다 그 컴포넌트를 통째로
+  // 다시 마운트시켜서(=완전히 새로 시작) 아이폰에서 상태바를 눌러 맨 위로 가는 것과
+  // 비슷한 효과를 낸다.
+  const [viewResetNonce, setViewResetNonce] = useState<number>(0);
   // [수정] Navigation의 "엑셀 다운로드"/"PDF 인쇄" 버튼 신호를 ProjectsView로 전달하기 위한 트리거
   const [triggerProjectsExcelExport, setTriggerProjectsExcelExport] = useState<number>(0);
   const [triggerProjectsPrintPreview, setTriggerProjectsPrintPreview] = useState<number>(0);
@@ -449,6 +457,20 @@ export default function App() {
         onLogout={handleLogout}
         onOpenWithdrawModal={() => setIsWithdrawModalOpen(true)}
         onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)}
+        // [추가] 같은 메인 탭을 다시 눌렀을 때 - 화면 컴포넌트를 통째로 다시 마운트시키는
+        // 것(viewResetNonce)만으로는 App.tsx 쪽에 끌어올려져 있는 검색어/상태 필터/보기
+        // 모드까지는 안 지워진다(이 값들은 컴포넌트 내부 상태가 아니라 여기서 내려주는
+        // props라서). "첫 화면"으로 보이려면 이것들도 함께 기본값으로 되돌려야 한다.
+        onRequestViewReset={() => {
+          setViewResetNonce((n) => n + 1);
+          setSearchQuery('');
+          setProjectFilterStatus('all');
+          setProjectsViewMode('cards');
+          // 컴포넌트 재마운트는 그 컴포넌트 내부 상태만 초기화할 뿐, 페이지 자체가 아래로
+          // 스크롤돼 있는 것까지는 되돌리지 않는다. 아이폰 상태바 탭처럼 "맨 위로" 가려면
+          // 창 스크롤 위치도 같이 올려줘야 한다.
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       {/* 바디 메인 영역 */}
@@ -464,6 +486,7 @@ export default function App() {
             {/* 탭 0: 홈 대시보드 (KPI + 차트 + 최근 활동) */}
             {activeTab === 'dashboard' && currentUser && (
               <DashboardView
+                key={viewResetNonce}
                 currentUser={currentUser}
                 contacts={contacts}
                 projects={projects}
@@ -478,6 +501,7 @@ export default function App() {
             {/* 탭 1: 전체 명함 뷰 */}
             {activeTab === 'cards' && (
               <CardGrid
+                key={viewResetNonce}
                 contacts={filteredContacts}
                 groups={groups}
                 projects={projects}
@@ -540,8 +564,9 @@ export default function App() {
 
             {/* 탭 5: 프로젝트 및 영업 팔로우업 관리 뷰 */}
             {activeTab === 'projects' && (
-              <ProjectsView 
-                contacts={contacts} 
+              <ProjectsView
+                key={viewResetNonce}
+                contacts={contacts}
                 setContacts={setContacts}
                 projects={projects}
                 setProjects={setProjects}
@@ -560,7 +585,8 @@ export default function App() {
 
             {/* 탭 6: 통합 차량 관리 뷰 */}
             {activeTab === 'vehicles' && (
-              <VehicleView 
+              <VehicleView
+                key={viewResetNonce}
                 currentUser={currentUser}
                 contacts={contacts}
                 setContacts={setContacts}
@@ -569,7 +595,8 @@ export default function App() {
 
             {/* 탭 7: 업무일지 (일일/주간) 뷰 */}
             {activeTab === 'worklogs' && (
-              <WorkLogsView 
+              <WorkLogsView
+                key={viewResetNonce}
                 contacts={contacts}
                 setContacts={setContacts}
                 projects={projects}
@@ -580,6 +607,7 @@ export default function App() {
             {/* 탭 8: 전자결재 (가지급금 정산서 / 휴가 신청서) 뷰 */}
             {activeTab === 'approvals' && (
               <ElectronicApprovalView
+                key={viewResetNonce}
                 currentUser={currentUser}
                 onUpdateCurrentUser={(updatedUser) => {
                   // [추가] 전자결재 화면에서 서명을 새로 등록/변경했을 때 앱 전체 상태와
@@ -596,6 +624,7 @@ export default function App() {
             한 번 더 권한을 확인한다. */}
             {activeTab === 'management' && currentUser?.role === 'admin' && (
               <AdminDocsView
+                key={viewResetNonce}
                 section="management"
                 currentUser={currentUser}
                 projects={projects}
@@ -603,6 +632,7 @@ export default function App() {
             )}
             {activeTab === 'accounting' && currentUser?.role === 'admin' && (
               <AdminDocsView
+                key={viewResetNonce}
                 section="accounting"
                 projects={projects}
                 currentUser={currentUser}
@@ -612,13 +642,14 @@ export default function App() {
             {/* [추가] 활동 로그 - 관리자만 접근 가능. 민감한 작업(권한 변경/가입 승인/결제/백업 등)의
             감사 기록을 보여준다. */}
             {activeTab === 'audit_logs' && currentUser?.role === 'admin' && (
-              <AuditLogView currentUser={currentUser} />
+              <AuditLogView key={viewResetNonce} currentUser={currentUser} />
             )}
 
             {/* [추가] AI Intelligence - 오늘의 브리핑/기업 인텔리전스/관계·영업 인텔리전스.
             경영지원/회계관리와 달리 관리자 제한이 없다 - 누구나 유용하게 쓸 수 있는 화면. */}
             {activeTab === 'ai_intelligence' && (
               <AIIntelligenceView
+                key={viewResetNonce}
                 contacts={contacts}
                 groups={groups}
                 projects={projects}
