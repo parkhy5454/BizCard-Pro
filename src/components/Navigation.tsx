@@ -38,6 +38,12 @@ interface Props {
   onLogout: () => void;
   onOpenWithdrawModal: () => void;
   onOpenSubscriptionModal: () => void;
+  // [추가] "이미 그 화면에 있는데 상단 메인 탭을 또 눌렀을 때" 그 화면을 처음 상태로
+  // 되돌리기 위한 콜백. 아이폰에서 상단 상태바를 누르면 맨 위로 스크롤되는 것처럼,
+  // 지금 보고 있는 화면에서 검색어/필터/펼쳐둔 상세화면 등을 다 지우고 첫 화면으로
+  // 돌아가고 싶을 때 쓴다. (다른 탭으로 이동하는 경우는 화면이 새로 그려지면서 이미
+  // 초기화되므로, 이 콜백은 "같은 탭을 다시 눌렀을 때"만 필요하다.)
+  onRequestViewReset?: () => void;
 }
 
 export const Navigation: React.FC<Props> = ({
@@ -69,8 +75,20 @@ export const Navigation: React.FC<Props> = ({
   currentUser,
   onLogout,
   onOpenWithdrawModal,
-  onOpenSubscriptionModal
+  onOpenSubscriptionModal,
+  onRequestViewReset = () => {}
 }) => {
+  // [추가] 상단 메인 탭 버튼 클릭 공용 처리. 이미 그 탭에 있으면(같은 탭을 또 누른 경우)
+  // setActiveTab만으로는 값이 안 바뀌어서 리액트가 리렌더를 건너뛰고 아무 반응이 없다 -
+  // 이 경우엔 onRequestViewReset을 호출해서 지금 화면을 처음 상태로 되돌린다. 다른 탭이면
+  // 기존처럼 그냥 탭을 전환한다(전환되면서 화면이 새로 그려져 이미 초기화됨).
+  const handleMainTabClick = (tab: Parameters<typeof setActiveTab>[0]) => {
+    if (tab === activeTab) {
+      onRequestViewReset();
+    } else {
+      setActiveTab(tab);
+    }
+  };
   // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   // [수정] 관리자(개발자)용 "문의함" 화면 열림 상태. 이 화면은 회사 구분 없이 앱 전체 문의가
@@ -372,7 +390,7 @@ export const Navigation: React.FC<Props> = ({
           
           <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
             <button
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => handleMainTabClick('dashboard')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'dashboard'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -384,7 +402,7 @@ export const Navigation: React.FC<Props> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('cards')}
+              onClick={() => handleMainTabClick('cards')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'cards'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -397,7 +415,7 @@ export const Navigation: React.FC<Props> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('vehicles')}
+              onClick={() => handleMainTabClick('vehicles')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'vehicles'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -409,7 +427,7 @@ export const Navigation: React.FC<Props> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('projects')}
+              onClick={() => handleMainTabClick('projects')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'projects'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -421,7 +439,7 @@ export const Navigation: React.FC<Props> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('worklogs')}
+              onClick={() => handleMainTabClick('worklogs')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'worklogs'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -433,7 +451,7 @@ export const Navigation: React.FC<Props> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('approvals')}
+              onClick={() => handleMainTabClick('approvals')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'approvals'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -449,7 +467,7 @@ export const Navigation: React.FC<Props> = ({
             {currentUser?.role === 'admin' && (
               <>
                 <button
-                  onClick={() => setActiveTab('management')}
+                  onClick={() => handleMainTabClick('management')}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                     activeTab === 'management'
                       ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -460,7 +478,7 @@ export const Navigation: React.FC<Props> = ({
                   <span>경영지원</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab('accounting')}
+                  onClick={() => handleMainTabClick('accounting')}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                     activeTab === 'accounting'
                       ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -474,7 +492,7 @@ export const Navigation: React.FC<Props> = ({
                 했는지)이 쌓이고 있었는데 이걸 보여주는 화면이 없었다. 경영지원/회계관리와
                 같은 이유로 관리자만 볼 수 있게 한다. */}
                 <button
-                  onClick={() => setActiveTab('audit_logs')}
+                  onClick={() => handleMainTabClick('audit_logs')}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                     activeTab === 'audit_logs'
                       ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -491,7 +509,7 @@ export const Navigation: React.FC<Props> = ({
             인텔리전스 3개 서브탭을 묶는 진입점. 특정 서류처럼 민감하지 않고 누구나 유용하게
             쓸 수 있는 화면이라 관리자 제한 없이 모두에게 노출한다. */}
             <button
-              onClick={() => setActiveTab('ai_intelligence')}
+              onClick={() => handleMainTabClick('ai_intelligence')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'ai_intelligence'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
