@@ -5263,7 +5263,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <tbody>
               <tr><td colSpan={2} style={sectionHeaderStyle}>연봉 산정 및 지급내용</td></tr>
               <tr>
-                <td style={{ ...labelCellStyle2, width: '18%' }}>가. 임금계산 원칙</td>
+                <td style={{ ...labelCellStyle2, width: '26%', whiteSpace: 'nowrap' }}>가. 임금계산 원칙</td>
                 <td style={{ padding: 0 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
@@ -5286,15 +5286,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 </td>
               </tr>
               <tr>
-                <td style={labelCellStyle2}>나. 계산기간 및 계산방법</td>
+                <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>나. 계산기간 및 계산방법</td>
                 <td style={cellStyle2}>월 급여의 계산 기간은 초일부터 기산하여 당월 말일로 마감한다.</td>
               </tr>
               <tr>
-                <td style={labelCellStyle2}>다. 지급일 및 지급방법</td>
+                <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>다. 지급일 및 지급방법</td>
                 <td style={cellStyle2}>월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</td>
               </tr>
               <tr>
-                <td style={labelCellStyle2}>라. 연봉협약기간</td>
+                <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>라. 연봉협약기간</td>
                 <td style={cellStyle2}>{fmtDateKo(lc.contractStartDate)} ~ {fmtDateKo(lc.contractEndDate)}</td>
               </tr>
             </tbody>
