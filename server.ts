@@ -2631,6 +2631,22 @@ app.post('/api/auth/pending-members/:targetId/reject', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] 업무일지 캘린더에서 "동료 초대" 대상을 고를 때 쓰는, 같은 회사 소속 동료 목록.
+// 가입 승인이 아직 안 끝난(pending) 사람은 제외하고, 요청한 본인도 목록에서 뺀다.
+app.get('/api/company-members', (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const scopeId = scopeIdForUser(requester);
+  const members = users.filter(u =>
+    u.id !== requester.id &&
+    scopeIdForUser(u) === scopeId &&
+    u.approvalStatus !== 'pending'
+  );
+  res.json(members.map(u => ({ id: u.id, name: u.name, position: u.position || '', email: u.email })));
+});
+
 // 📁 Scoped CRUD APIs
 // [추가] 예전 가짜 좌표 배정 방식으로 이미 저장된 기존 명함들을 실제 좌표로 다시 계산한다.
 // 주소가 있는 명함만 대상으로, 몇 개씩 동시에 처리해서 너무 느려지지 않게 한다.
@@ -5421,6 +5437,16 @@ app.post('/api/worklogs/daily', async (req, res) => {
     dbData.dailyLogs = dbData.dailyLogs.filter((l: DailyWorkLog) => l.id !== log.id);
     return res.status(500).json({ error: '업무일지를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
   }
+  // [추가] 이 일지에 새로 초대된 동료가 있으면 알림 메일 발송 (신규 등록이라 이전 목록은 없음)
+  const inviterUser = users.find(u => u.id === (req.headers['x-user-id'] as string));
+  notifyNewWorkLogInvites({
+    inviterId: inviterUser?.id || '',
+    inviterName: inviterUser?.name || log.author || '동료',
+    title: log.title,
+    date: log.date,
+    beforeIds: [],
+    afterIds: log.invitedUserIds
+  });
   res.status(201).json(log);
 });
 
@@ -5448,6 +5474,16 @@ app.put('/api/worklogs/daily/:id', async (req, res) => {
     dbData.dailyLogs[idx] = original;
     return res.status(500).json({ error: '업무일지 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
   }
+  // [추가] 이번 수정으로 새로 초대된 동료(원래 목록엔 없었는데 새로 추가된 사람)에게만 알림 메일 발송
+  const inviterUser = users.find(u => u.id === (req.headers['x-user-id'] as string));
+  notifyNewWorkLogInvites({
+    inviterId: inviterUser?.id || '',
+    inviterName: inviterUser?.name || updated.author || '동료',
+    title: updated.title,
+    date: updated.date,
+    beforeIds: original.invitedUserIds,
+    afterIds: updated.invitedUserIds
+  });
   res.json(dbData.dailyLogs[idx]);
 });
 
@@ -5500,6 +5536,16 @@ app.post('/api/worklogs/weekly', async (req, res) => {
     dbData.weeklyLogs = dbData.weeklyLogs.filter((l: WeeklyWorkLog) => l.id !== log.id);
     return res.status(500).json({ error: '주간 업무일지를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
   }
+  // [추가] 이 일지에 새로 초대된 동료가 있으면 알림 메일 발송 (신규 등록이라 이전 목록은 없음)
+  const inviterUser = users.find(u => u.id === (req.headers['x-user-id'] as string));
+  notifyNewWorkLogInvites({
+    inviterId: inviterUser?.id || '',
+    inviterName: inviterUser?.name || log.author || '동료',
+    title: log.title,
+    date: log.startDate,
+    beforeIds: [],
+    afterIds: log.invitedUserIds
+  });
   res.status(201).json(log);
 });
 
@@ -5526,6 +5572,16 @@ app.put('/api/worklogs/weekly/:id', async (req, res) => {
     dbData.weeklyLogs[idx] = original;
     return res.status(500).json({ error: '주간 업무일지 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
   }
+  // [추가] 이번 수정으로 새로 초대된 동료(원래 목록엔 없었는데 새로 추가된 사람)에게만 알림 메일 발송
+  const inviterUser = users.find(u => u.id === (req.headers['x-user-id'] as string));
+  notifyNewWorkLogInvites({
+    inviterId: inviterUser?.id || '',
+    inviterName: inviterUser?.name || updated.author || '동료',
+    title: updated.title,
+    date: updated.startDate,
+    beforeIds: original.invitedUserIds,
+    afterIds: updated.invitedUserIds
+  });
   res.json(dbData.weeklyLogs[idx]);
 });
 
@@ -5628,6 +5684,60 @@ async function sendApprovalRequestEmail(opts: {
     console.log(`[mailer] ${opts.toEmail}에게 결재 요청 이메일 발송 완료`);
   } catch (err) {
     console.error(`[mailer] ${opts.toEmail}에게 이메일 발송 실패:`, err);
+  }
+}
+
+// [추가] 업무일지(일일/주간) 캘린더 일정에 동료를 초대했을 때 보내는 실제 알림 메일.
+// 결재 요청 메일(sendApprovalRequestEmail)과 같은 방식(Brevo API)을 그대로 재사용한다.
+async function sendWorkLogInviteEmail(opts: {
+  toEmail: string; toName: string; inviterName: string; title: string; date: string;
+}) {
+  if (!isMailerConfigured) {
+    console.warn(`[mailer] 미설정 상태라 ${opts.toEmail}에게 업무일지 초대 이메일을 보내지 못했습니다.`);
+    return;
+  }
+  try {
+    await sendEmail({
+      to: opts.toEmail,
+      toName: opts.toName,
+      subject: `[일정 초대] ${opts.inviterName}님이 ${opts.date} 일정에 초대했습니다`,
+      html: `
+        <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
+          <h2 style="margin-bottom:4px;">업무일지 일정 초대</h2>
+          <p style="color:#555;">${opts.toName}님, ${opts.inviterName}님이 아래 일정에 초대했습니다.</p>
+          <table style="border-collapse:collapse; margin:16px 0; font-size:14px;">
+            <tr><td style="padding:4px 16px 4px 0; color:#888;">일정 제목</td><td>${opts.title || '(제목 없음)'}</td></tr>
+            <tr><td style="padding:4px 16px 4px 0; color:#888;">날짜</td><td>${opts.date}</td></tr>
+            <tr><td style="padding:4px 16px 4px 0; color:#888;">초대한 사람</td><td>${opts.inviterName}</td></tr>
+          </table>
+          <a href="${APP_BASE_URL}" style="display:inline-block; padding:10px 22px; background:#059669; color:#fff; text-decoration:none; border-radius:8px; font-weight:bold;">사이트에서 확인하기</a>
+        </div>
+      `
+    });
+    console.log(`[mailer] ${opts.toEmail}에게 업무일지 초대 이메일 발송 완료`);
+  } catch (err) {
+    console.error(`[mailer] ${opts.toEmail}에게 이메일 발송 실패:`, err);
+  }
+}
+
+// [추가] 업무일지 저장(등록/수정) 시, 새로 추가된 초대 대상(beforeIds에는 없었는데 afterIds에는
+// 있는 사람)에게만 알림 메일을 보낸다. 이미 초대되어 있던 사람에게 저장할 때마다 매번 다시
+// 메일이 가지 않도록 "새로 추가된 사람"만 골라낸다. 본인을 스스로 초대한 경우는 제외한다.
+function notifyNewWorkLogInvites(opts: {
+  inviterId: string; inviterName: string; title: string; date: string;
+  beforeIds?: string[]; afterIds?: string[];
+}) {
+  const newIds = (opts.afterIds || []).filter((id) => id && id !== opts.inviterId && !(opts.beforeIds || []).includes(id));
+  for (const uid of newIds) {
+    const target = users.find(u => u.id === uid);
+    if (!target) continue;
+    sendWorkLogInviteEmail({
+      toEmail: target.email,
+      toName: target.name,
+      inviterName: opts.inviterName,
+      title: opts.title,
+      date: opts.date
+    }).catch((err) => console.error('[mailer] 업무일지 초대 이메일 발송 중 오류:', err));
   }
 }
 

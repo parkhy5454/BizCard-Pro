@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, AlertTriangle, Wrench, Ban, Receipt } from 'lucide-react';
-import { User as UserType, Vehicle, MaintenanceInterval, AdminDoc } from '../types.js';
+import { Bell, AlertTriangle, Wrench, Ban, Receipt, UserPlus } from 'lucide-react';
+import { User as UserType, Vehicle, MaintenanceInterval, AdminDoc, DailyWorkLog, WeeklyWorkLog } from '../types.js';
+import { getTodayLocalStr } from '../dateUtils.js';
 
 // [추가] "지금 확인한거 다 순차적으로 해줘"에서 마감/기한 알림 항목 - 알림 채널을 별도로
 // 정하지 않아서(문자/이메일 발송 인프라가 없음) 우선 인앱 방식(상단 알림 종 버튼)으로 구현.
@@ -14,7 +15,7 @@ import { User as UserType, Vehicle, MaintenanceInterval, AdminDoc } from '../typ
 
 interface Props {
   currentUser: UserType | null;
-  onNavigate: (tab: 'vehicles' | 'accounting') => void;
+  onNavigate: (tab: 'vehicles' | 'accounting' | 'worklogs') => void;
 }
 
 interface ReminderItem {
@@ -138,6 +139,48 @@ export const RemindersBell: React.FC<Props> = ({ currentUser, onNavigate }) => {
             });
           }
         }
+      }
+
+      // [추가] 업무일지 캘린더 일정 초대 - 내가 초대받은, 아직 지나지 않은 일정만 표시한다.
+      // (별도의 "읽음" 표시 없이, 다른 항목들처럼 조건이 유효한 동안만 계속 보이는 방식)
+      try {
+        const [dailyRes, weeklyRes] = await Promise.all([
+          fetch('/api/worklogs/daily', { headers }),
+          fetch('/api/worklogs/weekly', { headers })
+        ]);
+        const todayStr = getTodayLocalStr();
+        if (dailyRes.ok) {
+          const dailyLogs: DailyWorkLog[] = await dailyRes.json();
+          for (const log of dailyLogs) {
+            if (!(log.invitedUserIds || []).includes(currentUser.id)) continue;
+            if (log.date < todayStr) continue; // 이미 지난 일정은 알림에서 제외
+            next.push({
+              key: `wl-invite-d-${log.id}`,
+              icon: <UserPlus className="w-4 h-4 text-emerald-500 shrink-0" />,
+              label: `[초대] ${log.title || '업무일지 일정'}`,
+              detail: log.date === todayStr ? '오늘' : log.date,
+              urgent: log.date === todayStr,
+              onClick: () => onNavigate('worklogs')
+            });
+          }
+        }
+        if (weeklyRes.ok) {
+          const weeklyLogs: WeeklyWorkLog[] = await weeklyRes.json();
+          for (const log of weeklyLogs) {
+            if (!(log.invitedUserIds || []).includes(currentUser.id)) continue;
+            if (log.endDate < todayStr) continue;
+            next.push({
+              key: `wl-invite-w-${log.id}`,
+              icon: <UserPlus className="w-4 h-4 text-emerald-500 shrink-0" />,
+              label: `[초대] ${log.title || '주간 업무일지'}`,
+              detail: `${log.startDate} ~ ${log.endDate}`,
+              urgent: log.startDate <= todayStr,
+              onClick: () => onNavigate('worklogs')
+            });
+          }
+        }
+      } catch (_) {
+        // 조용히 실패 - 알림은 부가 기능
       }
 
       // 급한 것(경과/미처리)이 먼저 보이도록 정렬

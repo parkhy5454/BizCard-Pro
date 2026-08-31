@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
 import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.js';
 import { ProjectMultiSearchSelect } from './ProjectPicker.js';
+import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker.js';
 
 interface Props {
   contacts: BusinessCard[];
@@ -319,11 +320,29 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     }
   };
 
+  // [추가] 일정에 초대할 수 있는 같은 회사 동료 목록 (초대하면 서버가 알림 메일을 보낸다)
+  const [coworkers, setCoworkers] = useState<Coworker[]>([]);
+  const [formInvitedUserIds, setFormInvitedUserIds] = useState<string[]>([]);
+
   useEffect(() => {
     fetchWorkLogs();
     fetchMyProfile();
     fetchVehicles();
+    fetchCoworkers();
   }, [currentUser]);
+
+  const fetchCoworkers = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch('/api/company-members', { headers: { 'x-user-id': currentUser.id } });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setCoworkers(data);
+      }
+    } catch (err) {
+      console.error('Company members fetch error:', err);
+    }
+  };
 
   const fetchVehicles = async () => {
     if (!currentUser) return;
@@ -434,6 +453,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setFormFeedbacks('');
     setFormProjectIds([]);
     setFormContactIds([]);
+    setFormInvitedUserIds([]);
     setFormExpenses([]);
 
     setUseDirectContact(false);
@@ -456,6 +476,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setFormDepartment(log.department || '');
     setFormProjectIds(log.projectIds || []);
     setFormContactIds(log.contactIds || []);
+    setFormInvitedUserIds(log.invitedUserIds || []);
     setFormExpenses(log.expenses || []);
 
     setUseDirectContact(false);
@@ -1620,6 +1641,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           issues: formIssues,
           projectIds: formProjectIds,
           contactIds: finalContactIds,
+          invitedUserIds: formInvitedUserIds,
           expenses: formExpenses
         };
 
@@ -1728,6 +1750,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           feedbacks: formFeedbacks,
           projectIds: formProjectIds,
           contactIds: finalContactIds,
+          invitedUserIds: formInvitedUserIds,
           expenses: formExpenses
         };
 
@@ -3510,6 +3533,20 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         onChange={setFormContactIds}
                       />
                     </div>
+                  </div>
+
+                  {/* [추가] 동료 초대 - 여기서 선택해서 저장하면, 새로 초대된 동료에게 실제로
+                  알림 메일이 발송된다(기존에 이미 초대되어 있던 사람에게는 다시 발송되지 않음). */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>동료 초대 (저장하면 새로 초대된 동료에게 알림 메일이 발송됩니다)</span>
+                    </label>
+                    <CoworkerMultiSearchSelect
+                      coworkers={coworkers}
+                      value={formInvitedUserIds}
+                      onChange={setFormInvitedUserIds}
+                    />
                   </div>
 
                   {/* 거래처 인맥 직접 추가 */}

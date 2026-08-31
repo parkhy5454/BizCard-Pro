@@ -986,6 +986,7 @@ export interface DailyWorkLog {
   contactIds?: string[];  // 연관 거래처/인맥 ID 목록 (명함 ID)
   projectIds?: string[];  // 연관 프로젝트 ID 목록
   expenses?: WorkLogExpense[]; // 비용 추가 항목 리스트
+  invitedUserIds?: string[]; // [추가] 이 일정에 초대된 같은 회사 동료(사용자) ID 목록 - 저장 시 새로 추가된 사람에게 알림 메일 발송
   createdAt: string;
 }
 
@@ -1151,6 +1152,7 @@ export interface WeeklyWorkLog {
   contactIds?: string[];  // 연관 거래처/인맥 ID 목록 (명함 ID)
   projectIds?: string[];  // 연관 프로젝트 ID 목록
   expenses?: WorkLogExpense[]; // 비용 추가 항목 리스트
+  invitedUserIds?: string[]; // [추가] 이 주간 업무일지에 초대된 같은 회사 동료(사용자) ID 목록 - 저장 시 새로 추가된 사람에게 알림 메일 발송
   createdAt: string;
 }
 
