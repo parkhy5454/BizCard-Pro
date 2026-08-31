@@ -333,26 +333,31 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                 </div>
               </div>
 
+              {/* [수정] 모바일(특히 아이폰)에서 "지출 일자" 원어 date 입력창이 자기 칸보다
+              넓게 렌더링되면서 옆의 "결제 수단" 드롭다운과 겹쳐 보이는 문제가 있었다. CSS 그리드
+              항목은 기본적으로 min-width:auto라서, 안의 콘텐츠(네이티브 date 인풋)가 칸보다
+              넓으면 줄어들지 않고 옆 칸을 침범한다. 각 칸과 입력창에 min-w-0을 줘서 그리드
+              트랙 너비에 맞게 확실히 줄어들도록 고쳤다. */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs text-slate-500 block mb-1 font-medium">지출 일자</label>
-                  <div className="relative">
-                    <input 
-                      type="date" 
+                  <div className="relative min-w-0">
+                    <input
+                      type="date"
                       required
-                      value={form.date} 
-                      onChange={(e) => setForm({ ...form, date: e.target.value })} 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500" 
+                      value={form.date}
+                      onChange={(e) => setForm({ ...form, date: e.target.value })}
+                      className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs text-slate-500 block mb-1 font-medium">결제 수단</label>
-                  <select 
-                    value={form.payMethod} 
-                    onChange={(e) => setForm({ ...form, payMethod: e.target.value })} 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
+                  <select
+                    value={form.payMethod}
+                    onChange={(e) => setForm({ ...form, payMethod: e.target.value })}
+                    className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
                     {expenseType === 'worklog' ? (
                       <>
@@ -373,23 +378,23 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs text-slate-500 block mb-1 font-medium">상호명</label>
-                  <input 
-                    type="text" 
-                    placeholder="예: 스타벅스 강남점" 
-                    value={form.merchantName} 
-                    onChange={(e) => setForm({ ...form, merchantName: e.target.value })} 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500" 
+                  <input
+                    type="text"
+                    placeholder="예: 스타벅스 강남점"
+                    value={form.merchantName}
+                    onChange={(e) => setForm({ ...form, merchantName: e.target.value })}
+                    className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs text-slate-500 block mb-1 font-medium">카테고리</label>
-                  <select 
-                    value={form.category} 
-                    onChange={(e) => setForm({ ...form, category: e.target.value })} 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
                     {expenseType === 'worklog' ? (
                       <>
