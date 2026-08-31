@@ -17,6 +17,75 @@ interface Props {
   currentUser: import('../types.js').User | null;
 }
 
+// [추가] 대한민국 공휴일(대체공휴일 포함) 표기용 하드코딩 테이블. 설날/추석/부처님오신날처럼
+// 음력 기준으로 매년 날짜가 바뀌는 공휴일이 있어서, 정확한 날짜는 매년 확인해서 이어서
+// 추가해줘야 한다(2025~2027년까지는 정부 발표(월력요항) 기준으로 확인해 반영함).
+// 대체공휴일 규정: 설날·추석 연휴는 "일요일"과 겹칠 때만 적용, 어린이날·삼일절·광복절·
+// 개천절·한글날·부처님오신날·크리스마스는 토요일 또는 일요일과 겹치거나 다른 공휴일과
+// 겹칠 때 적용. 신정(1/1)과 현충일(6/6)은 대체공휴일 적용 대상이 아니다.
+const KOREAN_HOLIDAYS: Record<string, string> = {
+  // 2025년
+  '2025-01-01': '신정',
+  '2025-01-28': '설날 연휴',
+  '2025-01-29': '설날',
+  '2025-01-30': '설날 연휴',
+  '2025-03-01': '삼일절',
+  '2025-03-03': '대체공휴일(삼일절)',
+  '2025-05-05': '어린이날·부처님오신날',
+  '2025-05-06': '대체공휴일(어린이날)',
+  '2025-06-06': '현충일',
+  '2025-08-15': '광복절',
+  '2025-10-03': '개천절',
+  '2025-10-05': '추석 연휴',
+  '2025-10-06': '추석',
+  '2025-10-07': '추석 연휴',
+  '2025-10-08': '대체공휴일(추석)',
+  '2025-10-09': '한글날',
+  '2025-12-25': '크리스마스',
+  // 2026년
+  '2026-01-01': '신정',
+  '2026-02-16': '설날 연휴',
+  '2026-02-17': '설날',
+  '2026-02-18': '설날 연휴',
+  '2026-03-01': '삼일절',
+  '2026-03-02': '대체공휴일(삼일절)',
+  '2026-05-05': '어린이날',
+  '2026-05-24': '부처님오신날',
+  '2026-05-25': '대체공휴일(부처님오신날)',
+  '2026-06-06': '현충일',
+  '2026-08-15': '광복절',
+  '2026-08-17': '대체공휴일(광복절)',
+  '2026-09-24': '추석 연휴',
+  '2026-09-25': '추석',
+  '2026-09-26': '추석 연휴',
+  '2026-10-03': '개천절',
+  '2026-10-05': '대체공휴일(개천절)',
+  '2026-10-09': '한글날',
+  '2026-12-25': '크리스마스',
+  // 2027년
+  '2027-01-01': '신정',
+  '2027-02-06': '설날 연휴',
+  '2027-02-07': '설날',
+  '2027-02-08': '설날 연휴',
+  '2027-02-09': '대체공휴일(설날)',
+  '2027-03-01': '삼일절',
+  '2027-05-05': '어린이날',
+  '2027-05-13': '부처님오신날',
+  '2027-06-06': '현충일',
+  '2027-08-15': '광복절',
+  '2027-08-16': '대체공휴일(광복절)',
+  '2027-09-14': '추석 연휴',
+  '2027-09-15': '추석',
+  '2027-09-16': '추석 연휴',
+  '2027-10-03': '개천절',
+  '2027-10-04': '대체공휴일(개천절)',
+  '2027-10-09': '한글날',
+  '2027-10-11': '대체공휴일(한글날)',
+  '2027-12-25': '크리스마스',
+  '2027-12-27': '대체공휴일(크리스마스)'
+};
+const getKoreanHoliday = (dateStr: string): string | null => KOREAN_HOLIDAYS[dateStr] || null;
+
 export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects, currentUser }) => {
   const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly' | 'report'>('daily');
   const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
@@ -95,8 +164,20 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   
   // 일별 업무 항목 상태 (하루에 여러 건, 각각 시작~종료 시간 지정 가능)
   type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+  const ALL_DAY_KEYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const emptyDayEntries: Record<DayKey, WorkLogDayEntry[]> = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
   const [dayEntries, setDayEntries] = useState<Record<DayKey, WorkLogDayEntry[]>>(emptyDayEntries);
+  // [추가] 월간 달력에서 일정을 드래그로 옮기는 중인지 표시(놓을 위치 하이라이트용)
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  // 요일별 항목 배열을 "[시작~종료] 내용" 텍스트로 합치는 범용 함수 (드래그로 옮긴 뒤
+  // achievementsByDay/achievementsThisWeek 같은 텍스트 필드를 다시 만들 때 사용)
+  const composeEntriesText = (list?: WorkLogDayEntry[]): string => (list || [])
+    .map((e) => {
+      const timeLabel = e.startTime && e.endTime ? `[${e.startTime}~${e.endTime}] ` : e.startTime ? `[${e.startTime}~] ` : '';
+      return `${timeLabel}${e.content}`.trim();
+    })
+    .filter(Boolean)
+    .join('\n');
 
   // 하루(day)의 항목들을 "[시작~종료] 내용" 형식의 텍스트로 합쳐서 반환 (인쇄/엑셀/AI정제/일일가져오기 등 기존 기능과 호환용)
   const getDayComposedText = (day: DayKey, source?: Record<DayKey, WorkLogDayEntry[]>): string => {
@@ -515,7 +596,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 클릭하면 그 항목이 들어있는 업무일지를 그대로 수정 모달로 열 수 있게 한다. 수정 모달은
   // dailyLogs/weeklyLogs 원본 배열을 직접 갱신하므로, 캘린더에서 고치든 업무일지 목록에서
   // 고치든 같은 데이터가 바뀌는 것이라 자동으로 양쪽 다 반영된다(별도 동기화 로직 불필요).
-  type CalendarEntry = { id: string; author: string; time?: string; title: string; content: string; source: 'daily' | 'weekly'; log: DailyWorkLog | WeeklyWorkLog };
+  type CalendarEntry = { id: string; author: string; time?: string; title: string; content: string; source: 'daily' | 'weekly'; log: DailyWorkLog | WeeklyWorkLog; dayKey?: DayKey; taskId?: string };
   const getEntriesForDate = (dateStr: string): CalendarEntry[] => {
     const entries: CalendarEntry[] = [];
 
@@ -569,7 +650,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               title: wl.title,
               content: task.content,
               source: 'weekly',
-              log: wl
+              log: wl,
+              dayKey: key,
+              taskId: task.id
             });
           });
         } else {
@@ -582,7 +665,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               title: wl.title,
               content: legacyContent,
               source: 'weekly',
-              log: wl
+              log: wl,
+              dayKey: key
             });
           }
         }
@@ -596,6 +680,167 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       if (b.time) return 1;
       return 0;
     });
+  };
+
+  // [추가] 월간 달력의 일정을 드래그로 옮기기 위한 정보를, 드래그 시작할 때 dataTransfer에
+  // 담을 수 있는 문자열(JSON)로 바꿔준다. 일일 일지 항목은 로그 id만 있으면 되고, 주간
+  // 일지 항목은 어느 요일(dayKey)의 어느 항목(taskId)인지까지 필요하다(구버전 텍스트만
+  // 있는 경우엔 taskId 없이 dayKey만 사용).
+  const getDragPayload = (en: CalendarEntry): string | null => {
+    if (en.source === 'daily') {
+      return JSON.stringify({ kind: 'daily', logId: en.log.id });
+    }
+    if (en.source === 'weekly' && en.dayKey) {
+      if (en.taskId) return JSON.stringify({ kind: 'weekly-entry', logId: en.log.id, dayKey: en.dayKey, taskId: en.taskId });
+      return JSON.stringify({ kind: 'weekly-legacy', logId: en.log.id, dayKey: en.dayKey });
+    }
+    return null;
+  };
+
+  // 주간업무일지 하나를 통째로 받아서, achievementEntriesByDay(요일별 항목 배열)를 깊은
+  // 복사해 돌려준다. 드래그로 옮길 때 원본 배열을 직접 건드리지 않기 위함.
+  const cloneWeeklyEntriesByDay = (wl: WeeklyWorkLog): Record<DayKey, WorkLogDayEntry[]> => {
+    const result = {} as Record<DayKey, WorkLogDayEntry[]>;
+    ALL_DAY_KEYS.forEach((k) => {
+      result[k] = [...(wl.achievementEntriesByDay?.[k] || [])];
+    });
+    return result;
+  };
+
+  // 요일별 항목 배열(entriesByDay)을 기준으로, 주간업무일지 저장에 필요한 achievementsByDay
+  // (요일별 텍스트)와 achievementsThisWeek(합쳐진 텍스트)까지 다시 만들어서 PUT 요청 본문을
+  // 완성해준다.
+  const buildWeeklyLogUpdatePayload = (wl: WeeklyWorkLog, entriesByDay: Record<DayKey, WorkLogDayEntry[]>) => {
+    const dayLabels: Record<DayKey, string> = { mon: '월요일', tue: '화요일', wed: '수요일', thu: '목요일', fri: '금요일', sat: '토요일', sun: '일요일' };
+    const achievementsByDay: Record<DayKey, string> = {} as any;
+    const dailyAchievementsList: string[] = [];
+    ALL_DAY_KEYS.forEach((k) => {
+      const text = composeEntriesText(entriesByDay[k]);
+      achievementsByDay[k] = text;
+      if (text.trim()) dailyAchievementsList.push(`[${dayLabels[k]}]\n${text.trim()}`);
+    });
+    return {
+      ...wl,
+      achievementEntriesByDay: entriesByDay,
+      achievementsByDay,
+      achievementsThisWeek: dailyAchievementsList.length > 0 ? dailyAchievementsList.join('\n\n') : wl.achievementsThisWeek
+    };
+  };
+
+  // [추가] 월간 달력에서 일정을 다른 날짜 칸에 드롭했을 때 실제로 데이터를 옮기는 함수.
+  // - 일일 업무일지 항목: 그 일지 전체의 date 필드를 옮긴 날짜로 바꾼다(일지 전체 이동).
+  // - 주간 업무일지 항목: 같은 주 안에서 요일만 바뀌는 경우엔 한 문서 안에서 요일 간 이동,
+  //   다른 주로 옮기는 경우엔 그 날짜가 포함된 "이미 존재하는" 주간 업무일지로 이동한다.
+  //   옮기려는 날짜가 포함된 주간 업무일지가 아직 없으면, 새로 만들지 않고 안내 후 취소한다.
+  const handleDropEntry = async (raw: string, targetDateStr: string) => {
+    if (!raw || !currentUser) return;
+    let payload: any;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-user-id': currentUser.id
+    };
+
+    try {
+      if (payload.kind === 'daily') {
+        const log = dailyLogs.find((l) => l.id === payload.logId);
+        if (!log || log.date === targetDateStr) return;
+        const res = await fetch(`/api/worklogs/daily/${log.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ ...log, date: targetDateStr })
+        });
+        if (!res.ok) throw new Error(`일정 이동에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setDailyLogs((prev) => prev.map((l) => (l.id === log.id ? updated : l)));
+        return;
+      }
+
+      // 주간 업무일지 항목 이동
+      const sourceLog = weeklyLogs.find((w) => w.id === payload.logId);
+      if (!sourceLog) return;
+      const sourceDayKey: DayKey = payload.dayKey;
+      const targetDayKey = getDayOfWeekKey(targetDateStr);
+      if (!sourceDayKey || !targetDayKey) return;
+
+      const targetLog = findMatchingWeeklyLog(targetDateStr);
+      if (!targetLog) {
+        alert('옮기려는 날짜가 포함된 주간 업무일지가 아직 없습니다.\n먼저 해당 주의 주간 업무일지를 작성한 뒤 다시 시도해주세요.');
+        return;
+      }
+      if (sourceLog.id === targetLog.id && sourceDayKey === targetDayKey) return; // 제자리 이동
+
+      if (sourceLog.id === targetLog.id) {
+        // 같은 주 안에서 요일만 이동
+        const entriesByDay = cloneWeeklyEntriesByDay(sourceLog);
+        if (payload.kind === 'weekly-entry') {
+          const idx = (entriesByDay[sourceDayKey] || []).findIndex((t) => t.id === payload.taskId);
+          if (idx === -1) return;
+          const [moved] = entriesByDay[sourceDayKey].splice(idx, 1);
+          entriesByDay[targetDayKey] = [...(entriesByDay[targetDayKey] || []), moved];
+        } else {
+          const legacyText = sourceLog.achievementsByDay?.[sourceDayKey] || '';
+          if (!legacyText.trim()) return;
+          entriesByDay[targetDayKey] = [
+            ...(entriesByDay[targetDayKey] || []),
+            { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: legacyText }
+          ];
+        }
+        const res = await fetch(`/api/worklogs/weekly/${sourceLog.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(buildWeeklyLogUpdatePayload(sourceLog, entriesByDay))
+        });
+        if (!res.ok) throw new Error(`일정 이동에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setWeeklyLogs((prev) => prev.map((w) => (w.id === sourceLog.id ? updated : w)));
+      } else {
+        // 다른 주(이미 존재하는 주간 업무일지)로 이동
+        const sourceEntriesByDay = cloneWeeklyEntriesByDay(sourceLog);
+        const targetEntriesByDay = cloneWeeklyEntriesByDay(targetLog);
+        let movedEntry: WorkLogDayEntry | null = null;
+        if (payload.kind === 'weekly-entry') {
+          const idx = (sourceEntriesByDay[sourceDayKey] || []).findIndex((t) => t.id === payload.taskId);
+          if (idx === -1) return;
+          [movedEntry] = sourceEntriesByDay[sourceDayKey].splice(idx, 1);
+        } else {
+          const legacyText = sourceLog.achievementsByDay?.[sourceDayKey] || '';
+          if (!legacyText.trim()) return;
+          movedEntry = { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: legacyText };
+        }
+        if (!movedEntry) return;
+        targetEntriesByDay[targetDayKey] = [...(targetEntriesByDay[targetDayKey] || []), movedEntry];
+
+        const sourceRes = await fetch(`/api/worklogs/weekly/${sourceLog.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(buildWeeklyLogUpdatePayload(sourceLog, sourceEntriesByDay))
+        });
+        if (!sourceRes.ok) throw new Error(`일정 이동에 실패했습니다 (원본 주간일지 갱신 실패, 상태: ${sourceRes.status}).`);
+        const sourceUpdated = await sourceRes.json();
+
+        const targetRes = await fetch(`/api/worklogs/weekly/${targetLog.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(buildWeeklyLogUpdatePayload(targetLog, targetEntriesByDay))
+        });
+        if (!targetRes.ok) throw new Error(`일정 이동에 실패했습니다 (대상 주간일지 갱신 실패, 상태: ${targetRes.status}).`);
+        const targetUpdated = await targetRes.json();
+
+        setWeeklyLogs((prev) => prev.map((w) => {
+          if (w.id === sourceLog.id) return sourceUpdated;
+          if (w.id === targetLog.id) return targetUpdated;
+          return w;
+        }));
+      }
+    } catch (err: any) {
+      console.error('Failed to move calendar entry:', err);
+      alert(`일정을 옮기는 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
   };
 
   const handleOpenReportModal = (log: WeeklyWorkLog) => {
@@ -2002,19 +2247,48 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     const dayNum = Number(dateStr.split('-')[2]);
                     const isToday = dateStr === todayStr;
                     const isSelected = dateStr === selectedCalendarDate;
+                    // idx % 7은 위 startOffset 계산 방식(0=일요일부터 채움) 덕분에 항상
+                    // weekdayLabels와 같은 순서의 요일 인덱스가 된다.
+                    const isSunday = idx % 7 === 0;
+                    const holidayName = getKoreanHoliday(dateStr);
+                    const isDragOver = dragOverDate === dateStr;
                     return (
                       <button
                         type="button"
                         key={dateStr}
                         onClick={() => { setSelectedCalendarDate(dateStr); setIsDayDetailModalOpen(true); }}
+                        onDragOver={(e) => { e.preventDefault(); if (dragOverDate !== dateStr) setDragOverDate(dateStr); }}
+                        onDragLeave={() => setDragOverDate((prev) => (prev === dateStr ? null : prev))}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setDragOverDate(null);
+                          const raw = e.dataTransfer.getData('text/plain');
+                          handleDropEntry(raw, dateStr);
+                        }}
                         className={`text-left p-1.5 rounded-lg border min-h-[64px] transition-all ${
+                          isDragOver ? 'ring-2 ring-emerald-500 border-emerald-500/60' :
                           isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-100 border-slate-200 hover:border-slate-200'
                         }`}
                       >
-                        <div className={`text-[11px] font-bold mb-0.5 ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
+                        <div className={`text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-rose-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
+                        {holidayName && (
+                          <div className="text-[8px] leading-tight font-semibold text-rose-500 truncate mb-0.5">{holidayName}</div>
+                        )}
                         <div className="space-y-0.5">
                           {entries.slice(0, 2).map((en) => (
-                            <div key={en.id} className="text-[9px] leading-tight truncate text-emerald-600 bg-emerald-950/30 rounded px-1 py-0.5">
+                            <div
+                              key={en.id}
+                              draggable
+                              onDragStart={(e) => {
+                                const dragPayload = getDragPayload(en);
+                                if (!dragPayload) { e.preventDefault(); return; }
+                                e.stopPropagation();
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', dragPayload);
+                              }}
+                              className="text-[9px] leading-tight truncate text-emerald-600 bg-emerald-950/30 rounded px-1 py-0.5 cursor-grab active:cursor-grabbing"
+                              title="드래그해서 다른 날짜로 옮길 수 있습니다"
+                            >
                               {en.time ? `${en.time} ` : ''}{en.author}
                             </div>
                           ))}
@@ -2054,6 +2328,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                       <Calendar className="w-4 h-4 text-emerald-400" />
                       {selectedCalendarDate} 업무 상세
+                      {getKoreanHoliday(selectedCalendarDate) && (
+                        <span className="text-[11px] font-semibold text-rose-500 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">
+                          {getKoreanHoliday(selectedCalendarDate)}
+                        </span>
+                      )}
                     </div>
                     {/* [추가] 캘린더에서 바로 이 날짜에 새 일정(일일 업무일지)을 만들 수 있는
                     버튼. 업무일지 목록 쪽 "새로 작성" 버튼과 동일한 모달을 열되, 날짜만 지금
