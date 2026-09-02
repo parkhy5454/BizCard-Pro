@@ -193,10 +193,23 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   };
   const dayHasContent = (day: DayKey) => (dayEntries[day] || []).some((e) => e.content.trim().length > 0);
 
+  // [추가] 어떤 주(week)의 시작일 기준으로, 그 요일(mon~sun)이 실제로 몇 월 며칠인지 계산.
+  // 새 업무 항목을 만들 때, 그리고 드래그로 요일을 옮길 때 날짜 기본값 계산에 쓴다.
+  const computeDateForDayKeyOfWeek = (weekStartDate: string, day: DayKey): string => {
+    if (!weekStartDate) return '';
+    const offsets: Record<DayKey, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
+    const d = new Date(weekStartDate);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + offsets[day]);
+    return dateToLocalStr(d);
+  };
+  // 지금 열려있는 주간 업무일지 작성 폼의 시작일(formStartDate) 기준 버전
+  const getDateForDayKey = (day: DayKey): string => computeDateForDayKeyOfWeek(formStartDate, day);
   const addDayEntry = (day: DayKey) => {
+    const dateForDay = getDateForDayKey(day);
     setDayEntries((prev) => ({
       ...prev,
-      [day]: [...(prev[day] || []), { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: '' }]
+      [day]: [...(prev[day] || []), { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: dateForDay, endDate: dateForDay, startTime: '', endTime: '', content: '' }]
     }));
   };
   const updateDayEntry = (day: DayKey, entryId: string, patch: Partial<WorkLogDayEntry>) => {
@@ -229,7 +242,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       .join('\n');
   };
   const addTodayEntry = () => {
-    setTodayEntries((prev) => [...prev, { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: '' }]);
+    setTodayEntries((prev) => [...prev, { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: formDate, endDate: formDate, startTime: '', endTime: '', content: '' }]);
   };
   const updateTodayEntry = (entryId: string, patch: Partial<WorkLogDayEntry>) => {
     setTodayEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, ...patch } : e)));
@@ -621,33 +634,39 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const getEntriesForDate = (dateStr: string): CalendarEntry[] => {
     const entries: CalendarEntry[] = [];
 
-    dailyLogs
-      .filter((l) => l.date === dateStr)
-      .forEach((l) => {
-        if (l.taskEntriesToday && l.taskEntriesToday.length > 0) {
-          l.taskEntriesToday.forEach((task) => {
-            if (!task.content || !task.content.trim()) return;
-            entries.push({
-              id: `d-${l.id}-${task.id}`,
-              author: l.author || '작성자 미지정',
-              time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
-              title: l.title,
-              content: task.content,
-              source: 'daily',
-              log: l
-            });
-          });
-        } else if (l.tasksToday && l.tasksToday.trim()) {
+    // [수정] 원래는 "일지의 날짜(l.date)"가 곧 그 안의 모든 업무 항목의 날짜였다. 이제
+    // 항목마다 자기만의 시작일/종료일(startDate/endDate)을 따로 가질 수 있게 되어서(아이폰
+    // 캘린더처럼 여러 날에 걸친 일정도 표현 가능), 일지 자체가 아니라 "그 항목의 실제
+    // 날짜 범위" 안에 조회하려는 날짜(dateStr)가 포함되는지로 판단해야 한다. 값이 없으면
+    // (예전에 만든 항목) 기존처럼 일지의 날짜 하나만 쓰는 것으로 취급한다.
+    dailyLogs.forEach((l) => {
+      if (l.taskEntriesToday && l.taskEntriesToday.length > 0) {
+        l.taskEntriesToday.forEach((task) => {
+          if (!task.content || !task.content.trim()) return;
+          const entryStart = task.startDate || l.date;
+          const entryEnd = task.endDate || entryStart;
+          if (dateStr < entryStart || dateStr > entryEnd) return;
           entries.push({
-            id: `d-${l.id}`,
+            id: `d-${l.id}-${task.id}`,
             author: l.author || '작성자 미지정',
+            time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
             title: l.title,
-            content: l.tasksToday,
+            content: task.content,
             source: 'daily',
             log: l
           });
-        }
-      });
+        });
+      } else if (l.date === dateStr && l.tasksToday && l.tasksToday.trim()) {
+        entries.push({
+          id: `d-${l.id}`,
+          author: l.author || '작성자 미지정',
+          title: l.title,
+          content: l.tasksToday,
+          source: 'daily',
+          log: l
+        });
+      }
+    });
 
     const dayKeys: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     weeklyLogs.forEach((wl) => {
@@ -656,14 +675,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       dayKeys.forEach((key, offset) => {
         const d = new Date(start);
         d.setDate(d.getDate() + offset);
-        const dStr = d.toISOString().split('T')[0];
-        if (dStr !== dateStr) return;
+        const naturalDStr = d.toISOString().split('T')[0];
 
         const structuredEntries = wl.achievementEntriesByDay?.[key];
         if (structuredEntries && structuredEntries.length > 0) {
-          // 신버전: 하루에 여러 업무 항목, 각각 시작~종료 시간 표시
+          // 신버전: 하루에 여러 업무 항목, 각각 시작~종료 날짜/시간 지정 가능
           structuredEntries.forEach((task) => {
             if (!task.content || !task.content.trim()) return;
+            const entryStart = task.startDate || naturalDStr;
+            const entryEnd = task.endDate || entryStart;
+            if (dateStr < entryStart || dateStr > entryEnd) return;
             entries.push({
               id: `w-${wl.id}-${key}-${task.id}`,
               author: wl.author || '작성자 미지정',
@@ -676,8 +697,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               taskId: task.id
             });
           });
-        } else {
-          // 구버전 호환: 요일별 텍스트 하나만 있는 경우
+        } else if (naturalDStr === dateStr) {
+          // 구버전 호환: 요일별 텍스트 하나만 있는 경우 (날짜 범위 개념 없이 그 요일 하루만)
           const legacyContent = wl.achievementsByDay?.[key];
           if (legacyContent && legacyContent.trim()) {
             entries.push({
@@ -770,10 +791,29 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       if (payload.kind === 'daily') {
         const log = dailyLogs.find((l) => l.id === payload.logId);
         if (!log || log.date === targetDateStr) return;
+        // [추가] 일지 자체의 날짜(log.date)뿐 아니라, 그 안의 업무 항목들이 직접 지정해둔
+        // 시작/종료 날짜(startDate/endDate)도 옮긴 만큼(일수 차이) 같이 밀어줘야, 여러 날에
+        // 걸쳐 있던 일정의 기간이 그대로 유지된 채 통째로 이동한다. 지정 안 해둔 항목은
+        // 원래대로 일지의 날짜를 그대로 따라가므로 손댈 필요 없다.
+        const oldDate = new Date(log.date);
+        const newDate = new Date(targetDateStr);
+        const dayDeltaMs = newDate.getTime() - oldDate.getTime();
+        const dayDelta = Math.round(dayDeltaMs / (1000 * 60 * 60 * 24));
+        const shiftDate = (d: string): string => {
+          const dt = new Date(d);
+          if (isNaN(dt.getTime())) return d;
+          dt.setDate(dt.getDate() + dayDelta);
+          return dateToLocalStr(dt);
+        };
+        const shiftedEntries = (log.taskEntriesToday || []).map((t) => ({
+          ...t,
+          startDate: t.startDate ? shiftDate(t.startDate) : t.startDate,
+          endDate: t.endDate ? shiftDate(t.endDate) : t.endDate
+        }));
         const res = await fetch(`/api/worklogs/daily/${log.id}`, {
           method: 'PUT',
           headers,
-          body: JSON.stringify({ ...log, date: targetDateStr })
+          body: JSON.stringify({ ...log, date: targetDateStr, taskEntriesToday: shiftedEntries })
         });
         if (!res.ok) throw new Error(`일정 이동에 실패했습니다 (상태: ${res.status}).`);
         const updated = await res.json();
@@ -795,6 +835,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       }
       if (sourceLog.id === targetLog.id && sourceDayKey === targetDayKey) return; // 제자리 이동
 
+      // [추가] 요일 버킷을 옮기면, 그 항목이 직접 갖고 있던 시작/종료 날짜(startDate/endDate)도
+      // 옮겨간 요일의 실제 날짜로 다시 맞춰준다. 안 그러면 항목은 새 요일 버킷에 들어갔는데
+      // 정작 표시 날짜(startDate/endDate)는 예전 날짜에 머물러 있어 달력에서 이동이 반영되지
+      // 않은 것처럼 보인다.
+      const targetNaturalDate = computeDateForDayKeyOfWeek(targetLog.startDate, targetDayKey);
+
       if (sourceLog.id === targetLog.id) {
         // 같은 주 안에서 요일만 이동
         const entriesByDay = cloneWeeklyEntriesByDay(sourceLog);
@@ -802,6 +848,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           const idx = (entriesByDay[sourceDayKey] || []).findIndex((t) => t.id === payload.taskId);
           if (idx === -1) return;
           const [moved] = entriesByDay[sourceDayKey].splice(idx, 1);
+          if (targetNaturalDate) { moved.startDate = targetNaturalDate; moved.endDate = targetNaturalDate; }
           entriesByDay[targetDayKey] = [...(entriesByDay[targetDayKey] || []), moved];
         } else {
           const legacyText = sourceLog.achievementsByDay?.[sourceDayKey] || '';
@@ -834,6 +881,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           movedEntry = { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: legacyText };
         }
         if (!movedEntry) return;
+        if (targetNaturalDate) { movedEntry.startDate = targetNaturalDate; movedEntry.endDate = targetNaturalDate; }
         targetEntriesByDay[targetDayKey] = [...(targetEntriesByDay[targetDayKey] || []), movedEntry];
 
         const sourceRes = await fetch(`/api/worklogs/weekly/${sourceLog.id}`, {
@@ -3078,12 +3126,32 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               <div className="flex flex-wrap items-center gap-2">
                                 <label className="text-[10px] text-slate-400 font-semibold shrink-0">시작</label>
                                 <input
+                                  type="date"
+                                  value={entry.startDate || formDate}
+                                  onChange={(e) => {
+                                    const nextStart = e.target.value;
+                                    const nextEnd = entry.endDate && entry.endDate < nextStart ? nextStart : entry.endDate;
+                                    updateTodayEntry(entry.id, { startDate: nextStart, endDate: nextEnd });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <input
                                   type="time"
                                   value={entry.startTime || ''}
                                   onChange={(e) => updateTodayEntry(entry.id, { startTime: e.target.value })}
                                   className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                                 <label className="text-[10px] text-slate-400 font-semibold shrink-0">종료</label>
+                                <input
+                                  type="date"
+                                  value={entry.endDate || entry.startDate || formDate}
+                                  onChange={(e) => {
+                                    const nextEnd = e.target.value;
+                                    const nextStart = entry.startDate && entry.startDate > nextEnd ? nextEnd : entry.startDate;
+                                    updateTodayEntry(entry.id, { endDate: nextEnd, startDate: nextStart });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
                                 <input
                                   type="time"
                                   value={entry.endTime || ''}
@@ -3234,12 +3302,32 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               <div className="flex flex-wrap items-center gap-2">
                                 <label className="text-[10px] text-slate-400 font-semibold shrink-0">시작</label>
                                 <input
+                                  type="date"
+                                  value={entry.startDate || getDateForDayKey(activeDayTab)}
+                                  onChange={(e) => {
+                                    const nextStart = e.target.value;
+                                    const nextEnd = entry.endDate && entry.endDate < nextStart ? nextStart : entry.endDate;
+                                    updateDayEntry(activeDayTab, entry.id, { startDate: nextStart, endDate: nextEnd });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <input
                                   type="time"
                                   value={entry.startTime || ''}
                                   onChange={(e) => updateDayEntry(activeDayTab, entry.id, { startTime: e.target.value })}
                                   className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                 />
                                 <label className="text-[10px] text-slate-400 font-semibold shrink-0">종료</label>
+                                <input
+                                  type="date"
+                                  value={entry.endDate || entry.startDate || getDateForDayKey(activeDayTab)}
+                                  onChange={(e) => {
+                                    const nextEnd = e.target.value;
+                                    const nextStart = entry.startDate && entry.startDate > nextEnd ? nextEnd : entry.startDate;
+                                    updateDayEntry(activeDayTab, entry.id, { endDate: nextEnd, startDate: nextStart });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
                                 <input
                                   type="time"
                                   value={entry.endTime || ''}

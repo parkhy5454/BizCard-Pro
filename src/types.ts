@@ -992,6 +992,11 @@ export interface DailyWorkLog {
 
 export interface WorkLogDayEntry {
   id: string;
+  // [추가] 아이폰 캘린더의 "신규 이벤트"처럼, 항목마다 자기만의 시작/종료 날짜를 가질 수
+  // 있게 함(여러 날에 걸친 일정 표현 가능). 비워두면 이 항목이 속한 일지의 날짜(일일 업무일지의
+  // date, 또는 주간 업무일지에서 그 항목이 들어있는 요일에 해당하는 날짜)를 그대로 쓴다.
+  startDate?: string;    // 시작 날짜 (YYYY-MM-DD)
+  endDate?: string;      // 종료 날짜 (YYYY-MM-DD) - 비워두면 시작 날짜와 동일(당일)
   startTime?: string;   // 시작 시간 (예: "09:00")
   endTime?: string;     // 종료 시간 (예: "10:30")
   content: string;      // 해당 시간대 업무 내용
