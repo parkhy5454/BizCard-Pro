@@ -2294,7 +2294,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             const year = monthCursor.getFullYear();
             const month = monthCursor.getMonth();
             const firstDay = new Date(year, month, 1);
-            const startOffset = firstDay.getDay(); // 0=일
+            // [수정] 일~토 순서였던 달력을 월~일 순서로 바꿨다. Date.getDay()는 0=일~6=토라서,
+            // 월요일을 0으로 만들려면 6만큼 밀어서 7로 나눈 나머지를 쓴다(일요일만 6이 됨).
+            const startOffset = (firstDay.getDay() + 6) % 7; // 0=월 ... 6=일
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const cells: (string | null)[] = [];
             for (let i = 0; i < startOffset; i++) cells.push(null);
@@ -2302,13 +2304,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               cells.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
             }
             const todayStr = getTodayLocalStr();
-            const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+            const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
 
             return (
               <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3">
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {weekdayLabels.map((w, i) => (
-                    <div key={w} className={`text-center text-[11px] font-bold py-1 ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
+                    <div key={w} className={`text-center text-[11px] font-bold py-1 ${i === 6 ? 'text-rose-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
@@ -2318,9 +2320,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     const dayNum = Number(dateStr.split('-')[2]);
                     const isToday = dateStr === todayStr;
                     const isSelected = dateStr === selectedCalendarDate;
-                    // idx % 7은 위 startOffset 계산 방식(0=일요일부터 채움) 덕분에 항상
-                    // weekdayLabels와 같은 순서의 요일 인덱스가 된다.
-                    const isSunday = idx % 7 === 0;
+                    // idx % 7은 위 startOffset 계산 방식(0=월요일부터 채움) 덕분에 항상
+                    // weekdayLabels와 같은 순서의 요일 인덱스가 된다 (5=토, 6=일).
+                    const isSaturday = idx % 7 === 5;
+                    const isSunday = idx % 7 === 6;
                     const holidayName = getKoreanHoliday(dateStr);
                     const isDragOver = dragOverDate === dateStr;
                     return (
@@ -2341,7 +2344,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-100 border-slate-200 hover:border-slate-200'
                         }`}
                       >
-                        <div className={`text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-rose-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
+                        <div className={`text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-rose-500' : isSaturday ? 'text-blue-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
                         {holidayName && (
                           <div className="text-[8px] leading-tight font-semibold text-rose-500 truncate mb-0.5">{holidayName}</div>
                         )}
