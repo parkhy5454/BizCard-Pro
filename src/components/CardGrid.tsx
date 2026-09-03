@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone, MessageSquare, Share2, UserPlus } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project, User } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
-import { downloadContactVCard } from '../vcardUtils.js';
+import { downloadContactVCard, generateContactVCardText } from '../vcardUtils.js';
 import { filterContactsForIntel } from '../contactFilters.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel.js';
@@ -97,6 +97,117 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
   const [expandedNavId, setExpandedNavId] = useState<string | null>(null);
   const [cardImageSide, setCardImageSide] = useState<Record<string, 'front' | 'back'>>({});
   const todayStr = getTodayLocalStr();
+  // [추가] 목록 카드의 "다이렉트 액션" 중 "전달하기"/"앱 추천하기"는 눌렀을 때 잠깐
+  // "복사되었습니다" 같은 피드백을 보여주는데, 카드마다 독립적으로 표시되도록 어느
+  // 카드(contact.id)에서 지금 그 피드백을 보여줄지만 기억한다(상세보기 모달의
+  // shareStatus/inviteStatus와 같은 역할, 목록에는 카드가 여러 장이라 id로 구분).
+  const [shareStatusId, setShareStatusId] = useState<string | null>(null);
+  const [inviteStatusId, setInviteStatusId] = useState<string | null>(null);
+
+  // [추가] 상세보기 모달(CardDetailModal.tsx)의 "다이렉트 액션" 4가지(통화/문자/전달하기/
+  // 앱 추천하기)를 목록 카드에서도 상세보기까지 안 들어가고 바로 쓸 수 있도록 그대로
+  // 옮겨왔다("휴대폰 연락처에 저장"은 이미 카드 우측 상단에 있어서 제외).
+  const handleGridDialClick = (contact: BusinessCard) => {
+    if (!contact.phoneMobile) return;
+    onAddCallHistory?.(contact.id, {
+      type: 'outgoing',
+      note: '(자동 기록) 전화 버튼을 눌러 발신을 시도했습니다.'
+    });
+  };
+
+  const handleGridShareContact = async (contact: BusinessCard) => {
+    const text = [
+      `[명함 전달] ${contact.name} · ${contact.company}`,
+      `${contact.title}${contact.department ? ' | ' + contact.department : ''}`,
+      contact.phoneMobile ? `📞 ${contact.phoneMobile}` : '',
+      contact.email ? `📧 ${contact.email}` : '',
+      contact.address ? `🏢 ${contact.address}` : ''
+    ].filter(Boolean).join('\n');
+
+    const shareFiles: File[] = [];
+    if (contact.frontImage) {
+      try {
+        const res = await fetch(contact.frontImage);
+        const blob = await res.blob();
+        shareFiles.push(new File([blob], `${contact.name}_명함.jpg`, { type: blob.type || 'image/jpeg' }));
+      } catch {
+        // 이미지를 파일로 바꾸는 데 실패해도 아래 텍스트/vCard 공유는 그대로 진행한다
+      }
+    }
+
+    try {
+      const nav = navigator as any;
+      if (nav.canShare && typeof File !== 'undefined') {
+        try {
+          const vcardText = generateContactVCardText(contact);
+          const vcardFile = new File([vcardText], `${contact.name}.vcf`, { type: 'text/vcard' });
+          const filesWithVCard = [...shareFiles, vcardFile];
+          if (nav.canShare({ files: filesWithVCard })) {
+            await nav.share({ title: `${contact.name} 명함`, text, files: filesWithVCard });
+            return;
+          }
+          if (shareFiles.length > 0 && nav.canShare({ files: shareFiles })) {
+            await nav.share({ title: `${contact.name} 명함`, text, files: shareFiles });
+            return;
+          }
+        } catch {
+          // 파일 공유 준비 중 문제가 있으면 아래 텍스트 공유로 조용히 넘어간다
+        }
+      }
+      if (nav.share) {
+        await nav.share({ title: `${contact.name} 명함`, text });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      setShareStatusId(contact.id);
+      setTimeout(() => setShareStatusId(null), 2000);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('명함 전달 실패:', err);
+      }
+    }
+  };
+
+  const handleGridInviteContact = async (contact: BusinessCard) => {
+    const inviteText = [
+      `${currentUser?.name ? currentUser.name + '님이' : '지인이'} BizCard Pro를 추천했어요!`,
+      `명함을 카메라로 찍기만 하면 AI가 자동으로 인식해서 저장해주는 스마트 명함 관리 앱이에요.`,
+      `👉 https://bizcard-pro.onrender.com`
+    ].join('\n');
+
+    let channel: 'sms' | 'share' | 'other' = 'other';
+    try {
+      const nav = navigator as any;
+      if (nav.share) {
+        channel = 'share';
+        await nav.share({ title: 'BizCard Pro 추천', text: inviteText });
+      } else if (contact.phoneMobile) {
+        channel = 'sms';
+        window.open(`sms:${contact.phoneMobile}?body=${encodeURIComponent(inviteText)}`, '_blank');
+      } else {
+        await navigator.clipboard.writeText(inviteText);
+        setInviteStatusId(contact.id);
+        setTimeout(() => setInviteStatusId(null), 2000);
+      }
+
+      try {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (currentUser) headers['x-user-id'] = currentUser.id;
+        await fetch('/api/invites', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ contactId: contact.id, contactName: contact.name, channel })
+        });
+      } catch (err) {
+        console.error('초대 기록 저장 실패:', err);
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('초대 보내기 실패:', err);
+      }
+    }
+  };
+
   // [수정] "관계 인텔리전스" 패널의 닫기 상태 (오늘 하루만 닫기, 날짜 바뀌면 자동 재표시)
   const [intelDismissedDate, setIntelDismissedDate] = useState<string>(() => {
     try { return localStorage.getItem('bizcard_relationship_intel_dismissed_date') || ''; } catch { return ''; }
@@ -713,6 +824,46 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* [추가] "다이렉트 액션" - 상세보기 모달까지 안 들어가도 목록 카드에서 바로
+                  통화/문자/전달/앱추천을 할 수 있게 한다("휴대폰 연락처에 저장"은 카드 우측
+                  상단에 이미 있어서 여기선 뺌). 카드 안이라 상세보기보다 좁으므로 2x2로 배치. */}
+                  <div
+                    className="grid grid-cols-2 gap-1.5 pt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <a
+                      href={contact.phoneMobile ? `tel:${contact.phoneMobile}` : '#'}
+                      onClick={() => contact.phoneMobile && handleGridDialClick(contact)}
+                      className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-bold text-[10px] transition-all ${contact.phoneMobile ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 active:scale-95' : 'bg-slate-100 text-slate-400 pointer-events-none'}`}
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>핸드폰 통화</span>
+                    </a>
+                    <a
+                      href={contact.phoneMobile ? `sms:${contact.phoneMobile}` : '#'}
+                      className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-bold text-[10px] transition-all ${contact.phoneMobile ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 active:scale-95' : 'bg-slate-100 text-slate-400 pointer-events-none'}`}
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      <span>문자 보내기</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleGridShareContact(contact)}
+                      className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-white border border-slate-200 hover:border-indigo-500/50 text-slate-700 font-bold text-[10px] transition-colors truncate"
+                    >
+                      <Share2 className="w-3 h-3 text-indigo-400 shrink-0" />
+                      <span className="truncate">{shareStatusId === contact.id ? '복사됨!' : '외부로 전달'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGridInviteContact(contact)}
+                      className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 hover:border-indigo-300 text-indigo-700 font-bold text-[10px] transition-colors truncate"
+                    >
+                      <UserPlus className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{inviteStatusId === contact.id ? '복사됨!' : '앱 추천하기'}</span>
+                    </button>
                   </div>
 
                   {/* [수정] 예전엔 companyInfo가 있을 때만 이 박스가 보였는데, 그러면 아직
