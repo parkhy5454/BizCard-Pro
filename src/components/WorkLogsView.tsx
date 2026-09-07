@@ -143,6 +143,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 모달 제어 상태
   const [isWriteModalOpen, setIsWriteModalOpen] = useState<boolean>(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null); // null 이면 새 일지 작성
+  // [추가] 작성/수정 모달이 "일일"인지 "주간"인지를 별도로 기억하는 값. 예전엔 뒤에 보이는
+  // 탭(activeSubTab)을 그대로 기준으로 썼는데, 그러면 월간 캘린더에서 일정을 추가/수정할 때
+  // 화면이 강제로 "일일" 탭으로 전환되어야만 모달이 올바르게 렌더링됐다. 이제는 이 값을
+  // 따로 둬서, 월간 캘린더 화면에 머문 채로도 일일 업무일지 작성/수정 모달을 열 수 있다.
+  const [writeFormType, setWriteFormType] = useState<'daily' | 'weekly'>('daily');
   
   // 카드 확장 상태 (아코디언)
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
@@ -418,10 +423,15 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 모달 열기 핸들러 (새 일지 작성)
   // [수정] 캘린더에서 "이 날짜에 새 일정 추가"를 누르면 오늘 날짜가 아니라 캘린더에서
   // 선택한 날짜로 바로 채워서 열리도록 presetDate를 받을 수 있게 했다.
-  const handleOpenNewLog = (presetDate?: string) => {
+  // [수정] type을 명시적으로 넘기면 그 종류(일일/주간)로 모달이 뜨고, 넘기지 않으면
+  // 지금 보고 있는 탭(activeSubTab) 기준으로 예전과 동일하게 동작한다. 월간 캘린더의
+  // "일정 추가"처럼, 화면 탭은 그대로 두고 특정 종류의 모달만 열고 싶을 때 type을 넘긴다.
+  const handleOpenNewLog = (presetDate?: string, type?: 'daily' | 'weekly') => {
+    const resolvedType: 'daily' | 'weekly' = type || (activeSubTab === 'daily' ? 'daily' : 'weekly');
+    setWriteFormType(resolvedType);
     setEditingLogId(null);
     const todayStr = presetDate || getTodayLocalStr();
-    
+
     // 주간 기본 범위 (이번주 월~금)
     const today = new Date();
     const currentDay = today.getDay(); // 0: 일, 1: 월 ... 6: 토
@@ -429,12 +439,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const monday = new Date(today.setDate(today.getDate() + distanceToMonday));
     const friday = new Date(monday);
     friday.setDate(friday.getDate() + 4);
-    
+
     setFormDate(todayStr);
     setFormStartDate(dateToLocalStr(monday));
     setFormEndDate(dateToLocalStr(friday));
 
-    if (activeSubTab === 'daily') {
+    if (resolvedType === 'daily') {
       setFormTitle(`${todayStr} 일일 업무일지`);
     } else {
       setFormTitle(`${dateToLocalStr(monday)} ~ ${dateToLocalStr(friday)} 주간 업무일지`);
@@ -483,6 +493,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
   // 모달 열기 핸들러 (수정)
   const handleOpenEditLog = (log: any, type: 'daily' | 'weekly') => {
+    setWriteFormType(type);
     setEditingLogId(log.id);
     setFormTitle(log.title);
     setFormAuthor(log.author || '');
@@ -531,11 +542,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setIsWriteModalOpen(true);
   };
 
-  // [추가] 캘린더에서 항목을 클릭하면, 그 항목이 들어있는 원본 업무일지(일일/주간)를
-  // 그대로 수정 모달로 연다. activeSubTab도 해당 종류로 맞춰줘야 모달이 일일/주간 중
-  // 맞는 필드 구성으로 렌더링된다.
+  // [수정] 캘린더에서 항목을 클릭하면, 그 항목이 들어있는 원본 업무일지(일일/주간)를
+  // 그대로 수정 모달로 연다. 예전엔 여기서 activeSubTab도 그 종류로 바꿔서 캘린더 화면을
+  // 벗어나 버렸는데, handleOpenEditLog가 이제 writeFormType을 따로 관리하므로 화면(월간
+  // 캘린더)은 그대로 두고 모달만 올바른 종류(일일/주간)로 열 수 있다.
   const handleOpenEntryFromCalendar = (entry: CalendarEntry) => {
-    setActiveSubTab(entry.source);
     handleOpenEditLog(entry.log, entry.source);
   };
 
@@ -1606,7 +1617,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       const res = await fetch('/api/worklogs/ai-polish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: currentText, type: activeSubTab, field: fieldName })
+        body: JSON.stringify({ text: currentText, type: writeFormType, field: fieldName })
       });
       const data = await res.json();
       if (data.polishedText) {
@@ -1677,7 +1688,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     }
 
     try {
-      if (activeSubTab === 'daily') {
+      if (writeFormType === 'daily') {
         const payload = {
           title: formTitle,
           author: formAuthor,
@@ -2415,8 +2426,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       type="button"
                       onClick={() => {
                         setIsDayDetailModalOpen(false);
-                        setActiveSubTab('daily');
-                        handleOpenNewLog(selectedCalendarDate);
+                        handleOpenNewLog(selectedCalendarDate, 'daily');
                       }}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shrink-0"
                     >
@@ -2592,9 +2602,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           <AnimatePresence initial={false}>
             {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).slice(0, visibleLogCount).map((log: any) => {
               const isExpanded = expandedLogId === log.id;
+              // [추가] 지금 이 로그가 수정 모달에서 편집 중인지 여부. isWriteModalOpen까지
+              // 같이 확인하는 이유는, 모달을 취소로 닫아도 editingLogId 값 자체는 남아있어서
+              // (다음에 "새로 작성"을 누를 때 비로소 초기화됨) 모달이 닫힌 뒤에도 카드가
+              // 계속 색칠된 채로 남는 것을 막기 위함이다.
+              const isBeingEdited = isWriteModalOpen && editingLogId === log.id;
               const relatedProjects = projects.filter(p => (log.projectIds || []).includes(p.id));
               const relatedContacts = contacts.filter(c => (log.contactIds || []).includes(c.id));
-              
+
               return (
                 <motion.div
                   key={log.id}
@@ -2602,7 +2617,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className={`bg-white border rounded-3xl overflow-hidden transition-all duration-300 shadow-lg ${
-                    isExpanded 
+                    isBeingEdited
+                      ? 'border-amber-400 ring-2 ring-amber-300/50 shadow-amber-400/10 bg-amber-50/40'
+                      : isExpanded
                       ? activeSubTab === 'daily' ? 'border-blue-500/40 shadow-blue-500/5 bg-white' : 'border-indigo-500/40 shadow-indigo-500/5 bg-white'
                       : 'border-slate-200 hover:border-slate-200'
                   }`}
@@ -2622,6 +2639,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           <Calendar className="w-3 h-3" />
                           {activeSubTab === 'daily' ? log.date : `${log.startDate} ~ ${log.endDate}`}
                         </span>
+
+                        {isBeingEdited && (
+                          <span className="px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-400/40 animate-pulse">
+                            <Edit2 className="w-3 h-3" />
+                            수정 중
+                          </span>
+                        )}
 
                         {relatedProjects.map(rp => (
                           <span key={rp.id} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
@@ -2976,12 +3000,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <div className={`p-2 rounded-xl text-white ${
-                      activeSubTab === 'daily' ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'bg-indigo-600 shadow-lg shadow-indigo-500/20'
+                      writeFormType === 'daily' ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'bg-indigo-600 shadow-lg shadow-indigo-500/20'
                     }`}>
-                      {activeSubTab === 'daily' ? <FileText className="w-5 h-5" /> : <FileCheck className="w-5 h-5" />}
+                      {writeFormType === 'daily' ? <FileText className="w-5 h-5" /> : <FileCheck className="w-5 h-5" />}
                     </div>
                     <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
-                      {editingLogId ? '업무일지 수정' : activeSubTab === 'daily' ? '일일 업무일지 작성' : '주간 업무일지 작성'}
+                      {editingLogId ? '업무일지 수정' : writeFormType === 'daily' ? '일일 업무일지 작성' : '주간 업무일지 작성'}
                     </h2>
                   </div>
                 </div>
@@ -2992,7 +3016,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       1024px 이상)에서만 적용하도록 올렸다. */}
                   {/* 날짜 선택 및 일지 제목 */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {activeSubTab === 'daily' ? (
+                    {writeFormType === 'daily' ? (
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-600">작성 일자</label>
                         <input
@@ -3034,7 +3058,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       </>
                     )}
 
-                    <div className={`${activeSubTab === 'daily' ? 'lg:col-span-2' : 'lg:col-span-1'} space-y-1.5`}>
+                    <div className={`${writeFormType === 'daily' ? 'lg:col-span-2' : 'lg:col-span-1'} space-y-1.5`}>
                       <label className="text-xs font-bold text-slate-600">일지 제목</label>
                       <input
                         type="text"
@@ -3073,7 +3097,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   </div>
 
                   {/* 일지 내용 - 동적 전환 */}
-                  {activeSubTab === 'daily' ? (
+                  {writeFormType === 'daily' ? (
                     <div className="space-y-4">
                       {/* 주간 보고 연동 안내 */}
                       {(() => {
@@ -3741,7 +3765,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <button
                       type="submit"
                       className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 flex items-center gap-1.5 ${
-                        activeSubTab === 'daily'
+                        writeFormType === 'daily'
                           ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/10'
                           : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/10'
                       }`}
