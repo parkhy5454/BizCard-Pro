@@ -7245,6 +7245,26 @@ app.post('/api/send-tax-package', async (req, res) => {
 async function startServer() {
   await bootstrapUsers();
 
+  // [추가] 도메인 홈페이지(bizcardai.kr) vs 앱(app.bizcardai.kr) 라우팅.
+  // 같은 Render 서비스(같은 서버 코드)에 두 도메인을 모두 연결해두고, 요청의 Host
+  // 헤더를 보고 루트("/") 요청만 다르게 응답한다. 마케팅 홈페이지 도메인(apex/www)이면
+  // public/homepage/landing.html(빌드 후 dist/homepage/landing.html)을, 그 외
+  // (app.bizcardai.kr, *.onrender.com, localhost 등)는 원래대로 앱(dist/index.html)을
+  // 보여준다. 홈페이지 파일은 앱 코드와 헷갈리지 않도록 public/homepage 폴더에 따로 둔다.
+  // static 미들웨어보다 반드시 먼저 등록해야 이 라우트가 우선 적용된다.
+  const MARKETING_HOSTS = new Set(['bizcardai.kr', 'www.bizcardai.kr']);
+  app.get('/', (req, res, next) => {
+    const host = (req.hostname || '').toLowerCase();
+    if (MARKETING_HOSTS.has(host)) {
+      return res.sendFile('homepage/landing.html', { root: 'dist' }, (err) => {
+        // 아직 빌드가 안 됐거나(dist/homepage/landing.html 없음) 다른 이유로 실패하면,
+        // 화면이 완전히 깨지지 않도록 원래 앱(SPA) 쪽으로 넘긴다.
+        if (err) next();
+      });
+    }
+    next();
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
