@@ -98,6 +98,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [editingExpense, setEditingExpense] = useState<VehicleExpense | null>(null);
   const [editingMaint, setEditingMaint] = useState<VehicleMaintenance | null>(null);
   const [editingInterval, setEditingInterval] = useState<MaintenanceInterval | null>(null);
+  // [추가] 정비/점검 항목 "직접 입력" 모드 여부(수정 화면용) - 새로 등록할 때와 같은 이유로
+  // 별도 값으로 관리한다. 수정 모달을 열 때 기존 값이 목록에 있는지로 한 번만 초기값을
+  // 정하고, 이후 입력 중에는 다시 계산하지 않는다.
+  const [isEditingMaintTitleCustom, setIsEditingMaintTitleCustom] = useState<boolean>(false);
+  const [isEditingIntervalItemCustom, setIsEditingIntervalItemCustom] = useState<boolean>(false);
+  // [추가] 정비 비용 수정 화면의 "연동 프로젝트 직접 입력" 모드도 동일한 이유로 분리한다.
+  const [isEditingExpenseProjectCustom, setIsEditingExpenseProjectCustom] = useState<boolean>(false);
 
   // 기간 필터 상태들 (운행, 비용, 정비)
   const [drivingPeriod, setDrivingPeriod] = useState<string>('all');
@@ -339,6 +346,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     payMethod: 'company_card' as VehicleMaintenance['payMethod'],
     receiptImage: ''
   });
+  // [추가] "정비 항목 직접 입력" 모드 여부를 별도 값으로 관리한다. 예전엔 newMaint.title이
+  // '직접 입력'인지, MAINTENANCE_OPTIONS 목록에 있는지를 매 입력마다 다시 계산해서 커스텀
+  // 입력창을 보여줄지 말지 정했는데, 그러다 보니 입력 중인 글자가 우연히 기존 정비 항목
+  // 이름과 완전히 같아지는 순간 커스텀 모드가 풀리면서 입력창이 사라지고 포커스를 잃는
+  // (입력이 튕기는) 문제가 있었다. 이제는 드롭다운을 고를 때만 이 값을 바꾸고, 입력 중에는
+  // 절대 다시 계산하지 않아서 그런 문제가 생기지 않는다.
+  const [isMaintTitleCustom, setIsMaintTitleCustom] = useState<boolean>(false);
   const [isScanningMaintReceipt, setIsScanningMaintReceipt] = useState<boolean>(false);
   // [추가] 운행기록부 인쇄(PDF 저장) 시, #print-root 포털에 넣어서 화면의 다른 요소 없이
   // 이 표만 단독으로 인쇄되게 하기 위한 상태. null이면 인쇄할 내용이 없다는 뜻.
@@ -355,6 +369,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     alertKmBefore: 500,
     alertDaysBefore: 7
   });
+  // [추가] 정비 항목과 동일한 이유로, "점검 항목 직접 입력" 모드도 별도 값으로 관리한다.
+  const [isIntervalItemCustom, setIsIntervalItemCustom] = useState<boolean>(false);
 
   // 국세청 리포트용 차량 및 기간 선택
   const [reportVehicleId, setReportVehicleId] = useState<string>('');
@@ -1042,6 +1058,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const added = await res.json();
         setMaintenances([added, ...maintenances]);
         setShowMaintForm(false);
+        setIsMaintTitleCustom(false);
         setNewMaint({
           vehicleId: '',
           date: getTodayLocalStr(),
@@ -1240,6 +1257,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const added = await res.json();
         setMaintenanceIntervals([added, ...maintenanceIntervals]);
         setShowIntervalForm(false);
+        setIsIntervalItemCustom(false);
         setNewInterval({
           vehicleId: '',
           itemType: '엔진오일 교환',
@@ -3536,8 +3554,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               </span>
                             ) : (
                               <>
-                                <button 
-                                  onClick={() => setEditingExpense(e)}
+                                <button
+                                  onClick={() => {
+                                    setEditingExpense(e);
+                                    // 기존 연동 프로젝트명이 실제 프로젝트 목록에 없으면(=예전에 직접
+                                    // 입력해둔 값) 커스텀 모드로 초기화한다. 이후 입력 중에는 다시
+                                    // 계산하지 않아 튕기는 문제가 없다.
+                                    setIsEditingExpenseProjectCustom(!!e.projectName && !projects.some(p => p.name === e.projectName));
+                                  }}
                                   className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
                                   title="비용 수정"
                                 >
@@ -3603,7 +3627,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{maintSubMode === 'intervals' ? '점검 주기 등록' : '정비 스케줄 등록'}</span>
+                <span>{maintSubMode === 'intervals' ? '점검 주기 등록' : '정비내역 등록'}</span>
               </button>
             </div>
           </div>
@@ -3661,13 +3685,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-semibold text-indigo-400">정비 항목 *</label>
-                  <select 
-                    value={MAINTENANCE_OPTIONS.includes(newMaint.title) ? newMaint.title : (newMaint.title ? 'custom' : '')}
+                  <select
+                    value={isMaintTitleCustom ? 'custom' : newMaint.title}
                     onChange={e => {
                       const val = e.target.value;
                       if (val === 'custom') {
-                        setNewMaint({ ...newMaint, title: '직접 입력' });
+                        setIsMaintTitleCustom(true);
+                        setNewMaint({ ...newMaint, title: '' });
                       } else {
+                        setIsMaintTitleCustom(false);
                         setNewMaint({ ...newMaint, title: val });
                       }
                     }}
@@ -3681,13 +3707,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </select>
                 </div>
 
-                {(newMaint.title === '직접 입력' || (newMaint.title && !MAINTENANCE_OPTIONS.includes(newMaint.title))) ? (
+                {isMaintTitleCustom ? (
                   <div className="space-y-1.5 animate-fade-in">
                     <label className="text-xs text-indigo-400 font-semibold">정비 항목 직접 입력 *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="예: 미션 벨트 교환"
-                      value={newMaint.title === '직접 입력' ? '' : newMaint.title}
+                      value={newMaint.title}
                       onChange={e => setNewMaint({ ...newMaint, title: e.target.value })}
                       className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
@@ -3800,12 +3826,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-semibold text-indigo-400">점검 항목 *</label>
                   <select
-                    value={MAINTENANCE_OPTIONS.includes(newInterval.itemType) ? newInterval.itemType : (newInterval.itemType ? 'custom' : '')}
+                    value={isIntervalItemCustom ? 'custom' : newInterval.itemType}
                     onChange={e => {
                       const val = e.target.value;
                       if (val === 'custom') {
-                        setNewInterval({ ...newInterval, itemType: '직접 입력' });
+                        setIsIntervalItemCustom(true);
+                        setNewInterval({ ...newInterval, itemType: '' });
                       } else {
+                        setIsIntervalItemCustom(false);
                         setNewInterval({ ...newInterval, itemType: val });
                       }
                     }}
@@ -3820,13 +3848,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </select>
                 </div>
 
-                {(newInterval.itemType === '직접 입력' || (newInterval.itemType && !MAINTENANCE_OPTIONS.includes(newInterval.itemType))) ? (
+                {isIntervalItemCustom ? (
                   <div className="space-y-1.5 animate-fade-in">
                     <label className="text-xs text-indigo-400 font-semibold">점검 항목 직접 입력 *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="예: 미션 벨트 교환"
-                      value={newInterval.itemType === '직접 입력' ? '' : newInterval.itemType}
+                      value={newInterval.itemType}
                       onChange={e => setNewInterval({ ...newInterval, itemType: e.target.value })}
                       className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
@@ -4086,8 +4114,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                   정비 완료로 변경
                                 </button>
                               )}
-                              <button 
-                                onClick={() => setEditingMaint(m)}
+                              <button
+                                onClick={() => {
+                                  setEditingMaint(m);
+                                  setIsEditingMaintTitleCustom(!MAINTENANCE_OPTIONS.includes(m.title));
+                                }}
                                 className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-slate-100 rounded transition-all"
                                 title="정비 기록 수정"
                               >
@@ -4234,7 +4265,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                         <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
                           <button
-                            onClick={() => setEditingInterval(item)}
+                            onClick={() => {
+                              setEditingInterval(item);
+                              setIsEditingIntervalItemCustom(!MAINTENANCE_OPTIONS.includes(item.itemType));
+                            }}
                             className="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 rounded font-semibold transition-all flex items-center gap-1"
                           >
                             <Pencil className="w-3 h-3" />
@@ -5943,18 +5977,26 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <ProjectSearchSelect
                     projects={projects}
                     value={editingExpense.projectName || ''}
-                    onChange={(name) => setEditingExpense({ ...editingExpense, projectName: name })}
+                    onChange={(name) => {
+                      if (name === '직접 입력') {
+                        setIsEditingExpenseProjectCustom(true);
+                        setEditingExpense({ ...editingExpense, projectName: '' });
+                      } else {
+                        setIsEditingExpenseProjectCustom(false);
+                        setEditingExpense({ ...editingExpense, projectName: name });
+                      }
+                    }}
                     allowCustom
                   />
                 </div>
 
-                {(editingExpense.projectName === '직접 입력' || (editingExpense.projectName && !projects.some(p => p.name === editingExpense.projectName))) ? (
+                {isEditingExpenseProjectCustom ? (
                   <div className="space-y-1.5 animate-fade-in">
                     <label className="text-xs text-indigo-400 font-semibold">프로젝트명 직접 입력 *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="예: 강남구 스마트시티 구축 프로젝트"
-                      value={editingExpense.projectName === '직접 입력' ? '' : editingExpense.projectName}
+                      value={editingExpense.projectName}
                       onChange={e => setEditingExpense({ ...editingExpense, projectName: e.target.value })}
                       className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
@@ -6048,13 +6090,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-semibold text-indigo-400">정비 항목 *</label>
-                  <select 
-                    value={MAINTENANCE_OPTIONS.includes(editingMaint.title) ? editingMaint.title : (editingMaint.title ? 'custom' : '')}
+                  <select
+                    value={isEditingMaintTitleCustom ? 'custom' : editingMaint.title}
                     onChange={e => {
                       const val = e.target.value;
                       if (val === 'custom') {
-                        setEditingMaint({ ...editingMaint, title: '직접 입력' });
+                        setIsEditingMaintTitleCustom(true);
+                        setEditingMaint({ ...editingMaint, title: '' });
                       } else {
+                        setIsEditingMaintTitleCustom(false);
                         setEditingMaint({ ...editingMaint, title: val });
                       }
                     }}
@@ -6068,13 +6112,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </select>
                 </div>
 
-                {(editingMaint.title === '직접 입력' || (editingMaint.title && !MAINTENANCE_OPTIONS.includes(editingMaint.title))) ? (
+                {isEditingMaintTitleCustom ? (
                   <div className="space-y-1.5 animate-fade-in">
                     <label className="text-xs text-indigo-400 font-semibold">정비 항목 직접 입력 *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="예: 미션 벨트 교환"
-                      value={editingMaint.title === '직접 입력' ? '' : editingMaint.title}
+                      value={editingMaint.title}
                       onChange={e => setEditingMaint({ ...editingMaint, title: e.target.value })}
                       className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
@@ -6221,12 +6265,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-semibold text-indigo-400">점검 항목 *</label>
                   <select
-                    value={MAINTENANCE_OPTIONS.includes(editingInterval.itemType) ? editingInterval.itemType : (editingInterval.itemType ? 'custom' : '')}
+                    value={isEditingIntervalItemCustom ? 'custom' : editingInterval.itemType}
                     onChange={e => {
                       const val = e.target.value;
                       if (val === 'custom') {
-                        setEditingInterval({ ...editingInterval, itemType: '직접 입력' });
+                        setIsEditingIntervalItemCustom(true);
+                        setEditingInterval({ ...editingInterval, itemType: '' });
                       } else {
+                        setIsEditingIntervalItemCustom(false);
                         setEditingInterval({ ...editingInterval, itemType: val });
                       }
                     }}
@@ -6241,13 +6287,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </select>
                 </div>
 
-                {(editingInterval.itemType === '직접 입력' || (editingInterval.itemType && !MAINTENANCE_OPTIONS.includes(editingInterval.itemType))) ? (
+                {isEditingIntervalItemCustom ? (
                   <div className="space-y-1.5 animate-fade-in">
                     <label className="text-xs text-indigo-400 font-semibold">점검 항목 직접 입력 *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="예: 미션 벨트 교환"
-                      value={editingInterval.itemType === '직접 입력' ? '' : editingInterval.itemType}
+                      value={editingInterval.itemType}
                       onChange={e => setEditingInterval({ ...editingInterval, itemType: e.target.value })}
                       className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       required
