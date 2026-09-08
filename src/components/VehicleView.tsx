@@ -1828,6 +1828,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <div className="space-y-2">
                     {maintenances
                       .filter(m => m.status === 'scheduled')
+                      // [수정] 정렬 없이 앞의 3건만 잘라서 보여주다 보니, 예정 정비가 4건 이상이고
+                      // 가장 임박한 일정이 하필 배열 뒤쪽에 있으면 이 위젯에서 아예 보이지 않는
+                      // 문제가 있었다. 임박한 일정을 미리 알려주는 위젯이므로 날짜가 가까운
+                      // 순(오름차순)으로 정렬한 뒤에 3건을 잘라, 항상 가장 임박한 일정이 보이게 한다.
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                       .slice(0, 3)
                       .map(m => (
                         <div key={m.id} className="p-3 bg-slate-100 border border-slate-200 rounded-xl flex items-start gap-2.5 text-xs">
@@ -1944,7 +1949,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-500">최초 주행거리 (km) *</label>
                       <input 
-                        type="number" 
+                        type="number"
+                        inputMode="decimal"
                         value={newVehicle.initialMileage === 0 ? '' : newVehicle.initialMileage}
                         onChange={e => setNewVehicle({ ...newVehicle, initialMileage: Number(e.target.value) })}
                         className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
@@ -2644,7 +2650,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-500">출발 전 계기판 (km) *</label>
                     <input 
-                      type="number" 
+                      type="number"
+                      inputMode="decimal"
                       value={newDriving.startMileage === 0 ? '' : newDriving.startMileage}
                       onChange={e => setNewDriving({ ...newDriving, startMileage: Number(e.target.value) })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
@@ -2654,7 +2661,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-500">도착 후 계기판 (km) *</label>
                     <input 
-                      type="number" 
+                      type="number"
+                      inputMode="decimal"
                       value={newDriving.endMileage === 0 ? '' : newDriving.endMileage}
                       onChange={e => setNewDriving({ ...newDriving, endMileage: Number(e.target.value) })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
@@ -3361,7 +3369,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-500">주유량 (L)</label>
                     <input 
-                      type="number" 
+                      type="number"
+                      inputMode="decimal"
                       placeholder="예: 45"
                       value={newExpense.fuelVolume === 0 ? '' : newExpense.fuelVolume}
                       onChange={e => setNewExpense({ ...newExpense, fuelVolume: Number(e.target.value) })}
@@ -3809,7 +3818,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">정비 당시 주행거리 (km)</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     value={newMaint.mileage === 0 ? '' : newMaint.mileage}
                     onChange={e => setNewMaint({ ...newMaint, mileage: Number(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
@@ -3941,7 +3951,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">km 주기 입력 (예 : 5,000 등 ) *</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="5,000"
                     value={newInterval.intervalKm || ''}
                     onChange={e => setNewInterval({ ...newInterval, intervalKm: Number(e.target.value) })}
@@ -3953,7 +3964,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">일 주기 입력(예 :180일 등) *</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="180"
                     value={newInterval.intervalDays || ''}
                     onChange={e => setNewInterval({ ...newInterval, intervalDays: Number(e.target.value) })}
@@ -3965,7 +3977,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">마지막 점검 주행 거리(km)</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="0"
                     value={newInterval.lastServiceMileage || ''}
                     onChange={e => setNewInterval({ ...newInterval, lastServiceMileage: Number(e.target.value) })}
@@ -3986,7 +3999,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">알림 기준 (km 전 알림(km 입력))</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="500"
                     value={newInterval.alertKmBefore || ''}
                     onChange={e => setNewInterval({ ...newInterval, alertKmBefore: Number(e.target.value) })}
@@ -3997,7 +4011,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">알림 기준 (일 전 알림(일 입력))</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="7"
                     value={newInterval.alertDaysBefore || ''}
                     onChange={e => setNewInterval({ ...newInterval, alertDaysBefore: Number(e.target.value) })}
@@ -5674,9 +5689,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             <form onSubmit={handleUpdateDriving} className="p-5 overflow-y-auto space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">운전자명 *</label>
-                  <input 
-                    type="text" 
+                  <label className="text-xs text-slate-500">운전자명</label>
+                  {/* [수정] 신규 등록 화면에는 없는 필수 입력(required)이 수정 화면 6개 항목에만
+                      걸려 있어서, 이 항목들이 비어 있는 기존 기록을 수정하려 하면 저장 자체가
+                      막히는 문제가 있었다(정비 기록 수정에서 고친 것과 동일한 패턴). 실제 저장
+                      로직(handleUpdateDriving)도 이 항목들을 필수로 검사하지 않으므로, 신규 등록
+                      화면과 동일하게 필수 표시를 없애 부분 저장 후 나중에 수정도 가능하게 한다. */}
+                  <input
+                    type="text"
                     value={editingDriving.driverName}
                     onChange={e => setEditingDriving({ ...editingDriving, driverName: e.target.value })}
                     onBlur={e => {
@@ -5689,7 +5709,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       if (dept) setEditingDriving((prev) => prev ? { ...prev, department: dept } : prev);
                     }}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                    required
                   />
                 </div>
 
@@ -5715,34 +5734,33 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">운행 일자</label>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={editingDriving.date}
                     onChange={e => setEditingDriving({ ...editingDriving, date: e.target.value })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                    required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">출발 전 계기판 (km) *</label>
-                  <input 
-                    type="number" 
+                  <label className="text-xs text-slate-500">출발 전 계기판 (km)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
                     value={editingDriving.startMileage === 0 ? '' : editingDriving.startMileage}
                     onChange={e => setEditingDriving({ ...editingDriving, startMileage: Number(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
-                    required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">도착 후 계기판 (km) *</label>
-                  <input 
-                    type="number" 
+                  <label className="text-xs text-slate-500">도착 후 계기판 (km)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
                     value={editingDriving.endMileage === 0 ? '' : editingDriving.endMileage}
                     onChange={e => setEditingDriving({ ...editingDriving, endMileage: Number(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
-                    required
                   />
                 </div>
 
@@ -5789,13 +5807,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">목적지 상호명 *</label>
-                  <input 
-                    type="text" 
+                  <label className="text-xs text-slate-500">목적지 상호명</label>
+                  <input
+                    type="text"
                     value={editingDriving.endPlace}
                     onChange={e => setEditingDriving({ ...editingDriving, endPlace: e.target.value })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                    required
                   />
                   {editingDriving.endPlace.trim().length > 0 && (() => {
                     const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.endPlace.trim().toLowerCase())).slice(0, 3);
@@ -5832,13 +5849,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs text-slate-500">운행 목적 *</label>
-                  <input 
-                    type="text" 
+                  <label className="text-xs text-slate-500">운행 목적</label>
+                  <input
+                    type="text"
                     value={editingDriving.purpose}
                     onChange={e => setEditingDriving({ ...editingDriving, purpose: e.target.value })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                    required
                   />
                 </div>
 
@@ -6039,7 +6055,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-500">주유량 (L)</label>
                     <input 
-                      type="number" 
+                      type="number"
+                      inputMode="decimal"
                       value={editingExpense.fuelVolume === 0 ? '' : editingExpense.fuelVolume}
                       onChange={e => setEditingExpense({ ...editingExpense, fuelVolume: Number(e.target.value) })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
@@ -6231,6 +6248,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">정비 당시 주행거리 (km)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={editingMaint.mileage === 0 ? '' : editingMaint.mileage}
                     onChange={e => setEditingMaint({ ...editingMaint, mileage: Number(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
@@ -6393,7 +6411,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">km 주기 입력 (예 : 5,000 등 ) *</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="5,000"
                     value={editingInterval.intervalKm || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, intervalKm: Number(e.target.value) })}
@@ -6405,7 +6424,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">일 주기 입력(예 :180일 등) *</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="180"
                     value={editingInterval.intervalDays || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, intervalDays: Number(e.target.value) })}
@@ -6417,7 +6437,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">마지막 점검 주행 거리(km)</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="0"
                     value={editingInterval.lastServiceMileage || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, lastServiceMileage: Number(e.target.value) })}
@@ -6438,7 +6459,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">알림 기준 (km 전 알림(km 입력))</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="500"
                     value={editingInterval.alertKmBefore || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, alertKmBefore: Number(e.target.value) })}
@@ -6449,7 +6471,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">알림 기준 (일 전 알림(일 입력))</label>
                   <input 
-                    type="number" 
+                    type="number"
+                    inputMode="decimal"
                     placeholder="7"
                     value={editingInterval.alertDaysBefore || ''}
                     onChange={e => setEditingInterval({ ...editingInterval, alertDaysBefore: Number(e.target.value) })}
