@@ -927,6 +927,10 @@ export interface VehicleExpense {
   // [추가] 운행기록 작성 중 스캔한 영수증인 경우, 어느 운행기록에서 나온 지출인지 연결.
   // 이 값이 있으면 운행기록 수정 화면에서 "이미 등록된 영수증 목록"으로 다시 불러와 보여줄 수 있다.
   drivingLogId?: string;
+  // [추가] 정비내역 등록 화면에서 자동으로 같이 만들어진 비용 지출 항목인 경우, 원본 정비
+  // 기록의 id를 연결해둔다. 이 값이 있으면 그 정비 기록을 수정/삭제할 때 이 지출 항목도
+  // 같이 맞춰 업데이트하거나 삭제해서 고아 데이터가 남지 않게 한다.
+  linkedMaintenanceId?: string;
 }
 
 export interface VehicleMaintenance {
