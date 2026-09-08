@@ -160,14 +160,40 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// [추가] 기본적인 보안 헤더(클릭재킹 방지, MIME 스니핑 방지, HSTS 등)를 적용한다.
-// - contentSecurityPolicy는 일부러 끈다: 지도(Kakao/Google), Supabase Storage, Gemini
-//   같은 외부 리소스 출처를 하나하나 다 정리하지 않은 상태에서 기본 CSP를 켜면 그런
-//   리소스들이 조용히 막혀서 화면이 깨질 수 있다. 외부 리소스 출처가 정리되면 그때 켜는 게 안전하다.
-// - crossOriginEmbedderPolicy도 끈다: 외부 이미지/지도 리소스에 CORP 헤더가 없으면
-//   이것도 로딩을 막을 수 있어서다.
+// [수정] 예전엔 contentSecurityPolicy를 완전히 꺼뒀다 - 지도(Kakao), 카카오 공유 SDK,
+// 토스페이먼츠 결제창, Supabase Storage(영수증/명함 이미지), OpenCV.js CDN 폴백처럼 이
+// 앱이 실제로 쓰는 외부 출처를 하나하나 정리하지 않은 채로 CSP부터 켜면, 그런 리소스들이
+// 조용히 막혀서 지도나 결제, 이미지가 안 뜨는 식으로 화면이 깨질 수 있었기 때문이다.
+// 이제 코드 전체를 훑어서 실제로 쓰는 외부 출처를 아래처럼 정리했다. 다만 카카오 지도
+// SDK가 내부적으로 호출하는 지도 타일/이미지 서버 도메인까지는 100% 확신할 수 없어서,
+// 처음부터 강제 차단(enforce)하지 않고 reportOnly: true로 켠다 - 이 모드는 정책을 어기는
+// 리소스가 있어도 실제로 막지는 않고, 브라우저 개발자도구 콘솔에 "이 리소스는 정책 위반"
+// 이라고만 기록한다. 한동안 실제 사용(지도 열기, 카톡 공유, 결제, 영수증 스캔 등)해보면서
+// 콘솔에 위반 기록이 안 쌓이는 걸 확인한 뒤, reportOnly를 false로 바꾸면 실제로 차단하는
+// 모드로 전환된다(그 전까지는 지금과 동작 차이가 없어 안전하다).
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    reportOnly: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      // 카카오 지도 SDK, 카카오톡 공유 SDK, 토스페이먼츠 결제창, OpenCV.js CDN 폴백
+      scriptSrc: ["'self'", 'https://dapi.kakao.com', 'https://t1.kakaocdn.net', 'https://js.tosspayments.com', 'https://docs.opencv.org'],
+      // Pretendard 폰트(jsdelivr)와, React의 style={{...}} 인라인 스타일 속성 자체를 허용
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      fontSrc: ["'self'", 'https://cdn.jsdelivr.net', 'data:'],
+      // QR코드 생성 이미지, Supabase Storage(영수증/명함/서명 이미지), 카카오 지도 타일/아이콘,
+      // base64(data:)·캔버스 캡처(blob:) 이미지
+      imgSrc: ["'self'", 'data:', 'blob:', 'https://api.qrserver.com', 'https://*.supabase.co', 'https://*.kakaocdn.net', 'https://*.daumcdn.net'],
+      // 카카오 지도/공유 SDK와 Supabase, 토스페이먼츠가 내부적으로 호출하는 API
+      connectSrc: ["'self'", 'https://dapi.kakao.com', 'https://*.kakaocdn.net', 'https://*.daumcdn.net', 'https://*.supabase.co', 'https://api.tosspayments.com'],
+      frameSrc: ["'self'", 'https://js.tosspayments.com'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
+    }
+  },
+  // 카카오/토스 등 외부 이미지·리소스에 CORP(Cross-Origin-Resource-Policy) 헤더가 없으면
+  // 이 옵션이 로딩 자체를 막을 수 있어서 계속 꺼둔다.
   crossOriginEmbedderPolicy: false
 }));
 
@@ -238,8 +264,24 @@ function parseCookies(header?: string): Record<string, string> {
   return out;
 }
 
-function setSessionCookie(res: express.Response, token: string, ttlMs: number = SESSION_TTL_LONG_MS) {
-  const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+// [수정] 예전엔 이 쿠키에 Secure 옵션을 붙일지 말지를 process.env.NODE_ENV === 'production'
+// 하나에만 의존해서 정했다. 이 값은 배포 플랫폼(Render) 대시보드의 환경변수 설정에 달려있는데,
+// 실수로 빠뜨리거나 값이 잘못 들어가면 조용히 Secure 옵션 없이 배포될 수 있었다(겉으로는 앱이
+// 멀쩡히 잘 돌아가서 알아채기도 어렵다). 이제는 요청이 실제로 HTTPS로 들어왔는지(Render가
+// 앞단에서 TLS를 처리하고 붙여주는 x-forwarded-proto 헤더, 또는 req.protocol)를 직접 확인해서
+// 정한다 - 환경변수 설정 여부와 무관하게, 실제로 HTTPS 요청이면 항상 Secure를 붙이고,
+// 로컬 http 개발 환경에서만 자연스럽게 빠진다. NODE_ENV=production도 신호 중 하나로 같이 보되,
+// 어느 한쪽이라도 프로덕션/HTTPS를 가리키면 안전하게 Secure를 붙인다.
+function isRequestSecure(req: express.Request): boolean {
+  return (
+    req.protocol === 'https' ||
+    req.get('x-forwarded-proto') === 'https' ||
+    process.env.NODE_ENV === 'production'
+  );
+}
+
+function setSessionCookie(req: express.Request, res: express.Response, token: string, ttlMs: number = SESSION_TTL_LONG_MS) {
+  const secureFlag = isRequestSecure(req) ? '; Secure' : '';
   res.setHeader(
     'Set-Cookie',
     `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(ttlMs / 1000)}${secureFlag}`
@@ -1526,7 +1568,7 @@ app.post('/api/auth/signup', async (req, res) => {
   // [수정] 가입 즉시 로그인 상태가 되도록 세션 쿠키 발급
   // [수정] 가입 즉시 로그인 상태가 되도록 세션 쿠키 발급 (가입 직후는 기본 30일 유지)
   const signupSession = await createSession(newUser.id, true);
-  setSessionCookie(res, signupSession.token, signupSession.ttlMs);
+  setSessionCookie(req, res, signupSession.token, signupSession.ttlMs);
 
   res.status(201).json({ 
     success: true, 
@@ -1580,7 +1622,7 @@ app.post('/api/auth/login', async (req, res) => {
   // "로그인 상태 유지"를 명시적으로 껐을 때만(false) 짧은 세션을 발급하고,
   // 값이 없으면(예전 클라이언트) 기존처럼 30일 유지한다.
   const loginSession = await createSession(user.id, rememberMe !== false);
-  setSessionCookie(res, loginSession.token, loginSession.ttlMs);
+  setSessionCookie(req, res, loginSession.token, loginSession.ttlMs);
 
   res.json({
     success: true,
