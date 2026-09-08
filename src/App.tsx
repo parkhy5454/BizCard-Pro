@@ -227,14 +227,20 @@ export default function App() {
     e.stopPropagation();
     if (!confirm('이 명함 연락처를 완전히 삭제하시겠습니까?')) return;
 
+    // [수정] 예전엔 삭제 요청의 성공 여부를 확인하지 않고 finally에서 무조건 화면 목록에서
+    // 지워버렸다. 네트워크 오류나 서버 오류로 삭제가 실제로는 실패해도 지워진 것처럼 보이다가,
+    // 새로고침하면 다시 나타나 혼란스러웠다. 이 파일의 다른 함수들(명함/그룹 수정 등)과 동일하게
+    // res.ok를 확인해서, 성공했을 때만 화면에서 지운다.
     try {
-      await fetch(`/api/contacts/${id}`, { 
+      const res = await fetch(`/api/contacts/${id}`, {
         method: 'DELETE',
         headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
       });
-    } finally {
+      if (!res.ok) throw new Error(`상태: ${res.status}`);
       setContacts(prev => prev.filter(c => c.id !== id));
       if (selectedContactDetail?.id === id) setSelectedContactDetail(null);
+    } catch (err: any) {
+      alert(`명함 삭제에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -338,12 +344,15 @@ export default function App() {
 
   // 7. 그룹 삭제
   const handleDeleteGroup = async (id: string) => {
+    // [수정] 명함 삭제와 동일한 이유로, 예전엔 서버 삭제 성공 여부를 확인하지 않고 finally에서
+    // 무조건 화면에서 지우고 소속 명함들의 그룹 정보까지 미리 바꿔버렸다. 서버 삭제가 실패하면
+    // 명함들의 그룹 소속 정보만 잘못 바뀐 채로 남는 문제가 있었다. 이제는 성공했을 때만 반영한다.
     try {
-      await fetch(`/api/groups/${id}`, { 
+      const res = await fetch(`/api/groups/${id}`, {
         method: 'DELETE',
         headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
       });
-    } finally {
+      if (!res.ok) throw new Error(`상태: ${res.status}`);
       setGroups(prev => prev.filter(g => g.id !== id));
       // [수정] 예전엔 그룹 하나만 저장했어서, 그 그룹이 삭제되면 "기본 그룹"으로 강제
       // 재배정했다. 이제는 명함이 여러 그룹에 동시에 속할 수 있어서, 삭제된 그룹만 배열
@@ -353,6 +362,8 @@ export default function App() {
         return { ...c, groupId: ids[0] || '', groupIds: ids };
       }));
       if (selectedGroupFilter === id) setSelectedGroupFilter('all');
+    } catch (err: any) {
+      alert(`그룹 삭제에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
