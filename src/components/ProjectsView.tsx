@@ -1569,6 +1569,13 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // 프로젝트 정보(예산 등) 수정 핸들러
+  // [수정] 예전엔 화면부터 먼저 "저장된 것처럼" 바꾸고 모달을 닫은 뒤에 서버로 보냈다. 저장이
+  // 실패해도 모달이 이미 닫혀 있어서 뒤늦게 뜬 알림을 놓치기 쉬웠다(같은 파일의
+  // handleUpdateFollowup에서 이미 고친 것과 동일한 문제). 이제는 handleUpdateFollowup과 동일하게
+  // 서버 저장이 성공한 뒤에만 화면을 갱신하고 모달을 닫으며, 실패하면 모달을 열어둔 채로 안에
+  // 실패 이유를 보여준다.
+  const [editProjectSaveError, setEditProjectSaveError] = useState<string>('');
+  const [isSavingProjectDetails, setIsSavingProjectDetails] = useState<boolean>(false);
   const handleUpdateProjectDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
@@ -1610,17 +1617,8 @@ export const ProjectsView: React.FC<Props> = ({
       }
     }
 
-    setProjects(projects.map((p) => (p.id === updated.id ? updated : p)));
-    setEditingProject(null);
-    setUseDirectContact(false);
-    setDirectContactName('');
-    setDirectContactCompany('');
-    setDirectContactDept('');
-    setDirectContactTitle('');
-    setDirectContactPhoneOffice('');
-    setDirectContactPhoneMobile('');
-    setDirectContactEmail('');
-
+    setEditProjectSaveError('');
+    setIsSavingProjectDetails(true);
     try {
       const res = await fetch(`/api/projects/${updated.id}`, {
         method: 'PUT',
@@ -1630,10 +1628,23 @@ export const ProjectsView: React.FC<Props> = ({
         },
         body: JSON.stringify(updated)
       });
-      if (!res.ok) throw new Error(`프로젝트 수정에 실패했습니다 (상태: ${res.status}).`);
+      if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}). 잠시 후 다시 시도해주세요.`);
+      const saved = await res.json();
+      setProjects(projects.map((p) => (p.id === saved.id ? saved : p)));
+      setEditingProject(null);
+      setUseDirectContact(false);
+      setDirectContactName('');
+      setDirectContactCompany('');
+      setDirectContactDept('');
+      setDirectContactTitle('');
+      setDirectContactPhoneOffice('');
+      setDirectContactPhoneMobile('');
+      setDirectContactEmail('');
     } catch (err: any) {
       console.error('Failed to update project:', err);
-      alert(`프로젝트 수정에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니, 새로고침 후 다시 확인해주세요.`);
+      setEditProjectSaveError(err.message || '저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSavingProjectDetails(false);
     }
   };
 
@@ -1821,14 +1832,24 @@ export const ProjectsView: React.FC<Props> = ({
     if (!target) return;
     const updated = { ...target, status: newSt };
     setProjects(projects.map((p) => (p.id === id ? updated : p)));
-    fetch(`/api/projects/${id}`, {
-      method: 'PUT',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(currentUser ? { 'x-user-id': currentUser.id } : {})
-      },
-      body: JSON.stringify({ status: newSt })
-    });
+    // [수정] 예전엔 서버로 보내는 fetch 결과를 기다리지도, 실패 여부를 확인하지도 않고
+    // 그냥 던져만 놓았다. 요청이 실패해도 콘솔 로그조차 안 남고 화면엔 바뀐 상태로 계속
+    // 남아 서버와 조용히 어긋날 수 있었다. 이제는 실패하면 화면을 원래 상태로 되돌리고 알려준다.
+    try {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify({ status: newSt })
+      });
+      if (!res.ok) throw new Error(`상태: ${res.status}`);
+    } catch (err: any) {
+      console.error('Failed to update project status:', err);
+      setProjects((prev) => prev.map((p) => (p.id === id ? target : p)));
+      alert(`프로젝트 상태 변경에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    }
   };
 
   // 팔로우업 노트 및 미팅 정보 추가
@@ -2324,14 +2345,23 @@ export const ProjectsView: React.FC<Props> = ({
     const updatedProj = { ...proj, followUps: updatedFollowups };
     setProjects(projects.map((p) => (p.id === projectId ? updatedProj : p)));
 
-    fetch(`/api/projects/${projectId}/followups/${followupId}`, {
-      method: 'PUT',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(currentUser ? { 'x-user-id': currentUser.id } : {})
-      },
-      body: JSON.stringify({ status: nextSt })
-    });
+    // [수정] 상태 변경 핸들러와 동일한 이유로, 예전엔 fetch 결과를 기다리지도 실패를 확인하지도
+    // 않았다. 실패하면 화면을 원래 상태로 되돌리고 알려준다.
+    try {
+      const res = await fetch(`/api/projects/${projectId}/followups/${followupId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+        },
+        body: JSON.stringify({ status: nextSt })
+      });
+      if (!res.ok) throw new Error(`상태: ${res.status}`);
+    } catch (err: any) {
+      console.error('Failed to toggle followup status:', err);
+      setProjects((prev) => prev.map((p) => (p.id === projectId ? proj : p)));
+      alert(`미팅기록 상태 변경에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    }
   };
 
   const getStatusBadge = (st: Project['status']) => {
@@ -2841,11 +2871,17 @@ export const ProjectsView: React.FC<Props> = ({
       
       {/* ⚠️ 팔로우업 알림 배너 */}
       {(() => {
-        const needyProjs = projects.filter(p => {
-          if (p.status !== 'opportunity' && p.status !== 'progress') return false;
-          const { days } = getDaysSinceLastActivity(p);
-          return days >= 5;
-        });
+        // [수정] 예전엔 정렬 없이 등록 순서 그대로 나열해서, 여러 건이 밀려있을 때 가장 오래
+        // 방치된(가장 급한) 프로젝트가 앞에 안 보일 수 있었다. 카드 목록 쪽 뱃지에 이미 쓰고
+        // 있는 것과 동일한 기준(getDaysSinceLastActivity)으로, 경과일이 긴 순(가장 급한 순)으로
+        // 정렬해서 항상 가장 급한 프로젝트부터 보이게 한다.
+        const needyProjs = projects
+          .filter(p => {
+            if (p.status !== 'opportunity' && p.status !== 'progress') return false;
+            const { days } = getDaysSinceLastActivity(p);
+            return days >= 5;
+          })
+          .sort((a, b) => getDaysSinceLastActivity(b).days - getDaysSinceLastActivity(a).days);
 
         if (needyProjs.length > 0) {
           // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
@@ -5246,9 +5282,17 @@ export const ProjectsView: React.FC<Props> = ({
                 )}
               </div>
 
+              {editProjectSaveError && (
+                <div className="text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 text-[11px]">
+                  ⚠️ {editProjectSaveError}
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
                 <button type="button" onClick={() => setEditingProject(null)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold">취소</button>
-                <button type="submit" className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30">저장하기</button>
+                <button type="submit" disabled={isSavingProjectDetails} className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold shadow-lg shadow-indigo-600/30">
+                  {isSavingProjectDetails ? '저장 중...' : '저장하기'}
+                </button>
               </div>
             </form>
           </div>
