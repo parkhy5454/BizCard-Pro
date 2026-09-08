@@ -13,6 +13,7 @@ import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCor
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr } from '../dateUtils.js';
+import { formatPhoneNumber } from '../phoneFormat.js';
 
 // [추가] 운행기록부 인쇄/엑셀 내보내기(buildReportTableHtml)는 운전자명·부서·주행목적·
 // 출발지/도착지 주소 등 사용자가 직접 입력한 값을 HTML 문자열로 조립해서 그대로
@@ -654,10 +655,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     else setIsScanningMaintReceipt(true);
 
     try {
+      // [수정] 운행기록/일반비용/정비내역 세 화면이 스캔 AI 프롬프트를 그대로 공유하면서도,
+      // 정비소 영수증(세금계산서·정비 명세서 등 일반 소매 영수증과 형태가 다른 문서)만
+      // 상호명/금액 인식이 더 잘 되도록, 어느 화면에서 스캔했는지(context)를 같이 보내서
+      // 서버가 정비내역일 때만 안내문구를 추가로 붙여줄 수 있게 한다.
       const res = await fetch('/api/scan-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl })
+        body: JSON.stringify({ image: dataUrl, context })
       });
       const data = await res.json();
       if (res.ok) {
@@ -1032,6 +1037,62 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     reader.readAsDataURL(file);
   };
 
+  // [추가] "정비내역 등록/수정 시 정비 비용을 차량 비용 지출 목록에도 같이 연동해달라"는
+  // 요청에 맞춰, 정비 기록 하나를 넘기면 그 정비에 이미 연동된 지출 항목(linkedMaintenanceId로
+  // 찾음)을 찾아서 최신 내용으로 맞춰준다. 비용이 없으면(무료/보증수리 등) 연동해둔 지출
+  // 항목을 지우고, 비용이 있는데 아직 연동된 지출이 없으면 새로 만들어준다. 정비 등록/수정
+  // 액션 양쪽에서 그대로 재사용한다.
+  const syncLinkedExpenseForMaint = async (maint: VehicleMaintenance) => {
+    try {
+      const existing = expenses.find(exp => exp.linkedMaintenanceId === maint.id);
+      const cost = Number(maint.cost) || 0;
+
+      if (cost <= 0) {
+        if (existing) {
+          const delRes = await fetch(`/api/vehicles/expenses/${existing.id}`, { method: 'DELETE', headers: getHeaders() });
+          if (delRes.ok) setExpenses(prev => prev.filter(exp => exp.id !== existing.id));
+        }
+        return;
+      }
+
+      const payload = {
+        vehicleId: maint.vehicleId,
+        date: maint.date,
+        category: 'maintenance' as const,
+        amount: cost,
+        memo: `${maint.title} (정비 내역 자동 연동)`,
+        payMethod: (maint.payMethod && maint.payMethod !== 'none') ? maint.payMethod : 'company_card',
+        merchantName: maint.shopName || '',
+        receiptImage: maint.receiptImage || '',
+        linkedMaintenanceId: maint.id
+      };
+
+      if (existing) {
+        const putRes = await fetch(`/api/vehicles/expenses/${existing.id}`, {
+          method: 'PUT',
+          headers: getHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (putRes.ok) {
+          const updated = await putRes.json();
+          setExpenses(prev => prev.map(exp => exp.id === updated.id ? updated : exp));
+        }
+      } else {
+        const postRes = await fetch('/api/vehicles/expenses', {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (postRes.ok) {
+          const added = await postRes.json();
+          setExpenses(prev => [added, ...prev]);
+        }
+      }
+    } catch (err) {
+      console.error('정비 비용의 지출 내역 자동 연동 실패:', err);
+    }
+  };
+
   // 정비기록 추가 액션
   const handleAddMaint = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1057,6 +1118,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (res.ok) {
         const added = await res.json();
         setMaintenances([added, ...maintenances]);
+        // [추가] 정비 비용이 있으면 차량 비용 지출 목록에도 자동으로 같이 등록해준다.
+        await syncLinkedExpenseForMaint(added);
         setShowMaintForm(false);
         setIsMaintTitleCustom(false);
         setNewMaint({
@@ -1110,6 +1173,16 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       });
       if (res.ok) {
         setMaintenances(maintenances.filter(m => m.id !== id));
+        // [추가] 이 정비 기록에 자동 연동된 지출 항목이 있었다면 고아 데이터로 남지 않게 같이 지운다.
+        const linkedExpense = expenses.find(exp => exp.linkedMaintenanceId === id);
+        if (linkedExpense) {
+          try {
+            const delRes = await fetch(`/api/vehicles/expenses/${linkedExpense.id}`, { method: 'DELETE', headers: getHeaders() });
+            if (delRes.ok) setExpenses(prev => prev.filter(exp => exp.id !== linkedExpense.id));
+          } catch (err) {
+            console.error('연동된 비용 지출 내역 삭제 실패:', err);
+          }
+        }
       }
     } catch (err) {
       console.error(err);
@@ -1217,6 +1290,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (res.ok) {
         const updated = await res.json();
         setMaintenances(maintenances.map(m => m.id === updated.id ? updated : m));
+        // [추가] 정비 기록을 수정하면(비용/차량/날짜 등 변경) 연동된 지출 항목도 같이 맞춰준다.
+        await syncLinkedExpenseForMaint(updated);
         setEditingMaint(null);
       } else {
         // [추가] 정비 영수증 스캔본 등 수정 저장 실패를 조용히 넘기지 않고 알려준다.
@@ -3752,11 +3827,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">정비소 연락처</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
+                    inputMode="numeric"
                     placeholder="예: 02-123-4567"
                     value={newMaint.shopContact || ''}
-                    onChange={e => setNewMaint({ ...newMaint, shopContact: e.target.value })}
+                    onChange={e => setNewMaint({ ...newMaint, shopContact: formatPhoneNumber(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
@@ -4016,7 +4092,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               </div>
 
               {(() => {
-                const filteredMaint = maintenances.filter(m => isDateInPeriod(m.date, maintPeriod, maintCustomStart, maintCustomEnd));
+                // [수정] 예전엔 서버가 준 원본 순서(=등록한 순서) 그대로 보여줘서, 방금 완료한
+                // 정비 건이 목록 맨 앞이 아니라 옆으로 밀어야 보이는 자리에 묻히는 문제가 있었다.
+                // 비용 지출 목록(위 filteredExpenses)에 이미 적용된 것과 동일하게, 정비 "날짜"
+                // 기준 최신순으로 정렬해서 가장 최근 정비 건이 항상 맨 앞에 보이게 한다.
+                const filteredMaint = maintenances
+                  .filter(m => isDateInPeriod(m.date, maintPeriod, maintCustomStart, maintCustomEnd))
+                  .sort((a, b) => {
+                    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+                    if (dateDiff !== 0) return dateDiff;
+                    // 같은 날짜끼리는 나중에 입력한 것을 위로
+                    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                  });
                 if (filteredMaint.length === 0) {
                   return (
                     <div className="bg-slate-100 border border-slate-200 rounded-2xl py-12 text-center text-slate-500 text-xs">
@@ -6079,12 +6166,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">정비 일자</label>
-                  <input 
-                    type="date" 
+                  {/* [수정] 신규 등록 화면과 달리 이 항목에만 브라우저 필수 입력(required)이 걸려
+                      있어서, 나머지 정보를 나중에 채우려고 일부만 비워두고 저장하려 하면 저장 자체가
+                      막히는 문제가 있었다. 신규 등록 폼과 동일하게 필수 표시를 없애 부분 저장 후
+                      나중에 수정하는 것도 가능하게 한다. */}
+                  <input
+                    type="date"
                     value={editingMaint.date}
                     onChange={e => setEditingMaint({ ...editingMaint, date: e.target.value })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                    required
                   />
                 </div>
 
@@ -6127,25 +6217,23 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">정비 비용 (원) *</label>
-                  <input 
-                    type="text" 
+                  <label className="text-xs text-slate-500">정비 비용 (원)</label>
+                  <input
+                    type="text"
                     inputMode="numeric"
                     value={formatCurrencyInput(editingMaint.cost)}
                     onChange={e => setEditingMaint({ ...editingMaint, cost: parseCurrencyInput(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono font-semibold"
-                    required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">정비 당시 주행거리 (km) *</label>
-                  <input 
-                    type="number" 
+                  <label className="text-xs text-slate-500">정비 당시 주행거리 (km)</label>
+                  <input
+                    type="number"
                     value={editingMaint.mileage === 0 ? '' : editingMaint.mileage}
                     onChange={e => setEditingMaint({ ...editingMaint, mileage: Number(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
-                    required
                   />
                 </div>
 
@@ -6161,10 +6249,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">정비소 연락처</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
+                    inputMode="numeric"
                     value={editingMaint.shopContact || ''}
-                    onChange={e => setEditingMaint({ ...editingMaint, shopContact: e.target.value })}
+                    onChange={e => setEditingMaint({ ...editingMaint, shopContact: formatPhoneNumber(e.target.value) })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
