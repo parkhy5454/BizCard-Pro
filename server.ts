@@ -2112,6 +2112,29 @@ app.get('/api/auth/audit-logs', async (req, res) => {
 // 계정 기준으로 5분에 3회까지만 허용한다.
 const backupExportRateLimiter = new RateLimiter({ maxAttempts: 3, windowMs: 5 * 60 * 1000 });
 
+// [추가] 백업에 포함할 전체 14개 컬렉션을 한 곳에 모아둔다. 수동 다운로드(아래 /api/backup/export)와
+// 자동 이메일 백업(runDailyReportAndBackupBatch)이 이 함수 하나를 공유해서 쓴다 - 예전엔 이 목록을
+// 각자 따로 나열해서, 나중에 officialDocuments(공문서) 컬렉션이 통째로 빠져있던 걸 뒤늦게 발견했다.
+function buildBackupDataPayload(dbData: typeof db[string]) {
+  return {
+    contacts: dbData.contacts,
+    projects: dbData.projects,
+    groups: dbData.groups,
+    myProfile: dbData.myProfile,
+    vehicles: dbData.vehicles,
+    drivingLogs: dbData.drivingLogs,
+    expenses: dbData.expenses,
+    maintenances: dbData.maintenances,
+    maintenanceIntervals: dbData.maintenanceIntervals,
+    dailyLogs: dbData.dailyLogs,
+    weeklyLogs: dbData.weeklyLogs,
+    advancePayments: dbData.advancePayments,
+    leaveRequests: dbData.leaveRequests,
+    officialDocuments: dbData.officialDocuments,
+    adminDocs: dbData.adminDocs
+  };
+}
+
 app.get('/api/backup/export', async (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
@@ -2132,22 +2155,7 @@ app.get('/api/backup/export', async (req, res) => {
     scope: requester.type === 'company'
       ? { type: 'company', companyName: requester.companyName, businessNumber: requester.businessNumber }
       : { type: 'individual' },
-    data: {
-      contacts: dbData.contacts,
-      projects: dbData.projects,
-      groups: dbData.groups,
-      myProfile: dbData.myProfile,
-      vehicles: dbData.vehicles,
-      drivingLogs: dbData.drivingLogs,
-      expenses: dbData.expenses,
-      maintenances: dbData.maintenances,
-      maintenanceIntervals: dbData.maintenanceIntervals,
-      dailyLogs: dbData.dailyLogs,
-      weeklyLogs: dbData.weeklyLogs,
-      advancePayments: dbData.advancePayments,
-      leaveRequests: dbData.leaveRequests,
-      adminDocs: dbData.adminDocs
-    }
+    data: buildBackupDataPayload(dbData)
   };
 
   await logAudit({
@@ -2584,6 +2592,245 @@ app.post('/api/admin/run-company-summary-batch', async (req, res) => {
     res.json({ success: true, ...result });
   } catch (err: any) {
     res.status(500).json({ error: err.message || '배치 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 📊✉️ 일일 현황 리포트 + 자동 백업 이메일 (매일 아침, 스코프별로 관리자에게 발송)
+// [추가] "정비 예정일 임박", "팔로우업 필요 프로젝트", "결재 대기 문서"를 화면을 직접 열어야만
+// 확인할 수 있어서 놓치기 쉽다는 피드백에 따라, 매일 아침 이메일로 미리 알려주는 배치를
+// 추가한다. 같은 메일에 그날 기준 전체 데이터 백업(JSON)도 함께 첨부해서, 자동 백업도 겸한다
+// (그동안 "백업 내보내기"는 관리자가 직접 눌러야만 하는 수동 기능만 있었다).
+// ------------------------------------------------------------------
+
+// 한국 시간(KST) 기준 "오늘" 날짜 문자열(YYYY-MM-DD). 서버 자체는 보통 UTC로 돌아가므로,
+// "매일 아침 7시"처럼 한국 사용자 기준 시각을 판단하려면 이 함수로 통일해서 써야 한다.
+function getTodayKstStr(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+}
+
+// 한국 시간(KST) 기준 현재 "시(0~23)". Intl의 hour12 옵션은 자정에 "24"를 반환하는 알려진
+// 함정이 있어서, hourCycle: 'h23'을 명시해 0~23 범위로만 나오게 한다.
+function getCurrentKstHour(): number {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+  const hourPart = parts.find((p) => p.type === 'hour');
+  return hourPart ? Number(hourPart.value) : new Date().getUTCHours();
+}
+
+// 프로젝트의 "마지막 활동(최근 미팅 또는 생성일)으로부터 경과일"을 계산한다.
+// ProjectsView.tsx의 getDaysSinceLastActivity와 동일한 로직을 서버에서도 써야 해서 그대로 옮겨왔다
+// (다만 "오늘"은 접속한 브라우저 시각이 아니라 서버가 판단하는 KST 기준 오늘로 고정한다).
+function getProjectDaysSinceLastActivity(proj: Project, todayStr: string): number {
+  let lastDateStr = proj.createdAt ? proj.createdAt.split('T')[0] : todayStr;
+  if (proj.followUps && proj.followUps.length > 0) {
+    let maxDateStr = proj.followUps[0].date;
+    for (const f of proj.followUps) {
+      if (f.date > maxDateStr) maxDateStr = f.date;
+    }
+    lastDateStr = maxDateStr.split('T')[0];
+  }
+  const parseLocalDate = (str: string) => {
+    const parts = str.split('-');
+    if (parts.length === 3) return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
+    return new Date(str).getTime();
+  };
+  const diffDays = Math.floor((parseLocalDate(todayStr) - parseLocalDate(lastDateStr)) / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 ? diffDays : 0;
+}
+
+// 7일 이내로 임박한 "예정" 정비 건을 날짜 가까운 순으로 뽑는다.
+function findUpcomingMaintenance(dbData: typeof db[string], todayStr: string, withinDays = 7): VehicleMaintenance[] {
+  const todayMs = new Date(todayStr).getTime();
+  return (dbData.maintenances || [])
+    .filter((m) => {
+      if (m.status !== 'scheduled') return false;
+      const diffDays = Math.round((new Date(m.date).getTime() - todayMs) / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= withinDays;
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+// 화면의 "팔로우업 필요" 배너와 동일한 기준(활성 상태 + 5일 이상 연락 없음)으로, 경과일이 긴
+// 순(가장 급한 순)으로 뽑는다.
+function findNeedyProjects(dbData: typeof db[string], todayStr: string): Project[] {
+  return (dbData.projects || [])
+    .filter((p) => {
+      if (p.status !== 'opportunity' && p.status !== 'progress') return false;
+      return getProjectDaysSinceLastActivity(p, todayStr) >= 5;
+    })
+    .sort((a, b) => getProjectDaysSinceLastActivity(b, todayStr) - getProjectDaysSinceLastActivity(a, todayStr));
+}
+
+// 휴가신청서/가지급금 정산서/공문서 중 결재 대기(status === 'pending') 중인 문서를 모아서,
+// 결재선(approvalLine)에서 아직 날짜가 안 찍힌(=미결) 첫 단계가 누구인지와 함께 반환한다.
+function findPendingApprovals(dbData: typeof db[string]): { label: string; waitingOn: string }[] {
+  const results: { label: string; waitingOn: string }[] = [];
+  const pickWaiting = (steps: ApprovalStep[] | undefined) => {
+    const step = (steps || []).find((s) => !s.date);
+    return step ? (step.name || step.role || '담당자') : '담당자';
+  };
+  for (const lr of dbData.leaveRequests || []) {
+    if (lr.status !== 'pending') continue;
+    results.push({ label: `휴가 신청서 (${lr.author})`, waitingOn: pickWaiting(lr.approvalLine) });
+  }
+  for (const ap of dbData.advancePayments || []) {
+    if (ap.status !== 'pending') continue;
+    results.push({ label: `가지급금 정산서 (${ap.author})`, waitingOn: pickWaiting(ap.approvalLine) });
+  }
+  for (const od of dbData.officialDocuments || []) {
+    if (od.status !== 'pending') continue;
+    results.push({ label: `공문서: ${od.subject}`, waitingOn: pickWaiting(od.approvalLine) });
+  }
+  return results;
+}
+
+// 스코프(회사/개인)별로 이 리포트 메일을 받을 사람을 정한다. 회사 계정은 관리자에게(가입
+// 승인 대기 중인 사람은 제외), 관리자가 한 명도 없으면(이례적) 아무 구성원에게라도 보낸다.
+// 개인 계정은 role이 없으므로 자연스럽게 본인에게 보내진다.
+function getReportRecipients(scopeId: string): RegisteredUser[] {
+  const members = users.filter((u) => scopeIdForUser(u) === scopeId && u.approvalStatus !== 'pending');
+  if (members.length === 0) return [];
+  const admins = members.filter((u) => u.role === 'admin');
+  return admins.length > 0 ? admins : members.slice(0, 1);
+}
+
+const MAX_BACKUP_ATTACHMENT_BYTES = 8 * 1024 * 1024; // Brevo 첨부 용량에 여유를 두고 8MB로 제한
+
+function buildDailyReportEmailHtml(opts: {
+  dateStr: string;
+  upcomingMaint: VehicleMaintenance[];
+  needyProjects: Project[];
+  pendingApprovals: { label: string; waitingOn: string }[];
+  backupAttached: boolean;
+}): string {
+  const maxRows = 10;
+  const renderList = (items: string[]) =>
+    items.length > 0
+      ? `<ul style="margin:4px 0; padding-left:20px; font-size:13px; line-height:1.7; color:#333;">${items
+          .slice(0, maxRows)
+          .map((i) => `<li>${i}</li>`)
+          .join('')}${items.length > maxRows ? `<li style="color:#888;">...외 ${items.length - maxRows}건 더</li>` : ''}</ul>`
+      : `<p style="font-size:13px; color:#aaa; margin:4px 0 0;">해당 없음</p>`;
+
+  const maintItems = opts.upcomingMaint.map(
+    (m) => `${escapeHtml(m.date)} - ${escapeHtml(m.title)}${m.mileage ? ` (예상 시점 ${m.mileage.toLocaleString()}km)` : ''}`
+  );
+  const projectItems = opts.needyProjects.map((p) => escapeHtml(p.name));
+  const approvalItems = opts.pendingApprovals.map((a) => `${escapeHtml(a.label)} - <b>${escapeHtml(a.waitingOn)}</b>님 결재 대기중`);
+
+  return `
+    <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111; max-width:600px;">
+      <h2 style="margin-bottom:4px;">📋 ${opts.dateStr} BizCard Pro 일일 현황</h2>
+      <p style="color:#555; font-size:13px;">${
+        opts.backupAttached
+          ? '아래 항목들을 확인해 보세요. 이 메일에는 오늘 기준 전체 데이터 백업 파일(JSON)도 첨부되어 있습니다.'
+          : '아래 항목들을 확인해 보세요. (오늘은 데이터 양이 많아 백업 파일 첨부를 건너뛰었습니다 - 필요하시면 관리자 화면의 "백업 내보내기"로 직접 받아주세요.)'
+      }</p>
+
+      <h3 style="margin-top:20px; margin-bottom:4px; font-size:15px;">🔧 임박한 예정 정비 (7일 이내)</h3>
+      ${renderList(maintItems)}
+
+      <h3 style="margin-top:20px; margin-bottom:4px; font-size:15px;">⚠️ 팔로우업 필요 프로젝트 (5일 이상 연락 없음)</h3>
+      ${renderList(projectItems)}
+
+      <h3 style="margin-top:20px; margin-bottom:4px; font-size:15px;">📝 결재 대기중인 문서</h3>
+      ${renderList(approvalItems)}
+
+      <a href="${APP_BASE_URL}" style="display:inline-block; margin-top:24px; padding:10px 22px; background:#4f46e5; color:#fff; text-decoration:none; border-radius:8px; font-weight:bold;">사이트에서 확인하기</a>
+    </div>
+  `;
+}
+
+async function runDailyReportAndBackupBatch(): Promise<{ scopesChecked: number; emailsSent: number; failed: number }> {
+  if (!isMailerConfigured) {
+    console.log('[일일 리포트+백업] 메일 설정이 안 되어 있어 건너뜁니다.');
+    return { scopesChecked: 0, emailsSent: 0, failed: 0 };
+  }
+
+  const todayStr = getTodayKstStr();
+  const scopeStats = await getPlatformStats();
+  const relevantScopes = scopeStats.filter(
+    (s) => (s.scopeId.startsWith('company:') || s.scopeId.startsWith('individual:')) && s.totalItems > 0
+  );
+
+  let emailsSent = 0;
+  let failed = 0;
+
+  for (const scope of relevantScopes) {
+    try {
+      const recipients = getReportRecipients(scope.scopeId);
+      if (recipients.length === 0) continue;
+
+      const dbData = await loadScopeFromSupabase(scope.scopeId);
+      const upcomingMaint = findUpcomingMaintenance(dbData, todayStr);
+      const needyProjects = findNeedyProjects(dbData, todayStr);
+      const pendingApprovals = findPendingApprovals(dbData);
+
+      const backupJson = JSON.stringify(
+        { exportedAt: new Date().toISOString(), scope: { scopeId: scope.scopeId }, data: buildBackupDataPayload(dbData) },
+        null,
+        2
+      );
+      const backupBuffer = Buffer.from(backupJson, 'utf-8');
+      const backupAttached = backupBuffer.byteLength <= MAX_BACKUP_ATTACHMENT_BYTES;
+
+      const html = buildDailyReportEmailHtml({ dateStr: todayStr, upcomingMaint, needyProjects, pendingApprovals, backupAttached });
+
+      for (const recipient of recipients) {
+        try {
+          await sendEmail({
+            to: recipient.email,
+            toName: recipient.name,
+            subject: `[BizCard Pro] ${todayStr} 일일 현황 + 자동 백업`,
+            html,
+            attachments: backupAttached ? [{ filename: `bizcard-backup-${todayStr}.json`, content: backupBuffer }] : undefined
+          });
+          emailsSent++;
+        } catch (err) {
+          failed++;
+          console.error(`[일일 리포트+백업] ${recipient.email}에게 발송 실패:`, err);
+        }
+      }
+    } catch (err) {
+      failed++;
+      console.error(`[일일 리포트+백업] 스코프 ${scope.scopeId} 처리 실패:`, err);
+    }
+  }
+
+  console.log(`[일일 리포트+백업] 완료: 스코프 ${relevantScopes.length}개 확인, 이메일 ${emailsSent}건 발송, 실패 ${failed}건`);
+  return { scopesChecked: relevantScopes.length, emailsSent, failed };
+}
+
+// 매일 아침 7시(KST) 무렵에 한 번만 발송한다. 시간 판단은 위 회사요약 배치와 동일하게
+// "한 시간마다 확인해서, 목표 시각을 지났고 오늘 아직 안 돌았으면 실행" 방식을 쓰되, 여기서는
+// KST 날짜/시각 기준으로 판단한다(그래야 한국 사용자에게 실제로 "아침"에 도착한다).
+const DAILY_REPORT_TARGET_KST_HOUR = 7;
+let lastDailyReportRunDate: string | null = null;
+setInterval(() => {
+  const todayKey = getTodayKstStr();
+  if (lastDailyReportRunDate === todayKey) return;
+  if (getCurrentKstHour() < DAILY_REPORT_TARGET_KST_HOUR) return;
+  lastDailyReportRunDate = todayKey;
+  runDailyReportAndBackupBatch().catch((err) => console.error('runDailyReportAndBackupBatch 실패:', err));
+}, 60 * 60 * 1000);
+
+// [추가] 위 회사요약 배치와 동일한 이유로, 서버가 잠들었다 깨어나는 배포 환경에서도 외부
+// 크론 서비스가 이 주소를 매일 아침(KST 7시 이후) 한 번 호출해주면 안정적으로 돌아간다.
+app.post('/api/admin/run-daily-report-batch', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    if (req.headers['x-cron-secret'] !== cronSecret) return res.status(401).json({ error: 'unauthorized' });
+  } else {
+    const requesterId = req.headers['x-user-id'] as string;
+    const requester = users.find((u) => u.id === requesterId);
+    if (!requester || requester.email !== ADMIN_EMAIL) return res.status(401).json({ error: 'unauthorized' });
+  }
+  try {
+    const result = await runDailyReportAndBackupBatch();
+    lastDailyReportRunDate = getTodayKstStr();
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || '일일 리포트 처리 중 오류가 발생했습니다.' });
   }
 });
 
