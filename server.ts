@@ -155,7 +155,10 @@ import {
   findProfileByShareSlug,
   uploadDataUrlImage,
   uploadDataUrlFile,
-  getPlatformStats
+  getPlatformStats,
+  createReferral,
+  markReferralRewarded,
+  getReferralsForUser
 } from './src/db/supabaseStore.js';
 
 const app = express();
@@ -1465,6 +1468,73 @@ app.get('/api/auth/lookup-company', (req, res) => {
   res.json({ found: true, companyName: existing.companyName || '' });
 });
 
+// ------------------------------------------------------------------
+// 🎁 친구 추천 프로그램
+// 기존 고객(추천인)이 자기 추천 코드/링크를 공유해서 새 고객(피추천인)을 데려오면,
+// 피추천인이 "실제로 첫 구독 결제를 완료했을 때" 양쪽 모두에게 무료 1개월을 준다.
+// 가입만 하고 결제는 안 하는 가짜 계정으로 반복 악용하는 걸 막기 위해, 보상 지급
+// 시점을 가입이 아니라 결제 성공 시점으로 잡았다 (아래 /api/billing/subscribe 참고).
+// ------------------------------------------------------------------
+function generateReferralCode(): string {
+  // 혼동되기 쉬운 문자(0/O, 1/I/L)는 빼고, 사람이 직접 읽어서 입력해도 헷갈리지 않게 한다.
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+// 이 사용자의 추천 코드를 조회하고, 없으면 만들어서 저장한다 (최초 조회 시점에 지연 생성).
+async function getOrCreateReferralCode(user: RegisteredUser): Promise<string> {
+  if (user.referralCode) return user.referralCode;
+  let code = generateReferralCode();
+  // 극히 낮은 확률의 충돌이라도 피하기 위해 중복이면 다시 생성한다.
+  while (users.some(u => u.referralCode === code)) {
+    code = generateReferralCode();
+  }
+  user.referralCode = code;
+  await addUser(user);
+  return code;
+}
+
+// 무료 개월 보상을 실제로 반영한다. 이미 이번 달 구독료를 내고 있는 중(active)이면 다음
+// 결제일을 그만큼 밀어서 즉시 체감되게 하고, 아직 구독 전(free)이거나 해지한 상태라면
+// 나중에 구독을 시작할 때 한꺼번에 반영하도록 크레딧으로 쌓아둔다.
+async function applyReferralCreditMonths(user: RegisteredUser, months: number): Promise<void> {
+  if (months <= 0) return;
+  if (user.subscriptionStatus === 'active' && user.nextBillingAt) {
+    let next = new Date(user.nextBillingAt);
+    for (let i = 0; i < months; i++) next = addOneMonth(next);
+    user.nextBillingAt = next.toISOString();
+  } else {
+    user.referralCreditMonths = (user.referralCreditMonths || 0) + months;
+  }
+  await addUser(user);
+}
+
+// 내 추천 코드/링크와 현재까지의 추천 현황(몇 명 추천했고, 몇 명에게 보상이 지급됐는지) 조회.
+app.get('/api/referral/me', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const code = await getOrCreateReferralCode(requester);
+  const referrals = await getReferralsForUser(requester.id);
+  res.json({
+    referralCode: code,
+    shareUrl: `${APP_BASE_URL}/?ref=${code}`,
+    totalReferred: referrals.length,
+    totalRewarded: referrals.filter((r: any) => r.status === 'rewarded').length,
+    pendingCreditMonths: requester.referralCreditMonths || 0,
+    referrals: referrals.map((r: any) => ({
+      refereeName: r.referee_name,
+      refereeEmail: r.referee_email,
+      status: r.status,
+      createdAt: r.created_at,
+      rewardedAt: r.rewarded_at
+    }))
+  });
+});
+
 // 🔐 Auth APIs
 app.post('/api/auth/signup', async (req, res) => {
   const signupIp = req.ip || req.socket.remoteAddress || 'unknown';
@@ -1474,7 +1544,7 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(429).json({ error: `가입 시도가 너무 많습니다. ${signupLimit.retryAfterSec}초 후 다시 시도해주세요.` });
   }
 
-  const { email, password, name, phone, type, companyName, businessNumber, position } = req.body;
+  const { email, password, name, phone, type, companyName, businessNumber, position, referralCode } = req.body;
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
@@ -1545,6 +1615,24 @@ app.post('/api/auth/signup', async (req, res) => {
 
   users.push(newUser);
   await addUser(newUser); // Supabase에 계정 영구 저장
+
+  // [추가] 추천 코드로 가입한 경우, 추천인과 연결해둔다. 실제 무료 개월 보상은 지금이
+  // 아니라 이 사람이 첫 구독 결제를 실제로 완료하는 시점에 지급한다 — 가입만 하고
+  // 결제는 안 하는 가짜 계정을 반복해서 만드는 방식의 악용을 막기 위함이다.
+  if (typeof referralCode === 'string' && referralCode.trim()) {
+    const normalizedCode = referralCode.trim().toUpperCase();
+    const referrer = users.find(u => u.referralCode === normalizedCode && u.id !== newUser.id);
+    if (referrer) {
+      newUser.referredByUserId = referrer.id;
+      await addUser(newUser);
+      await createReferral({
+        referrerUserId: referrer.id,
+        refereeUserId: newUser.id,
+        refereeEmail: newUser.email,
+        refereeName: newUser.name
+      });
+    }
+  }
 
   // 가입 즉시 해당 스코프의 데이터 생성/초기화 유도
   const dummyReq = { headers: { 'x-user-id': newUser.id } } as any;
@@ -2356,7 +2444,13 @@ app.post('/api/billing/subscribe', async (req, res) => {
 
     owner.plan = 'pro';
     owner.subscriptionStatus = 'active';
-    owner.nextBillingAt = addOneMonth(new Date()).toISOString();
+    // [추가] 이 사람이 추천인으로서 이미 받아뒀지만 아직 반영 못 한 무료 개월(구독을
+    // 시작하기 전이라 반영할 결제일이 없었던 경우)이 있으면, 첫 결제일을 잡을 때 한꺼번에 더해준다.
+    let firstBillingDate = addOneMonth(new Date());
+    const pendingCredit = owner.referralCreditMonths || 0;
+    for (let i = 0; i < pendingCredit; i++) firstBillingDate = addOneMonth(firstBillingDate);
+    owner.nextBillingAt = firstBillingDate.toISOString();
+    owner.referralCreditMonths = 0;
     await addUser(owner);
     await logAudit({
       scopeId,
@@ -2365,6 +2459,31 @@ app.post('/api/billing/subscribe', async (req, res) => {
       action: 'subscription_started',
       detail: { seats, amount }
     });
+
+    // [추가] 친구 추천으로 가입한 사람이 지금 "처음으로" 구독 결제를 완료한 순간이면,
+    // 본인(피추천인)과 추천인 양쪽에 무료 1개월씩 지급한다. referralRewardGranted로
+    // 한 번만 지급되도록 막는다(나중에 해지 후 재구독해도 중복 지급되지 않는다).
+    if (owner.referredByUserId && !owner.referralRewardGranted) {
+      owner.referralRewardGranted = true;
+      // 방금 잡은 다음 결제일을 한 달 더 미뤄서, 피추천인의 2번째 달을 무료로 만든다.
+      owner.nextBillingAt = addOneMonth(new Date(owner.nextBillingAt)).toISOString();
+      await addUser(owner);
+
+      const referrer = users.find(u => u.id === owner.referredByUserId);
+      if (referrer) {
+        await applyReferralCreditMonths(referrer, 1);
+        await logAudit({
+          scopeId: scopeIdForUser(referrer),
+          actorUserId: owner.id,
+          actorEmail: owner.email,
+          action: 'referral_rewarded',
+          targetUserId: referrer.id,
+          targetEmail: referrer.email,
+          detail: { rewardMonths: 1 }
+        });
+      }
+      await markReferralRewarded(owner.id);
+    }
 
     res.json({ success: true, plan: owner.plan, nextBillingAt: owner.nextBillingAt, amount });
   } catch (err: any) {
