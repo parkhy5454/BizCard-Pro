@@ -2987,6 +2987,48 @@ app.post('/api/auth/users/:targetId/verify-email', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] 관리자(또는 개발자/운영자 계정)가 동료의 비밀번호를 직접 새로 정해준다. 비밀번호는
+// bcrypt로 단방향 암호화해서 저장하기 때문에 "원래 비밀번호가 뭐였는지"는 개발자도
+// 절대 알아낼 수 없는데, 국내 메일(Daum/Naver)이 해외 발송 서버의 메일을 자동 차단해서
+// 비밀번호 재설정 메일 자체가 안 가는 경우가 있어, 이메일에 전혀 의존하지 않고 관리자가
+// 직접 새 비밀번호를 정해서 알려줄 수 있는 우회 경로를 만든다.
+app.post('/api/auth/users/:targetId/set-password', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const isOperator = requester.email === ADMIN_EMAIL;
+  if (requester.role !== 'admin' && !isOperator) return res.status(403).json({ error: '관리자만 처리할 수 있습니다.' });
+
+  const target = users.find(u => u.id === req.params.targetId);
+  if (!target) return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+  if (!isOperator && scopeIdForUser(requester) !== scopeIdForUser(target)) {
+    return res.status(403).json({ error: '같은 회사 소속 회원만 처리할 수 있습니다.' });
+  }
+  // 본인 비밀번호는 이 기능이 아니라 평소 로그인 상태에서 "비밀번호 변경" 메뉴로 바꿔야 한다.
+  if (target.id === requester.id) {
+    return res.status(400).json({ error: '본인 비밀번호는 이 기능으로 바꿀 수 없습니다.' });
+  }
+
+  const { newPassword } = req.body;
+  if (!newPassword || String(newPassword).length < 8) {
+    return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
+  }
+
+  target.password = bcrypt.hashSync(String(newPassword), 10);
+  await addUser(target);
+  // 비밀번호가 바뀌었으니, 혹시 남아있던 이전 로그인 세션은 전부 끊는다 (reset-password와 동일).
+  await invalidateAllSessionsForUser(target.id);
+  await logAudit({
+    scopeId: scopeIdForUser(requester),
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'admin_set_password',
+    targetUserId: target.id,
+    targetEmail: target.email
+  });
+  res.json({ success: true });
+});
+
 // [추가] 업무일지 캘린더에서 "동료 초대" 대상을 고를 때 쓰는, 같은 회사 소속 동료 목록.
 // 가입 승인이 아직 안 끝난(pending) 사람은 제외하고, 요청한 본인도 목록에서 뺀다.
 app.get('/api/company-members', (req, res) => {
