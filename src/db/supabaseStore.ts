@@ -606,6 +606,56 @@ export async function deleteAllSessionsForUser(userId: string): Promise<void> {
 }
 
 // ------------------------------------------------------------------
+// 비밀번호 재설정 토큰 영구 저장 — 로그인 세션(app_sessions)과 똑같은 이유다. 이 토큰을
+// 서버 메모리(Map)에만 두면, 배포 플랫폼(Render 무료 요금제 등)이 일정 시간 뒤 서버를
+// 재웠다가 다음 요청에 깨울 때(cold start) 메모리가 초기화되면서, 방금 받은 지 얼마
+// 안 된 "비밀번호 재설정" 메일 링크도 "만료되었거나 유효하지 않습니다"로 실패하는
+// 문제가 있었다(30분 TTL 안에 있어도 서버가 그 사이 한 번이라도 재시작되면 사라짐).
+// 세션과 동일하게 여기 DB를 진짜 저장소로 쓰고, 메모리 Map은 캐시로만 쓴다.
+// ------------------------------------------------------------------
+export interface StoredPasswordResetToken {
+  token: string;
+  userId: string;
+  expiresAt: number; // epoch ms
+}
+
+export async function savePasswordResetToken(token: string, userId: string, expiresAt: number): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('password_reset_tokens').upsert(
+    { token, user_id: userId, expires_at: new Date(expiresAt).toISOString() },
+    { onConflict: 'token' }
+  );
+  if (error) console.error(`savePasswordResetToken(${token.slice(0, 8)}...) error:`, error);
+}
+
+export async function loadPasswordResetToken(token: string): Promise<StoredPasswordResetToken | null> {
+  if (!isSupabaseConfigured) return null;
+  const { data, error } = await supabase
+    .from('password_reset_tokens')
+    .select('token, user_id, expires_at')
+    .eq('token', token)
+    .maybeSingle();
+  if (error) {
+    console.error(`loadPasswordResetToken(${token.slice(0, 8)}...) error:`, error);
+    return null;
+  }
+  if (!data) return null;
+  return { token: data.token, userId: data.user_id, expiresAt: new Date(data.expires_at).getTime() };
+}
+
+export async function deletePasswordResetToken(token: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('password_reset_tokens').delete().eq('token', token);
+  if (error) console.error(`deletePasswordResetToken(${token.slice(0, 8)}...) error:`, error);
+}
+
+export async function deleteAllPasswordResetTokensForUser(userId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('password_reset_tokens').delete().eq('user_id', userId);
+  if (error) console.error(`deleteAllPasswordResetTokensForUser(${userId}) error:`, error);
+}
+
+// ------------------------------------------------------------------
 // 관리자 작업 감사 로그 — 역할 변경, 회사 가입 승인/거절처럼 민감한 관리자 작업을
 // 기록해서 나중에 "누가 언제 무엇을 했는지" 추적할 수 있게 한다.
 // ------------------------------------------------------------------
