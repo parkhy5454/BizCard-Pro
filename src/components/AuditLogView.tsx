@@ -39,7 +39,8 @@ const ACTION_LABELS: Record<string, string> = {
   member_reject: '가입 거절',
   member_remove: '팀에서 제거',
   member_manual_email_verify: '이메일 인증 수동 처리',
-  admin_set_password: '비밀번호 직접 설정'
+  admin_set_password: '비밀번호 직접 설정',
+  referral_rewarded: '친구 추천 보상 지급'
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -53,6 +54,7 @@ const ACTION_COLORS: Record<string, string> = {
   admin_set_password: 'bg-amber-50 text-amber-700 border-amber-200',
   subscription_started: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   subscription_renewed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  referral_rewarded: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   data_backup_export: 'bg-slate-50 text-slate-700 border-slate-200'
 };
 
@@ -75,6 +77,9 @@ function formatDetail(action: string, detail?: Record<string, unknown> | null): 
     }
     if ((action === 'subscription_started' || action === 'subscription_renewed') && 'seats' in detail) {
       return `좌석 ${detail.seats}개 · ${Number(detail.amount || 0).toLocaleString()}원`;
+    }
+    if (action === 'referral_rewarded' && 'rewardMonths' in detail) {
+      return `무료 ${detail.rewardMonths}개월 지급`;
     }
     return JSON.stringify(detail);
   } catch {

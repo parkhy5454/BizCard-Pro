@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2, KeyRound, Phone } from 'lucide-react';
+import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2, KeyRound, Phone, Gift } from 'lucide-react';
 import { motion } from 'motion/react';
 import { User as UserType } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
@@ -27,6 +27,10 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [companyLookupStatus, setCompanyLookupStatus] = useState<'idle' | 'checking' | 'found' | 'not-found'>('idle');
   const [businessNumber, setBusinessNumber] = useState<string>('');
   const [position, setPosition] = useState<string>('');
+  // [추가] 친구 추천 프로그램 — 추천 링크(?ref=코드)를 타고 들어왔으면 자동으로 채워두고,
+  // 링크 없이 직접 코드만 전달받은 경우를 위해 수동 입력도 가능하게 둔다.
+  const [referralCode, setReferralCode] = useState<string>('');
+  const [referralFromLink, setReferralFromLink] = useState<boolean>(false);
 
   // 비밀번호 찾기 / 재설정 화면 상태
   const [screen, setScreen] = useState<'auth' | 'forgot' | 'reset'>('auth');
@@ -42,12 +46,20 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy' | null>(null);
 
   // 이메일로 받은 재설정 링크(?resetToken=...)로 들어온 경우, 새 비밀번호 설정 화면을 바로 띄운다.
+  // [추가] 친구 추천 링크(?ref=코드)로 들어온 경우, 회원가입 탭으로 미리 전환하고 추천
+  // 코드를 자동으로 채워둔다 — 링크를 받은 사람은 대부분 아직 가입 전인 신규 방문자이므로.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('resetToken');
     if (token) {
       setResetToken(token);
       setScreen('reset');
+    }
+    const ref = params.get('ref');
+    if (ref && ref.trim()) {
+      setReferralCode(ref.trim().toUpperCase());
+      setReferralFromLink(true);
+      setIsLogin(false);
     }
   }, []);
 
@@ -187,6 +199,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
             position: accountType === 'company' ? position.trim() : undefined,
             // role은 보내지 않는다: 서버가 같은 회사의 최초 가입자면 자동으로 admin,
             // 이미 소속 사용자가 있으면 자동으로 member로 지정한다.
+            referralCode: referralCode.trim() || undefined
           };
 
       const res = await fetch(endpoint, {
@@ -619,6 +632,37 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     </div>
 
                   </motion.div>
+                )}
+              </motion.div>
+            )}
+
+            {/* 회원가입 시: 친구 추천 코드 (선택) — 추천 링크로 들어왔으면 자동으로 채워져 있다. */}
+            {!isLogin && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-1.5"
+              >
+                <label className="block text-xs font-bold text-slate-700">
+                  추천인 코드 <span className="text-slate-500 font-normal">(선택)</span>
+                </label>
+                <div className="relative rounded-xl shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Gift className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => { setReferralCode(e.target.value.toUpperCase()); setReferralFromLink(false); }}
+                    placeholder="예: AB12CD"
+                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-mono tracking-widest uppercase"
+                  />
+                </div>
+                {referralFromLink && referralCode && (
+                  <p className="text-[10px] text-emerald-600 font-medium">🎁 추천 코드가 자동으로 적용됐어요. 첫 구독 결제를 완료하면 서로 1개월씩 무료로 드려요.</p>
+                )}
+                {!referralFromLink && referralCode && (
+                  <p className="text-[10px] text-slate-400">첫 구독 결제를 완료하면 추천인과 회원님 모두 1개월씩 무료로 드려요.</p>
                 )}
               </motion.div>
             )}

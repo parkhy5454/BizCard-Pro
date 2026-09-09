@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
+import { ReferralModal } from './ReferralModal.js';
 import { RemindersBell } from './RemindersBell.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 import { getTodayLocalStr } from '../dateUtils.js';
@@ -94,6 +95,8 @@ export const Navigation: React.FC<Props> = ({
   // [수정] 관리자(개발자)용 "문의함" 화면 열림 상태. 이 화면은 회사 구분 없이 앱 전체 문의가
   // 다 모이는 화면이라, 아무나 보면 안 되고 개발자 계정에서만 보이게 제한한다.
   const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
+  // [추가] 친구 추천 모달 열림 상태
+  const [isReferralOpen, setIsReferralOpen] = useState(false);
   const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
   // [추가] 데이터 백업 - 서버(/api/backup/export)는 이미 있었는데 어디서도 눌러볼 방법이
   // 없었다. 서버 쪽 권한 규칙과 똑같이(개인 계정은 항상 본인 데이터를, 회사 계정은
@@ -365,6 +368,19 @@ export const Navigation: React.FC<Props> = ({
                 <Users className="w-3.5 h-3.5 text-indigo-600" />
                 <span>가입 회원 확인</span>
               </button>
+
+              {/* [추가] 친구 추천 — 로그인한 누구나(개인/회사 구성원 모두) 본인 추천 코드로
+              지인을 초대할 수 있고, 초대받은 사람이 첫 구독 결제를 하면 서로 1개월씩 무료. */}
+              {currentUser && (
+                <button
+                  type="button"
+                  onClick={() => setIsReferralOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold text-xs shadow transition-all active:scale-95"
+                >
+                  <Gift className="w-3.5 h-3.5 text-amber-600" />
+                  <span>친구 추천</span>
+                </button>
+              )}
 
               {/* [수정] 화면 위에 항상 떠있는 동그란 플로팅 버튼이었는데, 특히 모바일에서
               화면을 가리고 걸리적거린다는 의견이 있었다. "가입 회원 확인"과 똑같이 헤더
@@ -792,6 +808,10 @@ export const Navigation: React.FC<Props> = ({
 
     {isFeedbackInboxOpen && (
       <FeedbackInboxModal currentUser={currentUser} onClose={() => setIsFeedbackInboxOpen(false)} />
+    )}
+
+    {isReferralOpen && currentUser && (
+      <ReferralModal currentUser={currentUser} onClose={() => setIsReferralOpen(false)} />
     )}
 
     {/* [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 플로팅 "문의하기" 버튼.
