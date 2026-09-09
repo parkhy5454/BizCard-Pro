@@ -699,3 +699,45 @@ export async function getAuditLogs(scopeId: string, limit = 200): Promise<any[]>
   }
   return data || [];
 }
+
+// ------------------------------------------------------------------
+// 친구 추천 프로그램 — 누가 누구를 추천해서 가입시켰는지, 보상(무료 개월) 지급 여부를
+// 기록한다. 실제 보상 반영(다음 결제일 연장 등)은 app_users 쪽 필드에서 처리되고,
+// 여기는 "내 추천 현황" 화면에 보여줄 이력/조회용 테이블이다.
+// ------------------------------------------------------------------
+export async function createReferral(opts: {
+  referrerUserId: string; refereeUserId: string; refereeEmail?: string; refereeName?: string;
+}): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from('referrals').insert({
+    referrer_user_id: opts.referrerUserId,
+    referee_user_id: opts.refereeUserId,
+    referee_email: opts.refereeEmail || null,
+    referee_name: opts.refereeName || null,
+    status: 'pending'
+  });
+  if (error) console.error('createReferral error:', error);
+}
+
+export async function markReferralRewarded(refereeUserId: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase
+    .from('referrals')
+    .update({ status: 'rewarded', rewarded_at: new Date().toISOString() })
+    .eq('referee_user_id', refereeUserId);
+  if (error) console.error(`markReferralRewarded(${refereeUserId}) error:`, error);
+}
+
+export async function getReferralsForUser(referrerUserId: string): Promise<any[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from('referrals')
+    .select('*')
+    .eq('referrer_user_id', referrerUserId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error(`getReferralsForUser(${referrerUserId}) error:`, error);
+    return [];
+  }
+  return data || [];
+}
