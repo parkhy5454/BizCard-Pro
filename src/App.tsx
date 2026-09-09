@@ -124,16 +124,45 @@ export default function App() {
     setProjects([]);
   };
 
+  // [추가] "이메일 인증 필요"/"관리자 승인 대기" 화면에서 관리자가 방금 처리해줬을 때
+  // 새로고침 없이 바로 확인할 수 있도록, 최신 사용자 정보를 다시 받아와 화면에 반영한다.
+  // 아래 마운트 시 useEffect와 로직은 같지만, 버튼을 눌렀을 때 즉시 실행하기 위한 함수다.
+  const refreshCurrentUserStatus = async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (data?.user) {
+        localStorage.setItem('bizcard_user', JSON.stringify(data.user));
+        setCurrentUser(data.user);
+      }
+    } catch {
+      // 네트워크 오류 등은 조용히 무시 — 버튼을 다시 누르면 된다.
+    }
+  };
+
   // [수정] 새로고침 시 localStorage에 저장된 로그인 정보를 무조건 믿지 않고,
   // 서버 세션(httpOnly 쿠키)이 실제로 아직 유효한지 확인한다. 세션이 끊겼다면
   // (서버 재시작, 만료, 다른 기기에서 로그아웃 등) 화면도 로그아웃 상태로 맞춘다.
+  // [수정] 예전엔 여기서 res.ok만 확인하고 응답 내용은 버렸다. 그래서 "이메일 인증
+  // 필요" 또는 "관리자 승인 대기" 화면에 갇힌 사람이, 관리자가 승인/인증을 처리해준
+  // 뒤에도 새로고침만으로는 계속 갇힌 화면을 보는 문제가 있었다 — localStorage에 저장된
+  // 예전 emailVerified/approvalStatus 값을 그대로 믿고 있었기 때문이다(로그아웃 후 다시
+  // 로그인해야만 풀렸음). 이제는 서버가 응답으로 주는 최신 사용자 정보로 항상 갱신해서,
+  // 새로고침 한 번이면 최신 상태(인증/승인 완료 여부)가 바로 반영되게 한다.
   useEffect(() => {
     if (!currentUser) return;
     fetch('/api/auth/me')
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
           localStorage.removeItem('bizcard_user');
           setCurrentUser(null);
+          return;
+        }
+        const data = await res.json().catch(() => null);
+        if (data?.user) {
+          localStorage.setItem('bizcard_user', JSON.stringify(data.user));
+          setCurrentUser(data.user);
         }
       })
       .catch(() => {});
@@ -378,17 +407,8 @@ export default function App() {
       <EmailVerificationRequiredView
         currentUser={currentUser}
         onLogout={handleLogout}
-        onVerified={() => {
-          fetch('/api/auth/me')
-            .then((res) => res.json())
-            .then((data) => {
-              if (data.user) {
-                localStorage.setItem('bizcard_user', JSON.stringify(data.user));
-                setCurrentUser(data.user);
-              }
-            })
-            .catch(() => {});
-        }}
+        onVerified={refreshCurrentUserStatus}
+        onRefreshStatus={refreshCurrentUserStatus}
       />
     );
   }
@@ -396,7 +416,7 @@ export default function App() {
   // [추가] 같은 회사로 가입은 했지만 아직 관리자 승인을 못 받은 회원은 메인 화면 대신
   // 승인 대기 화면을 본다. (서버도 이 상태에서는 회사 데이터 API를 전부 막아둔다.)
   if (currentUser.type === 'company' && currentUser.approvalStatus === 'pending') {
-    return <PendingApprovalView currentUser={currentUser} onLogout={handleLogout} />;
+    return <PendingApprovalView currentUser={currentUser} onLogout={handleLogout} onRefreshStatus={refreshCurrentUserStatus} />;
   }
 
   // 검색 및 그룹 칩 필터링 적용된 명함 목록
