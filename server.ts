@@ -136,6 +136,10 @@ import {
   loadSession,
   deleteSession,
   deleteAllSessionsForUser,
+  savePasswordResetToken,
+  loadPasswordResetToken,
+  deletePasswordResetToken,
+  deleteAllPasswordResetTokensForUser,
   logAudit,
   getAuditLogs,
   isSupabaseConfigured,
@@ -1814,12 +1818,19 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   if (user && isMailerConfigured) {
     // [수정] 새 토큰을 발급하기 전에 이 사용자의 기존 재설정 토큰을 먼저 무효화한다.
     // 안 그러면 예전에 받은 메일 링크가 새 링크와 함께 계속 유효한 상태로 남는다.
+    // (메모리뿐 아니라 Supabase에 저장된 예전 토큰도 함께 지운다.)
     for (const [existingToken, entry] of passwordResetTokens.entries()) {
       if (entry.userId === user.id) passwordResetTokens.delete(existingToken);
     }
+    await deleteAllPasswordResetTokensForUser(user.id);
 
     const token = crypto.randomBytes(32).toString('hex');
-    passwordResetTokens.set(token, { userId: user.id, expiresAt: Date.now() + RESET_TOKEN_TTL_MS });
+    const expiresAt = Date.now() + RESET_TOKEN_TTL_MS;
+    passwordResetTokens.set(token, { userId: user.id, expiresAt });
+    // [추가] 메모리에만 두면 배포 플랫폼이 서버를 재웠다가 깨울 때(cold start) 사라져서,
+    // 받은 지 얼마 안 된 메일 링크도 "유효하지 않다"고 실패하는 문제가 있었다. 세션과
+    // 동일하게 Supabase에도 영구 저장한다(미설정 시 조용히 무시됨).
+    await savePasswordResetToken(token, user.id, expiresAt);
 
     const resetUrl = `${APP_BASE_URL}/?resetToken=${token}`;
     try {
@@ -1853,21 +1864,35 @@ app.post('/api/auth/reset-password', async (req, res) => {
   // [수정] 회원가입 시 요구하는 최소 길이(8자)와 통일 (그동안 재설정은 4자만 요구해서 우회 가능했음)
   if (String(newPassword).length < 8) return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
 
-  const entry = passwordResetTokens.get(token);
+  // [수정] 메모리 캐시(passwordResetTokens)에 없으면(=서버가 방금 재시작돼서 캐시가
+  // 비어있는 경우 포함) Supabase에서 한 번 더 확인한다 — 로그인 세션 검증과 동일한
+  // 패턴. 이 한 단계 덕분에 링크를 받고 시간이 좀 지나 서버가 재시작됐어도(Render의
+  // cold start 등) 30분 TTL 안이면 정상적으로 재설정할 수 있다.
+  let entry = passwordResetTokens.get(token);
+  if (!entry && isSupabaseConfigured) {
+    const stored = await loadPasswordResetToken(token);
+    if (stored) {
+      entry = { userId: stored.userId, expiresAt: stored.expiresAt };
+      passwordResetTokens.set(token, entry);
+    }
+  }
   if (!entry || entry.expiresAt < Date.now()) {
     passwordResetTokens.delete(token);
+    await deletePasswordResetToken(token);
     return res.status(400).json({ error: '재설정 링크가 만료되었거나 유효하지 않습니다. 비밀번호 찾기를 다시 요청해주세요.' });
   }
 
   const user = users.find(u => u.id === entry.userId);
   if (!user) {
     passwordResetTokens.delete(token);
+    await deletePasswordResetToken(token);
     return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
   }
 
   user.password = bcrypt.hashSync(newPassword, 10);
   await addUser(user);
   passwordResetTokens.delete(token);
+  await deletePasswordResetToken(token);
 
   // [수정] 비밀번호가 바뀌었으니, 그동안 이 계정으로 로그인돼 있던 세션(공격자 것일 수도 있는)을
   // 전부 끊는다. 지금 이 요청으로 새로 로그인시키지는 않으므로, 사용자는 새 비밀번호로 다시
@@ -2930,15 +2955,19 @@ app.post('/api/auth/pending-members/:targetId/reject', async (req, res) => {
 // 형태로 반려되는 사례를 확인함) 정상적으로 가입했는데도 인증 메일 자체를 못 받아
 // 계속 막혀 있는 경우가 있다. 이럴 때 관리자가 "본인 확인 후" 여기서 직접 인증
 // 완료 처리를 해줄 수 있게 한다. 승인 대기(approvalStatus)와는 별개의 잠금이라 따로 둔다.
+// [수정] 개발자(운영자, ADMIN_EMAIL) 계정은 어느 회사 소속 admin이 아니어도(혹은 그
+// 회사에 아직 승인된 admin이 아무도 없어도) 회사 구분 없이 이 기능을 쓸 수 있어야
+// 고객사 문의 대응이 가능하다 — /api/auth/users의 "운영자는 전체 조회 가능" 예외와 동일한 취지.
 app.post('/api/auth/users/:targetId/verify-email', async (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 처리할 수 있습니다.' });
+  const isOperator = requester.email === ADMIN_EMAIL;
+  if (requester.role !== 'admin' && !isOperator) return res.status(403).json({ error: '관리자만 처리할 수 있습니다.' });
 
   const target = users.find(u => u.id === req.params.targetId);
   if (!target) return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
-  if (scopeIdForUser(requester) !== scopeIdForUser(target)) {
+  if (!isOperator && scopeIdForUser(requester) !== scopeIdForUser(target)) {
     return res.status(403).json({ error: '같은 회사 소속 회원만 처리할 수 있습니다.' });
   }
   if (isEmailVerified(target.emailVerified)) {
