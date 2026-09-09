@@ -49,7 +49,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const channelRef = useRef(activeChannel);
 
   useEffect(() => {
-    fetch('/api/auth/users', { headers: { 'x-user-id': currentUser.id } })
+    fetch('/api/org/coworkers', { headers: { 'x-user-id': currentUser.id } })
       .then((res) => res.json())
       .then((data: ChatCoworker[]) => {
         if (Array.isArray(data)) {

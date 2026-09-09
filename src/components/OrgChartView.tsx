@@ -36,7 +36,7 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
   const loadMembers = () => {
     setLoading(true);
     setError('');
-    fetch('/api/auth/users', { headers: { 'x-user-id': currentUser.id } })
+    fetch('/api/org/coworkers', { headers: { 'x-user-id': currentUser.id } })
       .then(async (res) => {
         if (!res.ok) throw new Error('조직도 데이터를 불러오지 못했습니다.');
         return res.json();

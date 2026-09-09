@@ -2217,6 +2217,41 @@ app.get('/api/auth/users', (req, res) => {
   res.json(visible.map(toPublicShape));
 });
 
+// [추가] 조직도 / 사내 메신저 전용: "내 회사(같은 사업자번호) 동료만" 반환한다.
+// 위 /api/auth/users는 개발자(운영자, ADMIN_EMAIL) 계정에게 전체 회사를 다 보여주도록
+// 되어 있는데, 이건 "가입 회원 확인"(고객사 지원용 전체 조회) 화면 전용 의도였다.
+// 그런데 조직도/메신저가 실수로 그 API를 그대로 재사용하면서, 운영자 계정(Tony님 본인)
+// 이 자기 조직도나 메신저를 열 때도 카이저솔루션/나래디엔에이 등 다른 회사 직원까지
+// 전부 섞여서 보이는 문제가 있었다. 이 API는 요청자가 누구든(운영자 포함) 예외 없이
+// 본인과 같은 사업자번호 소속만 돌려준다.
+app.get('/api/org/coworkers', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const toPublicShape = (u: RegisteredUser) => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    phone: u.phone,
+    position: u.position,
+    role: u.role,
+    approvalStatus: u.approvalStatus,
+    department: u.department,
+    managerUserId: u.managerUserId
+  });
+
+  let visible: RegisteredUser[];
+  if (requester.type === 'company') {
+    const bNum = (requester.businessNumber || '').trim().toLowerCase();
+    visible = users.filter(u => u.type === 'company' && (u.businessNumber || '').trim().toLowerCase() === bNum);
+  } else {
+    visible = [requester];
+  }
+
+  res.json(visible.map(toPublicShape));
+});
+
 // 진단용: 같은 이메일로 여러 계정이 만들어진 경우(예: 개인+사업자 중복 가입)를 찾아서 보여준다.
 // 삭제는 안전을 위해 여기서 하지 않고, 확인 후 Supabase 테이블 편집기에서 직접 지우는 걸 권장한다.
 app.get('/api/auth/duplicate-emails', async (req, res) => {
