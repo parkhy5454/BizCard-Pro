@@ -141,6 +141,11 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
 
   // [추가] 관리자만 사용 가능: 같은 회사 소속 동료의 역할(관리자/일반 사용자)을 변경한다.
   const canManageRoles = currentUser.type === 'company' && currentUser.role === 'admin';
+  // [추가] 개발자(운영자) 계정 — Navigation.tsx의 isDeveloperAccount와 동일한 기준. 이
+  // 계정은 특정 회사 소속 admin이 아니어도(혹은 그 회사에 아직 승인된 admin이 없어도)
+  // 고객사 문의 대응 차원에서 이메일 인증 수동 처리를 회사 구분 없이 할 수 있어야 한다.
+  // 서버(/api/auth/users/:id/verify-email)도 이 계정에 한해 회사 소속 검사를 건너뛴다.
+  const isOperator = currentUser.email === 'parkhy5454@gmail.com';
   const changeRole = async (target: UserType, newRole: 'admin' | 'member') => {
     setRoleError('');
     setRoleUpdatingId(target.id);
@@ -492,8 +497,9 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                               </div>
                             )}
 
-                            {/* [추가] 관리자 전용: 인증 메일을 못 받아 막혀 있는 동료를 수동으로 인증 완료 처리 */}
-                            {canManageRoles && isMyGroup && !isMe && u.type === 'company' && u.emailVerified === false && (
+                            {/* [추가] 관리자 전용(또는 회사 구분 없이 개발자 계정): 인증 메일을 못 받아
+                            막혀 있는 동료를 수동으로 인증 완료 처리 */}
+                            {(isOperator || (canManageRoles && isMyGroup)) && !isMe && u.type === 'company' && u.emailVerified === false && (
                               <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-200">
                                 <span className="text-[11px] text-slate-400">이메일 인증:</span>
                                 <button
