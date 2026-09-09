@@ -199,6 +199,30 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     }
   };
 
+  // [추가] 관리자 전용: 인증 메일이 스팸 등으로 막혀서 계속 "이메일 인증이 필요합니다"에
+  // 갇혀 있는 동료를, 관리자가 본인 확인 후 직접 인증 완료 처리를 해준다. (Daum/Naver가
+  // 해외 발송 서버의 인증 메일을 자동 차단하는 사례가 실제로 있어서 생긴 임시 우회 기능.)
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState('');
+  const verifyMemberEmail = async (target: UserType) => {
+    if (!window.confirm(`${target.name}(${target.email})님 본인이 실제로 이 계정으로 가입했다는 것을 확인하셨나요?\n확인하셨다면 이메일 인증을 완료 처리합니다.`)) return;
+    setVerifyError('');
+    setVerifyingId(target.id);
+    try {
+      const res = await fetch(`/api/auth/users/${target.id}/verify-email`, {
+        method: 'POST',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || '인증 처리에 실패했습니다.');
+      setUsers(prev => prev.map(u => (u.id === target.id ? { ...u, emailVerified: true } : u)));
+    } catch (err: any) {
+      setVerifyError(err.message || '인증 처리 중 오류가 발생했습니다.');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   // [추가] 관리자 전용: 이미 승인된 동료를 팀에서 제거한다 (본인 제외, 마지막 관리자는
   // 서버에서 막아준다). 승인 대기자를 지우는 "거절"과는 별도 API(/api/auth/users/:id DELETE).
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -299,6 +323,9 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         )}
         {removeError && (
           <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{removeError}</div>
+        )}
+        {verifyError && (
+          <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{verifyError}</div>
         )}
 
         {/* 가입자 목록 영역 */}
@@ -416,6 +443,14 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                                       승인 대기
                                     </span>
                                   )}
+                                  {u.emailVerified === false && (
+                                    <span
+                                      title="가입 시 보낸 인증 메일의 링크를 아직 누르지 않았습니다 (스팸 처리로 메일 자체를 못 받았을 수도 있습니다)"
+                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-500/20 cursor-help"
+                                    >
+                                      이메일 미인증
+                                    </span>
+                                  )}
                                   {/* [추가] 이 사람의 회사명 표기가 그룹 대표 표기와 다르면 알려준다.
                                   (예: 그룹은 "(주)OO"인데 이 사람만 "주식회사 OO"로 가입한 경우) */}
                                   {!g.isIndividualGroup && u.companyName && u.companyName !== g.label && (
@@ -454,6 +489,22 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                                   거절
                                 </button>
                                 {approvalUpdatingId === u.id && <span className="text-[11px] text-slate-400">처리 중...</span>}
+                              </div>
+                            )}
+
+                            {/* [추가] 관리자 전용: 인증 메일을 못 받아 막혀 있는 동료를 수동으로 인증 완료 처리 */}
+                            {canManageRoles && isMyGroup && !isMe && u.type === 'company' && u.emailVerified === false && (
+                              <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-200">
+                                <span className="text-[11px] text-slate-400">이메일 인증:</span>
+                                <button
+                                  type="button"
+                                  disabled={verifyingId === u.id}
+                                  onClick={() => verifyMemberEmail(u)}
+                                  title="인증 메일이 스팸 등으로 막혀 못 받은 경우, 본인 확인 후 수동으로 인증 완료 처리합니다"
+                                  className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  {verifyingId === u.id ? '처리 중...' : '수동으로 인증 완료 처리'}
+                                </button>
                               </div>
                             )}
 
