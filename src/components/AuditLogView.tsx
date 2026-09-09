@@ -38,7 +38,8 @@ const ACTION_LABELS: Record<string, string> = {
   member_approve: '가입 승인',
   member_reject: '가입 거절',
   member_remove: '팀에서 제거',
-  member_manual_email_verify: '이메일 인증 수동 처리'
+  member_manual_email_verify: '이메일 인증 수동 처리',
+  admin_set_password: '비밀번호 직접 설정'
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -49,6 +50,7 @@ const ACTION_COLORS: Record<string, string> = {
   subscription_payment_failed: 'bg-rose-50 text-rose-700 border-rose-200',
   member_approve: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   member_manual_email_verify: 'bg-amber-50 text-amber-700 border-amber-200',
+  admin_set_password: 'bg-amber-50 text-amber-700 border-amber-200',
   subscription_started: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   subscription_renewed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   data_backup_export: 'bg-slate-50 text-slate-700 border-slate-200'

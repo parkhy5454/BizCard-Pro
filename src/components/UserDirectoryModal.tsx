@@ -228,6 +228,37 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     }
   };
 
+  // [추가] 관리자(또는 개발자 계정) 전용: 비밀번호 재설정 메일도 국내 메일의 스팸 차단에
+  // 막혀서 못 받는 경우를 위해, 이메일에 전혀 의존하지 않고 새 비밀번호를 직접 정해서
+  // 알려줄 수 있는 기능. 비밀번호는 서버에 암호화 저장되므로 "원래 비밀번호"는 아무도
+  // 알 수 없고, 이 방법으로만 새로 정해줄 수 있다.
+  const [settingPasswordId, setSettingPasswordId] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState('');
+  const setMemberPassword = async (target: UserType) => {
+    const newPassword = window.prompt(`${target.name}(${target.email})님에게 알려줄 새 비밀번호를 입력하세요 (8자 이상).\n입력 후 이 비밀번호를 본인에게 직접 전달해주세요.`);
+    if (!newPassword) return; // 취소 또는 빈 입력
+    if (newPassword.length < 8) {
+      setPasswordError('비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+    setPasswordError('');
+    setSettingPasswordId(target.id);
+    try {
+      const res = await fetch(`/api/auth/users/${target.id}/set-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify({ newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || '비밀번호 설정에 실패했습니다.');
+      window.alert(`${target.name}님의 비밀번호가 변경되었습니다.\n이 비밀번호를 본인에게 전달해서 로그인하도록 안내해주세요.`);
+    } catch (err: any) {
+      setPasswordError(err.message || '비밀번호 설정 중 오류가 발생했습니다.');
+    } finally {
+      setSettingPasswordId(null);
+    }
+  };
+
   // [추가] 관리자 전용: 이미 승인된 동료를 팀에서 제거한다 (본인 제외, 마지막 관리자는
   // 서버에서 막아준다). 승인 대기자를 지우는 "거절"과는 별도 API(/api/auth/users/:id DELETE).
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -331,6 +362,9 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         )}
         {verifyError && (
           <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{verifyError}</div>
+        )}
+        {passwordError && (
+          <div className="px-5 pt-3 text-xs text-rose-600 bg-rose-50">{passwordError}</div>
         )}
 
         {/* 가입자 목록 영역 */}
@@ -510,6 +544,24 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                                   className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                 >
                                   {verifyingId === u.id ? '처리 중...' : '수동으로 인증 완료 처리'}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* [추가] 관리자 전용(또는 회사 구분 없이 개발자 계정): 비밀번호 재설정
+                            메일도 스팸 등으로 못 받아 로그인 자체가 막힌 동료를 위해, 이메일과
+                            무관하게 새 비밀번호를 직접 정해서 알려줄 수 있게 한다. */}
+                            {(isOperator || (canManageRoles && isMyGroup)) && !isMe && u.type === 'company' && (
+                              <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-200">
+                                <span className="text-[11px] text-slate-400">로그인 문제:</span>
+                                <button
+                                  type="button"
+                                  disabled={settingPasswordId === u.id}
+                                  onClick={() => setMemberPassword(u)}
+                                  title="비밀번호 재설정 메일도 못 받는 경우, 새 비밀번호를 직접 정해서 알려줄 수 있습니다"
+                                  className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  {settingPasswordId === u.id ? '처리 중...' : '비밀번호 직접 설정'}
                                 </button>
                               </div>
                             )}
