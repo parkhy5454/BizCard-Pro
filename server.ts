@@ -124,7 +124,7 @@ import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './
 import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup, CompanyBranding } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -1338,7 +1338,7 @@ async function persistImageField(
   scopeId: string,
   value: string | undefined,
   keyHint: string,
-  category: 'cards' | 'receipts' | 'signatures' = 'cards'
+  category: 'cards' | 'receipts' | 'signatures' | 'branding' = 'cards'
 ): Promise<string | undefined> {
   if (!value || !value.startsWith('data:image/')) return value;
   try {
@@ -4963,6 +4963,49 @@ app.put('/api/approval-line-templates', async (req, res) => {
   const template = { id: 'default', advance: req.body.advance || null, leave: req.body.leave || null, official: req.body.official || null };
   await setScopedDoc(scopeId, 'approvalLineTemplates', template);
   res.json(template);
+});
+
+// ------------------------------------------------------------------
+// 🖼️ 회사별 공문서 로고 / 직인
+// 예전엔 공문서 상단 로고와 하단 직인(도장) 이미지가 "카이저솔루션" 것으로
+// 하드코딩되어 있었다. 이제 회사(스코프)마다 각자 업로드해서 자기 공문서에만
+// 반영되도록 한다. 조회는 회사 소속 누구나, 저장(업로드/삭제)은 관리자만 가능하다.
+// ------------------------------------------------------------------
+app.get('/api/company-branding', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const scopeId = (req as any).scopeId;
+  const existing = await getScopedDoc<CompanyBranding>(scopeId, 'branding', 'branding');
+  res.json(existing || { id: 'branding', scopeId, logoUrl: undefined, sealUrl: undefined, updatedAt: '' });
+});
+
+app.put('/api/company-branding', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const scopeId = (req as any).scopeId;
+
+  const existing = await getScopedDoc<CompanyBranding>(scopeId, 'branding', 'branding');
+  let logoUrl = existing?.logoUrl;
+  let sealUrl = existing?.sealUrl;
+
+  const { logoImage, sealImage, removeLogo, removeSeal } = req.body;
+  if (removeLogo) logoUrl = undefined;
+  if (removeSeal) sealUrl = undefined;
+  if (typeof logoImage === 'string' && logoImage.startsWith('data:image/')) {
+    logoUrl = await persistImageField(scopeId, logoImage, `branding-logo-${scopeId}`, 'branding');
+  }
+  if (typeof sealImage === 'string' && sealImage.startsWith('data:image/')) {
+    sealUrl = await persistImageField(scopeId, sealImage, `branding-seal-${scopeId}`, 'branding');
+  }
+
+  const branding: CompanyBranding = { id: 'branding', scopeId, logoUrl, sealUrl, updatedAt: new Date().toISOString() };
+  const saved = await setScopedDoc(scopeId, 'branding', branding);
+  if (!saved) {
+    return res.status(500).json({ error: '로고/직인 이미지를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  res.json(branding);
 });
 
 // ------------------------------------------------------------------

@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
   Printer, Calendar, User as UserIcon, Briefcase, Hash, FileSpreadsheet, Eye,
-  Download, ClipboardList, Car, Wrench, ChevronDown, Camera, PenTool, FileText
+  Download, ClipboardList, Car, Wrench, ChevronDown, Camera, PenTool, FileText,
+  Image as ImageIcon, Trash
 } from 'lucide-react';
 import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -423,6 +424,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const [visibleAdvanceCount, setVisibleAdvanceCount] = useState<number>(50);
   const [visibleLeaveCount, setVisibleLeaveCount] = useState<number>(50);
   const [visibleOfficialCount, setVisibleOfficialCount] = useState<number>(50);
+  // [추가] 공문서 상단 로고 / 하단 직인(도장) - 예전엔 "카이저솔루션" 이미지가 모든 회사에
+  // 그대로 하드코딩되어 있었다. 이제 회사(스코프)마다 각자 업로드해서 자기 공문서에만
+  // 반영되도록 서버(/api/company-branding)에서 불러온다.
+  const [branding, setBranding] = useState<{ logoUrl?: string; sealUrl?: string }>({});
+  const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
+  const [brandingLogoPreview, setBrandingLogoPreview] = useState<string | null>(null);
+  const [brandingSealPreview, setBrandingSealPreview] = useState<string | null>(null);
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [brandingError, setBrandingError] = useState('');
   // [추가] 경영지원 서류(근로계약서 등)와 공유하는 회사 공통 설정값. 공문서 작성 시
   // 발신처 주소/전화/팩스/이메일과 시행번호 접두어(기본 "KS")를 자동으로 채우는 데 쓰인다.
   const [companySettings, setCompanySettings] = useState<{ address: string; businessType: string; phone: string; fax: string; email: string; docPrefix: string }>({ address: '', businessType: '', phone: '', fax: '', email: '', docPrefix: 'KS' });
@@ -523,6 +533,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     fetchCompanyPositions();
     fetchApprovalLineTemplate();
     fetchCompanySettings();
+    fetchBranding();
   }, [currentUser]);
 
   // 총 연차 일수가 입력되어 있으면, 휴가 구분과 무관하게 같은 해에 그 사람이 이미 사용한 휴가일수
@@ -613,6 +624,84 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       });
     } catch (err) {
       console.error('Company settings fetch error:', err);
+    }
+  };
+
+  // [추가] 공문서 로고/직인 이미지 조회.
+  const fetchBranding = async () => {
+    try {
+      const headers = currentUser ? { 'x-user-id': currentUser.id } : undefined;
+      const res = await fetch('/api/company-branding', { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      setBranding({ logoUrl: data.logoUrl, sealUrl: data.sealUrl });
+    } catch (err) {
+      console.error('Company branding fetch error:', err);
+    }
+  };
+
+  const handleBrandingFileSelect = (kind: 'logo' | 'seal', file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      if (kind === 'logo') setBrandingLogoPreview(dataUrl);
+      else setBrandingSealPreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveBranding = async () => {
+    if (!currentUser) return;
+    if (!brandingLogoPreview && !brandingSealPreview) {
+      setIsBrandingModalOpen(false);
+      return;
+    }
+    setSavingBranding(true);
+    setBrandingError('');
+    try {
+      const body: any = {};
+      if (brandingLogoPreview) body.logoImage = brandingLogoPreview;
+      if (brandingSealPreview) body.sealImage = brandingSealPreview;
+      const res = await fetch('/api/company-branding', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '저장하지 못했습니다.');
+      setBranding({ logoUrl: data.logoUrl, sealUrl: data.sealUrl });
+      setBrandingLogoPreview(null);
+      setBrandingSealPreview(null);
+      setIsBrandingModalOpen(false);
+    } catch (err: any) {
+      setBrandingError(err.message || '저장하지 못했습니다.');
+    } finally {
+      setSavingBranding(false);
+    }
+  };
+
+  const handleRemoveBrandingImage = async (kind: 'logo' | 'seal') => {
+    if (!currentUser) return;
+    if (!window.confirm(kind === 'logo' ? '로고 이미지를 삭제하시겠습니까?' : '직인 이미지를 삭제하시겠습니까?')) return;
+    setSavingBranding(true);
+    setBrandingError('');
+    try {
+      const body = kind === 'logo' ? { removeLogo: true } : { removeSeal: true };
+      const res = await fetch('/api/company-branding', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '삭제하지 못했습니다.');
+      setBranding({ logoUrl: data.logoUrl, sealUrl: data.sealUrl });
+      if (kind === 'logo') setBrandingLogoPreview(null);
+      else setBrandingSealPreview(null);
+    } catch (err: any) {
+      setBrandingError(err.message || '삭제하지 못했습니다.');
+    } finally {
+      setSavingBranding(false);
     }
   };
 
@@ -1744,7 +1833,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             컨테이너에 display:flex + alignItems:center를 줘서 회사명 글자도 로고와 똑같이
             컨테이너 세로 중앙(50%)을 기준으로 정렬되도록 맞췄다. */}
         <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img src="/brand/kaiser-logo.png" alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
+          {/* [수정] 예전엔 "카이저솔루션" 로고가 모든 회사 공문서에 고정으로 찍혔다. 이제
+              회사(스코프)가 직접 올린 로고(branding.logoUrl)가 있을 때만 보여주고,
+              없으면 로고 없이 회사명 글자만 표시한다(깨진 이미지 아이콘 방지). */}
+          {branding.logoUrl && (
+            <img src={branding.logoUrl} alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
+          )}
           <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
         </div>
 
@@ -1789,7 +1883,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               zIndex로 별도 stacking context가 생긴다). */}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 40, marginBottom: 0 }}>
             <span style={{ fontSize: 20, fontWeight: 800, position: 'relative', zIndex: 1 }}>{doc.companyName}</span>
-            <img src="/brand/kaiser-seal.png" alt="" style={{ height: 58, marginLeft: -20, position: 'relative', zIndex: 0 }} />
+            {/* [수정] 로고와 마찬가지로, 회사가 직접 올린 직인(branding.sealUrl)이 있을 때만
+                표시한다. */}
+            {branding.sealUrl && (
+              <img src={branding.sealUrl} alt="" style={{ height: 58, marginLeft: -20, position: 'relative', zIndex: 0 }} />
+            )}
           </div>
 
           {/* [수정] 도장 아래 굵은 회색 구분선 - 그 아래로 결재란/시행/발신처 정보를 묶는다 */}
@@ -2091,10 +2189,19 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex justify-start">
+          <div className="flex justify-start items-center gap-2">
             <button onClick={openNewOfficial} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95">
               <Plus className="w-4 h-4" /><span>공문서 작성</span>
             </button>
+            {/* [추가] 관리자만 우리 회사 로고/직인을 올리거나 바꿀 수 있다. */}
+            {currentUser?.role === 'admin' && (
+              <button
+                onClick={() => setIsBrandingModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm transition-all"
+              >
+                <ImageIcon className="w-4 h-4" /><span>로고/직인 설정</span>
+              </button>
+            )}
           </div>
 
           {officialList.length === 0 ? (
@@ -2780,6 +2887,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   </button>
                 </div>
               </div>
+              {/* [추가] 인쇄 대화상자의 "머리글과 바닥글"(날짜/제목/URL/페이지 번호)은 브라우저가
+                  자체적으로 붙이는 것이라 이 앱에서 코드로 끌 수 없다. 외부로 보내는 공문서에
+                  이게 찍히지 않게 하려면, 인쇄 대화상자에서 이 옵션을 직접 꺼야 한다는 걸
+                  안내한다. */}
+              <p className="no-print text-[11px] text-amber-600 bg-amber-50 border-b border-amber-200 px-4 sm:px-5 py-2">
+                외부로 보내는 문서라면, 인쇄 대화상자의 "자세히"(또는 "추가 설정")에서 <b>"머리글과 바닥글"</b>을 꺼주세요 — 켜져 있으면 날짜/주소/페이지 번호가 문서 위아래에 함께 찍힙니다. (브라우저 자체 인쇄 기능이라 앱에서 미리 꺼드릴 수는 없습니다.)
+              </p>
 
               <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
                 <div className="shrink-0" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.08)' }}>
@@ -3136,6 +3250,89 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             }
           }}
         />
+      )}
+
+      {/* [추가] 회사 로고/직인 설정 모달 - 관리자만 열 수 있다(버튼 자체가 관리자에게만 보임).
+          공문서 상단 로고와 하단 직인(도장) 이미지를 각 회사가 직접 올려서, 더 이상
+          카이저솔루션 것이 다른 회사 문서에 찍히지 않도록 한다. */}
+      {isBrandingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsBrandingModalOpen(false)}>
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><ImageIcon className="w-4 h-4 text-indigo-500" /> 공문서 로고/직인 설정</h3>
+              <button onClick={() => setIsBrandingModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">여기서 올린 이미지는 우리 회사 공문서에만 반영되고, 다른 회사에는 영향이 없습니다.</p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600">상단 로고</label>
+              <div className="flex items-center gap-3">
+                <div className="w-20 h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
+                  {(brandingLogoPreview || branding.logoUrl) ? (
+                    <img src={brandingLogoPreview || branding.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-slate-300" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold text-center cursor-pointer">
+                    이미지 선택
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBrandingFileSelect('logo', e.target.files?.[0])} />
+                  </label>
+                  {branding.logoUrl && (
+                    <button onClick={() => handleRemoveBrandingImage('logo')} className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 text-xs font-bold flex items-center justify-center gap-1">
+                      <Trash className="w-3 h-3" /> 삭제
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600">하단 직인(도장)</label>
+              <div className="flex items-center gap-3">
+                <div className="w-20 h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
+                  {(brandingSealPreview || branding.sealUrl) ? (
+                    <img src={brandingSealPreview || branding.sealUrl} alt="" className="max-w-full max-h-full object-contain" />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-slate-300" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold text-center cursor-pointer">
+                    이미지 선택
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBrandingFileSelect('seal', e.target.files?.[0])} />
+                  </label>
+                  {branding.sealUrl && (
+                    <button onClick={() => handleRemoveBrandingImage('seal')} className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 text-xs font-bold flex items-center justify-center gap-1">
+                      <Trash className="w-3 h-3" /> 삭제
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {brandingError && <p className="text-xs text-rose-500">{brandingError}</p>}
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={handleSaveBranding}
+                disabled={savingBranding}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+              >
+                <Check className="w-3.5 h-3.5" /> {savingBranding ? '저장 중...' : '저장'}
+              </button>
+              <button
+                onClick={() => { setIsBrandingModalOpen(false); setBrandingLogoPreview(null); setBrandingSealPreview(null); setBrandingError(''); }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1212,6 +1212,21 @@ export interface InviteRecord {
   sentAt: string;
 }
 
+// === 회사 로고 / 직인(공문서용) ===
+// [추가] 예전엔 공문서(전자결재 > 공문서) 상단 로고와 하단 직인(도장) 이미지가
+// "카이저솔루션" 것으로 하드코딩되어 있어서, 다른 회사가 공문서를 만들어도 그 회사
+// 로고/직인이 아니라 카이저솔루션 것이 그대로 찍혀 나가는 문제가 있었다. 이제 회사
+// (스코프)마다 각자 로고/직인 이미지를 올려서 자기 공문서에만 반영되게 한다.
+// scoped_items 테이블에 collection: 'branding', doc_id: 'branding' 고정값으로 스코프당
+// 딱 1건만 저장되는 단일 문서다.
+export interface CompanyBranding {
+  id: string; // 항상 'branding' 고정값
+  scopeId: string;
+  logoUrl?: string;
+  sealUrl?: string;
+  updatedAt: string;
+}
+
 // === 사내 공지사항/게시판 ===
 // [추가] 회사(스코프) 전체에게 알리는 공지. 관리자만 작성/수정/삭제할 수 있고,
 // 소속 회원은 전부 읽을 수 있다. pinned(상단 고정)은 목록 맨 위에 항상 노출된다.
