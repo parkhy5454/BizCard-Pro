@@ -6,15 +6,17 @@ interface Props {
   currentUser: User;
   onLogout: () => void;
   onVerified: () => void; // 인증 성공 후 currentUser를 다시 불러와 화면을 갱신하기 위한 콜백
+  onRefreshStatus?: () => Promise<void>; // [추가] "새로고침해서 확인하기" 버튼 — 관리자가 수동으로 인증 처리해준 경우처럼, 메일 링크를 안 눌러도 최신 상태를 바로 확인할 수 있게 한다.
 }
 
 // [추가] 이메일 인증을 아직 안 한 회원에게 보여주는 화면. 인증 메일의 링크
 // (?verifyToken=...)를 타고 들어온 경우 여기서 자동으로 인증 처리까지 한다.
-export const EmailVerificationRequiredView: React.FC<Props> = ({ currentUser, onLogout, onVerified }) => {
+export const EmailVerificationRequiredView: React.FC<Props> = ({ currentUser, onLogout, onVerified, onRefreshStatus }) => {
   const [status, setStatus] = useState<'idle' | 'verifying' | 'verified' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [resending, setResending] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,6 +42,21 @@ export const EmailVerificationRequiredView: React.FC<Props> = ({ currentUser, on
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // [추가] 관리자가 "수동으로 인증 완료 처리"를 해준 경우, 메일 링크를 누른 게 아니라서
+  // 위 useEffect(verifyToken 처리)가 동작하지 않는다. 이 화면을 계속 새로고침해도
+  // localStorage에 남아있던 예전 상태 때문에 계속 갇혀 있을 수 있으므로, 눌러서 바로
+  // 최신 상태를 확인할 수 있는 버튼을 둔다.
+  const handleCheckStatus = async () => {
+    if (!onRefreshStatus) return;
+    setCheckingStatus(true);
+    setResendMsg('');
+    try {
+      await onRefreshStatus();
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
 
   const handleResend = async () => {
     setResending(true);
@@ -99,6 +116,17 @@ export const EmailVerificationRequiredView: React.FC<Props> = ({ currentUser, on
               <RefreshCw className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
               {resending ? '전송 중...' : '인증 메일 다시 받기'}
             </button>
+            {onRefreshStatus && (
+              <button
+                onClick={handleCheckStatus}
+                disabled={checkingStatus}
+                title="관리자가 이미 인증 처리를 해줬다면, 메일 링크를 안 눌러도 여기서 바로 확인할 수 있습니다"
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold transition-colors mb-3"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${checkingStatus ? 'animate-spin' : ''}`} />
+                {checkingStatus ? '확인 중...' : '이미 인증 처리됐는지 새로고침해서 확인'}
+              </button>
+            )}
           </>
         )}
 
