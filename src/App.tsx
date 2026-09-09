@@ -33,6 +33,9 @@ import { GlobalSearchModal } from './components/GlobalSearchModal.js';
 import { DashboardView } from './components/DashboardView.js';
 import { AIIntelligenceView } from './components/AIIntelligenceView.js';
 import { LegalModal } from './components/LegalModal.js';
+import { OrgChartView } from './components/OrgChartView.js';
+import { AnnouncementsView } from './components/AnnouncementsView.js';
+import { TeamChatView } from './components/TeamChatView.js';
 
 export default function App() {
   // 회원 세션 상태
@@ -42,7 +45,8 @@ export default function App() {
   });
 
   // 메인 내비게이션 탭 상태
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence'>('cards');
+  // [추가] 조직도/공지사항/사내 메신저 - 그룹웨어(다우오피스 등) 대비 부족했던 핵심 기능 보강
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -674,6 +678,19 @@ export default function App() {
             감사 기록을 보여준다. */}
             {activeTab === 'audit_logs' && currentUser?.role === 'admin' && (
               <AuditLogView key={viewResetNonce} currentUser={currentUser} />
+            )}
+
+            {/* [추가] 조직도 / 사내 공지사항 / 사내 메신저 - 그룹웨어(다우오피스, 하이웍스 등)
+            대비 부족했던 핵심 기능들. 셋 다 회사(company) 회원이면 누구나 볼 수 있고,
+            작성/편집 권한만 각 화면 내부에서 관리자로 제한한다. */}
+            {activeTab === 'org_chart' && currentUser && (
+              <OrgChartView key={viewResetNonce} currentUser={currentUser} />
+            )}
+            {activeTab === 'announcements' && currentUser && (
+              <AnnouncementsView key={viewResetNonce} currentUser={currentUser} />
+            )}
+            {activeTab === 'team_chat' && currentUser && (
+              <TeamChatView key={viewResetNonce} currentUser={currentUser} />
             )}
 
             {/* [추가] AI Intelligence - 오늘의 브리핑/기업 인텔리전스/관계·영업 인텔리전스.

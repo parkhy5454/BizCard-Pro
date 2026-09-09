@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ReferralModal } from './ReferralModal.js';
 import { RemindersBell } from './RemindersBell.js';
@@ -7,8 +7,8 @@ import { ContactGroup, Project, User as UserType } from '../types.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 
 interface Props {
-  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence';
-  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence') => void;
+  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat';
+  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat') => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedGroup: string;
@@ -477,6 +477,47 @@ export const Navigation: React.FC<Props> = ({
               <FileSignature className="w-4 h-4 text-indigo-400" />
               <span>전자결재</span>
             </button>
+
+            {/* [추가] 조직도 / 사내 공지사항 / 사내 메신저 - 그룹웨어(다우오피스, 하이웍스 등)
+            대비 부족했던 핵심 기능 보강. 회사(company) 회원에게만 의미가 있으므로(개인
+            회원은 동료가 없음) 회사 계정에만 노출한다. */}
+            {currentUser?.type === 'company' && (
+              <>
+                <button
+                  onClick={() => handleMainTabClick('org_chart')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                    activeTab === 'org_chart'
+                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Network className="w-4 h-4 text-indigo-400" />
+                  <span>조직도</span>
+                </button>
+                <button
+                  onClick={() => handleMainTabClick('announcements')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                    activeTab === 'announcements'
+                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Megaphone className="w-4 h-4 text-indigo-400" />
+                  <span>공지사항</span>
+                </button>
+                <button
+                  onClick={() => handleMainTabClick('team_chat')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                    activeTab === 'team_chat'
+                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <MessagesSquare className="w-4 h-4 text-indigo-400" />
+                  <span>사내 메신저</span>
+                </button>
+              </>
+            )}
 
             {/* [추가] 경영지원 / 회계관리 - 관리자(role: 'admin')만 보이는 탭. 회사 서류·장부는
             민감한 정보라서, 관리자가 아닌 일반 직원에게는 탭 자체를 아예 노출하지 않는다. */}

@@ -849,6 +849,11 @@ export interface User {
   referredByUserId?: string;
   referralRewardGranted?: boolean;
   referralCreditMonths?: number;
+  // [추가] 조직도. department(부서)는 자유 텍스트, managerUserId는 이 사람의 직속 상사
+  // 사용자 id다. 관리자가 회원 목록에서 지정하며, 둘 다 선택 입력이라 값이 없으면
+  // 조직도 화면에서 "미배정"(부서) / 최상위(관리자 직속 아래) 취급한다.
+  department?: string;
+  managerUserId?: string;
 }
 
 export interface RegisteredUser extends User {
@@ -1205,4 +1210,34 @@ export interface InviteRecord {
   sentByUserId?: string;
   sentByUserName?: string;
   sentAt: string;
+}
+
+// === 사내 공지사항/게시판 ===
+// [추가] 회사(스코프) 전체에게 알리는 공지. 관리자만 작성/수정/삭제할 수 있고,
+// 소속 회원은 전부 읽을 수 있다. pinned(상단 고정)은 목록 맨 위에 항상 노출된다.
+export interface Announcement {
+  id: string;
+  scopeId: string;
+  authorUserId: string;
+  authorName: string;
+  title: string;
+  content: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// === 사내 메신저 ===
+// [추가] 실시간 웹소켓 대신, 짧은 주기로 새 메시지를 조회하는 폴링 방식으로 구현했다
+// (무료 배포 환경에서도 추가 인프라 없이 바로 동작하는 게 우선). channel이
+// "team"이면 회사 전체가 보는 팀 채널이고, 그 외에는 "dm:userIdA:userIdB"
+// (아이디를 사전순 정렬해 합친 값) 형태의 1:1 대화방이다.
+export interface ChatMessage {
+  id: string;
+  scopeId: string;
+  channel: string;
+  senderUserId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
 }

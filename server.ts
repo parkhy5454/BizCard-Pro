@@ -124,7 +124,7 @@ import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './
 import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -899,6 +899,8 @@ const db: { [scopeId: string]: {
   leaveRequests: LeaveRequest[];
   officialDocuments: OfficialDocument[];
   adminDocs: AdminDoc[];
+  announcements: Announcement[];
+  chatMessages: ChatMessage[];
 } } = {};
 
 // 동시에 여러 요청이 같은 스코프를 불러오려고 하면(예: 페이지 로딩 시 여러 화면이 동시에 호출),
@@ -987,6 +989,11 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   const leaveRequests = await withTimeout(getScopedCollection<LeaveRequest>(scopeId, 'leaveRequests'), 'leaveRequests');
   const officialDocuments = await withTimeout(getScopedCollection<OfficialDocument>(scopeId, 'officialDocuments'), 'officialDocuments');
   const adminDocs = await withTimeout(getScopedCollection<AdminDoc>(scopeId, 'adminDocs'), 'adminDocs');
+  const announcements = await withTimeout(getScopedCollection<Announcement>(scopeId, 'announcements'), 'announcements');
+  // [추가] 채팅 메시지는 다른 컬렉션과 달리 시간이 지날수록 계속 쌓이기만 하는 로그성
+  // 데이터라서, 전체를 다 불러오면 대화가 오래될수록 매번 로딩이 느려진다. 최근 500건만
+  // 캐싱해도 화면(최근 대화 스크롤)에는 충분하다.
+  const chatMessages = await withTimeout(getScopedCollection<ChatMessage>(scopeId, 'chatMessages'), 'chatMessages');
   const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
   const myProfile = profileList.find(p => p.email === 'parkyl5454@gmail.com') || profileList[0] || initialMyProfile;
@@ -1006,7 +1013,9 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
     advancePayments,
     leaveRequests,
     officialDocuments,
-    adminDocs
+    adminDocs,
+    announcements,
+    chatMessages
   };
 
   if (hadTimeout) {
@@ -1060,7 +1069,9 @@ function getScopedData(req: express.Request): any {
     advancePayments: [],
     leaveRequests: [],
     officialDocuments: [],
-    adminDocs: []
+    adminDocs: [],
+    announcements: [],
+    chatMessages: []
   };
 }
 
@@ -1533,6 +1544,175 @@ app.get('/api/referral/me', async (req, res) => {
       rewardedAt: r.rewarded_at
     }))
   });
+});
+
+// ------------------------------------------------------------------
+// 📢 사내 공지사항 / 게시판
+// 회사(스코프) 전체가 읽을 수 있고, 관리자만 작성/수정/삭제할 수 있다. 이미 있던
+// admin-docs 등 다른 스코프 컬렉션과 동일하게, 메모리 캐시(db[scopeId])와 Supabase를
+// 함께 갱신하는 setScopedDoc/deleteScopedDoc 패턴을 그대로 따른다.
+// ------------------------------------------------------------------
+app.get('/api/announcements', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const dbData = getScopedData(req);
+  const list: Announcement[] = dbData.announcements || [];
+  // 고정(pinned) 공지를 맨 위에, 그 안에서는 최신순으로 정렬.
+  const sorted = [...list].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  res.json(sorted);
+});
+
+app.post('/api/announcements', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const scopeId = (req as any).scopeId;
+  const dbData = getScopedData(req);
+
+  const { title, content, pinned } = req.body;
+  if (!title || !String(title).trim() || !content || !String(content).trim()) {
+    return res.status(400).json({ error: '제목과 내용을 모두 입력해주세요.' });
+  }
+
+  const now = new Date().toISOString();
+  const announcement: Announcement = {
+    id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    scopeId,
+    authorUserId: requester.id,
+    authorName: requester.name,
+    title: String(title).trim(),
+    content: String(content).trim(),
+    pinned: Boolean(pinned),
+    createdAt: now,
+    updatedAt: now
+  };
+
+  dbData.announcements = dbData.announcements || [];
+  dbData.announcements.unshift(announcement);
+  const saved = await setScopedDoc(scopeId, 'announcements', announcement);
+  if (!saved) {
+    dbData.announcements = dbData.announcements.filter((a: Announcement) => a.id !== announcement.id);
+    return res.status(500).json({ error: '공지사항을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  res.status(201).json(announcement);
+});
+
+app.put('/api/announcements/:id', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const scopeId = (req as any).scopeId;
+  const dbData = getScopedData(req);
+  dbData.announcements = dbData.announcements || [];
+  const idx = dbData.announcements.findIndex((a: Announcement) => a.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: '공지사항을 찾을 수 없습니다.' });
+
+  const previous = dbData.announcements[idx];
+  const { title, content, pinned } = req.body;
+  const updated: Announcement = {
+    ...previous,
+    title: typeof title === 'string' && title.trim() ? title.trim() : previous.title,
+    content: typeof content === 'string' && content.trim() ? content.trim() : previous.content,
+    pinned: typeof pinned === 'boolean' ? pinned : previous.pinned,
+    updatedAt: new Date().toISOString()
+  };
+  dbData.announcements[idx] = updated;
+  const saved = await setScopedDoc(scopeId, 'announcements', updated);
+  if (!saved) {
+    dbData.announcements[idx] = previous;
+    return res.status(500).json({ error: '공지사항 수정 내용을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  res.json(updated);
+});
+
+app.delete('/api/announcements/:id', async (req, res) => {
+  const requester = requireAdmin(req, res);
+  if (!requester) return;
+  const scopeId = (req as any).scopeId;
+  const dbData = getScopedData(req);
+  dbData.announcements = dbData.announcements || [];
+  dbData.announcements = dbData.announcements.filter((a: Announcement) => a.id !== req.params.id);
+  await deleteScopedDoc(scopeId, 'announcements', req.params.id);
+  res.json({ success: true });
+});
+
+// ------------------------------------------------------------------
+// 💬 사내 메신저 (폴링 방식)
+// 무료 배포 환경에 웹소켓 서버를 새로 두지 않고, 클라이언트가 몇 초 간격으로
+// "마지막으로 받은 메시지 이후"를 조회하는 방식으로 구현했다. 채널은 "team"(회사 전체
+// 채널) 또는 "dm:<정렬된 두 사용자 id>"(1:1 대화) 형태다.
+// ------------------------------------------------------------------
+function dmChannelId(userIdA: string, userIdB: string): string {
+  return `dm:${[userIdA, userIdB].sort().join(':')}`;
+}
+
+app.get('/api/chat/messages', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const channel = String(req.query.channel || 'team');
+  // 1:1 대화방(dm:a:b)은 그 두 사람만 조회할 수 있게 막는다 — 안 그러면 채널 이름(상대방
+  // id)만 알면 남의 대화를 그대로 읽을 수 있는 문제가 생긴다.
+  if (channel.startsWith('dm:')) {
+    const parts = channel.slice(3).split(':');
+    if (!parts.includes(requester.id)) {
+      return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
+    }
+  }
+
+  const dbData = getScopedData(req);
+  const all: ChatMessage[] = dbData.chatMessages || [];
+  const since = req.query.sinceId ? String(req.query.sinceId) : undefined;
+  let list = all.filter((m) => m.channel === channel);
+  if (since) {
+    const sinceIdx = list.findIndex((m) => m.id === since);
+    if (sinceIdx !== -1) list = list.slice(sinceIdx + 1);
+  } else {
+    // 최초 로딩 시에는 최근 50건만 내려준다 (대화가 길어져도 매번 전체를 안 보내도록).
+    list = list.slice(-50);
+  }
+  res.json(list);
+});
+
+app.post('/api/chat/messages', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const channel = String(req.body.channel || 'team');
+  const content = String(req.body.content || '').trim();
+  if (!content) return res.status(400).json({ error: '내용을 입력해주세요.' });
+  if (content.length > 2000) return res.status(400).json({ error: '메시지가 너무 깁니다 (최대 2000자).' });
+  if (channel.startsWith('dm:')) {
+    const parts = channel.slice(3).split(':');
+    if (!parts.includes(requester.id)) {
+      return res.status(403).json({ error: '이 대화에 보낼 권한이 없습니다.' });
+    }
+  }
+
+  const scopeId = (req as any).scopeId;
+  const dbData = getScopedData(req);
+  const message: ChatMessage = {
+    id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    scopeId,
+    channel,
+    senderUserId: requester.id,
+    senderName: requester.name,
+    content,
+    createdAt: new Date().toISOString()
+  };
+  dbData.chatMessages = dbData.chatMessages || [];
+  dbData.chatMessages.push(message);
+  const saved = await setScopedDoc(scopeId, 'chatMessages', message);
+  if (!saved) {
+    dbData.chatMessages = dbData.chatMessages.filter((m: ChatMessage) => m.id !== message.id);
+    return res.status(500).json({ error: '메시지를 전송하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  res.status(201).json(message);
 });
 
 // 🔐 Auth APIs
@@ -2013,6 +2193,9 @@ app.get('/api/auth/users', (req, res) => {
     // 알아야, 국내 메일(Daum/Naver)이 인증 메일을 스팸으로 자동 차단해서 못 받는
     // 경우에 관리자가 수동 인증 버튼을 보여줄 수 있다.
     emailVerified: isEmailVerified(u.emailVerified),
+    // [추가] 조직도 화면에서 부서/보고 체계를 그리기 위한 필드.
+    department: u.department,
+    managerUserId: u.managerUserId,
     createdAt: u.createdAt
   });
 
@@ -2075,10 +2258,17 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
     return res.status(403).json({ error: '같은 회사 소속 사용자만 수정할 수 있습니다.' });
   }
 
-  const { position, role } = req.body;
+  const { position, role, department, managerUserId } = req.body;
   const prevRole = target.role;
   if (typeof position === 'string') target.position = position;
   if (role === 'admin' || role === 'member') target.role = role;
+  // [추가] 조직도(부서/직속 상사) 편집. 관리자만 바꿀 수 있고, 빈 문자열을 보내면
+  // "미배정"으로 지운다. 자기 자신을 자기 상사로 지정하는 것만 막는다(순환은 화면에서
+  // 트리를 그릴 때 자연히 무시되므로 서버에서 굳이 깊게 검증하지 않는다).
+  if (typeof department === 'string') target.department = department.trim() || undefined;
+  if (typeof managerUserId === 'string') {
+    target.managerUserId = (managerUserId.trim() && managerUserId !== target.id) ? managerUserId.trim() : undefined;
+  }
   await addUser(target);
 
   // [추가] 관리자가 동료 역할을 바꾼 기록을 남긴다.
@@ -2094,7 +2284,7 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
     });
   }
 
-  res.json({ success: true, user: { id: target.id, email: target.email, name: target.name, position: target.position, role: target.role } });
+  res.json({ success: true, user: { id: target.id, email: target.email, name: target.name, position: target.position, role: target.role, department: target.department, managerUserId: target.managerUserId } });
 });
 
 // [추가] 관리자 전용: 이미 승인된 동료를 팀에서 제거(계정 삭제)한다. 기존에는 승인 대기
