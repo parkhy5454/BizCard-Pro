@@ -1230,8 +1230,9 @@ export interface Announcement {
 // === 사내 메신저 ===
 // [추가] 실시간 웹소켓 대신, 짧은 주기로 새 메시지를 조회하는 폴링 방식으로 구현했다
 // (무료 배포 환경에서도 추가 인프라 없이 바로 동작하는 게 우선). channel이
-// "team"이면 회사 전체가 보는 팀 채널이고, 그 외에는 "dm:userIdA:userIdB"
-// (아이디를 사전순 정렬해 합친 값) 형태의 1:1 대화방이다.
+// "team"이면 회사 전체가 보는 팀 채널, "dm:userIdA:userIdB"(아이디를 사전순 정렬해
+// 합친 값)이면 1:1 대화, "group:<그룹id>"면 아래 ChatGroup으로 멤버가 정해지는
+// 소그룹(2명 이상 지정) 대화방이다.
 export interface ChatMessage {
   id: string;
   scopeId: string;
@@ -1239,5 +1240,17 @@ export interface ChatMessage {
   senderUserId: string;
   senderName: string;
   content: string;
+  createdAt: string;
+}
+
+// [추가] 사내 메신저의 소그룹(부서/프로젝트 단위 등) 채팅방. 이름과 멤버 목록만 가진
+// 별도 문서이고, 실제 대화 내용은 위 ChatMessage에 channel: `group:${id}`로 쌓인다.
+// 멤버 목록에 없는 사람은 서버에서 이 방의 메시지를 읽거나 보낼 수 없도록 막는다.
+export interface ChatGroup {
+  id: string;
+  scopeId: string;
+  name: string;
+  memberUserIds: string[];
+  createdByUserId: string;
   createdAt: string;
 }

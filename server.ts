@@ -124,7 +124,7 @@ import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './
 import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage } from './src/types.js';
+import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup } from './src/types.js';
 import {
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -901,6 +901,7 @@ const db: { [scopeId: string]: {
   adminDocs: AdminDoc[];
   announcements: Announcement[];
   chatMessages: ChatMessage[];
+  chatGroups: ChatGroup[];
 } } = {};
 
 // 동시에 여러 요청이 같은 스코프를 불러오려고 하면(예: 페이지 로딩 시 여러 화면이 동시에 호출),
@@ -994,6 +995,7 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   // 데이터라서, 전체를 다 불러오면 대화가 오래될수록 매번 로딩이 느려진다. 최근 500건만
   // 캐싱해도 화면(최근 대화 스크롤)에는 충분하다.
   const chatMessages = await withTimeout(getScopedCollection<ChatMessage>(scopeId, 'chatMessages'), 'chatMessages');
+  const chatGroups = await withTimeout(getScopedCollection<ChatGroup>(scopeId, 'chatGroups'), 'chatGroups');
   const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
   const myProfile = profileList.find(p => p.email === 'parkyl5454@gmail.com') || profileList[0] || initialMyProfile;
@@ -1015,7 +1017,8 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
     officialDocuments,
     adminDocs,
     announcements,
-    chatMessages
+    chatMessages,
+    chatGroups
   };
 
   if (hadTimeout) {
@@ -1071,7 +1074,8 @@ function getScopedData(req: express.Request): any {
     officialDocuments: [],
     adminDocs: [],
     announcements: [],
-    chatMessages: []
+    chatMessages: [],
+    chatGroups: []
   };
 }
 
@@ -1649,22 +1653,34 @@ function dmChannelId(userIdA: string, userIdB: string): string {
   return `dm:${[userIdA, userIdB].sort().join(':')}`;
 }
 
+// group: 채널은 채널명(그룹 id)만으로는 누가 멤버인지 알 수 없으므로, 그때그때
+// chatGroups에서 실제 멤버 목록을 찾아 확인한다. 그룹 자체가 없으면(삭제됐거나
+// 잘못된 id) 접근을 막는다.
+function canAccessGroupChannel(dbData: any, channel: string, requesterId: string): boolean {
+  const groupId = channel.slice('group:'.length);
+  const group = (dbData.chatGroups || []).find((g: ChatGroup) => g.id === groupId);
+  return Boolean(group && group.memberUserIds.includes(requesterId));
+}
+
 app.get('/api/chat/messages', (req, res) => {
   const userId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
   const channel = String(req.query.channel || 'team');
-  // 1:1 대화방(dm:a:b)은 그 두 사람만 조회할 수 있게 막는다 — 안 그러면 채널 이름(상대방
-  // id)만 알면 남의 대화를 그대로 읽을 수 있는 문제가 생긴다.
+  const dbData = getScopedData(req);
+  // 1:1 대화방(dm:a:b)은 그 두 사람만, 소그룹 대화방(group:id)은 멤버로 지정된
+  // 사람만 조회할 수 있게 막는다 — 안 그러면 채널 이름만 알면 남의 대화를 그대로
+  // 읽을 수 있는 문제가 생긴다.
   if (channel.startsWith('dm:')) {
     const parts = channel.slice(3).split(':');
     if (!parts.includes(requester.id)) {
       return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
     }
+  } else if (channel.startsWith('group:') && !canAccessGroupChannel(dbData, channel, requester.id)) {
+    return res.status(403).json({ error: '이 그룹 대화를 조회할 권한이 없습니다.' });
   }
 
-  const dbData = getScopedData(req);
   const all: ChatMessage[] = dbData.chatMessages || [];
   const since = req.query.sinceId ? String(req.query.sinceId) : undefined;
   let list = all.filter((m) => m.channel === channel);
@@ -1687,15 +1703,17 @@ app.post('/api/chat/messages', async (req, res) => {
   const content = String(req.body.content || '').trim();
   if (!content) return res.status(400).json({ error: '내용을 입력해주세요.' });
   if (content.length > 2000) return res.status(400).json({ error: '메시지가 너무 깁니다 (최대 2000자).' });
+  const scopeId = (req as any).scopeId;
+  const dbData = getScopedData(req);
   if (channel.startsWith('dm:')) {
     const parts = channel.slice(3).split(':');
     if (!parts.includes(requester.id)) {
       return res.status(403).json({ error: '이 대화에 보낼 권한이 없습니다.' });
     }
+  } else if (channel.startsWith('group:') && !canAccessGroupChannel(dbData, channel, requester.id)) {
+    return res.status(403).json({ error: '이 그룹 대화에 보낼 권한이 없습니다.' });
   }
 
-  const scopeId = (req as any).scopeId;
-  const dbData = getScopedData(req);
   const message: ChatMessage = {
     id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     scopeId,
@@ -1713,6 +1731,66 @@ app.post('/api/chat/messages', async (req, res) => {
     return res.status(500).json({ error: '메시지를 전송하지 못했습니다. 잠시 후 다시 시도해주세요.' });
   }
   res.status(201).json(message);
+});
+
+// [추가] 소그룹(부서/프로젝트 단위 등, 2명 이상 지정) 채팅방. 팀 전체 채널과 1:1 대화만
+// 있던 걸 보완한다 — 사내 메신저는 결국 "이 프로젝트 관련된 3명끼리만" 같은 대화가
+// 훨씬 많다는 요청에 따라 추가했다.
+app.get('/api/chat/groups', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const dbData = getScopedData(req);
+  const groups: ChatGroup[] = dbData.chatGroups || [];
+  const myGroups = groups.filter((g) => g.memberUserIds.includes(requester.id));
+  res.json(myGroups);
+});
+
+app.post('/api/chat/groups', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const name = String(req.body.name || '').trim();
+  const memberUserIds: string[] = Array.isArray(req.body.memberUserIds) ? req.body.memberUserIds : [];
+  if (!name) return res.status(400).json({ error: '그룹 이름을 입력해주세요.' });
+
+  // 만든 사람은 항상 포함시키고, 중복은 제거한다. 본인 외 최소 1명은 있어야 대화가 된다
+  // (본인 외 1명이면 사실상 1:1 대화방과 같지만, 이름을 붙여 구분하고 싶을 수 있으니
+  // 굳이 막지 않는다).
+  const scopeId = (req as any).scopeId;
+  const uniqueMemberIds = Array.from(new Set([requester.id, ...memberUserIds]));
+  if (uniqueMemberIds.length < 2) {
+    return res.status(400).json({ error: '본인 외에 1명 이상을 선택해주세요.' });
+  }
+  // 같은 회사(스코프) 소속이 맞는지 검증한다 — 안 그러면 다른 회사 사람을 id만 알아서
+  // 그룹에 끼워 넣고 대화를 훔쳐볼 수 있는 문제가 생긴다.
+  const invalidMember = uniqueMemberIds.find((id) => {
+    const u = users.find((cand) => cand.id === id);
+    return !u || scopeIdForUser(u) !== scopeId;
+  });
+  if (invalidMember) {
+    return res.status(400).json({ error: '같은 회사 소속 동료만 그룹에 초대할 수 있습니다.' });
+  }
+
+  const dbData = getScopedData(req);
+  const group: ChatGroup = {
+    id: `chatgroup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    scopeId,
+    name,
+    memberUserIds: uniqueMemberIds,
+    createdByUserId: requester.id,
+    createdAt: new Date().toISOString()
+  };
+  dbData.chatGroups = dbData.chatGroups || [];
+  dbData.chatGroups.push(group);
+  const saved = await setScopedDoc(scopeId, 'chatGroups', group);
+  if (!saved) {
+    dbData.chatGroups = dbData.chatGroups.filter((g: ChatGroup) => g.id !== group.id);
+    return res.status(500).json({ error: '그룹을 만들지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  res.status(201).json(group);
 });
 
 // 🔐 Auth APIs
