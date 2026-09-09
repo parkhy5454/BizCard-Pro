@@ -1896,6 +1896,10 @@ app.get('/api/auth/users', (req, res) => {
     position: u.position,
     role: u.role,
     approvalStatus: u.approvalStatus,
+    // [추가] 관리자 화면(가입 회원 디렉토리)에서 "이 사람이 이메일 인증을 못 받았는지"
+    // 알아야, 국내 메일(Daum/Naver)이 인증 메일을 스팸으로 자동 차단해서 못 받는
+    // 경우에 관리자가 수동 인증 버튼을 보여줄 수 있다.
+    emailVerified: isEmailVerified(u.emailVerified),
     createdAt: u.createdAt
   });
 
@@ -2917,6 +2921,40 @@ app.post('/api/auth/pending-members/:targetId/reject', async (req, res) => {
   users = users.filter(u => u.id !== target.id);
   await deleteUser(target.id);
   await invalidateAllSessionsForUser(target.id); // 혹시 로그인돼 있었다면 세션도 끊는다
+  res.json({ success: true });
+});
+
+// [추가] 관리자가 같은 회사 동료의 이메일 인증을 수동으로 처리한다. Daum/Naver 같은
+// 국내 메일이 해외 발송 서버(Brevo)의 인증 메일을 "anti-spam system"으로 자동 차단해서
+// (실제로 Brevo 발송 로그에 "554 5.7.1 ... blocked automatically by anti-spam system"
+// 형태로 반려되는 사례를 확인함) 정상적으로 가입했는데도 인증 메일 자체를 못 받아
+// 계속 막혀 있는 경우가 있다. 이럴 때 관리자가 "본인 확인 후" 여기서 직접 인증
+// 완료 처리를 해줄 수 있게 한다. 승인 대기(approvalStatus)와는 별개의 잠금이라 따로 둔다.
+app.post('/api/auth/users/:targetId/verify-email', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 처리할 수 있습니다.' });
+
+  const target = users.find(u => u.id === req.params.targetId);
+  if (!target) return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+  if (scopeIdForUser(requester) !== scopeIdForUser(target)) {
+    return res.status(403).json({ error: '같은 회사 소속 회원만 처리할 수 있습니다.' });
+  }
+  if (isEmailVerified(target.emailVerified)) {
+    return res.status(400).json({ error: '이미 인증된 계정입니다.' });
+  }
+
+  target.emailVerified = true;
+  await addUser(target);
+  await logAudit({
+    scopeId: scopeIdForUser(requester),
+    actorUserId: requester.id,
+    actorEmail: requester.email,
+    action: 'member_manual_email_verify',
+    targetUserId: target.id,
+    targetEmail: target.email
+  });
   res.json({ success: true });
 });
 
