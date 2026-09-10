@@ -1816,34 +1816,68 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     const coopStep = approvalLine.find(s => s.role.includes('협조자'));
     // 실제 양식의 라벨 색(진한 파랑) - 담당/이사/협조자/대표, 시행 라벨에만 쓰이고 나머지는 검정 그대로.
     const labelBlue = '#1a5cab';
-    // [수정] 하단 블록(직인+결재란+시행/접수+발신처 정보)이 매 페이지 아래에 반복되도록
-    // <tfoot>으로 옮기면서, 본문이 짧아 한 페이지에 다 들어가는(가장 흔한) 경우에도 예전처럼
-    // 하단 블록이 페이지 맨 아래까지 밀려 내려가 보이도록, 하단 블록의 실제 렌더링 높이를
-    // 측정해서 본문 영역(tbody)에 "그 높이만큼을 뺀 한 페이지 분량"을 최소 높이로 미리
-    // 확보해둔다. 콜백 ref로 두 블록의 DOM 노드가 모두 잡히는 시점(렌더링될 때마다 새로
-    // 만들어지는 클로저라 내용이 바뀔 때마다 다시 계산됨)에 계산한다 - React state를 거치지
-    // 않고 DOM에 직접 minHeight를 적용해서, 값이 바뀔 때마다 추가 리렌더가 발생하지 않게 했다.
-    // [수정] 마지막 문단(<p>)의 아래쪽 여백이 하단 블록 div 밖으로 "새어나가"서 실측 높이가
-    // 실제보다 작게 측정되는 문제가 있어(margin collapsing), 하단 블록 div에는
-    // display:'flow-root'를 줘서 독립된 블록 서식 맥락을 만들어 정확히 측정되게 했다.
+    // [수정] 하단 블록(직인+결재란+시행/접수+발신처 정보)을 <tfoot>으로 옮겨 매 페이지
+    // 아래에 반복되게 한 뒤에도(위 return 위 주석 참고), "본문이 끝나는 마지막 페이지"만은
+    // 하단 블록이 본문 바로 밑에 붙어버리고 페이지 맨 아래까지 밀려 내려가지 않는 문제가
+    // 남아있었다 - 중간 페이지들은 이미 내용이 페이지 아래 여백까지 꽉 차 있어서 저절로
+    // 맨 아래에 위치하지만, 마지막 페이지는 본문이 페이지를 다 채우지 못하고 끝나기
+    // 때문이다(1페이지짜리 문서도 "마지막 페이지"에 해당하므로 같은 문제를 겪는다).
+    // [수정] 처음엔 "본문 전체 높이 + 하단 블록 높이"가 정확히 페이지 높이의 배수가 되도록
+    // 본문 뒤에 빈 여백을 추가하는 방식을 시도했는데, 문단이 통째로(줄 단위가 아니라
+    // 문단 단위로) 다음 페이지로 넘어가는 특성 때문에 계산이 살짝 어긋나서 오히려
+    // 불필요한 빈 페이지가 하나 더 생기는 부작용이 실제로 재현되었다(playwright로 여러
+    // 줄 수의 문서를 인쇄해보며 직접 확인). 그래서 대신 "브라우저가 실제로 페이지를
+    // 나누는 방식"을 문단 하나하나 단위로 JS에서 그대로 흉내내어(각 문단에
+    // break-inside:avoid를 걸어 문단이 중간에 잘리지 않게 만들고, 문단들을 순서대로
+    // 쌓다가 한 페이지 용량을 넘기면 다음 페이지로 넘긴다), 실제로 몇 번째 페이지에서
+    // 몇 번째 문단까지 들어가는지, 그래서 "마지막 페이지"에 본문이 얼마나 쌓이는지를
+    // 정확히 계산했다. 그 마지막 페이지의 남는 공간만큼만 본문 맨 뒤에 보이지 않는
+    // 여백(spacer)을 추가해서, 하단 블록이 정확히 그 페이지 맨 아래로 밀려 내려가게 한다.
+    const paragraphEls: (HTMLParagraphElement | null)[] = [];
+    let headerGroupEl: HTMLDivElement | null = null;
+    let spacerEl: HTMLDivElement | null = null;
     let footerBlockEl: HTMLDivElement | null = null;
-    let bodyWrapEl: HTMLDivElement | null = null;
-    const applyBodyMinHeightReserve = () => {
-      if (!footerBlockEl || !bodyWrapEl) return;
-      const footerH = footerBlockEl.getBoundingClientRect().height;
-      // 297mm(A4 전체) - 25mm(위) - 25mm(아래) = 247mm가 한 페이지의 실제 인쇄 가능 영역.
-      // 거기서 하단 블록 실측 높이를 빼고, 반올림 오차로 인한 빈 페이지 방지용 안전 여백
-      // 3mm를 추가로 뺀다(다른 문서 양식들에서도 이미 겪은 문제 - index.css 주석 참고).
-      bodyWrapEl.style.minHeight = `calc(247mm - ${footerH}px - 3mm)`;
+    const applyLastPageSpacer = () => {
+      if (!headerGroupEl || !spacerEl || !footerBlockEl) return;
+      if (paragraphEls.length !== bodyParagraphs.length || paragraphEls.some(el => !el)) return;
+      // 스페이서를 0으로 되돌린 뒤 다시 재는 것부터 시작 - 안 그러면 이전 렌더에서 남은
+      // 스페이서 높이가 이번 측정에 섞여 들어가 계산이 매번 부풀어 오르는 문제가 생긴다.
+      spacerEl.style.height = '0px';
+      // 297mm(A4) - 25mm(위) - 25mm(아래) = 247mm가 한 페이지의 실제 인쇄 가능 영역.
+      // mm를 px로 바꿀 땐 CSS 표준값(1mm = 96/25.4px)을 쓴다 - 화면에 이미 표시된
+      // DOM을 실측(getBoundingClientRect)하는 값과 같은 px 기준으로 맞추기 위함.
+      const pagePx = (247 * 96) / 25.4;
+      const footerPx = footerBlockEl.getBoundingClientRect().height;
+      // 하단 블록은 중간 페이지에도 반복해서 찍히므로, 한 페이지에서 본문이 실제로 쓸 수
+      // 있는 세로 공간은 "페이지 전체 - 하단 블록 높이"이다.
+      const capacityPerPage = pagePx - footerPx;
+      // 인쇄 시점 페이지네이션과 화면 측정 사이의 미세한 오차(폰트 렌더링/DPI 반올림 등,
+      // 실제 재현 후 확인된 값)를 흡수하는 안전 여백.
+      const SAFETY_BUFFER_PX = 14;
+      // [수정] 각 단위의 높이를 getBoundingClientRect().height로 재면 margin-bottom(문단
+      // 사이 간격 14px 등)이 빠져버려서(margin은 border-box에 포함되지 않음) 실제보다
+      // 작게 계산되는 문제가 있었다 - 대신 "다음 단위가 시작되는 위치 - 이 단위가
+      // 시작되는 위치"로 재서, margin이 실제로 상위 요소 밖으로 "새어나가는지"와 상관없이
+      // 레이아웃에서 각 단위가 진짜로 차지하는 세로 공간을 정확히 구한다.
+      const boundaryEls: HTMLElement[] = [headerGroupEl, ...(paragraphEls as HTMLParagraphElement[]), spacerEl];
+      const tops = boundaryEls.map(el => el.getBoundingClientRect().top);
+      const units: number[] = [];
+      for (let i = 0; i < tops.length - 1; i++) units.push(tops[i + 1] - tops[i]);
+      let currentPageUsed = 0;
+      for (const h of units) {
+        if (currentPageUsed > 0 && currentPageUsed + h > capacityPerPage) {
+          currentPageUsed = h; // 이 단위부터 새 페이지 시작
+        } else {
+          currentPageUsed += h;
+        }
+      }
+      const remaining = Math.max(0, capacityPerPage - currentPageUsed - SAFETY_BUFFER_PX);
+      spacerEl.style.height = `${remaining}px`;
     };
-    const bodyWrapRef = (el: HTMLDivElement | null) => {
-      bodyWrapEl = el;
-      applyBodyMinHeightReserve();
-    };
-    const footerWrapRef = (el: HTMLDivElement | null) => {
-      footerBlockEl = el;
-      applyBodyMinHeightReserve();
-    };
+    const headerGroupRef = (el: HTMLDivElement | null) => { headerGroupEl = el; applyLastPageSpacer(); };
+    const paragraphRef = (i: number) => (el: HTMLParagraphElement | null) => { paragraphEls[i] = el; applyLastPageSpacer(); };
+    const spacerRef = (el: HTMLDivElement | null) => { spacerEl = el; applyLastPageSpacer(); };
+    const footerWrapRef = (el: HTMLDivElement | null) => { footerBlockEl = el; applyLastPageSpacer(); };
     return (
       // [수정] 본문이 길어 A4 한 장을 넘겨 2,3,4...페이지로 이어지는 경우에도, 하단
       // 블록(직인+결재란+시행/접수+발신처 정보)이 "매 페이지의 같은 위치(맨 아래)"에
@@ -1866,59 +1900,71 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           <tr>
             <td style={{ padding: '25mm 25mm 0 25mm', verticalAlign: 'top' }}>
               {/* [수정] 이 안쪽 div가 예전 바깥 컨테이너 역할(flex column)을 이어받는다.
-                  ref로 실제 렌더링된 높이를 알 수 없으므로(문서마다 본문 길이가 다름),
-                  아래 tfoot의 하단 블록 ref가 잡히는 시점에 measureAndReserve()가 이 div의
-                  minHeight를 "본문 227mm(=297-25-25 상하 여백 - 하단 블록 실측 높이 - 안전
-                  여백 3mm)"로 채워 넣어, 본문이 짧아도 하단 블록이 한 페이지 안에서 맨
-                  아래까지 밀려 내려가 보이게 한다(본문이 길어 여러 페이지로 넘어가는
-                  경우엔 이 최소 높이보다 실제 내용이 이미 더 크므로 아무 영향이 없다 -
-                  그때는 위 tfoot 반복 동작이 대신 처리해준다). */}
-              <div ref={bodyWrapRef} style={{ display: 'flex', flexDirection: 'column' }}>
-                {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
-                    로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다.
-                    [수정] 로고(절대 위치, top:50%로 컨테이너 세로 중앙에 배치)와 회사명 글자(일반
-                    흐름)의 기준선이 달라서 로고가 글자보다 아래로 처져 보이는 문제가 있었다 -
-                    컨테이너에 display:flex + alignItems:center를 줘서 회사명 글자도 로고와 똑같이
-                    컨테이너 세로 중앙(50%)을 기준으로 정렬되도록 맞췄다. */}
-                <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {/* [수정] 예전엔 "카이저솔루션" 로고가 모든 회사 공문서에 고정으로 찍혔다. 이제
-                      회사(스코프)가 직접 올린 로고(branding.logoUrl)가 있을 때만 보여주고,
-                      없으면 로고 없이 회사명 글자만 표시한다(깨진 이미지 아이콘 방지). */}
-                  {branding.logoUrl && (
-                    <img src={branding.logoUrl} alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
-                  )}
-                  <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
-                </div>
+                  이 안의 헤더 묶음/문단/스페이서 각각에 ref를 달아, 아래 tfoot의 하단 블록
+                  ref까지 모두 잡히는 시점에 applyLastPageSpacer()가 "마지막 페이지에
+                  본문이 얼마나 쌓이는지"를 직접 계산해서 맨 뒤 스페이서(spacerRef) 높이를
+                  채워 넣는다 - 자세한 설명은 위 applyLastPageSpacer 정의부 주석 참고. */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* [수정] 상단 레터헤드+수신자/참조/제목 표를 하나의 묶음(headerGroupRef)으로
+                    잡아, 페이지 계산에서 "첫 번째 단위"로 취급한다. break-inside:avoid를 줘서
+                    혹시라도(아주 드물게) 페이지 경계에 걸리더라도 이 묶음 중간이 잘리지
+                    않게 했다. */}
+                <div ref={headerGroupRef} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
+                      로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다.
+                      [수정] 로고(절대 위치, top:50%로 컨테이너 세로 중앙에 배치)와 회사명 글자(일반
+                      흐름)의 기준선이 달라서 로고가 글자보다 아래로 처져 보이는 문제가 있었다 -
+                      컨테이너에 display:flex + alignItems:center를 줘서 회사명 글자도 로고와 똑같이
+                      컨테이너 세로 중앙(50%)을 기준으로 정렬되도록 맞췄다. */}
+                  <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {/* [수정] 예전엔 "카이저솔루션" 로고가 모든 회사 공문서에 고정으로 찍혔다. 이제
+                        회사(스코프)가 직접 올린 로고(branding.logoUrl)가 있을 때만 보여주고,
+                        없으면 로고 없이 회사명 글자만 표시한다(깨진 이미지 아이콘 방지). */}
+                    {branding.logoUrl && (
+                      <img src={branding.logoUrl} alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
+                    )}
+                    <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
+                  </div>
 
-                {/* 수신자/참조/제목 - 줄마다 밑줄 없이, 블록 전체 아래에 선 하나만 긋는다 */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, borderBottom: '1px solid #000' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ width: 76, padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>수 신 자</td>
-                      <td style={{ padding: '5px 0' }}>{doc.recipient}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>참&nbsp;&nbsp;&nbsp;&nbsp;조</td>
-                      <td style={{ padding: '5px 0' }}>{doc.reference || ''}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '5px 0 10px', fontWeight: 700, verticalAlign: 'top' }}>제&nbsp;&nbsp;&nbsp;&nbsp;목</td>
-                      <td style={{ padding: '5px 0 10px', fontWeight: 700 }}>{doc.subject}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                  {/* 수신자/참조/제목 - 줄마다 밑줄 없이, 블록 전체 아래에 선 하나만 긋는다 */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, borderBottom: '1px solid #000' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: 76, padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>수 신 자</td>
+                        <td style={{ padding: '5px 0' }}>{doc.recipient}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>참&nbsp;&nbsp;&nbsp;&nbsp;조</td>
+                        <td style={{ padding: '5px 0' }}>{doc.reference || ''}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '5px 0 10px', fontWeight: 700, verticalAlign: 'top' }}>제&nbsp;&nbsp;&nbsp;&nbsp;목</td>
+                        <td style={{ padding: '5px 0 10px', fontWeight: 700 }}>{doc.subject}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
                 {/* [수정] 번호 붙은 문단(1. 2. 3. ...)은 첫 줄만 오른쪽으로 들여쓰고(textIndent),
                     한 줄을 넘어가서 줄바꿈되면 이어지는 줄은 다시 본문 왼쪽 여백(0)으로 돌아가도록 함
                     - paddingLeft 없이 textIndent만 쓰면 정확히 이 동작(첫 줄만 들여쓰기)이 된다.
-                    실제 참고 문서를 픽셀 단위로 측정해서 들여쓰기 폭을 20mm로 맞췄다. */}
+                    실제 참고 문서를 픽셀 단위로 측정해서 들여쓰기 폭을 20mm로 맞췄다.
+                    [수정] 각 문단에 break-inside:avoid를 줘서 문단 중간에 페이지가 갈리지 않고
+                    통째로 다음 페이지로 넘어가게 했다 - applyLastPageSpacer()가 이 "문단
+                    단위" 페이지 배치를 그대로 흉내내어 마지막 페이지 계산을 하기 때문에,
+                    실제 인쇄 결과와 계산이 어긋나지 않으려면 이 규칙이 꼭 필요하다. */}
                 <div style={{ minHeight: 180, lineHeight: 1.9, fontSize: 12 }}>
                   {bodyParagraphs.map((p, i) => (
-                    <p key={i} style={{ marginBottom: 14, textIndent: '20mm' }}>
+                    <p key={i} ref={paragraphRef(i)} style={{ marginBottom: 14, textIndent: '20mm', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                       <span style={{ marginRight: 6 }}>{i + 1}.</span>{p}{i === bodyParagraphs.length - 1 ? '  - 끝 -' : ''}
                     </p>
                   ))}
                 </div>
+                {/* [추가] 화면에는 보이지 않는(높이 0에서 시작) 여백용 spacer. 마지막 페이지에
+                    본문이 얼마나 쌓이는지 계산한 뒤(applyLastPageSpacer), 그 페이지가 남기는
+                    빈 공간만큼 이 spacer의 높이를 채워 넣어 하단 블록(tfoot)이 정확히 그
+                    페이지 맨 아래로 밀려 내려가도록 한다. */}
+                <div ref={spacerRef} style={{ flexShrink: 0 }} />
               </div>
             </td>
           </tr>
