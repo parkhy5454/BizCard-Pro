@@ -226,6 +226,18 @@ body {
     padding: 0 !important;
     min-height: auto !important;
   }
+  /* [추가] 공문서 하단 블록(직인+결재란 등)이 매 페이지 아래에 반복되도록 문서 전체를
+  <table>(본문=tbody, 하단 블록=tfoot)로 구성하면서, 화면 미리보기용으로 tbody/tfoot의
+  <td>에 준 25mm 안팎 padding이 실제 인쇄 시에는 위 official-document-page의 @page
+  margin(25mm)과 이중으로 겹쳐 여백이 2배가 되는 문제가 있었다. 인쇄 시에는 이 td들의
+  padding을 모두 없애서, 페이지 여백은 오직 @page 규칙 하나가 전담하게 한다.
+  [주의] 자손 선택자(td)가 아니라 바로 아래 자식(> tbody/tfoot > tr > td)만 골라야 한다 -
+  안 그러면 본문 안쪽의 수신자/참조/제목 표처럼 문서 내용 자체에 필요한 다른 <td>들의
+  padding까지 전부 없어져 버린다. */
+  .print-official-document-margins > tbody > tr > td,
+  .print-official-document-margins > tfoot > tr > td {
+    padding: 0 !important;
+  }
 
   /* [추가] 해외 출장 경비 - 표(사용내역) + 사용구분별 합계 표까지 있어 내용이 길면 2페이지
   이상으로 넘어갈 수 있다. "페이지가 넘어가면 2페이지부터는 상단 여백을 1페이지의 2배 정도로
