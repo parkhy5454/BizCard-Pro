@@ -204,20 +204,27 @@ export const Navigation: React.FC<Props> = ({
             </div>
 
             {/* 모바일 화면용 로그아웃 & 정보 (옵션) */}
+            {/* [수정] 아이콘 6개(검색/알림/구독/백업/로그아웃/탈퇴) + 로고 영역 폭을 합치면
+            좁은 휴대폰 화면 너비를 넘어서는데, 이 줄에 넘침 처리가 없어서 오른쪽 아이콘
+            한두 개가 화면 밖으로 그냥 잘려서 안 보이는 문제가 있었다. min-w-0 +
+            overflow-x-auto로 이 줄만 가로 스크롤되게 하고, 각 아이콘 버튼은 shrink-0으로
+            찌그러지지 않게 고정한다. */}
             {currentUser && (
-              <div className="flex items-center gap-2 md:hidden">
+              <div className="flex items-center gap-2 md:hidden min-w-0 overflow-x-auto scrollbar-none">
                 <button
                   onClick={onOpenGlobalSearch}
                   title="전체 검색"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-blue-500 border border-slate-200 transition-colors"
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-blue-500 border border-slate-200 transition-colors shrink-0"
                 >
                   <Search className="w-4 h-4" />
                 </button>
-                <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
+                <span className="shrink-0">
+                  <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
+                </span>
                 <button
                   onClick={onOpenSubscriptionModal}
                   title="구독 관리"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-indigo-400 border border-slate-200 transition-colors"
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-indigo-400 border border-slate-200 transition-colors shrink-0"
                 >
                   <CreditCard className="w-4 h-4" />
                 </button>
@@ -226,7 +233,7 @@ export const Navigation: React.FC<Props> = ({
                     onClick={handleDownloadBackup}
                     disabled={isDownloadingBackup}
                     title="데이터 백업"
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-emerald-500 border border-slate-200 transition-colors disabled:opacity-40"
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-emerald-500 border border-slate-200 transition-colors disabled:opacity-40 shrink-0"
                   >
                     <Download className="w-4 h-4" />
                   </button>
@@ -234,14 +241,14 @@ export const Navigation: React.FC<Props> = ({
                 <button
                   onClick={onLogout}
                   title="로그아웃"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-rose-400 border border-slate-200 transition-colors"
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-rose-400 border border-slate-200 transition-colors shrink-0"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
                 <button
                   onClick={onOpenWithdrawModal}
                   title="회원 탈퇴"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-rose-500 border border-slate-200 transition-colors"
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-rose-500 border border-slate-200 transition-colors shrink-0"
                 >
                   <UserX className="w-4 h-4" />
                 </button>
@@ -276,7 +283,7 @@ export const Navigation: React.FC<Props> = ({
             
             {/* 사용자 공간 상태 배너 */}
             {currentUser && (
-              <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-2xl px-3 py-1.5 text-xs text-slate-600">
+              <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-2xl px-3 py-1.5 text-xs text-slate-600 shrink-0">
                 {currentUser.type === 'company' ? (
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse" />
@@ -350,22 +357,29 @@ export const Navigation: React.FC<Props> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            {/* [수정] 이 버튼들(세무자료 발송/가입 회원 확인/친구 추천/문의함)에 shrink-0을
+            안 줘서, 화면이 좁은 휴대폰에서 폭이 모자라면 flex가 버튼들을 억지로 찌그러뜨렸다.
+            한글은 띄어쓰기가 없어도 글자 사이마다 줄바꿈이 가능해서, 버튼이 눌리다 못해
+            "가입 회원 확인" 같은 글자가 세로로 한 글자씩 쌓여 보이는 문제가 있었다(우측은
+            화면 밖으로 잘려서 아예 안 보임). min-w-0 + overflow-x-auto로 이 줄만 따로
+            가로 스크롤되게 하고, 각 버튼은 shrink-0 + whitespace-nowrap으로 절대 안
+            찌그러지게 고정했다 — 하단 메인 탭 줄과 동일한 해법. */}
+            <div className="flex items-center gap-2 min-w-0 overflow-x-auto scrollbar-none">
               {/* [수정] 그 달의 모든 지출/영수증을 세무사에게 이메일로 바로 보내는 버튼 (전체 화면에서 접근 가능) */}
               <button
                 onClick={onOpenTaxPackage}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold text-xs shadow transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span className="hidden sm:inline">세무자료 발송</span>
               </button>
 
               {/* 가입 회원 및 동료 확인 버튼 */}
               <button
                 onClick={onOpenUserDirectory}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold text-xs shadow transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
               >
-                <Users className="w-3.5 h-3.5 text-indigo-600" />
+                <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 <span>가입 회원 확인</span>
               </button>
 
@@ -375,9 +389,9 @@ export const Navigation: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setIsReferralOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold text-xs shadow transition-all active:scale-95"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
                 >
-                  <Gift className="w-3.5 h-3.5 text-amber-600" />
+                  <Gift className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span>친구 추천</span>
                 </button>
               )}
@@ -390,10 +404,10 @@ export const Navigation: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setIsFeedbackInboxOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-semibold text-xs shadow transition-all active:scale-95"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
                   title="문의함 (관리자 전용)"
                 >
-                  <Inbox className="w-3.5 h-3.5" />
+                  <Inbox className="w-3.5 h-3.5 shrink-0" />
                   <span>문의함</span>
                 </button>
               )}
