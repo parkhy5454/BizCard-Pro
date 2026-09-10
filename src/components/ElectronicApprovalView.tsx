@@ -1816,139 +1816,198 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     const coopStep = approvalLine.find(s => s.role.includes('협조자'));
     // 실제 양식의 라벨 색(진한 파랑) - 담당/이사/협조자/대표, 시행 라벨에만 쓰이고 나머지는 검정 그대로.
     const labelBlue = '#1a5cab';
+    // [수정] 하단 블록(직인+결재란+시행/접수+발신처 정보)이 매 페이지 아래에 반복되도록
+    // <tfoot>으로 옮기면서, 본문이 짧아 한 페이지에 다 들어가는(가장 흔한) 경우에도 예전처럼
+    // 하단 블록이 페이지 맨 아래까지 밀려 내려가 보이도록, 하단 블록의 실제 렌더링 높이를
+    // 측정해서 본문 영역(tbody)에 "그 높이만큼을 뺀 한 페이지 분량"을 최소 높이로 미리
+    // 확보해둔다. 콜백 ref로 두 블록의 DOM 노드가 모두 잡히는 시점(렌더링될 때마다 새로
+    // 만들어지는 클로저라 내용이 바뀔 때마다 다시 계산됨)에 계산한다 - React state를 거치지
+    // 않고 DOM에 직접 minHeight를 적용해서, 값이 바뀔 때마다 추가 리렌더가 발생하지 않게 했다.
+    // [수정] 마지막 문단(<p>)의 아래쪽 여백이 하단 블록 div 밖으로 "새어나가"서 실측 높이가
+    // 실제보다 작게 측정되는 문제가 있어(margin collapsing), 하단 블록 div에는
+    // display:'flow-root'를 줘서 독립된 블록 서식 맥락을 만들어 정확히 측정되게 했다.
+    let footerBlockEl: HTMLDivElement | null = null;
+    let bodyWrapEl: HTMLDivElement | null = null;
+    const applyBodyMinHeightReserve = () => {
+      if (!footerBlockEl || !bodyWrapEl) return;
+      const footerH = footerBlockEl.getBoundingClientRect().height;
+      // 297mm(A4 전체) - 25mm(위) - 25mm(아래) = 247mm가 한 페이지의 실제 인쇄 가능 영역.
+      // 거기서 하단 블록 실측 높이를 빼고, 반올림 오차로 인한 빈 페이지 방지용 안전 여백
+      // 3mm를 추가로 뺀다(다른 문서 양식들에서도 이미 겪은 문제 - index.css 주석 참고).
+      bodyWrapEl.style.minHeight = `calc(247mm - ${footerH}px - 3mm)`;
+    };
+    const bodyWrapRef = (el: HTMLDivElement | null) => {
+      bodyWrapEl = el;
+      applyBodyMinHeightReserve();
+    };
+    const footerWrapRef = (el: HTMLDivElement | null) => {
+      footerBlockEl = el;
+      applyBodyMinHeightReserve();
+    };
     return (
-      // [수정] 출력/미리보기가 실제 A4 용지 크기(297mm)에 맞게 보이도록 minHeight를 지정하고,
-      // 아래쪽 결재/직인 블록을 페이지 맨 밑으로 밀어내기 위해 flex column으로 구성한다.
-      // 여백을 위/아래/좌/우 모두 25mm로 균일하게 맞춰서(예전엔 위 20 / 아래 25로 달랐음)
-      // 인쇄했을 때 상하 균형감이 맞도록 했다.
-      // [추가] print-official-document-margins 클래스: 본문이 길어 A4 한 장을 넘기는
-      // 경우에도(짧은 편지 양식이 기본이지만) 매 페이지에 25mm 여백이 유지되도록,
-      // 실제 인쇄 시에는 이 div의 고정폭/자체 padding 대신 named @page 규칙(margin:25mm)이
-      // 페이지마다 적용된다 - 화면 미리보기에는 영향 없음(@media print 전용 규칙).
-      <div className="print-official-document-margins" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', padding: '25mm', display: 'flex', flexDirection: 'column', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
-        {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
-            로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다.
-            [수정] 로고(절대 위치, top:50%로 컨테이너 세로 중앙에 배치)와 회사명 글자(일반
-            흐름)의 기준선이 달라서 로고가 글자보다 아래로 처져 보이는 문제가 있었다 -
-            컨테이너에 display:flex + alignItems:center를 줘서 회사명 글자도 로고와 똑같이
-            컨테이너 세로 중앙(50%)을 기준으로 정렬되도록 맞췄다. */}
-        <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {/* [수정] 예전엔 "카이저솔루션" 로고가 모든 회사 공문서에 고정으로 찍혔다. 이제
-              회사(스코프)가 직접 올린 로고(branding.logoUrl)가 있을 때만 보여주고,
-              없으면 로고 없이 회사명 글자만 표시한다(깨진 이미지 아이콘 방지). */}
-          {branding.logoUrl && (
-            <img src={branding.logoUrl} alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
-          )}
-          <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
-        </div>
-
-        {/* 수신자/참조/제목 - 줄마다 밑줄 없이, 블록 전체 아래에 선 하나만 긋는다 */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, borderBottom: '1px solid #000' }}>
-          <tbody>
-            <tr>
-              <td style={{ width: 76, padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>수 신 자</td>
-              <td style={{ padding: '5px 0' }}>{doc.recipient}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>참&nbsp;&nbsp;&nbsp;&nbsp;조</td>
-              <td style={{ padding: '5px 0' }}>{doc.reference || ''}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '5px 0 10px', fontWeight: 700, verticalAlign: 'top' }}>제&nbsp;&nbsp;&nbsp;&nbsp;목</td>
-              <td style={{ padding: '5px 0 10px', fontWeight: 700 }}>{doc.subject}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* [수정] 번호 붙은 문단(1. 2. 3. ...)은 첫 줄만 오른쪽으로 들여쓰고(textIndent),
-            한 줄을 넘어가서 줄바꿈되면 이어지는 줄은 다시 본문 왼쪽 여백(0)으로 돌아가도록 함
-            - paddingLeft 없이 textIndent만 쓰면 정확히 이 동작(첫 줄만 들여쓰기)이 된다.
-            실제 참고 문서를 픽셀 단위로 측정해서 들여쓰기 폭을 20mm로 맞췄다. */}
-        <div style={{ minHeight: 180, lineHeight: 1.9, fontSize: 12 }}>
-          {bodyParagraphs.map((p, i) => (
-            <p key={i} style={{ marginBottom: 14, textIndent: '20mm' }}>
-              <span style={{ marginRight: 6 }}>{i + 1}.</span>{p}{i === bodyParagraphs.length - 1 ? '  - 끝 -' : ''}
-            </p>
-          ))}
-        </div>
-
-        {/* [수정] 하단 블록(직인+결재란+시행/접수+발신처 정보) 전체를 하나로 묶어서, 본문 뒤에
-            바로 붙지 않고 marginTop:'auto'로 페이지 맨 아래(바깥 padding-bottom 25mm 바로 위)까지
-            밀어낸다. 상위 컨테이너가 flex column이라 이 auto 마진이 남은 세로 공간을 모두 차지한다. */}
-        <div style={{ marginTop: 'auto' }}>
-          {/* [수정] 회사명 + 직인(도장) - 도장이 회사명 글자 위에 살짝 겹치게 가운데 배치.
-              도장 이미지가 글자보다 나중에 그려지면(기본 DOM 순서) 도장 사각형 배경이 겹치는
-              부분의 글자(예: "션")를 완전히 덮어버려서 안 보이는 문제가 있었다. 회사명 span에
-              zIndex를 줘서 도장 위로 글자가 항상 비쳐 보이도록 함(flex item은 position 없이도
-              zIndex로 별도 stacking context가 생긴다). */}
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 40, marginBottom: 0 }}>
-            <span style={{ fontSize: 20, fontWeight: 800, position: 'relative', zIndex: 1 }}>{doc.companyName}</span>
-            {/* [수정] 로고와 마찬가지로, 회사가 직접 올린 직인(branding.sealUrl)이 있을 때만
-                표시한다. */}
-            {branding.sealUrl && (
-              <img src={branding.sealUrl} alt="" style={{ height: 58, marginLeft: -20, position: 'relative', zIndex: 0 }} />
-            )}
-          </div>
-
-          {/* [수정] 도장 아래 굵은 회색 구분선 - 그 아래로 결재란/시행/발신처 정보를 묶는다 */}
-          <div style={{ borderTop: '4px solid #5d5d5d', marginTop: 10, paddingTop: 14, fontSize: 11 }}>
-            {/* [수정] 결재란 - 표(테두리) 없이 배치. 담당/이사는 왼쪽 한 줄에 나란히,
-                "결재 [날짜]"와 "대표 [서명]"은 오른쪽에 세로로 쌓아서 같은 폭(오른쪽 정렬)으로
-                맞춘다 - 대표이사가 결재하면 서명이 아래 칸에, 그 결재 날짜가 서명 바로 위에 표시됨.
-                협조자는 담당/이사와 한 줄에 묶지 않고, 그 아래 별도 줄로 빼서 "담당" 줄과
-                "시행" 줄 사이에 위치하도록 한다. */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8, gap: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
-                {approvalLine.filter(s => !s.role.includes('대표') && !s.role.includes('협조자')).map((s, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: labelBlue, fontWeight: 700 }}>{s.role}</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
-                      {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
-                      <span style={{ fontSize: 10 }}>{s.date || ''}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {daepyoStep && (
-                // [수정] "결재 [날짜]"와 "대표이사 [서명]"을 2열 grid(라벨 열 + 값 열)로 배치해서,
-                // 라벨 글자 수가 달라도(결재=2자, 대표이사=4자) 값 열(날짜/서명)이 항상 같은
-                // 세로선에 맞춰지도록 함 - "서명 바로 위에 날짜가 오도록" 정확히 정렬된다.
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 8, rowGap: 4, justifyContent: 'end' }}>
-                  <div style={{ fontWeight: 700 }}>결재</div>
-                  <div style={{ fontWeight: 700, minWidth: 56 }}>{finalApprovalDate}</div>
-                  <span style={{ color: labelBlue, fontWeight: 700 }}>{daepyoStep.role}</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', minWidth: 56 }}>
-                    {daepyoStep.signatureUrl && <img src={daepyoStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
-                  </span>
+      // [수정] 본문이 길어 A4 한 장을 넘겨 2,3,4...페이지로 이어지는 경우에도, 하단
+      // 블록(직인+결재란+시행/접수+발신처 정보)이 "매 페이지의 같은 위치(맨 아래)"에
+      // 반복해서 찍히도록 요청받았다. 예전엔 바깥 컨테이너 하나를 flex column으로 두고
+      // marginTop:'auto'로 하단 블록을 밀어내는 방식이었는데, 이 방식은 한 페이지짜리
+      // 문서에서는 잘 동작하지만 - 순수 CSS/브라우저 인쇄(window.print())로는 flex의
+      // 일부만 페이지마다 반복해서 그릴 방법이 없어서 - 여러 페이지로 넘어가면 하단 블록이
+      // 문서 전체의 맨 끝에 딱 한 번만(엉뚱한 위치에) 나타나는 문제가 있었다.
+      // [수정] 그래서 문서 전체를 하나의 <table>로 바꾸고, 반복되어야 하는 하단 블록을
+      // <tfoot>에 넣었다 - 브라우저가 표를 여러 페이지로 나눠 인쇄할 때 <thead>/<tfoot>은
+      // 페이지 경계마다 자동으로 다시 그려주는 것이 표준 동작이라(중간 페이지들은 이미
+      // 내용이 페이지 아래 여백까지 꽉 차 있으므로 <tfoot>이 그 바로 뒤에 붙으면 자연스럽게
+      // "페이지 맨 아래"에 위치하게 된다), 이 구조만으로 2,3,4페이지에서도 하단 블록이 계속
+      // 같은 위치에 반복된다. 본문이 한 페이지 안에 다 들어가는(가장 흔한) 경우에는, 하단
+      // 블록의 실제 렌더링 높이를 측정해서 본문 영역에 "한 페이지 분량 - 하단 블록 높이"만큼
+      // 최소 높이를 미리 확보해두는 방식으로, 예전과 똑같이 하단 블록이 페이지 맨 아래(위
+      // 여백만큼의 아래쪽 여백을 두고)에 붙어 보이도록 맞췄다.
+      <table className="print-official-document-margins" style={{ width: '210mm', margin: '0 auto', borderCollapse: 'collapse', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
+        <tbody>
+          <tr>
+            <td style={{ padding: '25mm 25mm 0 25mm', verticalAlign: 'top' }}>
+              {/* [수정] 이 안쪽 div가 예전 바깥 컨테이너 역할(flex column)을 이어받는다.
+                  ref로 실제 렌더링된 높이를 알 수 없으므로(문서마다 본문 길이가 다름),
+                  아래 tfoot의 하단 블록 ref가 잡히는 시점에 measureAndReserve()가 이 div의
+                  minHeight를 "본문 227mm(=297-25-25 상하 여백 - 하단 블록 실측 높이 - 안전
+                  여백 3mm)"로 채워 넣어, 본문이 짧아도 하단 블록이 한 페이지 안에서 맨
+                  아래까지 밀려 내려가 보이게 한다(본문이 길어 여러 페이지로 넘어가는
+                  경우엔 이 최소 높이보다 실제 내용이 이미 더 크므로 아무 영향이 없다 -
+                  그때는 위 tfoot 반복 동작이 대신 처리해준다). */}
+              <div ref={bodyWrapRef} style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* [수정] 상단 레터헤드: 로고는 왼쪽 끝에 고정, 회사명은 전체 폭 기준 가운데 정렬.
+                    로고가 작아 보인다는 피드백이 반복되어 48px보다 더 크게(64px) 키웠다.
+                    [수정] 로고(절대 위치, top:50%로 컨테이너 세로 중앙에 배치)와 회사명 글자(일반
+                    흐름)의 기준선이 달라서 로고가 글자보다 아래로 처져 보이는 문제가 있었다 -
+                    컨테이너에 display:flex + alignItems:center를 줘서 회사명 글자도 로고와 똑같이
+                    컨테이너 세로 중앙(50%)을 기준으로 정렬되도록 맞췄다. */}
+                <div style={{ position: 'relative', textAlign: 'center', marginBottom: 28, minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {/* [수정] 예전엔 "카이저솔루션" 로고가 모든 회사 공문서에 고정으로 찍혔다. 이제
+                      회사(스코프)가 직접 올린 로고(branding.logoUrl)가 있을 때만 보여주고,
+                      없으면 로고 없이 회사명 글자만 표시한다(깨진 이미지 아이콘 방지). */}
+                  {branding.logoUrl && (
+                    <img src={branding.logoUrl} alt="" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', height: 64 }} />
+                  )}
+                  <span style={{ fontSize: 22, fontWeight: 800 }}>{doc.companyName}</span>
                 </div>
-              )}
-            </div>
 
-            {coopStep && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <span style={{ color: labelBlue, fontWeight: 700 }}>협조자</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
-                  {coopStep.signatureUrl && <img src={coopStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
-                  <span style={{ fontSize: 10 }}>{coopStep.date || ''}</span>
-                </span>
+                {/* 수신자/참조/제목 - 줄마다 밑줄 없이, 블록 전체 아래에 선 하나만 긋는다 */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, borderBottom: '1px solid #000' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: 76, padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>수 신 자</td>
+                      <td style={{ padding: '5px 0' }}>{doc.recipient}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '5px 0', fontWeight: 700, verticalAlign: 'top' }}>참&nbsp;&nbsp;&nbsp;&nbsp;조</td>
+                      <td style={{ padding: '5px 0' }}>{doc.reference || ''}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '5px 0 10px', fontWeight: 700, verticalAlign: 'top' }}>제&nbsp;&nbsp;&nbsp;&nbsp;목</td>
+                      <td style={{ padding: '5px 0 10px', fontWeight: 700 }}>{doc.subject}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* [수정] 번호 붙은 문단(1. 2. 3. ...)은 첫 줄만 오른쪽으로 들여쓰고(textIndent),
+                    한 줄을 넘어가서 줄바꿈되면 이어지는 줄은 다시 본문 왼쪽 여백(0)으로 돌아가도록 함
+                    - paddingLeft 없이 textIndent만 쓰면 정확히 이 동작(첫 줄만 들여쓰기)이 된다.
+                    실제 참고 문서를 픽셀 단위로 측정해서 들여쓰기 폭을 20mm로 맞췄다. */}
+                <div style={{ minHeight: 180, lineHeight: 1.9, fontSize: 12 }}>
+                  {bodyParagraphs.map((p, i) => (
+                    <p key={i} style={{ marginBottom: 14, textIndent: '20mm' }}>
+                      <span style={{ marginRight: 6 }}>{i + 1}.</span>{p}{i === bodyParagraphs.length - 1 ? '  - 끝 -' : ''}
+                    </p>
+                  ))}
+                </div>
               </div>
-            )}
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td style={{ padding: '0 25mm 25mm 25mm', verticalAlign: 'top' }}>
+              {/* [수정] display:'flow-root'로 이 블록만의 독립된 블록 서식 맥락(BFC)을 만들어준다.
+                  이게 없으면 안쪽 마지막 문단(<p>)의 아래쪽 여백이 이 div 밖으로 "새어나가"서,
+                  실제 화면에 보이는 높이(getBoundingClientRect)가 진짜 차지하는 공간보다 작게
+                  측정되고, 그 오차만큼 위 본문 영역의 minHeight 계산이 살짝 틀어져 불필요한
+                  빈 페이지가 하나 더 생기는 문제가 있었다(실제 재현 후 확인). */}
+              <div ref={footerWrapRef} style={{ display: 'flow-root' }}>
+                {/* [수정] 회사명 + 직인(도장) - 도장이 회사명 글자 위에 살짝 겹치게 가운데 배치.
+                    도장 이미지가 글자보다 나중에 그려지면(기본 DOM 순서) 도장 사각형 배경이 겹치는
+                    부분의 글자(예: "션")를 완전히 덮어버려서 안 보이는 문제가 있었다. 회사명 span에
+                    zIndex를 줘서 도장 위로 글자가 항상 비쳐 보이도록 함(flex item은 position 없이도
+                    zIndex로 별도 stacking context가 생긴다). */}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 40, marginBottom: 0 }}>
+                  <span style={{ fontSize: 20, fontWeight: 800, position: 'relative', zIndex: 1 }}>{doc.companyName}</span>
+                  {/* [수정] 로고와 마찬가지로, 회사가 직접 올린 직인(branding.sealUrl)이 있을 때만
+                      표시한다. */}
+                  {branding.sealUrl && (
+                    <img src={branding.sealUrl} alt="" style={{ height: 58, marginLeft: -20, position: 'relative', zIndex: 0 }} />
+                  )}
+                </div>
 
-            {/* [수정] 시행/접수, 주소, 연락처 줄 자간을 0.8px→1.2px로 더 넓힘 */}
-            <p style={{ marginBottom: 4, letterSpacing: 1.2 }}>
-              <span style={{ color: labelBlue }}>시행</span>&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}
-            </p>
-            {/* 맨 아래 2줄: 첫 줄엔 (우편번호 포함) 주소, 둘째 줄엔 전화/전송/이메일 */}
-            {doc.companyAddress && <p style={{ color: '#333', marginBottom: 2, letterSpacing: 1.2 }}>{doc.companyAddress}</p>}
-            {/* 전화/전송/e-mail 사이 간격을 36px→52px로 더 넓게 벌려서 표시 */}
-            {footerParts.length > 0 && (
-              <p style={{ color: '#333', letterSpacing: 1.2, display: 'flex', gap: 52 }}>
-                {footerParts.map((part, i) => <span key={i}>{part}</span>)}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+                {/* [수정] 도장 아래 굵은 회색 구분선 - 그 아래로 결재란/시행/발신처 정보를 묶는다 */}
+                <div style={{ borderTop: '4px solid #5d5d5d', marginTop: 10, paddingTop: 14, fontSize: 11 }}>
+                  {/* [수정] 결재란 - 표(테두리) 없이 배치. 담당/이사는 왼쪽 한 줄에 나란히,
+                      "결재 [날짜]"와 "대표 [서명]"은 오른쪽에 세로로 쌓아서 같은 폭(오른쪽 정렬)으로
+                      맞춘다 - 대표이사가 결재하면 서명이 아래 칸에, 그 결재 날짜가 서명 바로 위에 표시됨.
+                      협조자는 담당/이사와 한 줄에 묶지 않고, 그 아래 별도 줄로 빼서 "담당" 줄과
+                      "시행" 줄 사이에 위치하도록 한다. */}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8, gap: 24 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
+                      {approvalLine.filter(s => !s.role.includes('대표') && !s.role.includes('협조자')).map((s, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ color: labelBlue, fontWeight: 700 }}>{s.role}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
+                            {s.signatureUrl && <img src={s.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
+                            <span style={{ fontSize: 10 }}>{s.date || ''}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {daepyoStep && (
+                      // [수정] "결재 [날짜]"와 "대표이사 [서명]"을 2열 grid(라벨 열 + 값 열)로 배치해서,
+                      // 라벨 글자 수가 달라도(결재=2자, 대표이사=4자) 값 열(날짜/서명)이 항상 같은
+                      // 세로선에 맞춰지도록 함 - "서명 바로 위에 날짜가 오도록" 정확히 정렬된다.
+                      <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 8, rowGap: 4, justifyContent: 'end' }}>
+                        <div style={{ fontWeight: 700 }}>결재</div>
+                        <div style={{ fontWeight: 700, minWidth: 56 }}>{finalApprovalDate}</div>
+                        <span style={{ color: labelBlue, fontWeight: 700 }}>{daepyoStep.role}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', minWidth: 56 }}>
+                          {daepyoStep.signatureUrl && <img src={daepyoStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {coopStep && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                      <span style={{ color: labelBlue, fontWeight: 700 }}>협조자</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 56 }}>
+                        {coopStep.signatureUrl && <img src={coopStep.signatureUrl} style={{ maxHeight: 24, maxWidth: 72 }} />}
+                        <span style={{ fontSize: 10 }}>{coopStep.date || ''}</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* [수정] 시행/접수, 주소, 연락처 줄 자간을 0.8px→1.2px로 더 넓힘 */}
+                  <p style={{ marginBottom: 4, letterSpacing: 1.2 }}>
+                    <span style={{ color: labelBlue }}>시행</span>&nbsp;&nbsp;{doc.executionNumber}{doc.issueDate ? `(${formatDateDot(doc.issueDate)})` : ''}&nbsp;&nbsp;&nbsp;&nbsp;접수&nbsp;&nbsp;{doc.receiptNumber || ''}
+                  </p>
+                  {/* 맨 아래 2줄: 첫 줄엔 (우편번호 포함) 주소, 둘째 줄엔 전화/전송/이메일 */}
+                  {doc.companyAddress && <p style={{ color: '#333', marginBottom: 2, letterSpacing: 1.2 }}>{doc.companyAddress}</p>}
+                  {/* 전화/전송/e-mail 사이 간격을 36px→52px로 더 넓게 벌려서 표시 */}
+                  {footerParts.length > 0 && (
+                    <p style={{ color: '#333', letterSpacing: 1.2, display: 'flex', gap: 52 }}>
+                      {footerParts.map((part, i) => <span key={i}>{part}</span>)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     );
   };
 
