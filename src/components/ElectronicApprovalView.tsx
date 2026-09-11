@@ -1796,7 +1796,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     window.print();
   };
 
-  // [추가] 공문서 출력용 렌더러. 요청하신 여백(위/아래 20mm, 좌/우 25mm)을 그대로 반영하고,
+  // [추가] 공문서 출력용 렌더러. 요청하신 여백(사방 20mm)을 그대로 반영하고,
   // 화면 미리보기와 실제 인쇄(#print-root 포털) 양쪽에서 동일하게 재사용한다.
   const renderPrintableOfficial = (doc: OfficialDocument | undefined) => {
     if (!doc) return null;
@@ -1843,10 +1843,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       // 스페이서를 0으로 되돌린 뒤 다시 재는 것부터 시작 - 안 그러면 이전 렌더에서 남은
       // 스페이서 높이가 이번 측정에 섞여 들어가 계산이 매번 부풀어 오르는 문제가 생긴다.
       spacerEl.style.height = '0px';
-      // 297mm(A4) - 25mm(위) - 25mm(아래) = 247mm가 한 페이지의 실제 인쇄 가능 영역.
+      // 297mm(A4) - 20mm(위) - 20mm(아래) = 257mm가 한 페이지의 실제 인쇄 가능 영역.
       // mm를 px로 바꿀 땐 CSS 표준값(1mm = 96/25.4px)을 쓴다 - 화면에 이미 표시된
       // DOM을 실측(getBoundingClientRect)하는 값과 같은 px 기준으로 맞추기 위함.
-      const pagePx = (247 * 96) / 25.4;
+      const pagePx = (257 * 96) / 25.4;
       const footerPx = footerBlockEl.getBoundingClientRect().height;
       // 하단 블록은 중간 페이지에도 반복해서 찍히므로, 한 페이지에서 본문이 실제로 쓸 수
       // 있는 세로 공간은 "페이지 전체 - 하단 블록 높이"이다.
@@ -1898,7 +1898,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       <table className="print-official-document-margins" style={{ width: '210mm', margin: '0 auto', borderCollapse: 'collapse', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
         <tbody>
           <tr>
-            <td style={{ padding: '25mm 20mm 0 20mm', verticalAlign: 'top' }}>
+            <td style={{ padding: '20mm 20mm 0 20mm', verticalAlign: 'top' }}>
               {/* [수정] 이 안쪽 div가 예전 바깥 컨테이너 역할(flex column)을 이어받는다.
                   이 안의 헤더 묶음/문단/스페이서 각각에 ref를 달아, 아래 tfoot의 하단 블록
                   ref까지 모두 잡히는 시점에 applyLastPageSpacer()가 "마지막 페이지에
@@ -1971,7 +1971,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         </tbody>
         <tfoot>
           <tr>
-            <td style={{ padding: '0 20mm 25mm 20mm', verticalAlign: 'top' }}>
+            <td style={{ padding: '0 20mm 20mm 20mm', verticalAlign: 'top' }}>
               {/* [수정] display:'flow-root'로 이 블록만의 독립된 블록 서식 맥락(BFC)을 만들어준다.
                   이게 없으면 안쪽 마지막 문단(<p>)의 아래쪽 여백이 이 div 밖으로 "새어나가"서,
                   실제 화면에 보이는 높이(getBoundingClientRect)가 진짜 차지하는 공간보다 작게
