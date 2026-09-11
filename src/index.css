@@ -205,31 +205,42 @@ body {
     min-height: auto !important;
   }
 
-  /* [추가] 공문서(전자결재)는 여백이 위/아래/좌/우 모두 25mm로, 근로계약서 등이 쓰는
-  document-page(위/아래 30mm)와는 다르다. 같은 이유로 - 본문이 길어 페이지가 넘어가도
-  매 페이지 여백이 항상 유지되도록 - 전용 named page를 따로 둔다. 화면 미리보기에서는
-  이 규칙이 적용되지 않으므로(@media print 안에만 있음) 평소엔 그대로 210mm 고정폭 +
-  25mm padding으로 보인다. */
+  /* [수정] 공문서(전자결재)는 여백이 위/아래 25mm, 좌/우 20mm로(처음엔 사방 25mm였다가
+  요청에 따라 좌우만 20mm로 좁혔다), 근로계약서 등이 쓰는 document-page(위/아래 30mm)와는
+  다르다. 같은 이유로 - 본문이 길어 페이지가 넘어가도 매 페이지 여백이 항상 유지되도록 -
+  전용 named page를 따로 둔다. 화면 미리보기에서는 이 규칙이 적용되지 않으므로(@media
+  print 안에만 있음) 평소엔 그대로 210mm 고정폭 + td padding(아래 tsx 쪽 25mm/20mm)으로
+  보인다. [참고] margin 축약형은 "위아래 좌우" 순서라 25mm 20mm = 위/아래 25mm, 좌/우 20mm. */
   @page official-document-page {
     size: A4 portrait;
-    margin: 25mm;
+    margin: 25mm 20mm;
   }
   /* [수정] 위 규칙만으로는 화면 미리보기용으로 넣어둔 바깥 div의 인라인 minHeight:297mm가
   인쇄 시에도 그대로 남아있어서, 실제 내용이 짧아 한 페이지에 다 들어가는 문서도 강제로
   297mm 높이를 채우려다 이 문서용 페이지의 실제 인쇄 가능 영역(25mm 여백을 뺀 247mm)을
   넘겨버려 뒤에 빈 페이지가 하나 더 생기는 문제가 있었다. 인쇄할 때는 이 최소 높이를
   없애서 내용 길이만큼만 차지하게 하고, 페이지 사이 여백은 이제 위 named page의 margin이
-  전담하므로 문제 없다. */
+  전담하므로 문제 없다.
+  [수정] "여백이 코드에 정한 값(25mm/20mm)보다 훨씬 크게(위 35mm/좌우 37mm 등) 나온다"는
+  버그의 실제 원인을 찾았다 - 이 클래스가 지금은 <table> 태그에 붙는데(공문서 하단 블록을
+  매 페이지에 반복하려고 <table>+<tfoot> 구조로 바꾸면서), <table>은 일반 <div>와 달리
+  width:auto일 때 "가능한 너비를 다 채우기"가 아니라 "내용 크기만큼만 줄어들기
+  (shrink-to-fit)"로 동작한다. 그 상태에서 margin:0 auto로 가운데 정렬을 하면, 본문 글자
+  폭이 페이지 폭보다 좁을 때 그 차이만큼이 좌우에 "보이지 않는 추가 여백"으로 더 붙어버려서
+  실제 여백이 @page에 정한 값보다 훨씬 커지고, 본문 길이에 따라 매번 들쭉날쭉해진다(Playwright로
+  실제 인쇄 결과를 픽셀 단위로 측정해서 확인). width를 auto 대신 100%로 주면 <table>이
+  페이지의 실제 인쇄 가능 너비(@page margin을 뺀 나머지)를 정확히 다 채우게 되어, 좌우
+  여백이 @page에 정한 값과 정확히 일치하게 된다. */
   .print-official-document-margins {
     page: official-document-page;
-    width: auto !important;
+    width: 100% !important;
     padding: 0 !important;
     min-height: auto !important;
   }
   /* [추가] 공문서 하단 블록(직인+결재란 등)이 매 페이지 아래에 반복되도록 문서 전체를
   <table>(본문=tbody, 하단 블록=tfoot)로 구성하면서, 화면 미리보기용으로 tbody/tfoot의
-  <td>에 준 25mm 안팎 padding이 실제 인쇄 시에는 위 official-document-page의 @page
-  margin(25mm)과 이중으로 겹쳐 여백이 2배가 되는 문제가 있었다. 인쇄 시에는 이 td들의
+  <td>에 준 25mm(위/아래)·20mm(좌/우) padding이 실제 인쇄 시에는 위 official-document-page의
+  @page margin(25mm/20mm)과 이중으로 겹쳐 여백이 2배가 되는 문제가 있었다. 인쇄 시에는 이 td들의
   padding을 모두 없애서, 페이지 여백은 오직 @page 규칙 하나가 전담하게 한다.
   [주의] 자손 선택자(td)가 아니라 바로 아래 자식(> tbody/tfoot > tr > td)만 골라야 한다 -
   안 그러면 본문 안쪽의 수신자/참조/제목 표처럼 문서 내용 자체에 필요한 다른 <td>들의
