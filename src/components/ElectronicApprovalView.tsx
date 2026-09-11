@@ -1898,7 +1898,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       <table className="print-official-document-margins" style={{ width: '210mm', margin: '0 auto', borderCollapse: 'collapse', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 12, background: 'white' }}>
         <tbody>
           <tr>
-            <td style={{ padding: '25mm 25mm 0 25mm', verticalAlign: 'top' }}>
+            <td style={{ padding: '25mm 20mm 0 20mm', verticalAlign: 'top' }}>
               {/* [수정] 이 안쪽 div가 예전 바깥 컨테이너 역할(flex column)을 이어받는다.
                   이 안의 헤더 묶음/문단/스페이서 각각에 ref를 달아, 아래 tfoot의 하단 블록
                   ref까지 모두 잡히는 시점에 applyLastPageSpacer()가 "마지막 페이지에
@@ -1971,7 +1971,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         </tbody>
         <tfoot>
           <tr>
-            <td style={{ padding: '0 25mm 25mm 25mm', verticalAlign: 'top' }}>
+            <td style={{ padding: '0 20mm 25mm 20mm', verticalAlign: 'top' }}>
               {/* [수정] display:'flow-root'로 이 블록만의 독립된 블록 서식 맥락(BFC)을 만들어준다.
                   이게 없으면 안쪽 마지막 문단(<p>)의 아래쪽 여백이 이 div 밖으로 "새어나가"서,
                   실제 화면에 보이는 높이(getBoundingClientRect)가 진짜 차지하는 공간보다 작게
