@@ -1790,7 +1790,24 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
   // [추가] 공문서 인쇄. 화면 미리보기와 동일한 renderPrintableOfficial 출력을 #print-root
   // 포털로 그대로 재사용해, 화면에 보이는 그대로 인쇄/PDF 저장되도록 한다.
+  // [수정] 이 버튼은 "공문서 출력 미리보기" 모달 안에만 있어서, 이 버튼이 눌리는 시점엔
+  // 항상 그 미리보기(화면에 실제로 보이는, display:none이 아닌) 인스턴스와 인쇄 포털
+  // (#print-root, 평소엔 display:none) 인스턴스가 동시에 떠 있다. 마지막 페이지 하단
+  // 블록을 페이지 맨 아래로 밀어주는 스페이서 높이는 "실제로 보이는" 미리보기 쪽에서만
+  // 정확히 계산할 수 있고(인쇄 포털 쪽은 display:none이라 계산 시점에 모든 크기가 0으로
+  // 측정되어 계산이 불가능함 - renderPrintableOfficial의 applyLastPageSpacer 정의부 주석
+  // 참고), 인쇄 시점(beforeprint)에 다시 계산해보려 해도 그때 역시 브라우저 뷰포트
+  // 너비를 기준으로 측정되어(실제 인쇄 용지 폭이 아니라) 오히려 더 부정확한 값이 나오는
+  // 것을 playwright로 직접 확인했다. 그래서 인쇄 버튼을 누르는 이 순간, 이미 정확히
+  // 계산되어 있는 미리보기 쪽 스페이서 높이를 그대로 읽어서 인쇄 포털 쪽 스페이서에
+  // 복사해 넣은 뒤에 인쇄를 시작한다 - 문서 내용이 완전히 동일하므로 같은 높이값이
+  // 그대로 적용되어야 정확하다.
   const handlePrintOfficial = () => {
+    const previewSpacer = document.querySelector<HTMLElement>('#officialPreviewWrap .official-print-tail-spacer');
+    const portalSpacer = document.querySelector<HTMLElement>('#print-root .official-print-tail-spacer');
+    if (previewSpacer && portalSpacer) {
+      portalSpacer.style.height = previewSpacer.style.height || '0px';
+    }
     document.body.classList.add('print-portal-mode');
     window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
     window.print();
@@ -1840,6 +1857,21 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     const applyLastPageSpacer = () => {
       if (!headerGroupEl || !spacerEl || !footerBlockEl) return;
       if (paragraphEls.length !== bodyParagraphs.length || paragraphEls.some(el => !el)) return;
+      // [핵심 수정] 이 인스턴스가 인쇄 포털(#print-root)용일 경우, #print-root는 평소
+      // display:none이라 그 아래 요소들은 실제 인쇄가 시작되기 전까지 폭/높이가 전부
+      // 0으로 측정된다(display:none인 조상 아래에서는 getBoundingClientRect가 항상 전부
+      // 0을 반환함). 이 상태에서 계산을 그대로 진행하면 "하단 블록 높이=0, 남는 공간=페이지
+      // 전체 높이"가 되어 버려 스페이서가 거의 한 페이지 분량만큼 부풀어 오르고, 그 결과
+      // 멀쩡히 한 페이지에 들어갈 짧은 문서(예: 2문단)도 무조건 2페이지로 넘어가며 2페이지
+      // 아래 여백이 60mm 가까이 되는 실제 버그가 재현/확인되었다. 그래서 폭이 0으로
+      // 측정되면(=아직 화면에 실제로 보이지 않는 상태) 계산을 아예 건너뛰고 스페이서를
+      // 0인 채로 둔다(하단 블록이 본문 바로 밑에 붙는, 안전한 기본 동작으로 남는다).
+      // [수정] 인쇄 포털 인스턴스는 이렇게 스스로 정확히 계산할 방법이 없으므로, 실제 인쇄
+      // 버튼(handlePrintOfficial)을 누르는 순간 - 항상 함께 떠 있는, 화면에 실제로 보이는
+      // "미리보기" 인스턴스가 이미 정확히 계산해둔 스페이서 높이값을 그대로 복사해와서 쓴다
+      // (내용이 완전히 동일하므로 같은 값이 그대로 적용되어야 정확하다) - 자세한 내용은
+      // handlePrintOfficial 정의부 주석 참고.
+      if (headerGroupEl.getBoundingClientRect().width === 0 || footerBlockEl.getBoundingClientRect().width === 0) return;
       // 스페이서를 0으로 되돌린 뒤 다시 재는 것부터 시작 - 안 그러면 이전 렌더에서 남은
       // 스페이서 높이가 이번 측정에 섞여 들어가 계산이 매번 부풀어 오르는 문제가 생긴다.
       spacerEl.style.height = '0px';
@@ -1864,15 +1896,32 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       const units: number[] = [];
       for (let i = 0; i < tops.length - 1; i++) units.push(tops[i + 1] - tops[i]);
       let currentPageUsed = 0;
+      let pagesUsed = 1;
       for (const h of units) {
         if (currentPageUsed > 0 && currentPageUsed + h > capacityPerPage) {
           currentPageUsed = h; // 이 단위부터 새 페이지 시작
+          pagesUsed += 1;
         } else {
           currentPageUsed += h;
         }
       }
-      const remaining = Math.max(0, capacityPerPage - currentPageUsed - SAFETY_BUFFER_PX);
+      let remaining = Math.max(0, capacityPerPage - currentPageUsed - SAFETY_BUFFER_PX);
       spacerEl.style.height = `${remaining}px`;
+      // [수정] 예전엔 여기서 "문서 전체 높이가 pagesUsed장 분량을 넘지 않는지"를 다시
+      // 확인하는 보정 루프를 두었는데, 그 보정 공식(pagesUsed * pagePx 기준)이 여러 번
+      // 페이지가 넘어가는 문서(예: 40문단)에서는 실제와 어긋나는 것이 playwright 테스트로
+      // 확인되어 오히려 신뢰할 수 없었다. 스페이서 계산이 위에서 이미 "마지막 페이지에서
+      // 남는 공간(capacityPerPage - currentPageUsed)"만큼만 정확히 채우도록 되어 있어서
+      // (스페이서를 더 넣는다고 currentPageUsed가 커지는 것 외엔 다른 페이지의 배치에 전혀
+      // 영향을 주지 않으므로) 별도의 "전체 페이지 수" 보정은 애초에 필요 없다 - 대신,
+      // 스페이서를 실제로 적용한 뒤 그 스페이서 자신이 이 페이지 용량을 넘기지 않는지만
+      // (부동소수점/서브픽셀 오차에 대비해) 한 번 더 확인해서 넘치면 그만큼만 깎는다.
+      const spacerActual = spacerEl.getBoundingClientRect().height;
+      const lastPageOverflow = currentPageUsed + spacerActual - capacityPerPage;
+      if (lastPageOverflow > 0) {
+        remaining = Math.max(0, remaining - lastPageOverflow - 2);
+        spacerEl.style.height = `${remaining}px`;
+      }
     };
     const headerGroupRef = (el: HTMLDivElement | null) => { headerGroupEl = el; applyLastPageSpacer(); };
     const paragraphRef = (i: number) => (el: HTMLParagraphElement | null) => { paragraphEls[i] = el; applyLastPageSpacer(); };
@@ -1964,7 +2013,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                     본문이 얼마나 쌓이는지 계산한 뒤(applyLastPageSpacer), 그 페이지가 남기는
                     빈 공간만큼 이 spacer의 높이를 채워 넣어 하단 블록(tfoot)이 정확히 그
                     페이지 맨 아래로 밀려 내려가도록 한다. */}
-                <div ref={spacerRef} style={{ flexShrink: 0 }} />
+                <div ref={spacerRef} className="official-print-tail-spacer" style={{ flexShrink: 0 }} />
               </div>
             </td>
           </tr>
@@ -3001,7 +3050,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               </p>
 
               <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-y-auto flex justify-center">
-                <div className="shrink-0" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.08)' }}>
+                <div id="officialPreviewWrap" className="shrink-0" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.08)' }}>
                   {renderPrintableOfficial(previewOfficial)}
                 </div>
               </div>
