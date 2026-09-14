@@ -142,6 +142,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   
   // 모달 제어 상태
   const [isWriteModalOpen, setIsWriteModalOpen] = useState<boolean>(false);
+  // [추가] 저장 버튼을 눌러도 서버 응답이 올 때까지 화면에 아무 반응이 없어서 "눌렸는지
+  // 안 눌렸는지" 헷갈리고, 그 사이에 버튼을 또 눌러 중복 저장될 수도 있었다. 저장 중에는
+  // 이 값을 true로 두어 버튼에 "저장 중..." 표시를 하고 버튼을 잠가 중복 클릭도 막는다.
+  const [isSavingLog, setIsSavingLog] = useState<boolean>(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null); // null 이면 새 일지 작성
   // [추가] 작성/수정 모달이 "일일"인지 "주간"인지를 별도로 기억하는 값. 예전엔 뒤에 보이는
   // 탭(activeSubTab)을 그대로 기준으로 썼는데, 그러면 월간 캘린더에서 일정을 추가/수정할 때
@@ -1640,6 +1644,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       alert('일지 제목을 입력해주세요.');
       return;
     }
+    // [추가] 이미 저장 요청이 진행 중이면(버튼을 연속으로 눌러도) 다시 시작하지 않는다 -
+    // 중복 저장(같은 일지가 두 번 생기는 것) 방지.
+    if (isSavingLog) return;
+    setIsSavingLog(true);
+    try {
 
     const headers = {
       'Content-Type': 'application/json',
@@ -1837,6 +1846,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     } catch (err) {
       console.error('Save error:', err);
       alert('업무일지 저장 도중 오류가 발생했습니다.');
+    }
+    } finally {
+      // [추가] 성공하든 실패하든(위쪽 연락처 저장 실패로 일찍 return 되는 경우 포함) 항상
+      // 저장 중 표시를 풀어줘야 버튼이 계속 잠긴 채로 남지 않는다.
+      setIsSavingLog(false);
     }
   };
 
@@ -2438,15 +2452,29 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <div className="text-xs text-slate-400 py-8 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
                   ) : (
                     <div className="space-y-2">
+                      {/* [수정] 예전엔 항목 전체가 하나의 <button>이라 "수정"만 가능하고 여기서
+                      바로 삭제할 방법이 없었다(목록 화면까지 가야만 삭제 가능) - 카드 자체는
+                      그대로 눌러서 수정 화면을 열 수 있게 두고(div + onClick), 오른쪽에 삭제
+                      버튼을 별도로 추가했다. 버튼 안에 버튼을 두면 안 되므로(잘못된 HTML,
+                      클릭이 서로 겹쳐 오작동할 수 있음) 바깥을 button이 아닌 div로 바꿨다.
+                      삭제 버튼은 클릭 시 handleDeleteLog가 이미 확인창을 띄우고 카드 클릭
+                      전파도 막아준다(stopPropagation). */}
                       {getEntriesForDate(selectedCalendarDate).map((en) => (
-                        <button
-                          type="button"
+                        <div
                           key={en.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             setIsDayDetailModalOpen(false);
                             handleOpenEntryFromCalendar(en);
                           }}
-                          className="w-full text-left bg-slate-100 border border-slate-200 hover:border-emerald-500/40 hover:bg-white rounded-xl p-3 transition-colors"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              setIsDayDetailModalOpen(false);
+                              handleOpenEntryFromCalendar(en);
+                            }
+                          }}
+                          className="w-full text-left bg-slate-100 border border-slate-200 hover:border-emerald-500/40 hover:bg-white rounded-xl p-3 transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-2 mb-1">
                             <User className="w-3.5 h-3.5 text-indigo-400" />
@@ -2454,10 +2482,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             {en.time && <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/30 px-1.5 py-0.5 rounded">{en.time}</span>}
                             <span className="text-[10px] text-slate-400 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
                             <Edit2 className="w-3 h-3 text-slate-400" />
+                            <button
+                              type="button"
+                              title="이 업무일지 삭제"
+                              onClick={(e) => handleDeleteLog(en.log.id, en.source, e)}
+                              className="p-1 -m-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           </div>
                           <div className="text-[11px] text-slate-500 mb-1">{en.title}</div>
                           <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{en.content}</div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -3758,20 +3794,35 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <button
                       type="button"
                       onClick={() => setIsWriteModalOpen(false)}
-                      className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm border border-slate-200 transition-colors"
+                      disabled={isSavingLog}
+                      className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm border border-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       취소
                     </button>
+                    {/* [수정] 저장 요청이 서버 응답을 기다리는 동안(isSavingLog) 버튼을 눌러도
+                        아무 반응이 없어 "안 눌린 줄 알고" 다시 누르다 중복 저장되는 문제가
+                        있었다. 저장 중에는 버튼을 잠그고(disabled) 스피너 + "저장 중..."
+                        문구로 진행 상태를 보여준다. */}
                     <button
                       type="submit"
-                      className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 flex items-center gap-1.5 ${
+                      disabled={isSavingLog}
+                      className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 ${
                         writeFormType === 'daily'
                           ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/10'
                           : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/10'
                       }`}
                     >
-                      <Check className="w-4 h-4" />
-                      <span>{editingLogId ? '수정 반영' : '일지 저장'}</span>
+                      {isSavingLog ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          <span>저장 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>{editingLogId ? '수정 반영' : '일지 저장'}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
