@@ -1,0 +1,4357 @@
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
+import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
+import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
+import { ReceiptScanModal } from './ReceiptScanModal.js';
+import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.js';
+import { ProjectMultiSearchSelect } from './ProjectPicker.js';
+import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker.js';
+
+interface Props {
+  contacts: BusinessCard[];
+  setContacts: React.Dispatch<React.SetStateAction<BusinessCard[]>>;
+  projects: Project[];
+  currentUser: import('../types.js').User | null;
+}
+
+// [추가] 대한민국 공휴일(대체공휴일 포함) 표기용 하드코딩 테이블. 설날/추석/부처님오신날처럼
+// 음력 기준으로 매년 날짜가 바뀌는 공휴일이 있어서, 정확한 날짜는 매년 확인해서 이어서
+// 추가해줘야 한다(2025~2027년까지는 정부 발표(월력요항) 기준으로 확인해 반영함).
+// 대체공휴일 규정: 설날·추석 연휴는 "일요일"과 겹칠 때만 적용, 어린이날·삼일절·광복절·
+// 개천절·한글날·부처님오신날·크리스마스는 토요일 또는 일요일과 겹치거나 다른 공휴일과
+// 겹칠 때 적용. 신정(1/1)과 현충일(6/6)은 대체공휴일 적용 대상이 아니다.
+const KOREAN_HOLIDAYS: Record<string, string> = {
+  // 2025년
+  '2025-01-01': '신정',
+  '2025-01-28': '설날 연휴',
+  '2025-01-29': '설날',
+  '2025-01-30': '설날 연휴',
+  '2025-03-01': '삼일절',
+  '2025-03-03': '대체공휴일(삼일절)',
+  '2025-05-05': '어린이날·부처님오신날',
+  '2025-05-06': '대체공휴일(어린이날)',
+  '2025-06-06': '현충일',
+  '2025-08-15': '광복절',
+  '2025-10-03': '개천절',
+  '2025-10-05': '추석 연휴',
+  '2025-10-06': '추석',
+  '2025-10-07': '추석 연휴',
+  '2025-10-08': '대체공휴일(추석)',
+  '2025-10-09': '한글날',
+  '2025-12-25': '크리스마스',
+  // 2026년
+  '2026-01-01': '신정',
+  '2026-02-16': '설날 연휴',
+  '2026-02-17': '설날',
+  '2026-02-18': '설날 연휴',
+  '2026-03-01': '삼일절',
+  '2026-03-02': '대체공휴일(삼일절)',
+  '2026-05-05': '어린이날',
+  '2026-05-24': '부처님오신날',
+  '2026-05-25': '대체공휴일(부처님오신날)',
+  '2026-06-06': '현충일',
+  '2026-08-15': '광복절',
+  '2026-08-17': '대체공휴일(광복절)',
+  '2026-09-24': '추석 연휴',
+  '2026-09-25': '추석',
+  '2026-09-26': '추석 연휴',
+  '2026-10-03': '개천절',
+  '2026-10-05': '대체공휴일(개천절)',
+  '2026-10-09': '한글날',
+  '2026-12-25': '크리스마스',
+  // 2027년
+  '2027-01-01': '신정',
+  '2027-02-06': '설날 연휴',
+  '2027-02-07': '설날',
+  '2027-02-08': '설날 연휴',
+  '2027-02-09': '대체공휴일(설날)',
+  '2027-03-01': '삼일절',
+  '2027-05-05': '어린이날',
+  '2027-05-13': '부처님오신날',
+  '2027-06-06': '현충일',
+  '2027-08-15': '광복절',
+  '2027-08-16': '대체공휴일(광복절)',
+  '2027-09-14': '추석 연휴',
+  '2027-09-15': '추석',
+  '2027-09-16': '추석 연휴',
+  '2027-10-03': '개천절',
+  '2027-10-04': '대체공휴일(개천절)',
+  '2027-10-09': '한글날',
+  '2027-10-11': '대체공휴일(한글날)',
+  '2027-12-25': '크리스마스',
+  '2027-12-27': '대체공휴일(크리스마스)'
+};
+const getKoreanHoliday = (dateStr: string): string | null => KOREAN_HOLIDAYS[dateStr] || null;
+
+export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects, currentUser }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly' | 'report'>('daily');
+  const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
+  const [weeklyLogs, setWeeklyLogs] = useState<WeeklyWorkLog[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  // 월간 달력 (같은 회사 직원 전체 업무 한눈에 보기) 상태
+  const [monthCursor, setMonthCursor] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d;
+  });
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(getTodayLocalStr());
+  // [추가] 예전엔 캘린더에서 날짜를 클릭하면 선택만 되고, 상세 목록은 화면 맨 아래
+  // 별도 영역에 떠서 스크롤해서 내려가야 보였다. 이제 날짜를 클릭하면 그 자리에서 바로
+  // 팝업(모달)으로 상세 목록이 뜨도록 바꿔서, 스크롤 없이 바로 확인·작성할 수 있게 한다.
+  const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState<boolean>(false);
+  // [추가] 애플 캘린더(아이폰/아이패드/맥) 구독 연동. 링크를 발급받아서 안내 모달에
+  // 보여준다.
+  const [isLoadingCalendarFeed, setIsLoadingCalendarFeed] = useState<boolean>(false);
+  const [calendarFeedInfo, setCalendarFeedInfo] = useState<{ feedUrl: string; webcalUrl: string } | null>(null);
+  const [calendarFeedCopied, setCalendarFeedCopied] = useState<boolean>(false);
+  const handleOpenCalendarFeed = async () => {
+    if (!currentUser) return;
+    setIsLoadingCalendarFeed(true);
+    try {
+      const res = await fetch('/api/worklogs/calendar-token', {
+        method: 'POST',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      if (!res.ok) throw new Error(`연동 링크 생성에 실패했습니다 (상태: ${res.status}).`);
+      const data = await res.json();
+      setCalendarFeedInfo({ feedUrl: data.feedUrl, webcalUrl: data.webcalUrl });
+    } catch (err: any) {
+      console.error('Failed to get calendar feed:', err);
+      alert(`연동 링크 생성에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } finally {
+      setIsLoadingCalendarFeed(false);
+    }
+  };
+
+  const [loading, setLoading] = useState<boolean>(true);
+  
+  // 검색 및 필터 상태
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>('all');
+  // [수정] 업무일지가 몇백~몇천 건으로 늘어나도 느려지지 않도록, 처음엔 50건만 화면에 그리고
+  // "더 보기"를 누르면 50건씩 더 그린다. 엑셀 다운로드는 이 제한과 무관하게 항상 전체를 쓴다.
+  const [visibleLogCount, setVisibleLogCount] = useState<number>(50);
+  const [selectedContactFilter, setSelectedContactFilter] = useState<string>('all');
+  useEffect(() => {
+    setVisibleLogCount(50);
+  }, [activeSubTab, searchQuery, selectedProjectFilter, selectedContactFilter]);
+  
+  // 모달 제어 상태
+  const [isWriteModalOpen, setIsWriteModalOpen] = useState<boolean>(false);
+  // [추가] 저장 버튼을 눌러도 서버 응답이 올 때까지 화면에 아무 반응이 없어서 "눌렸는지
+  // 안 눌렸는지" 헷갈리고, 그 사이에 버튼을 또 눌러 중복 저장될 수도 있었다. 저장 중에는
+  // 이 값을 true로 두어 버튼에 "저장 중..." 표시를 하고 버튼을 잠가 중복 클릭도 막는다.
+  const [isSavingLog, setIsSavingLog] = useState<boolean>(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null); // null 이면 새 일지 작성
+  // [추가] 작성/수정 모달이 "일일"인지 "주간"인지를 별도로 기억하는 값. 예전엔 뒤에 보이는
+  // 탭(activeSubTab)을 그대로 기준으로 썼는데, 그러면 월간 캘린더에서 일정을 추가/수정할 때
+  // 화면이 강제로 "일일" 탭으로 전환되어야만 모달이 올바르게 렌더링됐다. 이제는 이 값을
+  // 따로 둬서, 월간 캘린더 화면에 머문 채로도 일일 업무일지 작성/수정 모달을 열 수 있다.
+  const [writeFormType, setWriteFormType] = useState<'daily' | 'weekly'>('daily');
+  
+  // 카드 확장 상태 (아코디언)
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  // 일지 폼 상태
+  const [formDate, setFormDate] = useState<string>('');
+  const [formStartDate, setFormStartDate] = useState<string>('');
+  const [formEndDate, setFormEndDate] = useState<string>('');
+  const [formTitle, setFormTitle] = useState<string>('');
+  const [formAuthor, setFormAuthor] = useState<string>('');
+  const [formDepartment, setFormDepartment] = useState<string>('');
+  
+  const [myProfile, setMyProfile] = useState<any>(null);
+  const [formTasksTomorrow, setFormTasksTomorrow] = useState<string>('');
+  const [formIssues, setFormIssues] = useState<string>('');
+  const [formAchievementsThisWeek, setFormAchievementsThisWeek] = useState<string>('');
+  
+  // 비용 지출 추가 상태
+  const [formExpenses, setFormExpenses] = useState<WorkLogExpense[]>([]);
+  
+  // 일별 업무 항목 상태 (하루에 여러 건, 각각 시작~종료 시간 지정 가능)
+  type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+  const ALL_DAY_KEYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const emptyDayEntries: Record<DayKey, WorkLogDayEntry[]> = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+  const [dayEntries, setDayEntries] = useState<Record<DayKey, WorkLogDayEntry[]>>(emptyDayEntries);
+  // [추가] 월간 달력에서 일정을 드래그로 옮기는 중인지 표시(놓을 위치 하이라이트용)
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  // 요일별 항목 배열을 "[시작~종료] 내용" 텍스트로 합치는 범용 함수 (드래그로 옮긴 뒤
+  // achievementsByDay/achievementsThisWeek 같은 텍스트 필드를 다시 만들 때 사용)
+  const composeEntriesText = (list?: WorkLogDayEntry[]): string => (list || [])
+    .map((e) => {
+      const timeLabel = e.startTime && e.endTime ? `[${e.startTime}~${e.endTime}] ` : e.startTime ? `[${e.startTime}~] ` : '';
+      return `${timeLabel}${e.content}`.trim();
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  // 하루(day)의 항목들을 "[시작~종료] 내용" 형식의 텍스트로 합쳐서 반환 (인쇄/엑셀/AI정제/일일가져오기 등 기존 기능과 호환용)
+  const getDayComposedText = (day: DayKey, source?: Record<DayKey, WorkLogDayEntry[]>): string => {
+    const list = (source || dayEntries)[day] || [];
+    return list
+      .map((e) => {
+        const timeLabel = e.startTime && e.endTime ? `[${e.startTime}~${e.endTime}] ` : e.startTime ? `[${e.startTime}~] ` : '';
+        return `${timeLabel}${e.content}`.trim();
+      })
+      .filter(Boolean)
+      .join('\n');
+  };
+  const dayHasContent = (day: DayKey) => (dayEntries[day] || []).some((e) => e.content.trim().length > 0);
+
+  // [추가] 어떤 주(week)의 시작일 기준으로, 그 요일(mon~sun)이 실제로 몇 월 며칠인지 계산.
+  // 새 업무 항목을 만들 때, 그리고 드래그로 요일을 옮길 때 날짜 기본값 계산에 쓴다.
+  const computeDateForDayKeyOfWeek = (weekStartDate: string, day: DayKey): string => {
+    if (!weekStartDate) return '';
+    const offsets: Record<DayKey, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
+    const d = new Date(weekStartDate);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + offsets[day]);
+    return dateToLocalStr(d);
+  };
+  // 지금 열려있는 주간 업무일지 작성 폼의 시작일(formStartDate) 기준 버전
+  const getDateForDayKey = (day: DayKey): string => computeDateForDayKeyOfWeek(formStartDate, day);
+  const addDayEntry = (day: DayKey) => {
+    const dateForDay = getDateForDayKey(day);
+    setDayEntries((prev) => ({
+      ...prev,
+      [day]: [...(prev[day] || []), { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: dateForDay, endDate: dateForDay, startTime: '', endTime: '', content: '' }]
+    }));
+  };
+  const updateDayEntry = (day: DayKey, entryId: string, patch: Partial<WorkLogDayEntry>) => {
+    setDayEntries((prev) => ({
+      ...prev,
+      [day]: (prev[day] || []).map((e) => (e.id === entryId ? { ...e, ...patch } : e))
+    }));
+  };
+  const removeDayEntry = (day: DayKey, entryId: string) => {
+    setDayEntries((prev) => ({
+      ...prev,
+      [day]: (prev[day] || []).filter((e) => e.id !== entryId)
+    }));
+  };
+  // 기존(레거시) 텍스트 하나만 있는 요일 데이터를 항목 1건으로 변환 (구버전 데이터 호환)
+  const legacyTextToEntries = (text?: string): WorkLogDayEntry[] => {
+    if (!text || !text.trim()) return [];
+    return [{ id: `legacy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, content: text }];
+  };
+
+  // 일일 업무일지 "금일 실시 사항" 항목 상태 (하루에 여러 건, 각각 시작~종료 시간 지정 가능)
+  const [todayEntries, setTodayEntries] = useState<WorkLogDayEntry[]>([]);
+  const getTodayComposedText = (source?: WorkLogDayEntry[]): string => {
+    return (source || todayEntries)
+      .map((e) => {
+        const timeLabel = e.startTime && e.endTime ? `[${e.startTime}~${e.endTime}] ` : e.startTime ? `[${e.startTime}~] ` : '';
+        return `${timeLabel}${e.content}`.trim();
+      })
+      .filter(Boolean)
+      .join('\n');
+  };
+  const addTodayEntry = () => {
+    setTodayEntries((prev) => [...prev, { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: formDate, endDate: formDate, startTime: '', endTime: '', content: '' }]);
+  };
+  const updateTodayEntry = (entryId: string, patch: Partial<WorkLogDayEntry>) => {
+    setTodayEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, ...patch } : e)));
+  };
+  const removeTodayEntry = (entryId: string) => {
+    setTodayEntries((prev) => prev.filter((e) => e.id !== entryId));
+  };
+
+  // 주간 일지 모달 내 요일 탭 상태
+  const [activeDayTab, setActiveDayTab] = useState<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'>('mon');
+
+  const [formPlansNextWeek, setFormPlansNextWeek] = useState<string>('');
+  const [formFeedbacks, setFormFeedbacks] = useState<string>('');
+  const [formProjectIds, setFormProjectIds] = useState<string[]>([]);
+  const [formContactIds, setFormContactIds] = useState<string[]>([]);
+
+  // 거래처 직접 입력 상태
+  const [useDirectContact, setUseDirectContact] = useState<boolean>(false);
+  const [directContactName, setDirectContactName] = useState<string>('');
+  const [directContactCompany, setDirectContactCompany] = useState<string>('');
+  const [directContactDept, setDirectContactDept] = useState<string>('');
+  const [directContactTitle, setDirectContactTitle] = useState<string>('');
+  const [directContactPhoneOffice, setDirectContactPhoneOffice] = useState<string>('');
+  const [directContactPhoneMobile, setDirectContactPhoneMobile] = useState<string>('');
+  const [directContactEmail, setDirectContactEmail] = useState<string>('');
+
+  // AI 정제 로딩 상태
+  const [aiPolishingField, setAiPolishingField] = useState<string | null>(null);
+
+  // 주간보고서 출력/인쇄 모달 상태
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [selectedReportLog, setSelectedReportLog] = useState<WeeklyWorkLog | null>(null);
+  const [reportTitle, setReportTitle] = useState<string>('');
+  const [reportStartDate, setReportStartDate] = useState<string>('');
+  const [reportEndDate, setReportEndDate] = useState<string>('');
+  const [reportAuthor, setReportAuthor] = useState<string>('');
+  const [reportDepartment, setReportDepartment] = useState<string>('');
+  const [reportExpenseDaily, setReportExpenseDaily] = useState<number>(0);
+  const [reportExpenseWeekly, setReportExpenseWeekly] = useState<number>(0);
+  const [reportExpenseMonthly, setReportExpenseMonthly] = useState<number>(0);
+  
+  // 영수증 스캔 관련 상태
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
+  const [scanningExpenseRowId, setScanningExpenseRowId] = useState<string | null>(null);
+  const [viewingReceiptImage, setViewingReceiptImage] = useState<string | null>(null);
+  
+  // 주간보고서 테이블 데이터
+  const [reportTable1, setReportTable1] = useState<any[]>([]);
+  const [reportTable2, setReportTable2] = useState<any[]>([]);
+  const [reportTable3, setReportTable3] = useState<any[]>([]);
+  const [reportTable4, setReportTable4] = useState<any[]>([]);
+  const [reportOption, setReportOption] = useState<'A' | 'B'>('A');
+
+  // 일간/주간 탭 전환을 위한 모바일 좌우 스와이프 상태 및 핸들러
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX === null || touchEndX === null) return;
+    const distance = touchStartX - touchEndX;
+    const minSwipeDistance = 70; // 최소 70px 스와이프 시 탭 변경
+
+    if (distance > minSwipeDistance) {
+      // 왼쪽으로 쓸기 (Swipe Left) -> 주간(weekly) 탭으로 이동
+      if (activeSubTab === 'daily') {
+        setActiveSubTab('weekly');
+        setSearchQuery('');
+        setSelectedProjectFilter('all');
+        setSelectedContactFilter('all');
+      }
+    } else if (distance < -minSwipeDistance) {
+      // 오른쪽으로 쓸기 (Swipe Right) -> 일일(daily) 탭으로 이동
+      if (activeSubTab === 'weekly') {
+        setActiveSubTab('daily');
+        setSearchQuery('');
+        setSelectedProjectFilter('all');
+        setSelectedContactFilter('all');
+      }
+    }
+  };
+
+  // [추가] 일정에 초대할 수 있는 같은 회사 동료 목록 (초대하면 서버가 알림 메일을 보낸다)
+  const [coworkers, setCoworkers] = useState<Coworker[]>([]);
+  const [formInvitedUserIds, setFormInvitedUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchWorkLogs();
+    fetchMyProfile();
+    fetchVehicles();
+    fetchCoworkers();
+  }, [currentUser]);
+
+  const fetchCoworkers = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch('/api/company-members', { headers: { 'x-user-id': currentUser.id } });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setCoworkers(data);
+      }
+    } catch (err) {
+      console.error('Company members fetch error:', err);
+    }
+  };
+
+  const fetchVehicles = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch('/api/vehicles');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setVehicles(data);
+      }
+    } catch (err) {
+      console.error('Vehicles fetch error:', err);
+    }
+  };
+
+  const fetchMyProfile = async () => {
+    try {
+      const res = await fetch('/api/my-profile');
+      if (res.ok) {
+        const data = await res.json();
+        setMyProfile(data);
+      }
+    } catch (err) {
+      console.error('My profile fetch error:', err);
+    }
+  };
+
+  const fetchWorkLogs = async () => {
+    if (!currentUser) return;
+    setLoading(true);
+    try {
+      const headers = { 'x-user-id': currentUser.id };
+      const [dailyRes, weeklyRes] = await Promise.all([
+        fetch('/api/worklogs/daily', { headers }).then(r => r.json()),
+        fetch('/api/worklogs/weekly', { headers }).then(r => r.json())
+      ]);
+      if (Array.isArray(dailyRes)) setDailyLogs(dailyRes);
+      if (Array.isArray(weeklyRes)) setWeeklyLogs(weeklyRes);
+    } catch (err) {
+      console.error('Work logs fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // [추가] 작성자 이름을 입력하고 다른 칸으로 넘어가면(포커스 아웃), 그 사람이 예전에
+  // 작성했던 업무일지 중 가장 최근 것의 부서를 찾아서 자동으로 채워준다. "새 일지 작성"
+  // 열 때 내 프로필 기준으로 기본값을 채우는 것과 별개로, 작성자 이름을 다른 사람으로
+  // 바꿔 입력해도 그 사람 기준 부서를 찾아주기 위한 것이다. 일치하는 기록이 없으면
+  // 아무것도 건드리지 않는다(기존에 입력해둔 부서를 지우지 않음).
+  const fillDepartmentForAuthor = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const allMyLogs = [...dailyLogs, ...weeklyLogs]
+      .filter((log) => log.author === trimmed && log.department)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    const dept = allMyLogs[0]?.department;
+    if (dept) setFormDepartment(dept);
+  };
+
+  // 모달 열기 핸들러 (새 일지 작성)
+  // [수정] 캘린더에서 "이 날짜에 새 일정 추가"를 누르면 오늘 날짜가 아니라 캘린더에서
+  // 선택한 날짜로 바로 채워서 열리도록 presetDate를 받을 수 있게 했다.
+  // [수정] type을 명시적으로 넘기면 그 종류(일일/주간)로 모달이 뜨고, 넘기지 않으면
+  // 지금 보고 있는 탭(activeSubTab) 기준으로 예전과 동일하게 동작한다. 월간 캘린더의
+  // "일정 추가"처럼, 화면 탭은 그대로 두고 특정 종류의 모달만 열고 싶을 때 type을 넘긴다.
+  const handleOpenNewLog = (presetDate?: string, type?: 'daily' | 'weekly') => {
+    const resolvedType: 'daily' | 'weekly' = type || (activeSubTab === 'daily' ? 'daily' : 'weekly');
+    setWriteFormType(resolvedType);
+    setEditingLogId(null);
+    const todayStr = presetDate || getTodayLocalStr();
+
+    // 주간 기본 범위 (이번주 월~금)
+    const today = new Date();
+    const currentDay = today.getDay(); // 0: 일, 1: 월 ... 6: 토
+    const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const monday = new Date(today.setDate(today.getDate() + distanceToMonday));
+    const friday = new Date(monday);
+    friday.setDate(friday.getDate() + 4);
+
+    setFormDate(todayStr);
+    setFormStartDate(dateToLocalStr(monday));
+    setFormEndDate(dateToLocalStr(friday));
+
+    if (resolvedType === 'daily') {
+      setFormTitle(`${todayStr} 일일 업무일지`);
+    } else {
+      setFormTitle(`${dateToLocalStr(monday)} ~ ${dateToLocalStr(friday)} 주간 업무일지`);
+    }
+    
+    // 프로필 정보가 있으면 기본값으로 주입
+    setFormAuthor(myProfile?.name || currentUser?.name || '');
+    // [수정] 예전엔 프로필에 부서명이 없으면 그냥 빈 칸으로 남았다. 프로필에 없으면,
+    // 본인이 최근에 작성한 일지에 남아있는 부서명을 대신 찾아서 채워준다(운행기록에
+    // 적용한 것과 같은 방식으로 통일).
+    if (myProfile?.department) {
+      setFormDepartment(myProfile.department);
+    } else {
+      const myName = myProfile?.name || currentUser?.name || '';
+      const allMyLogs = [...dailyLogs, ...weeklyLogs].filter((log) => log.author === myName && log.department);
+      const myLastDept = allMyLogs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0]?.department;
+      setFormDepartment(myLastDept || '');
+    }
+    
+    setTodayEntries([]);
+    setFormTasksTomorrow('');
+    setFormIssues('');
+    setFormAchievementsThisWeek('');
+    
+    // 일별 업무 항목 초기화
+    setDayEntries(emptyDayEntries);
+
+    setFormPlansNextWeek('');
+    setFormFeedbacks('');
+    setFormProjectIds([]);
+    setFormContactIds([]);
+    setFormInvitedUserIds([]);
+    setFormExpenses([]);
+
+    setUseDirectContact(false);
+    setDirectContactName('');
+    setDirectContactCompany('');
+    setDirectContactDept('');
+    setDirectContactTitle('');
+    setDirectContactPhoneOffice('');
+    setDirectContactPhoneMobile('');
+    setDirectContactEmail('');
+    
+    setIsWriteModalOpen(true);
+  };
+
+  // 모달 열기 핸들러 (수정)
+  const handleOpenEditLog = (log: any, type: 'daily' | 'weekly') => {
+    setWriteFormType(type);
+    setEditingLogId(log.id);
+    setFormTitle(log.title);
+    setFormAuthor(log.author || '');
+    setFormDepartment(log.department || '');
+    setFormProjectIds(log.projectIds || []);
+    setFormContactIds(log.contactIds || []);
+    setFormInvitedUserIds(log.invitedUserIds || []);
+    setFormExpenses(log.expenses || []);
+
+    setUseDirectContact(false);
+    setDirectContactName('');
+    setDirectContactCompany('');
+    setDirectContactDept('');
+    setDirectContactTitle('');
+    setDirectContactPhoneOffice('');
+    setDirectContactPhoneMobile('');
+    setDirectContactEmail('');
+    
+    if (type === 'daily') {
+      const dLog = log as DailyWorkLog;
+      setFormDate(dLog.date);
+      setTodayEntries(dLog.taskEntriesToday?.length ? dLog.taskEntriesToday : legacyTextToEntries(dLog.tasksToday));
+      setFormTasksTomorrow(dLog.tasksTomorrow);
+      setFormIssues(dLog.issues || '');
+    } else {
+      const wLog = log as WeeklyWorkLog;
+      setFormStartDate(wLog.startDate);
+      setFormEndDate(wLog.endDate);
+      setFormAchievementsThisWeek(wLog.achievementsThisWeek);
+      
+      // 일별 업무 항목 로드 (신버전: achievementEntriesByDay / 구버전: achievementsByDay 텍스트를 항목 1건으로 변환)
+      setDayEntries({
+        mon: wLog.achievementEntriesByDay?.mon?.length ? wLog.achievementEntriesByDay.mon : legacyTextToEntries(wLog.achievementsByDay?.mon),
+        tue: wLog.achievementEntriesByDay?.tue?.length ? wLog.achievementEntriesByDay.tue : legacyTextToEntries(wLog.achievementsByDay?.tue),
+        wed: wLog.achievementEntriesByDay?.wed?.length ? wLog.achievementEntriesByDay.wed : legacyTextToEntries(wLog.achievementsByDay?.wed),
+        thu: wLog.achievementEntriesByDay?.thu?.length ? wLog.achievementEntriesByDay.thu : legacyTextToEntries(wLog.achievementsByDay?.thu),
+        fri: wLog.achievementEntriesByDay?.fri?.length ? wLog.achievementEntriesByDay.fri : legacyTextToEntries(wLog.achievementsByDay?.fri),
+        sat: wLog.achievementEntriesByDay?.sat?.length ? wLog.achievementEntriesByDay.sat : legacyTextToEntries(wLog.achievementsByDay?.sat),
+        sun: wLog.achievementEntriesByDay?.sun?.length ? wLog.achievementEntriesByDay.sun : legacyTextToEntries(wLog.achievementsByDay?.sun)
+      });
+
+      setFormPlansNextWeek(wLog.plansNextWeek);
+      setFormFeedbacks(wLog.feedbacks || '');
+    }
+    
+    setIsWriteModalOpen(true);
+  };
+
+  // [수정] 캘린더에서 항목을 클릭하면, 그 항목이 들어있는 원본 업무일지(일일/주간)를
+  // 그대로 수정 모달로 연다. 예전엔 여기서 activeSubTab도 그 종류로 바꿔서 캘린더 화면을
+  // 벗어나 버렸는데, handleOpenEditLog가 이제 writeFormType을 따로 관리하므로 화면(월간
+  // 캘린더)은 그대로 두고 모달만 올바른 종류(일일/주간)로 열 수 있다.
+  const handleOpenEntryFromCalendar = (entry: CalendarEntry) => {
+    handleOpenEditLog(entry.log, entry.source);
+  };
+
+  // 주간보고서 도우미 및 상태 매핑 함수
+  const getOffsetDateString = (baseDateStr: string, offsetDays: number): string => {
+    try {
+      const date = new Date(baseDateStr);
+      if (isNaN(date.getTime())) return baseDateStr;
+      date.setDate(date.getDate() + offsetDays);
+      return date.toISOString().split('T')[0];
+    } catch {
+      return baseDateStr;
+    }
+  };
+
+  const formatDateLabel = (dateStr: string): string => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const mm = d.getMonth() + 1;
+      const dd = d.getDate();
+      const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+      return `${mm}/${dd < 10 ? '0' + dd : dd}일 ${days[d.getDay()]}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatMockupDateLabel = (dateStr: string): string => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const mm = d.getMonth() + 1;
+      const dd = d.getDate();
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      return `${mm}/${dd < 10 ? '0' + dd : dd}일(${days[d.getDay()]})`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getWeekDetails = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return { month: 1, monthlyWeek: 1, annualWeek: 1 };
+      
+      // 주간의 중간값(수요일)을 사용하여 월 결정
+      const mid = new Date(d);
+      mid.setDate(mid.getDate() + 2);
+      const mm = mid.getMonth() + 1;
+      
+      // 연간 주차 계산
+      const tempDate = new Date(d.getTime());
+      tempDate.setHours(0, 0, 0, 0);
+      tempDate.setDate(tempDate.getDate() + 3 - (tempDate.getDay() + 6) % 7);
+      const week1 = new Date(tempDate.getFullYear(), 0, 4);
+      const annualWeek = 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+      
+      // 월간 주차 계산
+      const firstDayOfMonth = new Date(mid.getFullYear(), mid.getMonth(), 1);
+      const firstDayOfWeek = firstDayOfMonth.getDay(); // 0: 일, 1: 월...
+      const dateNum = mid.getDate();
+      const monthlyWeek = Math.ceil((dateNum + (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1)) / 7);
+      
+      return { month: mm, monthlyWeek, annualWeek };
+    } catch {
+      return { month: 1, monthlyWeek: 1, annualWeek: 1 };
+    }
+  };
+
+  const getCategoryKo = (cat: string, custom?: string) => {
+    const categoryLabels: Record<string, string> = {
+      breakfast: '아침식사',
+      lunch: '점심식사',
+      dinner: '저녁식사',
+      drinks: '음료&커피',
+      fuel: '주유비',
+      parking: '주차비',
+      proxy: '대리운전비',
+      purchase: '물건 구입',
+      custom: custom || '직접 입력'
+    };
+    return categoryLabels[cat] || cat;
+  };
+
+  // 특정 날짜(YYYY-MM-DD)에 해당하는 모든 업무 내용(일일 일지 + 주간 일지의 요일별 항목들)을
+  // 같은 회사 직원 전체 기준으로 모아서 반환 (월간 달력에서 사용). 하루에 여러 건이면 각각 별도 항목으로 표시됩니다.
+  // [수정] 캘린더는 원래 일일/주간 업무일지에서 항목을 "읽어서 보여주기만" 하는 화면이었다.
+  // 캘린더에서 직접 일정을 만들거나 캘린더에서 클릭해서 고칠 방법이 없다 보니, 캘린더와
+  // 업무일지가 서로 다른 걸로 느껴졌다. 실제로는 캘린더 항목 = 업무일지의 각 업무 항목,
+  // 완전히 "같은 데이터"이므로, 원본 로그(log)와 종류(source)를 함께 담아서 캘린더에서
+  // 클릭하면 그 항목이 들어있는 업무일지를 그대로 수정 모달로 열 수 있게 한다. 수정 모달은
+  // dailyLogs/weeklyLogs 원본 배열을 직접 갱신하므로, 캘린더에서 고치든 업무일지 목록에서
+  // 고치든 같은 데이터가 바뀌는 것이라 자동으로 양쪽 다 반영된다(별도 동기화 로직 불필요).
+  type CalendarEntry = { id: string; author: string; time?: string; title: string; content: string; source: 'daily' | 'weekly'; log: DailyWorkLog | WeeklyWorkLog; dayKey?: DayKey; taskId?: string };
+  const getEntriesForDate = (dateStr: string): CalendarEntry[] => {
+    const entries: CalendarEntry[] = [];
+
+    // [수정] 원래는 "일지의 날짜(l.date)"가 곧 그 안의 모든 업무 항목의 날짜였다. 이제
+    // 항목마다 자기만의 시작일/종료일(startDate/endDate)을 따로 가질 수 있게 되어서(아이폰
+    // 캘린더처럼 여러 날에 걸친 일정도 표현 가능), 일지 자체가 아니라 "그 항목의 실제
+    // 날짜 범위" 안에 조회하려는 날짜(dateStr)가 포함되는지로 판단해야 한다. 값이 없으면
+    // (예전에 만든 항목) 기존처럼 일지의 날짜 하나만 쓰는 것으로 취급한다.
+    dailyLogs.forEach((l) => {
+      if (l.taskEntriesToday && l.taskEntriesToday.length > 0) {
+        l.taskEntriesToday.forEach((task) => {
+          if (!task.content || !task.content.trim()) return;
+          const entryStart = task.startDate || l.date;
+          const entryEnd = task.endDate || entryStart;
+          if (dateStr < entryStart || dateStr > entryEnd) return;
+          entries.push({
+            id: `d-${l.id}-${task.id}`,
+            author: l.author || '작성자 미지정',
+            time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
+            title: l.title,
+            content: task.content,
+            source: 'daily',
+            log: l
+          });
+        });
+      } else if (l.date === dateStr && l.tasksToday && l.tasksToday.trim()) {
+        entries.push({
+          id: `d-${l.id}`,
+          author: l.author || '작성자 미지정',
+          title: l.title,
+          content: l.tasksToday,
+          source: 'daily',
+          log: l
+        });
+      }
+    });
+
+    const dayKeys: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    weeklyLogs.forEach((wl) => {
+      if (!wl.startDate) return;
+      const start = new Date(wl.startDate);
+      dayKeys.forEach((key, offset) => {
+        const d = new Date(start);
+        d.setDate(d.getDate() + offset);
+        const naturalDStr = d.toISOString().split('T')[0];
+
+        const structuredEntries = wl.achievementEntriesByDay?.[key];
+        if (structuredEntries && structuredEntries.length > 0) {
+          // 신버전: 하루에 여러 업무 항목, 각각 시작~종료 날짜/시간 지정 가능
+          structuredEntries.forEach((task) => {
+            if (!task.content || !task.content.trim()) return;
+            const entryStart = task.startDate || naturalDStr;
+            const entryEnd = task.endDate || entryStart;
+            if (dateStr < entryStart || dateStr > entryEnd) return;
+            entries.push({
+              id: `w-${wl.id}-${key}-${task.id}`,
+              author: wl.author || '작성자 미지정',
+              time: task.startTime && task.endTime ? `${task.startTime}~${task.endTime}` : task.startTime,
+              title: wl.title,
+              content: task.content,
+              source: 'weekly',
+              log: wl,
+              dayKey: key,
+              taskId: task.id
+            });
+          });
+        } else if (naturalDStr === dateStr) {
+          // 구버전 호환: 요일별 텍스트 하나만 있는 경우 (날짜 범위 개념 없이 그 요일 하루만)
+          const legacyContent = wl.achievementsByDay?.[key];
+          if (legacyContent && legacyContent.trim()) {
+            entries.push({
+              id: `w-${wl.id}-${key}`,
+              author: wl.author || '작성자 미지정',
+              title: wl.title,
+              content: legacyContent,
+              source: 'weekly',
+              log: wl,
+              dayKey: key
+            });
+          }
+        }
+      });
+    });
+
+    // 시간이 있는 항목을 먼저, 그 안에서는 시간순으로 정렬
+    return entries.sort((a, b) => {
+      if (a.time && b.time) return a.time.localeCompare(b.time);
+      if (a.time) return -1;
+      if (b.time) return 1;
+      return 0;
+    });
+  };
+
+  // [추가] 월간 달력의 일정을 드래그로 옮기기 위한 정보를, 드래그 시작할 때 dataTransfer에
+  // 담을 수 있는 문자열(JSON)로 바꿔준다. 일일 일지 항목은 로그 id만 있으면 되고, 주간
+  // 일지 항목은 어느 요일(dayKey)의 어느 항목(taskId)인지까지 필요하다(구버전 텍스트만
+  // 있는 경우엔 taskId 없이 dayKey만 사용).
+  const getDragPayload = (en: CalendarEntry): string | null => {
+    if (en.source === 'daily') {
+      return JSON.stringify({ kind: 'daily', logId: en.log.id });
+    }
+    if (en.source === 'weekly' && en.dayKey) {
+      if (en.taskId) return JSON.stringify({ kind: 'weekly-entry', logId: en.log.id, dayKey: en.dayKey, taskId: en.taskId });
+      return JSON.stringify({ kind: 'weekly-legacy', logId: en.log.id, dayKey: en.dayKey });
+    }
+    return null;
+  };
+
+  // 주간업무일지 하나를 통째로 받아서, achievementEntriesByDay(요일별 항목 배열)를 깊은
+  // 복사해 돌려준다. 드래그로 옮길 때 원본 배열을 직접 건드리지 않기 위함.
+  const cloneWeeklyEntriesByDay = (wl: WeeklyWorkLog): Record<DayKey, WorkLogDayEntry[]> => {
+    const result = {} as Record<DayKey, WorkLogDayEntry[]>;
+    ALL_DAY_KEYS.forEach((k) => {
+      result[k] = [...(wl.achievementEntriesByDay?.[k] || [])];
+    });
+    return result;
+  };
+
+  // 요일별 항목 배열(entriesByDay)을 기준으로, 주간업무일지 저장에 필요한 achievementsByDay
+  // (요일별 텍스트)와 achievementsThisWeek(합쳐진 텍스트)까지 다시 만들어서 PUT 요청 본문을
+  // 완성해준다.
+  const buildWeeklyLogUpdatePayload = (wl: WeeklyWorkLog, entriesByDay: Record<DayKey, WorkLogDayEntry[]>) => {
+    const dayLabels: Record<DayKey, string> = { mon: '월요일', tue: '화요일', wed: '수요일', thu: '목요일', fri: '금요일', sat: '토요일', sun: '일요일' };
+    const achievementsByDay: Record<DayKey, string> = {} as any;
+    const dailyAchievementsList: string[] = [];
+    ALL_DAY_KEYS.forEach((k) => {
+      const text = composeEntriesText(entriesByDay[k]);
+      achievementsByDay[k] = text;
+      if (text.trim()) dailyAchievementsList.push(`[${dayLabels[k]}]\n${text.trim()}`);
+    });
+    return {
+      ...wl,
+      achievementEntriesByDay: entriesByDay,
+      achievementsByDay,
+      achievementsThisWeek: dailyAchievementsList.length > 0 ? dailyAchievementsList.join('\n\n') : wl.achievementsThisWeek
+    };
+  };
+
+  // [추가] 월간 달력에서 일정을 다른 날짜 칸에 드롭했을 때 실제로 데이터를 옮기는 함수.
+  // - 일일 업무일지 항목: 그 일지 전체의 date 필드를 옮긴 날짜로 바꾼다(일지 전체 이동).
+  // - 주간 업무일지 항목: 같은 주 안에서 요일만 바뀌는 경우엔 한 문서 안에서 요일 간 이동,
+  //   다른 주로 옮기는 경우엔 그 날짜가 포함된 "이미 존재하는" 주간 업무일지로 이동한다.
+  //   옮기려는 날짜가 포함된 주간 업무일지가 아직 없으면, 새로 만들지 않고 안내 후 취소한다.
+  const handleDropEntry = async (raw: string, targetDateStr: string) => {
+    if (!raw || !currentUser) return;
+    let payload: any;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-user-id': currentUser.id
+    };
+
+    try {
+      if (payload.kind === 'daily') {
+        const log = dailyLogs.find((l) => l.id === payload.logId);
+        if (!log || log.date === targetDateStr) return;
+        // [추가] 일지 자체의 날짜(log.date)뿐 아니라, 그 안의 업무 항목들이 직접 지정해둔
+        // 시작/종료 날짜(startDate/endDate)도 옮긴 만큼(일수 차이) 같이 밀어줘야, 여러 날에
+        // 걸쳐 있던 일정의 기간이 그대로 유지된 채 통째로 이동한다. 지정 안 해둔 항목은
+        // 원래대로 일지의 날짜를 그대로 따라가므로 손댈 필요 없다.
+        const oldDate = new Date(log.date);
+        const newDate = new Date(targetDateStr);
+        const dayDeltaMs = newDate.getTime() - oldDate.getTime();
+        const dayDelta = Math.round(dayDeltaMs / (1000 * 60 * 60 * 24));
+        const shiftDate = (d: string): string => {
+          const dt = new Date(d);
+          if (isNaN(dt.getTime())) return d;
+          dt.setDate(dt.getDate() + dayDelta);
+          return dateToLocalStr(dt);
+        };
+        const shiftedEntries = (log.taskEntriesToday || []).map((t) => ({
+          ...t,
+          startDate: t.startDate ? shiftDate(t.startDate) : t.startDate,
+          endDate: t.endDate ? shiftDate(t.endDate) : t.endDate
+        }));
+        const res = await fetch(`/api/worklogs/daily/${log.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ ...log, date: targetDateStr, taskEntriesToday: shiftedEntries })
+        });
+        if (!res.ok) throw new Error(`일정 이동에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setDailyLogs((prev) => prev.map((l) => (l.id === log.id ? updated : l)));
+        return;
+      }
+
+      // 주간 업무일지 항목 이동
+      const sourceLog = weeklyLogs.find((w) => w.id === payload.logId);
+      if (!sourceLog) return;
+      const sourceDayKey: DayKey = payload.dayKey;
+      const targetDayKey = getDayOfWeekKey(targetDateStr);
+      if (!sourceDayKey || !targetDayKey) return;
+
+      const targetLog = findMatchingWeeklyLog(targetDateStr);
+      if (!targetLog) {
+        alert('옮기려는 날짜가 포함된 주간 업무일지가 아직 없습니다.\n먼저 해당 주의 주간 업무일지를 작성한 뒤 다시 시도해주세요.');
+        return;
+      }
+      if (sourceLog.id === targetLog.id && sourceDayKey === targetDayKey) return; // 제자리 이동
+
+      // [추가] 요일 버킷을 옮기면, 그 항목이 직접 갖고 있던 시작/종료 날짜(startDate/endDate)도
+      // 옮겨간 요일의 실제 날짜로 다시 맞춰준다. 안 그러면 항목은 새 요일 버킷에 들어갔는데
+      // 정작 표시 날짜(startDate/endDate)는 예전 날짜에 머물러 있어 달력에서 이동이 반영되지
+      // 않은 것처럼 보인다.
+      const targetNaturalDate = computeDateForDayKeyOfWeek(targetLog.startDate, targetDayKey);
+
+      if (sourceLog.id === targetLog.id) {
+        // 같은 주 안에서 요일만 이동
+        const entriesByDay = cloneWeeklyEntriesByDay(sourceLog);
+        if (payload.kind === 'weekly-entry') {
+          const idx = (entriesByDay[sourceDayKey] || []).findIndex((t) => t.id === payload.taskId);
+          if (idx === -1) return;
+          const [moved] = entriesByDay[sourceDayKey].splice(idx, 1);
+          if (targetNaturalDate) { moved.startDate = targetNaturalDate; moved.endDate = targetNaturalDate; }
+          entriesByDay[targetDayKey] = [...(entriesByDay[targetDayKey] || []), moved];
+        } else {
+          const legacyText = sourceLog.achievementsByDay?.[sourceDayKey] || '';
+          if (!legacyText.trim()) return;
+          entriesByDay[targetDayKey] = [
+            ...(entriesByDay[targetDayKey] || []),
+            { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: legacyText }
+          ];
+        }
+        const res = await fetch(`/api/worklogs/weekly/${sourceLog.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(buildWeeklyLogUpdatePayload(sourceLog, entriesByDay))
+        });
+        if (!res.ok) throw new Error(`일정 이동에 실패했습니다 (상태: ${res.status}).`);
+        const updated = await res.json();
+        setWeeklyLogs((prev) => prev.map((w) => (w.id === sourceLog.id ? updated : w)));
+      } else {
+        // 다른 주(이미 존재하는 주간 업무일지)로 이동
+        const sourceEntriesByDay = cloneWeeklyEntriesByDay(sourceLog);
+        const targetEntriesByDay = cloneWeeklyEntriesByDay(targetLog);
+        let movedEntry: WorkLogDayEntry | null = null;
+        if (payload.kind === 'weekly-entry') {
+          const idx = (sourceEntriesByDay[sourceDayKey] || []).findIndex((t) => t.id === payload.taskId);
+          if (idx === -1) return;
+          [movedEntry] = sourceEntriesByDay[sourceDayKey].splice(idx, 1);
+        } else {
+          const legacyText = sourceLog.achievementsByDay?.[sourceDayKey] || '';
+          if (!legacyText.trim()) return;
+          movedEntry = { id: `de-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startTime: '', endTime: '', content: legacyText };
+        }
+        if (!movedEntry) return;
+        if (targetNaturalDate) { movedEntry.startDate = targetNaturalDate; movedEntry.endDate = targetNaturalDate; }
+        targetEntriesByDay[targetDayKey] = [...(targetEntriesByDay[targetDayKey] || []), movedEntry];
+
+        const sourceRes = await fetch(`/api/worklogs/weekly/${sourceLog.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(buildWeeklyLogUpdatePayload(sourceLog, sourceEntriesByDay))
+        });
+        if (!sourceRes.ok) throw new Error(`일정 이동에 실패했습니다 (원본 주간일지 갱신 실패, 상태: ${sourceRes.status}).`);
+        const sourceUpdated = await sourceRes.json();
+
+        const targetRes = await fetch(`/api/worklogs/weekly/${targetLog.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(buildWeeklyLogUpdatePayload(targetLog, targetEntriesByDay))
+        });
+        if (!targetRes.ok) throw new Error(`일정 이동에 실패했습니다 (대상 주간일지 갱신 실패, 상태: ${targetRes.status}).`);
+        const targetUpdated = await targetRes.json();
+
+        setWeeklyLogs((prev) => prev.map((w) => {
+          if (w.id === sourceLog.id) return sourceUpdated;
+          if (w.id === targetLog.id) return targetUpdated;
+          return w;
+        }));
+      }
+    } catch (err: any) {
+      console.error('Failed to move calendar entry:', err);
+      alert(`일정을 옮기는 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
+  };
+
+  const handleOpenReportModal = (log: WeeklyWorkLog) => {
+    setSelectedReportLog(log);
+    setReportOption('A');
+    
+    const { month, monthlyWeek, annualWeek } = getWeekDetails(log.startDate);
+    setReportTitle(`${month}월 ${monthlyWeek}주차 주간 업무 보고`);
+    setReportStartDate(log.startDate);
+    setReportEndDate(log.endDate);
+    setReportAuthor(log.author || currentUser?.name || '김태균');
+    setReportDepartment(log.department || '비즈니스전략팀');
+    
+    // 비용 계산 (오늘 날짜 기준 실시간 계산)
+    // - 일간: 오늘 하루치 지출 합계
+    // - 주간: 이번 주 월요일부터 오늘까지 누적 합계
+    // - 월간: 이번 달 1일부터 오늘까지 누적 합계
+    const today = new Date();
+    const todayStr = dateToLocalStr(today);
+
+    const sumExpenses = (logs: DailyWorkLog[]) =>
+      logs.reduce((sum, dl) => sum + (dl.expenses || []).reduce((s, e) => s + (e.amount || 0), 0), 0);
+
+    const dailyExpensesSum = sumExpenses(dailyLogs.filter(dl => dl.date === todayStr));
+    setReportExpenseDaily(dailyExpensesSum);
+
+    const dayOfWeek = today.getDay(); // 0=일 1=월 ... 6=토
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const mondayOfThisWeek = new Date(today);
+    mondayOfThisWeek.setDate(today.getDate() - daysSinceMonday);
+    const mondayStr = dateToLocalStr(mondayOfThisWeek);
+    const weeklyExpensesSum = sumExpenses(dailyLogs.filter(dl => dl.date >= mondayStr && dl.date <= todayStr));
+    setReportExpenseWeekly(weeklyExpensesSum);
+
+    const firstOfMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    const monthlyExpensesSum = sumExpenses(dailyLogs.filter(dl => dl.date >= firstOfMonthStr && dl.date <= todayStr));
+    setReportExpenseMonthly(monthlyExpensesSum);
+
+    const t2StartDate = getOffsetDateString(log.startDate, 7);
+    
+    // 테이블 1 (지난주 요일별 상세 실시 사항): 해당 주간의 실제 일일 업무일지와 연동! (0 ~ 4일 오프셋)
+    const t1Rows = [];
+    for (let i = 0; i < 5; i++) {
+      const dateStr = getOffsetDateString(log.startDate, i);
+      const matchedLogs = dailyLogs.filter(dl => dl.date === dateStr);
+      
+      const description = matchedLogs.flatMap(ml => [ml.tasksToday]).filter(Boolean).join('\n') || '';
+
+      // 연관 프로젝트명 (매칭된 일일 일지의 projectIds를 프로젝트명으로 변환)
+      const projectNames = Array.from(new Set(
+        matchedLogs.flatMap(ml => (ml.projectIds || []).map(pid => projects.find(p => p.id === pid)?.name).filter(Boolean) as string[])
+      ));
+
+      // 매칭된 일일 일지의 지출 비용 항목 (Description/Won 세부 표용)
+      const expenseItems = matchedLogs.flatMap(ml => (ml.expenses || []).map(exp => ({
+        id: exp.id,
+        description: getCategoryKo(exp.category, exp.categoryCustom),
+        amount: exp.amount
+      })));
+      
+      const defaultDesc = i === 0 
+        ? "1. 주간 영업 실적 보고 회의 참석\n2. 주요 VIP 고객 메일 피드백 정리 및 금주 타겟 명단 선정"
+        : i === 1
+        ? "1. 네이버 클라우드 김도현 수석 연구원과 유선 요금 및 API 연동 아젠다 사전 조율\n2. 신규 파트너용 기획 설명서 보정 작업 완료"
+        : i === 2
+        ? "1. 네이버 클라우드 B2B 주소록 자동 동기화 기능 한도 및 API 요금 최종 타결안 도출\n2. 내부 보고용 상신 기안서 기안 완료"
+        : i === 3
+        ? "1. 삼성전자 서초사옥 이서연 책임 PM 방문 대면 제안 미팅 및 온디바이스 데모 시연 진행\n2. 고객 보안 가이드 추가 요구사항 수신"
+        : "1. 삼성전자 2차 미팅 대안(보안 연산 부하 가이드 및 라이브러리 경량화) 기술 분석 의뢰\n2. 신규 인맥 5건 시스템 등록 및 CRM 정보 기재 완료";
+
+      t1Rows.push({
+        id: `t1-${i}`,
+        date: dateStr,
+        dateLabel: formatMockupDateLabel(dateStr),
+        weekLabel: `${annualWeek}주차`,
+        project: projectNames.join(', '),
+        description: description || defaultDesc,
+        progress: matchedLogs.length > 0 ? '100' : '',
+        remark: '',
+        expenseItems
+      });
+    }
+    setReportTable1(t1Rows);
+    
+    // 테이블 2 (금주 요일별 상세 실시 사항): 오프셋 7 ~ 11일 (다음주 월~금)
+    const t2Rows = [];
+    for (let i = 0; i < 5; i++) {
+      const dateStr = getOffsetDateString(t2StartDate, i);
+      const matchedLogs = dailyLogs.filter(dl => dl.date === dateStr);
+      
+      const description = matchedLogs.flatMap(ml => [ml.tasksToday]).filter(Boolean).join('\n') || '';
+
+      const projectNames = Array.from(new Set(
+        matchedLogs.flatMap(ml => (ml.projectIds || []).map(pid => projects.find(p => p.id === pid)?.name).filter(Boolean) as string[])
+      ));
+
+      const expenseItems = matchedLogs.flatMap(ml => (ml.expenses || []).map(exp => ({
+        id: exp.id,
+        description: getCategoryKo(exp.category, exp.categoryCustom),
+        amount: exp.amount
+      })));
+      
+      const defaultDesc = i === 0 
+        ? "1. 주간 영업 실적 보고 회의 참석\n2. 주요 VIP 고객 메일 피드백 정리 및 금주 타겟 명단 선정"
+        : i === 1
+        ? "1. 네이버 클라우드 김도현 수석 연구원과 유선 요금 및 API 연동 아젠다 사전 조율\n2. 신규 파트너용 기획 설명서 보정 작업 완료"
+        : i === 2
+        ? "1. 네이버 클라우드 B2B 주소록 자동 동기화 기능 한도 및 API 요금 최종 타결안 도출\n2. 내부 보고용 상신 기안서 기안 완료"
+        : i === 3
+        ? "1. 삼성전자 서초사옥 이서연 책임 PM 방문 대면 제안 미팅 및 온디바이스 데모 시연 진행\n2. 고객 보안 가이드 추가 요구사항 수신"
+        : "1. 삼성전자 2차 미팅 대안(보안 연산 부하 가이드 및 라이브러리 경량화) 기술 분석 의뢰\n2. 신규 인맥 5건 시스템 등록 및 CRM 정보 기재 완료";
+
+      t2Rows.push({
+        id: `t2-${i}`,
+        date: dateStr,
+        dateLabel: formatMockupDateLabel(dateStr),
+        weekLabel: `${annualWeek + 1}주차`,
+        project: projectNames.join(', '),
+        description: description || defaultDesc,
+        estimatedTime: '',
+        remark: '',
+        expenseItems
+      });
+    }
+    setReportTable2(t2Rows);
+    
+    // 테이블 3 (차주 예정 사항): 오프셋 14 ~ 18일
+    const t3Rows = [];
+    const t3StartDate = getOffsetDateString(log.startDate, 14);
+    for (let i = 0; i < 5; i++) {
+      const dateStr = getOffsetDateString(t3StartDate, i);
+      const matchedLogs = dailyLogs.filter(dl => dl.date === dateStr);
+      
+      const description = matchedLogs.flatMap(ml => [ml.tasksToday]).filter(Boolean).join('\n') || '';
+
+      const projectNames = Array.from(new Set(
+        matchedLogs.flatMap(ml => (ml.projectIds || []).map(pid => projects.find(p => p.id === pid)?.name).filter(Boolean) as string[])
+      ));
+      
+      const defaultDesc = i === 0 
+        ? "1. 삼성전자 보안 요구 기술 미팅 진행 및 완전 온디바이스 옵션 아키텍처 제안서 작성\n2. 네이버 클라우드 파트너십 최종 계약 서명 조율"
+        : i === 1
+        ? "1. 대리점 및 유통 파트너 추가 확보를 위한 컨택 가동\n2. 신규 파트너용 기획 설명서 보정 작업 완료"
+        : i === 2
+        ? "1. 네이버 클라우드 B2B 주소록 자동 동기화 기능 한도 및 API 요금 최종 타결안 도출\n2. 내부 보고용 상신 기안서 기안 완료"
+        : i === 3
+        ? "1. 삼성전자 서초사옥 이서연 책임 PM 방문 대면 제안 미팅 및 온디바이스 데모 시연 진행\n2. 고객 보안 가이드 추가 요구사항 수신"
+        : "1. 삼성전자 2차 미팅 대안(보안 연산 부하 가이드 및 라이브러리 경량화) 기술 분석 의뢰\n2. 신규 인맥 5건 시스템 등록 및 CRM 정보 기재 완료";
+
+      t3Rows.push({
+        id: `t3-${i}`,
+        date: dateStr,
+        dateLabel: formatMockupDateLabel(dateStr),
+        weekLabel: `${annualWeek + 2}주차`,
+        project: projectNames.join(', '),
+        description: description || defaultDesc,
+        estimatedTime: '',
+        remark: ''
+      });
+    }
+    setReportTable3(t3Rows);
+    
+    // 테이블 4 (애로 및 건의사항)
+    setReportTable4([
+      { id: 't4-1', description: log.feedbacks || '현재 개발팀 리소스가 한정되어 있어, 삼성전자의 완전 온디바이스 요구사항 수용을 위해서는 백엔드 최적화 업무의 우선순위 재조정이 필요함.', remark: '' },
+      { id: 't4-2', description: '공정을 제 기한에 끝내기 위해 인원 3명 추가 필요', remark: '' }
+    ]);
+    
+    setIsReportModalOpen(true);
+  };
+
+  const handleTable1Change = (rowId: string, field: string, val: any) => {
+    setReportTable1(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
+  };
+  const handleTable2Change = (rowId: string, field: string, val: any) => {
+    setReportTable2(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
+  };
+  const handleTable3Change = (rowId: string, field: string, val: any) => {
+    setReportTable3(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
+  };
+  const handleTable4Change = (rowId: string, field: string, val: any) => {
+    setReportTable4(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
+  };
+  const handleTable1ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: any) => {
+    setReportTable1(prev => prev.map(row => {
+      if (row.id === rowId) {
+        const nextExp = [...(row.expenses || [])];
+        if (!nextExp[expIdx]) return row;
+        if (field === 'amount') {
+          nextExp[expIdx] = { ...nextExp[expIdx], amount: Number(val) || 0 };
+        } else {
+          nextExp[expIdx] = { ...nextExp[expIdx], description: val };
+        }
+        return { ...row, expenses: nextExp };
+      }
+      return row;
+    }));
+  };
+  const handleTable2ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: any) => {
+    setReportTable2(prev => prev.map(row => {
+      if (row.id === rowId) {
+        const nextExp = [...(row.expenses || [])];
+        if (!nextExp[expIdx]) return row;
+        if (field === 'amount') {
+          nextExp[expIdx] = { ...nextExp[expIdx], amount: Number(val) || 0 };
+        } else {
+          nextExp[expIdx] = { ...nextExp[expIdx], description: val };
+        }
+        return { ...row, expenses: nextExp };
+      }
+      return row;
+    }));
+  };
+  const handleTable3ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: any) => {
+    setReportTable3(prev => prev.map(row => {
+      if (row.id === rowId) {
+        const nextExp = [...(row.expenses || [])];
+        if (!nextExp[expIdx]) return row;
+        if (field === 'amount') {
+          nextExp[expIdx] = { ...nextExp[expIdx], amount: Number(val) || 0 };
+        } else {
+          nextExp[expIdx] = { ...nextExp[expIdx], description: val };
+        }
+        return { ...row, expenses: nextExp };
+      }
+      return row;
+    }));
+  };
+  const handleAddTableExpense = (tableNum: 1 | 2 | 3, rowId: string) => {
+    const setter = tableNum === 1 ? setReportTable1 : tableNum === 2 ? setReportTable2 : setReportTable3;
+    setter(prev => prev.map(row => {
+      if (row.id === rowId) {
+        return {
+          ...row,
+          expenses: [...(row.expenses || []), { description: '직접 입력', amount: 0 }]
+        };
+      }
+      return row;
+    }));
+  };
+  const handleRemoveTableExpense = (tableNum: 1 | 2 | 3, rowId: string, expIdx: number) => {
+    const setter = tableNum === 1 ? setReportTable1 : tableNum === 2 ? setReportTable2 : setReportTable3;
+    setter(prev => prev.map(row => {
+      if (row.id === rowId) {
+        return {
+          ...row,
+          expenses: (row.expenses || []).filter((_: any, i: number) => i !== expIdx)
+        };
+      }
+      return row;
+    }));
+  };
+  const handlePrintReport = () => {
+    // [수정] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
+    // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
+    document.body.classList.add('print-portal-mode');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+    window.print();
+  };
+
+  // 인쇄 전용 정적(읽기 전용) 리포트 렌더러 - 화면의 편집 가능한 버전과 별개로,
+  // #print-root 포털에 렌더링되어 앱의 다른 화면 요소와 완전히 분리된 상태로 인쇄됩니다.
+  const renderPrintableReport = () => {
+    if (!selectedReportLog) return null;
+    const cellStyle: React.CSSProperties = { border: '0.5pt solid #000', padding: '4px 6px', verticalAlign: 'middle' };
+    const yellowStyle: React.CSSProperties = {
+      ...cellStyle,
+      backgroundColor: '#FFFF00',
+      fontWeight: 700,
+      textAlign: 'center',
+      WebkitPrintColorAdjust: 'exact',
+      printColorAdjust: 'exact'
+    } as React.CSSProperties;
+
+    const renderMainTable = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
+      let total = 0;
+      return (
+        <div key={heading} style={{ marginTop: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 4px 0' }}>{heading}</p>
+          <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...yellowStyle, width: '8%' }}>Week</th>
+                <th style={{ ...yellowStyle, width: '9%' }}>Date</th>
+                <th style={{ ...yellowStyle, width: '13%' }}>Project</th>
+                <th style={{ ...yellowStyle, width: '35%' }}>Description</th>
+                <th style={{ ...yellowStyle, width: '8%' }}>{thirdColLabel}</th>
+                <th style={{ ...yellowStyle, width: '15%' }} colSpan={2}>Expenses (비용)</th>
+              </tr>
+              <tr>
+                <th style={yellowStyle} colSpan={5}></th>
+                <th style={yellowStyle}>Description</th>
+                <th style={yellowStyle}>Won</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => {
+                const items = row.expenseItems || [];
+                total += items.reduce((s: number, e: any) => s + e.amount, 0);
+                return (
+                  <tr key={row.id}>
+                    {idx === 0 && (
+                      <td rowSpan={rows.length} style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row.weekLabel}</td>
+                    )}
+                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row.dateLabel}</td>
+                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row.project || '-'}</td>
+                    <td style={{ ...cellStyle, textAlign: 'left', whiteSpace: 'pre-line' }}>{row.description}</td>
+                    <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row[thirdColField] || ''}</td>
+                    <td style={{ ...cellStyle, textAlign: 'left' }}>
+                      {items.length > 0 ? items.map((e: any) => <div key={e.id}>{e.description}</div>) : '-'}
+                    </td>
+                    <td style={{ ...cellStyle, textAlign: 'right' }}>
+                      {items.length > 0 ? items.map((e: any) => <div key={e.id}>{e.amount.toLocaleString()}</div>) : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, backgroundColor: '#FEF9C3' }} colSpan={5}>계</td>
+                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, backgroundColor: '#FEF9C3' }} colSpan={2}>{total.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      );
+    };
+
+    return (
+      <div id="printable-report-wrapper" style={{ width: '210mm', margin: '0 auto', padding: '12mm', background: 'white', color: 'black', fontFamily: "'Malgun Gothic', Arial, sans-serif", fontSize: 11 }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <span style={{ fontSize: 20, fontWeight: 800, borderBottom: '3px double #000', paddingBottom: 4 }}>{reportTitle}</span>
+        </div>
+        <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11, marginBottom: 10 }}>
+          <tbody>
+            <tr>
+              <td style={{ ...yellowStyle, width: '10%' }}>보고 기간</td>
+              <td style={{ ...cellStyle, textAlign: 'left', paddingLeft: 8 }} colSpan={3}>{reportStartDate} ~ {reportEndDate}</td>
+              <td style={{ ...yellowStyle, width: '8%' }} rowSpan={3}>비용<br />(원)</td>
+              <td style={{ ...yellowStyle, width: '10%' }}>일간</td>
+              <td style={{ ...cellStyle, textAlign: 'right', paddingRight: 10 }}>{reportExpenseDaily.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style={yellowStyle}>부 서</td>
+              <td style={{ ...cellStyle, textAlign: 'left', paddingLeft: 8 }} colSpan={3}>{reportDepartment}</td>
+              <td style={yellowStyle}>주간</td>
+              <td style={{ ...cellStyle, textAlign: 'right', paddingRight: 10 }}>{reportExpenseWeekly.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style={yellowStyle}>작성자</td>
+              <td style={{ ...cellStyle, textAlign: 'left', paddingLeft: 8 }} colSpan={3}>{reportAuthor}</td>
+              <td style={yellowStyle}>월간</td>
+              <td style={{ ...cellStyle, textAlign: 'right', paddingRight: 10 }}>{reportExpenseMonthly.toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {renderMainTable('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress')}
+        {renderMainTable('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime')}
+
+        <div style={{ marginTop: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 4px 0' }}>3. 차주 예정 사항</p>
+          <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...yellowStyle, width: '10%' }}>Week</th>
+                <th style={{ ...yellowStyle, width: '11%' }}>Date</th>
+                <th style={{ ...yellowStyle, width: '15%' }}>Project</th>
+                <th style={{ ...yellowStyle, width: '44%' }}>Description</th>
+                <th style={{ ...yellowStyle, width: '10%' }}>Estimated Time</th>
+                <th style={{ ...yellowStyle, width: '10%' }}>Remark</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(reportTable3 as any[]).map((row, idx) => (
+                <tr key={row.id}>
+                  {idx === 0 && (
+                    <td rowSpan={reportTable3.length} style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row.weekLabel}</td>
+                  )}
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row.dateLabel}</td>
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row.project || '-'}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left', whiteSpace: 'pre-line' }}>{row.description}</td>
+                  <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row.estimatedTime || ''}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left' }}>{row.remark || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 4px 0' }}>4. 애로 및 요청 사항 / 피드백</p>
+          <table style={{ borderCollapse: 'collapse', width: '100%', border: '1.5pt solid #000', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ ...yellowStyle, width: '8%' }}>No.</th>
+                <th style={{ ...yellowStyle, width: '72%' }}>Description</th>
+                <th style={{ ...yellowStyle, width: '20%' }}>Remark</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportTable4.map((row, idx) => (
+                <tr key={row.id}>
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>{idx + 1}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left' }}>{row.description}</td>
+                  <td style={{ ...cellStyle, textAlign: 'left' }}>{row.remark || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // 주간 업무 보고서를 화면에 보이는 것과 똑같은 양식(4개 표)으로 엑셀 다운로드
+  const downloadReportToExcel = () => {
+    const esc = (str: any): string => (str === null || str === undefined ? '' : String(str))
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br/>');
+
+    const cellBorder = 'border: 0.5pt solid #000000;';
+    const yellowBg = 'background-color: #FFFF00;';
+    const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
+
+    // 표 1/2 용: Week(rowspan)/Date/Project/Description/진행율또는예상시간/Expenses(Description,Won)
+    const buildMainTableHtml = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
+      let total = 0;
+      const bodyRows = rows.map((row, idx) => {
+        const items = row.expenseItems || [];
+        total += items.reduce((s: number, e: any) => s + e.amount, 0);
+        const expDesc = items.map((e: any) => esc(e.description)).join('<br/>') || '-';
+        const expWon = items.map((e: any) => e.amount.toLocaleString()).join('<br/>') || '-';
+        return `
+          <tr>
+            ${idx === 0 ? `<td rowspan="${rows.length}" style="${cellBorder} text-align:center; vertical-align:middle; font-weight:bold; ${baseFont}">${esc(row.weekLabel)}</td>` : ''}
+            <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.dateLabel)}</td>
+            <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.project) || '-'}</td>
+            <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.description)}</td>
+            <td style="${cellBorder} text-align:center; font-weight:bold; ${baseFont}">${esc(row[thirdColField]) || ''}</td>
+            <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${expDesc}</td>
+            <td style="${cellBorder} text-align:right; padding-right:5px; ${baseFont}">${expWon}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <p style="font-weight:bold; font-size:12pt; margin: 14px 0 4px 0;">${esc(heading)}</p>
+        <table style="border-collapse: collapse; width: 100%; border: 1.5pt solid #000000; ${baseFont}">
+          <tr style="${yellowBg}">
+            <th style="${cellBorder} ${yellowBg} width:8%;">Week</th>
+            <th style="${cellBorder} ${yellowBg} width:9%;">Date</th>
+            <th style="${cellBorder} ${yellowBg} width:13%;">Project</th>
+            <th style="${cellBorder} ${yellowBg} width:35%;">Description</th>
+            <th style="${cellBorder} ${yellowBg} width:8%;">${esc(thirdColLabel)}</th>
+            <th colspan="2" style="${cellBorder} ${yellowBg} width:15%;">Expenses (비용)</th>
+          </tr>
+          <tr style="${yellowBg}">
+            <th colspan="5" style="${cellBorder} ${yellowBg}"></th>
+            <th style="${cellBorder} ${yellowBg}">Description</th>
+            <th style="${cellBorder} ${yellowBg}">Won</th>
+          </tr>
+          ${bodyRows}
+          <tr style="background-color:#FEF9C3; font-weight:bold;">
+            <td colspan="5" style="${cellBorder} text-align:right; padding-right:8px;">계</td>
+            <td colspan="2" style="${cellBorder} text-align:right; padding-right:5px;">${total.toLocaleString()}</td>
+          </tr>
+        </table>`;
+    };
+
+    // 표 3: Week(rowspan)/Date/Project/Description/Estimated Time/Remark (비용 없음)
+    const buildPlanTableHtml = () => {
+      const rows = reportTable3 as any[];
+      const bodyRows = rows.map((row, idx) => `
+        <tr>
+          ${idx === 0 ? `<td rowspan="${rows.length}" style="${cellBorder} text-align:center; vertical-align:middle; font-weight:bold; ${baseFont}">${esc(row.weekLabel)}</td>` : ''}
+          <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.dateLabel)}</td>
+          <td style="${cellBorder} text-align:center; ${baseFont}">${esc(row.project) || '-'}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.description)}</td>
+          <td style="${cellBorder} text-align:center; font-weight:bold; ${baseFont}">${esc(row.estimatedTime) || ''}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.remark) || ''}</td>
+        </tr>`).join('');
+
+      return `
+        <p style="font-weight:bold; font-size:12pt; margin: 14px 0 4px 0;">3. 차주 예정 사항</p>
+        <table style="border-collapse: collapse; width: 100%; border: 1.5pt solid #000000; ${baseFont}">
+          <tr style="${yellowBg}">
+            <th style="${cellBorder} ${yellowBg} width:10%;">Week</th>
+            <th style="${cellBorder} ${yellowBg} width:11%;">Date</th>
+            <th style="${cellBorder} ${yellowBg} width:15%;">Project</th>
+            <th style="${cellBorder} ${yellowBg} width:44%;">Description</th>
+            <th style="${cellBorder} ${yellowBg} width:10%;">Estimated Time</th>
+            <th style="${cellBorder} ${yellowBg} width:10%;">Remark</th>
+          </tr>
+          ${bodyRows}
+        </table>`;
+    };
+
+    // 표 4: No./Description/Remark
+    const buildFeedbackTableHtml = () => {
+      const bodyRows = reportTable4.map((row, idx) => `
+        <tr>
+          <td style="${cellBorder} text-align:center; ${baseFont}">${idx + 1}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.description)}</td>
+          <td style="${cellBorder} text-align:left; padding-left:5px; ${baseFont}">${esc(row.remark) || ''}</td>
+        </tr>`).join('');
+
+      return `
+        <p style="font-weight:bold; font-size:12pt; margin: 14px 0 4px 0;">4. 애로 및 요청 사항 / 피드백</p>
+        <table style="border-collapse: collapse; width: 100%; border: 1.5pt solid #000000; ${baseFont}">
+          <tr style="${yellowBg}">
+            <th style="${cellBorder} ${yellowBg} width:8%;">No.</th>
+            <th style="${cellBorder} ${yellowBg} width:72%;">Description</th>
+            <th style="${cellBorder} ${yellowBg} width:20%;">Remark</th>
+          </tr>
+          ${bodyRows}
+        </table>`;
+    };
+
+    // 상단 헤더 정보 표 (보고 기간 / 부서 / 작성자 + 비용(원) - 오른쪽 세로 병합 박스, 아래 표들과 동일하게 7열 기준)
+    const headerInfoRows = `
+      <tr>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:10%;">보고 기간</td>
+        <td colspan="3" style="${cellBorder} text-align:left; padding-left:8px; font-weight:bold; width:47%;">${esc(reportStartDate)} ~ ${esc(reportEndDate)}</td>
+        <td rowspan="3" style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:8%;">비용<br/>(원)</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center; width:10%;">일간</td>
+        <td style="${cellBorder} text-align:right; padding-right:8px; width:25%;">${reportExpenseDaily.toLocaleString()}</td>
+      </tr>
+      <tr>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">부 서</td>
+        <td colspan="3" style="${cellBorder} text-align:left; padding-left:8px;">${esc(reportDepartment)}</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">주간</td>
+        <td style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseWeekly.toLocaleString()}</td>
+      </tr>
+      <tr>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">작성자</td>
+        <td colspan="3" style="${cellBorder} text-align:left; padding-left:8px;">${esc(reportAuthor)}</td>
+        <td style="${cellBorder} ${yellowBg} font-weight:bold; text-align:center;">월간</td>
+        <td style="${cellBorder} text-align:right; padding-right:8px;">${reportExpenseMonthly.toLocaleString()}</td>
+      </tr>
+    `;
+
+    const fullHtml = `
+      <div style="text-align:center; margin-bottom:16px;">
+        <span style="font-size:18pt; font-weight:bold; border-bottom: 3px double #000000; padding-bottom:4px;">${esc(reportTitle)}</span>
+      </div>
+      <table style="border-collapse: collapse; width:100%; border: 1.5pt solid #000000; ${baseFont} margin-bottom: 10px;">
+        ${headerInfoRows}
+      </table>
+      ${buildMainTableHtml('1. 지난주 요일별 상세 실시 사항', reportTable1, 'Progress (%)', 'progress')}
+      ${buildMainTableHtml('2. 금주 요일별 상세 실시 사항', reportTable2, 'Estimated Time', 'estimatedTime')}
+      ${buildPlanTableHtml()}
+      ${buildFeedbackTableHtml()}
+    `;
+
+    const excelContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+      <meta charset="utf-8">
+      <!--[if gte mso 9]>
+      <xml>
+      <x:ExcelWorkbook>
+      <x:ExcelWorksheets>
+      <x:ExcelWorksheet>
+      <x:Name>주간업무보고</x:Name>
+      <x:WorksheetOptions>
+      <x:DisplayGridlines/>
+      </x:WorksheetOptions>
+      </x:ExcelWorksheet>
+      </x:ExcelWorksheets>
+      </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+      </head>
+      <body>
+      ${fullHtml}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const sanitizedTitle = (reportTitle || '주간업무보고').replace(/[\/\\?%*:|"<>]/g, '_');
+    link.setAttribute('download', `${sanitizedTitle}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 비용 항목 추가/수정/삭제 헬퍼 함수
+  const handleAddExpenseRow = () => {
+    const newItem: WorkLogExpense = {
+      id: `wle-${Date.now()}-${Math.random()}`,
+      category: 'lunch',
+      amount: 0,
+      payMethod: 'company_card',
+      memo: ''
+    };
+    setFormExpenses(prev => [...prev, newItem]);
+  };
+
+  const handleUpdateExpenseRow = (id: string, updates: Partial<WorkLogExpense>) => {
+    setFormExpenses(prev => prev.map(exp => exp.id === id ? { ...exp, ...updates } : exp));
+  };
+
+  const handleRemoveExpenseRow = (id: string) => {
+    setFormExpenses(prev => prev.filter(exp => exp.id !== id));
+  };
+
+  const handleReceiptScanComplete = (scanned: {
+    amount: number;
+    date: string;
+    merchantName: string;
+    memo: string;
+    category: string;
+    payMethod: string;
+    receiptImage: string;
+  }) => {
+    if (scanningExpenseRowId) {
+      handleUpdateExpenseRow(scanningExpenseRowId, {
+        amount: scanned.amount,
+        category: scanned.category as any,
+        payMethod: scanned.payMethod as any,
+        memo: scanned.merchantName ? `${scanned.merchantName} | ${scanned.memo || ''}`.replace(/ \| $/, '') : scanned.memo,
+        receiptImage: scanned.receiptImage
+      });
+    } else {
+      const newExpense: WorkLogExpense = {
+        id: `wle-${Date.now()}-${Math.random()}`,
+        category: scanned.category as any,
+        amount: scanned.amount,
+        payMethod: scanned.payMethod as any,
+        memo: scanned.merchantName ? `${scanned.merchantName} | ${scanned.memo || ''}`.replace(/ \| $/, '') : scanned.memo,
+        receiptImage: scanned.receiptImage
+      };
+      setFormExpenses(prev => [...prev, newExpense]);
+    }
+  };
+
+  const getDayOfWeekKey = (dateStr: string): 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | null => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return null;
+      const day = d.getDay(); // 0: 일, 1: 월, ... 6: 토
+      const keys: ('sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat')[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+      return keys[day];
+    } catch {
+      return null;
+    }
+  };
+
+  const findMatchingWeeklyLog = (dateStr: string): WeeklyWorkLog | null => {
+    if (!dateStr) return null;
+    return weeklyLogs.find(w => dateStr >= w.startDate && dateStr <= w.endDate) || null;
+  };
+
+  const handlePullDailyLogsForWeekly = () => {
+    if (!formStartDate || !formEndDate) {
+      alert('시작일과 종료일을 먼저 선택해주세요.');
+      return;
+    }
+    
+    const matchedDaily = dailyLogs.filter(dl => dl.date >= formStartDate && dl.date <= formEndDate);
+    if (matchedDaily.length === 0) {
+      alert('해당 기간에 작성된 일일 업무일지가 없습니다.');
+      return;
+    }
+    
+    let pullCount = 0;
+    matchedDaily.forEach(dl => {
+      const dayKey = getDayOfWeekKey(dl.date) as DayKey;
+      if (dayKey) {
+        setDayEntries((prev) => ({
+          ...prev,
+          [dayKey]: [{ id: `pull-${dl.id}`, content: dl.tasksToday, startTime: '', endTime: '' }]
+        }));
+        pullCount++;
+      }
+    });
+    
+    alert(`총 ${pullCount}일분의 일일 업무일지 내용을 요일별 실적으로 가져왔습니다.`);
+  };
+
+  // AI 정제 (AI Polish) 기능 가동
+  const handleAiPolish = async (fieldName: string, currentText: string, setter: (val: string) => void) => {
+    if (!currentText.trim()) {
+      alert('정제할 내용을 먼저 입력해주세요.');
+      return;
+    }
+    setAiPolishingField(fieldName);
+    try {
+      const res = await fetch('/api/worklogs/ai-polish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: currentText, type: writeFormType, field: fieldName })
+      });
+      const data = await res.json();
+      if (data.polishedText) {
+        setter(data.polishedText);
+      } else {
+        alert(data.error || 'AI 정제에 실패했습니다. 다시 시도해보세요.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('정제 요청 중 연결 실패했습니다.');
+    } finally {
+      setAiPolishingField(null);
+    }
+  };
+
+  // 저장 핸들러
+  const handleSaveLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) {
+      alert('일지 제목을 입력해주세요.');
+      return;
+    }
+    // [추가] 이미 저장 요청이 진행 중이면(버튼을 연속으로 눌러도) 다시 시작하지 않는다 -
+    // 중복 저장(같은 일지가 두 번 생기는 것) 방지.
+    if (isSavingLog) return;
+    setIsSavingLog(true);
+    try {
+
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+    };
+
+    let finalContactIds = [...formContactIds];
+
+    if (useDirectContact && directContactName.trim()) {
+      const newCardData = {
+        name: directContactName.trim(),
+        company: directContactCompany.trim() || formTitle || '직접 입력',
+        department: directContactDept.trim(),
+        title: directContactTitle.trim(),
+        phoneOffice: directContactPhoneOffice.trim(),
+        phoneMobile: directContactPhoneMobile.trim(),
+        email: directContactEmail.trim(),
+        address: '',
+        groupId: 'all'
+      };
+
+      try {
+        const contactRes = await fetch('/api/contacts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(newCardData)
+        });
+        if (contactRes.ok) {
+          const savedContact = await contactRes.json();
+          setContacts(prev => [savedContact, ...prev]);
+          finalContactIds.push(savedContact.id);
+        } else {
+          // [수정] 실패하면 그냥 넘어가지 않고 명확히 알린다 — 이 명함 연결 없이 업무일지만
+          // 저장할지 사용자가 판단할 수 있게, 저장을 중단한다.
+          const errText = await contactRes.text().catch(() => '');
+          throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}). ${errText.slice(0, 100)}`);
+        }
+      } catch (err: any) {
+        // [수정] 예전엔 여기서 실패하면 화면에만 존재하는 "가짜 연락처"를 만들어서 마치
+        // 저장된 것처럼 보여줬다 — 새로고침하면 사라지는 유령 데이터였다. 이제는 가짜
+        // 데이터를 만들지 않고, 업무일지 저장 자체를 중단해서 사용자가 다시 시도하게 한다.
+        console.error('Failed to save direct contact:', err);
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n업무일지 저장이 중단되었습니다.`);
+        return;
+      }
+    }
+
+    try {
+      if (writeFormType === 'daily') {
+        const payload = {
+          title: formTitle,
+          author: formAuthor,
+          department: formDepartment,
+          date: formDate,
+          tasksToday: getTodayComposedText(),
+          taskEntriesToday: todayEntries,
+          tasksTomorrow: formTasksTomorrow,
+          issues: formIssues,
+          projectIds: formProjectIds,
+          contactIds: finalContactIds,
+          invitedUserIds: formInvitedUserIds,
+          expenses: formExpenses
+        };
+
+        if (editingLogId) {
+          const rawRes = await fetch(`/api/worklogs/daily/${editingLogId}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(payload)
+          });
+          if (!rawRes.ok) throw new Error(`일일업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
+          setDailyLogs(prev => prev.map(l => l.id === editingLogId ? res : l));
+        } else {
+          const rawRes = await fetch('/api/worklogs/daily', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          });
+          if (!rawRes.ok) throw new Error(`일일업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
+          setDailyLogs(prev => [res, ...prev]);
+        }
+
+        // 주간 업무 보고 지난주 요일별 상세 실시 사항 연동
+        const matchedWeekly = weeklyLogs.find(w => formDate >= w.startDate && formDate <= w.endDate);
+        if (matchedWeekly) {
+          const dayKey = getDayOfWeekKey(formDate);
+          if (dayKey) {
+            const nextAchievementsByDay = {
+              ...(matchedWeekly.achievementsByDay || {}),
+              [dayKey]: getTodayComposedText()
+            };
+            const nextAchievementEntriesByDay = {
+              ...(matchedWeekly.achievementEntriesByDay || {}),
+              [dayKey]: todayEntries
+            };
+
+            const dailyAchievementsList = [];
+            if (nextAchievementsByDay.mon?.trim()) dailyAchievementsList.push(`[월요일]\n${nextAchievementsByDay.mon.trim()}`);
+            if (nextAchievementsByDay.tue?.trim()) dailyAchievementsList.push(`[화요일]\n${nextAchievementsByDay.tue.trim()}`);
+            if (nextAchievementsByDay.wed?.trim()) dailyAchievementsList.push(`[수요일]\n${nextAchievementsByDay.wed.trim()}`);
+            if (nextAchievementsByDay.thu?.trim()) dailyAchievementsList.push(`[목요일]\n${nextAchievementsByDay.thu.trim()}`);
+            if (nextAchievementsByDay.fri?.trim()) dailyAchievementsList.push(`[금요일]\n${nextAchievementsByDay.fri.trim()}`);
+            if (nextAchievementsByDay.sat?.trim()) dailyAchievementsList.push(`[토요일]\n${nextAchievementsByDay.sat.trim()}`);
+            if (nextAchievementsByDay.sun?.trim()) dailyAchievementsList.push(`[일요일]\n${nextAchievementsByDay.sun.trim()}`);
+
+            const combinedAchievements = dailyAchievementsList.length > 0 
+              ? dailyAchievementsList.join('\n\n')
+              : matchedWeekly.achievementsThisWeek;
+
+            const weeklyPayload = {
+              ...matchedWeekly,
+              achievementsThisWeek: combinedAchievements,
+              achievementsByDay: nextAchievementsByDay,
+              achievementEntriesByDay: nextAchievementEntriesByDay
+            };
+
+            try {
+              const weeklyRawRes = await fetch(`/api/worklogs/weekly/${matchedWeekly.id}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify(weeklyPayload)
+              });
+              if (!weeklyRawRes.ok) throw new Error(`연동된 주간업무일지 갱신 실패 (상태: ${weeklyRawRes.status})`);
+              const weeklyRes = await weeklyRawRes.json();
+              setWeeklyLogs(prev => prev.map(w => w.id === matchedWeekly.id ? weeklyRes : w));
+            } catch (err) {
+              // [수정] 이건 부가 기능(일일 저장에 딸려서 자동으로 되는 연동)이라, 실패해도 방금
+              // 저장한 일일업무일지 자체는 이미 정상 저장된 상태다. 그래서 alert로 흐름을
+              // 끊지 않고 콘솔에만 남기되, 최소한 잘못된 데이터로 화면을 덮어쓰지는 않는다.
+              console.error('Failed to sync with weekly log:', err);
+            }
+          }
+        }
+      } else {
+        const dayLabels: Record<DayKey, string> = { mon: '월요일', tue: '화요일', wed: '수요일', thu: '목요일', fri: '금요일', sat: '토요일', sun: '일요일' };
+        const dayKeysOrdered: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+        const dailyAchievementsList: string[] = [];
+        dayKeysOrdered.forEach((day) => {
+          const text = getDayComposedText(day);
+          if (text.trim()) dailyAchievementsList.push(`[${dayLabels[day]}]\n${text.trim()}`);
+        });
+
+        const combinedAchievements = dailyAchievementsList.length > 0 
+          ? dailyAchievementsList.join('\n\n')
+          : formAchievementsThisWeek;
+
+        const payload = {
+          title: formTitle,
+          author: formAuthor,
+          department: formDepartment,
+          startDate: formStartDate,
+          endDate: formEndDate,
+          achievementsThisWeek: combinedAchievements,
+          achievementsByDay: {
+            mon: getDayComposedText('mon'),
+            tue: getDayComposedText('tue'),
+            wed: getDayComposedText('wed'),
+            thu: getDayComposedText('thu'),
+            fri: getDayComposedText('fri'),
+            sat: getDayComposedText('sat'),
+            sun: getDayComposedText('sun')
+          },
+          achievementEntriesByDay: dayEntries,
+          plansNextWeek: formPlansNextWeek,
+          feedbacks: formFeedbacks,
+          projectIds: formProjectIds,
+          contactIds: finalContactIds,
+          invitedUserIds: formInvitedUserIds,
+          expenses: formExpenses
+        };
+
+        if (editingLogId) {
+          const rawRes = await fetch(`/api/worklogs/weekly/${editingLogId}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(payload)
+          });
+          if (!rawRes.ok) throw new Error(`주간업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
+          setWeeklyLogs(prev => prev.map(l => l.id === editingLogId ? res : l));
+        } else {
+          const rawRes = await fetch('/api/worklogs/weekly', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          });
+          if (!rawRes.ok) throw new Error(`주간업무일지 저장에 실패했습니다 (상태: ${rawRes.status}).`);
+          const res = await rawRes.json();
+          setWeeklyLogs(prev => [res, ...prev]);
+        }
+      }
+      setIsWriteModalOpen(false);
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('업무일지 저장 도중 오류가 발생했습니다.');
+    }
+    } finally {
+      // [추가] 성공하든 실패하든(위쪽 연락처 저장 실패로 일찍 return 되는 경우 포함) 항상
+      // 저장 중 표시를 풀어줘야 버튼이 계속 잠긴 채로 남지 않는다.
+      setIsSavingLog(false);
+    }
+  };
+
+  // 삭제 핸들러
+  const handleDeleteLog = async (id: string, type: 'daily' | 'weekly', e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('이 업무일지를 정말로 삭제하시겠습니까? 데이터는 즉시 제거됩니다.')) return;
+    
+    try {
+      const res = await fetch(`/api/worklogs/${type}/${id}`, {
+        method: 'DELETE',
+        headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
+      });
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
+      if (type === 'daily') {
+        setDailyLogs(prev => prev.filter(l => l.id !== id));
+      } else {
+        setWeeklyLogs(prev => prev.filter(l => l.id !== id));
+      }
+      if (expandedLogId === id) setExpandedLogId(null);
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
+  };
+
+  // [수정] 목록을 "등록(생성) 시각" 대신 카드에 실제로 보이는 "업무 날짜"(일일은 date,
+  // 주간은 시작일) 기준 최신순으로 정렬한다. 등록 시각 기준으로 정렬했더니 화면에 보이는
+  // 날짜와 목록 순서가 안 맞아 보여서 헷갈린다는 피드백이 있었다 - 화면에 보이는 날짜와
+  // 정렬 기준을 같게 맞춰서 순서를 바로 눈으로 이해할 수 있게 했다. 업무 날짜가 같으면
+  // (예: 하루에 여러 건) 등록 시각이 최신인 것을 위로 올린다.
+  const byWorkDateDesc = (aDate: string | undefined, bDate: string | undefined, aCreatedAt?: string, bCreatedAt?: string) => {
+    const byDate = (bDate || '').localeCompare(aDate || '');
+    if (byDate !== 0) return byDate;
+    return new Date(bCreatedAt || 0).getTime() - new Date(aCreatedAt || 0).getTime();
+  };
+
+  // 필터링 적용된 목록
+  const filteredDailyLogs = dailyLogs.filter(log => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch = !q || (
+      log.title.toLowerCase().includes(q) ||
+      log.tasksToday.toLowerCase().includes(q) ||
+      log.tasksTomorrow.toLowerCase().includes(q) ||
+      (log.issues || '').toLowerCase().includes(q)
+    );
+    const matchesProject = selectedProjectFilter === 'all' || (log.projectIds || []).includes(selectedProjectFilter);
+    const matchesContact = selectedContactFilter === 'all' || (log.contactIds || []).includes(selectedContactFilter);
+    return matchesSearch && matchesProject && matchesContact;
+  }).sort((a, b) => byWorkDateDesc(a.date, b.date, a.createdAt, b.createdAt));
+
+  const filteredWeeklyLogs = weeklyLogs.filter(log => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch = !q || (
+      log.title.toLowerCase().includes(q) ||
+      log.achievementsThisWeek.toLowerCase().includes(q) ||
+      log.plansNextWeek.toLowerCase().includes(q) ||
+      (log.feedbacks || '').toLowerCase().includes(q)
+    );
+    const matchesProject = selectedProjectFilter === 'all' || (log.projectIds || []).includes(selectedProjectFilter);
+    const matchesContact = selectedContactFilter === 'all' || (log.contactIds || []).includes(selectedContactFilter);
+    return matchesSearch && matchesProject && matchesContact;
+  }).sort((a, b) => byWorkDateDesc(a.startDate, b.startDate, a.createdAt, b.createdAt));
+
+  // 엑셀 다운로드 (목록 전체)
+  const downloadAllToExcel = () => {
+    const isDaily = activeSubTab === 'daily';
+    const dataToExport = isDaily ? filteredDailyLogs : filteredWeeklyLogs;
+    
+    if (dataToExport.length === 0) {
+      alert('다운로드할 업무일지 데이터가 없습니다.');
+      return;
+    }
+
+    const wsData: any[] = [];
+    
+    if (isDaily) {
+      // Header for Daily Logs
+      wsData.push([
+        '일자',
+        '작성자',
+        '소속 부서',
+        '제목',
+        '금일 실시 사항',
+        '명일 예정 사항',
+        '특이 사항/미결 사항',
+        '연관 프로젝트',
+        '연관 거래처 인맥'
+      ]);
+      
+      dataToExport.forEach((log: any) => {
+        const projNames = projects
+          .filter(p => (log.projectIds || []).includes(p.id))
+          .map(p => p.name)
+          .join(', ');
+          
+        const contactNames = contacts
+          .filter(c => (log.contactIds || []).includes(c.id))
+          .map(c => `${c.name} (${c.company})`)
+          .join(', ');
+
+        wsData.push([
+          log.date || '',
+          log.author || '',
+          log.department || '',
+          log.title || '',
+          log.tasksToday || '',
+          log.tasksTomorrow || '',
+          log.issues || '',
+          projNames || '',
+          contactNames || ''
+        ]);
+      });
+    } else {
+      // Header for Weekly Logs
+      wsData.push([
+        '기간 (시작일)',
+        '기간 (종료일)',
+        '작성자',
+        '소속 부서',
+        '제목',
+        '금주 실시 사항',
+        '월요일 상세',
+        '화요일 상세',
+        '수요일 상세',
+        '목요일 상세',
+        '금요일 상세',
+        '토요일 상세',
+        '일요일 상세',
+        '차주 예정 사항',
+        '애로 및 건의 사항/피드백',
+        '연관 프로젝트',
+        '연관 거래처 인맥'
+      ]);
+      
+      dataToExport.forEach((log: any) => {
+        const projNames = projects
+          .filter(p => (log.projectIds || []).includes(p.id))
+          .map(p => p.name)
+          .join(', ');
+          
+        const contactNames = contacts
+          .filter(c => (log.contactIds || []).includes(c.id))
+          .map(c => `${c.name} (${c.company})`)
+          .join(', ');
+
+        wsData.push([
+          log.startDate || '',
+          log.endDate || '',
+          log.author || '',
+          log.department || '',
+          log.title || '',
+          log.achievementsThisWeek || '',
+          log.achievementsByDay?.mon || '',
+          log.achievementsByDay?.tue || '',
+          log.achievementsByDay?.wed || '',
+          log.achievementsByDay?.thu || '',
+          log.achievementsByDay?.fri || '',
+          log.achievementsByDay?.sat || '',
+          log.achievementsByDay?.sun || '',
+          log.plansNextWeek || '',
+          log.feedbacks || '',
+          projNames || '',
+          contactNames || ''
+        ]);
+      });
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // 컬럼 너비 자동 설정
+    const colWidths = wsData[0].map((_: any, colIdx: number) => {
+      let maxLen = 10;
+      wsData.forEach(row => {
+        const val = row[colIdx];
+        if (val) {
+          const strLen = val.toString().length;
+          if (strLen > maxLen) {
+            maxLen = Math.min(strLen, 40); // 최대 40자로 제한
+          }
+        }
+      });
+      return { wch: maxLen + 3 };
+    });
+    ws['!cols'] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, isDaily ? '일일 업무일지' : '주간 업무일지');
+    
+    const fileName = isDaily 
+      ? `일일업무일지_${getTodayLocalStr()}.xlsx`
+      : `주간업무일지_${getTodayLocalStr()}.xlsx`;
+      
+    XLSX.writeFile(wb, fileName);
+  };
+
+  // 엑셀 다운로드 (개별 보고서 형태)
+  const downloadSingleToExcel = (log: any, type: 'daily' | 'weekly') => {
+    const isDaily = type === 'daily';
+    const wsData: any[] = [];
+    
+    // 이쁘게 양식화된 보고서형 시트 구성
+    wsData.push([log.title || (isDaily ? '일일 업무 보고서' : '주간 업무 보고서'), '', '', '']); // 제목행
+    wsData.push(['']); // 여백
+    
+    if (isDaily) {
+      wsData.push(['작성일자', log.date || '', '작성자', log.author || '-']);
+      wsData.push(['소속 부서', log.department || '-', '연관 프로젝트', projects.filter(p => (log.projectIds || []).includes(p.id)).map(p => p.name).join(', ') || '-']);
+      wsData.push(['연관 거래처 인맥', contacts.filter(c => (log.contactIds || []).includes(c.id)).map(c => `${c.name} (${c.company})`).join(', ') || '-', '', '']);
+      wsData.push(['']); // 여백
+      
+      wsData.push(['[금일 실시 사항]']);
+      wsData.push([log.tasksToday || '']);
+      wsData.push(['']);
+      
+      wsData.push(['[명일 예정 사항]']);
+      wsData.push([log.tasksTomorrow || '']);
+      wsData.push(['']);
+      
+      if (log.issues) {
+        wsData.push(['[특이 사항 / 미결 사항]']);
+        wsData.push([log.issues]);
+      }
+    } else {
+      wsData.push(['보고 기간', `${log.startDate} ~ ${log.endDate}`, '작성자', log.author || '-']);
+      wsData.push(['소속 부서', log.department || '-', '연관 프로젝트', projects.filter(p => (log.projectIds || []).includes(p.id)).map(p => p.name).join(', ') || '-']);
+      wsData.push(['연관 거래처 인맥', contacts.filter(c => (log.contactIds || []).includes(c.id)).map(c => `${c.name} (${c.company})`).join(', ') || '-', '', '']);
+      wsData.push(['']); // 여백
+      
+      if (log.achievementsByDay && Object.values(log.achievementsByDay).some(v => typeof v === 'string' && (v as string).trim().length > 0)) {
+        wsData.push(['[금주 요일별 상세 실시 사항]']);
+        const days = [
+          { k: 'mon', label: '월요일' },
+          { k: 'tue', label: '화요일' },
+          { k: 'wed', label: '수요일' },
+          { k: 'thu', label: '목요일' },
+          { k: 'fri', label: '금요일' },
+          { k: 'sat', label: '토요일' },
+          { k: 'sun', label: '일요일' }
+        ];
+        days.forEach(d => {
+          const txt = log.achievementsByDay[d.k];
+          if (txt && txt.trim()) {
+            wsData.push([`• ${d.label}`]);
+            wsData.push([txt]);
+          }
+        });
+      } else {
+        wsData.push(['[금주 실시 사항]']);
+        wsData.push([log.achievementsThisWeek || '']);
+      }
+      wsData.push(['']);
+      
+      wsData.push(['[차주 예정 사항]']);
+      wsData.push([log.plansNextWeek || '']);
+      wsData.push(['']);
+      
+      if (log.feedbacks) {
+        wsData.push(['[애로 및 건의 사항/피드백]']);
+        wsData.push([log.feedbacks]);
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // 제목 등 병합 설정
+    const merges = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } } // A1:D1 병합
+    ];
+    
+    // 내용이 긴 셀들 병합
+    wsData.forEach((row, idx) => {
+      if (row.length === 1 && row[0] && (row[0].startsWith('[') || row[0].startsWith('•') || idx > 4)) {
+        merges.push({ s: { r: idx, c: 0 }, e: { r: idx, c: 3 } });
+      }
+    });
+    
+    ws['!merges'] = merges;
+    
+    // 열 너비 설정
+    ws['!cols'] = [
+      { wch: 15 },
+      { wch: 35 },
+      { wch: 15 },
+      { wch: 35 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, '업무 보고서');
+    
+    const sanitizedTitle = (log.title || '업무보고서').replace(/[\/\\?%*:|"<>]/g, '_');
+    const fileName = `${sanitizedTitle}_${log.date || log.endDate || '보고서'}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
+  return (
+    <div className="space-y-3">
+      
+      {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
+      <div className="flex items-center gap-2 bg-slate-100 p-4 border border-slate-200 rounded-3xl backdrop-blur-md">
+        {/* [수정] "+ 일일 일지 작성" 버튼을 항상 맨 왼쪽에 고정, 줄어들지 않게 함 */}
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={handleOpenNewLog}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 whitespace-nowrap ${
+              activeSubTab === 'daily'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20'
+                : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20'
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span>{activeSubTab === 'daily' ? '일일 일지 작성' : '주간 일지 작성'}</span>
+          </button>
+        </div>
+
+        {/* [수정] 모바일 화면 너비가 좁아도 탭 글자가 줄바꿈되지 않도록, 넘치면 가로 스크롤되게 함 */}
+        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-200 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex-1 min-w-0">
+          <button
+            onClick={() => {
+              setActiveSubTab('daily');
+              setSearchQuery('');
+              setSelectedProjectFilter('all');
+              setSelectedContactFilter('all');
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+              activeSubTab === 'daily'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>일일 업무일지</span>
+            <span className="px-1.5 py-0.2 text-xs rounded-full bg-slate-100 text-slate-600 font-mono">
+              {dailyLogs.length}
+            </span>
+          </button>
+          
+          <button
+            onClick={() => {
+              setActiveSubTab('weekly');
+              setSearchQuery('');
+              setSelectedProjectFilter('all');
+              setSelectedContactFilter('all');
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+              activeSubTab === 'weekly'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <FileCheck className="w-4 h-4" />
+            <span>주간 업무일지</span>
+            <span className="px-1.5 py-0.2 text-xs rounded-full bg-slate-100 text-slate-600 font-mono">
+              {weeklyLogs.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('monthly')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+              activeSubTab === 'monthly'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>월간</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('report')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+              activeSubTab === 'report'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Printer className="w-4 h-4" />
+            <span>리포트 출력</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. 필터 영역 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* 검색 인풋 */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="업무 제목, 업무 내용 검색..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm placeholder:text-slate-400 transition-all"
+          />
+        </div>
+
+        {/* 프로젝트 필터 */}
+        <div className="relative">
+          <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <select
+            value={selectedProjectFilter}
+            onChange={(e) => setSelectedProjectFilter(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm appearance-none cursor-pointer placeholder:text-slate-400 transition-all"
+          >
+            <option value="all">연관 프로젝트: 전체</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        </div>
+
+        {/* 거래처 명함 필터 */}
+        <ContactSearchSelect
+          contacts={contacts}
+          value={selectedContactFilter === 'all' ? '' : selectedContactFilter}
+          onChange={(id) => setSelectedContactFilter(id || 'all')}
+          placeholder="연관 거래처 인맥: 전체"
+          noneLabel="연관 거래처 인맥: 전체"
+        />
+      </div>
+
+      {activeSubTab === 'monthly' ? (
+        <div className="space-y-4">
+          {/* 월 이동 헤더 */}
+          <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded-2xl p-4">
+            <button
+              type="button"
+              onClick={() => setMonthCursor((prev) => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d; })}
+              className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-700 text-sm font-bold"
+            >
+              ‹ 이전달
+            </button>
+            <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
+              <Calendar className="w-4 h-4 text-emerald-400" />
+              {monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월
+            </div>
+            <button
+              type="button"
+              onClick={() => setMonthCursor((prev) => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d; })}
+              className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-700 text-sm font-bold"
+            >
+              다음달 ›
+            </button>
+          </div>
+
+          {/* [추가] 이 캘린더(업무일지 항목)를 아이폰/아이패드/맥 캘린더 앱에 구독으로
+          연동할 수 있는 버튼. 구독 링크는 사람마다(정확히는 계정마다) 발급되는 고유
+          토큰이 담겨 있어서, 그 링크만 있으면 로그인 없이도 애플 캘린더 앱이 주기적으로
+          최신 내용을 불러갈 수 있다. */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleOpenCalendarFeed}
+              disabled={isLoadingCalendarFeed}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-md transition-all active:scale-95 disabled:opacity-50"
+            >
+              <CalendarPlus className="w-3.5 h-3.5" />
+              <span>{isLoadingCalendarFeed ? '연동 링크 생성 중...' : 'Apple 캘린더(아이폰/아이패드/맥) 연동'}</span>
+            </button>
+          </div>
+
+          {/* 달력 그리드 */}
+          {(() => {
+            const year = monthCursor.getFullYear();
+            const month = monthCursor.getMonth();
+            const firstDay = new Date(year, month, 1);
+            // [수정] 일~토 순서였던 달력을 월~일 순서로 바꿨다. Date.getDay()는 0=일~6=토라서,
+            // 월요일을 0으로 만들려면 6만큼 밀어서 7로 나눈 나머지를 쓴다(일요일만 6이 됨).
+            const startOffset = (firstDay.getDay() + 6) % 7; // 0=월 ... 6=일
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const cells: (string | null)[] = [];
+            for (let i = 0; i < startOffset; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) {
+              cells.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+            }
+            const todayStr = getTodayLocalStr();
+            const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+            return (
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3">
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {weekdayLabels.map((w, i) => (
+                    <div key={w} className={`text-center text-[11px] font-bold py-1 ${i === 6 ? 'text-rose-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {cells.map((dateStr, idx) => {
+                    if (!dateStr) return <div key={`empty-${idx}`} />;
+                    const entries = getEntriesForDate(dateStr);
+                    const dayNum = Number(dateStr.split('-')[2]);
+                    const isToday = dateStr === todayStr;
+                    const isSelected = dateStr === selectedCalendarDate;
+                    // idx % 7은 위 startOffset 계산 방식(0=월요일부터 채움) 덕분에 항상
+                    // weekdayLabels와 같은 순서의 요일 인덱스가 된다 (5=토, 6=일).
+                    const isSaturday = idx % 7 === 5;
+                    const isSunday = idx % 7 === 6;
+                    const holidayName = getKoreanHoliday(dateStr);
+                    const isDragOver = dragOverDate === dateStr;
+                    return (
+                      <button
+                        type="button"
+                        key={dateStr}
+                        onClick={() => { setSelectedCalendarDate(dateStr); setIsDayDetailModalOpen(true); }}
+                        onDragOver={(e) => { e.preventDefault(); if (dragOverDate !== dateStr) setDragOverDate(dateStr); }}
+                        onDragLeave={() => setDragOverDate((prev) => (prev === dateStr ? null : prev))}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setDragOverDate(null);
+                          const raw = e.dataTransfer.getData('text/plain');
+                          handleDropEntry(raw, dateStr);
+                        }}
+                        className={`text-left p-1.5 rounded-lg border min-h-[64px] transition-all ${
+                          isDragOver ? 'ring-2 ring-emerald-500 border-emerald-500/60' :
+                          isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-100 border-slate-200 hover:border-slate-200'
+                        }`}
+                      >
+                        <div className={`text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-rose-500' : isSaturday ? 'text-blue-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
+                        {holidayName && (
+                          <div className="text-[8px] leading-tight font-semibold text-rose-500 truncate mb-0.5">{holidayName}</div>
+                        )}
+                        <div className="space-y-0.5">
+                          {entries.slice(0, 2).map((en) => (
+                            <div
+                              key={en.id}
+                              draggable
+                              onDragStart={(e) => {
+                                const dragPayload = getDragPayload(en);
+                                if (!dragPayload) { e.preventDefault(); return; }
+                                e.stopPropagation();
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', dragPayload);
+                              }}
+                              className="text-[9px] leading-tight truncate text-emerald-600 bg-emerald-950/30 rounded px-1 py-0.5 cursor-grab active:cursor-grabbing"
+                              title="드래그해서 다른 날짜로 옮길 수 있습니다"
+                            >
+                              {en.time ? `${en.time} ` : ''}{en.author}
+                            </div>
+                          ))}
+                          {entries.length > 2 && (
+                            <div className="text-[9px] text-slate-400">+{entries.length - 2}건 더</div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* [수정] 아래 "선택한 날짜 상세" 패널을, 화면 맨 아래 고정 영역이 아니라 날짜를
+          클릭한 그 자리에서 바로 뜨는 팝업(모달)으로 바꿨다. isDayDetailModalOpen이 true일
+          때만 렌더링되며, 위 달력 그리드에서 날짜를 클릭하면 열린다. */}
+          {isDayDetailModalOpen && (
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              {/* 배경 */}
+              <div
+                onClick={() => setIsDayDetailModalOpen(false)}
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              {/* 팝업 본문 */}
+              <div className="flex min-h-screen items-center justify-center p-4">
+                <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-5 shadow-2xl space-y-3 z-10 max-h-[85vh] overflow-y-auto">
+                  <button
+                    onClick={() => setIsDayDetailModalOpen(false)}
+                    className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-center justify-between gap-2 pr-8">
+                    <div className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                      {selectedCalendarDate} 업무 상세
+                      {getKoreanHoliday(selectedCalendarDate) && (
+                        <span className="text-[11px] font-semibold text-rose-500 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">
+                          {getKoreanHoliday(selectedCalendarDate)}
+                        </span>
+                      )}
+                    </div>
+                    {/* [추가] 캘린더에서 바로 이 날짜에 새 일정(일일 업무일지)을 만들 수 있는
+                    버튼. 업무일지 목록 쪽 "새로 작성" 버튼과 동일한 모달을 열되, 날짜만 지금
+                    보고 있는 날짜로 미리 채워서 연다. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDayDetailModalOpen(false);
+                        handleOpenNewLog(selectedCalendarDate, 'daily');
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shrink-0"
+                    >
+                      <Plus className="w-3 h-3" /> 일정 추가
+                    </button>
+                  </div>
+
+                  {getEntriesForDate(selectedCalendarDate).length === 0 ? (
+                    <div className="text-xs text-slate-400 py-8 text-center">이 날짜에 작성된 업무 기록이 없습니다.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {getEntriesForDate(selectedCalendarDate).map((en) => (
+                        <button
+                          type="button"
+                          key={en.id}
+                          onClick={() => {
+                            setIsDayDetailModalOpen(false);
+                            handleOpenEntryFromCalendar(en);
+                          }}
+                          className="w-full text-left bg-slate-100 border border-slate-200 hover:border-emerald-500/40 hover:bg-white rounded-xl p-3 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <User className="w-3.5 h-3.5 text-indigo-400" />
+                            <span className="text-xs font-bold text-slate-700">{en.author}</span>
+                            {en.time && <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/30 px-1.5 py-0.5 rounded">{en.time}</span>}
+                            <span className="text-[10px] text-slate-400 ml-auto">{en.source === 'daily' ? '일일 업무일지' : '주간 업무일지'}</span>
+                            <Edit2 className="w-3 h-3 text-slate-400" />
+                          </div>
+                          <div className="text-[11px] text-slate-500 mb-1">{en.title}</div>
+                          <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{en.content}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* [추가] 애플 캘린더 연동 링크 안내 모달 */}
+          {calendarFeedInfo && (
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              <div
+                onClick={() => { setCalendarFeedInfo(null); setCalendarFeedCopied(false); }}
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              <div className="flex min-h-screen items-center justify-center p-4">
+                <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-5 shadow-2xl space-y-4 z-10">
+                  <button
+                    onClick={() => { setCalendarFeedInfo(null); setCalendarFeedCopied(false); }}
+                    className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-center gap-2 pr-8">
+                    <CalendarPlus className="w-5 h-5 text-indigo-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Apple 캘린더 연동</h3>
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    아래 버튼을 아이폰·아이패드·맥에서 누르면 캘린더 앱이 바로 "구독 추가" 화면을 띄워줍니다.
+                    업무일지에 새로 작성한 일정이 자동으로 애플 캘린더에 반영됩니다 (반대 방향, 즉 애플 캘린더에서
+                    수정한 내용이 이 앱으로 오는 건 아직 지원하지 않습니다).
+                  </p>
+
+                  <a
+                    href={calendarFeedInfo.webcalUrl}
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all active:scale-95"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    아이폰/아이패드/맥에서 캘린더에 추가
+                  </a>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-500">또는 링크를 복사해서 직접 등록 (구글 캘린더 등도 가능)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={calendarFeedInfo.feedUrl}
+                        onFocus={(e) => e.target.select()}
+                        className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] text-slate-600 font-mono outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(calendarFeedInfo.feedUrl).then(() => {
+                            setCalendarFeedCopied(true);
+                            setTimeout(() => setCalendarFeedCopied(false), 2000);
+                          });
+                        }}
+                        className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold border border-slate-200"
+                      >
+                        {calendarFeedCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        {calendarFeedCopied ? '복사됨' : '복사'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      이 링크는 회사(계정) 고유 링크입니다. 다른 사람에게 공유하지 마세요.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : activeSubTab === 'report' ? (
+        <div className="space-y-4">
+          {/* 리포트 대상 주간 업무 선택 (차량관리의 '인쇄 대상 차량 선택'과 동일한 패턴) */}
+          <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4">
+            <label className="text-xs text-slate-500 font-semibold block mb-1.5">리포트 대상 주간 업무 선택</label>
+            <select
+              value={selectedReportLog?.id || ''}
+              onChange={(e) => {
+                const log = weeklyLogs.find((l) => l.id === e.target.value);
+                if (log) handleOpenReportModal(log);
+              }}
+              className="w-full sm:w-96 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-500"
+            >
+              <option value="">주간 업무 보고를 선택하세요...</option>
+              {weeklyLogs.map((log) => (
+                <option key={log.id} value={log.id}>
+                  {log.title || `${log.startDate} ~ ${log.endDate}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!selectedReportLog && (
+            <div className="bg-slate-100 border border-dashed border-slate-200 rounded-2xl py-16 text-center text-slate-400 text-sm">
+              위에서 주간 업무 보고를 선택하면 리포트가 아래에 표시됩니다.
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
+      {/* 3. 본문 목록 */}
+      <div 
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="touch-pan-y space-y-4"
+      >
+        {/* 가로 슬라이딩 가이드 팁 */}
+        <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-100 border border-slate-200 py-2.5 px-4 rounded-2xl max-w-sm mx-auto animate-pulse select-none">
+          <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+          <span>💡 화면을 좌우로 쓸어넘겨 일일/주간 탭을 전환하세요</span>
+        </div>
+
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center space-y-3">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-slate-500 text-xs">업무일지 기록을 조회하는 중입니다...</p>
+        </div>
+      ) : (
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeSubTab}
+            initial={{ opacity: 0, x: activeSubTab === 'daily' ? -15 : 15 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: activeSubTab === 'daily' ? 15 : -15 }}
+            transition={{ duration: 0.2 }}
+            className="w-full"
+          >
+            {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length === 0 ? (
+              <div className="py-16 text-center bg-slate-100 border border-slate-200 rounded-3xl">
+                <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-slate-600 font-bold mb-1">작성된 업무일지가 없습니다</p>
+                <p className="text-slate-400 text-xs">상단의 작성 단추를 눌러 첫 업무 기록을 남겨보세요.</p>
+              </div>
+            ) : (
+        <div className="space-y-4">
+          <AnimatePresence initial={false}>
+            {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).slice(0, visibleLogCount).map((log: any) => {
+              const isExpanded = expandedLogId === log.id;
+              // [추가] 지금 이 로그가 수정 모달에서 편집 중인지 여부. isWriteModalOpen까지
+              // 같이 확인하는 이유는, 모달을 취소로 닫아도 editingLogId 값 자체는 남아있어서
+              // (다음에 "새로 작성"을 누를 때 비로소 초기화됨) 모달이 닫힌 뒤에도 카드가
+              // 계속 색칠된 채로 남는 것을 막기 위함이다.
+              const isBeingEdited = isWriteModalOpen && editingLogId === log.id;
+              const relatedProjects = projects.filter(p => (log.projectIds || []).includes(p.id));
+              const relatedContacts = contacts.filter(c => (log.contactIds || []).includes(c.id));
+
+              return (
+                <motion.div
+                  key={log.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className={`bg-white border rounded-3xl overflow-hidden transition-all duration-300 shadow-lg ${
+                    isBeingEdited
+                      ? 'border-amber-400 ring-2 ring-amber-300/50 shadow-amber-400/10 bg-amber-50/40'
+                      : isExpanded
+                      ? activeSubTab === 'daily' ? 'border-blue-500/40 shadow-blue-500/5 bg-white' : 'border-indigo-500/40 shadow-indigo-500/5 bg-white'
+                      : 'border-slate-200 hover:border-slate-200'
+                  }`}
+                >
+                  {/* 카드 헤더 클릭 시 아코디언 */}
+                  <div
+                    onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                    className="p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-850/30 select-none"
+                  >
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className={`px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 font-mono ${
+                          activeSubTab === 'daily'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-500/20'
+                            : 'bg-indigo-50 text-indigo-700 border border-indigo-500/20'
+                        }`}>
+                          <Calendar className="w-3 h-3" />
+                          {activeSubTab === 'daily' ? log.date : `${log.startDate} ~ ${log.endDate}`}
+                        </span>
+
+                        {isBeingEdited && (
+                          <span className="px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-400/40 animate-pulse">
+                            <Edit2 className="w-3 h-3" />
+                            수정 중
+                          </span>
+                        )}
+
+                        {relatedProjects.map(rp => (
+                          <span key={rp.id} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                            <Briefcase className="w-3 h-3 text-indigo-400" />
+                            {rp.name}
+                          </span>
+                        ))}
+
+                        {(log.author || log.department) && (
+                          <span className="px-2.5 py-0.5 rounded-full bg-slate-100/80 text-slate-600 border border-slate-200 flex items-center gap-1.5">
+                            <User className="w-3 h-3 text-emerald-400" />
+                            {log.author && <span className="font-bold">{log.author}</span>}
+                            {log.department && <span className="text-slate-500 text-[11px]">({log.department})</span>}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight truncate">
+                        {log.title}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {activeSubTab === 'weekly' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenReportModal(log);
+                            setActiveSubTab('report');
+                          }}
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-indigo-950 text-slate-500 hover:text-indigo-400 border border-slate-200 hover:border-indigo-900 transition-all cursor-pointer"
+                          title="주간업무보고서 출력/인쇄"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadSingleToExcel(log, activeSubTab);
+                        }}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-950 text-slate-500 hover:text-emerald-400 border border-slate-200 hover:border-emerald-900 transition-all cursor-pointer"
+                        title="엑셀 다운로드"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditLog(log, activeSubTab);
+                        }}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-all"
+                        title="수정하기"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      
+                      <button
+                        onClick={(e) => handleDeleteLog(log.id, activeSubTab, e)}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-rose-950 text-slate-500 hover:text-rose-400 border border-slate-200 hover:border-rose-900 transition-all"
+                        title="삭제하기"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className={`p-1.5 rounded-xl bg-slate-100 border border-slate-200 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                        <ChevronDown className="w-4 h-4 text-slate-500" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 확장 콘텐츠 */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0 }}
+                        animate={{ height: 'auto' }}
+                        exit={{ height: 0 }}
+                        className="overflow-hidden border-t border-slate-200"
+                      >
+                        <div className="p-5 sm:p-6 bg-slate-50 space-y-5 text-sm sm:text-base">
+                          {activeSubTab === 'daily' ? (
+                            <>
+                              {/* 금일 실시 사항 */}
+                              <div className="space-y-1.5">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
+                                  <CheckCircle className="w-4 h-4 text-blue-400" />
+                                  <span>금일 실시 사항</span>
+                                </h4>
+                                <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
+                                  {log.tasksToday || '기재된 내용이 없습니다.'}
+                                </div>
+                              </div>
+
+                              {/* 명일 예정 사항 */}
+                              <div className="space-y-1.5">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
+                                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                                  <span>명일 예정 사항</span>
+                                </h4>
+                                <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
+                                  {log.tasksTomorrow || '기재된 내용이 없습니다.'}
+                                </div>
+                              </div>
+
+                              {/* 특이 사항 */}
+                              {log.issues && (
+                                <div className="space-y-1.5">
+                                  <h4 className="font-bold text-rose-400 flex items-center gap-1.5">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>미결 및 특이 사항</span>
+                                  </h4>
+                                  <div className="bg-rose-500/5 border border-rose-500/10 p-4 rounded-2xl whitespace-pre-line text-rose-600 text-sm leading-relaxed">
+                                    {log.issues}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {/* 금주 실시 사항 */}
+                              <div className="space-y-2">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
+                                  <CheckCircle className="w-4 h-4 text-indigo-400" />
+                                  <span>금주 실시 사항 (일별 상세)</span>
+                                </h4>
+                                
+                                {log.achievementsByDay && Object.values(log.achievementsByDay).some(v => typeof v === 'string' && (v as string).trim().length > 0) ? (
+                                  <div className="grid grid-cols-1 gap-3">
+                                    {[
+                                      { key: 'mon', label: '월요일' },
+                                      { key: 'tue', label: '화요일' },
+                                      { key: 'wed', label: '수요일' },
+                                      { key: 'thu', label: '목요일' },
+                                      { key: 'fri', label: '금요일' },
+                                      { key: 'sat', label: '토요일' },
+                                      { key: 'sun', label: '일요일' },
+                                    ].map(day => {
+                                      const text = log.achievementsByDay[day.key];
+                                      if (!text || !text.trim()) return null;
+                                      return (
+                                        <div key={day.key} className="border-l-4 border-indigo-500/50 p-3 rounded-r-2xl bg-slate-100 text-sm">
+                                          <div className="font-bold text-xs text-slate-500 mb-1 flex items-center gap-1">
+                                            <span className={`w-1.5 h-1.5 rounded-full ${
+                                              day.key === 'mon' ? 'bg-indigo-400' : 
+                                              day.key === 'tue' ? 'bg-blue-400' : 
+                                              day.key === 'wed' ? 'bg-teal-400' : 
+                                              day.key === 'thu' ? 'bg-amber-400' : 
+                                              day.key === 'fri' ? 'bg-purple-400' : 
+                                              day.key === 'sat' ? 'bg-rose-400' : 
+                                              'bg-emerald-400'
+                                            }`} />
+                                            {day.label}
+                                          </div>
+                                          <div className="whitespace-pre-line text-slate-600 leading-relaxed pl-2.5">
+                                            {text}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
+                                    {log.achievementsThisWeek || '기재된 내용이 없습니다.'}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 차주 예정 사항 */}
+                              <div className="space-y-1.5">
+                                <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
+                                  <Sparkles className="w-4 h-4 text-purple-400" />
+                                  <span>차주 예정 사항</span>
+                                </h4>
+                                <div className="bg-slate-100 border border-slate-850 p-4 rounded-2xl whitespace-pre-line text-slate-600 text-sm leading-relaxed">
+                                  {log.plansNextWeek || '기재된 내용이 없습니다.'}
+                                </div>
+                              </div>
+
+                              {/* 피드백 */}
+                              {log.feedbacks && (
+                                <div className="space-y-1.5">
+                                  <h4 className="font-bold text-amber-400 flex items-center gap-1.5">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>애로 및 건의 사항 / 피드백</span>
+                                  </h4>
+                                  <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-2xl whitespace-pre-line text-amber-600 text-sm leading-relaxed">
+                                    {log.feedbacks}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* 등록된 지출 비용 표시 */}
+                          {log.expenses && log.expenses.length > 0 && (
+                            <div className="pt-3 border-t border-slate-200 space-y-2">
+                              <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                                <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>첨부된 지출 비용 내역</span>
+                                <span className="text-[10px] text-slate-400 font-mono">({log.expenses.length}건, 총 {log.expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0).toLocaleString()}원)</span>
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {log.expenses.map((expense: any) => {
+                                  // Find if matched vehicle
+                                  const v = vehicles.find(veh => veh.id === expense.vehicleId);
+                                  
+                                  // Mapped Labels
+                                  const categoryLabels: Record<string, string> = {
+                                    breakfast: '아침식사',
+                                    lunch: '점심식사',
+                                    dinner: '저녁식사',
+                                    drinks: '음료&커피',
+                                    fuel: '주유비',
+                                    parking: '주차비',
+                                    proxy: '대리운전비',
+                                    purchase: '물건 구입',
+                                    custom: expense.categoryCustom || '직접 입력'
+                                  };
+                                  
+                                  const payMethodLabels: Record<string, string> = {
+                                    company_card: '법인카드',
+                                    personal_card: '개인카드',
+                                    cash_personal: '현금(개인)',
+                                    cash_company: '현금(법인)'
+                                  };
+
+                                  return (
+                                    <div key={expense.id} className="p-3 rounded-2xl bg-white border border-slate-850 flex flex-col justify-between space-y-1.5 shadow-sm">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-xs font-bold text-slate-600">
+                                            {categoryLabels[expense.category] || expense.category}
+                                          </span>
+                                          {expense.receiptImage && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setViewingReceiptImage(expense.receiptImage)}
+                                              className="inline-flex items-center gap-0.5 text-[10px] text-indigo-400 hover:text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/20 cursor-pointer"
+                                              title="스캔된 영수증 이미지 보기"
+                                            >
+                                              <Eye className="w-3 h-3" />
+                                              <span>영수증</span>
+                                            </button>
+                                          )}
+                                        </div>
+                                        <span className="text-xs font-mono font-bold text-emerald-400">
+                                          {Number(expense.amount || 0).toLocaleString()}원
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                                        <span className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 text-[10px]">
+                                          {payMethodLabels[expense.payMethod] || expense.payMethod}
+                                        </span>
+                                        {expense.memo && (
+                                          <span className="truncate max-w-[150px]" title={expense.memo}>
+                                            | {expense.memo}
+                                          </span>
+                                        )}
+                                        {v && (
+                                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 px-1.5 py-0.5 rounded-md font-medium ml-auto">
+                                            <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                                            차량연동: {v.modelName}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 연관 명함 거래처 인맥 */}
+                          {relatedContacts.length > 0 && (
+                            <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                              <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5 text-blue-400" />
+                                <span>연관 거래처 인맥</span>
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {relatedContacts.map(rc => (
+                                  <span key={rc.id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-slate-850 text-xs text-slate-600 shadow-sm font-medium">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                    {rc.name} <span className="text-slate-400">({rc.company})</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+
+          {/* [수정] 필터 조건에 더 남은 업무일지가 있으면 "더 보기" 버튼으로 이어서 로딩 */}
+          {visibleLogCount < (activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length && (
+            <button
+              type="button"
+              onClick={() => setVisibleLogCount((prev) => prev + 50)}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-dashed border-slate-200 hover:border-indigo-500/50 bg-slate-100 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 text-xs font-bold transition-all"
+            >
+              <span className="text-lg">＋</span>
+              <span>{(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length - visibleLogCount}건 더 보기</span>
+            </button>
+          )}
+        </div>
+      )}
+          </motion.div>
+        </AnimatePresence>
+      )}
+      </div>
+      </>
+      )}
+
+      {/* 4. 일지 작성 및 수정 Overlay 모달 */}
+      <AnimatePresence>
+        {isWriteModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            {/* 배경 블러 */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsWriteModalOpen(false)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            {/* 모달 윈도우 */}
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-3xl bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 z-10"
+              >
+                {/* 닫기 단추 */}
+                <button
+                  onClick={() => setIsWriteModalOpen(false)}
+                  className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                {/* 제목 */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-xl text-white ${
+                      writeFormType === 'daily' ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'bg-indigo-600 shadow-lg shadow-indigo-500/20'
+                    }`}>
+                      {writeFormType === 'daily' ? <FileText className="w-5 h-5" /> : <FileCheck className="w-5 h-5" />}
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
+                      {editingLogId ? '업무일지 수정' : writeFormType === 'daily' ? '일일 업무일지 작성' : '주간 업무일지 작성'}
+                    </h2>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveLog} className="space-y-5">
+                  {/* [수정] 아이패드 분할 화면처럼 좁은 화면에서 날짜/제목 칸이 옆으로
+                      욱여넣어져 보이던 문제 - 가로로 나란히 놓이는 기준을 훨씬 넓은 화면(lg,
+                      1024px 이상)에서만 적용하도록 올렸다. */}
+                  {/* 날짜 선택 및 일지 제목 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {writeFormType === 'daily' ? (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-600">작성 일자</label>
+                        <input
+                          type="date"
+                          value={formDate}
+                          onChange={(e) => {
+                            setFormDate(e.target.value);
+                            if (!editingLogId) setFormTitle(`${e.target.value} 일일 업무일지`);
+                          }}
+                          className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-600">시작일</label>
+                          <input
+                            type="date"
+                            value={formStartDate}
+                            onChange={(e) => {
+                              setFormStartDate(e.target.value);
+                              if (!editingLogId) setFormTitle(`${e.target.value} ~ ${formEndDate} 주간 업무일지`);
+                            }}
+                            className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-600">종료일</label>
+                          <input
+                            type="date"
+                            value={formEndDate}
+                            onChange={(e) => {
+                              setFormEndDate(e.target.value);
+                              if (!editingLogId) setFormTitle(`${formStartDate} ~ ${e.target.value} 주간 업무일지`);
+                            }}
+                            className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm font-mono"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className={`${writeFormType === 'daily' ? 'lg:col-span-2' : 'lg:col-span-1'} space-y-1.5`}>
+                      <label className="text-xs font-bold text-slate-600">일지 제목</label>
+                      <input
+                        type="text"
+                        placeholder="예: 삼성전자 제안 회의 및 후속 협의 건"
+                        value={formTitle}
+                        onChange={(e) => setFormTitle(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* 작성자 및 부서 정보 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600">작성자</label>
+                      <input
+                        type="text"
+                        placeholder="작성자 이름"
+                        value={formAuthor}
+                        onChange={(e) => setFormAuthor(e.target.value)}
+                        onBlur={(e) => fillDepartmentForAuthor(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600">소속 부서</label>
+                      <input
+                        type="text"
+                        placeholder="예: 영업부, 마케팅팀"
+                        value={formDepartment}
+                        onChange={(e) => setFormDepartment(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 일지 내용 - 동적 전환 */}
+                  {writeFormType === 'daily' ? (
+                    <div className="space-y-4">
+                      {/* 주간 보고 연동 안내 */}
+                      {(() => {
+                        const matchedWeekly = findMatchingWeeklyLog(formDate);
+                        const dayKey = getDayOfWeekKey(formDate);
+                        if (matchedWeekly && dayKey) {
+                          const dayLabel = dayKey === 'mon' ? '월요일' : dayKey === 'tue' ? '화요일' : dayKey === 'wed' ? '수요일' : dayKey === 'thu' ? '목요일' : dayKey === 'fri' ? '금요일' : dayKey === 'sat' ? '토요일' : '일요일';
+                          const weeklyText = matchedWeekly.achievementsByDay?.[dayKey] || '';
+                          const weeklyStructured = matchedWeekly.achievementEntriesByDay?.[dayKey];
+                          
+                          return (
+                            <div className="bg-indigo-950/40 border border-indigo-900/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                              <div className="space-y-1">
+                                <p className="text-slate-700 font-bold flex items-center gap-1.5">
+                                  <Link2 className="w-3.5 h-3.5 text-indigo-400" />
+                                  <span>주간 업무 보고와 연동 가능 ({matchedWeekly.startDate} ~ {matchedWeekly.endDate})</span>
+                                </p>
+                                <p className="text-slate-500 text-[11px] leading-normal">
+                                  {weeklyText 
+                                    ? `해당 주간 보고의 [${dayLabel}] 실적이 존재합니다: "${weeklyText.length > 50 ? weeklyText.slice(0, 50) + '...' : weeklyText}"` 
+                                    : `해당 주간 보고의 [${dayLabel}] 실적이 비어 있습니다. 일지 저장 시 주간 보고에도 자동 반영됩니다.`}
+                                </p>
+                              </div>
+                              {weeklyText && getTodayComposedText() !== weeklyText && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTodayEntries(weeklyStructured?.length ? weeklyStructured : legacyTextToEntries(weeklyText))}
+                                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-550 active:scale-95 text-white font-bold rounded-xl transition-all shrink-0 shadow-md shadow-indigo-600/10"
+                                >
+                                  주간 실적 가져오기
+                                </button>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* 금일 실시 사항 (하루에 여러 건, 각각 시작~종료 시간 지정 가능) */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-blue-400" />
+                          <span>금일 실시 사항</span>
+                        </label>
+                        <div className="space-y-2">
+                          {todayEntries.length === 0 && (
+                            <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                              아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
+                            </div>
+                          )}
+                          {todayEntries.map((entry) => (
+                            <div key={entry.id} className="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">시작</label>
+                                <input
+                                  type="date"
+                                  value={entry.startDate || formDate}
+                                  onChange={(e) => {
+                                    const nextStart = e.target.value;
+                                    const nextEnd = entry.endDate && entry.endDate < nextStart ? nextStart : entry.endDate;
+                                    updateTodayEntry(entry.id, { startDate: nextStart, endDate: nextEnd });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <input
+                                  type="time"
+                                  value={entry.startTime || ''}
+                                  onChange={(e) => updateTodayEntry(entry.id, { startTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">종료</label>
+                                <input
+                                  type="date"
+                                  value={entry.endDate || entry.startDate || formDate}
+                                  onChange={(e) => {
+                                    const nextEnd = e.target.value;
+                                    const nextStart = entry.startDate && entry.startDate > nextEnd ? nextEnd : entry.startDate;
+                                    updateTodayEntry(entry.id, { endDate: nextEnd, startDate: nextStart });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <input
+                                  type="time"
+                                  value={entry.endTime || ''}
+                                  onChange={(e) => updateTodayEntry(entry.id, { endTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAiPolish(`tasksToday_${entry.id}`, entry.content, (val) => updateTodayEntry(entry.id, { content: val }))}
+                                  disabled={aiPolishingField !== null}
+                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-blue-400 hover:text-blue-600 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>{aiPolishingField === `tasksToday_${entry.id}` ? '정제 중...' : 'AI 정제'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeTodayEntry(entry.id)}
+                                  className="text-rose-400 hover:text-rose-600 text-xs font-bold px-1.5"
+                                  title="이 항목 삭제"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              <textarea
+                                rows={2}
+                                placeholder="이 시간대에 한 업무 내용을 입력하세요..."
+                                value={entry.content}
+                                onChange={(e) => updateTodayEntry(entry.id, { content: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 text-xs placeholder:text-slate-400 leading-relaxed"
+                              />
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={addTodayEntry}
+                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-500 text-xs font-bold transition-all"
+                          >
+                            + 업무 항목 추가 (시간대별로 여러 건 가능)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 명일 예정 사항 */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>명일 예정 사항 (선택)</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleAiPolish('tasksTomorrow', formTasksTomorrow, setFormTasksTomorrow)}
+                            disabled={aiPolishingField !== null}
+                            className="flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-600 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded-lg transition-all"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>{aiPolishingField === 'tasksTomorrow' ? '정제 중...' : 'AI 업무정제'}</span>
+                          </button>
+                        </div>
+                        <textarea
+                          rows={3}
+                          placeholder="다음 영업일 진행 예정인 계획을 적어주세요."
+                          value={formTasksTomorrow}
+                          onChange={(e) => setFormTasksTomorrow(e.target.value)}
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
+                        />
+                      </div>
+
+                      {/* 특이 사항 */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                          <span>미결 및 특이 사항 (선택)</span>
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="특이 사항이나 부서 간 미결 조율 안건이 있다면 작성해주세요."
+                          value={formIssues}
+                          onChange={(e) => setFormIssues(e.target.value)}
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* 금주 실시 사항 */}
+                      <div className="space-y-3 bg-slate-50 p-4 border border-slate-200 rounded-2xl">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>금주 실시 사항 (일별 작성)</span>
+                          </label>
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={handlePullDailyLogsForWeekly}
+                              className="flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-600 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 rounded-xl transition-all"
+                            >
+                              <Link2 className="w-3.5 h-3.5" />
+                              <span>일일 일지 가져오기</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 요일 탭 선택기 */}
+                        <div className="grid grid-cols-7 gap-1 bg-slate-50 p-1 rounded-xl border border-slate-850">
+                          {([
+                            { id: 'mon', label: '월' },
+                            { id: 'tue', label: '화' },
+                            { id: 'wed', label: '수' },
+                            { id: 'thu', label: '목' },
+                            { id: 'fri', label: '금' },
+                            { id: 'sat', label: '토' },
+                            { id: 'sun', label: '일' },
+                          ] as { id: DayKey; label: string }[]).map(day => {
+                            const isSelected = activeDayTab === day.id;
+                            const hasContent = dayHasContent(day.id);
+                            return (
+                              <button
+                                key={day.id}
+                                type="button"
+                                onClick={() => setActiveDayTab(day.id as any)}
+                                className={`relative py-2 text-xs font-bold rounded-lg transition-all ${
+                                  isSelected 
+                                    ? 'bg-indigo-600 text-white shadow-md' 
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-white'
+                                }`}
+                              >
+                                <span>{day.label}</span>
+                                {hasContent && !isSelected && (
+                                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* 선택된 요일의 업무 항목들 (하루에 여러 건, 각각 시작~종료 시간 지정 가능) */}
+                        <div className="space-y-2">
+                          {(dayEntries[activeDayTab] || []).length === 0 && (
+                            <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                              아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
+                            </div>
+                          )}
+                          {(dayEntries[activeDayTab] || []).map((entry) => (
+                            <div key={entry.id} className="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">시작</label>
+                                <input
+                                  type="date"
+                                  value={entry.startDate || getDateForDayKey(activeDayTab)}
+                                  onChange={(e) => {
+                                    const nextStart = e.target.value;
+                                    const nextEnd = entry.endDate && entry.endDate < nextStart ? nextStart : entry.endDate;
+                                    updateDayEntry(activeDayTab, entry.id, { startDate: nextStart, endDate: nextEnd });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <input
+                                  type="time"
+                                  value={entry.startTime || ''}
+                                  onChange={(e) => updateDayEntry(activeDayTab, entry.id, { startTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <label className="text-[10px] text-slate-400 font-semibold shrink-0">종료</label>
+                                <input
+                                  type="date"
+                                  value={entry.endDate || entry.startDate || getDateForDayKey(activeDayTab)}
+                                  onChange={(e) => {
+                                    const nextEnd = e.target.value;
+                                    const nextStart = entry.startDate && entry.startDate > nextEnd ? nextEnd : entry.startDate;
+                                    updateDayEntry(activeDayTab, entry.id, { endDate: nextEnd, startDate: nextStart });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <input
+                                  type="time"
+                                  value={entry.endTime || ''}
+                                  onChange={(e) => updateDayEntry(activeDayTab, entry.id, { endTime: e.target.value })}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 w-[6.5rem] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAiPolish(`achievements_${activeDayTab}_${entry.id}`, entry.content, (val) => updateDayEntry(activeDayTab, entry.id, { content: val }))}
+                                  disabled={aiPolishingField !== null}
+                                  className="ml-auto flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>{aiPolishingField === `achievements_${activeDayTab}_${entry.id}` ? '정제 중...' : 'AI 정제'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeDayEntry(activeDayTab, entry.id)}
+                                  className="text-rose-400 hover:text-rose-600 text-xs font-bold px-1.5"
+                                  title="이 항목 삭제"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              <textarea
+                                rows={2}
+                                placeholder="이 시간대에 한 업무 내용을 입력하세요..."
+                                value={entry.content}
+                                onChange={(e) => updateDayEntry(activeDayTab, entry.id, { content: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 text-xs placeholder:text-slate-400 leading-relaxed"
+                              />
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => addDayEntry(activeDayTab)}
+                            className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-500 text-xs font-bold transition-all"
+                          >
+                            + 업무 항목 추가 (시간대별로 여러 건 가능)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 차주 예정 사항 */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                            <span>차주 예정 사항 (선택)</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleAiPolish('plansNextWeek', formPlansNextWeek, setFormPlansNextWeek)}
+                            disabled={aiPolishingField !== null}
+                            className="flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-600 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg transition-all"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>{aiPolishingField === 'plansNextWeek' ? '정제 중...' : 'AI 업무정제'}</span>
+                          </button>
+                        </div>
+                        <textarea
+                          rows={3}
+                          placeholder="다음 주 진행 계획을 세분화하여 입력하세요."
+                          value={formPlansNextWeek}
+                          onChange={(e) => setFormPlansNextWeek(e.target.value)}
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
+                        />
+                      </div>
+
+                      {/* 애로 및 건의 사항 / 피드백 */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                          <span>애로 및 건의 사항 / 피드백 (선택)</span>
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="비즈니스 지원이 필요하거나 애로 사항이 있는 부분을 적어주세요."
+                          value={formFeedbacks}
+                          onChange={(e) => setFormFeedbacks(e.target.value)}
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm placeholder:text-slate-400 leading-relaxed"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 비용 지출 추가 영역 */}
+                  <div className="pt-4 border-t border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Receipt className="w-4 h-4 text-emerald-400" />
+                        <span className="text-sm font-bold text-slate-700 font-sans">비용 지출 추가 (선택)</span>
+                        <span className="text-[10px] text-slate-400 hidden sm:inline">차량 연결 시 비용 관리로 자동 연동</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScanningExpenseRowId(null);
+                            setIsReceiptModalOpen(true);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-50 border border-indigo-500/20 text-indigo-700 hover:text-indigo-700 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                          <span>AI 영수증 인식 추가</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddExpenseRow}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-50 border border-emerald-500/20 text-emerald-700 hover:text-emerald-700 font-bold text-xs transition-all active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>비용 항목 추가</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {formExpenses.length === 0 ? (
+                      <div className="text-center py-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                        <p className="text-xs text-slate-400">추가된 비용 지출 내역이 없습니다. (위의 '+ 비용 항목 추가' 버튼을 눌러 추가하세요)</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                        {formExpenses.map((expense) => (
+                          <div
+                            key={expense.id}
+                            className="p-4 rounded-2xl bg-slate-100 border border-slate-200/85 hover:border-slate-200 transition-all space-y-3 relative group"
+                          >
+                            <div className="absolute top-4 right-4 flex gap-1.5 z-10">
+                              {expense.receiptImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingReceiptImage(expense.receiptImage)}
+                                  className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-emerald-400 hover:text-emerald-600 transition-all text-xs flex items-center gap-1 cursor-pointer"
+                                  title="영수증 원본 보기"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span className="text-[10px] hidden md:inline">영수증 보기</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setScanningExpenseRowId(expense.id);
+                                  setIsReceiptModalOpen(true);
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-indigo-500/30 text-indigo-400 hover:text-indigo-600 transition-all text-xs flex items-center gap-1 cursor-pointer"
+                                title="이 항목에 영수증 스캔/연동"
+                              >
+                                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                <span className="text-[10px] hidden md:inline">AI 영수증 스캔</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveExpenseRow(expense.id)}
+                                className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 transition-all cursor-pointer"
+                                title="삭제"
+                              >
+                                <Trash className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                              {/* 1. 카테고리 선택 */}
+                              <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-slate-500">지출 분류</label>
+                                <select
+                                  value={expense.category}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { category: e.target.value as any })}
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                >
+                                  <option value="breakfast">아침식사</option>
+                                  <option value="lunch">점심식사</option>
+                                  <option value="dinner">저녁식사</option>
+                                  <option value="drinks">음료&커피</option>
+                                  <option value="fuel">주유비</option>
+                                  <option value="parking">주차비</option>
+                                  <option value="proxy">대리운전비</option>
+                                  <option value="purchase">물건 구입</option>
+                                  <option value="custom">직접 입력</option>
+                                </select>
+                              </div>
+
+                              {/* 2. 결제 수단 선택 */}
+                              <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-slate-500">결제 수단</label>
+                                <select
+                                  value={expense.payMethod}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { payMethod: e.target.value as any })}
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                >
+                                  <option value="company_card">법인(회사)카드</option>
+                                  <option value="personal_card">개인카드</option>
+                                  <option value="cash_personal">현금(개인)</option>
+                                  <option value="cash_company">현금(법인(회사))</option>
+                                </select>
+                              </div>
+
+                              {/* 3. 금액 */}
+                              <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-slate-500">금액 (원)</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder="금액 입력"
+                                  value={expense.amount ? formatCurrencyInput(expense.amount) : ''}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { amount: parseCurrencyInput(e.target.value) })}
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            {/* 상세 내용 및 연동 */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                              {/* 직접 입력일 때 분류 이름 */}
+                              {expense.category === 'custom' && (
+                                <div className="space-y-1">
+                                  <label className="text-[11px] font-semibold text-slate-500">지출 분류명 직접 입력</label>
+                                  <input
+                                    type="text"
+                                    placeholder="예: 퀵서비스 비용"
+                                    value={expense.categoryCustom || ''}
+                                    onChange={(e) => handleUpdateExpenseRow(expense.id, { categoryCustom: e.target.value })}
+                                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  />
+                                </div>
+                              )}
+
+                              {/* 차량 연동 선택 */}
+                              <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                                  <span>통합 차량 관리 연동</span>
+                                  <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded">비용관리 연계</span>
+                                </label>
+                                <select
+                                  value={expense.vehicleId || ''}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { vehicleId: e.target.value || undefined })}
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                >
+                                  <option value="">차량 미선택 (연동 안 함)</option>
+                                  {vehicles.map(v => (
+                                    <option key={v.id} value={v.id}>
+                                      {v.modelName} ({v.plateNumber})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* 메모 */}
+                              <div className={`space-y-1 ${expense.category === 'custom' ? '' : 'sm:col-span-2'}`}>
+                                <label className="text-[11px] font-semibold text-slate-500">지출 상세 내용 / 적요</label>
+                                <input
+                                  type="text"
+                                  placeholder="예: 점심 식대 결제, 소모품 구입 등"
+                                  value={expense.memo || ''}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { memo: e.target.value })}
+                                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 연관 프로젝트 및 거래처 매핑 (CRM 연동) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                    {/* 연관 프로젝트 멀티플 선택 */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                        <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>연관 프로젝트 연결</span>
+                      </label>
+                      <ProjectMultiSearchSelect
+                        projects={projects}
+                        value={formProjectIds}
+                        onChange={setFormProjectIds}
+                      />
+                    </div>
+
+                    {/* 연관 거래처 매핑 멀티플 선택 */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-blue-400" />
+                        <span>연관 거래처 인맥 연결</span>
+                      </label>
+                      <ContactMultiSearchSelect
+                        contacts={contacts}
+                        value={formContactIds}
+                        onChange={setFormContactIds}
+                      />
+                    </div>
+                  </div>
+
+                  {/* [추가] 동료 초대 - 여기서 선택해서 저장하면, 새로 초대된 동료에게 실제로
+                  알림 메일이 발송된다(기존에 이미 초대되어 있던 사람에게는 다시 발송되지 않음). */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>동료 초대 (저장하면 새로 초대된 동료에게 알림 메일이 발송됩니다)</span>
+                    </label>
+                    <CoworkerMultiSearchSelect
+                      coworkers={coworkers}
+                      value={formInvitedUserIds}
+                      onChange={setFormInvitedUserIds}
+                    />
+                  </div>
+
+                  {/* 거래처 인맥 직접 추가 */}
+                  <div className="border border-slate-200 bg-slate-50 rounded-xl p-3.5 space-y-3 mt-4 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={useDirectContact}
+                        onChange={(e) => setUseDirectContact(e.target.checked)}
+                        className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                      />
+                      <span className="text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결 (등록된 거래처가 없을 경우)</span>
+                    </label>
+
+                    {useDirectContact && (
+                      <div className="grid grid-cols-2 gap-3.5 pt-2 animate-fadeIn">
+                        <div>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                          <input
+                            type="text"
+                            value={directContactName}
+                            onChange={(e) => setDirectContactName(e.target.value)}
+                            placeholder="예: 홍길동"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
+                            required={useDirectContact}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">회사/기관명</label>
+                          <input
+                            type="text"
+                            value={directContactCompany}
+                            onChange={(e) => setDirectContactCompany(e.target.value)}
+                            placeholder="예: 현대건설"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">부서</label>
+                          <input
+                            type="text"
+                            value={directContactDept}
+                            onChange={(e) => setDirectContactDept(e.target.value)}
+                            placeholder="예: 구매팀"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">직책</label>
+                          <input
+                            type="text"
+                            value={directContactTitle}
+                            onChange={(e) => setDirectContactTitle(e.target.value)}
+                            placeholder="예: 과장"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(직장)</label>
+                          <input
+                            type="text"
+                            value={directContactPhoneOffice}
+                            onChange={(e) => setDirectContactPhoneOffice(e.target.value)}
+                            placeholder="예: 02-1234-5678"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">연락처(핸드폰)</label>
+                          <input
+                            type="text"
+                            value={directContactPhoneMobile}
+                            onChange={(e) => setDirectContactPhoneMobile(e.target.value)}
+                            placeholder="예: 010-1234-5678"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일 주소</label>
+                          <input
+                            type="email"
+                            value={directContactEmail}
+                            onChange={(e) => setDirectContactEmail(e.target.value)}
+                            placeholder="예: buyer@company.com"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 하단 액션 단추 */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setIsWriteModalOpen(false)}
+                      disabled={isSavingLog}
+                      className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm border border-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      취소
+                    </button>
+                    {/* [수정] 저장 요청이 서버 응답을 기다리는 동안(isSavingLog) 버튼을 눌러도
+                        아무 반응이 없어 "안 눌린 줄 알고" 다시 누르다 중복 저장되는 문제가
+                        있었다. 저장 중에는 버튼을 잠그고(disabled) 스피너 + "저장 중..."
+                        문구로 진행 상태를 보여준다. */}
+                    <button
+                      type="submit"
+                      disabled={isSavingLog}
+                      className={`px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 ${
+                        writeFormType === 'daily'
+                          ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/10'
+                          : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/10'
+                      }`}
+                    >
+                      {isSavingLog ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          <span>저장 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>{editingLogId ? '수정 반영' : '일지 저장'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 4. 주간 업무보고서 출력 (리포트 출력 탭 안에 임베드되어 표시됨, 차량관리 리포트 출력과 동일한 방식) */}
+      <AnimatePresence>
+        {activeSubTab === 'report' && selectedReportLog && (
+          <div className="w-full select-none">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 30 }}
+              className="relative w-full max-w-[215mm] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden"
+            >
+              {/* 비인쇄 상단 바 (no-print) */}
+              <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
+                    <Printer className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">
+                      주간 업무 보고서 리포트 생성기
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={downloadReportToExcel}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>엑셀 다운로드</span>
+                  </button>
+                  <button
+                    onClick={handlePrintReport}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>인쇄 / PDF 저장</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedReportLog(null)}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 편집 컨트롤 바 (no-print) */}
+              <div className="no-print p-4 sm:px-6 bg-slate-50 border-b border-slate-200 grid grid-cols-2 sm:grid-cols-6 gap-3 text-xs text-slate-600">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">보고서 양식</label>
+                  <div className="flex bg-white p-0.5 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setReportOption('A')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-center font-bold text-[11px] transition-all cursor-pointer ${
+                        reportOption === 'A'
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      옵션 A
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReportOption('B')}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-center font-bold text-[11px] transition-all cursor-pointer ${
+                        reportOption === 'B'
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      옵션 B
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">부서명</label>
+                  <input
+                    type="text"
+                    value={reportDepartment}
+                    onChange={(e) => setReportDepartment(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">작성자</label>
+                  <input
+                    type="text"
+                    value={reportAuthor}
+                    onChange={(e) => setReportAuthor(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">일간 비용 (원)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={reportExpenseDaily ? formatCurrencyInput(reportExpenseDaily) : ''}
+                    onChange={(e) => setReportExpenseDaily(parseCurrencyInput(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-500">주간 비용 (원)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={reportExpenseWeekly ? formatCurrencyInput(reportExpenseWeekly) : ''}
+                    onChange={(e) => setReportExpenseWeekly(parseCurrencyInput(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
+                  />
+                </div>
+                <div className="space-y-1 col-span-2 sm:col-span-1">
+                  <label className="font-bold text-slate-500">월간 비용 (원)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={reportExpenseMonthly ? formatCurrencyInput(reportExpenseMonthly) : ''}
+                    onChange={(e) => setReportExpenseMonthly(parseCurrencyInput(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* 주간업무보고 인쇄 프리뷰 종이 영역 (A4 사이즈 모방) */}
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-8 flex justify-center">
+                <div
+                  id="report-editor-view"
+                  className="w-full max-w-[210mm] bg-white text-black p-6 sm:p-10 shadow-2xl rounded-sm text-xs font-sans select-text leading-tight"
+                >
+                  {/* 보고서 내부 제목 */}
+                  <div className="text-center mb-6">
+                    <div className="inline-block border-b-4 border-double border-black pb-1 px-4">
+                      <input
+                        type="text"
+                        value={reportTitle}
+                        onChange={(e) => setReportTitle(e.target.value)}
+                        className="bg-transparent border-0 outline-none text-xl sm:text-2xl font-extrabold text-black text-center focus:ring-0 p-0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 1단계: 보고 기간 / 부서 / 작성자 + 비용(원) 헤더 테이블 (원래 요청 양식과 동일하게 오른쪽에 비용 박스) */}
+                  <table className="w-full border-collapse border-[1.5px] border-black text-xs text-center font-sans mb-6">
+                    <tbody>
+                      <tr>
+                        <td className="border border-black font-extrabold yellow-header p-2 w-[10%] text-black">보고 기간</td>
+                        <td className="border border-black p-2 text-left pl-4 w-[47%] text-black font-semibold" colSpan={3}>
+                          {reportStartDate} ~ {reportEndDate}
+                        </td>
+                        <td className="border border-black font-extrabold yellow-header p-2 w-[8%] text-black" rowSpan={3}>비용<br />(원)</td>
+                        <td className="border border-black font-extrabold yellow-header p-2 w-[10%] text-black">일간</td>
+                        <td className="border border-black p-2 text-right pr-3 w-[25%] text-black font-mono font-semibold">
+                          {reportExpenseDaily.toLocaleString()}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">부 서</td>
+                        <td className="border border-black p-2 text-left pl-4 text-black font-semibold" colSpan={3}>
+                          {reportDepartment}
+                        </td>
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">주간</td>
+                        <td className="border border-black p-2 text-right pr-3 text-black font-mono font-semibold">
+                          {reportExpenseWeekly.toLocaleString()}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">작성자</td>
+                        <td className="border border-black p-2 text-left pl-4 text-black font-semibold" colSpan={3}>
+                          {reportAuthor}
+                        </td>
+                        <td className="border border-black font-extrabold yellow-header p-2 text-black">월간</td>
+                        <td className="border border-black p-2 text-right pr-3 text-black font-mono font-semibold">
+                          {reportExpenseMonthly.toLocaleString()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Section 1: 지난주 요일별 상세 실시 사항 */}
+                  <div className="mb-6">
+                    <h3 className="text-left font-extrabold text-[12px] text-black mb-2 flex items-center gap-1.5">
+                      <span>1. 지난주 요일별 상세 실시 사항</span>
+                      <span className="no-print text-[10px] text-indigo-600 font-normal">(마우스 클릭 후 텍스트 편집 가능)</span>
+                    </h3>
+                    <table className="w-full border-collapse border-[1.5px] border-black text-xs text-black">
+                      <thead>
+                        <tr className="bg-yellow-100 text-black text-[10.5px]">
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Week</th>
+                          <th className="border border-black p-2 font-extrabold w-[9%] text-center yellow-header">Date</th>
+                          <th className="border border-black p-2 font-extrabold w-[13%] text-center yellow-header">Project</th>
+                          <th className="border border-black p-2 font-extrabold w-[35%] text-center yellow-header">Description</th>
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Progress (%)</th>
+                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header" colSpan={2}>Expenses (비용)</th>
+                        </tr>
+                        <tr className="bg-yellow-50 text-black text-[9.5px]">
+                          <th className="border border-black p-1 yellow-header" colSpan={5}></th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[10%]">Description</th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[5%]">Won</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportTable1.map((row, index) => (
+                          <tr key={row.id}>
+                            {index === 0 && (
+                              <td
+                                rowSpan={reportTable1.length}
+                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[8%]"
+                              >
+                                {row.weekLabel}
+                              </td>
+                            )}
+                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[9%] align-middle">
+                              {row.dateLabel}
+                            </td>
+                            <td className="border border-black p-1 text-center bg-white w-[13%] align-middle">
+                              <input
+                                type="text"
+                                value={row.project || ''}
+                                onChange={(e) => handleTable1Change(row.id, 'project', e.target.value)}
+                                placeholder="-"
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[35%] align-middle">
+                              <textarea
+                                value={row.description}
+                                onChange={(e) => handleTable1Change(row.id, 'description', e.target.value)}
+                                rows={row.description.split('\n').length || 2}
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black leading-normal p-1 focus:ring-0 resize-y whitespace-pre-wrap"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-center bg-white w-[8%] align-middle">
+                              <input
+                                type="text"
+                                value={row.progress}
+                                onChange={(e) => handleTable1Change(row.id, 'progress', e.target.value)}
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] font-semibold text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
+                            </td>
+                            <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td colSpan={5} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px]">계</td>
+                          <td colSpan={2} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px] font-mono">
+                            {reportTable1.reduce((sum, r: any) => sum + (r.expenseItems || []).reduce((s: number, e: any) => s + e.amount, 0), 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Section 2: 금주 요일별 상세 실시 사항 */}
+                  <div className="mb-6">
+                    <h3 className="text-left font-extrabold text-[12px] text-black mb-2">
+                      2. 금주 요일별 상세 실시 사항
+                    </h3>
+                    <table className="w-full border-collapse border-[1.5px] border-black text-xs text-black">
+                      <thead>
+                        <tr className="bg-yellow-100 text-black text-[10.5px]">
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Week</th>
+                          <th className="border border-black p-2 font-extrabold w-[9%] text-center yellow-header">Date</th>
+                          <th className="border border-black p-2 font-extrabold w-[13%] text-center yellow-header">Project</th>
+                          <th className="border border-black p-2 font-extrabold w-[35%] text-center yellow-header">Description</th>
+                          <th className="border border-black p-2 font-extrabold w-[8%] text-center yellow-header">Estimated Time</th>
+                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header" colSpan={2}>Expenses (비용)</th>
+                        </tr>
+                        <tr className="bg-yellow-50 text-black text-[9.5px]">
+                          <th className="border border-black p-1 yellow-header" colSpan={5}></th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[10%]">Description</th>
+                          <th className="border border-black p-1 font-bold text-center yellow-header w-[5%]">Won</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportTable2.map((row, index) => (
+                          <tr key={row.id}>
+                            {index === 0 && (
+                              <td
+                                rowSpan={reportTable2.length}
+                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[8%]"
+                              >
+                                {row.weekLabel}
+                              </td>
+                            )}
+                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[9%] align-middle">
+                              {row.dateLabel}
+                            </td>
+                            <td className="border border-black p-1 text-center bg-white w-[13%] align-middle">
+                              <input
+                                type="text"
+                                value={row.project || ''}
+                                onChange={(e) => handleTable2Change(row.id, 'project', e.target.value)}
+                                placeholder="-"
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[35%] align-middle">
+                              <textarea
+                                value={row.description}
+                                onChange={(e) => handleTable2Change(row.id, 'description', e.target.value)}
+                                rows={row.description.split('\n').length || 2}
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black leading-normal p-1 focus:ring-0 resize-y whitespace-pre-wrap"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-center bg-white w-[8%] align-middle">
+                              <input
+                                type="text"
+                                value={row.estimatedTime}
+                                onChange={(e) => handleTable2Change(row.id, 'estimatedTime', e.target.value)}
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] font-semibold text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
+                            </td>
+                            <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                                <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
+                              )) : <span className="text-[10px] text-slate-500">-</span>}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td colSpan={5} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px]">계</td>
+                          <td colSpan={2} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px] font-mono">
+                            {reportTable2.reduce((sum, r: any) => sum + (r.expenseItems || []).reduce((s: number, e: any) => s + e.amount, 0), 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Section 3: 차주 예정 사항 */}
+                  <div className="mb-6">
+                    <h3 className="text-left font-extrabold text-[12px] text-black mb-2">
+                      3. 차주 예정 사항
+                    </h3>
+                    <table className="w-full border-collapse border-[1.5px] border-black text-xs text-black">
+                      <thead>
+                        <tr className="bg-yellow-100 text-black text-[10.5px]">
+                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Week</th>
+                          <th className="border border-black p-2 font-extrabold w-[11%] text-center yellow-header">Date</th>
+                          <th className="border border-black p-2 font-extrabold w-[15%] text-center yellow-header">Project</th>
+                          <th className="border border-black p-2 font-extrabold w-[44%] text-center yellow-header">Description</th>
+                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Estimated Time</th>
+                          <th className="border border-black p-2 font-extrabold w-[10%] text-center yellow-header">Remark</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportTable3.map((row, index) => (
+                          <tr key={row.id}>
+                            {index === 0 && (
+                              <td
+                                rowSpan={reportTable3.length}
+                                className="border border-black p-2 font-bold text-center align-middle bg-white text-[11px] w-[10%]"
+                              >
+                                {row.weekLabel}
+                              </td>
+                            )}
+                            <td className="border border-black p-2 font-medium text-center bg-white text-[10.5px] w-[11%] align-middle">
+                              {row.dateLabel}
+                            </td>
+                            <td className="border border-black p-1 text-center bg-white w-[15%] align-middle">
+                              <input
+                                type="text"
+                                value={(row as any).project || ''}
+                                onChange={(e) => handleTable3Change(row.id, 'project', e.target.value)}
+                                placeholder="-"
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[44%] align-middle">
+                              <textarea
+                                value={row.description}
+                                onChange={(e) => handleTable3Change(row.id, 'description', e.target.value)}
+                                rows={row.description.split('\n').length || 2}
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black leading-normal p-1 focus:ring-0 resize-y whitespace-pre-wrap"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-center bg-white w-[10%] align-middle">
+                              <input
+                                type="text"
+                                value={row.estimatedTime}
+                                onChange={(e) => handleTable3Change(row.id, 'estimatedTime', e.target.value)}
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] font-semibold text-center text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                            <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
+                              <input
+                                type="text"
+                                value={row.remark}
+                                onChange={(e) => handleTable3Change(row.id, 'remark', e.target.value)}
+                                className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black p-1 focus:ring-0"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Section 4: 애로 및 건의사항 / 피드백 */}
+                  <div className="mb-2">
+                    <h3 className="text-left font-extrabold text-[12px] text-black mb-2">
+                      4. 애로 및 건의사항 / 피드백
+                    </h3>
+                    <table className="w-full border-collapse border border-black text-xs text-black">
+                      <tbody>
+                        {reportTable4.map((row, index) => (
+                          <tr key={row.id}>
+                            <td className="border border-black p-2 bg-white text-left text-[10.5px] leading-relaxed align-middle">
+                              <div className="flex gap-2 items-start w-full">
+                                <span className="font-semibold shrink-0">{index + 1}.</span>
+                                <textarea
+                                  value={row.description}
+                                  onChange={(e) => handleTable4Change(row.id, 'description', e.target.value)}
+                                  rows={row.description.split('\n').length || 1}
+                                  className="w-full bg-transparent border-0 outline-none text-[10.5px] text-black leading-relaxed p-0 focus:ring-0 resize-y whitespace-pre-wrap"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setReportTable4(prev => prev.filter(i => i.id !== row.id))}
+                                  className="no-print text-rose-500 hover:text-rose-700 text-xs px-1 font-bold shrink-0 ml-auto cursor-pointer"
+                                  title="피드백 삭제"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="no-print mt-2 flex justify-start">
+                      <button
+                        type="button"
+                        onClick={() => setReportTable4(prev => [...prev, { id: `t4-new-${Date.now()}`, description: '', remark: '' }])}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-500 flex items-center gap-1 cursor-pointer bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-xl transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>애로 및 건의사항 추가</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 비인쇄 하단 제어 바 (no-print) */}
+              <div className="no-print p-4 sm:p-5 border-t border-slate-200 bg-white/90 flex items-center justify-end gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedReportLog(null)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs border border-slate-200 transition-colors cursor-pointer"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadReportToExcel}
+                  className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>엑셀 다운로드</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintReport}
+                  className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>지금 인쇄 / PDF 저장</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 5. 영수증 자동 스캔 모달 */}
+      <AnimatePresence>
+        {isReceiptModalOpen && (
+          <ReceiptScanModal
+            expenseType="worklog"
+            onClose={() => {
+              setIsReceiptModalOpen(false);
+              setScanningExpenseRowId(null);
+            }}
+            onScanComplete={handleReceiptScanComplete}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 6. 영수증 이미지 라이트박스 모달 */}
+      <AnimatePresence>
+        {viewingReceiptImage && (
+          // [수정] 닫기(X) 버튼이 화면 맨 위 오른쪽 모서리에 딱 붙어 있어서, 휴대폰의
+          // 상태바(배터리·시간 표시)와 겹쳐 눌리지 않는다는 문제가 있었다. env(safe-area-inset-top)
+          // 만큼 위 여백을 추가로 띄워서 상태바 아래로 내려오게 하고, 배경(어두운 부분)을
+          // 눌러도 닫히게 해서 버튼을 못 눌러도 어디든 탭하면 닫히도록 했다.
+          <div
+            className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4"
+            onClick={() => setViewingReceiptImage(null)}
+          >
+            <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setViewingReceiptImage(null)}
+                className="p-2.5 rounded-full bg-white border border-slate-200 hover:border-slate-500 text-slate-700 transition-all shadow-lg cursor-pointer"
+                title="닫기"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-3xl max-h-[85vh] overflow-hidden flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-2xl"
+            >
+              <img src={viewingReceiptImage} alt="영수증 원본 이미지" className="max-w-full max-h-[80vh] object-contain rounded-xl" />
+            </div>
+            <p className="text-slate-500 text-xs mt-3.5 font-sans">우측 상단 X 단추 또는 바깥 배경을 눌러서 닫을 수 있습니다.</p>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 인쇄 전용 정적 리포트: 앱 트리 밖의 별도 포털(#print-root)에 렌더링되어
+          다른 화면 요소(메뉴, 탭, 여백 등)의 영향을 전혀 받지 않고 깔끔하게 인쇄됩니다. */}
+      {typeof document !== 'undefined' && document.getElementById('print-root') &&
+        createPortal(renderPrintableReport(), document.getElementById('print-root')!)}
+    </div>
+  );
+};
