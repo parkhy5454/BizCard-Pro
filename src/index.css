@@ -48,7 +48,66 @@
   --color-slate-800: #23262F;
   --color-slate-900: #15171E;
   --color-slate-950: #0B0C11;
+
+  /* [추가] "화면이 알록달록하고 산만하다 / 참고 사이트(프리스비 코리아 쇼핑몰)처럼 깔끔했으면
+     좋겠다"는 요청에 맞춘 정리. 위 indigo/blue/slate는 이미 예전에 톤을 다듬어뒀는데,
+     emerald(초록 뱃지/성공 표시)·rose(삭제/경고)·amber(주의) 세 색상은 아직 Tailwind
+     기본값 그대로라 채도가 높고 쨍해서 화면 곳곳의 뱃지·라벨·아이콘 색이 서로 튀어 보였다.
+     위 세 색상과 같은 방식으로 채도를 낮추고 톤을 깊게 다듬어서, 앱 전체에서 이미
+     bg-emerald-*, text-rose-*, border-amber-* 등으로 쓰이고 있는 곳들의 색이 한 번에
+     차분하게 바뀌도록 했다(화면 하나하나를 직접 고치는 대신, 색상표 자체를 다듬는 방식 -
+     indigo/blue/slate와 동일한 전략). */
+  --color-emerald-50: #F0F5F2;
+  --color-emerald-100: #DEEBE4;
+  --color-emerald-200: #BCD7C9;
+  --color-emerald-300: #92BCA6;
+  --color-emerald-400: #679D80;
+  --color-emerald-500: #4C8266;
+  --color-emerald-600: #3D6B53;
+  --color-emerald-700: #335743;
+  --color-emerald-800: #2A4636;
+  --color-emerald-900: #23392C;
+  --color-emerald-950: #13211A;
+
+  --color-rose-50: #F7EFEF;
+  --color-rose-100: #EEDDDD;
+  --color-rose-200: #DDBEBE;
+  --color-rose-300: #C79797;
+  --color-rose-400: #AC6E6E;
+  --color-rose-500: #925151;
+  --color-rose-600: #7A3E3E;
+  --color-rose-700: #633333;
+  --color-rose-800: #4F2A2A;
+  --color-rose-900: #402424;
+  --color-rose-950: #251313;
+
+  --color-amber-50: #F7F2E9;
+  --color-amber-100: #EEE2C9;
+  --color-amber-200: #DEC494;
+  --color-amber-300: #C9A15D;
+  --color-amber-400: #B08536;
+  --color-amber-500: #966E28;
+  --color-amber-600: #7C5A22;
+  --color-amber-700: #63481C;
+  --color-amber-800: #503A19;
+  --color-amber-900: #423017;
+  --color-amber-950: #251A0C;
+
+  /* [추가] shadow-lg/shadow-xl이 앱 전반(카드/버튼/모달)에 자주 쓰이는데, Tailwind 기본
+     그림자는 다소 진하고 딱딱해서 참고 사이트처럼 은은하고 정돈된 느낌과는 거리가 있었다.
+     그림자 자체를 더 얇고 부드럽게 다듬어서, 화면마다 손대지 않고 한 번에 톤을 낮췄다. */
+  --shadow-lg: 0 8px 20px -6px rgb(0 0 0 / 0.10), 0 3px 8px -4px rgb(0 0 0 / 0.06);
+  --shadow-xl: 0 14px 32px -10px rgb(0 0 0 / 0.12), 0 4px 10px -4px rgb(0 0 0 / 0.06);
 }
+
+/* [추가] 앱 전체에서 text-[9px]/text-[10px]/text-[11px] 같은 아주 작은 임의 크기 글자가
+   900곳 넘게 쓰이고 있어서(뱃지, 보조 설명, 타임스탬프 등), 화면이 빽빽하고 읽기 빠듯한
+   인상을 준다는 피드백과 맞닿아 있다. 화면 하나하나를 찾아 고치는 대신, 아주 작은 글자
+   크기들에 대한 "최소 크기"를 전역으로 한 단계씩 올려서 가독성을 개선한다 - 클래스 이름
+   자체(레이아웃에 쓰이는 값)는 그대로 두고 실제 렌더링 크기만 살짝 키우는 방식이라 안전하다. */
+.text-\[9px\], [class*="text-[9px]"] { font-size: 11px !important; }
+.text-\[10px\], [class*="text-[10px]"] { font-size: 11px !important; }
+.text-\[11px\], [class*="text-[11px]"] { font-size: 12px !important; }
 
 html {
   font-family: var(--font-sans);
@@ -56,6 +115,11 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'tnum' 1; /* 숫자(금액/전화번호 등) 폭을 고르게 정렬 */
+  /* [추가] 화면이 빽빽해 보인다는 피드백에 맞춰, 줄 사이 간격의 기본값을 살짝 넉넉하게
+     올렸다. 각 요소가 leading-none/leading-tight처럼 줄간격을 직접 지정한 곳은 그대로
+     그 값이 우선 적용되고, 아무 지정이 없는 일반 텍스트에만 이 기본값이 적용되므로
+     기존 레이아웃을 깨뜨리지 않으면서 전체적인 여백감만 은은하게 더한다. */
+  line-height: 1.55;
 }
 
 /* 평평한 단색 대신 은은한 방사형/선형 그라데이션으로 배경에 깊이감을 준다.
