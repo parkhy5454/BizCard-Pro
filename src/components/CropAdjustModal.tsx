@@ -189,6 +189,14 @@ interface Props {
   // 결과물이 항상 이 방향으로 나오도록 보정하고(orientQuadForExpectedAspect 정의부 주석
   // 참고), 영수증처럼 방향이 정해지지 않은 문서는 안 넘겨서 예전처럼 감지된 그대로 쓴다.
   expectedAspectRatio?: number;
+  // [추가] 자동 모서리 감지(detectCorners/detectCornersOnce)가 "명함 비율(가로:세로 ≈
+  // 1.586)과 얼마나 가까운지"로 후보를 거르는 CARD_TARGET_ASPECT 필터를 적용할지 여부.
+  // 명함은 규격이 고정돼 있어 이 필터가 배경 덩어리를 걸러내는 데 유용하지만, 영수증은
+  // 매장/영수증 길이에 따라 가로:세로 비율이 제각각(아주 길고 좁은 경우도 흔함)이라 이
+  // 필터를 그대로 적용하면 "진짜 영수증 윤곽"까지 명함 비율과 다르다는 이유로 후보에서
+  // 제외돼버려, 결국 엉뚱한(마름모/삼각형처럼 보이는) 사각형이 대신 선택되는 문제가 있었다.
+  // 안 넘기면 기존처럼 'card'로 동작해 명함 스캔(ScanModal)은 전혀 영향받지 않는다.
+  documentType?: 'card' | 'receipt';
 }
 
 // [추가] 순수 도형(사각형 모서리) 인식만으로는 시계/반시계 중 어느 방향으로 돌려야
@@ -346,7 +354,12 @@ function getSourceDims(src: HTMLImageElement | HTMLCanvasElement): { width: numb
     : { width: src.naturalWidth, height: src.naturalHeight };
 }
 
-const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: any, strategy: DetectionStrategyCrop): DetectionResult | null => {
+const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: any, strategy: DetectionStrategyCrop, documentType: 'card' | 'receipt' = 'card'): DetectionResult | null => {
+  // [추가] 영수증은 고정된 규격 비율이 없으므로(가게마다/길이마다 제각각, 아주 길고 좁은
+  // 경우도 흔함), 명함 전용 비율 필터(CARD_TARGET_ASPECT)를 아예 적용하지 않는다. 이 필터를
+  // 그대로 적용하면 진짜 영수증 윤곽까지 "명함 비율과 안 맞는다"는 이유로 후보에서 제외돼,
+  // 결국 배경과 뭉친 엉뚱한(마름모/삼각형처럼 보이는) 사각형이 대신 선택되는 문제가 있었다.
+  const isCard = documentType !== 'receipt';
   let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy, hsv, whiteMask: any = null;
   let bestApprox: any = null;
   let bestApproxScore = -1;
@@ -416,12 +429,13 @@ const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: any
           const rotRect = cv.minAreaRect(cnt);
           // [추가] 이 폴백 경로도 넓이만 보고 골랐었다 — 배경 무늬가 카드와 뭉쳐서 카드보다
           // 훨씬 크고 명함 비율과 동떨어진 덩어리가 되면, 그게 그대로 "가장 큰 덩어리"로 뽑혀
-          // 폴백으로 쓰였다. 명함 비율과 너무 동떨어진 덩어리는 폴백 후보에서도 제외한다.
+          // 폴백으로 쓰였다. 명함(isCard)일 때만 명함 비율과 너무 동떨어진 덩어리를 폴백
+          // 후보에서도 제외한다 — 영수증은 고정 비율이 없으므로 이 검사를 건너뛴다.
           const rectAspect = rotRect.size.width / Math.max(rotRect.size.height, 1);
           const rectAspectDiffNormal = Math.abs(rectAspect - CARD_TARGET_ASPECT) / CARD_TARGET_ASPECT;
           const rectAspectDiffRotated = Math.abs(rectAspect - 1 / CARD_TARGET_ASPECT) / (1 / CARD_TARGET_ASPECT);
           const rectAspectDiff = Math.min(rectAspectDiffNormal, rectAspectDiffRotated);
-          if (rectAspectDiff <= MAX_ACCEPTABLE_ASPECT_DIFF) {
+          if (!isCard || rectAspectDiff <= MAX_ACCEPTABLE_ASPECT_DIFF) {
             const angleRad = (rotRect.angle * Math.PI) / 180;
             const cos = Math.cos(angleRad);
             const sin = Math.sin(angleRad);
@@ -456,16 +470,18 @@ const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: any
           // [추가] 넓이/중앙근접도만으로는, 배경 무늬가 카드 흰 영역과 뭉쳐서 생긴 "카드보다
           // 크고 삐뚤어진 사각형"도 점수가 높게 나올 수 있다. 실제 명함 비율(가로:세로 ≈
           // 1.586, 세로로 찍힌 경우 그 역수)과 얼마나 가까운지도 같이 반영해서, 비율이 크게
-          // 어긋난 후보는 감점한다.
+          // 어긋난 후보는 감점한다. 단, 영수증(isCard=false)은 가게/길이마다 비율이 제각각
+          // (아주 길고 좁은 영수증도 흔함)이라 이 비율 기준 자체가 성립하지 않으므로, 점수/제외
+          // 계산 모두에서 비율 항을 빼고 넓이·중앙근접도만으로 판단한다.
           const rawPts: Point[] = [];
           for (let j = 0; j < 4; j++) rawPts.push({ x: approx.data32S[j * 2], y: approx.data32S[j * 2 + 1] });
           const orderedForScore = orderQuadPoints(rawPts);
           const aspect = quadAspectRatio(orderedForScore);
           const aspectDiffNormal = Math.abs(aspect - CARD_TARGET_ASPECT) / CARD_TARGET_ASPECT;
           const aspectDiffRotated = Math.abs(aspect - 1 / CARD_TARGET_ASPECT) / (1 / CARD_TARGET_ASPECT);
-          const aspectDiff = Math.min(aspectDiffNormal, aspectDiffRotated, 1);
+          const aspectDiff = isCard ? Math.min(aspectDiffNormal, aspectDiffRotated, 1) : 0;
 
-          if (aspectDiff > MAX_ACCEPTABLE_ASPECT_DIFF) {
+          if (isCard && aspectDiff > MAX_ACCEPTABLE_ASPECT_DIFF) {
             // 명함 비율과 너무 동떨어진 사각형(배경과 뭉친 덩어리 등)은 아예 후보에서 제외.
             // 이 전략(strategy)에서 더 나은 후보를 못 찾으면 detectCorners()가 다음 전략으로 넘어간다.
             approx.delete();
@@ -545,7 +561,7 @@ const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: any
 // 기본 민감도로 먼저 시도하고, 실패하면 더 민감한 설정 → 적응형 이진화 순으로 자동 재시도한다.
 // [수정] 회전 탐색이 찾은 "가장 문서다운 방향"의 캔버스도 그대로 받아 교차검증할 수 있도록,
 // 원본 <img> 대신 <canvas>도 받을 수 있게 확장했다.
-const detectCorners = async (imgSrc: HTMLImageElement | HTMLCanvasElement): Promise<DetectionResult | null> => {
+const detectCorners = async (imgSrc: HTMLImageElement | HTMLCanvasElement, documentType: 'card' | 'receipt' = 'card'): Promise<DetectionResult | null> => {
   try {
     await loadOpenCv();
   } catch {
@@ -553,7 +569,7 @@ const detectCorners = async (imgSrc: HTMLImageElement | HTMLCanvasElement): Prom
   }
   const cv = (window as any).cv;
   for (const strategy of DETECTION_STRATEGY_LADDER_CROP) {
-    const result = detectCornersOnce(imgSrc, cv, strategy);
+    const result = detectCornersOnce(imgSrc, cv, strategy, documentType);
     if (result) return result;
   }
   return null;
@@ -709,7 +725,13 @@ async function fetchAiCornersNormalized(dataUrl: string): Promise<NormalizedCorn
   }
 }
 
-export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel, expectedAspectRatio }) => {
+export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel, expectedAspectRatio, documentType }) => {
+  // [추가] 구조분해 시 기본값(= 'card')으로 바로 주면, 이 프로젝트엔 @types/react가 없어서
+  // React.FC<Props>의 프롭 타입이 타입체커 입장에서 사실상 any로 풀리고, 그 결과 기본값만
+  // 보고 documentType의 타입을 (리터럴 유니온이 아니라) 그냥 string으로 넓혀버린다 — 아래
+  // detectCorners 등 리터럴 유니온을 요구하는 곳에서 타입 에러가 난다. 구조분해에서는 기본값을
+  // 안 주고, 별도 변수에서 Props가 선언한 리터럴 유니온 타입을 명시해 안전하게 기본값을 채운다.
+  const docType: 'card' | 'receipt' = documentType ?? 'card';
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [corners, setCorners] = useState<Point[] | null>(null); // 표시 좌표계 기준
@@ -779,7 +801,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         let mlOrientation: MlOrientationResult | null = null;
         const [mlSettled, cvOriginalSettled] = await Promise.allSettled([
           detectMlBestOrientation(img),
-          detectCorners(img)
+          detectCorners(img, docType)
         ]);
         if (cancelled) return;
 
@@ -808,7 +830,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
             await loadOpenCv();
             const cv = (window as any).cv;
             for (const strategy of DETECTION_STRATEGY_LADDER_CROP) {
-              const result = detectCornersOnce(mlOrientation.canvas, cv, strategy);
+              const result = detectCornersOnce(mlOrientation.canvas, cv, strategy, docType);
               if (result) { cvOnRotated = result; break; }
             }
           } catch (err) {

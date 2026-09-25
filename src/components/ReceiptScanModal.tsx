@@ -481,6 +481,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         <CropAdjustModal
           imageDataUrl={cropRawImage}
           title="영수증 테두리 확인"
+          documentType="receipt"
           onConfirm={(cropped) => {
             setReceiptImg(cropped);
             setScanDone(false);
