@@ -5,8 +5,15 @@ import { getTodayLocalStr } from '../dateUtils.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 
+// [추가] 해외 출장 경비(AdminDocsView) 화면의 "사용구분"/"지급방법" 값 체계를 그대로 따른다.
+// AdminDocsView.tsx의 OVERSEAS_TRIP_CATEGORY_PRESETS/OVERSEAS_TRIP_PAY_METHOD_PRESETS와 반드시
+// 같은 값 목록이어야 한다 - AdminDocsView가 이 모달을 가져다 쓰는 쪽이라 그 반대 방향으로
+// import하면 순환 참조가 생기므로, 이 작은 고정 목록만 여기 별도로 둔다.
+const OVERSEAS_TRIP_CATEGORY_OPTIONS = ['항공료', '숙박비', '식비', '교통비', '환전 비용', '직원 선물', '기타'];
+const OVERSEAS_TRIP_PAY_METHOD_OPTIONS = ['신용카드', '현금'];
+
 interface Props {
-  expenseType: 'vehicle' | 'worklog';
+  expenseType: 'vehicle' | 'worklog' | 'overseas_trip';
   onClose: () => void;
   onScanComplete: (data: {
     amount: number;
@@ -88,7 +95,10 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       const res = await fetch('/api/scan-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: targetImage })
+        // [추가] 해외 출장 경비 화면은 서버의 분류 체계(영문 코드)가 아니라 이 화면이 실제로
+        // 쓰는 한글 사용구분/지급방법 값(항공료/숙박비/.../신용카드/현금)으로 바로 분류받기
+        // 위해 context를 같이 넘긴다 (server.ts의 /api/scan-receipt 참고).
+        body: JSON.stringify({ image: targetImage, context: expenseType === 'overseas_trip' ? 'overseas_trip' : undefined })
       });
       const data = await res.json();
 
@@ -96,9 +106,13 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         throw new Error(data.error);
       }
 
-      // 컨텍스트(차량비용 vs 업무일지비용)에 따른 카테고리 매핑
+      // 컨텍스트(차량비용 vs 업무일지비용 vs 해외출장경비)에 따른 카테고리 매핑
       let mappedCategory = data.category || 'other';
-      if (expenseType === 'worklog') {
+      if (expenseType === 'overseas_trip') {
+        // 서버가 이미 이 화면의 한글 사용구분 값을 그대로 돌려주므로, 알려진 값이면 그대로
+        // 쓰고 아니면(인식 실패 등) "기타"로 안전하게 기본값을 둔다.
+        mappedCategory = OVERSEAS_TRIP_CATEGORY_OPTIONS.includes(data.category) ? data.category : '기타';
+      } else if (expenseType === 'worklog') {
         if (data.category === 'meal') {
           mappedCategory = 'lunch'; // 기본값으로 점심식사 매핑
         } else if (data.category === 'beverage') {
@@ -127,7 +141,9 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
 
       // 결제수단 매핑
       let mappedPayMethod = data.payMethod || 'company_card';
-      if (expenseType === 'worklog') {
+      if (expenseType === 'overseas_trip') {
+        mappedPayMethod = OVERSEAS_TRIP_PAY_METHOD_OPTIONS.includes(data.payMethod) ? data.payMethod : '신용카드';
+      } else if (expenseType === 'worklog') {
         if (data.payMethod === 'company_card') mappedPayMethod = 'company_card';
         else if (data.payMethod === 'personal_card') mappedPayMethod = 'personal_card';
         else if (data.payMethod === 'cash') mappedPayMethod = 'cash_company'; // 기본값으로 법인현금 매핑
@@ -359,7 +375,11 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                     onChange={(e) => setForm({ ...form, payMethod: e.target.value })}
                     className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
-                    {expenseType === 'worklog' ? (
+                    {expenseType === 'overseas_trip' ? (
+                      OVERSEAS_TRIP_PAY_METHOD_OPTIONS.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))
+                    ) : expenseType === 'worklog' ? (
                       <>
                         <option value="company_card">법인카드</option>
                         <option value="personal_card">개인카드</option>
@@ -396,7 +416,11 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
                     className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
-                    {expenseType === 'worklog' ? (
+                    {expenseType === 'overseas_trip' ? (
+                      OVERSEAS_TRIP_CATEGORY_OPTIONS.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))
+                    ) : expenseType === 'worklog' ? (
                       <>
                         <option value="lunch">점심식사</option>
                         <option value="dinner">저녁식사</option>

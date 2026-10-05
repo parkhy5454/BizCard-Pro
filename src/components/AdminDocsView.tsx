@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
-import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check } from 'lucide-react';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
+import { ReceiptScanModal } from './ReceiptScanModal.js';
 
 interface Props {
   section: AdminDocSection;
@@ -3382,6 +3383,54 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   };
   const updateOverseasTripEntry = (id: string, patch: Partial<OverseasTripRow>) => {
     updateOverseasTripEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
+  // [추가] 해외 출장 경비 - 항목별 영수증 스캔/첨부. "항목 추가" 버튼 옆의 "AI 영수증 스캔"을
+  // 누르면(scanningOverseasTripEntryId === null) 스캔 결과로 새 항목을 만들어 추가하고, 이미
+  // 있는 항목의 "영수증 스캔" 버튼을 누르면(해당 id가 들어있음) 그 항목을 스캔 결과로 덮어쓴다
+  // - 업무일지(WorkLogsView)의 비용 지출 영수증 스캔과 동일한 패턴.
+  const [isOverseasTripReceiptModalOpen, setIsOverseasTripReceiptModalOpen] = useState(false);
+  const [scanningOverseasTripEntryId, setScanningOverseasTripEntryId] = useState<string | null>(null);
+  const [viewingOverseasTripReceiptImage, setViewingOverseasTripReceiptImage] = useState<string | null>(null);
+  const handleOverseasTripReceiptScanComplete = (scanned: {
+    amount: number;
+    date: string;
+    merchantName: string;
+    memo: string;
+    category: string;
+    payMethod: string;
+    receiptImage: string;
+  }) => {
+    // 사용내역 칸에는 "상호명 - 메모" 형태로 합쳐서 채운다(예: "신라호텔 도쿄 - 2박 숙박").
+    const description = [scanned.merchantName, scanned.memo].filter(Boolean).join(' - ');
+    if (scanningOverseasTripEntryId) {
+      // [수정] description을 빈 문자열로라도 patch에 넣으면(스프레드 시 키 자체가 있으므로)
+      // 기존에 사용자가 입력해둔 사용내역을 지워버린다. OCR이 상호명/메모를 하나도 못 읽은
+      // 경우(description === '')에는 이 필드를 patch에서 아예 빼서 기존 값을 그대로 둔다.
+      const patch: Partial<OverseasTripRow> = {
+        amount: scanned.amount,
+        date: scanned.date || getTodayLocalStr(),
+        category: scanned.category,
+        payMethod: scanned.payMethod,
+        receiptImage: scanned.receiptImage
+      };
+      if (description) patch.description = description;
+      updateOverseasTripEntry(scanningOverseasTripEntryId, patch);
+    } else {
+      updateOverseasTripEntries((entries) => [...entries, {
+        id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        date: scanned.date || getTodayLocalStr(),
+        amount: scanned.amount,
+        category: scanned.category,
+        description,
+        user: currentUser?.name || '',
+        payMethod: scanned.payMethod,
+        payDetail: '',
+        note: '',
+        receiptImage: scanned.receiptImage
+      }]);
+    }
+    setScanningOverseasTripEntryId(null);
   };
 
   // [추가] 연차 현황 - 직원 추가/삭제/필드 수정 + 직원별 연차 사용/휴일(초과)근무/대체휴가
@@ -7919,6 +7968,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         >
                           <RefreshCw className="w-3 h-3" /> 통장 출금내역에서 가져오기
                         </button>
+                        {/* [추가] 해외출장 중 영수증을 바로 스캔해서 항목을 추가할 수 있게.
+                        스캔 완료 시 결과로 새 항목이 만들어지도록 scanningOverseasTripEntryId를
+                        비워둔 채 모달을 연다(handleOverseasTripReceiptScanComplete 참고). */}
+                        <button
+                          type="button"
+                          onClick={() => { setScanningOverseasTripEntryId(null); setIsOverseasTripReceiptModalOpen(true); }}
+                          className="text-[11px] text-indigo-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-600" /> 영수증 스캔으로 추가
+                        </button>
                         <button type="button" onClick={addOverseasTripEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 항목 추가
                         </button>
@@ -8145,6 +8204,24 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 />
                               )}
                             </div>
+                            {e.receiptImage && (
+                              <button
+                                type="button"
+                                onClick={() => setViewingOverseasTripReceiptImage(e.receiptImage!)}
+                                className="shrink-0 self-end p-1.5 text-emerald-500 hover:text-emerald-600"
+                                title="영수증 원본 보기"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => { setScanningOverseasTripEntryId(e.id); setIsOverseasTripReceiptModalOpen(true); }}
+                              className="shrink-0 self-end p-1.5 text-indigo-400 hover:text-indigo-600"
+                              title="이 항목에 영수증 스캔/연동"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </button>
                             <button type="button" onClick={() => removeOverseasTripEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -10139,6 +10216,43 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     인쇄된다 (다른 화면 요소의 영향을 받지 않기 위함). */}
     {typeof document !== 'undefined' && document.getElementById('print-root') &&
       createPortal(renderActivePrintable(), document.getElementById('print-root')!)}
+
+    {/* [추가] 해외 출장 경비 - 항목 추가/수정용 영수증 스캔 모달. 업무일지(WorkLogsView)의
+    비용 지출 영수증 스캔과 동일한 컴포넌트를 재사용한다(expenseType="overseas_trip"). */}
+    {isOverseasTripReceiptModalOpen && (
+      <ReceiptScanModal
+        expenseType="overseas_trip"
+        onClose={() => {
+          setIsOverseasTripReceiptModalOpen(false);
+          setScanningOverseasTripEntryId(null);
+        }}
+        onScanComplete={(scanned) => {
+          handleOverseasTripReceiptScanComplete(scanned);
+          setIsOverseasTripReceiptModalOpen(false);
+        }}
+      />
+    )}
+
+    {/* [추가] 해외 출장 경비 - 첨부된 영수증 원본 확대보기 라이트박스. */}
+    {viewingOverseasTripReceiptImage && (
+      <div
+        className="fixed inset-0 z-[110] bg-slate-900/85 backdrop-blur-md flex items-center justify-center p-4"
+        onClick={() => setViewingOverseasTripReceiptImage(null)}
+      >
+        <button
+          onClick={() => setViewingOverseasTripReceiptImage(null)}
+          className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
+        >
+          닫기
+        </button>
+        <img
+          src={viewingOverseasTripReceiptImage}
+          alt="영수증 원본 이미지"
+          onClick={(e) => e.stopPropagation()}
+          className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
+        />
+      </div>
+    )}
     </>
   );
 };

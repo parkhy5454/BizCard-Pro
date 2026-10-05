@@ -4258,14 +4258,26 @@ app.post('/api/scan-receipt', async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       // API Key가 미설정인 경우 프리뷰/테스트를 위한 모의 파싱 결과 제공
-      return res.json({
-        amount: 35000,
-        date: new Date().toISOString().split('T')[0],
-        merchantName: '성북구 낙산 갈비마을',
-        memo: '식대 결제 건 (영수증 자동 스캔 완료 - 샘플 데이터)',
-        category: 'meal',
-        payMethod: 'company_card'
-      });
+      // (해외 출장 경비 화면은 카테고리/결제수단 값 체계가 달라서 샘플 데이터도 그에 맞게 분기)
+      return res.json(
+        context === 'overseas_trip'
+          ? {
+              amount: 35000,
+              date: new Date().toISOString().split('T')[0],
+              merchantName: '성북구 낙산 갈비마을',
+              memo: '출장 중 식사 (영수증 자동 스캔 완료 - 샘플 데이터)',
+              category: '식비',
+              payMethod: '신용카드'
+            }
+          : {
+              amount: 35000,
+              date: new Date().toISOString().split('T')[0],
+              merchantName: '성북구 낙산 갈비마을',
+              memo: '식대 결제 건 (영수증 자동 스캔 완료 - 샘플 데이터)',
+              category: 'meal',
+              payMethod: 'company_card'
+            }
+      );
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -4274,20 +4286,38 @@ app.post('/api/scan-receipt', async (req, res) => {
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
     const contents: any[] = [
       "이 영수증 이미지(또는 비용 영수증 사진)를 분석하여 지출 정보를 추출하고 적합한 카테고리를 분류해줘.\n" +
-      "분류할 카테고리는 다음 중에서 가장 알맞은 하나를 선택해줘:\n" +
-      "- 'fuel' (주유비, 충전비)\n" +
-      "- 'parking' (주차비)\n" +
-      "- 'toll' (통행료, 고속도로 통행료)\n" +
-      "- 'meal' (식대, 식사비, 한식, 양식, 중식, 일식 등)\n" +
-      "- 'beverage' (음료, 커피, 디저트, 카페 건)\n" +
-      "- 'supplies' (비품 구입, 사무용품, 문구, 물품 구매)\n" +
-      "- 'maintenance' (차량 정비, 수리, 엔진오일 교환 등)\n" +
-      "- 'agency_drive' (대리운전)\n" +
-      "- 'other' (기타 지출)\n\n" +
-      "결제수단은 다음 중 가장 알맞은 하나를 선택해줘:\n" +
-      "- 'company_card' (법인카드, 신용카드 영수증에 법인카드 표시가 있거나 회사 비용인 경우)\n" +
-      "- 'personal_card' (개인카드)\n" +
-      "- 'cash' (현금 영수증, 간이 영수증, 현금 결제)\n\n" +
+      // [추가] 해외 출장 경비(회계관리 > AdminDocsView, context === 'overseas_trip') 화면에서
+      // 올라온 영수증은 국내 일반 비용(주유비/식대 등)과 분류 체계가 전혀 달라서(항공료/숙박비/
+      // 환전 비용 등), 기존 카테고리 목록을 그대로 쓰면 항공권·호텔 영수증이 전부 'other'로만
+      // 잡힌다. 이 화면 전용으로, 그 화면이 실제로 쓰는 한글 사용구분 값을 그대로 분류하게 해서
+      // 클라이언트에서 별도 코드↔한글 매핑 없이 바로 써도 서로 어긋나지 않게 한다.
+      (context === 'overseas_trip'
+        ? "분류할 카테고리(사용구분)는 다음 중에서 가장 알맞은 하나를 한글 그대로 선택해줘:\n" +
+          "- '항공료' (항공권, 수하물 요금 등 항공 관련 비용)\n" +
+          "- '숙박비' (호텔, 숙소 비용)\n" +
+          "- '식비' (식사, 카페, 음료 등)\n" +
+          "- '교통비' (택시, 대중교통, 렌터카, 주차, 통행료, 공항 이동 등)\n" +
+          "- '환전 비용' (환전 수수료, 환전소 결제 등)\n" +
+          "- '직원 선물' (출장 중 구입한 선물/기념품)\n" +
+          "- '기타' (위 분류에 안 맞는 기타 출장 지출)\n\n"
+        : "분류할 카테고리는 다음 중에서 가장 알맞은 하나를 선택해줘:\n" +
+          "- 'fuel' (주유비, 충전비)\n" +
+          "- 'parking' (주차비)\n" +
+          "- 'toll' (통행료, 고속도로 통행료)\n" +
+          "- 'meal' (식대, 식사비, 한식, 양식, 중식, 일식 등)\n" +
+          "- 'beverage' (음료, 커피, 디저트, 카페 건)\n" +
+          "- 'supplies' (비품 구입, 사무용품, 문구, 물품 구매)\n" +
+          "- 'maintenance' (차량 정비, 수리, 엔진오일 교환 등)\n" +
+          "- 'agency_drive' (대리운전)\n" +
+          "- 'other' (기타 지출)\n\n") +
+      (context === 'overseas_trip'
+        ? "결제수단은 다음 중 가장 알맞은 하나를 한글 그대로 선택해줘:\n" +
+          "- '신용카드' (신용카드/체크카드 결제, 법인카드 포함)\n" +
+          "- '현금' (현금 결제, 현지 통화 결제, 현금 영수증 포함)\n\n"
+        : "결제수단은 다음 중 가장 알맞은 하나를 선택해줘:\n" +
+          "- 'company_card' (법인카드, 신용카드 영수증에 법인카드 표시가 있거나 회사 비용인 경우)\n" +
+          "- 'personal_card' (개인카드)\n" +
+          "- 'cash' (현금 영수증, 간이 영수증, 현금 결제)\n\n") +
       // [추가] "법인카드 등록 정보와 대조해서 맞으면 법인카드로 우선 판단" 요청에 맞춰,
       // 영수증에 인쇄된 카드번호(마스킹되어 일부만 보여도 그 보이는 부분)를 같이 추출해달라고
       // 요청한다. 아래에서 이 값을 경영지원 > 법인카드 관리에 등록된 카드번호들과 대조해서,
@@ -4365,8 +4395,8 @@ app.post('/api/scan-receipt', async (req, res) => {
         date: new Date().toISOString().split('T')[0],
         merchantName: '영수증 인식 완료',
         memo: text.slice(0, 100),
-        category: 'other',
-        payMethod: 'company_card'
+        category: context === 'overseas_trip' ? '기타' : 'other',
+        payMethod: context === 'overseas_trip' ? '신용카드' : 'company_card'
       };
     }
 
@@ -4400,7 +4430,10 @@ app.post('/api/scan-receipt', async (req, res) => {
           return frontOk || lastOk; // 한쪽만 읽혔으면 그 한쪽만 확인
         });
         if (matchesRegisteredCard) {
-          parsedJson.payMethod = 'company_card';
+          // 해외 출장 경비는 결제수단 값 체계가 '신용카드'/'현금' 둘뿐이라 'company_card' 코드를
+          // 그대로 쓰면 어느 프리셋에도 안 걸려 "직접 입력"으로 보이게 된다. 법인카드로 확인된
+          // 경우도 이 화면에서는 '신용카드'로 맞춰준다.
+          parsedJson.payMethod = context === 'overseas_trip' ? '신용카드' : 'company_card';
         }
       }
     } catch (matchErr) {

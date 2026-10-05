@@ -407,6 +407,9 @@ export interface AdminDoc {
       // 입력한 항목은 이 값이 없다. sourceKey로 같은 원본을 중복으로 다시 가져오지 않는다.
       sourceKey?: string;
       sourceLabel?: string; // 화면에 보여줄 원본 이름 (예: "카드사용내역", "업무일지(일일)", "통장 출금 내역")
+      // [추가] 이 항목의 증빙 영수증 이미지(data URL, base64). AI 영수증 스캔으로 항목을
+      // 추가/수정할 때 자동으로 채워지고, "영수증 보기" 버튼으로 다시 확인할 수 있다.
+      receiptImage?: string;
     }[];
   };
   // [추가] 경영지원 > 법인카드 관리(category: 'corp_card') 전용 구조화 필드. 카드사용내역
