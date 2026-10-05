@@ -1,4 +1,4 @@
-import { BusinessCard, Project } from './types.js';
+import { BusinessCard, Project } from '../types.js';
 
 // [추가] "관계 인텔리전스"(CardGrid의 "지금 챙기면 좋은 거래처" 패널, AIIntelligenceView의
 // "관계·영업 인텔리전스" 탭)의 채점/매칭 로직을 한 곳에 모아둔다. 두 화면이 서로 다른

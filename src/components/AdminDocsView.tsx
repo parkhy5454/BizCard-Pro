@@ -8141,7 +8141,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
                             </span>
                           )}
-                          <div className="flex flex-wrap items-center gap-1">
+                          <div className="flex flex-wrap items-start gap-1">
                             <div className="flex-1 min-w-[120px]">
                               <label className="block text-[9px] text-slate-400 mb-0.5">일자(결제일)</label>
                               <input
@@ -8204,27 +8204,29 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 />
                               )}
                             </div>
-                            {e.receiptImage && (
+                            <div className="flex items-start gap-0.5">
+                              {e.receiptImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingOverseasTripReceiptImage(e.receiptImage!)}
+                                  className="shrink-0 p-1.5 text-emerald-500 hover:text-emerald-600"
+                                  title="영수증 원본 보기"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => setViewingOverseasTripReceiptImage(e.receiptImage!)}
-                                className="shrink-0 self-end p-1.5 text-emerald-500 hover:text-emerald-600"
-                                title="영수증 원본 보기"
+                                onClick={() => { setScanningOverseasTripEntryId(e.id); setIsOverseasTripReceiptModalOpen(true); }}
+                                className="shrink-0 p-1.5 text-indigo-400 hover:text-indigo-600"
+                                title="이 항목에 영수증 스캔/연동"
                               >
-                                <Eye className="w-3.5 h-3.5" />
+                                <Sparkles className="w-3.5 h-3.5" />
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => { setScanningOverseasTripEntryId(e.id); setIsOverseasTripReceiptModalOpen(true); }}
-                              className="shrink-0 self-end p-1.5 text-indigo-400 hover:text-indigo-600"
-                              title="이 항목에 영수증 스캔/연동"
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                            </button>
-                            <button type="button" onClick={() => removeOverseasTripEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+                              <button type="button" onClick={() => removeOverseasTripEntry(e.id)} className="shrink-0 p-1.5 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                           <input
                             type="text"
