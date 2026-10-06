@@ -686,43 +686,6 @@ function validatePasswordComplexity(password) {
   }
   return { valid: true };
 }
-function validateAndSanitizeEmail(email) {
-  if (!email || typeof email !== "string") {
-    return { valid: false, error: "\uC774\uBA54\uC77C\uC774 \uC785\uB825\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4." };
-  }
-  const sanitized = email.trim().toLowerCase();
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(sanitized)) {
-    return { valid: false, error: "\uC62C\uBC14\uB978 \uC774\uBA54\uC77C \uD615\uC2DD\uC774 \uC544\uB2D9\uB2C8\uB2E4." };
-  }
-  if (/[;'"\\\-#/*]/g.test(sanitized)) {
-    return { valid: false, error: "\uC774\uBA54\uC77C\uC5D0 \uD5C8\uC6A9\uB418\uC9C0 \uC54A\uB294 \uBB38\uC790\uAC00 \uD3EC\uD568\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4." };
-  }
-  return { valid: true, sanitized };
-}
-function validateWhitelistInput(value, fieldType) {
-  if (!value || typeof value !== "string") {
-    return { valid: false };
-  }
-  const whitelist = {
-    name: /^[가-힣a-zA-Z\s\-'\.]{1,100}$/,
-    // 한글, 영문, 공백, 하이픈, 아포스트로피, 점
-    phone: /^[0-9\-\(\)\s]{7,20}$/,
-    // 숫자, 하이픈, 괄호, 공백만
-    company: /^[가-힣a-zA-Z0-9\s\(\)\-\.]{1,100}$/,
-    // 한글, 영문, 숫자, 괄호, 하이픈, 점
-    slug: /^[a-zA-Z0-9_\-]{1,50}$/
-    // 영숫자, 언더스코어, 하이픈
-  };
-  const pattern = whitelist[fieldType];
-  if (!pattern.test(value.trim())) {
-    return {
-      valid: false,
-      error: `${fieldType}\uC5D0 \uD5C8\uC6A9\uB418\uC9C0 \uC54A\uB294 \uBB38\uC790\uAC00 \uD3EC\uD568\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.`
-    };
-  }
-  return { valid: true };
-}
 function toFriendlyAiErrorMessage(err) {
   const message = String(err?.message || err || "");
   const isQuotaExhausted = err?.status === 429 || err?.code === 429 || /RESOURCE_EXHAUSTED|exceeded your current quota/i.test(message);
@@ -2042,26 +2005,19 @@ app.post("/api/auth/signup", async (req, res) => {
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: "\uD544\uC218 \uAC00\uC785 \uC815\uBCF4\uAC00 \uB204\uB77D\uB418\uC5C8\uC2B5\uB2C8\uB2E4." });
   }
-  const emailValidation = validateAndSanitizeEmail(email);
-  if (!emailValidation.valid) {
-    return res.status(400).json({ error: emailValidation.error });
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const normalizedEmail = email.toLowerCase().trim();
+  if (!emailRegex.test(normalizedEmail)) {
+    return res.status(400).json({ error: "\uC62C\uBC14\uB978 \uC774\uBA54\uC77C \uD615\uC2DD\uC774 \uC544\uB2D9\uB2C8\uB2E4." });
   }
-  const normalizedEmail = emailValidation.sanitized;
-  const nameValidation = validateWhitelistInput(name, "name");
-  if (!nameValidation.valid) {
-    return res.status(400).json({ error: nameValidation.error });
+  if (!name || typeof name !== "string" || name.trim().length === 0) {
+    return res.status(400).json({ error: "\uC774\uB984\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694." });
   }
-  if (phone) {
-    const phoneValidation = validateWhitelistInput(phone, "phone");
-    if (!phoneValidation.valid) {
-      return res.status(400).json({ error: phoneValidation.error });
-    }
+  if (phone && typeof phone !== "string") {
+    return res.status(400).json({ error: "\uC804\uD654\uBC88\uD638 \uD615\uC2DD\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4." });
   }
-  if (companyName) {
-    const companyValidation = validateWhitelistInput(companyName, "company");
-    if (!companyValidation.valid) {
-      return res.status(400).json({ error: companyValidation.error });
-    }
+  if (companyName && typeof companyName !== "string") {
+    return res.status(400).json({ error: "\uD68C\uC0AC\uBA85 \uD615\uC2DD\uC774 \uC798\uBABB\uB418\uC5C8\uC2B5\uB2C8\uB2E4." });
   }
   const passwordValidation = validatePasswordComplexity(password);
   if (!passwordValidation.valid) {
