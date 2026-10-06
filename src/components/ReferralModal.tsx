@@ -44,7 +44,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
   }, [currentUser.id]);
 
   const shareMessage = info
-    ? `BizCard Pro AI를 추천해요! 아래 링크로 가입하고 첫 구독 결제를 완료하면 저와 회원님 모두 1개월씩 무료로 이용할 수 있어요.\n🔗 ${info.shareUrl}`
+    ? `BizCard를 추천해요! 아래 링크로 가입하고 첫 구독 결제를 완료하면 저와 회원님 모두 1개월씩 무료로 이용할 수 있어요.\n🔗 ${info.shareUrl}`
     : '';
 
   const KAKAO_JS_KEY = 'cb1b045b76bfb5a7d4deaf6985b50a2a';
@@ -78,7 +78,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
       w.Kakao.Share.sendDefault({
         objectType: 'feed',
         content: {
-          title: 'BizCard Pro AI 추천',
+          title: 'BizCard 추천',
           description: '가입하고 첫 구독 결제를 완료하면 서로 1개월씩 무료!',
           imageUrl: 'https://bizcard-pro.onrender.com/kakao-share-thumb.png',
           link: { mobileWebUrl: info.shareUrl, webUrl: info.shareUrl }

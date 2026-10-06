@@ -44,7 +44,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       .catch(() => {
         setProfile({
           name: '박영록',
-          company: 'BizCard Pro AI',
+          company: 'BizCard',
           department: '글로벌 사업총괄본부',
           title: '대표이사 / CEO',
           phoneMobile: '010-5454-0000',

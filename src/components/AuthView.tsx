@@ -361,7 +361,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
           </div>
         </div>
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">BizCard Pro AI</h2>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">BizCard</h2>
         </div>
       </div>
 
