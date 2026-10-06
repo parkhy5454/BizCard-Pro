@@ -343,16 +343,25 @@ app.use(helmet({
 app.use(cors({
   origin: (origin, callback) => {
     // localhost와 배포 도메인(APP_BASE_URL에서 추출)만 허용
+    const appBaseUrl = process.env.APP_BASE_URL;
+    const domainOnly = appBaseUrl?.replace('https://', '').replace('http://', '').split('/')[0];
+
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
       'http://localhost:3001',
-      process.env.APP_BASE_URL?.replace('https://', '').replace('http://', '').split('/')[0]
+      domainOnly,  // 도메인만 (protocol 없음)
+      appBaseUrl,  // 전체 URL (protocol 포함)
+      appBaseUrl?.replace('http://', 'https://'),  // https 버전
+      appBaseUrl?.replace('https://', 'http://')   // http 버전
     ].filter(Boolean);
 
+    // origin이 없거나 allowedOrigins에 포함되면 허용
+    // (preflight 요청이나 같은 출처 요청은 origin이 undefined일 수 있음)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] 허용되지 않은 origin: ${origin}. 허용 목록: ${allowedOrigins.join(', ')}`);
       callback(new Error('CORS policy: 허용되지 않은 origin입니다.'));
     }
   },
