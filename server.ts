@@ -190,33 +190,40 @@ function validateAndSanitizeEmail(email: any): { valid: boolean; sanitized?: str
     return { valid: false, error: '올바른 이메일 형식이 아닙니다.' };
   }
 
-  // SQL 주입 문자 확인 (하이픈 이스케이프 수정)
-  if (/[;'"\\\-#/*]/g.test(sanitized)) {
-    return { valid: false, error: '이메일에 허용되지 않는 문자가 포함되어 있습니다.' };
-  }
-
+  // Supabase가 SQL 인젝션 방어하므로, 추가 필터링은 불필요
   return { valid: true, sanitized };
 }
 
-// [추가] 사용자 입력 화이트리스트 검증
-// 특정 필드에 허용된 문자만 사용하도록 강제
+// [수정] 사용자 입력 기본 검증
+// Supabase가 SQL 인젝션을 자동으로 방어하므로, 사용 편의성을 위해 검증 완화
 function validateWhitelistInput(value: any, fieldType: 'name' | 'phone' | 'company' | 'slug'): { valid: boolean; error?: string } {
   if (!value || typeof value !== 'string') {
     return { valid: false };
   }
 
-  const whitelist: Record<string, RegExp> = {
-    name: /^[가-힣a-zA-Z\s\-'\.]{1,100}$/,        // 한글, 영문, 공백, 하이픈, 아포스트로피, 점
-    phone: /^[0-9\-\(\)\s]{7,20}$/,               // 숫자, 하이픈, 괄호, 공백만
-    company: /^[가-힣a-zA-Z0-9\s\(\)\-\.]{1,100}$/, // 한글, 영문, 숫자, 괄호, 하이픈, 점
-    slug: /^[a-zA-Z0-9_\-]{1,50}$/                 // 영숫자, 언더스코어, 하이픈
+  const trimmed = value.trim();
+
+  // 필드별 길이 제한만 확인
+  const limits: Record<string, number> = {
+    name: 100,
+    phone: 20,
+    company: 100,
+    slug: 50
   };
 
-  const pattern = whitelist[fieldType];
-  if (!pattern.test(value.trim())) {
+  const maxLength = limits[fieldType] || 100;
+  if (trimmed.length > maxLength) {
     return {
       valid: false,
-      error: `${fieldType}에 허용되지 않는 문자가 포함되어 있습니다.`
+      error: `${fieldType}은(는) ${maxLength}자 이내여야 합니다.`
+    };
+  }
+
+  // slug는 최소 제약만 유지 (URL 안전성)
+  if (fieldType === 'slug' && !/^[a-zA-Z0-9_\-]{1,}$/.test(trimmed)) {
+    return {
+      valid: false,
+      error: '주소는 영문, 숫자, 하이픈, 언더스코어만 사용 가능합니다.'
     };
   }
 
@@ -2036,33 +2043,26 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
 
-  // [추가] 이메일 입력값 검증 및 살균 (SQL 주입 방어)
-  const emailValidation = validateAndSanitizeEmail(email);
-  if (!emailValidation.valid) {
-    return res.status(400).json({ error: emailValidation.error });
-  }
-  const normalizedEmail = emailValidation.sanitized!;
-
-  // [추가] 이름 입력값 화이트리스트 검증
-  const nameValidation = validateWhitelistInput(name, 'name');
-  if (!nameValidation.valid) {
-    return res.status(400).json({ error: nameValidation.error });
+  // [수정] 이메일 입력값 검증: 기본 형식만 검증 (Supabase가 SQL 주입 방어)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const normalizedEmail = email.toLowerCase().trim();
+  if (!emailRegex.test(normalizedEmail)) {
+    return res.status(400).json({ error: '올바른 이메일 형식이 아닙니다.' });
   }
 
-  // [추가] 전화번호 입력값 화이트리스트 검증 (있는 경우)
-  if (phone) {
-    const phoneValidation = validateWhitelistInput(phone, 'phone');
-    if (!phoneValidation.valid) {
-      return res.status(400).json({ error: phoneValidation.error });
-    }
+  // [수정] 이름: 필수 입력만 확인 (내용은 자유)
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    return res.status(400).json({ error: '이름을 입력해주세요.' });
   }
 
-  // [추가] 회사명 입력값 화이트리스트 검증 (있는 경우)
-  if (companyName) {
-    const companyValidation = validateWhitelistInput(companyName, 'company');
-    if (!companyValidation.valid) {
-      return res.status(400).json({ error: companyValidation.error });
-    }
+  // [수정] 전화번호: 입력된 경우만 확인 (내용은 자유)
+  if (phone && typeof phone !== 'string') {
+    return res.status(400).json({ error: '전화번호 형식이 잘못되었습니다.' });
+  }
+
+  // [수정] 회사명: 입력된 경우만 확인 (내용은 자유)
+  if (companyName && typeof companyName !== 'string') {
+    return res.status(400).json({ error: '회사명 형식이 잘못되었습니다.' });
   }
 
   // [추가] 비밀번호 복잡도 검증 (최소 8자 + 숫자 1개 + 특수문자 1개)
