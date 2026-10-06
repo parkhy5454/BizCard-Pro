@@ -1644,6 +1644,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       alert('일지 제목을 입력해주세요.');
       return;
     }
+    // [추가] currentUser가 없으면 로그인 정보가 없는 상태이므로 저장 불가
+    if (!currentUser) {
+      alert('사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.');
+      return;
+    }
     // [추가] 이미 저장 요청이 진행 중이면(버튼을 연속으로 눌러도) 다시 시작하지 않는다 -
     // 중복 저장(같은 일지가 두 번 생기는 것) 방지.
     if (isSavingLog) return;
@@ -1652,7 +1657,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
     const headers = {
       'Content-Type': 'application/json',
-      ...(currentUser ? { 'x-user-id': currentUser.id } : {})
+      'x-user-id': currentUser.id
     };
 
     let finalContactIds = [...formContactIds];
@@ -1843,9 +1848,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         }
       }
       setIsWriteModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Save error:', err);
-      alert('업무일지 저장 도중 오류가 발생했습니다.');
+      alert(`업무일지 저장 도중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
     } finally {
       // [추가] 성공하든 실패하든(위쪽 연락처 저장 실패로 일찍 return 되는 경우 포함) 항상
@@ -1858,11 +1863,16 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const handleDeleteLog = async (id: string, type: 'daily' | 'weekly', e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('이 업무일지를 정말로 삭제하시겠습니까? 데이터는 즉시 제거됩니다.')) return;
-    
+    // [추가] currentUser가 없으면 삭제 불가
+    if (!currentUser) {
+      alert('사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.');
+      return;
+    }
+
     try {
       const res = await fetch(`/api/worklogs/${type}/${id}`, {
         method: 'DELETE',
-        headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
+        headers: { 'x-user-id': currentUser.id }
       });
       if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       if (type === 'daily') {

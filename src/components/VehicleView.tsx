@@ -797,7 +797,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (res.ok) {
         const added = await res.json();
         setDrivingLogs([added, ...drivingLogs]);
-        
+
         // 차량의 주행거리 업데이트 로컬 반영
         setVehicles(vehicles.map(v => {
           if (v.id === newDriving.vehicleId) {
@@ -877,9 +877,15 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         setDirectContactPhoneOffice('');
         setDirectContactPhoneMobile('');
         setDirectContactEmail('');
+      } else {
+        // [추가] 저장 실패 시 에러 메시지를 사용자에게 보여준다
+        const errorData = await res.json().catch(() => null);
+        const errorMsg = errorData?.error || `운행기록 저장에 실패했습니다 (상태: ${res.status})`;
+        alert(`운행기록 저장 실패\n${errorMsg}`);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('운행기록 저장 중 예외:', err);
+      alert(`운행기록 저장 중 오류가 발생했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -1020,9 +1026,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       });
       if (res.ok) {
         setExpenses(expenses.filter(e => e.id !== id));
+      } else {
+        // [추가] 삭제 실패 시 에러 메시지 표시
+        const data = await res.json().catch(() => null);
+        alert(`지출 내역 삭제에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(`지출 내역 삭제 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1157,9 +1168,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (res.ok) {
         const updated = await res.json();
         setMaintenances(maintenances.map(m => m.id === id ? updated : m));
+      } else {
+        // [추가] 정비완료 상태 전환 실패 시 에러 메시지 표시
+        const data = await res.json().catch(() => null);
+        alert(`정비 상태 변경에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(`정비 상태 변경 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
     }
   };
 
