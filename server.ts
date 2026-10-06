@@ -5,6 +5,9 @@
 import { Sentry, SENTRY_DSN } from './instrument.js';
 import express from 'express';
 import helmet from 'helmet';
+import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
@@ -95,6 +98,129 @@ async function generateContentWithRetry(
     }
   }
   throw lastErr;
+}
+
+// [추가] Base64 인코딩된 이미지의 실제 크기를 계산하고 5MB 제한을 확인하는 헬퍼 함수
+// Base64 문자열: 원본 크기 ≈ Base64 길이 * 3/4 (패딩 제외하면 더 정확함)
+function validateImageSize(base64String: string, maxSizeMB: number = 5): { valid: boolean; sizeMB?: number; error?: string } {
+  try {
+    // base64 프리픽스 제거 (data:image/jpeg;base64, 등)
+    const base64Data = base64String.replace(/^data:image\/\w+;base64,/, '');
+    // Base64 디코딩 후 바이트 크기 계산
+    const binaryString = Buffer.from(base64Data, 'base64').toString('binary');
+    const sizeBytes = binaryString.length;
+    const sizeMB = sizeBytes / (1024 * 1024);
+
+    if (sizeMB > maxSizeMB) {
+      return {
+        valid: false,
+        sizeMB: Math.round(sizeMB * 100) / 100,
+        error: `이미지 크기가 ${maxSizeMB}MB를 초과했습니다 (현재: ${Math.round(sizeMB * 100) / 100}MB).`
+      };
+    }
+    return { valid: true, sizeMB: Math.round(sizeMB * 100) / 100 };
+  } catch (err) {
+    return { valid: false, error: '이미지 크기 검증 중 오류가 발생했습니다.' };
+  }
+}
+
+// [추가] 비밀번호 복잡도 검증
+// 최소 8자 + 숫자 1개 + 특수문자 1개 포함 필요
+function validatePasswordComplexity(password: string): { valid: boolean; error?: string } {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: '비밀번호가 입력되지 않았습니다.' };
+  }
+
+  if (password.length < 8) {
+    return { valid: false, error: '비밀번호는 최소 8자 이상이어야 합니다.' };
+  }
+
+  // 숫자 포함 확인
+  if (!/\d/.test(password)) {
+    return { valid: false, error: '비밀번호에는 최소 1개의 숫자(0-9)가 포함되어야 합니다.' };
+  }
+
+  // 특수문자 포함 확인 (!@#$%^&*_-=+)
+  if (!/[!@#$%^&*_\-=+]/.test(password)) {
+    return { valid: false, error: '비밀번호에는 최소 1개의 특수문자(!@#$%^&*_-=+)가 포함되어야 합니다.' };
+  }
+
+  return { valid: true };
+}
+
+// [추가] SQL 주입 공격 방어
+// 사용자 입력값에서 SQL 메타문자를 감지하고 제거/이스케이프
+function sanitizeSqlInput(input: any): string {
+  if (typeof input !== 'string') {
+    return String(input || '').trim();
+  }
+
+  // SQL 주입 시도 패턴 감지
+  const sqlInjectionPatterns = [
+    /(\b(UNION|SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|EXEC|EXECUTE|SCRIPT|--|\*|;|\||&&|OR|AND)\b)/gi,
+    /('|"|`|\\|\/\/|\#)/g
+  ];
+
+  // 위험한 문자 제거
+  let sanitized = input.trim();
+
+  // 패턴 감지 시 로깅
+  sqlInjectionPatterns.forEach((pattern, idx) => {
+    if (pattern.test(sanitized)) {
+      console.warn(`[SQL 주입 방지] 위험한 패턴 감지: ${sanitized.substring(0, 50)}...`);
+      // 위험한 문자 제거
+      sanitized = sanitized.replace(pattern, '');
+    }
+  });
+
+  return sanitized;
+}
+
+// [추가] 이메일 입력값 검증 및 살균
+function validateAndSanitizeEmail(email: any): { valid: boolean; sanitized?: string; error?: string } {
+  if (!email || typeof email !== 'string') {
+    return { valid: false, error: '이메일이 입력되지 않았습니다.' };
+  }
+
+  const sanitized = email.trim().toLowerCase();
+
+  // 이메일 형식 검증 (RFC 5322 간략화 버전)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(sanitized)) {
+    return { valid: false, error: '올바른 이메일 형식이 아닙니다.' };
+  }
+
+  // SQL 주입 문자 확인
+  if (/[;'"\\--]/.test(sanitized)) {
+    return { valid: false, error: '이메일에 허용되지 않는 문자가 포함되어 있습니다.' };
+  }
+
+  return { valid: true, sanitized };
+}
+
+// [추가] 사용자 입력 화이트리스트 검증
+// 특정 필드에 허용된 문자만 사용하도록 강제
+function validateWhitelistInput(value: any, fieldType: 'name' | 'phone' | 'company' | 'slug'): { valid: boolean; error?: string } {
+  if (!value || typeof value !== 'string') {
+    return { valid: false };
+  }
+
+  const whitelist: Record<string, RegExp> = {
+    name: /^[가-힣a-zA-Z\s\-'\.]{1,100}$/,        // 한글, 영문, 공백, 하이픈, 아포스트로피, 점
+    phone: /^[0-9\-\(\)\s]{7,20}$/,               // 숫자, 하이픈, 괄호, 공백만
+    company: /^[가-힣a-zA-Z0-9\s\(\)\-\.]{1,100}$/, // 한글, 영문, 숫자, 괄호, 하이픈, 점
+    slug: /^[a-zA-Z0-9_\-]{1,50}$/                 // 영숫자, 언더스코어, 하이픈
+  };
+
+  const pattern = whitelist[fieldType];
+  if (!pattern.test(value.trim())) {
+    return {
+      valid: false,
+      error: `${fieldType}에 허용되지 않는 문자가 포함되어 있습니다.`
+    };
+  }
+
+  return { valid: true };
 }
 
 // [추가] Gemini API가 실패하면 예전엔 원본 에러 메시지(JSON 통째로, 할당량 정책 URL까지
@@ -204,12 +330,74 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
+// [추가] CORS(Cross-Origin Resource Sharing) 정책 설정
+// 신뢰할 수 있는 origin(자신의 도메인)에서만 요청을 허용하고, 다른 출처의 요청은 차단한다.
+// 이를 통해 악의적인 웹사이트에서 사용자의 세션/데이터를 도용하는 CSRF 공격을 방지한다.
+app.use(cors({
+  origin: (origin, callback) => {
+    // localhost와 배포 도메인(APP_BASE_URL에서 추출)만 허용
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.APP_BASE_URL?.replace('https://', '').replace('http://', '').split('/')[0]
+    ].filter(Boolean);
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy: 허용되지 않은 origin입니다.'));
+    }
+  },
+  credentials: true,  // 쿠키와 인증 정보 포함 허용
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-cron-secret'],
+  maxAge: 3600  // preflight 캐시 시간(초)
+}));
+
 // [추가] 배포 플랫폼(Render 등)이나 외부 모니터링/핑 서비스가 "서버가 살아있는지"만 빠르게
 // 확인할 수 있는 엔드포인트. 로그인/DB 조회 없이 즉시 응답한다. 5~10분 간격으로 이 주소에
 // 외부에서 핑을 보내면, 무료 요금제의 "일정 시간 뒤 서버가 잠드는" 문제도 줄일 수 있다.
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
+
+// [추가] Swagger API 문서화
+// OpenAPI 3.0 명세로 자동 생성된 API 문서를 /api-docs 경로에서 확인 가능
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'BizCard API',
+      version: '1.0.0',
+      description: 'BizCard - AI 명함 & CRM 통합 솔루션 API 문서'
+    },
+    servers: [
+      {
+        url: process.env.APP_BASE_URL || 'http://localhost:3000',
+        description: '프로덕션 서버'
+      },
+      {
+        url: 'http://localhost:3000',
+        description: '개발 서버'
+      }
+    ],
+    components: {
+      securitySchemes: {
+        sessionCookie: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'sessionId',
+          description: '세션 기반 인증 쿠키'
+        }
+      }
+    }
+  },
+  apis: ['./server.ts'] // JSDoc 주석에서 API 정의 추출
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ------------------------------------------------------------------
 // 🔐 세션 인증 (보안 수정)
@@ -553,7 +741,7 @@ const initialMaintenances: VehicleMaintenance[] = [
 // 내 명함 프로필 초기 데이터
 const initialMyProfile: MyProfile = {
   name: '박영록',
-  company: 'BizCard Pro AI',
+  company: 'BizCard',
   department: '글로벌 사업총괄본부',
   title: '대표이사 / CEO',
   phoneMobile: '010-5454-0000',
@@ -577,7 +765,7 @@ const initialProjects: Project[] = [
     electricalDesigner: '한일전기설계',
     mechanicalDesigner: '삼신설계',
     supervisor: '한미글로벌',
-    operator: 'BizCard Pro AI',
+    operator: 'BizCard',
     status: 'progress',
     priority: 'high',
     dueDate: new Date(Date.now() + 86400000 * 14).toISOString().split('T')[0],
@@ -1794,6 +1982,47 @@ app.post('/api/chat/groups', async (req, res) => {
 });
 
 // 🔐 Auth APIs
+
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     summary: 사용자 회원가입
+ *     description: 새로운 사용자 계정을 생성합니다
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - name
+ *               - type
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 description: 8자 이상, 숫자 1개, 특수문자(!@#$%^&*_-=+) 1개 포함
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [individual, business]
+ *     responses:
+ *       201:
+ *         description: 회원가입 성공
+ *       400:
+ *         description: 유효성 검증 실패
+ */
 app.post('/api/auth/signup', async (req, res) => {
   const signupIp = req.ip || req.socket.remoteAddress || 'unknown';
   const signupLimit = signupRateLimiter.check(signupIp);
@@ -1806,11 +2035,41 @@ app.post('/api/auth/signup', async (req, res) => {
   if (!email || !password || !name || !type) {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
-  // [수정] 최소한의 비밀번호 길이 검증 (기존에는 검증이 전혀 없어 1자리 비밀번호도 통과됐음)
-  if (typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
+
+  // [추가] 이메일 입력값 검증 및 살균 (SQL 주입 방어)
+  const emailValidation = validateAndSanitizeEmail(email);
+  if (!emailValidation.valid) {
+    return res.status(400).json({ error: emailValidation.error });
   }
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = emailValidation.sanitized!;
+
+  // [추가] 이름 입력값 화이트리스트 검증
+  const nameValidation = validateWhitelistInput(name, 'name');
+  if (!nameValidation.valid) {
+    return res.status(400).json({ error: nameValidation.error });
+  }
+
+  // [추가] 전화번호 입력값 화이트리스트 검증 (있는 경우)
+  if (phone) {
+    const phoneValidation = validateWhitelistInput(phone, 'phone');
+    if (!phoneValidation.valid) {
+      return res.status(400).json({ error: phoneValidation.error });
+    }
+  }
+
+  // [추가] 회사명 입력값 화이트리스트 검증 (있는 경우)
+  if (companyName) {
+    const companyValidation = validateWhitelistInput(companyName, 'company');
+    if (!companyValidation.valid) {
+      return res.status(400).json({ error: companyValidation.error });
+    }
+  }
+
+  // [추가] 비밀번호 복잡도 검증 (최소 8자 + 숫자 1개 + 특수문자 1개)
+  const passwordValidation = validatePasswordComplexity(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error });
+  }
 
   // 메모리 캐시(users)로 1차 확인 + Supabase에서 직접 한 번 더 재확인(캐시가 오래됐을 가능성에 대비한 안전장치).
   // 이 두 단계 확인으로, 같은 이메일로 두 계정(예: 개인+사업자)이 동시에 만들어지는 문제를 막는다.
@@ -1902,7 +2161,7 @@ app.post('/api/auth/signup', async (req, res) => {
       const verifyUrl = `${APP_BASE_URL}/?verifyToken=${emailVerificationToken}`;
       await sendEmail({
         to: newUser.email,
-        subject: '[BizCard Pro] 이메일 주소를 인증해주세요',
+        subject: '[BizCard] 이메일 주소를 인증해주세요',
         html: `
           <p>안녕하세요, ${escapeHtml(newUser.name)}님.</p>
           <p>아래 버튼을 눌러 이메일 인증을 완료해주세요 (24시간 이내 유효).</p>
@@ -2038,7 +2297,7 @@ app.post('/api/auth/resend-verification', async (req, res) => {
       const verifyUrl = `${APP_BASE_URL}/?verifyToken=${user.emailVerificationToken}`;
       await sendEmail({
         to: user.email,
-        subject: '[BizCard Pro] 이메일 주소를 인증해주세요',
+        subject: '[BizCard] 이메일 주소를 인증해주세요',
         html: `
           <p>안녕하세요, ${escapeHtml(user.name)}님.</p>
           <p>아래 버튼을 눌러 이메일 인증을 완료해주세요 (24시간 이내 유효).</p>
@@ -2183,7 +2442,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       await sendEmail({
         to: user.email,
         toName: user.name,
-        subject: '[BizCard Pro] 비밀번호 재설정 안내',
+        subject: '[BizCard] 비밀번호 재설정 안내',
         html: `
           <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111;">
             <h2 style="margin-bottom:4px;">비밀번호 재설정</h2>
@@ -2207,8 +2466,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) return res.status(400).json({ error: '재설정 토큰과 새 비밀번호를 모두 입력해주세요.' });
-  // [수정] 회원가입 시 요구하는 최소 길이(8자)와 통일 (그동안 재설정은 4자만 요구해서 우회 가능했음)
-  if (String(newPassword).length < 8) return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
+  // [추가] 비밀번호 복잡도 검증 (회원가입과 동일한 기준)
+  const passwordValidation = validatePasswordComplexity(newPassword);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error });
+  }
 
   // [수정] 메모리 캐시(passwordResetTokens)에 없으면(=서버가 방금 재시작돼서 캐시가
   // 비어있는 경우 포함) Supabase에서 한 번 더 확인한다 — 로그인 세션 검증과 동일한
@@ -2740,7 +3002,7 @@ app.post('/api/billing/subscribe', async (req, res) => {
       customerKey: owner.tossCustomerKey,
       amount,
       orderId: generateOrderId(),
-      orderName: `BizCard Pro 구독 (좌석 ${seats}개)`,
+      orderName: `BizCard 구독 (좌석 ${seats}개)`,
       customerEmail: owner.email,
       customerName: owner.name
     });
@@ -2871,7 +3133,7 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
           customerKey: owner.tossCustomerKey,
           amount,
           orderId: generateOrderId(),
-          orderName: `BizCard Pro 구독 갱신 (좌석 ${seats}개)`,
+          orderName: `BizCard 구독 갱신 (좌석 ${seats}개)`,
           customerEmail: owner.email,
           customerName: owner.name
         });
@@ -2905,19 +3167,15 @@ setInterval(() => {
 
 // [추가] 외부 크론 서비스가 매일 호출할 수 있는 엔드포인트. 서버가 잠들었다 깨어나는 배포
 // 환경에서도, 외부에서 이 주소를 정기적으로 때려주면 결제가 안정적으로 돌아간다.
-// CRON_SECRET 환경변수를 설정해두면, 그 값을 아는 요청만 실행할 수 있다(아무나 못 누르게).
+// [수정] CRON_SECRET 환경변수는 이제 필수다. 이 라우트는 로그인 게이트를 우회하기 때문에,
+// CRON_SECRET 없이는 "아무나 인증 없이 결제를 강제 실행"할 수 있는 심각한 보안 구멍이 생긴다.
 app.post('/api/billing/run-scheduled', async (req, res) => {
-  // [수정] 이 라우트는 로그인 게이트를 우회하도록 예외 처리돼 있는데(외부 크론이 호출해야
-  // 하니까), CRON_SECRET을 아예 설정 안 해두면 "아무나 인증 없이 결제를 강제 실행"할 수
-  // 있는 심각한 구멍이 생긴다. CRON_SECRET이 없을 땐 최소한 운영자(ADMIN_EMAIL) 로그인
-  // 세션이라도 있어야 실행되게 막는다.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    if (req.headers['x-cron-secret'] !== cronSecret) return res.status(401).json({ error: 'unauthorized' });
-  } else {
-    const requesterId = req.headers['x-user-id'] as string;
-    const requester = users.find(u => u.id === requesterId);
-    if (!requester || requester.email !== ADMIN_EMAIL) return res.status(401).json({ error: 'unauthorized' });
+  if (!cronSecret) {
+    return res.status(500).json({ error: 'CRON_SECRET 환경변수가 설정되지 않았습니다. 운영자에게 문의하세요.' });
+  }
+  if (req.headers['x-cron-secret'] !== cronSecret) {
+    return res.status(401).json({ error: 'unauthorized' });
   }
   try {
     const result = await runScheduledBilling();
@@ -3171,7 +3429,7 @@ function buildDailyReportEmailHtml(opts: {
 
   return `
     <div style="font-family: 'Malgun Gothic', sans-serif; padding: 24px; color:#111; max-width:600px;">
-      <h2 style="margin-bottom:4px;">📋 ${opts.dateStr} BizCard Pro 일일 현황</h2>
+      <h2 style="margin-bottom:4px;">📋 ${opts.dateStr} BizCard 일일 현황</h2>
       <p style="color:#555; font-size:13px;">${
         opts.backupAttached
           ? '아래 항목들을 확인해 보세요. 이 메일에는 오늘 기준 전체 데이터 백업 파일(JSON)도 첨부되어 있습니다.'
@@ -3232,7 +3490,7 @@ async function runDailyReportAndBackupBatch(): Promise<{ scopesChecked: number; 
           await sendEmail({
             to: recipient.email,
             toName: recipient.name,
-            subject: `[BizCard Pro] ${todayStr} 일일 현황 + 자동 백업`,
+            subject: `[BizCard] ${todayStr} 일일 현황 + 자동 백업`,
             html,
             attachments: backupAttached ? [{ filename: `bizcard-backup-${todayStr}.json`, content: backupBuffer }] : undefined
           });
@@ -3996,6 +4254,20 @@ app.post('/api/scan-card', async (req, res) => {
       return res.status(400).json({ error: '이미지 데이터 형식이 올바르지 않습니다 (base64 사진 데이터가 아닌 URL 등이 전달됨).' });
     }
 
+    // [추가] 명함 이미지 크기 제한 (5MB)
+    if (frontImage) {
+      const frontValidation = validateImageSize(frontImage, 5);
+      if (!frontValidation.valid) {
+        return res.status(400).json({ error: `앞면 ${frontValidation.error}` });
+      }
+    }
+    if (backImage) {
+      const backValidation = validateImageSize(backImage, 5);
+      if (!backValidation.valid) {
+        return res.status(400).json({ error: `뒷면 ${backValidation.error}` });
+      }
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       // API Key가 미설정인 경우 프리뷰/테스트를 위해 스마트 정규식 또는 모의 파싱 결과 제공
@@ -4253,6 +4525,12 @@ app.post('/api/scan-receipt', async (req, res) => {
     const { image, context } = req.body;
     if (!image) {
       return res.status(400).json({ error: '영수증 이미지가 전송되지 않았습니다.' });
+    }
+
+    // [추가] 영수증 이미지 크기 제한 (5MB)
+    const imageValidation = validateImageSize(image, 5);
+    if (!imageValidation.valid) {
+      return res.status(400).json({ error: imageValidation.error });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -5052,9 +5330,18 @@ function escapeHtml(str: string): string {
   ));
 }
 
+// [추가] slug 경로 검증: 영숫자, 대시(-), 언더스코어(_)만 허용하여 경로 트래버설 공격 방지
+const VALID_SLUG_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
 app.get('/s/:slug', async (req, res) => {
   try {
-    const result = await findProfileByShareSlug(req.params.slug);
+    // [추가] slug 형식 검증 - 예상치 못한 특수문자나 경로 트래버설(.., /, 등) 방지
+    const slug = req.params.slug;
+    if (!VALID_SLUG_PATTERN.test(slug)) {
+      return res.status(400).send('<h1 style="font-family:sans-serif;text-align:center;margin-top:80px;">잘못된 요청입니다.</h1>');
+    }
+
+    const result = await findProfileByShareSlug(slug);
     if (!result) {
       return res.status(404).send('<h1 style="font-family:sans-serif;text-align:center;margin-top:80px;">명함을 찾을 수 없습니다.</h1>');
     }
@@ -5102,7 +5389,7 @@ app.get('/s/:slug', async (req, res) => {
     ${profile.email ? `<div class="row">✉️ <a href="mailto:${escapeHtml(profile.email)}">${escapeHtml(profile.email)}</a></div>` : ''}
     ${profile.address ? `<div class="row">🏢 ${escapeHtml(profile.address)}</div>` : ''}
     ${profile.website ? `<div class="row">🌐 <a href="${escapeHtml(profile.website)}" target="_blank" rel="noreferrer">${escapeHtml(profile.website)}</a></div>` : ''}
-    <div class="badge">BizCard Pro 디지털 명함</div>
+    <div class="badge">BizCard 디지털 명함</div>
   </div>
 </body>
 </html>`);
@@ -5807,7 +6094,7 @@ app.get('/api/worklogs/calendar.ics', (req, res) => {
     'PRODID:-//BizCard Pro AI//WorkLogs Calendar//KO',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-CALNAME:BizCard Pro 업무일지',
+    'X-WR-CALNAME:BizCard 업무일지',
     'X-WR-TIMEZONE:Asia/Seoul',
     ...events,
     'END:VCALENDAR'
@@ -5851,7 +6138,7 @@ function requireCalDavAuth(req: express.Request, res: express.Response): Registe
   const creds = parseBasicAuth(req);
   const user = creds ? users.find(u => u.email.toLowerCase() === creds.email.toLowerCase()) : undefined;
   if (!user || !creds || !verifyPassword(creds.password, user.password)) {
-    res.setHeader('WWW-Authenticate', 'Basic realm="BizCard Pro Calendar"');
+    res.setHeader('WWW-Authenticate', 'Basic realm="BizCard Calendar"');
     res.status(401).send('Unauthorized');
     return null;
   }
@@ -6083,7 +6370,7 @@ caldavRouter.all('/calendars/:userId/', (req, res) => {
     <D:propstat>
       <D:prop>
         <D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
-        <D:displayname>BizCard Pro 업무일지</D:displayname>
+        <D:displayname>BizCard 업무일지</D:displayname>
       </D:prop>
       <D:status>HTTP/1.1 200 OK</D:status>
     </D:propstat>
@@ -6117,7 +6404,7 @@ caldavRouter.all('/calendars/:userId/worklogs/', (req, res) => {
     <D:propstat>
       <D:prop>
         <D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
-        <D:displayname>BizCard Pro 업무일지</D:displayname>
+        <D:displayname>BizCard 업무일지</D:displayname>
         <CS:getctag xmlns:CS="http://calendarserver.org/ns/">${ctag}</CS:getctag>
         <C:supported-calendar-component-set><C:comp name="VEVENT"/></C:supported-calendar-component-set>
       </D:prop>
@@ -6521,7 +6808,7 @@ app.delete('/api/worklogs/weekly/:id', async (req, res) => {
 // ------------------------------------------------------------------
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || '';
-const SMTP_FROM_NAME = process.env.SMTP_FROM_NAME || 'BizCard Pro 전자결재';
+const SMTP_FROM_NAME = process.env.SMTP_FROM_NAME || 'BizCard 전자결재';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://bizcard-pro.onrender.com';
 
 const isMailerConfigured = Boolean(BREVO_API_KEY && SMTP_FROM_EMAIL);

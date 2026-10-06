@@ -1,7 +1,6 @@
 // [추가] server.ts 안에 로그인/가입/비밀번호찾기/인증메일재전송마다 거의 똑같은 모양의
 // 레이트리밋 코드가 4번 반복돼 있었다. 하나로 합쳐서 테스트 가능하게 만든다.
-// (실제 만료/정리는 하지 않고 계속 메모리에 쌓이지만, 실무에서는 주기적으로 서버가
-// 재시작되거나 이 정도 규모에서는 문제 되지 않는 수준이라 지금은 단순하게 둔다.)
+// [추가] 만료된 항목의 메모리 누수 방지: 주기적으로 window를 벗어난 오래된 항목을 정리한다.
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -29,12 +28,45 @@ export class RateLimiter {
   private readonly windowMs: number;
   private readonly lockoutMs?: number;
   private readonly now: () => number;
+  private cleanupIntervalId?: NodeJS.Timer;
 
   constructor(options: RateLimiterOptions) {
     this.maxAttempts = options.maxAttempts;
     this.windowMs = options.windowMs;
     this.lockoutMs = options.lockoutMs;
     this.now = options.now || (() => Date.now());
+
+    // [추가] 주기적으로(1시간마다) 만료된 항목을 정리하여 메모리 누수 방지
+    this.cleanupIntervalId = setInterval(() => {
+      this.cleanup();
+    }, 60 * 60 * 1000); // 1시간마다
+  }
+
+  // [추가] window를 벗어난 오래된 항목 삭제
+  private cleanup(): void {
+    const now = this.now();
+    const keysToDelete: string[] = [];
+
+    this.attempts.forEach((entry, key) => {
+      if (now - entry.firstAttemptAt > this.windowMs) {
+        keysToDelete.push(key);
+      }
+    });
+
+    keysToDelete.forEach(key => {
+      this.attempts.delete(key);
+    });
+
+    if (keysToDelete.length > 0) {
+      console.log(`[RateLimiter] ${keysToDelete.length}개의 만료된 항목 정리 완료`);
+    }
+  }
+
+  // [추가] cleanup 인터벌 정리 (서버 종료 시)
+  destroy(): void {
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+    }
   }
 
   check(key: string): RateLimitResult {
