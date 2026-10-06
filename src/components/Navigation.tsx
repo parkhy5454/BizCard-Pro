@@ -197,9 +197,9 @@ export const Navigation: React.FC<Props> = ({
               </div>
               <div>
                 <h1 className="font-bold text-xl tracking-tight bg-gradient-to-r from-slate-900 via-indigo-700 to-blue-600 bg-clip-text text-transparent">
-                  BizCard <span className="text-blue-500 text-xs px-1.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 font-mono">AI Pro</span>
+                  BizCard & CRM
                 </h1>
-                <p className="text-xs text-slate-500 font-medium">스마트 명함 & CRM 네트워크</p>
+                <p className="text-xs text-slate-500 font-medium">스마트 명함 & CRM</p>
               </div>
             </div>
 
