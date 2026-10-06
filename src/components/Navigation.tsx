@@ -617,7 +617,7 @@ export const Navigation: React.FC<Props> = ({
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 text-xs sm:text-sm transition-all active:scale-95"
             >
               <Mic className="w-4 h-4 text-rose-600" />
-              <span>음성으로 빠르게 등록</span>
+              <span>음성 등록</span>
             </button>
 
             <button
