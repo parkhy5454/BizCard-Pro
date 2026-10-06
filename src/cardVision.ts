@@ -177,8 +177,10 @@ function detectQuadOnce(
   cv: any,
   srcMat: any,
   targetAspect: number,
-  strategy: DetectionStrategy
+  strategy: DetectionStrategy,
+  documentType: 'card' | 'receipt' = 'card'
 ): { quad: Quad; score: number; areaRatio: number; rotated: boolean } | null {
+  const isCard = documentType !== 'receipt';
   const gray = new cv.Mat();
   const blurred = new cv.Mat();
   const edges = new cv.Mat();
@@ -254,8 +256,9 @@ function detectQuadOnce(
           const rectAspectDiff = Math.min(rectAspectDiffNormal, rectAspectDiffRotated);
           // [추가] 이 폴백도 넓이만 보고 골랐었다 — 배경 무늬가 카드와 뭉쳐서 카드보다 훨씬
           // 크고 명함 비율과 동떨어진 덩어리가 되면, 그게 그대로 "가장 큰 덩어리"로 뽑혀
-          // 폴백으로 쓰였다. 명함 비율과 너무 동떨어진 덩어리는 폴백 후보에서도 제외한다.
-          if (rectAspectDiff <= MAX_ACCEPTABLE_ASPECT_DIFF) {
+          // 폴백으로 쓰였다. 명함(isCard=true)일 때만 명함 비율과 너무 동떨어진 덩어리를 폴백
+          // 후보에서 제외 — 영수증은 고정 비율이 없으므로 이 검사를 건너뛴다.
+          if (!isCard || rectAspectDiff <= MAX_ACCEPTABLE_ASPECT_DIFF) {
             const angleRad = (rotRect.angle * Math.PI) / 180;
             const cos = Math.cos(angleRad);
             const sin = Math.sin(angleRad);
@@ -300,9 +303,10 @@ function detectQuadOnce(
 
             // [추가] 비율 감점만으로는, 배경 무늬가 명함과 뭉쳐서 생긴 "명함보다 훨씬 넓적하거나
             // 정사각형에 가까운 덩어리"도 넓이가 커서 점수가 1등으로 뽑힐 수 있었다(실시간
-            // 감지가 순간적으로 엉뚱한 큰 사각형으로 튀는 원인). 명함 비율과 너무 동떨어진
-            // 후보는 점수 계산 없이 아예 제외한다 — CropAdjustModal의 동일한 안전장치와 일관되게.
-            if (aspectDiff > MAX_ACCEPTABLE_ASPECT_DIFF) {
+            // 감지가 순간적으로 엉뚱한 큰 사각형으로 튀는 원인). 명함(isCard=true)일 때만
+            // 명함 비율과 너무 동떨어진 후보는 점수 계산 없이 아예 제외 — CropAdjustModal의
+            // 동일한 안전장치와 일관되게. 영수침은 고정 비율이 없으므로 이 검사를 건너뛴다.
+            if (isCard && aspectDiff > MAX_ACCEPTABLE_ASPECT_DIFF) {
               approx.delete();
               continue;
             }
@@ -352,11 +356,11 @@ function detectQuadOnce(
   return best;
 }
 
-export function detectQuad(cv: any, srcMat: any, targetAspect: number): DetectedQuad | null {
+export function detectQuad(cv: any, srcMat: any, targetAspect: number, documentType: 'card' | 'receipt' = 'card'): DetectedQuad | null {
   // 기본 민감도부터 순서대로 시도하고, 뭔가 찾아지는 순간 바로 반환한다.
   // (대부분의 경우 첫 번째 시도에서 바로 찾아지므로, 실시간 감지 성능에 거의 영향이 없다)
   for (const strategy of DETECTION_STRATEGY_LADDER) {
-    const best = detectQuadOnce(cv, srcMat, targetAspect, strategy);
+    const best = detectQuadOnce(cv, srcMat, targetAspect, strategy, documentType);
     if (best) {
       return { points: best.quad, areaRatio: best.areaRatio, rotated: best.rotated };
     }

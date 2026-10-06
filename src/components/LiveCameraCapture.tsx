@@ -308,7 +308,9 @@ export const LiveCameraCapture: React.FC<Props> = ({
           // 확대 배율만큼 오차가 커져 화면에 보였던 테두리와 실제 크롭 결과가 어긋나는 문제가 있었다.
           // 그래서 촬영 버튼이 눌린 바로 그 순간, 실제로 찍힌 고화질 원본 위에서
           // 사각형을 한 번 더 정밀하게 재감지해서 훨씬 정확한 경계로 잘라낸다.
-          const preciseQuad = detectQuad(cv, srcMat, guideAspectRatio);
+          // [추가] guideAspectRatio로 문서 타입 판단: 명함(1.586)은 'card', 다른 비율은 'receipt'
+          const documentType = Math.abs(guideAspectRatio - 1.586) < 0.05 ? 'card' : 'receipt';
+          const preciseQuad = detectQuad(cv, srcMat, guideAspectRatio, documentType);
           let quadToUse: Quad | null = null;
           // [추가] 감지된 사각형이 "폰을 세로로 들고 찍는 등"의 이유로 90도 돌아간 형태로
           // 잡혔는지 여부. 이 값에 따라 아래에서 가이드 박스 검증과 최종 출력 크기를 모두
@@ -431,7 +433,9 @@ export const LiveCameraCapture: React.FC<Props> = ({
     }
 
     try {
-      const found = detectQuad(cv, srcMat, guideAspectRatio);
+      // [추가] guideAspectRatio로 문서 타입 판단: 명함(1.586)은 'card', 다른 비율은 'receipt'
+      const documentType = Math.abs(guideAspectRatio - 1.586) < 0.05 ? 'card' : 'receipt';
+      const found = detectQuad(cv, srcMat, guideAspectRatio, documentType);
       if (!found) {
         setQuadDisplay(null);
         setQuality(null);
