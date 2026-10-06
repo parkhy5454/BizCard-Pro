@@ -190,8 +190,8 @@ function validateAndSanitizeEmail(email: any): { valid: boolean; sanitized?: str
     return { valid: false, error: '올바른 이메일 형식이 아닙니다.' };
   }
 
-  // SQL 주입 문자 확인
-  if (/[;'"\\--]/.test(sanitized)) {
+  // SQL 주입 문자 확인 (하이픈 이스케이프 수정)
+  if (/[;'"\\\-#/*]/g.test(sanitized)) {
     return { valid: false, error: '이메일에 허용되지 않는 문자가 포함되어 있습니다.' };
   }
 

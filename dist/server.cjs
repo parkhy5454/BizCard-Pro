@@ -695,7 +695,7 @@ function validateAndSanitizeEmail(email) {
   if (!emailRegex.test(sanitized)) {
     return { valid: false, error: "\uC62C\uBC14\uB978 \uC774\uBA54\uC77C \uD615\uC2DD\uC774 \uC544\uB2D9\uB2C8\uB2E4." };
   }
-  if (/[;'"\\--]/.test(sanitized)) {
+  if (/[;'"\\\-#/*]/g.test(sanitized)) {
     return { valid: false, error: "\uC774\uBA54\uC77C\uC5D0 \uD5C8\uC6A9\uB418\uC9C0 \uC54A\uB294 \uBB38\uC790\uAC00 \uD3EC\uD568\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4." };
   }
   return { valid: true, sanitized };
