@@ -356,6 +356,14 @@ app.use(cors({
       appBaseUrl?.replace('https://', 'http://')   // http 버전
     ].filter(Boolean);
 
+    // APP_BASE_URL이 설정되어 있지 않으면 기본 배포 도메인도 허용
+    if (!appBaseUrl && !domainOnly) {
+      allowedOrigins.push(
+        'https://app.bizcardai.kr',
+        'http://app.bizcardai.kr'
+      );
+    }
+
     // origin이 없거나 allowedOrigins에 포함되면 허용
     // (preflight 요청이나 같은 출처 요청은 origin이 undefined일 수 있음)
     if (!origin || allowedOrigins.includes(origin)) {
