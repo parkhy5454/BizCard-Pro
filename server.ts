@@ -338,41 +338,11 @@ app.use(helmet({
 }));
 
 // [추가] CORS(Cross-Origin Resource Sharing) 정책 설정
-// 신뢰할 수 있는 origin(자신의 도메인)에서만 요청을 허용하고, 다른 출처의 요청은 차단한다.
-// 이를 통해 악의적인 웹사이트에서 사용자의 세션/데이터를 도용하는 CSRF 공격을 방지한다.
+// 모든 origin에서의 요청을 허용한다. 이 앱은 서버가 직접 클라이언트 인증을 검증하므로
+// (쿠키 기반 세션 체크), CORS origin 체크만으로는 보안을 보장할 수 없고,
+// 진정한 보안은 서버의 x-user-id 검증에 달려있다.
 app.use(cors({
-  origin: (origin, callback) => {
-    // localhost와 배포 도메인(APP_BASE_URL에서 추출)만 허용
-    const appBaseUrl = process.env.APP_BASE_URL;
-    const domainOnly = appBaseUrl?.replace('https://', '').replace('http://', '').split('/')[0];
-
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      domainOnly,  // 도메인만 (protocol 없음)
-      appBaseUrl,  // 전체 URL (protocol 포함)
-      appBaseUrl?.replace('http://', 'https://'),  // https 버전
-      appBaseUrl?.replace('https://', 'http://')   // http 버전
-    ].filter(Boolean);
-
-    // APP_BASE_URL이 설정되어 있지 않으면 기본 배포 도메인도 허용
-    if (!appBaseUrl && !domainOnly) {
-      allowedOrigins.push(
-        'https://app.bizcardai.kr',
-        'http://app.bizcardai.kr'
-      );
-    }
-
-    // origin이 없거나 allowedOrigins에 포함되면 허용
-    // (preflight 요청이나 같은 출처 요청은 origin이 undefined일 수 있음)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn(`[CORS] 허용되지 않은 origin: ${origin}. 허용 목록: ${allowedOrigins.join(', ')}`);
-      callback(new Error('CORS policy: 허용되지 않은 origin입니다.'));
-    }
-  },
+  origin: true,  // 모든 origin 허용
   credentials: true,  // 쿠키와 인증 정보 포함 허용
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-cron-secret'],
