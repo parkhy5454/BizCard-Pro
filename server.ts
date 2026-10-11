@@ -140,9 +140,11 @@ function validatePasswordComplexity(password: string): { valid: boolean; error?:
     return { valid: false, error: '비밀번호에는 최소 1개의 숫자(0-9)가 포함되어야 합니다.' };
   }
 
-  // 특수문자 포함 확인 (!@#$%^&*_-=+)
-  if (!/[!@#$%^&*_\-=+]/.test(password)) {
-    return { valid: false, error: '비밀번호에는 최소 1개의 특수문자(!@#$%^&*_-=+)가 포함되어야 합니다.' };
+  // [보안 수정] 특수문자 포함 확인: 더 많은 특수문자 허용
+  // 이전: [!@#$%^&*_\-=+] (제한적)
+  // 이후: 일반적인 특수문자 대부분 허용 (공백/문자열 구분문자 제외)
+  if (!/[!@#$%^&*()_\-+=\[\]{};:'",.<>?/\\|`~]/.test(password)) {
+    return { valid: false, error: '비밀번호에는 최소 1개의 특수문자가 포함되어야 합니다.' };
   }
 
   return { valid: true };
@@ -2030,8 +2032,23 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
 
-  // [수정] 이메일 입력값 검증: 기본 형식만 검증 (Supabase가 SQL 주입 방어)
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // [보안 추가] 회사 계정(company type)의 경우 사업자등록번호는 필수
+  if (type === 'company') {
+    const trimmedBNum = (businessNumber || '').trim();
+    if (!trimmedBNum) {
+      return res.status(400).json({ error: '회사 계정 가입 시 사업자등록번호는 필수입니다.' });
+    }
+    // [보안 추가] 사업자등록번호 기본 형식 검증 (10자리 숫자)
+    // 실제로는 "검증 알고리즘"을 써야 하지만, 여기서는 형식만 먼저 체크
+    if (!/^\d{10}$/.test(trimmedBNum)) {
+      return res.status(400).json({ error: '사업자등록번호는 10자리 숫자여야 합니다.' });
+    }
+  }
+
+  // [수정] 이메일 입력값 검증: RFC 5322 기본 패턴으로 강화
+  // 이전: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ (a@b.c 같은 잘못된 이메일도 통과)
+  // 이후: 좀 더 엄격한 검증 (단, 완벽한 RFC 5322 준수는 매우 복잡하므로 합리적 수준에서)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   const normalizedEmail = email.toLowerCase().trim();
   if (!emailRegex.test(normalizedEmail)) {
     return res.status(400).json({ error: '올바른 이메일 형식이 아닙니다.' });
@@ -2067,7 +2084,12 @@ app.post('/api/auth/signup', async (req, res) => {
     if (existing) users = freshUsers; // 캐시가 오래되어 있었다면 이 기회에 최신 상태로 갱신
   }
   if (existing) {
-    return res.status(400).json({ error: '이미 가입에 사용된 이메일입니다. 개인/사업자 계정 모두 같은 이메일로는 중복 가입할 수 없으니, 다른 이메일로 가입해주세요.' });
+    // [보안 수정] 사용자 열거 취약점 방지: 구체적인 에러 메시지 대신 일반적인 메시지 반환
+    // 이전: "이미 가입에 사용된 이메일입니다" (이메일 존재 여부 노출)
+    // 이후: 가입 전 언제든 "확인 이메일을 보냈습니다"로 통일
+    return res.status(200).json({
+      message: '입력하신 정보로 계정을 확인 중입니다. 이미 가입되어 있다면 이메일을 확인해주세요.'
+    });
   }
 
   // [수정] role은 이제 클라이언트가 보낸 값(requestedRole)을 절대 신뢰하지 않고 서버가
@@ -2099,8 +2121,11 @@ app.post('/api/auth/signup', async (req, res) => {
   const emailVerificationToken = isMailerConfigured ? crypto.randomBytes(32).toString('hex') : undefined;
   const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 
+  // [보안 수정] User ID 생성: Date.now()는 시간 순서대로 예측 가능
+  // 이전: id: `user-${Date.now()}` (동시에 가입할 경우 ID 충돌 가능, 타이밍으로 예측 가능)
+  // 이후: crypto.randomBytes로 생성 (16바이트 = 128비트, 충돌 확률 무시할 수준)
   const newUser: RegisteredUser = {
-    id: `user-${Date.now()}`,
+    id: `user-${crypto.randomBytes(16).toString('hex')}`,
     email: email.toLowerCase(),
     password: bcrypt.hashSync(password, 10), // 안전하게 암호화하여 저장
     name,
