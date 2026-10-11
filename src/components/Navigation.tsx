@@ -415,80 +415,86 @@ export const Navigation: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
-        <div className="flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm">
+        {/* 기존 헤더 내용 끝 */}
+      </div>
+    </header>
+
+    {/* [추가] 하단 고정 탭 네비게이션 */}
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg shadow-slate-900/10 pb-[env(safe-area-inset-bottom)]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col items-start py-2 gap-1 text-sm">
           
-          <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
+          <nav className="flex items-center gap-0.5 overflow-x-auto w-full scrollbar-none">
             <button
               onClick={() => handleMainTabClick('dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                 activeTab === 'dashboard'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4 text-blue-400" />
+              <LayoutDashboard className="w-5 h-5 text-blue-500" />
               <span>홈</span>
             </button>
 
             <button
               onClick={() => handleMainTabClick('cards')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                 activeTab === 'cards'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Users className="w-4 h-4" />
-              <span>전체 명함</span>
-              <span className="px-1.5 py-0.2 rounded-full text-xs bg-slate-100 text-slate-600 font-mono">{totalContactsCount}</span>
+              <Users className="w-5 h-5" />
+              <span>명함</span>
+              {totalContactsCount > 0 && <span className="px-1 py-0 rounded-full text-[10px] bg-blue-500 text-white font-bold">{totalContactsCount}</span>}
             </button>
 
             <button
               onClick={() => handleMainTabClick('vehicles')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                 activeTab === 'vehicles'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Car className="w-4 h-4 text-indigo-400" />
-              <span>통합 차량 관리</span>
+              <Car className="w-5 h-5 text-indigo-600" />
+              <span>차량</span>
             </button>
 
             <button
               onClick={() => handleMainTabClick('projects')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                 activeTab === 'projects'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Briefcase className="w-4 h-4 text-indigo-400" />
+              <Briefcase className="w-5 h-5 text-indigo-600" />
               <span>프로젝트</span>
             </button>
 
             <button
               onClick={() => handleMainTabClick('worklogs')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                 activeTab === 'worklogs'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <ClipboardCheck className="w-4 h-4 text-indigo-400" />
+              <ClipboardCheck className="w-5 h-5 text-indigo-600" />
               <span>업무일지</span>
             </button>
 
             <button
               onClick={() => handleMainTabClick('approvals')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                 activeTab === 'approvals'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <FileSignature className="w-4 h-4 text-indigo-400" />
+              <FileSignature className="w-5 h-5 text-indigo-600" />
               <span>전자결재</span>
             </button>
 
@@ -499,36 +505,36 @@ export const Navigation: React.FC<Props> = ({
               <>
                 <button
                   onClick={() => handleMainTabClick('org_chart')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                     activeTab === 'org_chart'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <Network className="w-4 h-4 text-indigo-400" />
+                  <Network className="w-5 h-5 text-indigo-600" />
                   <span>조직도</span>
                 </button>
                 <button
                   onClick={() => handleMainTabClick('announcements')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                     activeTab === 'announcements'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <Megaphone className="w-4 h-4 text-indigo-400" />
-                  <span>공지사항</span>
+                  <Megaphone className="w-5 h-5 text-indigo-600" />
+                  <span>공지</span>
                 </button>
                 <button
                   onClick={() => handleMainTabClick('team_chat')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                     activeTab === 'team_chat'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <MessagesSquare className="w-4 h-4 text-indigo-400" />
-                  <span>사내 메신저</span>
+                  <MessagesSquare className="w-5 h-5 text-indigo-400" />
+                  <span>메신저</span>
                 </button>
               </>
             )}
@@ -539,24 +545,24 @@ export const Navigation: React.FC<Props> = ({
               <>
                 <button
                   onClick={() => handleMainTabClick('management')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                     activeTab === 'management'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <Building2 className="w-4 h-4 text-indigo-400" />
+                  <Building2 className="w-5 h-5 text-indigo-600" />
                   <span>경영지원</span>
                 </button>
                 <button
                   onClick={() => handleMainTabClick('accounting')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                     activeTab === 'accounting'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <TrendingUp className="w-4 h-4 text-indigo-400" />
+                  <TrendingUp className="w-5 h-5 text-indigo-600" />
                   <span>회계관리</span>
                 </button>
                 {/* [추가] 활동 로그 - 서버에는 이미 감사 기록(누가 언제 어떤 민감한 작업을
@@ -564,13 +570,13 @@ export const Navigation: React.FC<Props> = ({
                 같은 이유로 관리자만 볼 수 있게 한다. */}
                 <button
                   onClick={() => handleMainTabClick('audit_logs')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                     activeTab === 'audit_logs'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <History className="w-4 h-4 text-indigo-400" />
+                  <History className="w-5 h-5 text-indigo-600" />
                   <span>활동 로그</span>
                 </button>
               </>
@@ -581,14 +587,14 @@ export const Navigation: React.FC<Props> = ({
             쓸 수 있는 화면이라 관리자 제한 없이 모두에게 노출한다. */}
             <button
               onClick={() => handleMainTabClick('ai_intelligence')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap text-xs ${
                 activeTab === 'ai_intelligence'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span>AI Intelligence</span>
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+              <span>AI</span>
             </button>
           </nav>
 
@@ -859,7 +865,7 @@ export const Navigation: React.FC<Props> = ({
 
         </div>
       </div>
-    </header>
+    </div>
 
     {isFeedbackInboxOpen && (
       <FeedbackInboxModal currentUser={currentUser} onClose={() => setIsFeedbackInboxOpen(false)} />
