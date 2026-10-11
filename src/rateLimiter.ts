@@ -36,10 +36,12 @@ export class RateLimiter {
     this.lockoutMs = options.lockoutMs;
     this.now = options.now || (() => Date.now());
 
-    // [추가] 주기적으로(1시간마다) 만료된 항목을 정리하여 메모리 누수 방지
+    // [수정] 주기적으로 만료된 항목을 정리하여 메모리 누수 방지
+    // 이전: 1시간마다 (너무 길어서 메모리 누적)
+    // 이후: 15분마다 (빠른 정리로 메모리 효율성 개선)
     this.cleanupIntervalId = setInterval(() => {
       this.cleanup();
-    }, 60 * 60 * 1000); // 1시간마다
+    }, 15 * 60 * 1000); // 15분마다
   }
 
   // [추가] window를 벗어난 오래된 항목 삭제
@@ -58,7 +60,12 @@ export class RateLimiter {
     });
 
     if (keysToDelete.length > 0) {
-      console.log(`[RateLimiter] ${keysToDelete.length}개의 만료된 항목 정리 완료`);
+      // [수정] 대량 정리 시 경고 로그 추가 (메모리 누수 감지)
+      if (keysToDelete.length > 100) {
+        console.warn(`[RateLimiter] ⚠️ 한 번에 ${keysToDelete.length}개의 만료된 항목 정리 (메모리 누적 가능성)`);
+      } else {
+        console.log(`[RateLimiter] ${keysToDelete.length}개의 만료된 항목 정리 완료`);
+      }
     }
   }
 

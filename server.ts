@@ -5503,6 +5503,27 @@ app.post('/api/projects', async (req, res) => {
 // 배열로 만들어 보내면 한 번에 저장한다. 단건 등록(app.post('/api/projects'))과 동일한
 // 기본값 채우기 규칙을 그대로 따른다.
 app.post('/api/projects/import', async (req, res) => {
+  // [보안 추가] 로그인 필수 및 권한 검증
+  const userId = req.headers['x-user-id'] as string;
+  const requester = userId ? users.find(u => u.id === userId) : undefined;
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  // [보안 추가] 승인 대기 중이거나 이메일 미인증 사용자 차단
+  if (requester.type === 'company' && requester.approvalStatus === 'pending') {
+    return res.status(403).json({
+      error: '아직 승인을 받지 못했습니다. 승인 후 프로젝트를 등록할 수 있습니다.',
+      pendingApproval: true
+    });
+  }
+  if (!isEmailVerified(requester.emailVerified)) {
+    return res.status(403).json({
+      error: '이메일 인증이 필요합니다.',
+      emailVerificationRequired: true
+    });
+  }
+
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const importedProjects = req.body.importedProjects;
@@ -8527,9 +8548,43 @@ async function startServer() {
     Sentry.setupExpressErrorHandler(app);
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
   });
+
+  // [보안 추가] 서버 종료 시 RateLimiter cleanup 타이머 정리
+  const rateLimiters = [
+    loginRateLimiter,
+    signupRateLimiter,
+    companyLookupRateLimiter,
+    aiScanRateLimiter,
+    resendVerificationRateLimiter,
+    forgotPasswordRateLimiter,
+    backupExportRateLimiter
+  ];
+
+  const gracefulShutdown = () => {
+    console.log('[Server] 서버 종료 신호 수신, 리소스 정리 중...');
+    rateLimiters.forEach(limiter => {
+      try {
+        limiter.destroy();
+      } catch (err) {
+        console.error('[Server] RateLimiter 정리 중 에러:', err);
+      }
+    });
+    server.close(() => {
+      console.log('[Server] 서버 종료 완료');
+      process.exit(0);
+    });
+    // 5초 후 강제 종료
+    setTimeout(() => {
+      console.error('[Server] 강제 종료');
+      process.exit(1);
+    }, 5000);
+  };
+
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
 }
 
 startServer();
