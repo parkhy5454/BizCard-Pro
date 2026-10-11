@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import { BusinessCard, ContactGroup, Project, User } from './types.js';
 import { getContactGroupIds, contactHasGroup } from './groupUtils.js';
+import { TabType } from './constants/tabs.js';
+import { normalizeError } from './types/errors.js';
 import { Navigation } from './components/Navigation.js';
 import { CardGrid } from './components/CardGrid.js';
 import { CardDetailModal } from './components/CardDetailModal.js';
@@ -37,6 +39,17 @@ import { OrgChartView } from './components/OrgChartView.js';
 import { AnnouncementsView } from './components/AnnouncementsView.js';
 import { TeamChatView } from './components/TeamChatView.js';
 
+// [개선] 에러 메시지 안전하게 추출하는 헬퍼 함수
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return '알 수 없는 오류가 발생했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.';
+}
+
 export default function App() {
   // 회원 세션 상태
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -45,8 +58,8 @@ export default function App() {
   });
 
   // 메인 내비게이션 탭 상태
-  // [추가] 조직도/공지사항/사내 메신저 - 그룹웨어(다우오피스 등) 대비 부족했던 핵심 기능 보강
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat'>('cards');
+  // [개선] TabType을 사용해 타입 안정성 강화 및 중복 제거
+  const [activeTab, setActiveTab] = useState<TabType>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -226,8 +239,8 @@ export default function App() {
 
       const saved = await res.json();
       setContacts(prev => [saved, ...prev]);
-    } catch (err: any) {
-      alert(`명함 저장에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`명함 저장에 실패했습니다.\n${getErrorMessage(err)}`);
     }
   };
 
@@ -250,8 +263,8 @@ export default function App() {
       const data = await res.json();
       setContacts(prev => prev.map(c => c.id === data.id ? data : c));
       setSelectedContactDetail(data);
-    } catch (err: any) {
-      alert(`명함 수정 저장에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`명함 수정 저장에 실패했습니다.\n${getErrorMessage(err)}`);
     }
   };
 
@@ -272,7 +285,7 @@ export default function App() {
       if (!res.ok) throw new Error(`상태: ${res.status}`);
       setContacts(prev => prev.filter(c => c.id !== id));
       if (selectedContactDetail?.id === id) setSelectedContactDetail(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(`명함 삭제에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
@@ -324,7 +337,7 @@ export default function App() {
       }
       const created = await res.json();
       setGroups(prev => [...prev, created]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(`그룹 생성에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
@@ -346,7 +359,7 @@ export default function App() {
       }
       const updated = await res.json();
       setGroups(prev => prev.map(g => g.id === id ? updated : g));
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(`그룹 수정에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
@@ -370,7 +383,7 @@ export default function App() {
       }
       const updated = await res.json();
       setGroups(prev => prev.map(g => g.id === id ? updated : g));
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(`그룹 공개 설정 변경에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
@@ -395,7 +408,7 @@ export default function App() {
         return { ...c, groupId: ids[0] || '', groupIds: ids };
       }));
       if (selectedGroupFilter === id) setSelectedGroupFilter('all');
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(`그룹 삭제에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };

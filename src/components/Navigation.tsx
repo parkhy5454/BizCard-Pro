@@ -5,10 +5,11 @@ import { ReferralModal } from './ReferralModal.js';
 import { RemindersBell } from './RemindersBell.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 import { getTodayLocalStr } from '../dateUtils.js';
+import { TabType, TAB_CONFIGS, canAccessTab, getAccessDenialReason } from '../constants/tabs.js';
 
 interface Props {
-  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat';
-  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat') => void;
+  activeTab: TabType;
+  setActiveTab: (tab: TabType) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedGroup: string;
@@ -417,179 +418,62 @@ export const Navigation: React.FC<Props> = ({
 
         {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
         <div className="flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm">
-          
+
+          {/* [개선] 탭 설정을 TAB_CONFIGS에서 동적으로 렌더링 - 탭 추가/변경 시 이 파일 수정 불필요 */}
           <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
-            <button
-              onClick={() => handleMainTabClick('dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'dashboard'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4 text-blue-400" />
-              <span>홈</span>
-            </button>
+            {TAB_CONFIGS.map((tabConfig) => {
+              // 접근 권한 확인: 로그인, 이메일 인증, 관리자 승인 여부
+              const isAuthenticated = !!currentUser;
+              const isApproved = currentUser?.approvalStatus === 'approved';
+              const isEmailVerified = currentUser?.emailVerified ?? false;
 
-            <button
-              onClick={() => handleMainTabClick('cards')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'cards'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>전체 명함</span>
-              <span className="px-1.5 py-0.2 rounded-full text-xs bg-slate-100 text-slate-600 font-mono">{totalContactsCount}</span>
-            </button>
+              const canAccess = canAccessTab(
+                tabConfig.id,
+                isAuthenticated,
+                isApproved,
+                isEmailVerified
+              );
 
-            <button
-              onClick={() => handleMainTabClick('vehicles')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'vehicles'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Car className="w-4 h-4 text-indigo-400" />
-              <span>통합 차량 관리</span>
-            </button>
+              // 접근 불가능하면 표시하지 않음
+              if (!canAccess) return null;
 
-            <button
-              onClick={() => handleMainTabClick('projects')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'projects'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Briefcase className="w-4 h-4 text-indigo-400" />
-              <span>프로젝트</span>
-            </button>
+              const IconComponent = tabConfig.icon;
+              const isActive = activeTab === tabConfig.id;
+              const denialReason = getAccessDenialReason(
+                tabConfig.id,
+                isAuthenticated,
+                isApproved,
+                isEmailVerified
+              );
 
-            <button
-              onClick={() => handleMainTabClick('worklogs')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'worklogs'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <ClipboardCheck className="w-4 h-4 text-indigo-400" />
-              <span>업무일지</span>
-            </button>
-
-            <button
-              onClick={() => handleMainTabClick('approvals')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'approvals'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <FileSignature className="w-4 h-4 text-indigo-400" />
-              <span>전자결재</span>
-            </button>
-
-            {/* [추가] 조직도 / 사내 공지사항 / 사내 메신저 - 그룹웨어(다우오피스, 하이웍스 등)
-            대비 부족했던 핵심 기능 보강. 회사(company) 회원에게만 의미가 있으므로(개인
-            회원은 동료가 없음) 회사 계정에만 노출한다. */}
-            {currentUser?.type === 'company' && (
-              <>
+              return (
                 <button
-                  onClick={() => handleMainTabClick('org_chart')}
+                  key={tabConfig.id}
+                  onClick={() => handleMainTabClick(tabConfig.id)}
+                  title={denialReason || tabConfig.description}
+                  disabled={denialReason !== null}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'org_chart'
+                    isActive
                       ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed'
                   }`}
                 >
-                  <Network className="w-4 h-4 text-indigo-400" />
-                  <span>조직도</span>
+                  <IconComponent className="w-4 h-4 text-indigo-400" />
+                  <span>
+                    {tabConfig.id === 'cards' ? (
+                      <>
+                        {tabConfig.label}
+                        <span className="ml-2 px-1.5 py-0.2 rounded-full text-xs bg-slate-100 text-slate-600 font-mono">
+                          {totalContactsCount}
+                        </span>
+                      </>
+                    ) : (
+                      tabConfig.label
+                    )}
+                  </span>
                 </button>
-                <button
-                  onClick={() => handleMainTabClick('announcements')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'announcements'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Megaphone className="w-4 h-4 text-indigo-400" />
-                  <span>공지사항</span>
-                </button>
-                <button
-                  onClick={() => handleMainTabClick('team_chat')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'team_chat'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <MessagesSquare className="w-4 h-4 text-indigo-400" />
-                  <span>사내 메신저</span>
-                </button>
-              </>
-            )}
-
-            {/* [추가] 경영지원 / 회계관리 - 관리자(role: 'admin')만 보이는 탭. 회사 서류·장부는
-            민감한 정보라서, 관리자가 아닌 일반 직원에게는 탭 자체를 아예 노출하지 않는다. */}
-            {currentUser?.role === 'admin' && (
-              <>
-                <button
-                  onClick={() => handleMainTabClick('management')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'management'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 text-indigo-400" />
-                  <span>경영지원</span>
-                </button>
-                <button
-                  onClick={() => handleMainTabClick('accounting')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'accounting'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4 text-indigo-400" />
-                  <span>회계관리</span>
-                </button>
-                {/* [추가] 활동 로그 - 서버에는 이미 감사 기록(누가 언제 어떤 민감한 작업을
-                했는지)이 쌓이고 있었는데 이걸 보여주는 화면이 없었다. 경영지원/회계관리와
-                같은 이유로 관리자만 볼 수 있게 한다. */}
-                <button
-                  onClick={() => handleMainTabClick('audit_logs')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'audit_logs'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <History className="w-4 h-4 text-indigo-400" />
-                  <span>활동 로그</span>
-                </button>
-              </>
-            )}
-
-            {/* [추가] AI Intelligence - 맨 끝에 위치. 오늘의 브리핑/기업 인텔리전스/관계·영업
-            인텔리전스 3개 서브탭을 묶는 진입점. 특정 서류처럼 민감하지 않고 누구나 유용하게
-            쓸 수 있는 화면이라 관리자 제한 없이 모두에게 노출한다. */}
-            <button
-              onClick={() => handleMainTabClick('ai_intelligence')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'ai_intelligence'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span>AI Intelligence</span>
-            </button>
+              );
+            })}
           </nav>
 
           {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이
