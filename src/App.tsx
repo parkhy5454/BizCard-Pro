@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { GroupContextProvider } from './context/GroupContext';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
