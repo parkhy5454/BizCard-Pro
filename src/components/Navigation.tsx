@@ -415,7 +415,6 @@ export const Navigation: React.FC<Props> = ({
             </div>
           </div>
         </div>
-      </div>
 
       {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -744,7 +743,6 @@ export const Navigation: React.FC<Props> = ({
           )}
 
         </div>
-      </div>
       </div>
     </header>
 
