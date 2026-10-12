@@ -416,9 +416,10 @@ export const Navigation: React.FC<Props> = ({
           </div>
         </div>
       </div>
+    </header>
 
-      {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm">
 
           {/* [개선] 탭 설정을 TAB_CONFIGS에서 동적으로 렌더링 - 탭 추가/변경 시 이 파일 수정 불필요 */}
