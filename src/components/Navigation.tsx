@@ -24,9 +24,6 @@ interface Props {
   onOpenNewProject?: () => void;
   onExportProjectsExcel?: () => void;
   onOpenProjectsPrintPreview?: () => void;
-  // [수정] 토글(반전) 방식 대신, 각 버튼이 정확히 어느 화면으로 갈지 명시적으로 지정하는 콜백으로 변경.
-  // (기존엔 "프로젝트 리스트"를 눌러도 그냥 드롭다운만 열릴 뿐, 카드 화면으로 돌아가지 않는 문제가 있었음)
-  // [수정] 카드/리스트출력/파이프라인 3가지 화면을 오가야 해서 boolean 대신 모드 문자열로 변경
   projectsViewMode?: 'cards' | 'listOutput' | 'pipeline' | 'pnl';
   onShowProjectsCardView?: () => void;
   onShowProjectsListOutput?: () => void;
@@ -40,11 +37,6 @@ interface Props {
   onLogout: () => void;
   onOpenWithdrawModal: () => void;
   onOpenSubscriptionModal: () => void;
-  // [추가] "이미 그 화면에 있는데 상단 메인 탭을 또 눌렀을 때" 그 화면을 처음 상태로
-  // 되돌리기 위한 콜백. 아이폰에서 상단 상태바를 누르면 맨 위로 스크롤되는 것처럼,
-  // 지금 보고 있는 화면에서 검색어/필터/펼쳐둔 상세화면 등을 다 지우고 첫 화면으로
-  // 돌아가고 싶을 때 쓴다. (다른 탭으로 이동하는 경우는 화면이 새로 그려지면서 이미
-  // 초기화되므로, 이 콜백은 "같은 탭을 다시 눌렀을 때"만 필요하다.)
   onRequestViewReset?: () => void;
 }
 
@@ -80,10 +72,6 @@ export const Navigation: React.FC<Props> = ({
   onOpenSubscriptionModal,
   onRequestViewReset = () => {}
 }) => {
-  // [추가] 상단 메인 탭 버튼 클릭 공용 처리. 이미 그 탭에 있으면(같은 탭을 또 누른 경우)
-  // setActiveTab만으로는 값이 안 바뀌어서 리액트가 리렌더를 건너뛰고 아무 반응이 없다 -
-  // 이 경우엔 onRequestViewReset을 호출해서 지금 화면을 처음 상태로 되돌린다. 다른 탭이면
-  // 기존처럼 그냥 탭을 전환한다(전환되면서 화면이 새로 그려져 이미 초기화됨).
   const handleMainTabClick = (tab: Parameters<typeof setActiveTab>[0]) => {
     if (tab === activeTab) {
       onRequestViewReset();
@@ -91,18 +79,10 @@ export const Navigation: React.FC<Props> = ({
       setActiveTab(tab);
     }
   };
-  // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  // [수정] 관리자(개발자)용 "문의함" 화면 열림 상태. 이 화면은 회사 구분 없이 앱 전체 문의가
-  // 다 모이는 화면이라, 아무나 보면 안 되고 개발자 계정에서만 보이게 제한한다.
   const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
-  // [추가] 친구 추천 모달 열림 상태
   const [isReferralOpen, setIsReferralOpen] = useState(false);
   const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
-  // [추가] 데이터 백업 - 서버(/api/backup/export)는 이미 있었는데 어디서도 눌러볼 방법이
-  // 없었다. 서버 쪽 권한 규칙과 똑같이(개인 계정은 항상 본인 데이터를, 회사 계정은
-  // 관리자만) 내려받을 수 있게 버튼을 노출한다. 커스텀 헤더(x-user-id)가 필요해서 그냥
-  // <a href>로는 안 되고, fetch로 받은 내용을 blob으로 만들어 다운로드를 흉내낸다.
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
   const canAccessBackup = currentUser?.type === 'individual' || currentUser?.role === 'admin';
   const handleDownloadBackup = async () => {
@@ -129,7 +109,6 @@ export const Navigation: React.FC<Props> = ({
       setIsDownloadingBackup(false);
     }
   };
-  // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackContent, setFeedbackContent] = useState('');
@@ -165,7 +144,6 @@ export const Navigation: React.FC<Props> = ({
 
   const closeFeedbackModal = () => {
     setIsFeedbackOpen(false);
-    // 팝업 닫고 나서 애니메이션 등이 자연스럽게 끝나도록 살짝 뒤에 상태 초기화
     setTimeout(() => {
       setFeedbackSubmitted(false);
       setFeedbackError('');
@@ -176,21 +154,10 @@ export const Navigation: React.FC<Props> = ({
 
   return (
     <>
-    {/* [수정] index.html에 viewport-fit=cover + apple-mobile-web-app-status-bar-style=
-    black-translucent가 설정돼 있어서, 아이폰에서 홈 화면에 추가해 앱처럼 실행하면 상태
-    표시줄(시계/신호/배터리)이 투명해지면서 이 헤더 위에 그대로 겹쳐 보였다("BizCard" 로고
-    글자와 시계가 겹치는 등). pt-[env(safe-area-inset-top)]으로 노치/상태 표시줄 높이만큼
-    헤더 안쪽에 여백을 줘서, 그 아래로 실제 로고/버튼들이 밀려나게 한다. 노치가 없는
-    기기(대부분의 안드로이드, PC 브라우저)에서는 env() 값이 0이라 아무 변화가 없다. */}
-    {/* [수정] shadow-xl이 헤더 아래쪽에 위는 진하고 아래로 갈수록 옅어지는 회색 그림자를
-    만들어서, 실선 구분선(border-b)이 있는데도 그 아래가 회색 그라데이션처럼 보인다는
-    지적이 있었다. 실선 구분선만으로 충분히 구분되므로 그림자를 없애고 그 아래 영역이
-    바로 깔끔한 흰색이 되도록 한다. */}
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between py-4 md:py-0 md:h-16 gap-4">
           
-          {/* 브랜드 로고 */}
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('cards')}>
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40">
@@ -204,12 +171,6 @@ export const Navigation: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* 모바일 화면용 로그아웃 & 정보 (옵션) */}
-            {/* [수정] 아이콘 6개(검색/알림/구독/백업/로그아웃/탈퇴) + 로고 영역 폭을 합치면
-            좁은 휴대폰 화면 너비를 넘어서는데, 이 줄에 넘침 처리가 없어서 오른쪽 아이콘
-            한두 개가 화면 밖으로 그냥 잘려서 안 보이는 문제가 있었다. min-w-0 +
-            overflow-x-auto로 이 줄만 가로 스크롤되게 하고, 각 아이콘 버튼은 shrink-0으로
-            찌그러지지 않게 고정한다. */}
             {currentUser && (
               <div className="flex items-center gap-2 md:hidden min-w-0 overflow-x-auto scrollbar-none">
                 <button
@@ -257,7 +218,6 @@ export const Navigation: React.FC<Props> = ({
             )}
           </div>
 
-          {/* 중앙 검색창 (명함 목록 뷰일 때 활성) */}
           {activeTab === 'cards' && (
             <div className="flex-1 max-w-sm relative hidden lg:block">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -279,10 +239,8 @@ export const Navigation: React.FC<Props> = ({
             </div>
           )}
 
-          {/* 주요 액션 및 내비게이션 버튼 & 사용자 프로필 */}
           <div className="flex items-center justify-between md:justify-end gap-2 w-full md:w-auto">
             
-            {/* 사용자 공간 상태 배너 */}
             {currentUser && (
               <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-2xl px-3 py-1.5 text-xs text-slate-600 shrink-0">
                 {currentUser.type === 'company' ? (
@@ -346,8 +304,6 @@ export const Navigation: React.FC<Props> = ({
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
-                {/* [추가] 회원 탈퇴 — 자주 누를 일이 없는 파괴적 작업이라 로그아웃보다 눈에 덜 띄게,
-                하지만 접근은 가능하게 둔다. */}
                 <button
                   onClick={onOpenWithdrawModal}
                   title="회원 탈퇴"
@@ -358,15 +314,7 @@ export const Navigation: React.FC<Props> = ({
               </div>
             )}
 
-            {/* [수정] 이 버튼들(세무자료 발송/가입 회원 확인/친구 추천/문의함)에 shrink-0을
-            안 줘서, 화면이 좁은 휴대폰에서 폭이 모자라면 flex가 버튼들을 억지로 찌그러뜨렸다.
-            한글은 띄어쓰기가 없어도 글자 사이마다 줄바꿈이 가능해서, 버튼이 눌리다 못해
-            "가입 회원 확인" 같은 글자가 세로로 한 글자씩 쌓여 보이는 문제가 있었다(우측은
-            화면 밖으로 잘려서 아예 안 보임). min-w-0 + overflow-x-auto로 이 줄만 따로
-            가로 스크롤되게 하고, 각 버튼은 shrink-0 + whitespace-nowrap으로 절대 안
-            찌그러지게 고정했다 — 하단 메인 탭 줄과 동일한 해법. */}
             <div className="flex items-center gap-2 min-w-0 overflow-x-auto scrollbar-none">
-              {/* [수정] 그 달의 모든 지출/영수증을 세무사에게 이메일로 바로 보내는 버튼 (전체 화면에서 접근 가능) */}
               <button
                 onClick={onOpenTaxPackage}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
@@ -375,7 +323,6 @@ export const Navigation: React.FC<Props> = ({
                 <span className="hidden sm:inline">세무자료 발송</span>
               </button>
 
-              {/* 가입 회원 및 동료 확인 버튼 */}
               <button
                 onClick={onOpenUserDirectory}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
@@ -384,8 +331,6 @@ export const Navigation: React.FC<Props> = ({
                 <span>가입 회원 확인</span>
               </button>
 
-              {/* [추가] 친구 추천 — 로그인한 누구나(개인/회사 구성원 모두) 본인 추천 코드로
-              지인을 초대할 수 있고, 초대받은 사람이 첫 구독 결제를 하면 서로 1개월씩 무료. */}
               {currentUser && (
                 <button
                   type="button"
@@ -397,10 +342,6 @@ export const Navigation: React.FC<Props> = ({
                 </button>
               )}
 
-              {/* [수정] 화면 위에 항상 떠있는 동그란 플로팅 버튼이었는데, 특히 모바일에서
-              화면을 가리고 걸리적거린다는 의견이 있었다. "가입 회원 확인"과 똑같이 헤더
-              안의 일반 버튼으로 옮겨서, 운영자 계정에게만 보이는 건 그대로 유지하면서
-              화면을 안 가리게 했다. */}
               {isDeveloperAccount && (
                 <button
                   type="button"
@@ -416,13 +357,10 @@ export const Navigation: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
         <div className="flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm">
 
-          {/* [개선] 탭 설정을 TAB_CONFIGS에서 동적으로 렌더링 - 탭 추가/변경 시 이 파일 수정 불필요 */}
           <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
             {TAB_CONFIGS.map((tabConfig) => {
-              // 접근 권한 확인: 로그인, 이메일 인증, 관리자 승인 여부
               const isAuthenticated = !!currentUser;
               const isApproved = currentUser?.approvalStatus === 'approved';
               const isEmailVerified = currentUser?.emailVerified ?? false;
@@ -434,7 +372,6 @@ export const Navigation: React.FC<Props> = ({
                 isEmailVerified
               );
 
-              // 접근 불가능하면 표시하지 않음
               if (!canAccess) return null;
 
               const IconComponent = tabConfig.icon;
@@ -476,15 +413,10 @@ export const Navigation: React.FC<Props> = ({
             })}
           </nav>
 
-          {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이
-          똑같은 알약형 버튼 스타일이라 구분이 잘 안 된다는 지적이 있었다. 하위 줄이 있는
-          탭에서만 얇은 구분선을 하나 그어서, 상위 탭과 하위 버튼 줄이 서로 다른 영역임을
-          명확히 나눈다. */}
           {['cards', 'groups', 'io', 'nearby', 'projects'].includes(activeTab) && (
             <div className="w-full border-t border-slate-200" />
           )}
 
-          {/* 명함 등록 / 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (전체 명함과 이 줄에서 이동하는 탭들에서 계속 노출) */}
           {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
           <div className="flex items-center gap-1.5 overflow-x-auto w-full p-1.5 bg-slate-100 border border-slate-200 rounded-xl scrollbar-none">
             <button
@@ -495,7 +427,6 @@ export const Navigation: React.FC<Props> = ({
               <span>명함 등록</span>
             </button>
 
-            {/* [수정] 전시회처럼 손이 바쁠 때, 음성만으로 이름/회사를 빠르게 기록하는 버튼 */}
             <button
               onClick={onOpenVoiceQuickAdd}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 text-xs sm:text-sm transition-all active:scale-95"
@@ -550,7 +481,6 @@ export const Navigation: React.FC<Props> = ({
           </div>
           )}
 
-          {/* 명함 목록 탭일 때 우측 그룹 칩 필터링 */}
           {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
             <div className="flex items-center gap-1.5 overflow-x-auto w-full">
               <span className="text-xs text-slate-500 mr-1 hidden lg:inline">그룹필터:</span>
@@ -580,7 +510,6 @@ export const Navigation: React.FC<Props> = ({
             </div>
           )}
 
-          {/* 프로젝트 탭일 때: 새 프로젝트 등록 버튼 (상태필터 위) */}
           {activeTab === 'projects' && (
             <div className="flex items-center gap-1.5 overflow-x-auto w-full p-1.5 bg-slate-100 border border-slate-200 rounded-xl scrollbar-none">
               <button
@@ -590,8 +519,6 @@ export const Navigation: React.FC<Props> = ({
                 <Briefcase className="w-4 h-4" />
                 <span>새 프로젝트 등록</span>
               </button>
-              {/* [수정] "프로젝트 리스트": 이제 눌렀을 때 카드 화면으로 돌아가는 진짜 탭 역할을 한다.
-                  엑셀/PDF 다운로드는 오른쪽의 작은 화살표(▼)를 따로 눌러야 열리도록 분리했다. */}
               <div className="relative flex items-stretch rounded-lg overflow-hidden border border-slate-200">
                 <button
                   onClick={onShowProjectsCardView}
@@ -614,7 +541,6 @@ export const Navigation: React.FC<Props> = ({
 
                 {isProjectListMenuOpen && (
                   <>
-                    {/* 바깥 영역을 누르면 닫히도록 하는 투명 오버레이 */}
                     <div className="fixed inset-0 z-30" onClick={() => setIsProjectListMenuOpen(false)} />
                     <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 overflow-hidden">
                       <button
@@ -636,8 +562,6 @@ export const Navigation: React.FC<Props> = ({
                 )}
               </div>
 
-              {/* [수정] "리스트 출력" 탭: 누르면 카드 목록 대신 화면에 표 형태로 전체 프로젝트가 보이고,
-                  그 화면 안에서 바로 엑셀/PDF로 출력할 수 있다. "프로젝트 리스트"를 누르면 다시 카드로 돌아간다. */}
               <button
                 onClick={onShowProjectsListOutput}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
@@ -650,11 +574,6 @@ export const Navigation: React.FC<Props> = ({
                 <span>리스트 출력</span>
               </button>
 
-              {/* [수정] "손익계산서" → "원가계산서"로 이름과 양식을 바꿨다. 이제는 회계관리
-                  데이터를 자동 집계하는 대신, 프로젝트별로 매출액/직접원가/간접원가/일반관리비/
-                  사후관리비용을 직접 입력하는 정식 원가계산서 양식이다. 회사 재무 데이터를
-                  다루는 성격은 그대로라 계속 관리자에게만 노출한다 - 형제 버튼(리스트 출력/
-                  파이프라인)은 원래 전 사용자 공개지만, 이 데이터는 성격이 달라 별도 판단으로 막았다. */}
               {currentUser?.role === 'admin' && (
                 <button
                   onClick={onShowProjectsPnl}
@@ -669,7 +588,6 @@ export const Navigation: React.FC<Props> = ({
                 </button>
               )}
 
-              {/* [수정] "파이프라인" 탭: 영업 깔때기(기회→진행→완료/실패)와 핵심 지표를 한눈에 보는 대시보드 */}
               <button
                 onClick={onShowProjectsPipeline}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
@@ -684,7 +602,6 @@ export const Navigation: React.FC<Props> = ({
             </div>
           )}
 
-          {/* 프로젝트 탭일 때 우측 상태 칩 필터링 */}
           {activeTab === 'projects' && (
             <div className="flex items-center gap-1.5 overflow-x-auto w-full">
               <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">상태필터:</span>
@@ -753,8 +670,6 @@ export const Navigation: React.FC<Props> = ({
       <ReferralModal currentUser={currentUser} onClose={() => setIsReferralOpen(false)} />
     )}
 
-    {/* [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 플로팅 "문의하기" 버튼.
-        Navigation은 모든 탭에서 공통으로 항상 렌더링되므로, 여기에 두면 어느 화면에 있든 계속 떠 있다. */}
     <button
       type="button"
       onClick={() => setIsFeedbackOpen(true)}
@@ -811,58 +726,3 @@ export const Navigation: React.FC<Props> = ({
                     onClick={() => setFeedbackCategory('feature')}
                     className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'feature' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'}`}
                   >
-                    <Lightbulb className="w-4 h-4" />
-                    기능 제안
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFeedbackCategory('other')}
-                    className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all ${feedbackCategory === 'other' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'}`}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    기타 문의
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-500 block mb-2">내용</label>
-                <textarea
-                  rows={5}
-                  value={feedbackContent}
-                  onChange={(e) => setFeedbackContent(e.target.value)}
-                  placeholder="어떤 화면에서, 무슨 문제가 있었는지 또는 어떤 기능이 있으면 좋을지 자유롭게 적어주세요."
-                  className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
-                />
-              </div>
-
-              {feedbackError && (
-                <p className="text-xs text-rose-400">{feedbackError}</p>
-              )}
-
-              <button
-                type="button"
-                onClick={submitFeedback}
-                disabled={feedbackSubmitting}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/25 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {feedbackSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                    <span>접수 중...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>문의 제출하기</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    )}
-    </>
-  );
-};
