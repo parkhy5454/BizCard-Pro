@@ -867,4 +867,7 @@ export const Navigation: React.FC<Props> = ({
     )}
     </>
   );
+}
+
+// [Fixed] Bottom navigation tabs moved outside header - October 2026
 };
