@@ -1,0 +1,360 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+    Roboto, 'Helvetica Neue', 'Segoe UI', 'Malgun Gothic', sans-serif;
+
+  /* 기본 Tailwind indigo보다 살짝 더 깊고 풍부한 바이올렛 톤으로 다듬은 브랜드 포인트 색상
+     (앱 전체에서 bg-indigo-*, text-indigo-*, border-indigo-* 등으로 이미 쓰이고 있어
+     이 값만 바꿔도 버튼/활성탭/포커스 색상이 자동으로 톤이 바뀝니다) */
+  --color-indigo-50: #F1F0FE;
+  --color-indigo-100: #E4E2FD;
+  --color-indigo-200: #CBC6FB;
+  --color-indigo-300: #A79EF6;
+  --color-indigo-400: #8A7BF0;
+  --color-indigo-500: #7460EA;
+  --color-indigo-600: #6247DD;
+  --color-indigo-700: #5138BC;
+  --color-indigo-800: #422F97;
+  --color-indigo-900: #382A78;
+  --color-indigo-950: #221A4D;
+
+  /* 기본 Tailwind blue보다 채도를 낮추고 깊이를 더한 코발트 톤 — 위 indigo와 그라데이션으로
+     이어졌을 때(from-blue-600 to-indigo-600 등, 앱 전반에 이미 쓰이는 패턴) 훨씬 자연스럽게 조화된다 */
+  --color-blue-50: #EFF5FF;
+  --color-blue-100: #DCE9FE;
+  --color-blue-200: #BAD4FD;
+  --color-blue-300: #8DB8FB;
+  --color-blue-400: #5C96F5;
+  --color-blue-500: #3D79EC;
+  --color-blue-600: #2E5FDB;
+  --color-blue-700: #2549B4;
+  --color-blue-800: #1F3D8F;
+  --color-blue-900: #1C356F;
+  --color-blue-950: #131F45;
+
+  /* 밋밋하고 칙칙하게 느껴지던 기본 slate 대신, 명도 단계 사이 대비를 또렷이 살리고
+     아주 옅은 블루 톤을 섞어 더 고급스러운 "차콜/옵시디언" 느낌으로 다듬은 배경 색상.
+     bg-slate-*, border-slate-*, text-slate-* 로 앱 전체에서 이미 쓰이고 있어
+     이 값만 바꿔도 전체 화면 톤이 자동으로 바뀐다. */
+  --color-slate-50: #F7F8FA;
+  --color-slate-100: #ECEEF3;
+  --color-slate-200: #D9DCE4;
+  --color-slate-300: #B2B8C6;
+  --color-slate-400: #8890A3;
+  --color-slate-500: #666E82;
+  --color-slate-600: #4C5265;
+  --color-slate-700: #383D4D;
+  --color-slate-800: #23262F;
+  --color-slate-900: #15171E;
+  --color-slate-950: #0B0C11;
+
+  /* [추가] "화면이 알록달록하고 산만하다 / 참고 사이트(프리스비 코리아 쇼핑몰)처럼 깔끔했으면
+     좋겠다"는 요청에 맞춘 정리. 위 indigo/blue/slate는 이미 예전에 톤을 다듬어뒀는데,
+     emerald(초록 뱃지/성공 표시)·rose(삭제/경고)·amber(주의) 세 색상은 아직 Tailwind
+     기본값 그대로라 채도가 높고 쨍해서 화면 곳곳의 뱃지·라벨·아이콘 색이 서로 튀어 보였다.
+     위 세 색상과 같은 방식으로 채도를 낮추고 톤을 깊게 다듬어서, 앱 전체에서 이미
+     bg-emerald-*, text-rose-*, border-amber-* 등으로 쓰이고 있는 곳들의 색이 한 번에
+     차분하게 바뀌도록 했다(화면 하나하나를 직접 고치는 대신, 색상표 자체를 다듬는 방식 -
+     indigo/blue/slate와 동일한 전략). */
+  --color-emerald-50: #F0F5F2;
+  --color-emerald-100: #DEEBE4;
+  --color-emerald-200: #BCD7C9;
+  --color-emerald-300: #92BCA6;
+  --color-emerald-400: #679D80;
+  --color-emerald-500: #4C8266;
+  --color-emerald-600: #3D6B53;
+  --color-emerald-700: #335743;
+  --color-emerald-800: #2A4636;
+  --color-emerald-900: #23392C;
+  --color-emerald-950: #13211A;
+
+  --color-rose-50: #F7EFEF;
+  --color-rose-100: #EEDDDD;
+  --color-rose-200: #DDBEBE;
+  --color-rose-300: #C79797;
+  --color-rose-400: #AC6E6E;
+  --color-rose-500: #925151;
+  --color-rose-600: #7A3E3E;
+  --color-rose-700: #633333;
+  --color-rose-800: #4F2A2A;
+  --color-rose-900: #402424;
+  --color-rose-950: #251313;
+
+  --color-amber-50: #F7F2E9;
+  --color-amber-100: #EEE2C9;
+  --color-amber-200: #DEC494;
+  --color-amber-300: #C9A15D;
+  --color-amber-400: #B08536;
+  --color-amber-500: #966E28;
+  --color-amber-600: #7C5A22;
+  --color-amber-700: #63481C;
+  --color-amber-800: #503A19;
+  --color-amber-900: #423017;
+  --color-amber-950: #251A0C;
+
+  /* [추가] shadow-lg/shadow-xl이 앱 전반(카드/버튼/모달)에 자주 쓰이는데, Tailwind 기본
+     그림자는 다소 진하고 딱딱해서 참고 사이트처럼 은은하고 정돈된 느낌과는 거리가 있었다.
+     그림자 자체를 더 얇고 부드럽게 다듬어서, 화면마다 손대지 않고 한 번에 톤을 낮췄다. */
+  --shadow-lg: 0 8px 20px -6px rgb(0 0 0 / 0.10), 0 3px 8px -4px rgb(0 0 0 / 0.06);
+  --shadow-xl: 0 14px 32px -10px rgb(0 0 0 / 0.12), 0 4px 10px -4px rgb(0 0 0 / 0.06);
+}
+
+/* [추가] 앱 전체에서 text-[9px]/text-[10px]/text-[11px] 같은 아주 작은 임의 크기 글자가
+   900곳 넘게 쓰이고 있어서(뱃지, 보조 설명, 타임스탬프 등), 화면이 빽빽하고 읽기 빠듯한
+   인상을 준다는 피드백과 맞닿아 있다. 화면 하나하나를 찾아 고치는 대신, 아주 작은 글자
+   크기들에 대한 "최소 크기"를 전역으로 한 단계씩 올려서 가독성을 개선한다 - 클래스 이름
+   자체(레이아웃에 쓰이는 값)는 그대로 두고 실제 렌더링 크기만 살짝 키우는 방식이라 안전하다. */
+.text-\[9px\], [class*="text-[9px]"] { font-size: 11px !important; }
+.text-\[10px\], [class*="text-[10px]"] { font-size: 11px !important; }
+.text-\[11px\], [class*="text-[11px]"] { font-size: 12px !important; }
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'tnum' 1; /* 숫자(금액/전화번호 등) 폭을 고르게 정렬 */
+  /* [추가] 화면이 빽빽해 보인다는 피드백에 맞춰, 줄 사이 간격의 기본값을 살짝 넉넉하게
+     올렸다. 각 요소가 leading-none/leading-tight처럼 줄간격을 직접 지정한 곳은 그대로
+     그 값이 우선 적용되고, 아무 지정이 없는 일반 텍스트에만 이 기본값이 적용되므로
+     기존 레이아웃을 깨뜨리지 않으면서 전체적인 여백감만 은은하게 더한다. */
+  line-height: 1.55;
+}
+
+/* 평평한 단색 대신 은은한 방사형/선형 그라데이션으로 배경에 깊이감을 준다.
+   (App.tsx의 최상위 컨테이너가 bg-slate-950을 쓰므로, 그 위에 살짝 얹히는 정도로 아주 은은하게) */
+body {
+  background-color: var(--color-slate-950);
+  background-image:
+    radial-gradient(1200px 600px at 12% -10%, rgba(98, 71, 221, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(46, 95, 219, 0.08), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* 스크롤바를 어두운 테마에 맞춰 얇고 은은하게 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+/* 텍스트 드래그 선택 시 브랜드 색상 반영 */
+::selection {
+  background: rgba(99, 102, 241, 0.35);
+  color: #fff;
+}
+
+/* 키보드 포커스 표시를 또렷하고 세련되게 */
+:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* [추가] iOS Safari는 input/select/textarea의 글자 크기가 16px보다 작으면, 그 칸을
+   탭해서 포커스가 갈 때 "글자가 작아서 안 보이나 보다" 하고 화면 전체를 자동으로
+   확대해버린다. 앱 전반에 text-xs(12px)/text-[11px] 등 작은 글자 크기가 많이 쓰여서,
+   검색창이나 서브 메뉴 안의 입력창을 탭할 때마다 이 자동 확대가 발생하고 있었다.
+   Tailwind 유틸리티 클래스(font-size)가 이미 개별 요소에 붙어 있어서 나중에 로드되는
+   순서상 이길 수 있으므로, !important로 모바일 폭(768px 이하)에서만 입력 요소의
+   글자 크기를 16px로 강제한다 — 화면에 보이는 스타일(패딩/색상 등)은 그대로 두고,
+   자동 확대만 막는다. 데스크톱에서는 원래 디자인 그대로 작은 글자 크기를 쓴다.
+   각 화면을 하나씩 손보지 않고 앱 전체에 한 번에 적용되는 전역 안전장치다. */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* 인쇄용 포털(#print-root): 평소엔 화면에 안 보이고,
+   인쇄할 때만 앱 전체(#root)를 감추고 이 안의 내용만 단독으로 인쇄됩니다.
+   앱 트리 밖의 완전히 독립된 영역이라 다른 화면 요소의 여백/숨김 문제에 영향을 받지 않습니다.
+   [수정] 예전엔 인쇄할 때 무조건 #root를 통째로 숨겼는데, 그러면 이 포털 방식을 안 쓰고
+   화면에 보이는 내용을 그대로 인쇄하던 다른 기능들(통합 차량 관리의 운행기록부, 프로젝트
+   목록 PDF 등)은 정작 인쇄할 화면(#root 안)까지 같이 숨겨져서 인쇄 결과가 완전히
+   하얗게 나오는 문제가 있었다. 이제 "이 포털을 실제로 쓰는 인쇄"에서만 body에
+   print-portal-mode 클래스를 붙이도록 하고, #root를 숨기는 규칙도 그 클래스가 있을
+   때만 적용되게 좁혔다 — 포털을 안 쓰는 기존 인쇄 기능들은 원래대로 화면 그대로 인쇄된다. */
+#print-root {
+  display: none;
+}
+@media print {
+  body.print-portal-mode #root {
+    display: none !important;
+  }
+  #print-root {
+    display: block !important;
+  }
+  #print-root, #print-root * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  body.print-portal-mode {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  /* [추가] 월별 자금 현황처럼 표가 가로로 넓은 문서는 세로(portrait)로 인쇄하면 잘려서
+  나온다. 인쇄할 내용에 이 클래스가 붙어있으면 그 페이지만 가로(landscape)로 인쇄되도록
+  이름 붙은 페이지 규칙을 별도로 둔다(다른 인쇄물에는 영향 없음). */
+  @page cashflow-landscape {
+    size: A4 landscape;
+    margin: 48mm 10mm 12mm 10mm;
+  }
+  /* [수정] 표가 길어 2페이지 이상으로 넘어가는 문서(가지급내역 등)에서, 이어지는 페이지들은
+  브라우저가 자동으로 붙이는 인쇄 머리글(주소/날짜/페이지 번호 등)과 표 내용이 너무 붙어
+  보인다는 요청에 맞춰, 1페이지의 위쪽 여백(12mm)보다 이어지는 페이지들의 위쪽 여백을 더 크게
+  준다 - 처음엔 2배(24mm)로 했었는데 그래도 붙어 보인다는 요청이 다시 와서 48mm(1페이지의
+  4배, 처음 늘렸던 24mm의 다시 2배)로 더 키움. 1페이지만 :first로 원래 값(12mm)으로 낮춘다. */
+  @page cashflow-landscape:first {
+    margin-top: 12mm;
+  }
+  /* [수정] 이 클래스가 붙는 div들은 화면 크기와 똑같이 minHeight를 210mm(용지 세로 길이와
+  정확히 같은 값)로 주고 있는데, 브라우저가 mm를 실제 픽셀로 변환하는 과정에서 아주 미세한
+  반올림 오차가 생겨 실제 렌더링 높이가 210mm를 살짝 넘는 경우가 있다. margin:0인 이 페이지
+  규칙에서는 그 미세한 초과분 때문에도 짧은 문서가 빈 페이지 하나를 더 만들어낼 수 있다.
+  min-height를 없애 내용 길이만큼만 차지하게 하면, 어차피 짧은 문서는 한 페이지에 다 들어가고
+  실제로 긴 문서만 자연스럽게 다음 페이지로 이어진다.
+  [수정] 가지급내역처럼 표가 길어 여러 페이지로 넘어가는 문서는, 바깥 div 자체의 padding만으로는
+  첫 페이지 시작/마지막 페이지 끝에만 여백이 생기고 페이지가 넘어가는 경계(1페이지 하단,
+  2페이지 상단)에는 여백이 전혀 안 생기는 문제가 있었다(근로계약서 등에서 이미 겪었던 것과
+  같은 문제). @page의 margin은 종이가 몇 장으로 나뉘든 모든 페이지에 똑같이 적용되므로, 위
+  cashflow-landscape의 margin을 0이 아니라 실제 여백(12mm/10mm)으로 주고, 바깥 div 자체의
+  padding/고정폭은 인쇄 시엔 없애서 이중 여백이나 폭 초과로 잘리는 문제 없이 페이지 여백을
+  이 @page 규칙 하나가 전담하게 한다. */
+  .print-landscape {
+    page: cashflow-landscape;
+    min-height: auto !important;
+    width: auto !important;
+    padding: 0 !important;
+  }
+  /* [추가] 근로계약서처럼 글이 길어서 여러 페이지로 넘어갈 수 있는 문서는, 바깥 div의
+  padding만으로는 첫 페이지 시작/마지막 페이지 끝에만 여백이 생기고 중간 페이지 경계
+  (1페이지 하단, 2페이지 상단)에는 여백이 전혀 안 생기는 문제가 있었다. @page의 margin은
+  종이가 몇 장으로 나뉘든 모든 페이지에 똑같이 적용되므로, 이 방식으로 바꿔서 페이지가
+  넘어가도 위아래 여백이 항상 유지되게 한다. */
+  @page document-page {
+    size: A4 portrait;
+    margin: 30mm 25mm;
+  }
+  /* [추가] .print-document-margins에 준 padding(20mm 25mm)과 고정폭(210mm)은 화면
+  미리보기에서 A4 페이지처럼 보이려고 넣은 것뿐이다. 실제 인쇄 시에는 위 @page
+  document-page의 margin이 모든 페이지에 동일하게 적용되므로, 이 div 자체의 padding/
+  고정폭은 0으로 없애서 이중 여백이나 폭 초과로 잘리는 문제가 없게 한다. */
+  /* [수정] 공문서에서 발견된 것과 동일한 문제 — 이 클래스가 붙는 바깥 div들(근로/연봉계약서,
+  재직증명서, 영업계약서, 퇴직금중간정산지급명세서 등)도 화면 미리보기용으로 인라인
+  minHeight:297mm를 갖고 있는데, 이게 인쇄 시에도 그대로 남아있으면 내용이 짧아 한 페이지에
+  다 들어가는 문서도 이 페이지의 실제 인쇄 가능 영역(297mm - 위30mm - 아래30mm = 237mm)을
+  넘겨버려 뒤에 빈 페이지가 하나 더 생긴다. 인쇄할 때는 이 최소 높이를 없애서 내용 길이만큼만
+  차지하게 하고, 페이지 사이 여백은 위 @page document-page의 margin이 전담하게 한다. */
+  .print-document-margins {
+    page: document-page;
+    width: auto !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* [수정] 공문서(전자결재)는 여백이 사방 20mm다(처음엔 25mm 균일 → 위/아래 25mm+좌우
+  20mm → 지금은 요청에 따라 사방 20mm로 통일), 근로계약서 등이 쓰는 document-page(위/아래
+  30mm)와는 다르다. 같은 이유로 - 본문이 길어 페이지가 넘어가도 매 페이지 여백이 항상
+  유지되도록 - 전용 named page를 따로 둔다. 화면 미리보기에서는 이 규칙이 적용되지
+  않으므로(@media print 안에만 있음) 평소엔 그대로 210mm 고정폭 + td padding(아래 tsx
+  쪽 20mm)으로 보인다. */
+  @page official-document-page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+  /* [수정] 위 규칙만으로는 화면 미리보기용으로 넣어둔 바깥 div의 인라인 minHeight:297mm가
+  인쇄 시에도 그대로 남아있어서, 실제 내용이 짧아 한 페이지에 다 들어가는 문서도 강제로
+  297mm 높이를 채우려다 이 문서용 페이지의 실제 인쇄 가능 영역(25mm 여백을 뺀 247mm)을
+  넘겨버려 뒤에 빈 페이지가 하나 더 생기는 문제가 있었다. 인쇄할 때는 이 최소 높이를
+  없애서 내용 길이만큼만 차지하게 하고, 페이지 사이 여백은 이제 위 named page의 margin이
+  전담하므로 문제 없다.
+  [수정] "여백이 코드에 정한 값(25mm/20mm)보다 훨씬 크게(위 35mm/좌우 37mm 등) 나온다"는
+  버그의 실제 원인을 찾았다 - 이 클래스가 지금은 <table> 태그에 붙는데(공문서 하단 블록을
+  매 페이지에 반복하려고 <table>+<tfoot> 구조로 바꾸면서), <table>은 일반 <div>와 달리
+  width:auto일 때 "가능한 너비를 다 채우기"가 아니라 "내용 크기만큼만 줄어들기
+  (shrink-to-fit)"로 동작한다. 그 상태에서 margin:0 auto로 가운데 정렬을 하면, 본문 글자
+  폭이 페이지 폭보다 좁을 때 그 차이만큼이 좌우에 "보이지 않는 추가 여백"으로 더 붙어버려서
+  실제 여백이 @page에 정한 값보다 훨씬 커지고, 본문 길이에 따라 매번 들쭉날쭉해진다(Playwright로
+  실제 인쇄 결과를 픽셀 단위로 측정해서 확인). width를 auto 대신 100%로 주면 <table>이
+  페이지의 실제 인쇄 가능 너비(@page margin을 뺀 나머지)를 정확히 다 채우게 되어, 좌우
+  여백이 @page에 정한 값과 정확히 일치하게 된다. */
+  .print-official-document-margins {
+    page: official-document-page;
+    width: 100% !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+  /* [추가] 공문서 하단 블록(직인+결재란 등)이 매 페이지 아래에 반복되도록 문서 전체를
+  <table>(본문=tbody, 하단 블록=tfoot)로 구성하면서, 화면 미리보기용으로 tbody/tfoot의
+  <td>에 준 20mm padding이 실제 인쇄 시에는 위 official-document-page의 @page margin(20mm)과
+  이중으로 겹쳐 여백이 2배가 되는 문제가 있었다. 인쇄 시에는 이 td들의
+  padding을 모두 없애서, 페이지 여백은 오직 @page 규칙 하나가 전담하게 한다.
+  [주의] 자손 선택자(td)가 아니라 바로 아래 자식(> tbody/tfoot > tr > td)만 골라야 한다 -
+  안 그러면 본문 안쪽의 수신자/참조/제목 표처럼 문서 내용 자체에 필요한 다른 <td>들의
+  padding까지 전부 없어져 버린다. */
+  .print-official-document-margins > tbody > tr > td,
+  .print-official-document-margins > tfoot > tr > td {
+    padding: 0 !important;
+  }
+
+  /* [추가] 해외 출장 경비 - 표(사용내역) + 사용구분별 합계 표까지 있어 내용이 길면 2페이지
+  이상으로 넘어갈 수 있다. "페이지가 넘어가면 2페이지부터는 상단 여백을 1페이지의 2배 정도로
+  줘서 자연스럽게 출력되게" 요청에 맞춰, 1페이지 위쪽 여백은 화면 미리보기와 같은 15mm로
+  두고, 2페이지부터는 그 2배인 30mm로 준다 - cashflow-landscape/document-page와 같은 방식으로,
+  @page의 margin은 종이가 몇 장으로 나뉘든 모든 페이지에 똑같이 적용되므로 페이지 경계에서도
+  여백이 자연스럽게 유지된다(바깥 div 자체의 padding만으로는 중간 페이지 경계에 여백이 전혀
+  생기지 않는다는 게 이미 위 문서들에서 확인된 문제라 같은 방식을 그대로 따른다). */
+  @page overseas-trip-page {
+    size: A4 portrait;
+    margin: 30mm 15mm 15mm 15mm;
+  }
+  @page overseas-trip-page:first {
+    margin-top: 15mm;
+  }
+  /* [추가] 위 named page의 margin이 여백을 전담하므로, 화면 미리보기용으로 넣어둔 바깥 div의
+  인라인 padding(15mm)/고정폭(210mm)/최소높이는 인쇄 시엔 없애서 이중 여백이나 폭 초과,
+  불필요한 빈 페이지가 생기지 않게 한다. */
+  .print-overseas-trip-margins {
+    page: overseas-trip-page;
+    width: auto !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* [추가] 연차 현황 - 이름/입사일자/총년차일수/휴가일/사용연차일수/잔여일수/비고 +
+  휴일(초과)근무(일자/기간/시간/현장) + 대체휴가 + 비고까지 열이 많아 표가 가로로 넓으므로
+  월별 자금 현황(cashflow-landscape)과 같이 가로(landscape)로 인쇄한다. 직원이 많아 내용이
+  길면 2페이지 이상으로 넘어갈 수 있어, 위 해외 출장 경비와 같은 이유로 - 페이지 경계에서도
+  여백이 유지되도록 - 1페이지 위쪽 여백(15mm)의 2배(30mm)를 2페이지부터 적용하는 전용
+  named page를 둔다. */
+  @page annual-leave-page {
+    size: A4 landscape;
+    margin: 30mm 15mm 15mm 15mm;
+  }
+  @page annual-leave-page:first {
+    margin-top: 15mm;
+  }
+  .print-annual-leave-margins {
+    page: annual-leave-page;
+    width: auto !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+}
