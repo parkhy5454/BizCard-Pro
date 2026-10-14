@@ -140,39 +140,12 @@ function validatePasswordComplexity(password: string): { valid: boolean; error?:
     return { valid: false, error: '비밀번호에는 최소 1개의 숫자(0-9)가 포함되어야 합니다.' };
   }
 
-  // [보안 수정] 특수문자 포함 확인: 더 많은 특수문자 허용
-  // 이전: [!@#$%^&*_\-=+] (제한적)
-  // 이후: 일반적인 특수문자 대부분 허용 (공백/문자열 구분문자 제외)
-  if (!/[!@#$%^&*()_\-+=\[\]{};:'",.<>?/\\|`~]/.test(password)) {
-    return { valid: false, error: '비밀번호에는 최소 1개의 특수문자가 포함되어야 합니다.' };
+  // 특수문자 포함 확인 (!@#$%^&*_-=+)
+  if (!/[!@#$%^&*_\-=+]/.test(password)) {
+    return { valid: false, error: '비밀번호에는 최소 1개의 특수문자(!@#$%^&*_-=+)가 포함되어야 합니다.' };
   }
 
   return { valid: true };
-}
-
-// [보안 추가] 에러 메시지 sanitization: 민감한 정보 노출 방지
-// 데이터베이스 에러, 파일 경로, 내부 구조 등이 노출되지 않도록 필터링
-function sanitizeErrorMessage(err: any): string {
-  const errStr = String(err?.message || err || '');
-
-  // [보안] 민감한 정보를 포함하는 에러는 일반 메시지로 변환
-  // DB 에러, 파일 경로, 스택 추적 등 노출하면 안 되는 정보들
-  const sensitivePatterns = [
-    /database|sql|query|connection|pool/i,
-    /file|path|directory|mkdir|fs\.|exist/i,
-    /key|secret|credential|token|password/i,
-    /\/home\/|\/root\/|\/tmp\/|C:\\|\$/i,  // 파일 경로
-    /eaddrinuse|econnrefused|etimedout/i,  // 네트워크 에러
-  ];
-
-  for (const pattern of sensitivePatterns) {
-    if (pattern.test(errStr)) {
-      return '요청을 처리하는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
-    }
-  }
-
-  // 안전한 에러 메시지만 그대로 반환
-  return errStr.length > 200 ? '요청을 처리하는 중 문제가 발생했습니다.' : errStr;
 }
 
 // [추가] SQL 주입 공격 방어
@@ -2057,23 +2030,8 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ error: '필수 가입 정보가 누락되었습니다.' });
   }
 
-  // [보안 추가] 회사 계정(company type)의 경우 사업자등록번호는 필수
-  if (type === 'company') {
-    const trimmedBNum = (businessNumber || '').trim();
-    if (!trimmedBNum) {
-      return res.status(400).json({ error: '회사 계정 가입 시 사업자등록번호는 필수입니다.' });
-    }
-    // [보안 추가] 사업자등록번호 기본 형식 검증 (10자리 숫자)
-    // 실제로는 "검증 알고리즘"을 써야 하지만, 여기서는 형식만 먼저 체크
-    if (!/^\d{10}$/.test(trimmedBNum)) {
-      return res.status(400).json({ error: '사업자등록번호는 10자리 숫자여야 합니다.' });
-    }
-  }
-
-  // [수정] 이메일 입력값 검증: RFC 5322 기본 패턴으로 강화
-  // 이전: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ (a@b.c 같은 잘못된 이메일도 통과)
-  // 이후: 좀 더 엄격한 검증 (단, 완벽한 RFC 5322 준수는 매우 복잡하므로 합리적 수준에서)
-  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  // [수정] 이메일 입력값 검증: 기본 형식만 검증 (Supabase가 SQL 주입 방어)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const normalizedEmail = email.toLowerCase().trim();
   if (!emailRegex.test(normalizedEmail)) {
     return res.status(400).json({ error: '올바른 이메일 형식이 아닙니다.' });
@@ -2109,12 +2067,7 @@ app.post('/api/auth/signup', async (req, res) => {
     if (existing) users = freshUsers; // 캐시가 오래되어 있었다면 이 기회에 최신 상태로 갱신
   }
   if (existing) {
-    // [보안 수정] 사용자 열거 취약점 방지: 구체적인 에러 메시지 대신 일반적인 메시지 반환
-    // 이전: "이미 가입에 사용된 이메일입니다" (이메일 존재 여부 노출)
-    // 이후: 가입 전 언제든 "확인 이메일을 보냈습니다"로 통일
-    return res.status(200).json({
-      message: '입력하신 정보로 계정을 확인 중입니다. 이미 가입되어 있다면 이메일을 확인해주세요.'
-    });
+    return res.status(400).json({ error: '이미 가입에 사용된 이메일입니다. 개인/사업자 계정 모두 같은 이메일로는 중복 가입할 수 없으니, 다른 이메일로 가입해주세요.' });
   }
 
   // [수정] role은 이제 클라이언트가 보낸 값(requestedRole)을 절대 신뢰하지 않고 서버가
@@ -2146,11 +2099,8 @@ app.post('/api/auth/signup', async (req, res) => {
   const emailVerificationToken = isMailerConfigured ? crypto.randomBytes(32).toString('hex') : undefined;
   const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 
-  // [보안 수정] User ID 생성: Date.now()는 시간 순서대로 예측 가능
-  // 이전: id: `user-${Date.now()}` (동시에 가입할 경우 ID 충돌 가능, 타이밍으로 예측 가능)
-  // 이후: crypto.randomBytes로 생성 (16바이트 = 128비트, 충돌 확률 무시할 수준)
   const newUser: RegisteredUser = {
-    id: `user-${crypto.randomBytes(16).toString('hex')}`,
+    id: `user-${Date.now()}`,
     email: email.toLowerCase(),
     password: bcrypt.hashSync(password, 10), // 안전하게 암호화하여 저장
     name,
@@ -2819,14 +2769,6 @@ app.get('/api/auth/audit-logs', async (req, res) => {
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
   if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 조회할 수 있습니다.' });
 
-  // [보안 추가] 회사 관리자가 승인 대기 상태이면 감시 로그 접근 불가
-  if (requester.type === 'company' && requester.approvalStatus === 'pending') {
-    return res.status(403).json({
-      error: '아직 승인을 받지 못했습니다. 승인 후 감시 로그를 조회할 수 있습니다.',
-      pendingApproval: true
-    });
-  }
-
   const logs = await getAuditLogs(scopeIdForUser(requester));
   res.json(logs);
 });
@@ -2869,15 +2811,6 @@ app.get('/api/backup/export', async (req, res) => {
   if (requester.type === 'company' && requester.role !== 'admin') {
     return res.status(403).json({ error: '회사 계정은 관리자만 전체 백업을 내려받을 수 있습니다.' });
   }
-
-  // [보안 추가] 회사 관리자가 승인 대기 상태이면 백업 내보내기 불가
-  if (requester.type === 'company' && requester.approvalStatus === 'pending') {
-    return res.status(403).json({
-      error: '아직 승인을 받지 못했습니다. 승인 후 데이터 백업을 내보낼 수 있습니다.',
-      pendingApproval: true
-    });
-  }
-
   const backupLimit = backupExportRateLimiter.check(requester.id);
   backupExportRateLimiter.registerAttempt(requester.id);
   if (!backupLimit.allowed) {
@@ -5503,27 +5436,6 @@ app.post('/api/projects', async (req, res) => {
 // 배열로 만들어 보내면 한 번에 저장한다. 단건 등록(app.post('/api/projects'))과 동일한
 // 기본값 채우기 규칙을 그대로 따른다.
 app.post('/api/projects/import', async (req, res) => {
-  // [보안 추가] 로그인 필수 및 권한 검증
-  const userId = req.headers['x-user-id'] as string;
-  const requester = userId ? users.find(u => u.id === userId) : undefined;
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  // [보안 추가] 승인 대기 중이거나 이메일 미인증 사용자 차단
-  if (requester.type === 'company' && requester.approvalStatus === 'pending') {
-    return res.status(403).json({
-      error: '아직 승인을 받지 못했습니다. 승인 후 프로젝트를 등록할 수 있습니다.',
-      pendingApproval: true
-    });
-  }
-  if (!isEmailVerified(requester.emailVerified)) {
-    return res.status(403).json({
-      error: '이메일 인증이 필요합니다.',
-      emailVerificationRequired: true
-    });
-  }
-
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const importedProjects = req.body.importedProjects;
@@ -7690,16 +7602,6 @@ function requireAdmin(req: express.Request, res: express.Response): RegisteredUs
     res.status(403).json({ error: '관리자만 접근할 수 있는 화면입니다.' });
     return null;
   }
-
-  // [보안 추가] 회사 관리자도 승인 대기 상태이면 접근 불가
-  if (requester.type === 'company' && requester.approvalStatus === 'pending') {
-    res.status(403).json({
-      error: '아직 회사 상위 관리자의 승인을 받지 못했습니다. 승인 후 관리 기능을 사용할 수 있습니다.',
-      pendingApproval: true
-    });
-    return null;
-  }
-
   return requester;
 }
 
@@ -8548,43 +8450,9 @@ async function startServer() {
     Sentry.setupExpressErrorHandler(app);
   }
 
-  const server = app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
   });
-
-  // [보안 추가] 서버 종료 시 RateLimiter cleanup 타이머 정리
-  const rateLimiters = [
-    loginRateLimiter,
-    signupRateLimiter,
-    companyLookupRateLimiter,
-    aiScanRateLimiter,
-    resendVerificationRateLimiter,
-    forgotPasswordRateLimiter,
-    backupExportRateLimiter
-  ];
-
-  const gracefulShutdown = () => {
-    console.log('[Server] 서버 종료 신호 수신, 리소스 정리 중...');
-    rateLimiters.forEach(limiter => {
-      try {
-        limiter.destroy();
-      } catch (err) {
-        console.error('[Server] RateLimiter 정리 중 에러:', err);
-      }
-    });
-    server.close(() => {
-      console.log('[Server] 서버 종료 완료');
-      process.exit(0);
-    });
-    // 5초 후 강제 종료
-    setTimeout(() => {
-      console.error('[Server] 강제 종료');
-      process.exit(1);
-    }, 5000);
-  };
-
-  process.on('SIGTERM', gracefulShutdown);
-  process.on('SIGINT', gracefulShutdown);
 }
 
 startServer();
