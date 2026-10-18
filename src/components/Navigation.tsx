@@ -417,8 +417,10 @@ export const Navigation: React.FC<Props> = ({
           </div>
         </div>
 
+      </div>
+    </header>
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-           <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-40">
+        <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-40">
 
           <nav className="flex items-center gap-1 w-full pb-1 scrollbar-none">
             {/* 1. 홈 */}
@@ -899,7 +901,6 @@ export const Navigation: React.FC<Props> = ({
           )}
 
         </div>
-      </div>
     </header>
 
     {isFeedbackInboxOpen && (
