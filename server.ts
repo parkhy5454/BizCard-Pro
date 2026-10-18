@@ -11,6 +11,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
+import vision from '@google-cloud/vision';
 import * as XLSX from 'xlsx';
 import archiver from 'archiver';
 
@@ -336,12 +337,12 @@ const PORT = Number(process.env.PORT) || 3000;
 // [추가] 필수 환경 변수 검증
 const requiredEnvVars = [
   'CRON_SECRET',
-  'GEMINI_API_KEY',
   'TOSS_SECRET_KEY',
   'BREVO_API_KEY',
-  'KAKAO_REST_API_KEY',
   'DATABASE_URL',
   'APP_BASE_URL'
+  // GEMINI_API_KEY: 선택사항 (AI 기능에만 필요)
+  // KAKAO_REST_API_KEY: 선택사항 (지도 기능에만 필요)
 ];
 
 const missingEnvVars = requiredEnvVars.filter(v => !process.env[v]);
@@ -4388,134 +4389,103 @@ app.post('/api/scan-card', async (req, res) => {
       }
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
     if (!apiKey) {
-      // API Key가 미설정인 경우 프리뷰/테스트를 위해 스마트 정규식 또는 모의 파싱 결과 제공
+      // API Key가 미설정인 경우 프리뷰/테스트를 위해 모의 데이터 제공
       return res.json({
         name: '홍길동',
         company: '(주)스마트테크',
         department: '디지털 전환팀',
         title: '부장',
         phoneMobile: '010-1234-5678',
-        phoneOffice: '02-123-4567 (대표)',
-        phoneOffice2: '070-7654-3210 (직통)',
+        phoneOffice: '02-123-4567',
+        phoneOffice2: '070-7654-3210',
         phoneFax: '02-123-4568',
         email: 'gildong.hong@smarttech.co.kr',
-        address: '서울특별시 강남구 테헤란로 123 스마트빌딩 8층 (본사)',
-        address2: '경기도 성남시 분당구 판교역로 231 판교테크노밸리 R&D센터 3층 (판교연구소)',
-        memo: '자동 스캔 샘플 데이터 (GEMINI_API_KEY 설정 시 실시간 이미지 OCR 가동)',
-        companyInfo: '인공지능 기반 디지털 전환(DX) 및 스마트 기업 솔루션 전문 제공사 (전년도 매출액 약 120억원)'
+        address: '서울특별시 강남구 테헤란로 123',
+        address2: '경기도 성남시 분당구 판교역로 231',
+        memo: '샘플 데이터 (GOOGLE_CLOUD_VISION_API_KEY 설정 시 실시간 OCR 가동)',
+        companyInfo: ''
       });
     }
-
-    const ai = new GoogleGenAI({ apiKey });
     
-    // [수정] 예전엔 이 호출 안에서 googleSearch(실시간 구글 검색) 도구까지 같이 써서
-    // 회사 매출/비즈니스 요약(companyInfo)을 한 번에 만들었는데, 이 검색 도구가 일반 OCR보다
-    // 훨씬 엄격한 별도 할당량(quota)이 걸려있어서 자주 "RESOURCE_EXHAUSTED" 에러로 명함 등록
-    // 자체가 막히는 문제가 있었다. 영수증 스캔처럼 이름/직책/연락처만 뽑는 가볍고 빠른 호출로
-    // 분리하고, 회사 요약은 명함 상세보기의 "AI 매출액/비즈니스 실시간 검색" 버튼(별도 API:
-    // /api/company/search-summary)에서 필요할 때만 따로 조회하도록 한다.
-    const contents: any[] = [
-      "이 명함 이미지(앞면 및 뒷면)를 분석하여 다음 정보들을 추출해줘. 한국어 또는 영어 명함을 인식하여 정확한 문자열로 정리해줘.\n" +
-      "명함에 본사/지사, 서울사무소/공장, 헤드오피스/연구소 등 '주소가 2개 표기되어 있는 경우' 각각을 철저하게 분리하여 address와 address2에 나눠 담아주고, 주소가 1개만 있다면 address2는 빈 문자열로 처리해줘.\n" +
-      "또한 유선전화/사무실 전화번호가 2개 이상 존재하는 경우(예: 대표전화 및 직통번호, 혹은 서울사무소 번호 및 공장 번호), 첫 번째 번호는 phoneOffice에, 두 번째 번호는 phoneOffice2에 분리하여 담아주고, 1개만 있다면 phoneOffice2는 빈 문자열로 처리해줘.\n" +
-      // [수정] 텍스트 정보뿐 아니라, 사진 속에서 "명함 실물의 네 꼭짓점이 어디인지"도 같이 알려달라고 요청한다.
-      // 이렇게 받은 좌표로 나중에 반듯하게 자르면, 화면의 명암 차이만으로 테두리를 찾는 기존 방식보다
-      // 훨씬 안정적이다(배경과 명함 색이 비슷해도 AI는 "명함처럼 생긴 패턴" 자체로 인식하기 때문).
-      "추가로, 사진에 찍힌 명함 실물(종이 카드 자체)의 네 모서리 좌표를 각 이미지 기준으로 알려줘. " +
-      "좌표는 이미지의 가로/세로 크기에 대한 0~1 사이의 비율로 표현해줘 (예: 이미지 맨 왼쪽 위 모서리는 x:0, y:0). " +
-      "카메라 각도 때문에 명함이 기울어져 찍혔어도, 실제 카드의 네 꼭짓점 위치를 최대한 정확하게 찾아줘 " +
-      "(카드 주변 배경, 손가락, 그림자는 절대 포함하지 말고 카드 실물 가장자리에 딱 맞춰줘).\n" +
-      // [추가] 사용자가 폰을 가로로 눕혀서 찍는 등, 사진 자체가 회전된 채로 촬영되는 경우가
-      // 흔하다. 네 꼭짓점 좌표만으로는 "어디가 위쪽인지"(글자가 어느 방향으로 읽혀야 하는지)를
-      // 알 수 없어서, 순수 기하학적 계산으로 자르면 결과물이 옆으로 눕거나 거꾸로 나오는 문제가
-      // 있었다. Gemini는 실제 글자를 읽을 수 있으니, "이 이미지를 몇 도 시계 방향으로 돌려야
-      // 명함 글자가 똑바로(위아래 안 뒤집히고 옆으로 안 눕고) 보이는지"도 같이 알려달라고 한다.
-      "그리고 각 이미지별로, 그 이미지를 시계 방향으로 몇 도 돌려야 명함에 적힌 글자가 똑바로(거꾸로 뒤집히지 않고, 옆으로 눕지 않고) 정상적으로 읽히는지도 알려줘. " +
-      "값은 반드시 0, 90, 180, 270 중 하나여야 해 (이미 똑바로 보이면 0).\n" +
-      "응답은 반드시 아래 JSON 규격에 맞게 순수 JSON 데이터만 리턴해줘. 마크다운 백틱(```json) 없이 리턴하거나 있어도 JSON 파싱 가능해야 함.\n" +
-      "{\n" +
-      '  "name": "성명",\n' +
-      '  "company": "회사명",\n' +
-      '  "department": "부서명",\n' +
-      '  "title": "직책/직급",\n' +
-      '  "phoneMobile": "핸드폰 번호 (예: 010-XXXX-XXXX)",\n' +
-      '  "phoneOffice": "사무실 유선전화 1 (예: 02-XXXX-XXXX)",\n' +
-      '  "phoneOffice2": "사무실 유선전화 2 또는 직통번호/보조번호 (유선번호가 2개 존재하는 경우에만 기재, 1개일 경우 빈 문자열 \"\")",\n' +
-      '  "phoneFax": "팩스 번호",\n' +
-      '  "email": "이메일 주소",\n' +
-      '  "address": "회사 첫 번째/기본/본사 주소",\n' +
-      '  "address2": "회사 두 번째/지사/공장/보조 주소 (명함 내 주소가 2개 존재하는 경우에만 작성, 1개일 경우 빈 문자열 \"\")",\n' +
-      '  "website": "홈페이지 주소 (명함에 적혀있는 경우에만 기재, 없으면 빈 문자열 \"\")",\n' +
-      '  "memo": "명함에 적힌 슬로건이나 주요 비즈니스 요약",\n' +
-      '  "frontCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n' +
-      '  "backCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n' +
-      '  "frontRotation": 0,\n' +
-      '  "backRotation": 0\n' +
-      "}\n" +
-      "(frontCorners/frontRotation은 첫 번째로 첨부된 이미지, backCorners/backRotation은 두 번째로 첨부된 이미지 기준이야. 해당 이미지가 없으면 그 필드들은 생략해도 돼.)"
-    ];
+    // Google Cloud Vision API REST 호출
+    const requests: any[] = [];
 
     if (frontImage) {
       const base64Data = frontImage.replace(/^data:image\/\w+;base64,/, '');
-      contents.push("다음은 명함 앞면 이미지야 (frontCorners는 이 이미지 기준):");
-      contents.push({
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: base64Data
-        }
+      requests.push({
+        image: { content: base64Data },
+        features: [{ type: 'DOCUMENT_TEXT_DETECTION' }]
       });
     }
 
     if (backImage) {
       const base64DataBack = backImage.replace(/^data:image\/\w+;base64,/, '');
-      contents.push("다음은 명함 뒷면 이미지야 (backCorners는 이 이미지 기준):");
-      contents.push({
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: base64DataBack
-        }
+      requests.push({
+        image: { content: base64DataBack },
+        features: [{ type: 'DOCUMENT_TEXT_DETECTION' }]
       });
     }
 
-    const response = await generateContentWithRetry(ai, {
-      model: PRIMARY_GEMINI_MODEL,
-      contents: contents
-    });
-
-    const text = response.text || '';
-    let parsedJson: any = {};
     try {
-      const jsonStr = text.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-      parsedJson = JSON.parse(jsonStr);
-    } catch (e) {
-      console.error('JSON 파싱 실패, 텍스트 그대로 분석 시도:', text);
-      parsedJson = {
-        name: '인식 완료',
-        company: '확인 필요',
+      const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests })
+      });
+
+      if (!visionResponse.ok) {
+        const errorData = await visionResponse.json();
+        throw new Error(`Vision API Error: ${errorData.error?.message || 'Unknown error'}`);
+      }
+
+      const visionResult = await visionResponse.json();
+
+      // 텍스트 추출
+      let fullText = '';
+      if (visionResult.responses && visionResult.responses.length > 0) {
+        for (const response of visionResult.responses) {
+          if (response.fullTextAnnotation) {
+            fullText += response.fullTextAnnotation.text + '\n';
+          }
+        }
+      }
+
+      // 정규식으로 정보 추출
+      const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+      const phoneRegex = /(\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}|\d{3}[-.\s]?\d{3,4}[-.\s]?\d{4})/g;
+      const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-z]{2,}(?![a-z]))/gi;
+
+      const phones = fullText.match(phoneRegex) || [];
+      const emails = fullText.match(emailRegex) || [];
+      const urls = fullText.match(urlRegex) || [];
+
+      // 첫 번째 줄들에서 이름과 회사 추론
+      const lines = fullText.split('\n').filter(l => l.trim()).slice(0, 5);
+
+      const parsedJson: any = {
+        name: lines[0] || '',
+        company: lines[1] || '',
         department: '',
-        title: '',
-        phoneMobile: '',
-        phoneOffice: '',
-        phoneOffice2: '',
+        title: lines[2] || '',
+        phoneMobile: phones.find(p => p.startsWith('010')) || phones[0] || '',
+        phoneOffice: phones[1] || '',
+        phoneOffice2: phones[2] || '',
         phoneFax: '',
-        email: '',
+        email: emails[0] || '',
         address: '',
         address2: '',
-        memo: text.slice(0, 100),
-        companyInfo: '매출 정보 확인 어려움'
+        website: urls.find(u => u.includes('.')) || '',
+        memo: fullText.split('\n').slice(0, 3).join(' ').substring(0, 100),
+        companyInfo: ''
       };
+
+      res.json(parsedJson);
+    } catch (visionError: any) {
+      console.error('Vision API Error:', visionError);
+      throw visionError;
     }
-
-    // [추가] frontRotation/backRotation은 0/90/180/270 중 하나만 유효한 값이다. AI가 이 범위
-    // 밖의 값(문자열, null, 다른 숫자 등)을 주면 클라이언트에서 엉뚱하게 회전시킬 수 있으므로,
-    // 여기서 검증해서 벗어나면 "회전 불필요(0)"로 안전하게 처리한다.
-    const normalizeRotation = (v: any) => ([0, 90, 180, 270].includes(v) ? v : 0);
-    if ('frontRotation' in parsedJson) parsedJson.frontRotation = normalizeRotation(parsedJson.frontRotation);
-    if ('backRotation' in parsedJson) parsedJson.backRotation = normalizeRotation(parsedJson.backRotation);
-
-    res.json(parsedJson);
   } catch (error: any) {
     console.error('Gemini OCR Error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
