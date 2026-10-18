@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ReferralModal } from './ReferralModal.js';
@@ -132,6 +132,24 @@ export const Navigation: React.FC<Props> = ({
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록
+  const lastMoreMenuClickRef = useRef<number>(0);
+  const lastProjectClickRef = useRef<number>(0);
+
+  const handleMoreMenuToggle = () => {
+    const now = Date.now();
+    if (now - lastMoreMenuClickRef.current < 250) return; // 250ms 이내 클릭 무시
+    lastMoreMenuClickRef.current = now;
+    setIsMoreMenuOpen(!isMoreMenuOpen);
+  };
+
+  const handleProjectTabClick = () => {
+    const now = Date.now();
+    if (now - lastProjectClickRef.current < 250) return; // 250ms 이내 클릭 무시
+    lastProjectClickRef.current = now;
+    handleMainTabClick('projects');
+  };
+
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackContent, setFeedbackContent] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -465,7 +483,7 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 4. 프로젝트 */}
             <button
-              onClick={() => handleMainTabClick('projects')}
+              onClick={handleProjectTabClick}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'projects'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -477,9 +495,9 @@ export const Navigation: React.FC<Props> = ({
             </button>
 
             {/* 5. 더보기 드롭다운 (업무일지 및 나머지) */}
-            <div className="relative">
+            <div className="relative z-50">
               <button
-                onClick={(e) => { e.stopPropagation(); setIsMoreMenuOpen(!isMoreMenuOpen); }}
+                onClick={handleMoreMenuToggle}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                   isMoreMenuOpen
                     ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
