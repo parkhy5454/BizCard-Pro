@@ -2182,10 +2182,10 @@ app.post('/api/auth/signup', async (req, res) => {
 
   // 메모리 캐시(users)로 1차 확인 + Supabase에서 직접 한 번 더 재확인(캐시가 오래됐을 가능성에 대비한 안전장치).
   // 이 두 단계 확인으로, 같은 이메일로 두 계정(예: 개인+사업자)이 동시에 만들어지는 문제를 막는다.
-  let existing = users.find(u => u.email.toLowerCase() === normalizedEmail);
+  let existing = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
   if (!existing && process.env.DATABASE_URL) {
     const freshUsers = await getUsers();
-    existing = freshUsers.find(u => u.email.toLowerCase() === normalizedEmail);
+    existing = freshUsers.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
     if (existing) users = freshUsers; // 캐시가 오래되어 있었다면 이 기회에 최신 상태로 갱신
   }
   if (existing) {
@@ -2323,7 +2323,7 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  const user = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
   if (!user || !verifyPassword(password, user.password)) {
     loginRateLimiter.registerAttempt(limitKey);
     return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
@@ -2396,7 +2396,7 @@ app.post('/api/auth/resend-verification', async (req, res) => {
     return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
   }
 
-  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+  const user = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
   // 보안상 가입 여부를 알려주지 않고, 항상 같은 응답을 준다.
   if (user && !isEmailVerified(user.emailVerified) && isMailerConfigured) {
     user.emailVerificationToken = crypto.randomBytes(32).toString('hex');
@@ -2526,7 +2526,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
   }
 
-  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+  const user = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
 
   // 보안상 "가입된 이메일인지" 여부를 응답으로 알려주지 않는다 (등록 여부와 상관없이 동일한 안내).
   if (user && isMailerConfigured) {
@@ -2707,6 +2707,7 @@ app.get('/api/auth/duplicate-emails', async (req, res) => {
   const all = process.env.DATABASE_URL ? await getUsers() : users;
   const byEmail = new Map<string, RegisteredUser[]>();
   for (const u of all) {
+    if (!u.email) continue; // Skip users without email
     const key = u.email.toLowerCase();
     if (!byEmail.has(key)) byEmail.set(key, []);
     byEmail.get(key)!.push(u);
@@ -6202,7 +6203,7 @@ function parseBasicAuth(req: express.Request): { email: string; password: string
 
 function requireCalDavAuth(req: express.Request, res: express.Response): RegisteredUser | null {
   const creds = parseBasicAuth(req);
-  const user = creds ? users.find(u => u.email.toLowerCase() === creds.email.toLowerCase()) : undefined;
+  const user = creds ? users.find(u => u.email && u.email.toLowerCase() === creds.email.toLowerCase()) : undefined;
   if (!user || !creds || !verifyPassword(creds.password, user.password)) {
     res.setHeader('WWW-Authenticate', 'Basic realm="BizCard Calendar"');
     res.status(401).send('Unauthorized');
