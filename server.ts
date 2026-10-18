@@ -297,7 +297,6 @@ import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
 import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup, CompanyBranding } from './src/types.js';
 import {
-  pool,
   initializeDatabase,
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -1326,20 +1325,6 @@ async function bootstrapUsers() {
     await ensureUsersSeeded(initialUsers);
     users = await getUsers();
   }
-
-  // [수정] email 필드가 없는 기존 사용자 수정
-  for (const user of users) {
-    if (!user.email) {
-      if (user.id === 'user-1785330860440') {
-        user.email = 'parkhy5454@gmail.com';
-      } else {
-        // 다른 사용자는 임시 이메일 생성
-        user.email = `user_${user.id}@bizcard.local`;
-      }
-      await addUser(user);
-      console.log(`✓ 사용자 ${user.id}에 email 필드 추가: ${user.email}`);
-    }
-  }
 }
 
 // HTTP 헤더(x-user-id)를 기반으로 스코프 ID를 동기적으로 계산 (DB 호출 없음, users는 메모리 캐시 사용)
@@ -2197,10 +2182,10 @@ app.post('/api/auth/signup', async (req, res) => {
 
   // 메모리 캐시(users)로 1차 확인 + Supabase에서 직접 한 번 더 재확인(캐시가 오래됐을 가능성에 대비한 안전장치).
   // 이 두 단계 확인으로, 같은 이메일로 두 계정(예: 개인+사업자)이 동시에 만들어지는 문제를 막는다.
-  let existing = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
+  let existing = users.find(u => u.email.toLowerCase() === normalizedEmail);
   if (!existing && process.env.DATABASE_URL) {
     const freshUsers = await getUsers();
-    existing = freshUsers.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
+    existing = freshUsers.find(u => u.email.toLowerCase() === normalizedEmail);
     if (existing) users = freshUsers; // 캐시가 오래되어 있었다면 이 기회에 최신 상태로 갱신
   }
   if (existing) {
@@ -2321,86 +2306,58 @@ app.post('/api/auth/signup', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password, rememberMe } = req.body;
-    console.log('[LOGIN] 요청:', { email, hasPassword: !!password });
-
-    if (!email || !password) {
-      console.log('[LOGIN] 이메일 또는 비밀번호 없음');
-      return res.status(400).json({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
-    }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
-    console.log('[LOGIN] 정규화된 이메일:', normalizedEmail);
-    console.log('[LOGIN] 데이터베이스 사용자 수:', users.length);
-
-    // 전체 사용자 이메일 로깅
-    const userEmails = users.map(u => u.email).filter(Boolean);
-    console.log('[LOGIN] 등록된 이메일들:', userEmails);
-
-    const user = users.find(u => {
-      if (!u.email) return false;
-      const match = u.email.toLowerCase() === normalizedEmail;
-      console.log(`[LOGIN] 사용자 ${u.id} 비교: ${u.email.toLowerCase()} === ${normalizedEmail}? ${match}`);
-      return match;
-    });
-
-    console.log('[LOGIN] 찾은 사용자:', user ? user.id : '없음');
-
-    if (!user) {
-      return res.status(401).json({ error: '등록되지 않은 이메일입니다.' });
-    }
-
-    // [수정] 데이터베이스 호환성: password 또는 passwordHash 필드 모두 지원
-    const storedPassword = user.password || (user as any).passwordHash;
-    console.log('[LOGIN] 암호 검증 시도. 저장된 암호:', storedPassword ? '있음' : '없음');
-    const passwordMatch = verifyPassword(password, storedPassword);
-    console.log('[LOGIN] 암호 일치 여부:', passwordMatch);
-
-    if (!passwordMatch) {
-      return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
-    }
-
-    console.log('[LOGIN] 로그인 성공!');
-
-    // [수정] 다중 필드명 호환성: passwordHash를 password로 정규화
-    if ((user as any).passwordHash && !user.password) {
-      user.password = (user as any).passwordHash;
-      delete (user as any).passwordHash;
-      await addUser(user);
-    }
-    // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
-    else if (!user.password?.startsWith('$2')) {
-      user.password = bcrypt.hashSync(password, 10);
-      await addUser(user);
-    }
-
-    // [수정] 로그인 성공 시 세션 쿠키 발급 (이후 요청은 이 쿠키로만 사용자를 식별)
-    // "로그인 상태 유지"를 명시적으로 껐을 때만(false) 짧은 세션을 발급하고,
-    // 값이 없으면(예전 클라이언트) 기존처럼 30일 유지한다.
-    const loginSession = await createSession(user.id, rememberMe !== false);
-    setSessionCookie(req, res, loginSession.token, loginSession.ttlMs);
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        type: user.type,
-        companyName: user.companyName,
-        businessNumber: user.businessNumber,
-        position: user.position,
-        role: user.role,
-        approvalStatus: user.approvalStatus,
-        emailVerified: isEmailVerified(user.emailVerified),
-        signatureImage: user.signatureImage
-      }
-    });
-  } catch (error) {
-    console.error('[LOGIN] 오류:', error);
-    res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+  const { email, password, rememberMe } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
   }
+
+  // [수정] 무차별 대입(brute-force) 방어: 같은 이메일 + 같은 IP 조합으로 짧은 시간에
+  // 로그인 실패가 반복되면 잠시 잠근다. 로그인 성공 시에는 카운터를 즉시 초기화한다.
+  const normalizedEmailForLimit = String(email).trim().toLowerCase();
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const limitKey = `${normalizedEmailForLimit}::${clientIp}`;
+  const limitCheck = loginRateLimiter.check(limitKey);
+  if (!limitCheck.allowed) {
+    return res.status(429).json({
+      error: `로그인 시도가 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.`
+    });
+  }
+
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user || !verifyPassword(password, user.password)) {
+    loginRateLimiter.registerAttempt(limitKey);
+    return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
+  }
+  loginRateLimiter.reset(limitKey);
+
+  // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
+  if (!user.password?.startsWith('$2')) {
+    user.password = bcrypt.hashSync(password, 10);
+    await addUser(user);
+  }
+
+  // [수정] 로그인 성공 시 세션 쿠키 발급 (이후 요청은 이 쿠키로만 사용자를 식별)
+  // "로그인 상태 유지"를 명시적으로 껐을 때만(false) 짧은 세션을 발급하고,
+  // 값이 없으면(예전 클라이언트) 기존처럼 30일 유지한다.
+  const loginSession = await createSession(user.id, rememberMe !== false);
+  setSessionCookie(req, res, loginSession.token, loginSession.ttlMs);
+
+  res.json({
+    success: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      type: user.type,
+      companyName: user.companyName,
+      businessNumber: user.businessNumber,
+      position: user.position,
+      role: user.role,
+      approvalStatus: user.approvalStatus,
+      emailVerified: isEmailVerified(user.emailVerified),
+      signatureImage: user.signatureImage
+    }
+  });
 });
 
 // [추가] 이메일 인증 링크(메일의 ?verifyToken=... 링크)를 클릭했을 때 클라이언트가 호출.
@@ -2439,7 +2396,7 @@ app.post('/api/auth/resend-verification', async (req, res) => {
     return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
   }
 
-  const user = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
   // 보안상 가입 여부를 알려주지 않고, 항상 같은 응답을 준다.
   if (user && !isEmailVerified(user.emailVerified) && isMailerConfigured) {
     user.emailVerificationToken = crypto.randomBytes(32).toString('hex');
@@ -2483,6 +2440,10 @@ app.get('/api/auth/me', (req, res) => {
   const userId = req.headers['x-user-id'] as string; // 세션 미들웨어가 검증한 경우에만 존재
   const user = userId ? users.find(u => u.id === userId) : undefined;
   if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  // Neon DB에서 사용자의 전체 data 필드를 포함해서 반환
+  const userData = (user as any).data || {};
+
   res.json({
     user: {
       id: user.id,
@@ -2495,7 +2456,14 @@ app.get('/api/auth/me', (req, res) => {
       role: user.role,
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
-      signatureImage: user.signatureImage
+      signatureImage: user.signatureImage,
+      // Neon DB에서 마이그레이션된 데이터
+      businessCards: userData.businessCards || [],
+      vehicles: userData.vehicles || [],
+      workLogs: userData.workLogs || [],
+      dailyLogs: userData.dailyLogs || [],
+      projects: userData.projects || [],
+      expenses: userData.expenses || []
     }
   });
 });
@@ -2569,7 +2537,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
   }
 
-  const user = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
 
   // 보안상 "가입된 이메일인지" 여부를 응답으로 알려주지 않는다 (등록 여부와 상관없이 동일한 안내).
   if (user && isMailerConfigured) {
@@ -2750,7 +2718,6 @@ app.get('/api/auth/duplicate-emails', async (req, res) => {
   const all = process.env.DATABASE_URL ? await getUsers() : users;
   const byEmail = new Map<string, RegisteredUser[]>();
   for (const u of all) {
-    if (!u.email) continue; // Skip users without email
     const key = u.email.toLowerCase();
     if (!byEmail.has(key)) byEmail.set(key, []);
     byEmail.get(key)!.push(u);
@@ -4078,17 +4045,23 @@ app.get('/api/img/my-profile/:side', (req, res) => {
 });
 
 app.get('/api/contacts', (req, res) => {
-  const dbData = getScopedData(req);
   const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+
+  // Neon DB에서 사용자의 businessCards 데이터 직접 로드
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  const userData = (requester as any).data || {};
+  const businessCards = userData.businessCards || [];
+  const groups = userData.groups || [];
+
   // [수정] "나만 보기(비공개)"로 설정된 명함은 등록한 본인 것만 내려주고, 다른 사람에게는 숨긴다.
-  // addedByUserId가 아예 없는(기존 데이터) 명함은 예전처럼 회사 전체에 그대로 보인다.
-  // [추가] 명함 자체는 공개여도, 그 명함이 속한 그룹 중 하나가 "비공개 그룹"이고 내가 그
-  // 그룹을 만든 사람이 아니면 역시 숨긴다 — 그룹을 비공개로 만든 의미가 있으려면, 그
-  // 그룹에 들어있는 명함도 함께 안 보여야 한다.
   const privateGroupIds = new Set(
-    dbData.groups.filter(g => g.isPrivate && g.createdByUserId && g.createdByUserId !== requesterId).map(g => g.id)
+    groups.filter(g => g.isPrivate && g.createdByUserId && g.createdByUserId !== requesterId).map(g => g.id)
   );
-  const visible = dbData.contacts.filter(c => {
+  const visible = businessCards.filter(c => {
     if (c.isPrivate && c.addedByUserId && c.addedByUserId !== requesterId) return false;
     if (privateGroupIds.size > 0 && getContactGroupIds(c).some(gid => privateGroupIds.has(gid))) return false;
     return true;
@@ -4973,23 +4946,19 @@ async function getOrGenerateCompanySummary(company: string): Promise<{ summary: 
   const key = normalizeCompanyKey(company);
 
   if (key && process.env.DATABASE_URL) {
-    // Neon 데이터베이스에서 캐시된 회사 요약 조회
-    try {
-      const cached = await pool.query(
-        'SELECT * FROM company WHERE company_name_normalized = $1 LIMIT 1',
-        [key]
-      );
-      const cachedRow = cached.rows[0];
-      if (cachedRow && cachedRow.business_summary) {
-        const age = Date.now() - new Date(cachedRow.last_searched_at).getTime();
-        // summary_version이 지금 코드의 버전과 다르면(=프롬프트/스키마가 그 사이 바뀌었으면)
-        // 오래된 형식의 캐시로 취급해서 새로 검색한다.
-        if (age < COMPANY_CACHE_TTL_MS && cachedRow.summary_version === COMPANY_SUMMARY_SCHEMA_VERSION) {
-          return { summary: cachedRow.business_summary, fromCache: true };
-        }
+    const { data: cached, error } = await supabase
+      .from('company')
+      .select('*')
+      .eq('company_name_normalized', key)
+      .maybeSingle();
+    if (error) console.error('company 테이블 조회 실패:', error);
+    if (cached && cached.business_summary) {
+      const age = Date.now() - new Date(cached.last_searched_at).getTime();
+      // summary_version이 지금 코드의 버전과 다르면(=프롬프트/스키마가 그 사이 바뀌었으면)
+      // 오래된 형식의 캐시로 취급해서 새로 검색한다.
+      if (age < COMPANY_CACHE_TTL_MS && cached.summary_version === COMPANY_SUMMARY_SCHEMA_VERSION) {
+        return { summary: cached.business_summary, fromCache: true };
       }
-    } catch (err) {
-      console.error('회사 캐시 조회 실패:', err);
     }
   }
 
@@ -5070,6 +5039,8 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
     // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
     // TODO: company 테이블 구현 또는 이 엔드포인트 제거 필요
     return res.json({ items: [] });
+    if (error) return res.json({ items: [] });
+    res.json({ items: data || [] });
   } catch (error: any) {
     res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
   }
@@ -5722,8 +5693,16 @@ app.delete('/api/projects/:id/followups/:fid', async (req, res) => {
 // ==========================================
 
 app.get('/api/vehicles', (req, res) => {
-  const dbData = getScopedData(req);
-  res.json(dbData.vehicles || []);
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  // Neon DB에서 사용자의 vehicles 데이터 직접 로드
+  const userData = (requester as any).data || {};
+  res.json(userData.vehicles || []);
 });
 
 app.post('/api/vehicles', async (req, res) => {
@@ -6248,7 +6227,7 @@ function parseBasicAuth(req: express.Request): { email: string; password: string
 
 function requireCalDavAuth(req: express.Request, res: express.Response): RegisteredUser | null {
   const creds = parseBasicAuth(req);
-  const user = creds ? users.find(u => u.email && u.email.toLowerCase() === creds.email.toLowerCase()) : undefined;
+  const user = creds ? users.find(u => u.email.toLowerCase() === creds.email.toLowerCase()) : undefined;
   if (!user || !creds || !verifyPassword(creds.password, user.password)) {
     res.setHeader('WWW-Authenticate', 'Basic realm="BizCard Calendar"');
     res.status(401).send('Unauthorized');
@@ -7199,7 +7178,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     const featureTotals: Record<string, number> = {};
     for (const s of scopeStats) {
       for (const [collection, count] of Object.entries(s.itemCounts)) {
-        featureTotals[collection] = (featureTotals[collection] || 0) + (typeof count === 'number' ? count : 0);
+        featureTotals[collection] = (featureTotals[collection] || 0) + count;
       }
     }
 
