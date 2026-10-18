@@ -132,22 +132,58 @@ export const Navigation: React.FC<Props> = ({
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록
+  // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록 및 락
   const lastMoreMenuClickRef = useRef<number>(0);
   const lastProjectClickRef = useRef<number>(0);
+  const isProcessingMoreMenuRef = useRef(false);
+  const isProcessingProjectRef = useRef(false);
 
-  const handleMoreMenuToggle = () => {
+  const handleMoreMenuToggle = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    // 현재 처리 중이면 무시
+    if (isProcessingMoreMenuRef.current) return;
+
     const now = Date.now();
-    if (now - lastMoreMenuClickRef.current < 250) return; // 250ms 이내 클릭 무시
+    if (now - lastMoreMenuClickRef.current < 300) return; // 300ms 이내 클릭 무시
+
+    // 처리 중으로 표시
+    isProcessingMoreMenuRef.current = true;
     lastMoreMenuClickRef.current = now;
-    setIsMoreMenuOpen(!isMoreMenuOpen);
+
+    setIsMoreMenuOpen(prev => !prev);
+
+    // 처리 완료 표시
+    setTimeout(() => {
+      isProcessingMoreMenuRef.current = false;
+    }, 100);
   };
 
-  const handleProjectTabClick = () => {
+  const handleProjectTabClick = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    // 현재 처리 중이면 무시
+    if (isProcessingProjectRef.current) return;
+
     const now = Date.now();
-    if (now - lastProjectClickRef.current < 250) return; // 250ms 이내 클릭 무시
+    if (now - lastProjectClickRef.current < 300) return; // 300ms 이내 클릭 무시
+
+    // 처리 중으로 표시
+    isProcessingProjectRef.current = true;
     lastProjectClickRef.current = now;
+
     handleMainTabClick('projects');
+
+    // 처리 완료 표시
+    setTimeout(() => {
+      isProcessingProjectRef.current = false;
+    }, 100);
   };
 
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
@@ -440,7 +476,7 @@ export const Navigation: React.FC<Props> = ({
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
         <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50 overflow-visible">
 
-          <nav className="flex items-center gap-1 w-full pb-1 scrollbar-none overflow-x-auto overflow-visible">
+          <nav className="flex items-center gap-1 w-full pb-1 scrollbar-none overflow-x-auto overflow-y-visible" style={{ overflow: 'visible' }}>
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
@@ -510,7 +546,7 @@ export const Navigation: React.FC<Props> = ({
 
               {/* 드롭다운 메뉴 */}
               {isMoreMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+                <div className="absolute left-0 bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
                   {/* 업무일지 */}
                   <button
                     onClick={() => {
