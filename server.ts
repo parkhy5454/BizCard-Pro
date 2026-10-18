@@ -2320,58 +2320,78 @@ app.post('/api/auth/signup', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password, rememberMe } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
-  }
+  try {
+    const { email, password, rememberMe } = req.body;
+    console.log('[LOGIN] 요청:', { email, hasPassword: !!password });
 
-  // [수정] 무차별 대입(brute-force) 방어: 같은 이메일 + 같은 IP 조합으로 짧은 시간에
-  // 로그인 실패가 반복되면 잠시 잠근다. 로그인 성공 시에는 카운터를 즉시 초기화한다.
-  const normalizedEmailForLimit = String(email).trim().toLowerCase();
-  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-  const limitKey = `${normalizedEmailForLimit}::${clientIp}`;
-  const limitCheck = loginRateLimiter.check(limitKey);
-  if (!limitCheck.allowed) {
-    return res.status(429).json({
-      error: `로그인 시도가 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.`
-    });
-  }
-
-  const user = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
-  if (!user || !verifyPassword(password, user.password)) {
-    loginRateLimiter.registerAttempt(limitKey);
-    return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
-  }
-  loginRateLimiter.reset(limitKey);
-
-  // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
-  if (!user.password?.startsWith('$2')) {
-    user.password = bcrypt.hashSync(password, 10);
-    await addUser(user);
-  }
-
-  // [수정] 로그인 성공 시 세션 쿠키 발급 (이후 요청은 이 쿠키로만 사용자를 식별)
-  // "로그인 상태 유지"를 명시적으로 껐을 때만(false) 짧은 세션을 발급하고,
-  // 값이 없으면(예전 클라이언트) 기존처럼 30일 유지한다.
-  const loginSession = await createSession(user.id, rememberMe !== false);
-  setSessionCookie(req, res, loginSession.token, loginSession.ttlMs);
-
-  res.json({
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      type: user.type,
-      companyName: user.companyName,
-      businessNumber: user.businessNumber,
-      position: user.position,
-      role: user.role,
-      approvalStatus: user.approvalStatus,
-      emailVerified: isEmailVerified(user.emailVerified),
-      signatureImage: user.signatureImage
+    if (!email || !password) {
+      console.log('[LOGIN] 이메일 또는 비밀번호 없음');
+      return res.status(400).json({ error: '이메일과 비밀번호를 모두 입력해주세요.' });
     }
-  });
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    console.log('[LOGIN] 정규화된 이메일:', normalizedEmail);
+    console.log('[LOGIN] 데이터베이스 사용자 수:', users.length);
+
+    // 전체 사용자 이메일 로깅
+    const userEmails = users.map(u => u.email).filter(Boolean);
+    console.log('[LOGIN] 등록된 이메일들:', userEmails);
+
+    const user = users.find(u => {
+      if (!u.email) return false;
+      const match = u.email.toLowerCase() === normalizedEmail;
+      console.log(`[LOGIN] 사용자 ${u.id} 비교: ${u.email.toLowerCase()} === ${normalizedEmail}? ${match}`);
+      return match;
+    });
+
+    console.log('[LOGIN] 찾은 사용자:', user ? user.id : '없음');
+
+    if (!user) {
+      return res.status(401).json({ error: '등록되지 않은 이메일입니다.' });
+    }
+
+    console.log('[LOGIN] 암호 검증 시도. 저장된 암호:', user.password ? '있음' : '없음');
+    const passwordMatch = verifyPassword(password, user.password);
+    console.log('[LOGIN] 암호 일치 여부:', passwordMatch);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    }
+
+    console.log('[LOGIN] 로그인 성공!');
+
+    // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
+    if (!user.password?.startsWith('$2')) {
+      user.password = bcrypt.hashSync(password, 10);
+      await addUser(user);
+    }
+
+    // [수정] 로그인 성공 시 세션 쿠키 발급 (이후 요청은 이 쿠키로만 사용자를 식별)
+    // "로그인 상태 유지"를 명시적으로 껐을 때만(false) 짧은 세션을 발급하고,
+    // 값이 없으면(예전 클라이언트) 기존처럼 30일 유지한다.
+    const loginSession = await createSession(user.id, rememberMe !== false);
+    setSessionCookie(req, res, loginSession.token, loginSession.ttlMs);
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        type: user.type,
+        companyName: user.companyName,
+        businessNumber: user.businessNumber,
+        position: user.position,
+        role: user.role,
+        approvalStatus: user.approvalStatus,
+        emailVerified: isEmailVerified(user.emailVerified),
+        signatureImage: user.signatureImage
+      }
+    });
+  } catch (error) {
+    console.error('[LOGIN] 오류:', error);
+    res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+  }
 });
 
 // [추가] 이메일 인증 링크(메일의 ?verifyToken=... 링크)를 클릭했을 때 클라이언트가 호출.
