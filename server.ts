@@ -296,6 +296,7 @@ import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
 import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup, CompanyBranding } from './src/types.js';
 import {
+  initializeDatabase,
   ensureUsersSeeded,
   ensureScopeInitialized,
   getUsers,
@@ -312,8 +313,6 @@ import {
   deleteAllPasswordResetTokensForUser,
   logAudit,
   getAuditLogs,
-  isSupabaseConfigured,
-  supabase,
   getScopedCollection,
   getScopedDoc,
   setScopedDoc,
@@ -329,7 +328,7 @@ import {
   createReferral,
   markReferralRewarded,
   getReferralsForUser
-} from './src/db/supabaseStore.js';
+} from './src/db/neonStore.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -341,8 +340,7 @@ const requiredEnvVars = [
   'TOSS_SECRET_KEY',
   'BREVO_API_KEY',
   'KAKAO_REST_API_KEY',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
+  'DATABASE_URL',
   'APP_BASE_URL'
 ];
 
@@ -356,6 +354,17 @@ if (missingEnvVars.length > 0) {
 console.log('✅ 모든 필수 환경 변수 설정됨');
 console.log(`🚀 환경: ${process.env.NODE_ENV || 'development'}`);
 console.log(`🔗 APP_BASE_URL: ${process.env.APP_BASE_URL}`);
+
+// [추가] Neon 데이터베이스 초기화
+(async () => {
+  try {
+    await initializeDatabase();
+    console.log('✅ Neon 데이터베이스 초기화 완료');
+  } catch (err) {
+    console.error('❌ 데이터베이스 초기화 실패:', err);
+    process.exit(1);
+  }
+})();
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -436,7 +445,7 @@ app.get('/health', async (req, res) => {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
       },
-      database: isSupabaseConfigured() ? 'connected' : 'not configured',
+      database: process.env.DATABASE_URL ? 'connected' : 'not configured',
       monitoring: SENTRY_DSN ? 'enabled' : 'disabled'
     };
 
@@ -586,7 +595,7 @@ app.use(async (req, res, next) => {
   // Supabase에서 한 번 더 확인한다. 여기서 찾으면 캐시에도 채워둬서 다음 요청부터는
   // 다시 DB를 안 타도 되게 한다. 이 한 단계 덕분에 서버 재시작 후 첫 요청에서도
   // 로그인이 안 끊긴다.
-  if (!session && token && isSupabaseConfigured) {
+  if (!session && token && process.env.DATABASE_URL) {
     const stored = await loadSession(token);
     if (stored) {
       session = { userId: stored.userId, expiresAt: stored.expiresAt };
@@ -2173,7 +2182,7 @@ app.post('/api/auth/signup', async (req, res) => {
   // 메모리 캐시(users)로 1차 확인 + Supabase에서 직접 한 번 더 재확인(캐시가 오래됐을 가능성에 대비한 안전장치).
   // 이 두 단계 확인으로, 같은 이메일로 두 계정(예: 개인+사업자)이 동시에 만들어지는 문제를 막는다.
   let existing = users.find(u => u.email.toLowerCase() === normalizedEmail);
-  if (!existing && isSupabaseConfigured) {
+  if (!existing && process.env.DATABASE_URL) {
     const freshUsers = await getUsers();
     existing = freshUsers.find(u => u.email.toLowerCase() === normalizedEmail);
     if (existing) users = freshUsers; // 캐시가 오래되어 있었다면 이 기회에 최신 상태로 갱신
@@ -2576,7 +2585,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   // 패턴. 이 한 단계 덕분에 링크를 받고 시간이 좀 지나 서버가 재시작됐어도(Render의
   // cold start 등) 30분 TTL 안이면 정상적으로 재설정할 수 있다.
   let entry = passwordResetTokens.get(token);
-  if (!entry && isSupabaseConfigured) {
+  if (!entry && process.env.DATABASE_URL) {
     const stored = await loadPasswordResetToken(token);
     if (stored) {
       entry = { userId: stored.userId, expiresAt: stored.expiresAt };
@@ -2694,7 +2703,7 @@ app.get('/api/org/coworkers', (req, res) => {
 // 진단용: 같은 이메일로 여러 계정이 만들어진 경우(예: 개인+사업자 중복 가입)를 찾아서 보여준다.
 // 삭제는 안전을 위해 여기서 하지 않고, 확인 후 Supabase 테이블 편집기에서 직접 지우는 걸 권장한다.
 app.get('/api/auth/duplicate-emails', async (req, res) => {
-  const all = isSupabaseConfigured ? await getUsers() : users;
+  const all = process.env.DATABASE_URL ? await getUsers() : users;
   const byEmail = new Map<string, RegisteredUser[]>();
   for (const u of all) {
     const key = u.email.toLowerCase();
@@ -4949,7 +4958,7 @@ function normalizeCompanyKey(company: string): string {
 async function getOrGenerateCompanySummary(company: string): Promise<{ summary: string; fromCache: boolean }> {
   const key = normalizeCompanyKey(company);
 
-  if (key && isSupabaseConfigured) {
+  if (key && process.env.DATABASE_URL) {
     const { data: cached, error } = await supabase
       .from('company')
       .select('*')
@@ -4968,29 +4977,11 @@ async function getOrGenerateCompanySummary(company: string): Promise<{ summary: 
 
   const { fields, sourceUrls } = await generateCompanySummary(company);
 
-  if (key && isSupabaseConfigured && fields.businessSummary) {
-    const { error } = await supabase
-      .from('company')
-      .upsert(
-        {
-          company_name: company,
-          company_name_normalized: key,
-          business_number: fields.businessNumber,
-          industry: fields.industry,
-          main_business: fields.mainBusiness,
-          website: fields.website,
-          employees: fields.employees,
-          sales: fields.sales,
-          business_summary: fields.businessSummary,
-          source_urls: sourceUrls,
-          last_searched_at: new Date().toISOString(),
-          summary_version: COMPANY_SUMMARY_SCHEMA_VERSION
-        },
-        { onConflict: 'company_name_normalized' }
-      );
-    // 캐시 저장 자체가 실패해도(예: 테이블 아직 미생성) 방금 만든 요약은 정상적으로 돌려준다.
-    if (error) console.error('company 테이블 저장 실패:', error);
-  }
+  // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
+  // TODO: company 테이블을 neonStore에 추가하거나, 다른 캐싱 메커니즘 구현 필요
+  // if (key && process.env.DATABASE_URL && fields.businessSummary) {
+  //   // company 테이블 캐싱 로직 (현재 비활성화)
+  // }
 
   return { summary: fields.businessSummary || '', fromCache: false };
 }
@@ -5040,20 +5031,9 @@ app.post('/api/company/intelligence', async (req, res) => {
     if (!Array.isArray(companies) || companies.length === 0) {
       return res.json({ items: [] });
     }
-    if (!isSupabaseConfigured) return res.json({ items: [] });
-
-    const keys = Array.from(new Set(companies.map((c) => normalizeCompanyKey(c)).filter(Boolean)));
-    if (keys.length === 0) return res.json({ items: [] });
-
-    const { data, error } = await supabase
-      .from('company')
-      .select('*')
-      .in('company_name_normalized', keys);
-    if (error) {
-      console.error('company 테이블 일괄 조회 실패:', error);
-      return res.json({ items: [] });
-    }
-    res.json({ items: data || [] });
+    // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
+    // TODO: company 테이블을 neonStore에 추가하거나, 이 엔드포인트 제거 필요
+    return res.json({ items: [] });
   } catch (error: any) {
     console.error('Company intelligence error:', error);
     res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
@@ -5066,10 +5046,12 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
     if (!Array.isArray(companies) || companies.length === 0) {
       return res.json({ items: [] });
     }
-    if (!isSupabaseConfigured) return res.json({ items: [] });
+    if (!process.env.DATABASE_URL) return res.json({ items: [] });
     const keys = Array.from(new Set(companies.map((c) => normalizeCompanyKey(c)).filter(Boolean)));
     if (keys.length === 0) return res.json({ items: [] });
-    const { data, error } = await supabase.from('company').select('*').in('company_name_normalized', keys);
+    // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
+    // TODO: company 테이블 구현 또는 이 엔드포인트 제거 필요
+    return res.json({ items: [] });
     if (error) return res.json({ items: [] });
     res.json({ items: data || [] });
   } catch (error: any) {
