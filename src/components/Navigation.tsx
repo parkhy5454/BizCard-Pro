@@ -478,6 +478,110 @@ export const Navigation: React.FC<Props> = ({
 
       </div>
     </header>
+
+    {/* [추가] 프로젝트 탭일 때 상단에 고정되는 뷰 모드 탭 (카드/리스트/파이프라인/원가계산서) */}
+    {activeTab === 'projects' && (
+      <div className="sticky top-[var(--header-height,64px)] z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
+            {/* 새 프로젝트 등록 버튼 */}
+            <button
+              onClick={onOpenNewProject}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95 shrink-0"
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>새 프로젝트 등록</span>
+            </button>
+
+            {/* 프로젝트 리스트 탭 (드롭다운 포함) */}
+            <div className="relative flex items-stretch rounded-lg overflow-hidden border border-slate-200 shrink-0">
+              <button
+                onClick={onShowProjectsCardView}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 font-semibold whitespace-nowrap text-xs sm:text-sm transition-all active:scale-95 ${
+                  projectsViewMode === 'cards'
+                    ? 'bg-blue-600/20 text-blue-400'
+                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                }`}
+              >
+                <ListChecks className="w-4 h-4 text-indigo-400" />
+                <span>프로젝트 리스트</span>
+              </button>
+              <button
+                onClick={() => setIsProjectListMenuOpen((v) => !v)}
+                className="flex items-center px-2 bg-slate-100 hover:bg-slate-200 border-l border-slate-200 transition-colors"
+                title="엑셀/PDF 다운로드"
+              >
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isProjectListMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isProjectListMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setIsProjectListMenuOpen(false)} />
+                  <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 overflow-hidden">
+                    <button
+                      onClick={() => { onExportProjectsExcel(); setIsProjectListMenuOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                      <span>엑셀 다운로드</span>
+                    </button>
+                    <button
+                      onClick={() => { onOpenProjectsPrintPreview(); setIsProjectListMenuOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors border-t border-slate-200"
+                    >
+                      <Printer className="w-4 h-4 text-indigo-400" />
+                      <span>PDF 인쇄 / 다운로드</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 리스트 출력 탭 */}
+            <button
+              onClick={onShowProjectsListOutput}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 shrink-0 ${
+                projectsViewMode === 'listOutput'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>리스트 출력</span>
+            </button>
+
+            {/* 원가계산서 (관리자만) */}
+            {currentUser?.role === 'admin' && (
+              <button
+                onClick={onShowProjectsPnl}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 shrink-0 ${
+                  projectsViewMode === 'pnl'
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
+                }`}
+              >
+                <Calculator className="w-4 h-4" />
+                <span>원가계산서</span>
+              </button>
+            )}
+
+            {/* 파이프라인 탭 */}
+            <button
+              onClick={onShowProjectsPipeline}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 shrink-0 ${
+                projectsViewMode === 'pipeline'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>파이프라인</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
         <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50 overflow-visible">
 
@@ -818,109 +922,6 @@ export const Navigation: React.FC<Props> = ({
             </div>
           )}
 
-          {/* 프로젝트 탭일 때: 새 프로젝트 등록 버튼 (상태필터 위) */}
-          {activeTab === 'projects' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full p-1.5 bg-slate-100 border border-slate-200 rounded-xl scrollbar-none">
-              <button
-                onClick={onOpenNewProject}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95"
-              >
-                <Briefcase className="w-4 h-4" />
-                <span>새 프로젝트 등록</span>
-              </button>
-              {/* [수정] "프로젝트 리스트": 이제 눌렀을 때 카드 화면으로 돌아가는 진짜 탭 역할을 한다.
-                  엑셀/PDF 다운로드는 오른쪽의 작은 화살표(▼)를 따로 눌러야 열리도록 분리했다. */}
-              <div className="relative flex items-stretch rounded-lg overflow-hidden border border-slate-200">
-                <button
-                  onClick={onShowProjectsCardView}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 font-semibold whitespace-nowrap text-xs sm:text-sm transition-all active:scale-95 ${
-                    projectsViewMode === 'cards'
-                      ? 'bg-blue-600/20 text-blue-400'
-                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
-                  }`}
-                >
-                  <ListChecks className="w-4 h-4 text-indigo-400" />
-                  <span>프로젝트 리스트</span>
-                </button>
-                <button
-                  onClick={() => setIsProjectListMenuOpen((v) => !v)}
-                  className="flex items-center px-2 bg-slate-100 hover:bg-slate-200 border-l border-slate-200 transition-colors"
-                  title="엑셀/PDF 다운로드"
-                >
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isProjectListMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {isProjectListMenuOpen && (
-                  <>
-                    {/* 바깥 영역을 누르면 닫히도록 하는 투명 오버레이 */}
-                    <div className="fixed inset-0 z-30" onClick={() => setIsProjectListMenuOpen(false)} />
-                    <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 overflow-hidden">
-                      <button
-                        onClick={() => { onExportProjectsExcel(); setIsProjectListMenuOpen(false); }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-                      >
-                        <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                        <span>엑셀 다운로드</span>
-                      </button>
-                      <button
-                        onClick={() => { onOpenProjectsPrintPreview(); setIsProjectListMenuOpen(false); }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors border-t border-slate-200"
-                      >
-                        <Printer className="w-4 h-4 text-indigo-400" />
-                        <span>PDF 인쇄 / 다운로드</span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* [수정] "리스트 출력" 탭: 누르면 카드 목록 대신 화면에 표 형태로 전체 프로젝트가 보이고,
-                  그 화면 안에서 바로 엑셀/PDF로 출력할 수 있다. "프로젝트 리스트"를 누르면 다시 카드로 돌아간다. */}
-              <button
-                onClick={onShowProjectsListOutput}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
-                  projectsViewMode === 'listOutput'
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-                }`}
-              >
-                <FileText className="w-4 h-4" />
-                <span>리스트 출력</span>
-              </button>
-
-              {/* [수정] "손익계산서" → "원가계산서"로 이름과 양식을 바꿨다. 이제는 회계관리
-                  데이터를 자동 집계하는 대신, 프로젝트별로 매출액/직접원가/간접원가/일반관리비/
-                  사후관리비용을 직접 입력하는 정식 원가계산서 양식이다. 회사 재무 데이터를
-                  다루는 성격은 그대로라 계속 관리자에게만 노출한다 - 형제 버튼(리스트 출력/
-                  파이프라인)은 원래 전 사용자 공개지만, 이 데이터는 성격이 달라 별도 판단으로 막았다. */}
-              {currentUser?.role === 'admin' && (
-                <button
-                  onClick={onShowProjectsPnl}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
-                    projectsViewMode === 'pnl'
-                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                      : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-                  }`}
-                >
-                  <Calculator className="w-4 h-4" />
-                  <span>원가계산서</span>
-                </button>
-              )}
-
-              {/* [수정] "파이프라인" 탭: 영업 깔때기(기회→진행→완료/실패)와 핵심 지표를 한눈에 보는 대시보드 */}
-              <button
-                onClick={onShowProjectsPipeline}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 ${
-                  projectsViewMode === 'pipeline'
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-                }`}
-              >
-                <TrendingUp className="w-4 h-4" />
-                <span>파이프라인</span>
-              </button>
-            </div>
-          )}
 
           {/* 프로젝트 탭일 때 우측 상태 칩 필터링 */}
           {activeTab === 'projects' && (
