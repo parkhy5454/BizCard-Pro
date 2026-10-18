@@ -11,6 +11,8 @@ services:
         value: production
       - key: NODE_OPTIONS
         value: --max-old-space-size=512
+      - key: NEON_DATABASE_URL
+        sync: false
     disk:
       name: bizcard-data
       mountPath: /data
