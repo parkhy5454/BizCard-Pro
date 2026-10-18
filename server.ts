@@ -421,36 +421,6 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// [수정] CORS(Cross-Origin Resource Sharing) 정책 설정
-// 개발/배포 환경에 따라 허용하는 origin을 구분한다.
-// 프로덕션에서는 특정 도메인만 허용하여 보안을 강화한다.
-const allowedOrigins = [
-  'http://localhost:5173',      // Vite 개발 서버
-  'http://localhost:3000',      // Express 개발 서버
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000'
-];
-
-// 배포 URL이 설정되어 있으면 추가
-if (process.env.APP_BASE_URL && process.env.APP_BASE_URL !== 'http://localhost:3000') {
-  allowedOrigins.push(process.env.APP_BASE_URL);
-}
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // origin이 없으면 (같은 도메인 요청) 허용
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS policy: origin ${origin} not allowed`));
-    }
-  },
-  credentials: true,  // 쿠키와 인증 정보 포함 허용
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-cron-secret'],
-  maxAge: 3600  // preflight 캐시 시간(초)
-}));
-
 // [추가] 배포 플랫폼(Render 등)이나 외부 모니터링/핑 서비스가 "서버가 살아있는지"만 빠르게
 // 확인할 수 있는 엔드포인트. 로그인/DB 조회 없이 즉시 응답한다. 5~10분 간격으로 이 주소에
 // 외부에서 핑을 보내면, 무료 요금제의 "일정 시간 뒤 서버가 잠드는" 문제도 줄일 수 있다.
