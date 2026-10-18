@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
-    "@sentry/node": "^8.0.0",
+    "@sentry/node": "^11.8.0",
     "@sentry/react": "^8.0.0",
     "@supabase/supabase-js": "^2.45.4",
     "@tailwindcss/vite": "^4.1.14",
@@ -24,7 +24,7 @@
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
-    "exceljs": "^4.4.0",
+    "exceljs": "^3.4.0",
     "express": "^4.21.2",
     "helmet": "^8.3.0",
     "lucide-react": "^0.546.0",
@@ -50,6 +50,6 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
-    "vitest": "^2.1.0"
+    "vitest": "^5.0.5"
   }
 }

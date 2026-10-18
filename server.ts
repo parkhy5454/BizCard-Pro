@@ -124,6 +124,43 @@ function validateImageSize(base64String: string, maxSizeMB: number = 5): { valid
   }
 }
 
+// [추가] 파일 타입 검증 (Base64 헤더 확인)
+function validateFileType(base64String: string, expectedType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf'): { valid: boolean; error?: string } {
+  try {
+    // Base64 프리픽스 제거
+    const base64Data = base64String.replace(/^data:[^;]+;base64,/, '');
+
+    // Base64 헤더 확인 (MIME 타입별 매직 넘버)
+    const headerMap: Record<string, string[]> = {
+      'image/jpeg': ['FFD8FF'],           // JPEG 매직 넘버
+      'image/png': ['89504E47'],          // PNG 매직 넘버
+      'image/webp': ['52494646'],         // RIFF/WebP
+      'application/pdf': ['25504446']     // PDF 매직 넘버
+    };
+
+    const expectedHeaders = headerMap[expectedType];
+    if (!expectedHeaders) {
+      return { valid: false, error: '지원하지 않는 파일 타입입니다.' };
+    }
+
+    // Base64 첫 6자를 16진수로 변환하여 매직 넘버 확인
+    const buf = Buffer.from(base64Data.slice(0, 12), 'base64');
+    const hexHeader = buf.toString('hex').toUpperCase().slice(0, 6);
+
+    const isValidType = expectedHeaders.some(h => hexHeader.startsWith(h));
+    if (!isValidType) {
+      return {
+        valid: false,
+        error: `파일 타입이 일치하지 않습니다. ${expectedType}를 업로드해주세요.`
+      };
+    }
+
+    return { valid: true };
+  } catch (err) {
+    return { valid: false, error: '파일 타입 검증 중 오류가 발생했습니다.' };
+  }
+}
+
 // [추가] 비밀번호 복잡도 검증
 // 최소 8자 + 숫자 1개 + 특수문자 1개 포함 필요
 function validatePasswordComplexity(password: string): { valid: boolean; error?: string } {
@@ -297,6 +334,29 @@ import {
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// [추가] 필수 환경 변수 검증
+const requiredEnvVars = [
+  'CRON_SECRET',
+  'GEMINI_API_KEY',
+  'TOSS_SECRET_KEY',
+  'BREVO_API_KEY',
+  'KAKAO_REST_API_KEY',
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'APP_BASE_URL'
+];
+
+const missingEnvVars = requiredEnvVars.filter(v => !process.env[v]);
+if (missingEnvVars.length > 0) {
+  console.error('❌ 필수 환경 변수 누락:', missingEnvVars.join(', '));
+  console.error('서버를 시작할 수 없습니다. .env 파일을 확인해주세요.');
+  process.exit(1);
+}
+
+console.log('✅ 모든 필수 환경 변수 설정됨');
+console.log(`🚀 환경: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🔗 APP_BASE_URL: ${process.env.APP_BASE_URL}`);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -337,12 +397,30 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// [추가] CORS(Cross-Origin Resource Sharing) 정책 설정
-// 모든 origin에서의 요청을 허용한다. 이 앱은 서버가 직접 클라이언트 인증을 검증하므로
-// (쿠키 기반 세션 체크), CORS origin 체크만으로는 보안을 보장할 수 없고,
-// 진정한 보안은 서버의 x-user-id 검증에 달려있다.
+// [수정] CORS(Cross-Origin Resource Sharing) 정책 설정
+// 개발/배포 환경에 따라 허용하는 origin을 구분한다.
+// 프로덕션에서는 특정 도메인만 허용하여 보안을 강화한다.
+const allowedOrigins = [
+  'http://localhost:5173',      // Vite 개발 서버
+  'http://localhost:3000',      // Express 개발 서버
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+];
+
+// 배포 URL이 설정되어 있으면 추가
+if (process.env.APP_BASE_URL && process.env.APP_BASE_URL !== 'http://localhost:3000') {
+  allowedOrigins.push(process.env.APP_BASE_URL);
+}
+
 app.use(cors({
-  origin: true,  // 모든 origin 허용
+  origin: (origin, callback) => {
+    // origin이 없으면 (같은 도메인 요청) 허용
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS policy: origin ${origin} not allowed`));
+    }
+  },
   credentials: true,  // 쿠키와 인증 정보 포함 허용
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-cron-secret'],
@@ -352,8 +430,31 @@ app.use(cors({
 // [추가] 배포 플랫폼(Render 등)이나 외부 모니터링/핑 서비스가 "서버가 살아있는지"만 빠르게
 // 확인할 수 있는 엔드포인트. 로그인/DB 조회 없이 즉시 응답한다. 5~10분 간격으로 이 주소에
 // 외부에서 핑을 보내면, 무료 요금제의 "일정 시간 뒤 서버가 잠드는" 문제도 줄일 수 있다.
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+// [수정] 상세한 헬스 체크 엔드포인트
+app.get('/health', async (req, res) => {
+  try {
+    const health = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+      },
+      database: isSupabaseConfigured() ? 'connected' : 'not configured',
+      monitoring: SENTRY_DSN ? 'enabled' : 'disabled'
+    };
+
+    res.status(200).json(health);
+  } catch (err) {
+    console.error('Health check error:', err);
+    res.status(503).json({
+      status: 'error',
+      message: 'Health check failed',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // [추가] Swagger API 문서화
