@@ -2351,8 +2351,10 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: '등록되지 않은 이메일입니다.' });
     }
 
-    console.log('[LOGIN] 암호 검증 시도. 저장된 암호:', user.password ? '있음' : '없음');
-    const passwordMatch = verifyPassword(password, user.password);
+    // [수정] 데이터베이스 호환성: password 또는 passwordHash 필드 모두 지원
+    const storedPassword = user.password || (user as any).passwordHash;
+    console.log('[LOGIN] 암호 검증 시도. 저장된 암호:', storedPassword ? '있음' : '없음');
+    const passwordMatch = verifyPassword(password, storedPassword);
     console.log('[LOGIN] 암호 일치 여부:', passwordMatch);
 
     if (!passwordMatch) {
@@ -2361,8 +2363,14 @@ app.post('/api/auth/login', async (req, res) => {
 
     console.log('[LOGIN] 로그인 성공!');
 
+    // [수정] 다중 필드명 호환성: passwordHash를 password로 정규화
+    if ((user as any).passwordHash && !user.password) {
+      user.password = (user as any).passwordHash;
+      delete (user as any).passwordHash;
+      await addUser(user);
+    }
     // 예전 평문 비밀번호 계정이면 이번 로그인 성공을 계기로 안전한 해시로 업그레이드
-    if (!user.password?.startsWith('$2')) {
+    else if (!user.password?.startsWith('$2')) {
       user.password = bcrypt.hashSync(password, 10);
       await addUser(user);
     }
