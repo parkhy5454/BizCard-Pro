@@ -157,21 +157,26 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     fetch('/api/auth/me')
-      .then(async (res) => {
+      .then(res => {
         if (!res.ok) {
           localStorage.removeItem('bizcard_user');
           setCurrentUser(null);
-          return;
+          return null;
         }
-        const data = await res.json().catch(() => null);
+        return res.json().catch(() => null);
+      })
+      .then(data => {
         if (data?.user) {
           localStorage.setItem('bizcard_user', JSON.stringify(data.user));
           setCurrentUser(data.user);
         }
       })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .catch(err => {
+        console.error('Failed to fetch user data:', err);
+        localStorage.removeItem('bizcard_user');
+        setCurrentUser(null);
+      });
+  }, [currentUser?.id]);
 
   // 초기 API 로드 - 사용자 로그인된 상태에서만 작동
   useEffect(() => {
@@ -186,16 +191,29 @@ export default function App() {
     try {
       const headers = { 'x-user-id': currentUser.id };
       const [cRes, gRes, pRes] = await Promise.all([
-        fetch('/api/contacts', { headers }).then(r => r.json()),
-        fetch('/api/groups', { headers }).then(r => r.json()),
-        fetch('/api/projects', { headers }).then(r => r.json())
+        fetch('/api/contacts', { headers }).then(r => {
+          if (!r.ok) throw new Error(`Contacts API error: ${r.status}`);
+          return r.json();
+        }),
+        fetch('/api/groups', { headers }).then(r => {
+          if (!r.ok) throw new Error(`Groups API error: ${r.status}`);
+          return r.json();
+        }),
+        fetch('/api/projects', { headers }).then(r => {
+          if (!r.ok) throw new Error(`Projects API error: ${r.status}`);
+          return r.json();
+        })
       ]);
-      
+
       if (Array.isArray(cRes)) setContacts(cRes);
       if (Array.isArray(gRes)) setGroups(gRes);
       if (Array.isArray(pRes)) setProjects(pRes);
     } catch (err) {
       console.warn('API fetch fail, using default samples fallback:', err);
+      // 폴백: 빈 배열로 설정하여 앱이 동작하도록 함
+      setContacts([]);
+      setGroups([]);
+      setProjects([]);
     } finally {
       setLoading(false);
     }

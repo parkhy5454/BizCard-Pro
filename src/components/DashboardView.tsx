@@ -78,7 +78,7 @@ export const DashboardView: React.FC<Props> = ({
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setMyPendingApprovalCount(data && typeof data.count === 'number' ? data.count : null))
       .catch(() => setMyPendingApprovalCount(null));
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.role]);
 
   const now = new Date();
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;

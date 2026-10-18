@@ -143,7 +143,15 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     setIsRecognizingRescan(true);
     setRescanRecognizeError(null);
     try {
-      const otherSideRaw = side === 'front' ? (editForm.backImage || contact.backImage || '') : (editForm.frontImage || contact.frontImage || '');
+      const otherSideRaw = side === 'front'
+        ? (editForm.backImage?.trim() || contact.backImage?.trim() || '')
+        : (editForm.frontImage?.trim() || contact.frontImage?.trim() || '');
+
+      // 다른 쪽 이미지가 없으면 실패
+      if (!otherSideRaw) {
+        throw new Error('다른 쪽 명함 이미지가 필요합니다. 완전한 스캔 후에 재스캔을 시도해주세요.');
+      }
+
       const otherSideBase64 = await ensureBase64Image(otherSideRaw);
       const frontImage = side === 'front' ? dataUrl : otherSideBase64;
       const backImage = side === 'back' ? dataUrl : otherSideBase64;
@@ -305,10 +313,14 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     if (contact.frontImage) {
       try {
         const res = await fetch(contact.frontImage);
+        if (!res.ok) throw new Error(`Failed to fetch image: HTTP ${res.status}`);
         const blob = await res.blob();
+        if (!blob.size) throw new Error('Image blob is empty');
         shareFiles.push(new File([blob], `${contact.name}_명함.jpg`, { type: blob.type || 'image/jpeg' }));
-      } catch {
+      } catch (err) {
+        console.warn('Failed to prepare image for sharing:', err);
         // 이미지를 파일로 바꾸는 데 실패해도 아래 텍스트/vCard 공유는 그대로 진행한다
+        // 하지만 사용자가 문제를 알 수 있도록 경고 로깅
       }
     }
 

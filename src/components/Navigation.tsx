@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare, Radar, Upload } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ReferralModal } from './ReferralModal.js';
@@ -83,7 +83,7 @@ export const Navigation: React.FC<Props> = ({
   // setActiveTab만으로는 값이 안 바뀌어서 리액트가 리렌더를 건너뛰고 아무 반응이 없다 -
   // 이 경우엔 onRequestViewReset을 호출해서 지금 화면을 처음 상태로 되돌린다. 다른 탭이면
   // 기존처럼 그냥 탭을 전환한다(전환되면서 화면이 새로 그려져 이미 초기화됨).
-  const handleMainTabClick = (tab: Parameters<typeof setActiveTab>[0]) => {
+  const handleMainTabClick = useCallback((tab: Parameters<typeof setActiveTab>[0]) => {
     if (tab === activeTab) {
       onRequestViewReset();
     } else {
@@ -91,7 +91,7 @@ export const Navigation: React.FC<Props> = ({
     }
     // 다른 탭 클릭 시 더보기 메뉴 닫기
     setIsMoreMenuOpen(false);
-  };
+  }, [activeTab, onRequestViewReset, setActiveTab, setIsMoreMenuOpen]);
   // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   // [수정] 관리자(개발자)용 "문의함" 화면 열림 상태. 이 화면은 회사 구분 없이 앱 전체 문의가
