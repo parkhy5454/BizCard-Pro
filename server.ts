@@ -2578,6 +2578,58 @@ app.put('/api/auth/signature', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// 👤 프로필 정보 수정 (이름, 직책, 휴대폰 번호)
+// ------------------------------------------------------------------
+app.put('/api/auth/profile', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { name, position, phone } = req.body;
+
+  // [검증] 이름은 필수
+  if (typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: '이름은 필수입니다.' });
+  }
+
+  // [검증] 직책과 휴대폰은 선택사항 (문자열일 경우)
+  if (position !== undefined && typeof position !== 'string') {
+    return res.status(400).json({ error: '직책이 올바르지 않습니다.' });
+  }
+  if (phone !== undefined && typeof phone !== 'string') {
+    return res.status(400).json({ error: '휴대폰 번호가 올바르지 않습니다.' });
+  }
+
+  // [업데이트] 사용자 정보 수정
+  user.name = name.trim();
+  if (position !== undefined) user.position = position.trim() || undefined;
+  if (phone !== undefined) user.phone = phone.trim() || undefined;
+
+  // [저장] DB에 저장
+  const savedUser = await addUser(user);
+  if (!savedUser) {
+    return res.status(500).json({ error: '프로필 정보를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+
+  res.json({
+    success: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      type: user.type,
+      companyName: user.companyName,
+      businessNumber: user.businessNumber,
+      position: user.position,
+      phone: user.phone,
+      role: user.role,
+      approvalStatus: user.approvalStatus,
+      emailVerified: isEmailVerified(user.emailVerified)
+    }
+  });
+});
+
+// ------------------------------------------------------------------
 // 🔑 비밀번호 찾기 (이메일로 재설정 링크 발송)
 // 토큰은 메모리에만 저장 (서버 재시작 시 만료된 요청은 그냥 다시 받으면 됨). 유효시간 30분.
 // ------------------------------------------------------------------

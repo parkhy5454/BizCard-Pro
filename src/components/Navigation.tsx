@@ -7,8 +7,8 @@ import { ContactGroup, Project, User as UserType } from '../types.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 
 interface Props {
-  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat';
-  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat') => void;
+  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile';
+  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile') => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedGroup: string;
@@ -951,13 +951,27 @@ export const Navigation: React.FC<Props> = ({
                     <span>AI Intelligence</span>
                   </button>
 
+                  {/* 프로필 설정 */}
+                  <button
+                    onClick={() => {
+                      handleMainTabClick('profile');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 ${
+                      activeTab === 'profile' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>프로필 설정</span>
+                  </button>
+
                   {/* 문의하기 */}
                   <button
                     onClick={() => {
                       setIsFeedbackOpen(true);
                       setIsMoreMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 text-slate-700"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
                   >
                     <MessageCircleQuestion className="w-4 h-4" />
                     <span>문의하기</span>
