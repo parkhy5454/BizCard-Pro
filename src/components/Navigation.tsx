@@ -420,9 +420,9 @@ export const Navigation: React.FC<Props> = ({
       </div>
     </header>
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-        <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50 overflow-y-visible">
+        <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50 overflow-visible">
 
-          <nav className="flex items-center gap-1 w-full pb-1 scrollbar-none overflow-x-auto overflow-y-visible">
+          <nav className="flex items-center gap-1 w-full pb-1 scrollbar-none overflow-x-auto overflow-visible">
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
@@ -479,7 +479,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 5. 더보기 드롭다운 (업무일지 및 나머지) */}
             <div className="relative">
               <button
-                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                onClick={(e) => { e.stopPropagation(); setIsMoreMenuOpen(!isMoreMenuOpen); }}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                   isMoreMenuOpen
                     ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
