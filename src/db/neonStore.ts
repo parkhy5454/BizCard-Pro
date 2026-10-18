@@ -706,87 +706,106 @@ export async function getPlatformStats(): Promise<any[]> {
   }
 }
 
-// 마이그레이션: scoped_items의 모든 데이터를 app_users.data로 통합
-export async function migrateScopedItemsToUserData(): Promise<{ success: boolean; message: string }> {
-  if (!isNeonConfigured) return { success: false, message: 'DB 미설정' };
+// [추가] scoped_items에서 app_users.data로 데이터를 마이그레이션하는 함수
+// 선택사항: 성능 최적화용 (getUsers()는 이미 실시간 병합을 수행하므로 필수는 아님)
+// 이 함수를 한 번 호출하면 모든 사용자의 scoped_items 데이터를 app_users.data로 이동시킨다
+export async function migrateScopedItemsToAppUsers(): Promise<{
+  success: boolean;
+  totalUsers: number;
+  migratedUsers: number;
+  details: Record<string, any>;
+}> {
+  if (!isNeonConfigured) {
+    return { success: false, totalUsers: 0, migratedUsers: 0, details: { error: 'Neon not configured' } };
+  }
+
+  const details: Record<string, any> = {};
+  let migratedUsers = 0;
 
   try {
-    console.log('[마이그레이션 시작] scoped_items → app_users.data');
+    // 모든 사용자 로드
+    const { rows: userRows } = await pool.query('SELECT id, data FROM app_users ORDER BY id ASC');
+    details.totalUsers = userRows.length;
 
-    // 1. 모든 사용자 조회
-    const { rows: users } = await pool.query('SELECT id, data FROM app_users ORDER BY id ASC');
-    console.log(`  ${users.length}명의 사용자 발견`);
-
-    let totalUpdates = 0;
-
-    // 2. 각 사용자별로 scoped_items 데이터 로드 및 병합
-    for (const userRow of users) {
+    for (const userRow of userRows) {
       const userId = userRow.id;
       let userData = userRow.data || {};
       if (typeof userData === 'string') {
         userData = JSON.parse(userData);
       }
 
-      // 3. 이 사용자의 scoped_items 모든 데이터 로드
-      const { rows: scopedRows } = await pool.query(
-        'SELECT collection, doc_id, data FROM scoped_items WHERE scope_id = $1 ORDER BY collection, doc_id',
-        [userId]
-      );
-
-      if (scopedRows.length === 0) continue;
-
-      console.log(`  사용자 ${userId}: ${scopedRows.length}개 항목 로드`);
-
-      // 4. 컬렉션별로 그룹화하고 userData에 병합
-      const collectionMap = new Map<string, any[]>();
-      for (const scopedRow of scopedRows) {
-        const collection = scopedRow.collection;
-        const data = scopedRow.data;
-
-        if (!collectionMap.has(collection)) {
-          collectionMap.set(collection, []);
-        }
-        collectionMap.get(collection)!.push(data);
-      }
-
-      // 5. userData에 병합 (중복 제거)
-      for (const [collection, items] of collectionMap) {
-        if (!userData[collection]) {
-          userData[collection] = [];
-        }
-
-        if (Array.isArray(userData[collection])) {
-          for (const item of items) {
-            if (!userData[collection].find(i => i.id === item.id)) {
-              userData[collection].push(item);
-            }
-          }
-        } else {
-          // myProfile 같은 단일 객체인 경우
-          userData[collection] = items[0];
-        }
-      }
-
-      // 6. app_users.data 업데이트
       try {
-        await pool.query(
-          'UPDATE app_users SET data = $1 WHERE id = $2',
-          [JSON.stringify(userData), userId]
+        // 사용자별 scoped_items 로드
+        const { rows: scopedRows } = await pool.query(
+          'SELECT collection, doc_id, data FROM scoped_items WHERE scope_id = $1',
+          [userId]
         );
-        totalUpdates++;
-        console.log(`  ✓ ${userId} 업데이트 완료 (${scopedRows.length}개 항목 병합)`);
-      } catch (updateError) {
-        console.error(`  ✗ ${userId} 업데이트 실패:`, updateError);
+
+        if (scopedRows.length === 0) {
+          details[userId] = { status: 'no_scoped_items' };
+          continue;
+        }
+
+        let hasChanges = false;
+        const collections: Record<string, number> = {};
+
+        for (const scopedRow of scopedRows) {
+          const collection = scopedRow.collection;
+          const data = scopedRow.data;
+
+          if (!collections[collection]) collections[collection] = 0;
+          collections[collection]++;
+
+          if (!userData[collection]) {
+            userData[collection] = [];
+          }
+
+          if (Array.isArray(userData[collection])) {
+            // 중복 확인 후 추가
+            const arr = userData[collection] as any[];
+            const existingIdx = arr.findIndex(i => i.id === data.id);
+            if (existingIdx < 0) {
+              arr.push(data);
+              hasChanges = true;
+            }
+          } else if (collection === 'myProfile') {
+            // 단일 객체는 직접 할당 (덮어쓰기)
+            userData[collection] = data;
+            hasChanges = true;
+          }
+        }
+
+        // 변경사항이 있으면 저장
+        if (hasChanges) {
+          await pool.query(
+            'UPDATE app_users SET data = $1 WHERE id = $2',
+            [JSON.stringify(userData), userId]
+          );
+          migratedUsers++;
+          details[userId] = { status: 'migrated', collections };
+          console.log(`[마이그레이션] 사용자 ${userId}의 scoped_items를 app_users.data로 병합 완료:`, collections);
+        } else {
+          details[userId] = { status: 'no_changes', collections };
+        }
+      } catch (userError) {
+        console.error(`[마이그레이션] 사용자 ${userId} 처리 중 오류:`, userError);
+        details[userId] = { status: 'error', error: String(userError) };
       }
     }
 
-    console.log(`[마이그레이션 완료] ${totalUpdates}명의 사용자 데이터 동기화됨`);
     return {
       success: true,
-      message: `${totalUpdates}명의 사용자 데이터를 성공적으로 동기화했습니다.`
+      totalUsers: userRows.length,
+      migratedUsers,
+      details
     };
   } catch (error) {
-    console.error('[마이그레이션 실패]:', error);
-    return { success: false, message: `마이그레이션 실패: ${error}` };
+    console.error('[마이그레이션] 전체 처리 중 오류:', error);
+    return {
+      success: false,
+      totalUsers: 0,
+      migratedUsers: 0,
+      details: { error: String(error) }
+    };
   }
 }

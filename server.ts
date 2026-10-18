@@ -329,7 +329,7 @@ import {
   createReferral,
   markReferralRewarded,
   getReferralsForUser,
-  migrateScopedItemsToUserData
+  migrateScopedItemsToAppUsers
 } from './src/db/neonStore.js';
 
 const app = express();
@@ -1862,11 +1862,8 @@ app.get('/api/referral/me', async (req, res) => {
 // 함께 갱신하는 setScopedDoc/deleteScopedDoc 패턴을 그대로 따른다.
 // ------------------------------------------------------------------
 app.get('/api/announcements', (req, res) => {
-  const userId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === userId);
-  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-
-  const list: Announcement[] = (requester as any).announcements || [];
+  const dbData = getScopedData(req);
+  const list: Announcement[] = dbData.announcements || [];
   // 고정(pinned) 공지를 맨 위에, 그 안에서는 최신순으로 정렬.
   const sorted = [...list].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -1980,11 +1977,15 @@ app.get('/api/chat/messages', (req, res) => {
     if (!parts.includes(requester.id)) {
       return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
     }
-  } else if (channel.startsWith('group:') && !canAccessGroupChannel(requester as any, channel, requester.id)) {
-    return res.status(403).json({ error: '이 그룹 대화를 조회할 권한이 없습니다.' });
+  } else if (channel.startsWith('group:')) {
+    const dbData = getScopedData(req);
+    if (!canAccessGroupChannel(dbData, channel, requester.id)) {
+      return res.status(403).json({ error: '이 그룹 대화를 조회할 권한이 없습니다.' });
+    }
   }
 
-  const all: ChatMessage[] = ((requester as any).chatMessages || []);
+  const dbData = getScopedData(req);
+  const all: ChatMessage[] = (dbData.chatMessages || []);
   const since = req.query.sinceId ? String(req.query.sinceId) : undefined;
   let list = all.filter((m) => m.channel === channel);
   if (since) {
@@ -2044,7 +2045,8 @@ app.get('/api/chat/groups', (req, res) => {
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  const groups: ChatGroup[] = ((requester as any).chatGroups || []);
+  const dbData = getScopedData(req);
+  const groups: ChatGroup[] = (dbData.chatGroups || []);
   const myGroups = groups.filter((g) => g.memberUserIds.includes(requester.id));
   res.json(myGroups);
 });
@@ -2439,7 +2441,8 @@ app.get('/api/auth/me', (req, res) => {
   const user = userId ? users.find(u => u.id === userId) : undefined;
   if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  // Neon DB에서 로드된 사용자 객체는 이미 businessCards, vehicles 등을 포함하고 있음
+  // DB에서 로드된 데이터
+  const dbData = getScopedData(req);
   res.json({
     user: {
       id: user.id,
@@ -2453,13 +2456,13 @@ app.get('/api/auth/me', (req, res) => {
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
       signatureImage: user.signatureImage,
-      // Neon DB에서 이미 로드된 마이그레이션 데이터
-      businessCards: (user as any).businessCards || [],
-      vehicles: (user as any).vehicles || [],
-      workLogs: (user as any).workLogs || [],
-      dailyLogs: (user as any).dailyLogs || [],
-      projects: (user as any).projects || [],
-      expenses: (user as any).expenses || []
+      // DB에서 로드된 모든 사용자 데이터
+      businessCards: dbData.contacts || [],
+      vehicles: dbData.vehicles || [],
+      workLogs: dbData.weeklyLogs || [],
+      dailyLogs: dbData.dailyLogs || [],
+      projects: dbData.projects || [],
+      expenses: dbData.expenses || []
     }
   });
 });
@@ -4049,9 +4052,10 @@ app.get('/api/contacts', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  // Neon DB에서 로드된 사용자 객체에서 businessCards, groups 추출
-  const businessCards = (requester as any).businessCards || [];
-  const groups = (requester as any).groups || [];
+  const dbData = getScopedData(req);
+  // DB에서 로드된 명함 및 그룹 추출
+  const businessCards = dbData.contacts || [];
+  const groups = dbData.groups || [];
 
   // [수정] "나만 보기(비공개)"로 설정된 명함은 등록한 본인 것만 내려주고, 다른 사람에게는 숨긴다.
   const privateGroupIds = new Set(
@@ -4236,7 +4240,8 @@ app.get('/api/groups', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const groups = (requester as any).groups || [];
+  const dbData = getScopedData(req);
+  const groups = dbData.groups || [];
   // [수정] "나만 보기(비공개)"로 설정된 그룹은 만든 본인에게만 보이고, 다른 사람에게는
   // 목록/필터 칩 자체에서 숨긴다. 명함의 isPrivate와 동일한 방식.
   const visible = groups.filter(g => !g.isPrivate || !g.createdByUserId || g.createdByUserId === requesterId);
@@ -5313,7 +5318,8 @@ app.get('/api/my-profile', async (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const myProfile = ((requester as any).myProfile || {
+  const dbData = getScopedData(req);
+  const myProfile = (dbData.myProfile || {
     name: '', company: '', department: '', title: '',
     phoneMobile: '', phoneOffice: '', phoneFax: '', email: '',
     address: '', snsUrl: '', website: '', memo: ''
@@ -5532,7 +5538,8 @@ app.get('/api/projects', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  res.json((requester as any).projects || []);
+  const dbData = getScopedData(req);
+  res.json(dbData.projects || []);
 });
 
 app.post('/api/projects', async (req, res) => {
@@ -5720,8 +5727,9 @@ app.get('/api/vehicles', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  // Neon DB에서 사용자의 vehicles 데이터 직접 로드
-  res.json((requester as any).vehicles || []);
+  // DB에서 사용자의 vehicles 데이터 직접 로드
+  const dbData = getScopedData(req);
+  res.json(dbData.vehicles || []);
 });
 
 app.post('/api/vehicles', async (req, res) => {
@@ -6718,7 +6726,8 @@ app.get('/api/worklogs/daily', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  res.json((requester as any).dailyLogs || []);
+  const dbData = getScopedData(req);
+  res.json(dbData.dailyLogs || []);
 });
 
 app.post('/api/worklogs/daily', async (req, res) => {
@@ -6825,7 +6834,8 @@ app.get('/api/worklogs/weekly', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  res.json((requester as any).weeklyLogs || []);
+  const dbData = getScopedData(req);
+  res.json(dbData.weeklyLogs || []);
 });
 
 app.post('/api/worklogs/weekly', async (req, res) => {
@@ -7297,7 +7307,9 @@ app.post('/api/admin/migrate-scope', async (req, res) => {
   }
 });
 
-// [새로 추가] scoped_items 데이터를 app_users.data로 일괄 마이그레이션 (관리자 전용)
+// [추가] scoped_items의 데이터를 app_users.data로 마이그레이션하는 엔드포인트
+// 성능 최적화용: getUsers()는 이미 실시간 병합을 수행하므로 필수는 아니지만,
+// 이 API를 한 번 호출하면 모든 scoped_items이 app_users.data로 이동되어 조회 성능 향상
 app.post('/api/admin/migrate-scoped-items', async (req, res) => {
   const userId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === userId);
@@ -7306,19 +7318,26 @@ app.post('/api/admin/migrate-scoped-items', async (req, res) => {
   }
 
   try {
-    console.log('[API] 관리자가 scoped_items → app_users.data 마이그레이션 시작');
-    const result = await migrateScopedItemsToUserData();
+    const result = await migrateScopedItemsToAppUsers();
 
     if (result.success) {
-      // 마이그레이션 후 메모리 캐시 리로드
+      // 마이그레이션 완료 후 메모리 캐시 갱신
       users = await getUsers();
-      res.json({ success: true, message: result.message });
+      res.json({
+        success: true,
+        message: `${result.migratedUsers}/${result.totalUsers} 사용자의 데이터를 마이그레이션했습니다.`,
+        ...result
+      });
     } else {
-      res.status(500).json({ success: false, message: result.message });
+      res.status(500).json({
+        success: false,
+        error: '마이그레이션 중 오류가 발생했습니다.',
+        ...result
+      });
     }
-  } catch (error) {
-    console.error('마이그레이션 API 오류:', error);
-    res.status(500).json({ error: '마이그레이션 실패' });
+  } catch (err: any) {
+    console.error('scoped_items 마이그레이션 오류:', err);
+    res.status(500).json({ error: '마이그레이션 중 오류가 발생했습니다.' });
   }
 });
 
