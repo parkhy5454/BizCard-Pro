@@ -192,7 +192,7 @@ export const Navigation: React.FC<Props> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between py-4 md:py-0 md:h-16 gap-4">
           
           {/* 브랜드 로고 */}
-          <div className="flex items-center justify-between w-full md:w-auto">
+          <div className="flex items-center gap-4 w-full md:w-auto md:justify-between min-w-0 overflow-x-auto">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('cards')}>
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40">
                 <ScanLine className="w-6 h-6 text-white animate-pulse" />
