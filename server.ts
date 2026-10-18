@@ -1343,10 +1343,18 @@ function resolveScopeId(req: express.Request): string {
 }
 
 // Express 전용 스코프 데이터 동기 반환
-// (스코프 데이터는 아래 app.use 미들웨어에서 요청 처리 전에 이미 로드가 보장됩니다)
+// scopeId를 매번 계산하고, 캐시된 데이터 또는 기본값 반환
 function getScopedData(req: express.Request): any {
-  const scopeId = (req as any).scopeId || 'default';
-  return db[scopeId] || {
+  // [수정] req.scopeId가 없을 수 있으므로, 매번 resolveScopeId로 계산
+  const scopeId = (req as any).scopeId || resolveScopeId(req);
+
+  // 캐시된 데이터가 있으면 반환, 없으면 기본값 반환
+  if (db[scopeId]) {
+    return db[scopeId];
+  }
+
+  // 기본값 반환 (빈 데이터)
+  return {
     contacts: [],
     projects: [],
     groups: [],

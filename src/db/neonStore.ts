@@ -436,11 +436,16 @@ export async function getUsers(): Promise<RegisteredUser[]> {
       let user = row.data as RegisteredUser;
       if (!user) user = { id: row.id } as RegisteredUser;
 
-      // scoped_items에서 사용자의 모든 데이터를 로드해서 user 객체에 병합
+      // [수정] scopeId를 올바르게 계산 (user.id가 아니라 company:businessNumber 또는 individual:userId)
+      const scopeId = user.type === 'company'
+        ? `company:${(user.businessNumber || '').trim()}`
+        : `individual:${user.id}`;
+
+      // scoped_items에서 올바른 scopeId로 데이터 로드
       try {
         const { rows: scopedRows } = await pool.query(
           'SELECT collection, doc_id, data FROM scoped_items WHERE scope_id = $1',
-          [row.id]
+          [scopeId]
         );
 
         for (const scopedRow of scopedRows) {
@@ -462,7 +467,7 @@ export async function getUsers(): Promise<RegisteredUser[]> {
           }
         }
       } catch (scopedError) {
-        console.warn(`scoped_items 로드 실패 for user ${row.id}:`, scopedError);
+        console.warn(`scoped_items 로드 실패 for user ${user.id}, scope ${scopeId}:`, scopedError);
       }
 
       users.push(user);
