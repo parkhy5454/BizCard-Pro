@@ -328,7 +328,8 @@ import {
   getPlatformStats,
   createReferral,
   markReferralRewarded,
-  getReferralsForUser
+  getReferralsForUser,
+  migrateScopedItemsToUserData
 } from './src/db/neonStore.js';
 
 const app = express();
@@ -7293,6 +7294,31 @@ app.post('/api/admin/migrate-scope', async (req, res) => {
   } catch (err: any) {
     console.error('scope migrate 오류:', err);
     res.status(500).json({ error: '데이터 병합 중 오류가 발생했습니다.' });
+  }
+});
+
+// [새로 추가] scoped_items 데이터를 app_users.data로 일괄 마이그레이션 (관리자 전용)
+app.post('/api/admin/migrate-scoped-items', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester || requester.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: '접근 권한이 없습니다.' });
+  }
+
+  try {
+    console.log('[API] 관리자가 scoped_items → app_users.data 마이그레이션 시작');
+    const result = await migrateScopedItemsToUserData();
+
+    if (result.success) {
+      // 마이그레이션 후 메모리 캐시 리로드
+      users = await getUsers();
+      res.json({ success: true, message: result.message });
+    } else {
+      res.status(500).json({ success: false, message: result.message });
+    }
+  } catch (error) {
+    console.error('마이그레이션 API 오류:', error);
+    res.status(500).json({ error: '마이그레이션 실패' });
   }
 });
 
