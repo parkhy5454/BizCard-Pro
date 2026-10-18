@@ -483,7 +483,8 @@ export const Navigation: React.FC<Props> = ({
     {activeTab === 'projects' && (
       <div className="sticky top-[var(--header-height,64px)] z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
+          {/* 1. 뷰 모드 탭 섹션 */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
             {/* 새 프로젝트 등록 버튼 */}
             <button
               onClick={onOpenNewProject}
@@ -576,6 +577,61 @@ export const Navigation: React.FC<Props> = ({
             >
               <TrendingUp className="w-4 h-4" />
               <span>파이프라인</span>
+            </button>
+          </div>
+
+          {/* 2. 프로젝트 상태 필터 칩 섹션 */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
+            <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">상태필터:</span>
+            <button
+              onClick={() => setProjectFilterStatus('all')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                projectFilterStatus === 'all'
+                  ? 'bg-slate-100 text-slate-900 shadow font-bold'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+              }`}
+            >
+              전체보기 ({projects.length})
+            </button>
+            <button
+              onClick={() => setProjectFilterStatus('opportunity')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                projectFilterStatus === 'opportunity'
+                  ? 'bg-blue-500 text-white border-blue-400 font-bold scale-105 ring-2 ring-white/30'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              💡 기회 ({projects.filter(p => p.status === 'opportunity').length})
+            </button>
+            <button
+              onClick={() => setProjectFilterStatus('progress')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                projectFilterStatus === 'progress'
+                  ? 'bg-amber-500 text-amber-950 border-amber-400 font-bold scale-105 ring-2 ring-white/30'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              ⚡ 진행 ({projects.filter(p => p.status === 'progress').length})
+            </button>
+            <button
+              onClick={() => setProjectFilterStatus('completed')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                projectFilterStatus === 'completed'
+                  ? 'bg-emerald-500 text-white border-emerald-400 font-bold scale-105 ring-2 ring-white/30'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              ✅ 완료 ({projects.filter(p => p.status === 'completed').length})
+            </button>
+            <button
+              onClick={() => setProjectFilterStatus('failed')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                projectFilterStatus === 'failed'
+                  ? 'bg-rose-500 text-white border-rose-400 font-bold scale-105 ring-2 ring-white/30'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              ❌ 실패 ({projects.filter(p => p.status === 'failed').length})
             </button>
           </div>
         </div>
@@ -919,64 +975,6 @@ export const Navigation: React.FC<Props> = ({
                   {g.name}
                 </button>
               ))}
-            </div>
-          )}
-
-
-          {/* 프로젝트 탭일 때 우측 상태 칩 필터링 */}
-          {activeTab === 'projects' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full">
-              <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">상태필터:</span>
-              <button
-                onClick={() => setProjectFilterStatus('all')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                  projectFilterStatus === 'all'
-                    ? 'bg-slate-100 text-slate-900 shadow font-bold'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
-                }`}
-              >
-                전체보기 ({projects.length})
-              </button>
-              <button
-                onClick={() => setProjectFilterStatus('opportunity')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
-                  projectFilterStatus === 'opportunity'
-                    ? 'bg-blue-500 text-white border-blue-400 font-bold scale-105 ring-2 ring-white/30'
-                    : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                💡 기회 ({projects.filter(p => p.status === 'opportunity').length})
-              </button>
-              <button
-                onClick={() => setProjectFilterStatus('progress')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
-                  projectFilterStatus === 'progress'
-                    ? 'bg-amber-500 text-amber-950 border-amber-400 font-bold scale-105 ring-2 ring-white/30'
-                    : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                ⚡ 진행 ({projects.filter(p => p.status === 'progress').length})
-              </button>
-              <button
-                onClick={() => setProjectFilterStatus('completed')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
-                  projectFilterStatus === 'completed'
-                    ? 'bg-emerald-500 text-white border-emerald-400 font-bold scale-105 ring-2 ring-white/30'
-                    : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                ✅ 완료 ({projects.filter(p => p.status === 'completed').length})
-              </button>
-              <button
-                onClick={() => setProjectFilterStatus('failed')}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
-                  projectFilterStatus === 'failed'
-                    ? 'bg-rose-500 text-white border-rose-400 font-bold scale-105 ring-2 ring-white/30'
-                    : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                ❌ 실패 ({projects.filter(p => p.status === 'failed').length})
-              </button>
             </div>
           )}
 
