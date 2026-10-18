@@ -2229,47 +2229,61 @@ app.post("/api/auth/signup", async (req, res) => {
   });
 });
 app.post("/api/auth/login", async (req, res) => {
-  const { email, password, rememberMe } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "\uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB97C \uBAA8\uB450 \uC785\uB825\uD574\uC8FC\uC138\uC694." });
-  }
-  const normalizedEmailForLimit = String(email).trim().toLowerCase();
-  const clientIp = req.ip || req.socket.remoteAddress || "unknown";
-  const limitKey = `${normalizedEmailForLimit}::${clientIp}`;
-  const limitCheck = loginRateLimiter.check(limitKey);
-  if (!limitCheck.allowed) {
-    return res.status(429).json({
-      error: `\uB85C\uADF8\uC778 \uC2DC\uB3C4\uAC00 \uB108\uBB34 \uB9CE\uC2B5\uB2C8\uB2E4. ${limitCheck.retryAfterSec}\uCD08 \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.`
-    });
-  }
-  const user = users.find((u) => u.email && u.email.toLowerCase() === email.toLowerCase());
-  if (!user || !verifyPassword(password, user.password)) {
-    loginRateLimiter.registerAttempt(limitKey);
-    return res.status(401).json({ error: "\uC774\uBA54\uC77C \uD639\uC740 \uBE44\uBC00\uBC88\uD638\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." });
-  }
-  loginRateLimiter.reset(limitKey);
-  if (!user.password?.startsWith("$2")) {
-    user.password = import_bcryptjs.default.hashSync(password, 10);
-    await addUser(user);
-  }
-  const loginSession = await createSession(user.id, rememberMe !== false);
-  setSessionCookie(req, res, loginSession.token, loginSession.ttlMs);
-  res.json({
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      type: user.type,
-      companyName: user.companyName,
-      businessNumber: user.businessNumber,
-      position: user.position,
-      role: user.role,
-      approvalStatus: user.approvalStatus,
-      emailVerified: isEmailVerified(user.emailVerified),
-      signatureImage: user.signatureImage
+  try {
+    const { email, password, rememberMe } = req.body;
+    console.log("[LOGIN] \uC694\uCCAD:", { email, hasPassword: !!password });
+    if (!email || !password) {
+      console.log("[LOGIN] \uC774\uBA54\uC77C \uB610\uB294 \uBE44\uBC00\uBC88\uD638 \uC5C6\uC74C");
+      return res.status(400).json({ error: "\uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB97C \uBAA8\uB450 \uC785\uB825\uD574\uC8FC\uC138\uC694." });
     }
-  });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    console.log("[LOGIN] \uC815\uADDC\uD654\uB41C \uC774\uBA54\uC77C:", normalizedEmail);
+    console.log("[LOGIN] \uB370\uC774\uD130\uBCA0\uC774\uC2A4 \uC0AC\uC6A9\uC790 \uC218:", users.length);
+    const userEmails = users.map((u) => u.email).filter(Boolean);
+    console.log("[LOGIN] \uB4F1\uB85D\uB41C \uC774\uBA54\uC77C\uB4E4:", userEmails);
+    const user = users.find((u) => {
+      if (!u.email) return false;
+      const match = u.email.toLowerCase() === normalizedEmail;
+      console.log(`[LOGIN] \uC0AC\uC6A9\uC790 ${u.id} \uBE44\uAD50: ${u.email.toLowerCase()} === ${normalizedEmail}? ${match}`);
+      return match;
+    });
+    console.log("[LOGIN] \uCC3E\uC740 \uC0AC\uC6A9\uC790:", user ? user.id : "\uC5C6\uC74C");
+    if (!user) {
+      return res.status(401).json({ error: "\uB4F1\uB85D\uB418\uC9C0 \uC54A\uC740 \uC774\uBA54\uC77C\uC785\uB2C8\uB2E4." });
+    }
+    console.log("[LOGIN] \uC554\uD638 \uAC80\uC99D \uC2DC\uB3C4. \uC800\uC7A5\uB41C \uC554\uD638:", user.password ? "\uC788\uC74C" : "\uC5C6\uC74C");
+    const passwordMatch = verifyPassword(password, user.password);
+    console.log("[LOGIN] \uC554\uD638 \uC77C\uCE58 \uC5EC\uBD80:", passwordMatch);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "\uBE44\uBC00\uBC88\uD638\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." });
+    }
+    console.log("[LOGIN] \uB85C\uADF8\uC778 \uC131\uACF5!");
+    if (!user.password?.startsWith("$2")) {
+      user.password = import_bcryptjs.default.hashSync(password, 10);
+      await addUser(user);
+    }
+    const loginSession = await createSession(user.id, rememberMe !== false);
+    setSessionCookie(req, res, loginSession.token, loginSession.ttlMs);
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        type: user.type,
+        companyName: user.companyName,
+        businessNumber: user.businessNumber,
+        position: user.position,
+        role: user.role,
+        approvalStatus: user.approvalStatus,
+        emailVerified: isEmailVerified(user.emailVerified),
+        signatureImage: user.signatureImage
+      }
+    });
+  } catch (error2) {
+    console.error("[LOGIN] \uC624\uB958:", error2);
+    res.status(500).json({ error: "\uB85C\uADF8\uC778 \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4." });
+  }
 });
 app.post("/api/auth/verify-email", async (req, res) => {
   const { token } = req.body;
