@@ -704,11 +704,55 @@ function toFriendlyAiErrorMessage(err) {
 }
 var app = (0, import_express.default)();
 var PORT = Number(process.env.PORT) || 3e3;
+var requiredEnvVars = [
+  "CRON_SECRET",
+  "GEMINI_API_KEY",
+  "TOSS_SECRET_KEY",
+  "BREVO_API_KEY",
+  "KAKAO_REST_API_KEY",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "APP_BASE_URL"
+];
+var missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
+if (missingEnvVars.length > 0) {
+  console.error("\u274C \uD544\uC218 \uD658\uACBD \uBCC0\uC218 \uB204\uB77D:", missingEnvVars.join(", "));
+  console.error("\uC11C\uBC84\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. .env \uD30C\uC77C\uC744 \uD655\uC778\uD574\uC8FC\uC138\uC694.");
+  process.exit(1);
+}
+console.log("\u2705 \uBAA8\uB4E0 \uD544\uC218 \uD658\uACBD \uBCC0\uC218 \uC124\uC815\uB428");
+console.log(`\u{1F680} \uD658\uACBD: ${process.env.NODE_ENV || "development"}`);
+console.log(`\u{1F517} APP_BASE_URL: ${process.env.APP_BASE_URL}`);
 app.use(import_express.default.json({ limit: "50mb" }));
 app.use(import_express.default.urlencoded({ extended: true, limit: "50mb" }));
+var allowedOrigins = [
+  "http://localhost:5173",
+  // 개발: Vite
+  "http://localhost:3000",
+  // 개발: 대체 포트
+  "https://app.bizcardai.kr",
+  // 프로덕션: 메인 도메인
+  "https://bizcard-pro.onrender.com",
+  // 프로덕션: Render 기본 URL
+  process.env.APP_BASE_URL
+  // 환경변수로 추가 도메인 지원
+];
+app.use((0, import_cors.default)({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS policy: origin ${origin} not allowed`));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-user-id", "x-cron-secret"],
+  maxAge: 3600
+}));
 app.use((0, import_helmet.default)({
   contentSecurityPolicy: {
-    reportOnly: true,
+    reportOnly: process.env.NODE_ENV !== "production",
     directives: {
       defaultSrc: ["'self'"],
       // 카카오 지도 SDK, 카카오톡 공유 SDK, 토스페이먼츠 결제창, OpenCV.js CDN 폴백
@@ -731,29 +775,29 @@ app.use((0, import_helmet.default)({
   // 이 옵션이 로딩 자체를 막을 수 있어서 계속 꺼둔다.
   crossOriginEmbedderPolicy: false
 }));
-app.use((0, import_cors.default)({
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "http://localhost:3001",
-      process.env.APP_BASE_URL?.replace("https://", "").replace("http://", "").split("/")[0]
-    ].filter(Boolean);
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS policy: \uD5C8\uC6A9\uB418\uC9C0 \uC54A\uC740 origin\uC785\uB2C8\uB2E4."));
-    }
-  },
-  credentials: true,
-  // 쿠키와 인증 정보 포함 허용
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-user-id", "x-cron-secret"],
-  maxAge: 3600
-  // preflight 캐시 시간(초)
-}));
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", uptime: process.uptime() });
+app.get("/health", async (req, res) => {
+  try {
+    const health = {
+      status: "ok",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || "development",
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+      },
+      database: isSupabaseConfigured() ? "connected" : "not configured",
+      monitoring: SENTRY_DSN ? "enabled" : "disabled"
+    };
+    res.status(200).json(health);
+  } catch (err) {
+    console.error("Health check error:", err);
+    res.status(503).json({
+      status: "error",
+      message: "Health check failed",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
 });
 var swaggerOptions = {
   definition: {
@@ -1077,7 +1121,8 @@ var initialMyProfile = {
   phoneMobile: "010-5454-0000",
   phoneOffice: "02-545-0000",
   phoneFax: "02-545-0001",
-  email: "parkyl5454@gmail.com",
+  email: "sample@example.com",
+  // ✅ 샘플 이메일 (실제 사용자가 설정)
   address: "\uC11C\uC6B8\uD2B9\uBCC4\uC2DC \uAC15\uB0A8\uAD6C \uD14C\uD5E4\uB780\uB85C 152 \uAC15\uB0A8\uD30C\uC774\uB0B8\uC2A4\uC13C\uD130 18\uCE35",
   snsUrl: "https://linkedin.com/in/bizcard-pro",
   website: "https://bizcard-pro.ai",
@@ -1441,7 +1486,7 @@ async function loadScopeFromSupabaseInner(scopeId) {
   const chatMessages = await withTimeout(getScopedCollection(scopeId, "chatMessages"), "chatMessages");
   const chatGroups = await withTimeout(getScopedCollection(scopeId, "chatGroups"), "chatGroups");
   const profileList = await withTimeout(getScopedCollection(scopeId, "myProfile"), "myProfile");
-  const myProfile = profileList.find((p) => p.email === "parkyl5454@gmail.com") || profileList[0] || initialMyProfile;
+  const myProfile = profileList[0] || initialMyProfile;
   const loadedData = {
     contacts,
     projects,
@@ -1744,6 +1789,17 @@ var loginRateLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 10 * 60 * 1e3
 var signupRateLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 60 * 60 * 1e3 });
 var companyLookupRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60 * 60 * 1e3 });
 var aiScanRateLimiter = new RateLimiter({ maxAttempts: 100, windowMs: 10 * 60 * 1e3 });
+var dataModifyRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60 * 1e3 });
+function checkModifyRateLimit(req, res) {
+  const userId = req.headers["x-user-id"];
+  const limitCheck = dataModifyRateLimiter.check(userId);
+  if (!limitCheck.allowed) {
+    res.status(429).json({ error: `\uC694\uCCAD\uC774 \uB108\uBB34 \uB9CE\uC2B5\uB2C8\uB2E4. ${limitCheck.retryAfterSec}\uCD08 \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.` });
+    return false;
+  }
+  dataModifyRateLimiter.registerAttempt(userId);
+  return true;
+}
 app.get("/api/auth/lookup-company", (req, res) => {
   const ip = req.ip || req.socket.remoteAddress || "unknown";
   const limit = companyLookupRateLimiter.check(ip);
@@ -2424,6 +2480,7 @@ app.get("/api/auth/duplicate-emails", async (req, res) => {
   res.json({ duplicateCount: duplicates.length, duplicates });
 });
 app.put("/api/auth/users/:targetId", async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
   const requesterId = req.headers["x-user-id"];
   const requester = users.find((u) => u.id === requesterId);
   if (!requester) return res.status(401).json({ error: "\uB85C\uADF8\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4." });
@@ -2456,6 +2513,7 @@ app.put("/api/auth/users/:targetId", async (req, res) => {
   res.json({ success: true, user: { id: target.id, email: target.email, name: target.name, position: target.position, role: target.role, department: target.department, managerUserId: target.managerUserId } });
 });
 app.delete("/api/auth/users/:targetId", async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
   const requesterId = req.headers["x-user-id"];
   const requester = users.find((u) => u.id === requesterId);
   if (!requester) return res.status(401).json({ error: "\uB85C\uADF8\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4." });
@@ -3395,6 +3453,7 @@ app.post("/api/contacts", async (req, res) => {
   res.status(201).json(newCard);
 });
 app.put("/api/contacts/:id", async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
   const dbData = getScopedData(req);
   const scopeId = req.scopeId;
   const idx = dbData.contacts.findIndex((c) => c.id === req.params.id);
@@ -3424,6 +3483,7 @@ app.put("/api/contacts/:id", async (req, res) => {
   res.json(updated);
 });
 app.delete("/api/contacts/:id", async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
   const dbData = getScopedData(req);
   dbData.contacts = dbData.contacts.filter((c) => c.id !== req.params.id);
   await deleteScopedDoc(req.scopeId, "contacts", req.params.id);
@@ -4282,6 +4342,7 @@ app.get("/api/my-profile", async (req, res) => {
   res.json(dbData.myProfile);
 });
 app.put("/api/my-profile", async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
   const dbData = getScopedData(req);
   const scopeId = req.scopeId;
   const previousProfile = dbData.myProfile;
@@ -5673,7 +5734,10 @@ app.post("/api/feedback", async (req, res) => {
     if (!res.headersSent) res.status(500).json({ error: "\uBB38\uC758 \uC811\uC218 \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4." });
   }
 });
-var ADMIN_EMAIL = process.env.ADMIN_EMAIL || "parkhy5454@gmail.com";
+var ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
+if (!ADMIN_EMAIL) {
+  console.error("\u274C ADMIN_EMAIL \uD658\uACBD\uBCC0\uC218\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uAD00\uB9AC\uC790 \uAE30\uB2A5\uC744 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+}
 app.get("/api/admin/platform-stats", async (req, res) => {
   const userId = req.headers["x-user-id"];
   const requester = users.find((u) => u.id === userId);
