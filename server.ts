@@ -1326,6 +1326,66 @@ async function bootstrapUsers() {
     await ensureUsersSeeded(initialUsers);
     users = await getUsers();
   }
+
+  // [수정] 각 사용자의 scopeId에 대해 db[scopeId] 캐시 초기화
+  // 이렇게 해야 GET 요청에서 바로 데이터를 사용할 수 있다
+  const uniqueScopeIds = new Set<string>();
+  for (const user of users) {
+    const scopeId = scopeIdForUser(user);
+    uniqueScopeIds.add(scopeId);
+  }
+
+  // 모든 고유 scopeId에 대해 데이터 로드
+  for (const scopeId of uniqueScopeIds) {
+    if (!db[scopeId]) {
+      console.log(`[Bootstrap] 캐시 로드 시작: ${scopeId}`);
+      try {
+        const contacts = await getScopedCollection<BusinessCard>(scopeId, 'contacts');
+        const projects = await getScopedCollection<Project>(scopeId, 'projects');
+        const groups = await getScopedCollection<ContactGroup>(scopeId, 'groups');
+        const vehicles = await getScopedCollection<Vehicle>(scopeId, 'vehicles');
+        const drivingLogs = await getScopedCollection<DrivingLog>(scopeId, 'drivingLogs');
+        const expenses = await getScopedCollection<VehicleExpense>(scopeId, 'expenses');
+        const maintenances = await getScopedCollection<VehicleMaintenance>(scopeId, 'maintenances');
+        const maintenanceIntervals = await getScopedCollection<MaintenanceInterval>(scopeId, 'maintenanceIntervals');
+        const dailyLogs = await getScopedCollection<DailyWorkLog>(scopeId, 'dailyLogs');
+        const weeklyLogs = await getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs');
+        const advancePayments = await getScopedCollection<AdvancePaymentSettlement>(scopeId, 'advancePayments');
+        const leaveRequests = await getScopedCollection<LeaveRequest>(scopeId, 'leaveRequests');
+        const officialDocuments = await getScopedCollection<OfficialDocument>(scopeId, 'officialDocuments');
+        const adminDocs = await getScopedCollection<AdminDoc>(scopeId, 'adminDocs');
+        const announcements = await getScopedCollection<Announcement>(scopeId, 'announcements');
+        const chatMessages = await getScopedCollection<ChatMessage>(scopeId, 'chatMessages');
+        const chatGroups = await getScopedCollection<ChatGroup>(scopeId, 'chatGroups');
+        const profileList = await getScopedCollection<MyProfile>(scopeId, 'myProfile');
+        const myProfile = profileList[0] || initialMyProfile;
+
+        db[scopeId] = {
+          contacts,
+          projects,
+          groups,
+          myProfile,
+          vehicles,
+          drivingLogs,
+          expenses,
+          maintenances,
+          maintenanceIntervals,
+          dailyLogs,
+          weeklyLogs,
+          advancePayments,
+          leaveRequests,
+          officialDocuments,
+          adminDocs,
+          announcements,
+          chatMessages,
+          chatGroups
+        };
+        console.log(`[Bootstrap] 캐시 로드 완료: ${scopeId} (명함: ${contacts.length}, 프로젝트: ${projects.length})`);
+      } catch (error) {
+        console.error(`[Bootstrap] 캐시 로드 실패 (${scopeId}):`, error);
+      }
+    }
+  }
 }
 
 // HTTP 헤더(x-user-id)를 기반으로 스코프 ID를 동기적으로 계산 (DB 호출 없음, users는 메모리 캐시 사용)
