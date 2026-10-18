@@ -89,6 +89,8 @@ export const Navigation: React.FC<Props> = ({
     } else {
       setActiveTab(tab);
     }
+    // 다른 탭 클릭 시 더보기 메뉴 닫기
+    setIsMoreMenuOpen(false);
   };
   // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
