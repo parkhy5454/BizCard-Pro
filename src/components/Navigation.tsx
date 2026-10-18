@@ -630,6 +630,18 @@ export const Navigation: React.FC<Props> = ({
                     <Sparkles className="w-4 h-4" />
                     <span>AI Intelligence</span>
                   </button>
+
+                  {/* 문의하기 */}
+                  <button
+                    onClick={() => {
+                      setIsFeedbackOpen(true);
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 text-slate-700"
+                  >
+                    <MessageCircleQuestion className="w-4 h-4" />
+                    <span>문의하기</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -910,16 +922,7 @@ export const Navigation: React.FC<Props> = ({
       <ReferralModal currentUser={currentUser} onClose={() => setIsReferralOpen(false)} />
     )}
 
-    {/* [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 플로팅 "문의하기" 버튼.
-        Navigation은 모든 탭에서 공통으로 항상 렌더링되므로, 여기에 두면 어느 화면에 있든 계속 떠 있다. */}
-    <button
-      type="button"
-      onClick={() => setIsFeedbackOpen(true)}
-      className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 text-white shadow-2xl shadow-indigo-600/40 flex items-center justify-center transition-all active:scale-95"
-      title="문의하기"
-    >
-      <MessageCircleQuestion className="w-6 h-6" />
-    </button>
+    {/* [수정] 문의하기는 이제 하단 탭의 "더보기" 드롭다운에 통합됨 */}
 
     {isFeedbackOpen && (
       <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
