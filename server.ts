@@ -1865,8 +1865,7 @@ app.get('/api/announcements', (req, res) => {
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  const dbData = getScopedData(req);
-  const list: Announcement[] = dbData.announcements || [];
+  const list: Announcement[] = (requester as any).announcements || [];
   // 고정(pinned) 공지를 맨 위에, 그 안에서는 최신순으로 정렬.
   const sorted = [...list].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -1960,9 +1959,9 @@ function dmChannelId(userIdA: string, userIdB: string): string {
 // group: 채널은 채널명(그룹 id)만으로는 누가 멤버인지 알 수 없으므로, 그때그때
 // chatGroups에서 실제 멤버 목록을 찾아 확인한다. 그룹 자체가 없으면(삭제됐거나
 // 잘못된 id) 접근을 막는다.
-function canAccessGroupChannel(dbData: any, channel: string, requesterId: string): boolean {
+function canAccessGroupChannel(requester: any, channel: string, requesterId: string): boolean {
   const groupId = channel.slice('group:'.length);
-  const group = (dbData.chatGroups || []).find((g: ChatGroup) => g.id === groupId);
+  const group = (requester.chatGroups || []).find((g: ChatGroup) => g.id === groupId);
   return Boolean(group && group.memberUserIds.includes(requesterId));
 }
 
@@ -1972,7 +1971,6 @@ app.get('/api/chat/messages', (req, res) => {
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
   const channel = String(req.query.channel || 'team');
-  const dbData = getScopedData(req);
   // 1:1 대화방(dm:a:b)은 그 두 사람만, 소그룹 대화방(group:id)은 멤버로 지정된
   // 사람만 조회할 수 있게 막는다 — 안 그러면 채널 이름만 알면 남의 대화를 그대로
   // 읽을 수 있는 문제가 생긴다.
@@ -1981,11 +1979,11 @@ app.get('/api/chat/messages', (req, res) => {
     if (!parts.includes(requester.id)) {
       return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
     }
-  } else if (channel.startsWith('group:') && !canAccessGroupChannel(dbData, channel, requester.id)) {
+  } else if (channel.startsWith('group:') && !canAccessGroupChannel(requester as any, channel, requester.id)) {
     return res.status(403).json({ error: '이 그룹 대화를 조회할 권한이 없습니다.' });
   }
 
-  const all: ChatMessage[] = dbData.chatMessages || [];
+  const all: ChatMessage[] = ((requester as any).chatMessages || []);
   const since = req.query.sinceId ? String(req.query.sinceId) : undefined;
   let list = all.filter((m) => m.channel === channel);
   if (since) {
@@ -2045,8 +2043,7 @@ app.get('/api/chat/groups', (req, res) => {
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  const dbData = getScopedData(req);
-  const groups: ChatGroup[] = dbData.chatGroups || [];
+  const groups: ChatGroup[] = ((requester as any).chatGroups || []);
   const myGroups = groups.filter((g) => g.memberUserIds.includes(requester.id));
   res.json(myGroups);
 });
@@ -2441,9 +2438,7 @@ app.get('/api/auth/me', (req, res) => {
   const user = userId ? users.find(u => u.id === userId) : undefined;
   if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  // Neon DB에서 사용자의 전체 data 필드를 포함해서 반환
-  const userData = (user as any).data || {};
-
+  // Neon DB에서 로드된 사용자 객체는 이미 businessCards, vehicles 등을 포함하고 있음
   res.json({
     user: {
       id: user.id,
@@ -2457,13 +2452,13 @@ app.get('/api/auth/me', (req, res) => {
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
       signatureImage: user.signatureImage,
-      // Neon DB에서 마이그레이션된 데이터
-      businessCards: userData.businessCards || [],
-      vehicles: userData.vehicles || [],
-      workLogs: userData.workLogs || [],
-      dailyLogs: userData.dailyLogs || [],
-      projects: userData.projects || [],
-      expenses: userData.expenses || []
+      // Neon DB에서 이미 로드된 마이그레이션 데이터
+      businessCards: (user as any).businessCards || [],
+      vehicles: (user as any).vehicles || [],
+      workLogs: (user as any).workLogs || [],
+      dailyLogs: (user as any).dailyLogs || [],
+      projects: (user as any).projects || [],
+      expenses: (user as any).expenses || []
     }
   });
 });
@@ -4053,9 +4048,9 @@ app.get('/api/contacts', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const userData = (requester as any).data || {};
-  const businessCards = userData.businessCards || [];
-  const groups = userData.groups || [];
+  // Neon DB에서 로드된 사용자 객체에서 businessCards, groups 추출
+  const businessCards = (requester as any).businessCards || [];
+  const groups = (requester as any).groups || [];
 
   // [수정] "나만 보기(비공개)"로 설정된 명함은 등록한 본인 것만 내려주고, 다른 사람에게는 숨긴다.
   const privateGroupIds = new Set(
@@ -4233,11 +4228,17 @@ app.post('/api/admin/contacts-backslash-clean', async (req, res) => {
 
 // 그룹 CRUD
 app.get('/api/groups', (req, res) => {
-  const dbData = getScopedData(req);
   const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  const groups = (requester as any).groups || [];
   // [수정] "나만 보기(비공개)"로 설정된 그룹은 만든 본인에게만 보이고, 다른 사람에게는
   // 목록/필터 칩 자체에서 숨긴다. 명함의 isPrivate와 동일한 방식.
-  const visible = dbData.groups.filter(g => !g.isPrivate || !g.createdByUserId || g.createdByUserId === requesterId);
+  const visible = groups.filter(g => !g.isPrivate || !g.createdByUserId || g.createdByUserId === requesterId);
   res.json(visible);
 });
 
@@ -5304,13 +5305,25 @@ app.post('/api/contacts/import', async (req, res) => {
 
 // 내 명함 프로필 API
 app.get('/api/my-profile', async (req, res) => {
-  const dbData = getScopedData(req);
-  // [수정] 공유 랜딩 페이지(/s/:slug)용 공개 식별자가 없으면 최초 조회 시 자동 생성해서 저장한다.
-  if (!dbData.myProfile.shareSlug) {
-    dbData.myProfile.shareSlug = crypto.randomBytes(6).toString('hex');
-    await setScopedProfile((req as any).scopeId, dbData.myProfile);
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
-  res.json(dbData.myProfile);
+
+  const myProfile = ((requester as any).myProfile || {
+    name: '', company: '', department: '', title: '',
+    phoneMobile: '', phoneOffice: '', phoneFax: '', email: '',
+    address: '', snsUrl: '', website: '', memo: ''
+  }) as MyProfile;
+
+  // [수정] 공유 랜딩 페이지(/s/:slug)용 공개 식별자가 없으면 최초 조회 시 자동 생성해서 저장한다.
+  if (!myProfile.shareSlug) {
+    myProfile.shareSlug = crypto.randomBytes(6).toString('hex');
+    await setScopedProfile((req as any).scopeId, myProfile);
+  }
+  res.json(myProfile);
 });
 
 app.put('/api/my-profile', async (req, res) => {
@@ -5511,8 +5524,14 @@ app.get('/s/:slug/photo', async (req, res) => {
 
 // 프로젝트 CRUD API
 app.get('/api/projects', (req, res) => {
-  const dbData = getScopedData(req);
-  res.json(dbData.projects);
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  res.json((requester as any).projects || []);
 });
 
 app.post('/api/projects', async (req, res) => {
@@ -5701,8 +5720,7 @@ app.get('/api/vehicles', (req, res) => {
   }
 
   // Neon DB에서 사용자의 vehicles 데이터 직접 로드
-  const userData = (requester as any).data || {};
-  res.json(userData.vehicles || []);
+  res.json((requester as any).vehicles || []);
 });
 
 app.post('/api/vehicles', async (req, res) => {
@@ -6692,8 +6710,14 @@ app.use('/caldav', caldavRouter);
 
 // 일일 업무일지 CRUD
 app.get('/api/worklogs/daily', (req, res) => {
-  const dbData = getScopedData(req);
-  res.json(dbData.dailyLogs || []);
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  res.json((requester as any).dailyLogs || []);
 });
 
 app.post('/api/worklogs/daily', async (req, res) => {
@@ -6793,8 +6817,14 @@ app.delete('/api/worklogs/daily/:id', async (req, res) => {
 
 // 주간 업무일지 CRUD
 app.get('/api/worklogs/weekly', (req, res) => {
-  const dbData = getScopedData(req);
-  res.json(dbData.weeklyLogs || []);
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+
+  if (!requester) {
+    return res.status(401).json({ error: '로그인이 필요합니다.' });
+  }
+
+  res.json((requester as any).weeklyLogs || []);
 });
 
 app.post('/api/worklogs/weekly', async (req, res) => {
