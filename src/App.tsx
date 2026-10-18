@@ -133,7 +133,9 @@ export default function App() {
   // 아래 마운트 시 useEffect와 로직은 같지만, 버튼을 눌렀을 때 즉시 실행하기 위한 함수다.
   const refreshCurrentUserStatus = async () => {
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await fetch('/api/auth/me', {
+        headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
+      });
       if (!res.ok) return;
       const data = await res.json().catch(() => null);
       if (data?.user) {
@@ -156,20 +158,32 @@ export default function App() {
   // 새로고침 한 번이면 최신 상태(인증/승인 완료 여부)가 바로 반영되게 한다.
   useEffect(() => {
     if (!currentUser) return;
-    fetch('/api/auth/me')
-      .then(async (res) => {
+
+    const validateAuthToken = async () => {
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: { 'x-user-id': currentUser.id }
+        });
+
         if (!res.ok) {
           localStorage.removeItem('bizcard_user');
           setCurrentUser(null);
           return;
         }
+
         const data = await res.json().catch(() => null);
         if (data?.user) {
           localStorage.setItem('bizcard_user', JSON.stringify(data.user));
           setCurrentUser(data.user);
         }
-      })
-      .catch(() => {});
+      } catch (err) {
+        console.error('Failed to validate auth token:', err);
+        localStorage.removeItem('bizcard_user');
+        setCurrentUser(null);
+      }
+    };
+
+    validateAuthToken();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -186,16 +200,28 @@ export default function App() {
     try {
       const headers = { 'x-user-id': currentUser.id };
       const [cRes, gRes, pRes] = await Promise.all([
-        fetch('/api/contacts', { headers }).then(r => r.json()),
-        fetch('/api/groups', { headers }).then(r => r.json()),
-        fetch('/api/projects', { headers }).then(r => r.json())
+        fetch('/api/contacts', { headers }).then(r => {
+          if (!r.ok) throw new Error(`Contacts API error: ${r.status}`);
+          return r.json();
+        }),
+        fetch('/api/groups', { headers }).then(r => {
+          if (!r.ok) throw new Error(`Groups API error: ${r.status}`);
+          return r.json();
+        }),
+        fetch('/api/projects', { headers }).then(r => {
+          if (!r.ok) throw new Error(`Projects API error: ${r.status}`);
+          return r.json();
+        })
       ]);
-      
+
       if (Array.isArray(cRes)) setContacts(cRes);
       if (Array.isArray(gRes)) setGroups(gRes);
       if (Array.isArray(pRes)) setProjects(pRes);
     } catch (err) {
       console.warn('API fetch fail, using default samples fallback:', err);
+      setContacts([]);
+      setGroups([]);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
