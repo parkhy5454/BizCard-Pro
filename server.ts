@@ -360,6 +360,31 @@ console.log(`🔗 APP_BASE_URL: ${process.env.APP_BASE_URL}`);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// [수정] CORS 설정: 허용할 도메인 명시
+// [수정] 개발 환경(localhost)과 프로덕션 도메인(app.bizcardai.kr, onrender.com)을 모두 허용
+const allowedOrigins = [
+  'http://localhost:5173',       // 개발: Vite
+  'http://localhost:3000',       // 개발: 대체 포트
+  'https://app.bizcardai.kr',    // 프로덕션: 메인 도메인
+  'https://bizcard-pro.onrender.com',  // 프로덕션: Render 기본 URL
+  process.env.APP_BASE_URL       // 환경변수로 추가 도메인 지원
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // origin이 없으면(같은 도메인) 허용
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS policy: origin ${origin} not allowed`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-cron-secret'],
+  maxAge: 3600
+}));
+
 // [수정] 예전엔 contentSecurityPolicy를 완전히 꺼뒀다 - 지도(Kakao), 카카오 공유 SDK,
 // 토스페이먼츠 결제창, Supabase Storage(영수증/명함 이미지), OpenCV.js CDN 폴백처럼 이
 // 앱이 실제로 쓰는 외부 출처를 하나하나 정리하지 않은 채로 CSP부터 켜면, 그런 리소스들이
