@@ -130,6 +130,8 @@ export const Navigation: React.FC<Props> = ({
   };
   // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
+  // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
   const [feedbackContent, setFeedbackContent] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -415,10 +417,11 @@ export const Navigation: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 하단 탭 내비게이션 & 그룹 필터바 (항상 세로로 쌓이도록: 탭 → 그룹 필터가 바로 아래) */}
+        {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
         <div className="flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm">
-          
-          <nav className="flex items-center gap-1 overflow-x-auto w-full pb-1 scrollbar-none">
+
+          <nav className="flex items-center gap-1 w-full pb-1 scrollbar-none">
+            {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -431,6 +434,7 @@ export const Navigation: React.FC<Props> = ({
               <span>홈</span>
             </button>
 
+            {/* 2. 명함 (라벨: "전체 명함" → "명함") */}
             <button
               onClick={() => handleMainTabClick('cards')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -440,10 +444,11 @@ export const Navigation: React.FC<Props> = ({
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>전체 명함</span>
+              <span>명함</span>
               <span className="px-1.5 py-0.2 rounded-full text-xs bg-slate-100 text-slate-600 font-mono">{totalContactsCount}</span>
             </button>
 
+            {/* 3. 차량관리 (라벨: "통합 차량 관리" → "차량관리") */}
             <button
               onClick={() => handleMainTabClick('vehicles')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -453,9 +458,10 @@ export const Navigation: React.FC<Props> = ({
               }`}
             >
               <Car className="w-4 h-4 text-indigo-400" />
-              <span>통합 차량 관리</span>
+              <span>차량관리</span>
             </button>
 
+            {/* 4. 프로젝트 */}
             <button
               onClick={() => handleMainTabClick('projects')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -468,128 +474,163 @@ export const Navigation: React.FC<Props> = ({
               <span>프로젝트</span>
             </button>
 
-            <button
-              onClick={() => handleMainTabClick('worklogs')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'worklogs'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <ClipboardCheck className="w-4 h-4 text-indigo-400" />
-              <span>업무일지</span>
-            </button>
+            {/* 5. 더보기 드롭다운 (업무일지 및 나머지) */}
+            <div className="relative">
+              <button
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  isMoreMenuOpen
+                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>더보기</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-            <button
-              onClick={() => handleMainTabClick('approvals')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'approvals'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <FileSignature className="w-4 h-4 text-indigo-400" />
-              <span>전자결재</span>
-            </button>
+              {/* 드롭다운 메뉴 */}
+              {isMoreMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+                  {/* 업무일지 */}
+                  <button
+                    onClick={() => {
+                      handleMainTabClick('worklogs');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                      activeTab === 'worklogs' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                    }`}
+                  >
+                    <ClipboardCheck className="w-4 h-4" />
+                    <span>업무일지</span>
+                  </button>
 
-            {/* [추가] 조직도 / 사내 공지사항 / 사내 메신저 - 그룹웨어(다우오피스, 하이웍스 등)
-            대비 부족했던 핵심 기능 보강. 회사(company) 회원에게만 의미가 있으므로(개인
-            회원은 동료가 없음) 회사 계정에만 노출한다. */}
-            {currentUser?.type === 'company' && (
-              <>
-                <button
-                  onClick={() => handleMainTabClick('org_chart')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'org_chart'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Network className="w-4 h-4 text-indigo-400" />
-                  <span>조직도</span>
-                </button>
-                <button
-                  onClick={() => handleMainTabClick('announcements')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'announcements'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Megaphone className="w-4 h-4 text-indigo-400" />
-                  <span>공지사항</span>
-                </button>
-                <button
-                  onClick={() => handleMainTabClick('team_chat')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'team_chat'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <MessagesSquare className="w-4 h-4 text-indigo-400" />
-                  <span>사내 메신저</span>
-                </button>
-              </>
-            )}
+                  {/* 전자결재 */}
+                  <button
+                    onClick={() => {
+                      handleMainTabClick('approvals');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                      activeTab === 'approvals' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                    }`}
+                  >
+                    <FileSignature className="w-4 h-4" />
+                    <span>전자결재</span>
+                  </button>
 
-            {/* [추가] 경영지원 / 회계관리 - 관리자(role: 'admin')만 보이는 탭. 회사 서류·장부는
-            민감한 정보라서, 관리자가 아닌 일반 직원에게는 탭 자체를 아예 노출하지 않는다. */}
-            {currentUser?.role === 'admin' && (
-              <>
-                <button
-                  onClick={() => handleMainTabClick('management')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'management'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 text-indigo-400" />
-                  <span>경영지원</span>
-                </button>
-                <button
-                  onClick={() => handleMainTabClick('accounting')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'accounting'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4 text-indigo-400" />
-                  <span>회계관리</span>
-                </button>
-                {/* [추가] 활동 로그 - 서버에는 이미 감사 기록(누가 언제 어떤 민감한 작업을
-                했는지)이 쌓이고 있었는데 이걸 보여주는 화면이 없었다. 경영지원/회계관리와
-                같은 이유로 관리자만 볼 수 있게 한다. */}
-                <button
-                  onClick={() => handleMainTabClick('audit_logs')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                    activeTab === 'audit_logs'
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <History className="w-4 h-4 text-indigo-400" />
-                  <span>활동 로그</span>
-                </button>
-              </>
-            )}
+                  {/* 조직도 (회사 계정만) */}
+                  {currentUser?.type === 'company' && (
+                    <button
+                      onClick={() => {
+                        handleMainTabClick('org_chart');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                        activeTab === 'org_chart' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                      }`}
+                    >
+                      <Network className="w-4 h-4" />
+                      <span>조직도</span>
+                    </button>
+                  )}
 
-            {/* [추가] AI Intelligence - 맨 끝에 위치. 오늘의 브리핑/기업 인텔리전스/관계·영업
-            인텔리전스 3개 서브탭을 묶는 진입점. 특정 서류처럼 민감하지 않고 누구나 유용하게
-            쓸 수 있는 화면이라 관리자 제한 없이 모두에게 노출한다. */}
-            <button
-              onClick={() => handleMainTabClick('ai_intelligence')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'ai_intelligence'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span>AI Intelligence</span>
-            </button>
+                  {/* 공지사항 (회사 계정만) */}
+                  {currentUser?.type === 'company' && (
+                    <button
+                      onClick={() => {
+                        handleMainTabClick('announcements');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                        activeTab === 'announcements' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                      }`}
+                    >
+                      <Megaphone className="w-4 h-4" />
+                      <span>공지사항</span>
+                    </button>
+                  )}
+
+                  {/* 사내 메신저 (회사 계정만) */}
+                  {currentUser?.type === 'company' && (
+                    <button
+                      onClick={() => {
+                        handleMainTabClick('team_chat');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                        activeTab === 'team_chat' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                      }`}
+                    >
+                      <MessagesSquare className="w-4 h-4" />
+                      <span>사내 메신저</span>
+                    </button>
+                  )}
+
+                  {/* 경영지원 (관리자만) */}
+                  {currentUser?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        handleMainTabClick('management');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                        activeTab === 'management' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                      }`}
+                    >
+                      <Building2 className="w-4 h-4" />
+                      <span>경영지원</span>
+                    </button>
+                  )}
+
+                  {/* 회계관리 (관리자만) */}
+                  {currentUser?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        handleMainTabClick('accounting');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                        activeTab === 'accounting' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                      }`}
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      <span>회계관리</span>
+                    </button>
+                  )}
+
+                  {/* 활동 로그 (관리자만) */}
+                  {currentUser?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        handleMainTabClick('audit_logs');
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
+                        activeTab === 'audit_logs' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                      }`}
+                    >
+                      <History className="w-4 h-4" />
+                      <span>활동 로그</span>
+                    </button>
+                  )}
+
+                  {/* AI Intelligence */}
+                  <button
+                    onClick={() => {
+                      handleMainTabClick('ai_intelligence');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 ${
+                      activeTab === 'ai_intelligence' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>AI Intelligence</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </nav>
 
           {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이
