@@ -297,6 +297,7 @@ import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
 import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup, CompanyBranding } from './src/types.js';
 import {
+  pool,
   initializeDatabase,
   ensureUsersSeeded,
   ensureScopeInitialized,
@@ -4964,19 +4965,23 @@ async function getOrGenerateCompanySummary(company: string): Promise<{ summary: 
   const key = normalizeCompanyKey(company);
 
   if (key && process.env.DATABASE_URL) {
-    const { data: cached, error } = await supabase
-      .from('company')
-      .select('*')
-      .eq('company_name_normalized', key)
-      .maybeSingle();
-    if (error) console.error('company 테이블 조회 실패:', error);
-    if (cached && cached.business_summary) {
-      const age = Date.now() - new Date(cached.last_searched_at).getTime();
-      // summary_version이 지금 코드의 버전과 다르면(=프롬프트/스키마가 그 사이 바뀌었으면)
-      // 오래된 형식의 캐시로 취급해서 새로 검색한다.
-      if (age < COMPANY_CACHE_TTL_MS && cached.summary_version === COMPANY_SUMMARY_SCHEMA_VERSION) {
-        return { summary: cached.business_summary, fromCache: true };
+    // Neon 데이터베이스에서 캐시된 회사 요약 조회
+    try {
+      const cached = await pool.query(
+        'SELECT * FROM company WHERE company_name_normalized = $1 LIMIT 1',
+        [key]
+      );
+      const cachedRow = cached.rows[0];
+      if (cachedRow && cachedRow.business_summary) {
+        const age = Date.now() - new Date(cachedRow.last_searched_at).getTime();
+        // summary_version이 지금 코드의 버전과 다르면(=프롬프트/스키마가 그 사이 바뀌었으면)
+        // 오래된 형식의 캐시로 취급해서 새로 검색한다.
+        if (age < COMPANY_CACHE_TTL_MS && cachedRow.summary_version === COMPANY_SUMMARY_SCHEMA_VERSION) {
+          return { summary: cachedRow.business_summary, fromCache: true };
+        }
       }
+    } catch (err) {
+      console.error('회사 캐시 조회 실패:', err);
     }
   }
 
@@ -5057,8 +5062,6 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
     // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
     // TODO: company 테이블 구현 또는 이 엔드포인트 제거 필요
     return res.json({ items: [] });
-    if (error) return res.json({ items: [] });
-    res.json({ items: data || [] });
   } catch (error: any) {
     res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
   }
@@ -7188,7 +7191,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     const featureTotals: Record<string, number> = {};
     for (const s of scopeStats) {
       for (const [collection, count] of Object.entries(s.itemCounts)) {
-        featureTotals[collection] = (featureTotals[collection] || 0) + count;
+        featureTotals[collection] = (featureTotals[collection] || 0) + (typeof count === 'number' ? count : 0);
       }
     }
 

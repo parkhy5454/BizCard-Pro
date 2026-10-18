@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
-import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
-import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
-import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
+import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat';
+import { getTodayLocalStr, dateToLocalStr } from '../dateUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
-import { ReceiptScanModal } from './ReceiptScanModal.js';
-import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.js';
-import { ProjectMultiSearchSelect } from './ProjectPicker.js';
-import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker.js';
+import { ReceiptScanModal } from './ReceiptScanModal';
+import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker';
+import { ProjectMultiSearchSelect } from './ProjectPicker';
+import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker';
 
 interface Props {
   contacts: BusinessCard[];
   setContacts: React.Dispatch<React.SetStateAction<BusinessCard[]>>;
   projects: Project[];
-  currentUser: import('../types.js').User | null;
+  currentUser: import('../types').User | null;
 }
 
 // [추가] 대한민국 공휴일(대체공휴일 포함) 표기용 하드코딩 테이블. 설날/추석/부처님오신날처럼

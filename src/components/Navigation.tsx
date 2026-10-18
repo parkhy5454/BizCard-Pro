@@ -79,6 +79,8 @@ export const Navigation: React.FC<Props> = ({
   onOpenSubscriptionModal,
   onRequestViewReset = () => {}
 }) => {
+  // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태 - 먼저 선언해야 handleMainTabClick에서 사용 가능
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   // [추가] 상단 메인 탭 버튼 클릭 공용 처리. 이미 그 탭에 있으면(같은 탭을 또 누른 경우)
   // setActiveTab만으로는 값이 안 바뀌어서 리액트가 리렌더를 건너뛰고 아무 반응이 없다 -
   // 이 경우엔 onRequestViewReset을 호출해서 지금 화면을 처음 상태로 되돌린다. 다른 탭이면
@@ -132,8 +134,6 @@ export const Navigation: React.FC<Props> = ({
   };
   // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
-  // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록 및 글로벌 락
   const lastMoreMenuClickRef = useRef<number>(0);
   const lastProjectClickRef = useRef<number>(0);

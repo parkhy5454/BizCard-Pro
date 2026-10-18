@@ -28,7 +28,7 @@ export class RateLimiter {
   private readonly windowMs: number;
   private readonly lockoutMs?: number;
   private readonly now: () => number;
-  private cleanupIntervalId?: NodeJS.Timer;
+  private cleanupIntervalId?: NodeJS.Timeout;
 
   constructor(options: RateLimiterOptions) {
     this.maxAttempts = options.maxAttempts;
