@@ -640,6 +640,93 @@ export const Navigation: React.FC<Props> = ({
       </div>
     )}
 
+    {/* [추가] 명함 탭일 때 상단에 고정되는 액션 버튼 및 그룹 필터 */}
+    {activeTab === 'cards' && (
+      <div className="sticky top-[var(--header-height,64px)] z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* 1. 액션 버튼 섹션 */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
+            {/* 명함 등록 */}
+            <button
+              onClick={onOpenScanModal}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>명함 등록</span>
+            </button>
+
+            {/* 음성 입력 */}
+            <button
+              onClick={onOpenVoiceQuickAdd}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95"
+            >
+              <Mic className="w-4 h-4" />
+              <span>음성 입력</span>
+            </button>
+
+            {/* 가져오기·내보내기 */}
+            <button
+              onClick={onOpenImportExport}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all active:scale-95"
+            >
+              <FileUp className="w-4 h-4" />
+              <span>가져오기·내보내기</span>
+            </button>
+
+            {/* 내 명함 공유 */}
+            <button
+              onClick={onOpenShareMyCardModal}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 transition-all active:scale-95"
+            >
+              <Share2 className="w-4 h-4 text-blue-600" />
+              <span>내 명함 공유</span>
+            </button>
+
+            {/* 주변 레이더 지도 */}
+            <button
+              onClick={() => setActiveTab('nearby')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                activeTab === 'nearby'
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
+              }`}
+            >
+              <Radar className="w-4 h-4" />
+              <span>주변 레이더 지도</span>
+            </button>
+          </div>
+
+          {/* 2. 그룹 필터 칩 섹션 */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
+            <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">그룹필터:</span>
+            <button
+              onClick={() => setSelectedGroup('all')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                selectedGroup === 'all'
+                  ? 'bg-slate-100 text-slate-900 shadow font-bold'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+              }`}
+            >
+              전체보기
+            </button>
+            {groups.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => setSelectedGroup(g.id)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                  selectedGroup === g.id
+                    ? `${g.color} ring-2 ring-white/30 font-bold scale-105`
+                    : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
         <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50 overflow-visible">
 
@@ -880,12 +967,12 @@ export const Navigation: React.FC<Props> = ({
           똑같은 알약형 버튼 스타일이라 구분이 잘 안 된다는 지적이 있었다. 하위 줄이 있는
           탭에서만 얇은 구분선을 하나 그어서, 상위 탭과 하위 버튼 줄이 서로 다른 영역임을
           명확히 나눈다. */}
-          {['cards', 'groups', 'io', 'nearby', 'projects'].includes(activeTab) && (
+          {['groups', 'io', 'nearby', 'projects'].includes(activeTab) && (
             <div className="w-full border-t border-slate-200" />
           )}
 
-          {/* 명함 등록 / 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (전체 명함과 이 줄에서 이동하는 탭들에서 계속 노출) */}
-          {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
+          {/* 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (명함은 상단으로 이동, 나머지 탭에서만 노출) */}
+          {['groups', 'io', 'nearby'].includes(activeTab) && (
           <div className="flex items-center gap-1.5 overflow-x-auto w-full p-1.5 bg-slate-100 border border-slate-200 rounded-xl scrollbar-none">
             <button
               onClick={onOpenScanModal}
@@ -950,8 +1037,8 @@ export const Navigation: React.FC<Props> = ({
           </div>
           )}
 
-          {/* 명함 목록 탭일 때 우측 그룹 칩 필터링 */}
-          {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
+          {/* 그룹 칩 필터링 (명함은 상단으로 이동) */}
+          {['groups', 'io', 'nearby'].includes(activeTab) && (
             <div className="flex items-center gap-1.5 overflow-x-auto w-full">
               <span className="text-xs text-slate-500 mr-1 hidden lg:inline">그룹필터:</span>
               <button
