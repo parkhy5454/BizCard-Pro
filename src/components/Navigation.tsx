@@ -901,7 +901,6 @@ export const Navigation: React.FC<Props> = ({
           )}
 
         </div>
-    </header>
 
     {isFeedbackInboxOpen && (
       <FeedbackInboxModal currentUser={currentUser} onClose={() => setIsFeedbackInboxOpen(false)} />
