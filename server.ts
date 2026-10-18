@@ -366,14 +366,13 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // 조용히 막혀서 지도나 결제, 이미지가 안 뜨는 식으로 화면이 깨질 수 있었기 때문이다.
 // 이제 코드 전체를 훑어서 실제로 쓰는 외부 출처를 아래처럼 정리했다. 다만 카카오 지도
 // SDK가 내부적으로 호출하는 지도 타일/이미지 서버 도메인까지는 100% 확신할 수 없어서,
-// 처음부터 강제 차단(enforce)하지 않고 reportOnly: true로 켠다 - 이 모드는 정책을 어기는
-// 리소스가 있어도 실제로 막지는 않고, 브라우저 개발자도구 콘솔에 "이 리소스는 정책 위반"
-// 이라고만 기록한다. 한동안 실제 사용(지도 열기, 카톡 공유, 결제, 영수증 스캔 등)해보면서
-// 콘솔에 위반 기록이 안 쌓이는 걸 확인한 뒤, reportOnly를 false로 바꾸면 실제로 차단하는
-// 모드로 전환된다(그 전까지는 지금과 동작 차이가 없어 안전하다).
+// 처음부터 강제 차단(enforce)하지 않고 reportOnly를 환경에 따라 설정한다 - 개발 환경에서는
+// 보고만 하고, 프로덕션에서는 실제로 차단한다.
+// 한동안 실제 사용(지도 열기, 카톡 공유, 결제, 영수증 스캔 등)해보면서 콘솔에 위반 기록이
+// 안 쌓이면, reportOnly를 false로 바꾸면 실제로 차단하는 모드로 전환된다.
 app.use(helmet({
   contentSecurityPolicy: {
-    reportOnly: true,
+    reportOnly: process.env.NODE_ENV !== 'production',
     directives: {
       defaultSrc: ["'self'"],
       // 카카오 지도 SDK, 카카오톡 공유 SDK, 토스페이먼츠 결제창, OpenCV.js CDN 폴백
@@ -842,7 +841,7 @@ const initialMyProfile: MyProfile = {
   phoneMobile: '010-5454-0000',
   phoneOffice: '02-545-0000',
   phoneFax: '02-545-0001',
-  email: 'parkyl5454@gmail.com',
+  email: 'sample@example.com',  // ✅ 샘플 이메일 (실제 사용자가 설정)
   address: '서울특별시 강남구 테헤란로 152 강남파이낸스센터 18층',
   snsUrl: 'https://linkedin.com/in/bizcard-pro',
   website: 'https://bizcard-pro.ai',
@@ -1281,7 +1280,8 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   const chatGroups = await withTimeout(getScopedCollection<ChatGroup>(scopeId, 'chatGroups'), 'chatGroups');
   const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
-  const myProfile = profileList.find(p => p.email === 'parkyl5454@gmail.com') || profileList[0] || initialMyProfile;
+  // ✅ 첫 번째 프로필 사용 (하드코딩된 이메일 제거)
+  const myProfile = profileList[0] || initialMyProfile;
 
   const loadedData = {
     contacts,
@@ -1747,6 +1747,22 @@ const companyLookupRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60
 // (전시회/네트워킹 행사에서 명함을 수십 장 연속 촬영하는 정상적인 사용은 충분히
 // 허용하면서, 비정상적인 폭주만 막는 수준)로 제한한다.
 const aiScanRateLimiter = new RateLimiter({ maxAttempts: 100, windowMs: 10 * 60 * 1000 });
+
+// [추가] 데이터 수정(PUT/DELETE) API Rate Limiting
+// 계정당 1분에 30회로 제한 (정상 사용 충분히 허용, 비정상 폭주만 방어)
+const dataModifyRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60 * 1000 });
+
+// [추가] 데이터 수정 API Rate Limiting 체크 헬퍼
+function checkModifyRateLimit(req: any, res: any): boolean {
+  const userId = req.headers['x-user-id'] as string;
+  const limitCheck = dataModifyRateLimiter.check(userId);
+  if (!limitCheck.allowed) {
+    res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
+    return false;
+  }
+  dataModifyRateLimiter.registerAttempt(userId);
+  return true;
+}
 
 app.get('/api/auth/lookup-company', (req, res) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -2710,6 +2726,9 @@ app.get('/api/auth/duplicate-emails', async (req, res) => {
 
 // 관리자 전용: 같은 회사 소속 사용자의 직책/권한 수정 (결재라인 매칭 및 직원 관리용)
 app.put('/api/auth/users/:targetId', async (req, res) => {
+  // ✅ 데이터 수정 Rate Limiting
+  if (!checkModifyRateLimit(req, res)) return;
+
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
@@ -2756,6 +2775,9 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
 // 비밀번호 확인과 "나 혼자 관리자인데 동료가 남아있으면 탈퇴 불가" 안전장치가 있다).
 // 같은 이유로 여기서도 "제거 후 그 회사에 관리자가 한 명도 안 남는" 경우는 막는다.
 app.delete('/api/auth/users/:targetId', async (req, res) => {
+  // ✅ 데이터 수정 Rate Limiting
+  if (!checkModifyRateLimit(req, res)) return;
+
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
@@ -4075,6 +4097,9 @@ app.post('/api/contacts', async (req, res) => {
 });
 
 app.put('/api/contacts/:id', async (req, res) => {
+  // ✅ 데이터 수정 Rate Limiting
+  if (!checkModifyRateLimit(req, res)) return;
+
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   const idx = dbData.contacts.findIndex(c => c.id === req.params.id);
@@ -4118,6 +4143,9 @@ app.put('/api/contacts/:id', async (req, res) => {
 });
 
 app.delete('/api/contacts/:id', async (req, res) => {
+  // ✅ 데이터 수정 Rate Limiting
+  if (!checkModifyRateLimit(req, res)) return;
+
   const dbData = getScopedData(req);
   dbData.contacts = dbData.contacts.filter(c => c.id !== req.params.id);
   await deleteScopedDoc((req as any).scopeId, 'contacts', req.params.id);
@@ -5322,6 +5350,9 @@ app.get('/api/my-profile', async (req, res) => {
 });
 
 app.put('/api/my-profile', async (req, res) => {
+  // ✅ 데이터 수정 Rate Limiting
+  if (!checkModifyRateLimit(req, res)) return;
+
   const dbData = getScopedData(req);
   const scopeId = (req as any).scopeId;
   // [추가] DB 저장 실패 시 메모리 캐시를 되돌리기 위해 수정 전 값을 남겨둔다.
@@ -7091,9 +7122,13 @@ app.post('/api/feedback', async (req, res) => {
 // 개발자(운영자) 계정에서만 접근 가능하도록 제한한다.
 // ------------------------------------------------------------------
 // [수정] 운영 관리자 이메일이 코드에 하드코딩돼 있으면, 나중에 담당자가 바뀔 때마다
-// 코드를 고치고 재배포해야 한다. 환경변수로 빼되, 설정 안 했을 때는 지금까지 쓰던
-// 값으로 그대로 동작하게 폴백을 둔다(기존 배포가 갑자기 깨지지 않도록).
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'parkhy5454@gmail.com';
+// 코드를 고치고 재배포해야 한다. 반드시 환경변수로 설정해야 한다.
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
+
+// ADMIN_EMAIL 필수 검증
+if (!ADMIN_EMAIL) {
+  console.error('❌ ADMIN_EMAIL 환경변수가 설정되지 않았습니다. 관리자 기능을 사용할 수 없습니다.');
+}
 
 app.get('/api/admin/platform-stats', async (req, res) => {
   const userId = req.headers['x-user-id'] as string;
