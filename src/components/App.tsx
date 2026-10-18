@@ -133,7 +133,9 @@ export default function App() {
   // 아래 마운트 시 useEffect와 로직은 같지만, 버튼을 눌렀을 때 즉시 실행하기 위한 함수다.
   const refreshCurrentUserStatus = async () => {
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await fetch('/api/auth/me', {
+        headers: currentUser ? { 'x-user-id': currentUser.id } : undefined
+      });
       if (!res.ok) return;
       const data = await res.json().catch(() => null);
       if (data?.user) {
@@ -155,28 +157,39 @@ export default function App() {
   // 로그인해야만 풀렸음). 이제는 서버가 응답으로 주는 최신 사용자 정보로 항상 갱신해서,
   // 새로고침 한 번이면 최신 상태(인증/승인 완료 여부)가 바로 반영되게 한다.
   useEffect(() => {
+    // localStorage에서 저장된 사용자 정보가 있으면 한 번만 검증
+    // (앱 초기화 시점에만 실행되어야 무한 루프 방지)
     if (!currentUser) return;
-    fetch('/api/auth/me')
-      .then(res => {
+
+    const validateAuthToken = async () => {
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: { 'x-user-id': currentUser.id }
+        });
+
         if (!res.ok) {
           localStorage.removeItem('bizcard_user');
           setCurrentUser(null);
-          return null;
+          return;
         }
-        return res.json().catch(() => null);
-      })
-      .then(data => {
+
+        const data = await res.json().catch(() => null);
         if (data?.user) {
+          // 최신 사용자 정보로 업데이트 (권한 변경 등 반영)
           localStorage.setItem('bizcard_user', JSON.stringify(data.user));
           setCurrentUser(data.user);
         }
-      })
-      .catch(err => {
-        console.error('Failed to fetch user data:', err);
+      } catch (err) {
+        console.error('Failed to validate auth token:', err);
         localStorage.removeItem('bizcard_user');
         setCurrentUser(null);
-      });
-  }, [currentUser?.id]);
+      }
+    };
+
+    validateAuthToken();
+    // 빈 의존성 배열 - 마운트 시점에만 1회 실행
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 초기 API 로드 - 사용자 로그인된 상태에서만 작동
   useEffect(() => {

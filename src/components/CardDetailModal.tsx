@@ -70,7 +70,23 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   ];
 
   // 수정 폼 상태
-  const [editForm, setEditForm] = useState<BusinessCard>({ ...contact } as BusinessCard);
+  const [editForm, setEditForm] = useState<BusinessCard>(contact ? { ...contact } : {
+    id: '',
+    name: '',
+    company: '',
+    department: '',
+    title: '',
+    phoneMobile: '',
+    phoneOffice: '',
+    phoneOffice2: '',
+    phoneFax: '',
+    email: '',
+    address: '',
+    address2: '',
+    website: '',
+    frontImage: '',
+    backImage: ''
+  });
 
   // 연락처 변경 시 상태 동기화
   React.useEffect(() => {
