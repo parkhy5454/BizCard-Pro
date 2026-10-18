@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare, Radar, Upload } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ReferralModal } from './ReferralModal.js';
 import { RemindersBell } from './RemindersBell.js';
@@ -666,10 +666,14 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 가져오기·내보내기 */}
             <button
-              onClick={onOpenImportExport}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all active:scale-95"
+              onClick={() => setActiveTab('io')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${
+                activeTab === 'io'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                  : 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700'
+              }`}
             >
-              <FileUp className="w-4 h-4" />
+              <Upload className="w-4 h-4" />
               <span>가져오기·내보내기</span>
             </button>
 
