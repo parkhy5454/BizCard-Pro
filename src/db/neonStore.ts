@@ -226,10 +226,46 @@ export async function getScopedDoc<T>(scopeId: string, collectionName: string, d
 export async function setScopedDoc<T extends { id: string }>(scopeId: string, collectionName: string, item: T): Promise<boolean> {
   if (!isNeonConfigured) return true;
   try {
+    // scoped_items에 저장 (기존 호환성)
     await pool.query(
       'INSERT INTO scoped_items (scope_id, collection, doc_id, data) VALUES ($1, $2, $3, $4) ON CONFLICT (scope_id, collection, doc_id) DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP',
       [scopeId, collectionName, item.id, JSON.stringify(item)]
     );
+
+    // 동시에 app_users.data에도 업데이트
+    try {
+      const { rows } = await pool.query('SELECT data FROM app_users WHERE id = $1', [scopeId]);
+      if (rows.length > 0) {
+        let userData = rows[0].data || {};
+        if (typeof userData === 'string') {
+          userData = JSON.parse(userData);
+        }
+
+        if (!userData[collectionName]) {
+          userData[collectionName] = [];
+        }
+
+        if (Array.isArray(userData[collectionName])) {
+          const idx = userData[collectionName].findIndex(i => i.id === item.id);
+          if (idx >= 0) {
+            userData[collectionName][idx] = item;
+          } else {
+            userData[collectionName].push(item);
+          }
+        } else {
+          userData[collectionName] = item;
+        }
+
+        await pool.query(
+          'UPDATE app_users SET data = $1 WHERE id = $2',
+          [JSON.stringify(userData), scopeId]
+        );
+      }
+    } catch (syncError) {
+      console.warn(`app_users.data 동기화 실패 (${scopeId}, ${collectionName}):`, syncError);
+      // 동기화 실패해도 scoped_items에는 저장됐으므로 true 반환
+    }
+
     return true;
   } catch (error) {
     console.error(`setScopedDoc(${scopeId}, ${collectionName}, ${item.id}) 실패:`, error);
@@ -241,12 +277,34 @@ export async function setScopedDocs<T extends { id: string }>(scopeId: string, c
   if (!isNeonConfigured) return true;
   if (!items.length) return true;
   try {
+    // scoped_items에 모두 저장
     for (const item of items) {
       await pool.query(
         'INSERT INTO scoped_items (scope_id, collection, doc_id, data) VALUES ($1, $2, $3, $4) ON CONFLICT (scope_id, collection, doc_id) DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP',
         [scopeId, collectionName, item.id, JSON.stringify(item)]
       );
     }
+
+    // 동시에 app_users.data에도 모두 업데이트
+    try {
+      const { rows } = await pool.query('SELECT data FROM app_users WHERE id = $1', [scopeId]);
+      if (rows.length > 0) {
+        let userData = rows[0].data || {};
+        if (typeof userData === 'string') {
+          userData = JSON.parse(userData);
+        }
+
+        userData[collectionName] = items;
+
+        await pool.query(
+          'UPDATE app_users SET data = $1 WHERE id = $2',
+          [JSON.stringify(userData), scopeId]
+        );
+      }
+    } catch (syncError) {
+      console.warn(`app_users.data 동기화 실패 (${scopeId}, ${collectionName}):`, syncError);
+    }
+
     return true;
   } catch (error) {
     console.error(`setScopedDocs(${scopeId}, ${collectionName}) 실패:`, error);
@@ -273,10 +331,33 @@ export async function updateScopedDoc<T>(scopeId: string, collectionName: string
 export async function deleteScopedDoc(scopeId: string, collectionName: string, docId: string): Promise<void> {
   if (!isNeonConfigured) return;
   try {
+    // scoped_items에서 삭제
     await pool.query(
       'DELETE FROM scoped_items WHERE scope_id = $1 AND collection = $2 AND doc_id = $3',
       [scopeId, collectionName, docId]
     );
+
+    // app_users.data에서도 제거
+    try {
+      const { rows } = await pool.query('SELECT data FROM app_users WHERE id = $1', [scopeId]);
+      if (rows.length > 0) {
+        let userData = rows[0].data || {};
+        if (typeof userData === 'string') {
+          userData = JSON.parse(userData);
+        }
+
+        if (Array.isArray(userData[collectionName])) {
+          userData[collectionName] = userData[collectionName].filter(i => i.id !== docId);
+        }
+
+        await pool.query(
+          'UPDATE app_users SET data = $1 WHERE id = $2',
+          [JSON.stringify(userData), scopeId]
+        );
+      }
+    } catch (syncError) {
+      console.warn(`app_users.data 동기화 실패 (${scopeId}, ${collectionName}):`, syncError);
+    }
   } catch (error) {
     console.error(`deleteScopedDoc(${scopeId}, ${collectionName}, ${docId}) 실패:`, error);
   }
@@ -301,6 +382,26 @@ export async function replaceScopedCollection<T extends { id: string }>(scopeId:
           [scopeId, collectionName, item.id, JSON.stringify(item)]
         );
       }
+    }
+
+    // app_users.data에도 동기화
+    try {
+      const { rows } = await pool.query('SELECT data FROM app_users WHERE id = $1', [scopeId]);
+      if (rows.length > 0) {
+        let userData = rows[0].data || {};
+        if (typeof userData === 'string') {
+          userData = JSON.parse(userData);
+        }
+
+        userData[collectionName] = items;
+
+        await pool.query(
+          'UPDATE app_users SET data = $1 WHERE id = $2',
+          [JSON.stringify(userData), scopeId]
+        );
+      }
+    } catch (syncError) {
+      console.warn(`app_users.data 동기화 실패 (${scopeId}, ${collectionName}):`, syncError);
     }
   } catch (error) {
     console.error(`replaceScopedCollection(${scopeId}, ${collectionName}) 실패:`, error);
@@ -328,8 +429,45 @@ export async function findProfileByShareSlug(slug: string): Promise<{ scopeId: s
 export async function getUsers(): Promise<RegisteredUser[]> {
   if (!isNeonConfigured) return [];
   try {
-    const { rows } = await pool.query('SELECT data FROM app_users ORDER BY id ASC');
-    return rows.map(row => row.data as RegisteredUser);
+    const { rows } = await pool.query('SELECT id, data FROM app_users ORDER BY id ASC');
+    // 각 사용자의 scoped_items 데이터를 data JSONB에 병합
+    const users: RegisteredUser[] = [];
+    for (const row of rows) {
+      let user = row.data as RegisteredUser;
+      if (!user) user = { id: row.id } as RegisteredUser;
+
+      // scoped_items에서 사용자의 모든 데이터를 로드해서 user 객체에 병합
+      try {
+        const { rows: scopedRows } = await pool.query(
+          'SELECT collection, doc_id, data FROM scoped_items WHERE scope_id = $1',
+          [row.id]
+        );
+
+        for (const scopedRow of scopedRows) {
+          const collection = scopedRow.collection;
+          const data = scopedRow.data;
+
+          if (!user[collection as keyof RegisteredUser]) {
+            user[collection as keyof RegisteredUser] = [] as any;
+          }
+
+          if (Array.isArray(user[collection as keyof RegisteredUser])) {
+            // 중복 확인 후 추가
+            const arr = user[collection as keyof RegisteredUser] as any[];
+            if (!arr.find(item => item.id === data.id)) {
+              arr.push(data);
+            }
+          } else if (collection === 'myProfile') {
+            user[collection as keyof RegisteredUser] = data;
+          }
+        }
+      } catch (scopedError) {
+        console.warn(`scoped_items 로드 실패 for user ${row.id}:`, scopedError);
+      }
+
+      users.push(user);
+    }
+    return users;
   } catch (error) {
     console.error('getUsers 실패:', error);
     return [];
@@ -346,6 +484,20 @@ export async function addUser(user: RegisteredUser): Promise<boolean> {
     return true;
   } catch (error) {
     console.error(`addUser(${user.id}) 실패:`, error);
+    return false;
+  }
+}
+
+export async function updateUserData(userId: string, user: RegisteredUser): Promise<boolean> {
+  if (!isNeonConfigured) return true;
+  try {
+    await pool.query(
+      'UPDATE app_users SET data = $1 WHERE id = $2',
+      [JSON.stringify(user), userId]
+    );
+    return true;
+  } catch (error) {
+    console.error(`updateUserData(${userId}) 실패:`, error);
     return false;
   }
 }
