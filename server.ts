@@ -1325,6 +1325,20 @@ async function bootstrapUsers() {
     await ensureUsersSeeded(initialUsers);
     users = await getUsers();
   }
+
+  // [수정] email 필드가 없는 기존 사용자 수정
+  for (const user of users) {
+    if (!user.email) {
+      if (user.id === 'user-1785330860440') {
+        user.email = 'parkhy5454@gmail.com';
+      } else {
+        // 다른 사용자는 임시 이메일 생성
+        user.email = `user_${user.id}@bizcard.local`;
+      }
+      await addUser(user);
+      console.log(`✓ 사용자 ${user.id}에 email 필드 추가: ${user.email}`);
+    }
+  }
 }
 
 // HTTP 헤더(x-user-id)를 기반으로 스코프 ID를 동기적으로 계산 (DB 호출 없음, users는 메모리 캐시 사용)

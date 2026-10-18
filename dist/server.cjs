@@ -169,11 +169,11 @@ async function issueBillingKey(secretKey, authKey, customerKey) {
     },
     body: JSON.stringify({ authKey, customerKey })
   });
-  const data = await res.json();
+  const data2 = await res.json();
   if (!res.ok) {
-    throw new Error(data?.message || "\uCE74\uB4DC \uB4F1\uB85D(\uBE4C\uB9C1\uD0A4 \uBC1C\uAE09)\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.");
+    throw new Error(data2?.message || "\uCE74\uB4DC \uB4F1\uB85D(\uBE4C\uB9C1\uD0A4 \uBC1C\uAE09)\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.");
   }
-  return data;
+  return data2;
 }
 async function chargeBilling(secretKey, billingKey, params) {
   const res = await fetch(`${TOSS_API_BASE}/billing/${billingKey}`, {
@@ -184,11 +184,11 @@ async function chargeBilling(secretKey, billingKey, params) {
     },
     body: JSON.stringify(params)
   });
-  const data = await res.json();
+  const data2 = await res.json();
   if (!res.ok) {
-    throw new Error(data?.message || "\uACB0\uC81C \uC2B9\uC778\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.");
+    throw new Error(data2?.message || "\uACB0\uC81C \uC2B9\uC778\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.");
   }
-  return data;
+  return data2;
 }
 function addOneMonth(from) {
   const d = new Date(from);
@@ -196,412 +196,454 @@ function addOneMonth(from) {
   return d;
 }
 
-// src/db/supabaseStore.ts
-var import_supabase_js = require("@supabase/supabase-js");
-var SUPABASE_URL = process.env.SUPABASE_URL;
-var SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-var isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn(
-    "[supabaseStore] SUPABASE_URL \uB610\uB294 SUPABASE_SERVICE_ROLE_KEY \uD658\uACBD\uBCC0\uC218\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. .env \uD30C\uC77C\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694. (.env.example \uCC38\uACE0)"
-  );
+// src/db/neonStore.ts
+var import_pg = require("pg");
+var DATABASE_URL = process.env.DATABASE_URL;
+var isNeonConfigured = Boolean(DATABASE_URL);
+if (!DATABASE_URL) {
+  console.warn("[neonStore] DATABASE_URL \uD658\uACBD\uBCC0\uC218\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.");
 }
-var supabase = (0, import_supabase_js.createClient)(
-  SUPABASE_URL || "http://127.0.0.1:54321",
-  SUPABASE_SERVICE_ROLE_KEY || "local-development-placeholder-key"
-);
-var CARD_IMAGES_BUCKET = "card-images";
-async function getPlatformStats() {
-  if (!isSupabaseConfigured) return [];
+var pool = new import_pg.Pool({
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+async function initializeDatabase() {
+  if (!isNeonConfigured) return;
   try {
-    const { data, error } = await supabase.from("scoped_items").select("scope_id, collection, updated_at");
-    if (error) {
-      console.error("getPlatformStats \uC870\uD68C \uC2E4\uD328:", error);
-      return [];
-    }
-    const byScope = /* @__PURE__ */ new Map();
-    for (const row of data || []) {
-      const scopeId = row.scope_id;
-      if (!scopeId) continue;
-      if (!byScope.has(scopeId)) {
-        byScope.set(scopeId, { scopeId, itemCounts: {}, totalItems: 0, lastActivity: null });
-      }
-      const entry = byScope.get(scopeId);
-      entry.itemCounts[row.collection] = (entry.itemCounts[row.collection] || 0) + 1;
-      entry.totalItems += 1;
-      if (row.updated_at && (!entry.lastActivity || row.updated_at > entry.lastActivity)) {
-        entry.lastActivity = row.updated_at;
-      }
-    }
-    return Array.from(byScope.values());
-  } catch (err) {
-    console.error("getPlatformStats \uC608\uC678:", err);
-    return [];
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS app_users (
+        id TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS scopes (
+        scope_id TEXT PRIMARY KEY,
+        initialized BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS scoped_items (
+        scope_id TEXT NOT NULL,
+        collection TEXT NOT NULL,
+        doc_id TEXT NOT NULL,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (scope_id, collection, doc_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS app_sessions (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        scope_id TEXT NOT NULL,
+        actor_user_id TEXT NOT NULL,
+        actor_email TEXT,
+        action TEXT NOT NULL,
+        target_user_id TEXT,
+        target_email TEXT,
+        detail JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS referrals (
+        id SERIAL PRIMARY KEY,
+        referrer_user_id TEXT NOT NULL,
+        referee_user_id TEXT NOT NULL,
+        referee_email TEXT,
+        referee_name TEXT,
+        status TEXT DEFAULT 'pending',
+        rewarded_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_scoped_items_scope ON scoped_items(scope_id);
+      CREATE INDEX IF NOT EXISTS idx_scoped_items_collection ON scoped_items(collection);
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_scope ON audit_logs(scope_id);
+    `);
+    console.log("[neonStore] \uB370\uC774\uD130\uBCA0\uC774\uC2A4 \uCD08\uAE30\uD654 \uC644\uB8CC");
+  } catch (error2) {
+    console.error("[neonStore] \uB370\uC774\uD130\uBCA0\uC774\uC2A4 \uCD08\uAE30\uD654 \uC2E4\uD328:", error2);
   }
 }
 async function uploadDataUrlImage(scopeId, dataUrl, keyHint, category = "cards") {
-  if (!isSupabaseConfigured) return null;
-  const match = dataUrl.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
-  if (!match) return null;
-  const [, mime, base64Data] = match;
-  const extFromMime = mime.split("/")[1] || "jpg";
-  const ext = extFromMime === "jpeg" ? "jpg" : extFromMime;
-  const safeScopeId = scopeId.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const safeKeyHint = keyHint.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const filePath = `${category}/${safeScopeId}/${safeKeyHint}-${Date.now()}.${ext}`;
-  try {
-    const buffer = Buffer.from(base64Data, "base64");
-    const { error } = await supabase.storage.from(CARD_IMAGES_BUCKET).upload(filePath, buffer, { contentType: mime, upsert: true });
-    if (error) {
-      console.error(`uploadDataUrlImage(${filePath}) error:`, error);
-      return null;
-    }
-    const TEN_YEARS_IN_SECONDS = 60 * 60 * 24 * 365 * 10;
-    const { data, error: signError } = await supabase.storage.from(CARD_IMAGES_BUCKET).createSignedUrl(filePath, TEN_YEARS_IN_SECONDS);
-    if (signError) {
-      console.error(`uploadDataUrlImage(${filePath}) \uC11C\uBA85 URL \uBC1C\uAE09 \uC2E4\uD328:`, signError);
-      return null;
-    }
-    return data?.signedUrl || null;
-  } catch (err) {
-    console.error(`uploadDataUrlImage(${filePath}) exception:`, err);
-    return null;
-  }
+  console.warn("[neonStore] uploadDataUrlImage: \uC2E4\uC81C \uD30C\uC77C \uC800\uC7A5\uC18C \uBBF8\uAD6C\uD604 - \uB370\uC774\uD130 URL \uBC18\uD658");
+  return dataUrl.substring(0, 1e3);
 }
 async function uploadDataUrlFile(scopeId, dataUrl, keyHint, category = "attachments", originalFileName) {
-  if (!isSupabaseConfigured) return null;
-  const match = dataUrl.match(/^data:([\w.+-]+\/[\w.+-]+);base64,(.+)$/);
-  if (!match) return null;
-  const [, mime, base64Data] = match;
-  let ext = "bin";
-  if (originalFileName && originalFileName.includes(".")) {
-    const fromName = originalFileName.split(".").pop() || "";
-    ext = fromName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "bin";
-  } else {
-    const extFromMime = (mime.split("/")[1] || "bin").split("+")[0].split(";")[0];
-    ext = (extFromMime === "jpeg" ? "jpg" : extFromMime).replace(/[^a-z0-9]/gi, "").slice(0, 10) || "bin";
-  }
-  const safeScopeId = scopeId.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const safeKeyHint = keyHint.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const filePath = `${category}/${safeScopeId}/${safeKeyHint}-${Date.now()}.${ext}`;
+  console.warn("[neonStore] uploadDataUrlFile: \uC2E4\uC81C \uD30C\uC77C \uC800\uC7A5\uC18C \uBBF8\uAD6C\uD604 - \uB370\uC774\uD130 URL \uBC18\uD658");
+  return dataUrl.substring(0, 1e3);
+}
+async function ensureScopeInitialized(scopeId, initialData) {
+  if (!isNeonConfigured) return;
   try {
-    const buffer = Buffer.from(base64Data, "base64");
-    const { error } = await supabase.storage.from(CARD_IMAGES_BUCKET).upload(filePath, buffer, { contentType: mime, upsert: true });
-    if (error) {
-      console.error(`uploadDataUrlFile(${filePath}) error:`, error);
-      return null;
+    const { rows } = await pool.query(
+      "SELECT scope_id FROM scopes WHERE scope_id = $1",
+      [scopeId]
+    );
+    if (!rows.length) {
+      await pool.query(
+        "INSERT INTO scopes (scope_id, initialized) VALUES ($1, $2)",
+        [scopeId, true]
+      );
+      const bulk = [];
+      initialData.contacts.forEach((item) => bulk.push([scopeId, "contacts", item.id, item]));
+      initialData.projects.forEach((item) => bulk.push([scopeId, "projects", item.id, item]));
+      initialData.groups.forEach((item) => bulk.push([scopeId, "groups", item.id, item]));
+      bulk.push([scopeId, "myProfile", "profile", initialData.myProfile]);
+      initialData.vehicles.forEach((item) => bulk.push([scopeId, "vehicles", item.id, item]));
+      initialData.drivingLogs.forEach((item) => bulk.push([scopeId, "drivingLogs", item.id, item]));
+      initialData.expenses.forEach((item) => bulk.push([scopeId, "expenses", item.id, item]));
+      initialData.maintenances.forEach((item) => bulk.push([scopeId, "maintenances", item.id, item]));
+      initialData.maintenanceIntervals.forEach((item) => bulk.push([scopeId, "maintenanceIntervals", item.id, item]));
+      initialData.dailyLogs.forEach((item) => bulk.push([scopeId, "dailyLogs", item.id, item]));
+      initialData.weeklyLogs.forEach((item) => bulk.push([scopeId, "weeklyLogs", item.id, item]));
+      for (const [scope_id, collection, doc_id, data2] of bulk) {
+        await pool.query(
+          "INSERT INTO scoped_items (scope_id, collection, doc_id, data) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+          [scope_id, collection, doc_id, JSON.stringify(data2)]
+        );
+      }
     }
-    const TEN_YEARS_IN_SECONDS = 60 * 60 * 24 * 365 * 10;
-    const { data, error: signError } = await supabase.storage.from(CARD_IMAGES_BUCKET).createSignedUrl(filePath, TEN_YEARS_IN_SECONDS);
-    if (signError) {
-      console.error(`uploadDataUrlFile(${filePath}) \uC11C\uBA85 URL \uBC1C\uAE09 \uC2E4\uD328:`, signError);
-      return null;
-    }
-    return data?.signedUrl || null;
-  } catch (err) {
-    console.error(`uploadDataUrlFile(${filePath}) exception:`, err);
-    return null;
+  } catch (error2) {
+    console.error(`ensureScopeInitialized(${scopeId}) \uC2E4\uD328:`, error2);
   }
 }
 async function ensureUsersSeeded(initialUsers2) {
-  if (!isSupabaseConfigured) return;
+  if (!isNeonConfigured) return;
   try {
-    const { count, error: countError } = await supabase.from("app_users").select("id", { count: "exact", head: true });
-    if (countError) throw countError;
-    if (!count) {
-      console.log("Seeding initial users to Supabase...");
-      const rows = initialUsers2.map((u) => ({ id: u.id, data: u }));
-      const { error } = await supabase.from("app_users").upsert(rows, { onConflict: "id" });
-      if (error) throw error;
-    }
-  } catch (error) {
-    console.error("Error seeding users:", error);
-  }
-}
-async function ensureScopeInitialized(scopeId, initialData) {
-  if (!isSupabaseConfigured) return;
-  try {
-    const { data: metaRow, error: metaError } = await supabase.from("scopes").select("scope_id").eq("scope_id", scopeId).maybeSingle();
-    if (metaError) throw metaError;
-    if (!metaRow) {
-      const { count: existingCount, error: existingError } = await supabase.from("scoped_items").select("doc_id", { count: "exact", head: true }).eq("scope_id", scopeId);
-      if (existingError) throw existingError;
-      if (existingCount && existingCount > 0) {
-        console.log(`Scope ${scopeId} already has data but no 'initialized' marker \u2014 backfilling marker without reseeding.`);
-        await supabase.from("scopes").insert({ scope_id: scopeId, initialized: true });
-        return;
-      }
-      console.log(`Seeding initial data for scope: ${scopeId}`);
-      const { error: insertMetaError } = await supabase.from("scopes").insert({ scope_id: scopeId, initialized: true });
-      if (insertMetaError) throw insertMetaError;
-      const bulk = [];
-      initialData.contacts.forEach((item) => bulk.push({ scope_id: scopeId, collection: "contacts", doc_id: item.id, data: item }));
-      initialData.projects.forEach((item) => bulk.push({ scope_id: scopeId, collection: "projects", doc_id: item.id, data: item }));
-      initialData.groups.forEach((item) => bulk.push({ scope_id: scopeId, collection: "groups", doc_id: item.id, data: item }));
-      bulk.push({ scope_id: scopeId, collection: "myProfile", doc_id: "profile", data: initialData.myProfile });
-      initialData.vehicles.forEach((item) => bulk.push({ scope_id: scopeId, collection: "vehicles", doc_id: item.id, data: item }));
-      initialData.drivingLogs.forEach((item) => bulk.push({ scope_id: scopeId, collection: "drivingLogs", doc_id: item.id, data: item }));
-      initialData.expenses.forEach((item) => bulk.push({ scope_id: scopeId, collection: "expenses", doc_id: item.id, data: item }));
-      initialData.maintenances.forEach((item) => bulk.push({ scope_id: scopeId, collection: "maintenances", doc_id: item.id, data: item }));
-      initialData.maintenanceIntervals.forEach((item) => bulk.push({ scope_id: scopeId, collection: "maintenanceIntervals", doc_id: item.id, data: item }));
-      initialData.dailyLogs.forEach((item) => bulk.push({ scope_id: scopeId, collection: "dailyLogs", doc_id: item.id, data: item }));
-      initialData.weeklyLogs.forEach((item) => bulk.push({ scope_id: scopeId, collection: "weeklyLogs", doc_id: item.id, data: item }));
-      if (bulk.length) {
-        const { error: bulkError } = await supabase.from("scoped_items").upsert(bulk, { onConflict: "scope_id,collection,doc_id", ignoreDuplicates: true });
-        if (bulkError) throw bulkError;
+    const { rows } = await pool.query("SELECT COUNT(*) as count FROM app_users");
+    if (rows[0].count === 0) {
+      console.log("Seeding initial users to Neon...");
+      for (const user of initialUsers2) {
+        await pool.query(
+          "INSERT INTO app_users (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2",
+          [user.id, JSON.stringify(user)]
+        );
       }
     }
-  } catch (error) {
-    console.error(`Error ensuring scope ${scopeId} is initialized:`, error);
+  } catch (error2) {
+    console.error("ensureUsersSeeded \uC2E4\uD328:", error2);
   }
 }
 async function getScopedCollection(scopeId, collectionName) {
-  if (!isSupabaseConfigured) return [];
-  const PAGE_SIZE = 1e3;
-  const allRows = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase.from("scoped_items").select("data").eq("scope_id", scopeId).eq("collection", collectionName).order("doc_id", { ascending: true }).range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      console.error(`getScopedCollection(${scopeId}, ${collectionName}) error:`, error);
-      break;
-    }
-    if (!data || data.length === 0) break;
-    allRows.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
+  if (!isNeonConfigured) return [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT data FROM scoped_items WHERE scope_id = $1 AND collection = $2 ORDER BY doc_id ASC",
+      [scopeId, collectionName]
+    );
+    return rows.map((row) => row.data);
+  } catch (error2) {
+    console.error(`getScopedCollection(${scopeId}, ${collectionName}) \uC2E4\uD328:`, error2);
+    return [];
   }
-  return allRows.map((row) => row.data);
 }
 async function getScopedDoc(scopeId, collectionName, docId) {
-  if (!isSupabaseConfigured) return null;
-  const { data, error } = await supabase.from("scoped_items").select("data").eq("scope_id", scopeId).eq("collection", collectionName).eq("doc_id", docId).maybeSingle();
-  if (error) {
-    console.error(`getScopedDoc(${scopeId}, ${collectionName}, ${docId}) error:`, error);
+  if (!isNeonConfigured) return null;
+  try {
+    const { rows } = await pool.query(
+      "SELECT data FROM scoped_items WHERE scope_id = $1 AND collection = $2 AND doc_id = $3",
+      [scopeId, collectionName, docId]
+    );
+    return rows.length ? rows[0].data : null;
+  } catch (error2) {
+    console.error(`getScopedDoc(${scopeId}, ${collectionName}, ${docId}) \uC2E4\uD328:`, error2);
     return null;
   }
-  return data ? data.data : null;
 }
 async function setScopedDoc(scopeId, collectionName, item) {
-  if (!isSupabaseConfigured) return true;
-  const { error } = await supabase.from("scoped_items").upsert(
-    { scope_id: scopeId, collection: collectionName, doc_id: item.id, data: item, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
-    { onConflict: "scope_id,collection,doc_id" }
-  );
-  if (error) {
-    console.error(`setScopedDoc(${scopeId}, ${collectionName}, ${item.id}) error:`, error);
+  if (!isNeonConfigured) return true;
+  try {
+    await pool.query(
+      "INSERT INTO scoped_items (scope_id, collection, doc_id, data) VALUES ($1, $2, $3, $4) ON CONFLICT (scope_id, collection, doc_id) DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP",
+      [scopeId, collectionName, item.id, JSON.stringify(item)]
+    );
+    return true;
+  } catch (error2) {
+    console.error(`setScopedDoc(${scopeId}, ${collectionName}, ${item.id}) \uC2E4\uD328:`, error2);
     return false;
   }
-  return true;
 }
 async function setScopedDocs(scopeId, collectionName, items) {
-  if (!isSupabaseConfigured) return true;
+  if (!isNeonConfigured) return true;
   if (!items.length) return true;
-  const rows = items.map((item) => ({
-    scope_id: scopeId,
-    collection: collectionName,
-    doc_id: item.id,
-    data: item,
-    updated_at: (/* @__PURE__ */ new Date()).toISOString()
-  }));
-  const { error } = await supabase.from("scoped_items").upsert(rows, { onConflict: "scope_id,collection,doc_id" });
-  if (error) {
-    console.error(`setScopedDocs(${scopeId}, ${collectionName}) error:`, error);
+  try {
+    for (const item of items) {
+      await pool.query(
+        "INSERT INTO scoped_items (scope_id, collection, doc_id, data) VALUES ($1, $2, $3, $4) ON CONFLICT (scope_id, collection, doc_id) DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP",
+        [scopeId, collectionName, item.id, JSON.stringify(item)]
+      );
+    }
+    return true;
+  } catch (error2) {
+    console.error(`setScopedDocs(${scopeId}, ${collectionName}) \uC2E4\uD328:`, error2);
     return false;
   }
-  return true;
 }
 async function setScopedProfile(scopeId, profile) {
-  if (!isSupabaseConfigured) return true;
-  const { error } = await supabase.from("scoped_items").upsert(
-    { scope_id: scopeId, collection: "myProfile", doc_id: "profile", data: profile, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
-    { onConflict: "scope_id,collection,doc_id" }
-  );
-  if (error) {
-    console.error(`setScopedProfile(${scopeId}) error:`, error);
-    return false;
-  }
-  return true;
-}
-async function findProfileByShareSlug(slug) {
-  if (!isSupabaseConfigured) return null;
-  const { data, error } = await supabase.from("scoped_items").select("scope_id, data").eq("collection", "myProfile").eq("data->>shareSlug", slug).maybeSingle();
-  if (error) {
-    console.error(`findProfileByShareSlug(${slug}) error:`, error);
-    return null;
-  }
-  if (!data) return null;
-  return { scopeId: data.scope_id, profile: data.data };
+  if (!isNeonConfigured) return true;
+  return setScopedDoc(scopeId, "myProfile", { ...profile, id: "profile" });
 }
 async function deleteScopedDoc(scopeId, collectionName, docId) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("scoped_items").delete().eq("scope_id", scopeId).eq("collection", collectionName).eq("doc_id", docId);
-  if (error) console.error(`deleteScopedDoc(${scopeId}, ${collectionName}, ${docId}) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query(
+      "DELETE FROM scoped_items WHERE scope_id = $1 AND collection = $2 AND doc_id = $3",
+      [scopeId, collectionName, docId]
+    );
+  } catch (error2) {
+    console.error(`deleteScopedDoc(${scopeId}, ${collectionName}, ${docId}) \uC2E4\uD328:`, error2);
+  }
 }
 async function replaceScopedCollection(scopeId, collectionName, items) {
-  if (!isSupabaseConfigured) return;
-  if (items.length === 0) {
-    const { error: deleteError2 } = await supabase.from("scoped_items").delete().eq("scope_id", scopeId).eq("collection", collectionName);
-    if (deleteError2) console.error(`replaceScopedCollection delete-all(${scopeId}, ${collectionName}) error:`, deleteError2);
-    return;
+  if (!isNeonConfigured) return;
+  try {
+    if (items.length === 0) {
+      await pool.query("DELETE FROM scoped_items WHERE scope_id = $1 AND collection = $2", [scopeId, collectionName]);
+    } else {
+      const ids = items.map((item) => item.id);
+      const placeholders = ids.map((_, i) => `$${i + 3}`).join(",");
+      await pool.query(
+        `DELETE FROM scoped_items WHERE scope_id = $1 AND collection = $2 AND doc_id NOT IN (${placeholders})`,
+        [scopeId, collectionName, ...ids]
+      );
+      for (const item of items) {
+        await pool.query(
+          "INSERT INTO scoped_items (scope_id, collection, doc_id, data) VALUES ($1, $2, $3, $4) ON CONFLICT (scope_id, collection, doc_id) DO UPDATE SET data = $4",
+          [scopeId, collectionName, item.id, JSON.stringify(item)]
+        );
+      }
+    }
+  } catch (error2) {
+    console.error(`replaceScopedCollection(${scopeId}, ${collectionName}) \uC2E4\uD328:`, error2);
   }
-  const currentIds = items.map((item) => item.id);
-  const { error: deleteError } = await supabase.from("scoped_items").delete().eq("scope_id", scopeId).eq("collection", collectionName).not("doc_id", "in", `(${currentIds.map((id) => `"${String(id).replace(/"/g, '\\"')}"`).join(",")})`);
-  if (deleteError) {
-    console.error(`replaceScopedCollection delete-stale(${scopeId}, ${collectionName}) error:`, deleteError);
-    return;
+}
+async function findProfileByShareSlug(slug) {
+  if (!isNeonConfigured) return null;
+  try {
+    const { rows } = await pool.query(
+      "SELECT scope_id, data FROM scoped_items WHERE collection = 'myProfile' AND data->>'shareSlug' = $1",
+      [slug]
+    );
+    if (rows.length) {
+      return { scopeId: rows[0].scope_id, profile: rows[0].data };
+    }
+    return null;
+  } catch (error2) {
+    console.error(`findProfileByShareSlug(${slug}) \uC2E4\uD328:`, error2);
+    return null;
   }
-  const rows = items.map((item) => ({
-    scope_id: scopeId,
-    collection: collectionName,
-    doc_id: item.id,
-    data: item,
-    updated_at: (/* @__PURE__ */ new Date()).toISOString()
-  }));
-  const { error: upsertError } = await supabase.from("scoped_items").upsert(rows, { onConflict: "scope_id,collection,doc_id" });
-  if (upsertError) console.error(`replaceScopedCollection upsert(${scopeId}, ${collectionName}) error:`, upsertError);
 }
 async function getUsers() {
-  if (!isSupabaseConfigured) return [];
-  const PAGE_SIZE = 1e3;
-  const allRows = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase.from("app_users").select("data").order("id", { ascending: true }).range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      console.error("getUsers error:", error);
-      break;
-    }
-    if (!data || data.length === 0) break;
-    allRows.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
+  if (!isNeonConfigured) return [];
+  try {
+    const { rows } = await pool.query("SELECT data FROM app_users ORDER BY id ASC");
+    return rows.map((row) => row.data);
+  } catch (error2) {
+    console.error("getUsers \uC2E4\uD328:", error2);
+    return [];
   }
-  return allRows.map((row) => row.data);
 }
 async function addUser(user) {
-  if (!isSupabaseConfigured) return true;
-  const { error } = await supabase.from("app_users").upsert({ id: user.id, data: user }, { onConflict: "id" });
-  if (error) {
-    console.error(`addUser(${user.id}) error:`, error);
+  if (!isNeonConfigured) return true;
+  try {
+    await pool.query(
+      "INSERT INTO app_users (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2",
+      [user.id, JSON.stringify(user)]
+    );
+    return true;
+  } catch (error2) {
+    console.error(`addUser(${user.id}) \uC2E4\uD328:`, error2);
     return false;
   }
-  return true;
 }
 async function deleteUser(userId) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("app_users").delete().eq("id", userId);
-  if (error) console.error(`deleteUser(${userId}) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query("DELETE FROM app_users WHERE id = $1", [userId]);
+  } catch (error2) {
+    console.error(`deleteUser(${userId}) \uC2E4\uD328:`, error2);
+  }
 }
 async function deleteScopeCompletely(scopeId) {
-  if (!isSupabaseConfigured) return;
-  const { error: itemsError } = await supabase.from("scoped_items").delete().eq("scope_id", scopeId);
-  if (itemsError) console.error(`deleteScopeCompletely(${scopeId}) scoped_items error:`, itemsError);
-  const { error: scopeError } = await supabase.from("scopes").delete().eq("scope_id", scopeId);
-  if (scopeError) console.error(`deleteScopeCompletely(${scopeId}) scopes error:`, scopeError);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query("DELETE FROM scoped_items WHERE scope_id = $1", [scopeId]);
+    await pool.query("DELETE FROM scopes WHERE scope_id = $1", [scopeId]);
+  } catch (error2) {
+    console.error(`deleteScopeCompletely(${scopeId}) \uC2E4\uD328:`, error2);
+  }
 }
 async function saveSession(token, userId, expiresAt) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("app_sessions").upsert(
-    { token, user_id: userId, expires_at: new Date(expiresAt).toISOString() },
-    { onConflict: "token" }
-  );
-  if (error) console.error(`saveSession(${token.slice(0, 8)}...) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query(
+      "INSERT INTO app_sessions (token, user_id, expires_at) VALUES ($1, $2, $3) ON CONFLICT (token) DO UPDATE SET user_id = $2, expires_at = $3",
+      [token, userId, new Date(expiresAt)]
+    );
+  } catch (error2) {
+    console.error(`saveSession \uC2E4\uD328:`, error2);
+  }
 }
 async function loadSession(token) {
-  if (!isSupabaseConfigured) return null;
-  const { data, error } = await supabase.from("app_sessions").select("token, user_id, expires_at").eq("token", token).maybeSingle();
-  if (error) {
-    console.error(`loadSession(${token.slice(0, 8)}...) error:`, error);
+  if (!isNeonConfigured) return null;
+  try {
+    const { rows } = await pool.query(
+      "SELECT token, user_id, expires_at FROM app_sessions WHERE token = $1",
+      [token]
+    );
+    if (rows.length) {
+      return { token: rows[0].token, userId: rows[0].user_id, expiresAt: new Date(rows[0].expires_at).getTime() };
+    }
+    return null;
+  } catch (error2) {
+    console.error(`loadSession \uC2E4\uD328:`, error2);
     return null;
   }
-  if (!data) return null;
-  return { token: data.token, userId: data.user_id, expiresAt: new Date(data.expires_at).getTime() };
 }
 async function deleteSession(token) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("app_sessions").delete().eq("token", token);
-  if (error) console.error(`deleteSession(${token.slice(0, 8)}...) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query("DELETE FROM app_sessions WHERE token = $1", [token]);
+  } catch (error2) {
+    console.error(`deleteSession \uC2E4\uD328:`, error2);
+  }
 }
 async function deleteAllSessionsForUser(userId) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("app_sessions").delete().eq("user_id", userId);
-  if (error) console.error(`deleteAllSessionsForUser(${userId}) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query("DELETE FROM app_sessions WHERE user_id = $1", [userId]);
+  } catch (error2) {
+    console.error(`deleteAllSessionsForUser \uC2E4\uD328:`, error2);
+  }
 }
 async function savePasswordResetToken(token, userId, expiresAt) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("password_reset_tokens").upsert(
-    { token, user_id: userId, expires_at: new Date(expiresAt).toISOString() },
-    { onConflict: "token" }
-  );
-  if (error) console.error(`savePasswordResetToken(${token.slice(0, 8)}...) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query(
+      "INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES ($1, $2, $3) ON CONFLICT (token) DO UPDATE SET user_id = $2, expires_at = $3",
+      [token, userId, new Date(expiresAt)]
+    );
+  } catch (error2) {
+    console.error(`savePasswordResetToken \uC2E4\uD328:`, error2);
+  }
 }
 async function loadPasswordResetToken(token) {
-  if (!isSupabaseConfigured) return null;
-  const { data, error } = await supabase.from("password_reset_tokens").select("token, user_id, expires_at").eq("token", token).maybeSingle();
-  if (error) {
-    console.error(`loadPasswordResetToken(${token.slice(0, 8)}...) error:`, error);
+  if (!isNeonConfigured) return null;
+  try {
+    const { rows } = await pool.query(
+      "SELECT token, user_id, expires_at FROM password_reset_tokens WHERE token = $1",
+      [token]
+    );
+    if (rows.length) {
+      return { token: rows[0].token, userId: rows[0].user_id, expiresAt: new Date(rows[0].expires_at).getTime() };
+    }
+    return null;
+  } catch (error2) {
+    console.error(`loadPasswordResetToken \uC2E4\uD328:`, error2);
     return null;
   }
-  if (!data) return null;
-  return { token: data.token, userId: data.user_id, expiresAt: new Date(data.expires_at).getTime() };
 }
 async function deletePasswordResetToken(token) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("password_reset_tokens").delete().eq("token", token);
-  if (error) console.error(`deletePasswordResetToken(${token.slice(0, 8)}...) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query("DELETE FROM password_reset_tokens WHERE token = $1", [token]);
+  } catch (error2) {
+    console.error(`deletePasswordResetToken \uC2E4\uD328:`, error2);
+  }
 }
 async function deleteAllPasswordResetTokensForUser(userId) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("password_reset_tokens").delete().eq("user_id", userId);
-  if (error) console.error(`deleteAllPasswordResetTokensForUser(${userId}) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query("DELETE FROM password_reset_tokens WHERE user_id = $1", [userId]);
+  } catch (error2) {
+    console.error(`deleteAllPasswordResetTokensForUser \uC2E4\uD328:`, error2);
+  }
 }
 async function logAudit(entry) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("audit_logs").insert({
-    scope_id: entry.scopeId,
-    actor_user_id: entry.actorUserId,
-    actor_email: entry.actorEmail || null,
-    action: entry.action,
-    target_user_id: entry.targetUserId || null,
-    target_email: entry.targetEmail || null,
-    detail: entry.detail || null
-  });
-  if (error) console.error("logAudit error:", error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query(
+      "INSERT INTO audit_logs (scope_id, actor_user_id, actor_email, action, target_user_id, target_email, detail) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [entry.scopeId, entry.actorUserId, entry.actorEmail || null, entry.action, entry.targetUserId || null, entry.targetEmail || null, entry.detail ? JSON.stringify(entry.detail) : null]
+    );
+  } catch (error2) {
+    console.error("logAudit \uC2E4\uD328:", error2);
+  }
 }
 async function getAuditLogs(scopeId, limit = 200) {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase.from("audit_logs").select("*").eq("scope_id", scopeId).order("created_at", { ascending: false }).limit(limit);
-  if (error) {
-    console.error(`getAuditLogs(${scopeId}) error:`, error);
+  if (!isNeonConfigured) return [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM audit_logs WHERE scope_id = $1 ORDER BY created_at DESC LIMIT $2",
+      [scopeId, limit]
+    );
+    return rows;
+  } catch (error2) {
+    console.error(`getAuditLogs(${scopeId}) \uC2E4\uD328:`, error2);
     return [];
   }
-  return data || [];
 }
 async function createReferral(opts) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("referrals").insert({
-    referrer_user_id: opts.referrerUserId,
-    referee_user_id: opts.refereeUserId,
-    referee_email: opts.refereeEmail || null,
-    referee_name: opts.refereeName || null,
-    status: "pending"
-  });
-  if (error) console.error("createReferral error:", error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query(
+      "INSERT INTO referrals (referrer_user_id, referee_user_id, referee_email, referee_name, status) VALUES ($1, $2, $3, $4, $5)",
+      [opts.referrerUserId, opts.refereeUserId, opts.refereeEmail || null, opts.refereeName || null, "pending"]
+    );
+  } catch (error2) {
+    console.error("createReferral \uC2E4\uD328:", error2);
+  }
 }
 async function markReferralRewarded(refereeUserId) {
-  if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from("referrals").update({ status: "rewarded", rewarded_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("referee_user_id", refereeUserId);
-  if (error) console.error(`markReferralRewarded(${refereeUserId}) error:`, error);
+  if (!isNeonConfigured) return;
+  try {
+    await pool.query(
+      "UPDATE referrals SET status = $1, rewarded_at = CURRENT_TIMESTAMP WHERE referee_user_id = $2",
+      ["rewarded", refereeUserId]
+    );
+  } catch (error2) {
+    console.error(`markReferralRewarded(${refereeUserId}) \uC2E4\uD328:`, error2);
+  }
 }
 async function getReferralsForUser(referrerUserId) {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase.from("referrals").select("*").eq("referrer_user_id", referrerUserId).order("created_at", { ascending: false });
-  if (error) {
-    console.error(`getReferralsForUser(${referrerUserId}) error:`, error);
+  if (!isNeonConfigured) return [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM referrals WHERE referrer_user_id = $1 ORDER BY created_at DESC",
+      [referrerUserId]
+    );
+    return rows;
+  } catch (error2) {
+    console.error(`getReferralsForUser(${referrerUserId}) \uC2E4\uD328:`, error2);
     return [];
   }
-  return data || [];
+}
+async function getPlatformStats() {
+  if (!isNeonConfigured) return [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT scope_id, collection, COUNT(*) as count FROM scoped_items GROUP BY scope_id, collection"
+    );
+    return rows;
+  } catch (error2) {
+    console.error("getPlatformStats \uC2E4\uD328:", error2);
+    return [];
+  }
 }
 
 // server.ts
@@ -706,13 +748,12 @@ var app = (0, import_express.default)();
 var PORT = Number(process.env.PORT) || 3e3;
 var requiredEnvVars = [
   "CRON_SECRET",
-  "GEMINI_API_KEY",
   "TOSS_SECRET_KEY",
   "BREVO_API_KEY",
-  "KAKAO_REST_API_KEY",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
+  "DATABASE_URL",
   "APP_BASE_URL"
+  // GEMINI_API_KEY: 선택사항 (AI 기능에만 필요)
+  // KAKAO_REST_API_KEY: 선택사항 (지도 기능에만 필요)
 ];
 var missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
 if (missingEnvVars.length > 0) {
@@ -723,6 +764,15 @@ if (missingEnvVars.length > 0) {
 console.log("\u2705 \uBAA8\uB4E0 \uD544\uC218 \uD658\uACBD \uBCC0\uC218 \uC124\uC815\uB428");
 console.log(`\u{1F680} \uD658\uACBD: ${process.env.NODE_ENV || "development"}`);
 console.log(`\u{1F517} APP_BASE_URL: ${process.env.APP_BASE_URL}`);
+(async () => {
+  try {
+    await initializeDatabase();
+    console.log("\u2705 Neon \uB370\uC774\uD130\uBCA0\uC774\uC2A4 \uCD08\uAE30\uD654 \uC644\uB8CC");
+  } catch (err) {
+    console.error("\u274C \uB370\uC774\uD130\uBCA0\uC774\uC2A4 \uCD08\uAE30\uD654 \uC2E4\uD328:", err);
+    process.exit(1);
+  }
+})();
 app.use(import_express.default.json({ limit: "50mb" }));
 app.use(import_express.default.urlencoded({ extended: true, limit: "50mb" }));
 var allowedOrigins = [
@@ -786,7 +836,7 @@ app.get("/health", async (req, res) => {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
       },
-      database: isSupabaseConfigured() ? "connected" : "not configured",
+      database: process.env.DATABASE_URL ? "connected" : "not configured",
       monitoring: SENTRY_DSN ? "enabled" : "disabled"
     };
     res.status(200).json(health);
@@ -880,7 +930,7 @@ app.use(async (req, res, next) => {
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies[SESSION_COOKIE_NAME];
   let session = token ? sessions.get(token) : void 0;
-  if (!session && token && isSupabaseConfigured) {
+  if (!session && token && process.env.DATABASE_URL) {
     const stored = await loadSession(token);
     if (stored) {
       session = { userId: stored.userId, expiresAt: stored.expiresAt };
@@ -1519,6 +1569,17 @@ async function bootstrapUsers() {
     await ensureUsersSeeded(initialUsers);
     users = await getUsers();
   }
+  for (const user of users) {
+    if (!user.email) {
+      if (user.id === "user-1785330860440") {
+        user.email = "parkhy5454@gmail.com";
+      } else {
+        user.email = `user_${user.id}@bizcard.local`;
+      }
+      await addUser(user);
+      console.log(`\u2713 \uC0AC\uC6A9\uC790 ${user.id}\uC5D0 email \uD544\uB4DC \uCD94\uAC00: ${user.email}`);
+    }
+  }
 }
 function resolveScopeId(req) {
   const userId = req.headers["x-user-id"];
@@ -1608,9 +1669,9 @@ app.use(async (req, res, next) => {
     req.scopeId = scopeId;
     await loadScopeFromSupabase(scopeId);
     next();
-  } catch (error) {
-    console.error("Scope resolution error:", error);
-    next(error);
+  } catch (error2) {
+    console.error("Scope resolution error:", error2);
+    next(error2);
   }
 });
 var KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
@@ -2079,10 +2140,10 @@ app.post("/api/auth/signup", async (req, res) => {
   if (!passwordValidation.valid) {
     return res.status(400).json({ error: passwordValidation.error });
   }
-  let existing = users.find((u) => u.email.toLowerCase() === normalizedEmail);
-  if (!existing && isSupabaseConfigured) {
+  let existing = users.find((u) => u.email && u.email.toLowerCase() === normalizedEmail);
+  if (!existing && process.env.DATABASE_URL) {
     const freshUsers = await getUsers();
-    existing = freshUsers.find((u) => u.email.toLowerCase() === normalizedEmail);
+    existing = freshUsers.find((u) => u.email && u.email.toLowerCase() === normalizedEmail);
     if (existing) users = freshUsers;
   }
   if (existing) {
@@ -2181,7 +2242,7 @@ app.post("/api/auth/login", async (req, res) => {
       error: `\uB85C\uADF8\uC778 \uC2DC\uB3C4\uAC00 \uB108\uBB34 \uB9CE\uC2B5\uB2C8\uB2E4. ${limitCheck.retryAfterSec}\uCD08 \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.`
     });
   }
-  const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  const user = users.find((u) => u.email && u.email.toLowerCase() === email.toLowerCase());
   if (!user || !verifyPassword(password, user.password)) {
     loginRateLimiter.registerAttempt(limitKey);
     return res.status(401).json({ error: "\uC774\uBA54\uC77C \uD639\uC740 \uBE44\uBC00\uBC88\uD638\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4." });
@@ -2236,7 +2297,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   if (!limitCheck.allowed) {
     return res.status(429).json({ error: `\uC694\uCCAD\uC774 \uB108\uBB34 \uB9CE\uC2B5\uB2C8\uB2E4. ${limitCheck.retryAfterSec}\uCD08 \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.` });
   }
-  const user = users.find((u) => u.email.toLowerCase() === normalizedEmail);
+  const user = users.find((u) => u.email && u.email.toLowerCase() === normalizedEmail);
   if (user && !isEmailVerified(user.emailVerified) && isMailerConfigured) {
     user.emailVerificationToken = import_crypto2.default.randomBytes(32).toString("hex");
     user.emailVerificationTokenExpiresAt = Date.now() + 24 * 60 * 60 * 1e3;
@@ -2335,7 +2396,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   if (!limitCheck.allowed) {
     return res.status(429).json({ error: `\uC694\uCCAD\uC774 \uB108\uBB34 \uB9CE\uC2B5\uB2C8\uB2E4. ${limitCheck.retryAfterSec}\uCD08 \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.` });
   }
-  const user = users.find((u) => u.email.toLowerCase() === normalizedEmail);
+  const user = users.find((u) => u.email && u.email.toLowerCase() === normalizedEmail);
   if (user && isMailerConfigured) {
     for (const [existingToken, entry] of passwordResetTokens.entries()) {
       if (entry.userId === user.id) passwordResetTokens.delete(existingToken);
@@ -2377,7 +2438,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
     return res.status(400).json({ error: passwordValidation.error });
   }
   let entry = passwordResetTokens.get(token);
-  if (!entry && isSupabaseConfigured) {
+  if (!entry && process.env.DATABASE_URL) {
     const stored = await loadPasswordResetToken(token);
     if (stored) {
       entry = { userId: stored.userId, expiresAt: stored.expiresAt };
@@ -2466,9 +2527,10 @@ app.get("/api/org/coworkers", (req, res) => {
   res.json(visible.map(toPublicShape));
 });
 app.get("/api/auth/duplicate-emails", async (req, res) => {
-  const all = isSupabaseConfigured ? await getUsers() : users;
+  const all = process.env.DATABASE_URL ? await getUsers() : users;
   const byEmail = /* @__PURE__ */ new Map();
   for (const u of all) {
+    if (!u.email) continue;
     const key = u.email.toLowerCase();
     if (!byEmail.has(key)) byEmail.set(key, []);
     byEmail.get(key).push(u);
@@ -3293,8 +3355,8 @@ app.get("/api/places/search", async (req, res) => {
       const bodyText = await kakaoRes.text().catch(() => "");
       return res.status(kakaoRes.status).json({ error: `\uCE74\uCE74\uC624 \uC7A5\uC18C \uAC80\uC0C9 \uC624\uB958: ${bodyText.slice(0, 200)}`, places: [] });
     }
-    const data = await kakaoRes.json();
-    const places = (data.documents || []).map((d) => ({
+    const data2 = await kakaoRes.json();
+    const places = (data2.documents || []).map((d) => ({
       name: d.place_name,
       address: d.road_address_name || d.address_name,
       lat: parseFloat(d.y),
@@ -3319,14 +3381,14 @@ app.post("/api/vehicles/estimate-distance", async (req, res) => {
   try {
     let sLat = startLat, sLng = startLng, eLat = endLat, eLng = endLng;
     if (!sLat || !sLng) {
-      const { coords, error } = await geocodeAddressWithDiagnostics(startAddress || "");
-      if (!coords) return res.status(422).json({ error: `\uCD9C\uBC1C\uC9C0 \uC8FC\uC18C\uC758 \uC88C\uD45C\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (${error || "\uC54C \uC218 \uC5C6\uB294 \uC774\uC720"})` });
+      const { coords, error: error2 } = await geocodeAddressWithDiagnostics(startAddress || "");
+      if (!coords) return res.status(422).json({ error: `\uCD9C\uBC1C\uC9C0 \uC8FC\uC18C\uC758 \uC88C\uD45C\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (${error2 || "\uC54C \uC218 \uC5C6\uB294 \uC774\uC720"})` });
       sLat = coords.lat;
       sLng = coords.lng;
     }
     if (!eLat || !eLng) {
-      const { coords, error } = await geocodeAddressWithDiagnostics(endAddress || "");
-      if (!coords) return res.status(422).json({ error: `\uBAA9\uC801\uC9C0 \uC8FC\uC18C\uC758 \uC88C\uD45C\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (${error || "\uC54C \uC218 \uC5C6\uB294 \uC774\uC720"})` });
+      const { coords, error: error2 } = await geocodeAddressWithDiagnostics(endAddress || "");
+      if (!coords) return res.status(422).json({ error: `\uBAA9\uC801\uC9C0 \uC8FC\uC18C\uC758 \uC88C\uD45C\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (${error2 || "\uC54C \uC218 \uC5C6\uB294 \uC774\uC720"})` });
       eLat = coords.lat;
       eLng = coords.lng;
     }
@@ -3361,7 +3423,7 @@ app.post("/api/contacts/regeocode", async (req, res) => {
     if (authError) break;
     const batch = targets.slice(i, i + CONCURRENCY);
     await Promise.all(batch.map(async (c) => {
-      const { coords, error } = await geocodeAddressWithDiagnostics(c.address || "");
+      const { coords, error: error2 } = await geocodeAddressWithDiagnostics(c.address || "");
       if (coords) {
         c.lat = coords.lat;
         c.lng = coords.lng;
@@ -3374,8 +3436,8 @@ app.post("/api/contacts/regeocode", async (req, res) => {
         c.isRealGeocoded = true;
         await setScopedDoc(scopeId, "contacts", c);
         failed++;
-        if (!firstError && error) firstError = error;
-        if (error && error.includes("\uC778\uC99D \uC2E4\uD328")) authError = true;
+        if (!firstError && error2) firstError = error2;
+        if (error2 && error2.includes("\uC778\uC99D \uC2E4\uD328")) authError = true;
       }
     }));
   }
@@ -3633,8 +3695,8 @@ app.post("/api/detect-card-corners", async (req, res) => {
       console.error("\uD14C\uB450\uB9AC \uAC10\uC9C0 JSON \uD30C\uC2F1 \uC2E4\uD328:", text);
     }
     res.json(parsedJson);
-  } catch (error) {
-    console.error("AI \uD14C\uB450\uB9AC \uAC10\uC9C0 \uC624\uB958:", error);
+  } catch (error2) {
+    console.error("AI \uD14C\uB450\uB9AC \uAC10\uC9C0 \uC624\uB958:", error2);
     res.json({ corners: null });
   }
 });
@@ -3666,7 +3728,7 @@ app.post("/api/scan-card", async (req, res) => {
         return res.status(400).json({ error: `\uB4B7\uBA74 ${backValidation.error}` });
       }
     }
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
     if (!apiKey) {
       return res.json({
         name: "\uD64D\uAE38\uB3D9",
@@ -3674,74 +3736,81 @@ app.post("/api/scan-card", async (req, res) => {
         department: "\uB514\uC9C0\uD138 \uC804\uD658\uD300",
         title: "\uBD80\uC7A5",
         phoneMobile: "010-1234-5678",
-        phoneOffice: "02-123-4567 (\uB300\uD45C)",
-        phoneOffice2: "070-7654-3210 (\uC9C1\uD1B5)",
+        phoneOffice: "02-123-4567",
+        phoneOffice2: "070-7654-3210",
         phoneFax: "02-123-4568",
         email: "gildong.hong@smarttech.co.kr",
-        address: "\uC11C\uC6B8\uD2B9\uBCC4\uC2DC \uAC15\uB0A8\uAD6C \uD14C\uD5E4\uB780\uB85C 123 \uC2A4\uB9C8\uD2B8\uBE4C\uB529 8\uCE35 (\uBCF8\uC0AC)",
-        address2: "\uACBD\uAE30\uB3C4 \uC131\uB0A8\uC2DC \uBD84\uB2F9\uAD6C \uD310\uAD50\uC5ED\uB85C 231 \uD310\uAD50\uD14C\uD06C\uB178\uBC38\uB9AC R&D\uC13C\uD130 3\uCE35 (\uD310\uAD50\uC5F0\uAD6C\uC18C)",
-        memo: "\uC790\uB3D9 \uC2A4\uCE94 \uC0D8\uD50C \uB370\uC774\uD130 (GEMINI_API_KEY \uC124\uC815 \uC2DC \uC2E4\uC2DC\uAC04 \uC774\uBBF8\uC9C0 OCR \uAC00\uB3D9)",
-        companyInfo: "\uC778\uACF5\uC9C0\uB2A5 \uAE30\uBC18 \uB514\uC9C0\uD138 \uC804\uD658(DX) \uBC0F \uC2A4\uB9C8\uD2B8 \uAE30\uC5C5 \uC194\uB8E8\uC158 \uC804\uBB38 \uC81C\uACF5\uC0AC (\uC804\uB144\uB3C4 \uB9E4\uCD9C\uC561 \uC57D 120\uC5B5\uC6D0)"
+        address: "\uC11C\uC6B8\uD2B9\uBCC4\uC2DC \uAC15\uB0A8\uAD6C \uD14C\uD5E4\uB780\uB85C 123",
+        address2: "\uACBD\uAE30\uB3C4 \uC131\uB0A8\uC2DC \uBD84\uB2F9\uAD6C \uD310\uAD50\uC5ED\uB85C 231",
+        memo: "\uC0D8\uD50C \uB370\uC774\uD130 (GOOGLE_CLOUD_VISION_API_KEY \uC124\uC815 \uC2DC \uC2E4\uC2DC\uAC04 OCR \uAC00\uB3D9)",
+        companyInfo: ""
       });
     }
-    const ai = new import_genai.GoogleGenAI({ apiKey });
-    const contents = [
-      '\uC774 \uBA85\uD568 \uC774\uBBF8\uC9C0(\uC55E\uBA74 \uBC0F \uB4B7\uBA74)\uB97C \uBD84\uC11D\uD558\uC5EC \uB2E4\uC74C \uC815\uBCF4\uB4E4\uC744 \uCD94\uCD9C\uD574\uC918. \uD55C\uAD6D\uC5B4 \uB610\uB294 \uC601\uC5B4 \uBA85\uD568\uC744 \uC778\uC2DD\uD558\uC5EC \uC815\uD655\uD55C \uBB38\uC790\uC5F4\uB85C \uC815\uB9AC\uD574\uC918.\n\uBA85\uD568\uC5D0 \uBCF8\uC0AC/\uC9C0\uC0AC, \uC11C\uC6B8\uC0AC\uBB34\uC18C/\uACF5\uC7A5, \uD5E4\uB4DC\uC624\uD53C\uC2A4/\uC5F0\uAD6C\uC18C \uB4F1 \'\uC8FC\uC18C\uAC00 2\uAC1C \uD45C\uAE30\uB418\uC5B4 \uC788\uB294 \uACBD\uC6B0\' \uAC01\uAC01\uC744 \uCCA0\uC800\uD558\uAC8C \uBD84\uB9AC\uD558\uC5EC address\uC640 address2\uC5D0 \uB098\uB220 \uB2F4\uC544\uC8FC\uACE0, \uC8FC\uC18C\uAC00 1\uAC1C\uB9CC \uC788\uB2E4\uBA74 address2\uB294 \uBE48 \uBB38\uC790\uC5F4\uB85C \uCC98\uB9AC\uD574\uC918.\n\uB610\uD55C \uC720\uC120\uC804\uD654/\uC0AC\uBB34\uC2E4 \uC804\uD654\uBC88\uD638\uAC00 2\uAC1C \uC774\uC0C1 \uC874\uC7AC\uD558\uB294 \uACBD\uC6B0(\uC608: \uB300\uD45C\uC804\uD654 \uBC0F \uC9C1\uD1B5\uBC88\uD638, \uD639\uC740 \uC11C\uC6B8\uC0AC\uBB34\uC18C \uBC88\uD638 \uBC0F \uACF5\uC7A5 \uBC88\uD638), \uCCAB \uBC88\uC9F8 \uBC88\uD638\uB294 phoneOffice\uC5D0, \uB450 \uBC88\uC9F8 \uBC88\uD638\uB294 phoneOffice2\uC5D0 \uBD84\uB9AC\uD558\uC5EC \uB2F4\uC544\uC8FC\uACE0, 1\uAC1C\uB9CC \uC788\uB2E4\uBA74 phoneOffice2\uB294 \uBE48 \uBB38\uC790\uC5F4\uB85C \uCC98\uB9AC\uD574\uC918.\n\uCD94\uAC00\uB85C, \uC0AC\uC9C4\uC5D0 \uCC0D\uD78C \uBA85\uD568 \uC2E4\uBB3C(\uC885\uC774 \uCE74\uB4DC \uC790\uCCB4)\uC758 \uB124 \uBAA8\uC11C\uB9AC \uC88C\uD45C\uB97C \uAC01 \uC774\uBBF8\uC9C0 \uAE30\uC900\uC73C\uB85C \uC54C\uB824\uC918. \uC88C\uD45C\uB294 \uC774\uBBF8\uC9C0\uC758 \uAC00\uB85C/\uC138\uB85C \uD06C\uAE30\uC5D0 \uB300\uD55C 0~1 \uC0AC\uC774\uC758 \uBE44\uC728\uB85C \uD45C\uD604\uD574\uC918 (\uC608: \uC774\uBBF8\uC9C0 \uB9E8 \uC67C\uCABD \uC704 \uBAA8\uC11C\uB9AC\uB294 x:0, y:0). \uCE74\uBA54\uB77C \uAC01\uB3C4 \uB54C\uBB38\uC5D0 \uBA85\uD568\uC774 \uAE30\uC6B8\uC5B4\uC838 \uCC0D\uD614\uC5B4\uB3C4, \uC2E4\uC81C \uCE74\uB4DC\uC758 \uB124 \uAF2D\uC9D3\uC810 \uC704\uCE58\uB97C \uCD5C\uB300\uD55C \uC815\uD655\uD558\uAC8C \uCC3E\uC544\uC918 (\uCE74\uB4DC \uC8FC\uBCC0 \uBC30\uACBD, \uC190\uAC00\uB77D, \uADF8\uB9BC\uC790\uB294 \uC808\uB300 \uD3EC\uD568\uD558\uC9C0 \uB9D0\uACE0 \uCE74\uB4DC \uC2E4\uBB3C \uAC00\uC7A5\uC790\uB9AC\uC5D0 \uB531 \uB9DE\uCDB0\uC918).\n\uADF8\uB9AC\uACE0 \uAC01 \uC774\uBBF8\uC9C0\uBCC4\uB85C, \uADF8 \uC774\uBBF8\uC9C0\uB97C \uC2DC\uACC4 \uBC29\uD5A5\uC73C\uB85C \uBA87 \uB3C4 \uB3CC\uB824\uC57C \uBA85\uD568\uC5D0 \uC801\uD78C \uAE00\uC790\uAC00 \uB611\uBC14\uB85C(\uAC70\uAFB8\uB85C \uB4A4\uC9D1\uD788\uC9C0 \uC54A\uACE0, \uC606\uC73C\uB85C \uB215\uC9C0 \uC54A\uACE0) \uC815\uC0C1\uC801\uC73C\uB85C \uC77D\uD788\uB294\uC9C0\uB3C4 \uC54C\uB824\uC918. \uAC12\uC740 \uBC18\uB4DC\uC2DC 0, 90, 180, 270 \uC911 \uD558\uB098\uC5EC\uC57C \uD574 (\uC774\uBBF8 \uB611\uBC14\uB85C \uBCF4\uC774\uBA74 0).\n\uC751\uB2F5\uC740 \uBC18\uB4DC\uC2DC \uC544\uB798 JSON \uADDC\uACA9\uC5D0 \uB9DE\uAC8C \uC21C\uC218 JSON \uB370\uC774\uD130\uB9CC \uB9AC\uD134\uD574\uC918. \uB9C8\uD06C\uB2E4\uC6B4 \uBC31\uD2F1(```json) \uC5C6\uC774 \uB9AC\uD134\uD558\uAC70\uB098 \uC788\uC5B4\uB3C4 JSON \uD30C\uC2F1 \uAC00\uB2A5\uD574\uC57C \uD568.\n{\n  "name": "\uC131\uBA85",\n  "company": "\uD68C\uC0AC\uBA85",\n  "department": "\uBD80\uC11C\uBA85",\n  "title": "\uC9C1\uCC45/\uC9C1\uAE09",\n  "phoneMobile": "\uD578\uB4DC\uD3F0 \uBC88\uD638 (\uC608: 010-XXXX-XXXX)",\n  "phoneOffice": "\uC0AC\uBB34\uC2E4 \uC720\uC120\uC804\uD654 1 (\uC608: 02-XXXX-XXXX)",\n  "phoneOffice2": "\uC0AC\uBB34\uC2E4 \uC720\uC120\uC804\uD654 2 \uB610\uB294 \uC9C1\uD1B5\uBC88\uD638/\uBCF4\uC870\uBC88\uD638 (\uC720\uC120\uBC88\uD638\uAC00 2\uAC1C \uC874\uC7AC\uD558\uB294 \uACBD\uC6B0\uC5D0\uB9CC \uAE30\uC7AC, 1\uAC1C\uC77C \uACBD\uC6B0 \uBE48 \uBB38\uC790\uC5F4 "")",\n  "phoneFax": "\uD329\uC2A4 \uBC88\uD638",\n  "email": "\uC774\uBA54\uC77C \uC8FC\uC18C",\n  "address": "\uD68C\uC0AC \uCCAB \uBC88\uC9F8/\uAE30\uBCF8/\uBCF8\uC0AC \uC8FC\uC18C",\n  "address2": "\uD68C\uC0AC \uB450 \uBC88\uC9F8/\uC9C0\uC0AC/\uACF5\uC7A5/\uBCF4\uC870 \uC8FC\uC18C (\uBA85\uD568 \uB0B4 \uC8FC\uC18C\uAC00 2\uAC1C \uC874\uC7AC\uD558\uB294 \uACBD\uC6B0\uC5D0\uB9CC \uC791\uC131, 1\uAC1C\uC77C \uACBD\uC6B0 \uBE48 \uBB38\uC790\uC5F4 "")",\n  "website": "\uD648\uD398\uC774\uC9C0 \uC8FC\uC18C (\uBA85\uD568\uC5D0 \uC801\uD600\uC788\uB294 \uACBD\uC6B0\uC5D0\uB9CC \uAE30\uC7AC, \uC5C6\uC73C\uBA74 \uBE48 \uBB38\uC790\uC5F4 "")",\n  "memo": "\uBA85\uD568\uC5D0 \uC801\uD78C \uC2AC\uB85C\uAC74\uC774\uB098 \uC8FC\uC694 \uBE44\uC988\uB2C8\uC2A4 \uC694\uC57D",\n  "frontCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n  "backCorners": {"topLeft": {"x":0,"y":0}, "topRight": {"x":0,"y":0}, "bottomRight": {"x":0,"y":0}, "bottomLeft": {"x":0,"y":0}},\n  "frontRotation": 0,\n  "backRotation": 0\n}\n(frontCorners/frontRotation\uC740 \uCCAB \uBC88\uC9F8\uB85C \uCCA8\uBD80\uB41C \uC774\uBBF8\uC9C0, backCorners/backRotation\uC740 \uB450 \uBC88\uC9F8\uB85C \uCCA8\uBD80\uB41C \uC774\uBBF8\uC9C0 \uAE30\uC900\uC774\uC57C. \uD574\uB2F9 \uC774\uBBF8\uC9C0\uAC00 \uC5C6\uC73C\uBA74 \uADF8 \uD544\uB4DC\uB4E4\uC740 \uC0DD\uB7B5\uD574\uB3C4 \uB3FC.)'
-    ];
+    const requests = [];
     if (frontImage) {
       const base64Data = frontImage.replace(/^data:image\/\w+;base64,/, "");
-      contents.push("\uB2E4\uC74C\uC740 \uBA85\uD568 \uC55E\uBA74 \uC774\uBBF8\uC9C0\uC57C (frontCorners\uB294 \uC774 \uC774\uBBF8\uC9C0 \uAE30\uC900):");
-      contents.push({
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: base64Data
-        }
+      requests.push({
+        image: { content: base64Data },
+        features: [{ type: "DOCUMENT_TEXT_DETECTION" }]
       });
     }
     if (backImage) {
       const base64DataBack = backImage.replace(/^data:image\/\w+;base64,/, "");
-      contents.push("\uB2E4\uC74C\uC740 \uBA85\uD568 \uB4B7\uBA74 \uC774\uBBF8\uC9C0\uC57C (backCorners\uB294 \uC774 \uC774\uBBF8\uC9C0 \uAE30\uC900):");
-      contents.push({
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: base64DataBack
-        }
+      requests.push({
+        image: { content: base64DataBack },
+        features: [{ type: "DOCUMENT_TEXT_DETECTION" }]
       });
     }
-    const response = await generateContentWithRetry(ai, {
-      model: PRIMARY_GEMINI_MODEL,
-      contents
-    });
-    const text = response.text || "";
-    let parsedJson = {};
     try {
-      const jsonStr = text.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
-      parsedJson = JSON.parse(jsonStr);
-    } catch (e) {
-      console.error("JSON \uD30C\uC2F1 \uC2E4\uD328, \uD14D\uC2A4\uD2B8 \uADF8\uB300\uB85C \uBD84\uC11D \uC2DC\uB3C4:", text);
-      parsedJson = {
-        name: "\uC778\uC2DD \uC644\uB8CC",
-        company: "\uD655\uC778 \uD544\uC694",
+      const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requests })
+      });
+      if (!visionResponse.ok) {
+        const errorData = await visionResponse.json();
+        throw new Error(`Vision API Error: ${errorData.error?.message || "Unknown error"}`);
+      }
+      const visionResult = await visionResponse.json();
+      let fullText = "";
+      if (visionResult.responses && visionResult.responses.length > 0) {
+        for (const response of visionResult.responses) {
+          if (response.fullTextAnnotation) {
+            fullText += response.fullTextAnnotation.text + "\n";
+          }
+        }
+      }
+      const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+      const phoneRegex = /(\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}|\d{3}[-.\s]?\d{3,4}[-.\s]?\d{4})/g;
+      const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-z]{2,}(?![a-z]))/gi;
+      const phones = fullText.match(phoneRegex) || [];
+      const emails = fullText.match(emailRegex) || [];
+      const urls = fullText.match(urlRegex) || [];
+      const lines = fullText.split("\n").filter((l) => l.trim()).slice(0, 5);
+      const parsedJson = {
+        name: lines[0] || "",
+        company: lines[1] || "",
         department: "",
-        title: "",
-        phoneMobile: "",
-        phoneOffice: "",
-        phoneOffice2: "",
+        title: lines[2] || "",
+        phoneMobile: phones.find((p) => p.startsWith("010")) || phones[0] || "",
+        phoneOffice: phones[1] || "",
+        phoneOffice2: phones[2] || "",
         phoneFax: "",
-        email: "",
+        email: emails[0] || "",
         address: "",
         address2: "",
-        memo: text.slice(0, 100),
-        companyInfo: "\uB9E4\uCD9C \uC815\uBCF4 \uD655\uC778 \uC5B4\uB824\uC6C0"
+        website: urls.find((u) => u.includes(".")) || "",
+        memo: fullText.split("\n").slice(0, 3).join(" ").substring(0, 100),
+        companyInfo: ""
       };
+      res.json(parsedJson);
+    } catch (visionError) {
+      console.error("Vision API Error:", visionError);
+      throw visionError;
     }
-    const normalizeRotation = (v) => [0, 90, 180, 270].includes(v) ? v : 0;
-    if ("frontRotation" in parsedJson) parsedJson.frontRotation = normalizeRotation(parsedJson.frontRotation);
-    if ("backRotation" in parsedJson) parsedJson.backRotation = normalizeRotation(parsedJson.backRotation);
-    res.json(parsedJson);
-  } catch (error) {
-    console.error("Gemini OCR Error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Gemini OCR Error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/summarize-meeting", async (req, res) => {
@@ -3781,9 +3850,9 @@ ${rawText}
       actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
       mentionedAmounts: Array.isArray(parsed.mentionedAmounts) ? parsed.mentionedAmounts : []
     });
-  } catch (error) {
-    console.error("\uD68C\uC758\uB85D AI \uC694\uC57D \uC624\uB958:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("\uD68C\uC758\uB85D AI \uC694\uC57D \uC624\uB958:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/parse-voice-contact", async (req, res) => {
@@ -3827,9 +3896,9 @@ ${rawText}
       title: parsed.title || "",
       memo: parsed.memo || ""
     });
-  } catch (error) {
-    console.error("\uC74C\uC131 \uBA85\uD568 \uD30C\uC2F1 \uC624\uB958:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("\uC74C\uC131 \uBA85\uD568 \uD30C\uC2F1 \uC624\uB958:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/scan-receipt", async (req, res) => {
@@ -3953,9 +4022,9 @@ app.post("/api/scan-receipt", async (req, res) => {
       console.error("\uBC95\uC778\uCE74\uB4DC \uB4F1\uB85D \uC815\uBCF4 \uB300\uC870 \uC2E4\uD328(\uC6D0\uB798 AI \uD310\uB2E8 \uADF8\uB300\uB85C \uC0AC\uC6A9):", matchErr);
     }
     res.json(parsedJson);
-  } catch (error) {
-    console.error("Receipt OCR Error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Receipt OCR Error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 var COMPANY_SUMMARY_SCHEMA_VERSION = 1;
@@ -4035,9 +4104,9 @@ function normalizeCompanyKey(company) {
 }
 async function getOrGenerateCompanySummary(company) {
   const key = normalizeCompanyKey(company);
-  if (key && isSupabaseConfigured) {
-    const { data: cached, error } = await supabase.from("company").select("*").eq("company_name_normalized", key).maybeSingle();
-    if (error) console.error("company \uD14C\uC774\uBE14 \uC870\uD68C \uC2E4\uD328:", error);
+  if (key && process.env.DATABASE_URL) {
+    const { data: cached, error: error2 } = await supabase.from("company").select("*").eq("company_name_normalized", key).maybeSingle();
+    if (error2) console.error("company \uD14C\uC774\uBE14 \uC870\uD68C \uC2E4\uD328:", error2);
     if (cached && cached.business_summary) {
       const age = Date.now() - new Date(cached.last_searched_at).getTime();
       if (age < COMPANY_CACHE_TTL_MS && cached.summary_version === COMPANY_SUMMARY_SCHEMA_VERSION) {
@@ -4046,26 +4115,6 @@ async function getOrGenerateCompanySummary(company) {
     }
   }
   const { fields, sourceUrls } = await generateCompanySummary(company);
-  if (key && isSupabaseConfigured && fields.businessSummary) {
-    const { error } = await supabase.from("company").upsert(
-      {
-        company_name: company,
-        company_name_normalized: key,
-        business_number: fields.businessNumber,
-        industry: fields.industry,
-        main_business: fields.mainBusiness,
-        website: fields.website,
-        employees: fields.employees,
-        sales: fields.sales,
-        business_summary: fields.businessSummary,
-        source_urls: sourceUrls,
-        last_searched_at: (/* @__PURE__ */ new Date()).toISOString(),
-        summary_version: COMPANY_SUMMARY_SCHEMA_VERSION
-      },
-      { onConflict: "company_name_normalized" }
-    );
-    if (error) console.error("company \uD14C\uC774\uBE14 \uC800\uC7A5 \uC2E4\uD328:", error);
-  }
   return { summary: fields.businessSummary || "", fromCache: false };
 }
 app.post("/api/company/intelligence-refresh", async (req, res) => {
@@ -4076,9 +4125,9 @@ app.post("/api/company/intelligence-refresh", async (req, res) => {
     }
     const { summary: companyInfo, fromCache } = await getOrGenerateCompanySummary(company);
     res.json({ companyInfo, fromCache });
-  } catch (error) {
-    console.error("Company intelligence refresh error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Company intelligence refresh error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/company/search-summary", async (req, res) => {
@@ -4089,9 +4138,9 @@ app.post("/api/company/search-summary", async (req, res) => {
     }
     const { summary: companyInfo, fromCache } = await getOrGenerateCompanySummary(company);
     res.json({ companyInfo, fromCache });
-  } catch (error) {
-    console.error("Company search summary error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Company search summary error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/company/intelligence", async (req, res) => {
@@ -4100,17 +4149,9 @@ app.post("/api/company/intelligence", async (req, res) => {
     if (!Array.isArray(companies) || companies.length === 0) {
       return res.json({ items: [] });
     }
-    if (!isSupabaseConfigured) return res.json({ items: [] });
-    const keys = Array.from(new Set(companies.map((c) => normalizeCompanyKey(c)).filter(Boolean)));
-    if (keys.length === 0) return res.json({ items: [] });
-    const { data, error } = await supabase.from("company").select("*").in("company_name_normalized", keys);
-    if (error) {
-      console.error("company \uD14C\uC774\uBE14 \uC77C\uAD04 \uC870\uD68C \uC2E4\uD328:", error);
-      return res.json({ items: [] });
-    }
-    res.json({ items: data || [] });
-  } catch (error) {
-    console.error("Company intelligence error:", error);
+    return res.json({ items: [] });
+  } catch (error2) {
+    console.error("Company intelligence error:", error2);
     res.status(500).json({ error: "\uAE30\uC5C5 \uC815\uBCF4\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4." });
   }
 });
@@ -4120,13 +4161,13 @@ app.post("/api/company/intelligence-batch", async (req, res) => {
     if (!Array.isArray(companies) || companies.length === 0) {
       return res.json({ items: [] });
     }
-    if (!isSupabaseConfigured) return res.json({ items: [] });
+    if (!process.env.DATABASE_URL) return res.json({ items: [] });
     const keys = Array.from(new Set(companies.map((c) => normalizeCompanyKey(c)).filter(Boolean)));
     if (keys.length === 0) return res.json({ items: [] });
-    const { data, error } = await supabase.from("company").select("*").in("company_name_normalized", keys);
+    return res.json({ items: [] });
     if (error) return res.json({ items: [] });
     res.json({ items: data || [] });
-  } catch (error) {
+  } catch (error2) {
     res.status(500).json({ error: "\uAE30\uC5C5 \uC815\uBCF4\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4." });
   }
 });
@@ -4205,9 +4246,9 @@ app.post("/api/projects/relations-search", async (req, res) => {
     }
     const { fields, sourceUrls } = await searchProjectRelations({ projectName, endCustomer, siteLocation });
     res.json({ fields, sourceUrls });
-  } catch (error) {
-    console.error("Project relations search error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Project relations search error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 async function runGeminiTextAnalysis(prompt) {
@@ -4232,9 +4273,9 @@ ${JSON.stringify(briefing, null, 2)}
 \uC774 \uB370\uC774\uD130\uB97C \uBC14\uD0D5\uC73C\uB85C, \uC624\uB298 \uAC00\uC7A5 \uBA3C\uC800 \uCC59\uACA8\uC57C \uD560 \uAC83 2~3\uAC00\uC9C0\uB97C \uC6B0\uC120\uC21C\uC704 \uC21C\uC11C\uB85C \uC9DA\uC5B4\uC8FC\uACE0, \uC65C \uC911\uC694\uD55C\uC9C0 \uC9E7\uAC8C \uC774\uC720\uB97C \uBD99\uC5EC\uC11C \uC790\uC5F0\uC2A4\uB7EC\uC6B4 \uD55C\uAD6D\uC5B4 \uBB38\uC7A5\uC73C\uB85C \uBE0C\uB9AC\uD551\uD574\uC918. \uC778\uC0AC\uB9D0\uC774\uB098 formatting \uC5C6\uC774, \uBC14\uB85C \uBCF8\uB860\uBD80\uD130 5~7\uBB38\uC7A5 \uC774\uB0B4\uB85C \uAC04\uACB0\uD558\uAC8C \uC791\uC131\uD574\uC918.`;
     const analysis = await runGeminiTextAnalysis(prompt);
     res.json({ analysis });
-  } catch (error) {
-    console.error("Briefing AI analysis error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Briefing AI analysis error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/ai-intelligence/company-analysis", async (req, res) => {
@@ -4247,9 +4288,9 @@ ${JSON.stringify(companies, null, 2)}
 \uC774 \uB370\uC774\uD130\uB97C \uBC14\uD0D5\uC73C\uB85C, \uC5B4\uB290 \uD68C\uC0AC\uC5D0 \uC6B0\uC120\uC801\uC73C\uB85C \uC9D1\uC911\uD558\uBA74 \uC88B\uC744\uC9C0, \uC5C5\uC885/\uB9E4\uCD9C \uADDC\uBAA8 \uAD00\uC810\uC5D0\uC11C \uB208\uC5D0 \uB744\uB294 \uD2B9\uC9D5\uC774\uB098 \uAE30\uD68C\uAC00 \uC788\uB294\uC9C0 \uBD84\uC11D\uD574\uC11C \uC790\uC5F0\uC2A4\uB7EC\uC6B4 \uD55C\uAD6D\uC5B4 \uBB38\uC7A5\uC73C\uB85C \uC815\uB9AC\uD574\uC918. \uC778\uC0AC\uB9D0\uC774\uB098 formatting \uC5C6\uC774, \uBC14\uB85C \uBCF8\uB860\uBD80\uD130 5~7\uBB38\uC7A5 \uC774\uB0B4\uB85C \uAC04\uACB0\uD558\uAC8C \uC791\uC131\uD574\uC918.`;
     const analysis = await runGeminiTextAnalysis(prompt);
     res.json({ analysis });
-  } catch (error) {
-    console.error("Company AI analysis error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Company AI analysis error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/ai-intelligence/relationship-analysis", async (req, res) => {
@@ -4266,9 +4307,9 @@ app.post("/api/ai-intelligence/relationship-analysis", async (req, res) => {
 \uC774 \uB370\uC774\uD130\uB97C \uBC14\uD0D5\uC73C\uB85C, \uC9C0\uAE08 \uAC00\uC7A5 \uC911\uC694\uD55C \uC601\uC5C5 \uC561\uC158\uC774 \uBB34\uC5C7\uC778\uC9C0, \uD30C\uC774\uD504\uB77C\uC778\uC5D0\uC11C \uC704\uD5D8 \uC2E0\uD638\uB294 \uC5C6\uB294\uC9C0 \uC9DA\uC5B4\uC11C \uC790\uC5F0\uC2A4\uB7EC\uC6B4 \uD55C\uAD6D\uC5B4 \uBB38\uC7A5\uC73C\uB85C \uC601\uC5C5 \uC804\uB7B5\uC744 \uC870\uC5B8\uD574\uC918. \uC778\uC0AC\uB9D0\uC774\uB098 formatting \uC5C6\uC774, \uBC14\uB85C \uBCF8\uB860\uBD80\uD130 5~7\uBB38\uC7A5 \uC774\uB0B4\uB85C \uAC04\uACB0\uD558\uAC8C \uC791\uC131\uD574\uC918.`;
     const analysis = await runGeminiTextAnalysis(prompt);
     res.json({ analysis });
-  } catch (error) {
-    console.error("Relationship AI analysis error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("Relationship AI analysis error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/contacts/import", async (req, res) => {
@@ -4459,8 +4500,8 @@ app.get("/s/:slug", async (req, res) => {
   </div>
 </body>
 </html>`);
-  } catch (error) {
-    console.error("\uACF5\uC720 \uD398\uC774\uC9C0 \uC624\uB958:", error);
+  } catch (error2) {
+    console.error("\uACF5\uC720 \uD398\uC774\uC9C0 \uC624\uB958:", error2);
     res.status(500).send("\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.");
   }
 });
@@ -4478,8 +4519,8 @@ app.get("/s/:slug/photo", async (req, res) => {
     res.setHeader("Content-Type", mime);
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.send(buffer);
-  } catch (error) {
-    console.error("\uACF5\uC720 \uC0AC\uC9C4 \uC624\uB958:", error);
+  } catch (error2) {
+    console.error("\uACF5\uC720 \uC0AC\uC9C4 \uC624\uB958:", error2);
     res.status(500).end();
   }
 });
@@ -5041,7 +5082,7 @@ function parseBasicAuth(req) {
 }
 function requireCalDavAuth(req, res) {
   const creds = parseBasicAuth(req);
-  const user = creds ? users.find((u) => u.email.toLowerCase() === creds.email.toLowerCase()) : void 0;
+  const user = creds ? users.find((u) => u.email && u.email.toLowerCase() === creds.email.toLowerCase()) : void 0;
   if (!user || !creds || !verifyPassword(creds.password, user.password)) {
     res.setHeader("WWW-Authenticate", 'Basic realm="BizCard Calendar"');
     res.status(401).send("Unauthorized");
@@ -6640,9 +6681,9 @@ ${text}
     });
     const polishedText = (response.text || "").trim();
     res.json({ polishedText });
-  } catch (error) {
-    console.error("AI Polish Error:", error);
-    res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
+  } catch (error2) {
+    console.error("AI Polish Error:", error2);
+    res.status(500).json({ error: toFriendlyAiErrorMessage(error2) });
   }
 });
 app.post("/api/send-tax-package", async (req, res) => {
