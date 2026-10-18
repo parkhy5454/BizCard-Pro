@@ -132,11 +132,12 @@ export const Navigation: React.FC<Props> = ({
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록 및 락
+  // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록 및 글로벌 락
   const lastMoreMenuClickRef = useRef<number>(0);
   const lastProjectClickRef = useRef<number>(0);
   const isProcessingMoreMenuRef = useRef(false);
   const isProcessingProjectRef = useRef(false);
+  const globalProcessingRef = useRef(false); // 전체 버튼 클릭 락
 
   const handleMoreMenuToggle = (e?: React.MouseEvent) => {
     if (e) {
@@ -144,13 +145,14 @@ export const Navigation: React.FC<Props> = ({
       e.preventDefault();
     }
 
-    // 현재 처리 중이면 무시
-    if (isProcessingMoreMenuRef.current) return;
+    // 글로벌 또는 개별 처리 중이면 무시
+    if (globalProcessingRef.current || isProcessingMoreMenuRef.current) return;
 
     const now = Date.now();
-    if (now - lastMoreMenuClickRef.current < 300) return; // 300ms 이내 클릭 무시
+    if (now - lastMoreMenuClickRef.current < 350) return; // 350ms 이내 클릭 무시
 
     // 처리 중으로 표시
+    globalProcessingRef.current = true;
     isProcessingMoreMenuRef.current = true;
     lastMoreMenuClickRef.current = now;
 
@@ -159,7 +161,8 @@ export const Navigation: React.FC<Props> = ({
     // 처리 완료 표시
     setTimeout(() => {
       isProcessingMoreMenuRef.current = false;
-    }, 100);
+      globalProcessingRef.current = false;
+    }, 150);
   };
 
   const handleProjectTabClick = (e?: React.MouseEvent) => {
@@ -168,13 +171,14 @@ export const Navigation: React.FC<Props> = ({
       e.preventDefault();
     }
 
-    // 현재 처리 중이면 무시
-    if (isProcessingProjectRef.current) return;
+    // 글로벌 또는 개별 처리 중이면 무시
+    if (globalProcessingRef.current || isProcessingProjectRef.current) return;
 
     const now = Date.now();
-    if (now - lastProjectClickRef.current < 300) return; // 300ms 이내 클릭 무시
+    if (now - lastProjectClickRef.current < 350) return; // 350ms 이내 클릭 무시
 
     // 처리 중으로 표시
+    globalProcessingRef.current = true;
     isProcessingProjectRef.current = true;
     lastProjectClickRef.current = now;
 
@@ -183,7 +187,8 @@ export const Navigation: React.FC<Props> = ({
     // 처리 완료 표시
     setTimeout(() => {
       isProcessingProjectRef.current = false;
-    }, 100);
+      globalProcessingRef.current = false;
+    }, 150);
   };
 
   const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'other'>('bug');
@@ -519,7 +524,11 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 4. 프로젝트 */}
             <button
-              onClick={handleProjectTabClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleProjectTabClick();
+              }}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'projects'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
@@ -533,7 +542,11 @@ export const Navigation: React.FC<Props> = ({
             {/* 5. 더보기 드롭다운 (업무일지 및 나머지) */}
             <div className="relative z-50">
               <button
-                onClick={handleMoreMenuToggle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleMoreMenuToggle();
+                }}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                   isMoreMenuOpen
                     ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
