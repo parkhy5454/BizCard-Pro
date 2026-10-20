@@ -357,17 +357,16 @@ console.log('✅ 모든 필수 환경 변수 설정됨');
 console.log(`🚀 환경: ${process.env.NODE_ENV || 'development'}`);
 console.log(`🔗 APP_BASE_URL: ${process.env.APP_BASE_URL}`);
 
-// [추가] Neon 데이터베이스 초기화
+// [추가] Neon 데이터베이스 초기화 (비동기 백그라운드)
 (async () => {
   try {
     await initializeDatabase();
     console.log('✅ Neon 데이터베이스 초기화 완료');
   } catch (err) {
     console.error('❌ 데이터베이스 초기화 실패:', err);
-    process.exit(1);
+    // 에러가 나도 서버는 계속 시작되어야 함
   }
 })();
-
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -8732,7 +8731,7 @@ function startServer() {
   // Production: 정적 파일 서빙 (동기)
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static('dist'));
-    
+
     // [수정] 라우트 안에서 처리 안 하고 그냥 던져진(throw) 에러까지 Sentry가 잡아서 보고하도록.
     // 반드시 "모든 라우트 등록 이후, app.listen 이전"에 붙여야 한다.
     if (SENTRY_DSN) {
@@ -8744,16 +8743,15 @@ function startServer() {
       console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
     });
 
-    // [수정] bootstrapUsers를 배경 작업으로 실행하여 서버 응답성 확보
-    const bootstrapPromise = bootstrapUsers().catch(err => {
-      console.error('사용자 부트스트랩 오류:', err);
-    });
-
-    bootstrapPromise.then(() => {
-      console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
-    }).catch(err => {
-      console.error('❌ 사용자 부트스트랩 실패:', err.message);
-    });
+    // [수정] bootstrapUsers를 완전 백그라운드 async IIFE에서 실행
+    (async () => {
+      try {
+        await bootstrapUsers();
+        console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
+      } catch (err) {
+        console.error('❌ 사용자 부트스트랩 실패:', err.message);
+      }
+    })();
   } else {
     // Development: Vite 미들웨어 설정 (비동기)
     setupDevServer();
