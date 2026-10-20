@@ -8729,8 +8729,6 @@ app.post('/api/send-tax-package', async (req, res) => {
 });
 
 async function startServer() {
-  await bootstrapUsers();
-
   // [수정] 마케팅 홈페이지(bizcardai.kr)는 Render 도메인 추가 비용(3번째 도메인부터
   // 월 $0.25) 없이 Netlify 무료 호스팅에 별도로 올리기로 해서, 이 서버가 Host 헤더를
   // 보고 홈페이지/앱을 분기하던 라우팅은 더 이상 필요 없어 제거했다. 이제 이 서버는
@@ -8755,6 +8753,19 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
+  });
+
+  // [수정] bootstrapUsers를 배경 작업으로 실행하여 서버 응답성 확보
+  // 서버가 즉시 요청을 처리할 수 있도록 await 제거
+  const bootstrapPromise = bootstrapUsers().catch(err => {
+    console.error('사용자 부트스트랩 오류:', err);
+  });
+
+  // 백그라운드 부트스트랩 진행 상황을 로깅
+  bootstrapPromise.then(() => {
+    console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
+  }).catch(err => {
+    console.error('❌ 사용자 부트스트랩 실패:', err.message);
   });
 }
 
