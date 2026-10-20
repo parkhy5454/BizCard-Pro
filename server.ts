@@ -8728,25 +8728,46 @@ app.post('/api/send-tax-package', async (req, res) => {
   }
 });
 
-async function startServer() {
-  // [수정] 마케팅 홈페이지(bizcardai.kr)는 Render 도메인 추가 비용(3번째 도메인부터
-  // 월 $0.25) 없이 Netlify 무료 호스팅에 별도로 올리기로 해서, 이 서버가 Host 헤더를
-  // 보고 홈페이지/앱을 분기하던 라우팅은 더 이상 필요 없어 제거했다. 이제 이 서버는
-  // app.bizcardai.kr(과 기존 *.onrender.com) 요청에 대해서만 앱(dist/index.html)을
-  // 응답하면 된다 — Render에는 도메인을 app.bizcardai.kr 하나만 추가하면 된다.
-
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  } else {
+function startServer() {
+  // Production: 정적 파일 서빙 (동기)
+  if (process.env.NODE_ENV === 'production') {
     app.use(express.static('dist'));
-  }
+    
+    // [수정] 라우트 안에서 처리 안 하고 그냥 던져진(throw) 에러까지 Sentry가 잡아서 보고하도록.
+    // 반드시 "모든 라우트 등록 이후, app.listen 이전"에 붙여야 한다.
+    if (SENTRY_DSN) {
+      Sentry.setupExpressErrorHandler(app);
+    }
 
-  // [수정] 라우트 안에서 처리 안 하고 그냥 던져진(throw) 에러까지 Sentry가 잡아서 보고하도록.
-  // 반드시 "모든 라우트 등록 이후, app.listen 이전"에 붙여야 한다.
+    // 즉시 서버 시작
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
+    });
+
+    // [수정] bootstrapUsers를 배경 작업으로 실행하여 서버 응답성 확보
+    const bootstrapPromise = bootstrapUsers().catch(err => {
+      console.error('사용자 부트스트랩 오류:', err);
+    });
+
+    bootstrapPromise.then(() => {
+      console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
+    }).catch(err => {
+      console.error('❌ 사용자 부트스트랩 실패:', err.message);
+    });
+  } else {
+    // Development: Vite 미들웨어 설정 (비동기)
+    setupDevServer();
+  }
+}
+
+// Development용 비동기 서버 설정
+async function setupDevServer() {
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa'
+  });
+  app.use(vite.middlewares);
+
   if (SENTRY_DSN) {
     Sentry.setupExpressErrorHandler(app);
   }
@@ -8755,13 +8776,10 @@ async function startServer() {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
   });
 
-  // [수정] bootstrapUsers를 배경 작업으로 실행하여 서버 응답성 확보
-  // 서버가 즉시 요청을 처리할 수 있도록 await 제거
   const bootstrapPromise = bootstrapUsers().catch(err => {
     console.error('사용자 부트스트랩 오류:', err);
   });
 
-  // 백그라운드 부트스트랩 진행 상황을 로깅
   bootstrapPromise.then(() => {
     console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
   }).catch(err => {
@@ -8769,4 +8787,5 @@ async function startServer() {
   });
 }
 
+// 서버 시작 (Production은 동기, Development는 비동기)
 startServer();
