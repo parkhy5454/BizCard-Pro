@@ -441,14 +441,20 @@ app.get('/health', async (req, res) => {
     const health = {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
+      uptime: Math.round(process.uptime()),
       environment: process.env.NODE_ENV || 'development',
+      version: 'v1.0.0-sync-startup', // 버전 추적
       memory: {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
       },
-      database: process.env.DATABASE_URL ? 'connected' : 'not configured',
-      monitoring: SENTRY_DSN ? 'enabled' : 'disabled'
+      database: process.env.DATABASE_URL ? 'configured' : 'not configured',
+      monitoring: SENTRY_DSN ? 'enabled' : 'disabled',
+      server: {
+        started: true,
+        synchronous: true,
+        bootstrapRunning: true
+      }
     };
 
     res.status(200).json(health);
@@ -8625,6 +8631,10 @@ function startServer() {
   // ✅ 동기 호출: 즉시 포트에서 리스닝 시작
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
+    console.log(`✅ 서버 시작 완료 - 동기 startup (app.listen 즉시 호출)`);
+    console.log(`📌 DATABASE: ${process.env.DATABASE_URL ? '설정됨' : '미설정'}`);
+    console.log(`🔒 SENTRY: ${SENTRY_DSN ? '활성화' : '비활성화'}`);
+    console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
   });
 
   // 백그라운드: bootstrapUsers 실행 (비동기, 비블로킹)
