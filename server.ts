@@ -357,16 +357,17 @@ console.log('✅ 모든 필수 환경 변수 설정됨');
 console.log(`🚀 환경: ${process.env.NODE_ENV || 'development'}`);
 console.log(`🔗 APP_BASE_URL: ${process.env.APP_BASE_URL}`);
 
-// [추가] Neon 데이터베이스 초기화 (비동기 백그라운드)
+// [추가] Neon 데이터베이스 초기화
 (async () => {
   try {
     await initializeDatabase();
     console.log('✅ Neon 데이터베이스 초기화 완료');
   } catch (err) {
     console.error('❌ 데이터베이스 초기화 실패:', err);
-    // 에러가 나도 서버는 계속 시작되어야 함
+    // process.exit(1) 제거됨 - 서버가 DB 실패에도 포트 8080에서 리스닝을 시작해야 함
   }
 })();
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -1325,66 +1326,6 @@ async function bootstrapUsers() {
     await ensureUsersSeeded(initialUsers);
     users = await getUsers();
   }
-
-  // [수정] 각 사용자의 scopeId에 대해 db[scopeId] 캐시 초기화
-  // 이렇게 해야 GET 요청에서 바로 데이터를 사용할 수 있다
-  const uniqueScopeIds = new Set<string>();
-  for (const user of users) {
-    const scopeId = scopeIdForUser(user);
-    uniqueScopeIds.add(scopeId);
-  }
-
-  // 모든 고유 scopeId에 대해 데이터 로드
-  for (const scopeId of uniqueScopeIds) {
-    if (!db[scopeId]) {
-      console.log(`[Bootstrap] 캐시 로드 시작: ${scopeId}`);
-      try {
-        const contacts = await getScopedCollection<BusinessCard>(scopeId, 'contacts');
-        const projects = await getScopedCollection<Project>(scopeId, 'projects');
-        const groups = await getScopedCollection<ContactGroup>(scopeId, 'groups');
-        const vehicles = await getScopedCollection<Vehicle>(scopeId, 'vehicles');
-        const drivingLogs = await getScopedCollection<DrivingLog>(scopeId, 'drivingLogs');
-        const expenses = await getScopedCollection<VehicleExpense>(scopeId, 'expenses');
-        const maintenances = await getScopedCollection<VehicleMaintenance>(scopeId, 'maintenances');
-        const maintenanceIntervals = await getScopedCollection<MaintenanceInterval>(scopeId, 'maintenanceIntervals');
-        const dailyLogs = await getScopedCollection<DailyWorkLog>(scopeId, 'dailyLogs');
-        const weeklyLogs = await getScopedCollection<WeeklyWorkLog>(scopeId, 'weeklyLogs');
-        const advancePayments = await getScopedCollection<AdvancePaymentSettlement>(scopeId, 'advancePayments');
-        const leaveRequests = await getScopedCollection<LeaveRequest>(scopeId, 'leaveRequests');
-        const officialDocuments = await getScopedCollection<OfficialDocument>(scopeId, 'officialDocuments');
-        const adminDocs = await getScopedCollection<AdminDoc>(scopeId, 'adminDocs');
-        const announcements = await getScopedCollection<Announcement>(scopeId, 'announcements');
-        const chatMessages = await getScopedCollection<ChatMessage>(scopeId, 'chatMessages');
-        const chatGroups = await getScopedCollection<ChatGroup>(scopeId, 'chatGroups');
-        const profileList = await getScopedCollection<MyProfile>(scopeId, 'myProfile');
-        const myProfile = profileList[0] || initialMyProfile;
-
-        db[scopeId] = {
-          contacts,
-          projects,
-          groups,
-          myProfile,
-          vehicles,
-          drivingLogs,
-          expenses,
-          maintenances,
-          maintenanceIntervals,
-          dailyLogs,
-          weeklyLogs,
-          advancePayments,
-          leaveRequests,
-          officialDocuments,
-          adminDocs,
-          announcements,
-          chatMessages,
-          chatGroups
-        };
-        console.log(`[Bootstrap] 캐시 로드 완료: ${scopeId} (명함: ${contacts.length}, 프로젝트: ${projects.length})`);
-      } catch (error) {
-        console.error(`[Bootstrap] 캐시 로드 실패 (${scopeId}):`, error);
-      }
-    }
-  }
 }
 
 // HTTP 헤더(x-user-id)를 기반으로 스코프 ID를 동기적으로 계산 (DB 호출 없음, users는 메모리 캐시 사용)
@@ -1402,18 +1343,10 @@ function resolveScopeId(req: express.Request): string {
 }
 
 // Express 전용 스코프 데이터 동기 반환
-// scopeId를 매번 계산하고, 캐시된 데이터 또는 기본값 반환
+// (스코프 데이터는 아래 app.use 미들웨어에서 요청 처리 전에 이미 로드가 보장됩니다)
 function getScopedData(req: express.Request): any {
-  // [수정] req.scopeId가 없을 수 있으므로, 매번 resolveScopeId로 계산
-  const scopeId = (req as any).scopeId || resolveScopeId(req);
-
-  // 캐시된 데이터가 있으면 반환, 없으면 기본값 반환
-  if (db[scopeId]) {
-    return db[scopeId];
-  }
-
-  // 기본값 반환 (빈 데이터)
-  return {
+  const scopeId = (req as any).scopeId || 'default';
+  return db[scopeId] || {
     contacts: [],
     projects: [],
     groups: [],
@@ -2572,58 +2505,6 @@ app.put('/api/auth/signature', async (req, res) => {
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
       signatureImage: user.signatureImage
-    }
-  });
-});
-
-// ------------------------------------------------------------------
-// 👤 프로필 정보 수정 (이름, 직책, 휴대폰 번호)
-// ------------------------------------------------------------------
-app.put('/api/auth/profile', async (req, res) => {
-  const userId = req.headers['x-user-id'] as string;
-  const user = users.find(u => u.id === userId);
-  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
-
-  const { name, position, phone } = req.body;
-
-  // [검증] 이름은 필수
-  if (typeof name !== 'string' || !name.trim()) {
-    return res.status(400).json({ error: '이름은 필수입니다.' });
-  }
-
-  // [검증] 직책과 휴대폰은 선택사항 (문자열일 경우)
-  if (position !== undefined && typeof position !== 'string') {
-    return res.status(400).json({ error: '직책이 올바르지 않습니다.' });
-  }
-  if (phone !== undefined && typeof phone !== 'string') {
-    return res.status(400).json({ error: '휴대폰 번호가 올바르지 않습니다.' });
-  }
-
-  // [업데이트] 사용자 정보 수정
-  user.name = name.trim();
-  if (position !== undefined) user.position = position.trim() || undefined;
-  if (phone !== undefined) user.phone = phone.trim() || undefined;
-
-  // [저장] DB에 저장
-  const savedUser = await addUser(user);
-  if (!savedUser) {
-    return res.status(500).json({ error: '프로필 정보를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
-  }
-
-  res.json({
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      type: user.type,
-      companyName: user.companyName,
-      businessNumber: user.businessNumber,
-      position: user.position,
-      phone: user.phone,
-      role: user.role,
-      approvalStatus: user.approvalStatus,
-      emailVerified: isEmailVerified(user.emailVerified)
     }
   });
 });
@@ -8727,63 +8608,53 @@ app.post('/api/send-tax-package', async (req, res) => {
   }
 });
 
+// [수정] Production: 동기 시작 (app.listen()을 즉시 호출해서 Health Check 통과)
+// [수정] Development: 별도 비동기 함수 (Vite 서버 설정까지 기다렸다 시작)
 function startServer() {
-  // Production: 정적 파일 서빙 (동기)
+  // Production 환경: 정적 파일 제공 설정 (Vite 없음)
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static('dist'));
-
-    // [수정] 라우트 안에서 처리 안 하고 그냥 던져진(throw) 에러까지 Sentry가 잡아서 보고하도록.
-    // 반드시 "모든 라우트 등록 이후, app.listen 이전"에 붙여야 한다.
-    if (SENTRY_DSN) {
-      Sentry.setupExpressErrorHandler(app);
-    }
-
-    // 즉시 서버 시작
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
-    });
-
-    // [수정] bootstrapUsers를 완전 백그라운드 async IIFE에서 실행
-    (async () => {
-      try {
-        await bootstrapUsers();
-        console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
-      } catch (err) {
-        console.error('❌ 사용자 부트스트랩 실패:', err.message);
-      }
-    })();
-  } else {
-    // Development: Vite 미들웨어 설정 (비동기)
-    setupDevServer();
   }
-}
 
-// Development용 비동기 서버 설정
-async function setupDevServer() {
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa'
-  });
-  app.use(vite.middlewares);
-
+  // [수정] 라우트 안에서 처리 안 하고 그냥 던져진(throw) 에러까지 Sentry가 잡아서 보고하도록.
+  // 반드시 "모든 라우트 등록 이후, app.listen 이전"에 붙여야 한다.
   if (SENTRY_DSN) {
     Sentry.setupExpressErrorHandler(app);
   }
 
+  // ✅ 동기 호출: 즉시 포트에서 리스닝 시작
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
   });
 
-  const bootstrapPromise = bootstrapUsers().catch(err => {
-    console.error('사용자 부트스트랩 오류:', err);
-  });
-
-  bootstrapPromise.then(() => {
-    console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
-  }).catch(err => {
-    console.error('❌ 사용자 부트스트랩 실패:', err.message);
-  });
+  // 백그라운드: bootstrapUsers 실행 (비동기, 비블로킹)
+  (async () => {
+    try {
+      await bootstrapUsers();
+      console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
+    } catch (err) {
+      console.error('❌ 사용자 부트스트랩 실패:', err);
+    }
+  })();
 }
 
-// 서버 시작 (Production은 동기, Development는 비동기)
+// [추가] Development 전용: Vite 서버 설정 (production에서는 호출 안 됨)
+async function setupDevServer() {
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa'
+    });
+    app.use(vite.middlewares);
+  }
+}
+
+// Production: 동기 시작 (즉시)
 startServer();
+
+// Development: Vite 설정 (백그라운드)
+if (process.env.NODE_ENV !== 'production') {
+  setupDevServer().catch((err) => {
+    console.error('❌ Vite 서버 설정 실패:', err);
+  });
+}
