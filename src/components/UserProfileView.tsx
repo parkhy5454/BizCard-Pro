@@ -20,7 +20,7 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
     email: currentUser.email || '',
     phone: currentUser.phone || '',
     location: currentUser.location || '',
-    company: currentUser.company || '',
+    company: currentUser.companyName || '',
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -33,7 +33,7 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
       email: currentUser.email || '',
       phone: currentUser.phone || '',
       location: currentUser.location || '',
-      company: currentUser.company || '',
+      company: currentUser.companyName || '',
     });
   }, [currentUser.id]);
 
@@ -62,12 +62,12 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
     }
   };
 
-  const hasChanges = 
+  const hasChanges =
     formData.name !== currentUser.name ||
     formData.email !== currentUser.email ||
     formData.phone !== currentUser.phone ||
     formData.location !== currentUser.location ||
-    formData.company !== currentUser.company;
+    formData.company !== currentUser.companyName;
 
   return (
     <div className="max-w-2xl mx-auto py-8">
