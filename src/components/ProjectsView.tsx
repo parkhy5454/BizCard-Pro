@@ -2897,23 +2897,23 @@ export const ProjectsView: React.FC<Props> = ({
             );
           }
           return (
-            <div className="relative bg-gradient-to-r from-rose-950/40 to-amber-950/30 border border-rose-500/30 rounded-3xl p-5 md:p-6 shadow-xl flex items-start gap-4 animate-fadeIn">
+            <div className="relative bg-gradient-to-br from-white via-sky-50 to-blue-100/60 border border-blue-200 rounded-3xl p-5 md:p-6 shadow-lg flex items-start gap-4 animate-fadeIn">
               <button
                 onClick={dismissFollowupBannerForToday}
-                className="absolute top-3 right-3 p-1.5 rounded-lg text-rose-400 hover:text-rose-700 hover:bg-rose-100 transition-colors"
+                className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
                 title="오늘 하루 닫기"
               >
                 <X className="w-4 h-4" />
               </button>
-              <div className="p-2.5 bg-rose-50 text-rose-700 rounded-xl border border-rose-500/30 shrink-0">
+              <div className="p-2.5 bg-gradient-to-br from-rose-500 to-orange-400 text-white rounded-xl shadow-md shrink-0">
                 <AlertTriangle className="w-5 h-5 animate-bounce" />
               </div>
               <div className="space-y-1.5 flex-1 pr-6">
-                <h4 className="text-sm font-bold text-rose-600 flex items-center gap-1.5">
+                <h4 className="text-sm font-extrabold text-blue-700 flex items-center gap-1.5">
                   <span>신속한 팔로우업이 필요한 활성 프로젝트가 {needyProjs.length}개 있습니다!</span>
                 </h4>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  마지막 미팅 또는 비즈니스 프로젝트 등록 후 <span className="text-rose-400 font-bold">5일 이상</span> 경과하여 연락이 뜸해진 건들입니다. 신속하게 안부 연락이나 차기 미팅 조율을 진행해 보세요.
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  마지막 미팅 또는 비즈니스 프로젝트 등록 후 <span className="inline-block px-1.5 rounded bg-rose-500 text-white font-bold">5일 이상</span> 경과하여 연락이 뜸해진 건들입니다. 신속하게 안부 연락이나 차기 미팅 조율을 진행해 보세요.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1.5">
                   {needyProjs.map(p => {
@@ -2923,7 +2923,7 @@ export const ProjectsView: React.FC<Props> = ({
                         key={p.id}
                         onClick={() => handleJumpToProject(p.id)}
                         title="눌러서 이 프로젝트로 이동"
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-rose-500 text-white border-rose-400 shadow animate-pulse' : 'bg-slate-50 hover:bg-white border-rose-500/20 hover:border-rose-500/40 text-rose-600'}`}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-blue-600 text-white border-blue-600 shadow-md animate-pulse' : 'bg-white hover:bg-blue-50 border-2 border-blue-500 shadow-sm text-blue-700'}`}
                       >
                         <span className="font-bold">{p.name}</span>
                         <span className="text-[10px] opacity-80 font-mono">({days}일 경과)</span>
