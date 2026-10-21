@@ -560,7 +560,7 @@ export default function App() {
       />
 
       {/* 바디 메인 영역 */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24">
+      <main key={activeTab} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 animate-tab-in">
         
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center space-y-4">

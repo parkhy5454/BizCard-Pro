@@ -371,3 +371,23 @@ button, a, [role="button"], label {
   /* iPhone은 입력창 글자가 16px보다 작으면 화면을 자동 확대하므로 최소 16px로 맞춘다 */
   input, select, textarea { font-size: 16px; }
 }
+
+/* [추가] 탭을 바꿀 때 화면이 부드럽게 나타나는 전환 (끝나면 transform이 남지 않는다) */
+@keyframes tab-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-tab-in { animation: tab-in 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-tab-in { animation: none; }
+}
+
+/* [추가] 휴대폰에서 손가락으로 누르기 쉽도록 헤더·하단 탭·메뉴 버튼 최소 크기를 44px로 맞춘다 */
+@media (max-width: 767px) {
+  header button,
+  .fixed.bottom-0 button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
