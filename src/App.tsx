@@ -726,8 +726,10 @@ export default function App() {
                 key={viewResetNonce}
                 currentUser={currentUser}
                 onUpdate={(updatedData) => {
-                  // 프로필 업데이트 로직 (나중에 구현)
-                  console.log('Profile update:', updatedData);
+                  // 프로필 업데이트: 상태 및 localStorage 반영
+                  const updatedUser = { ...currentUser, ...updatedData };
+                  setCurrentUser(updatedUser);
+                  localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
                 }}
               />
             )}
