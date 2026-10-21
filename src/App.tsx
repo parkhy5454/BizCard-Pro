@@ -36,6 +36,7 @@ import { LegalModal } from './components/LegalModal.js';
 import { OrgChartView } from './components/OrgChartView.js';
 import { AnnouncementsView } from './components/AnnouncementsView.js';
 import { TeamChatView } from './components/TeamChatView.js';
+import { UserProfileView } from './components/UserProfileView.js';
 
 export default function App() {
   // 회원 세션 상태
@@ -46,7 +47,7 @@ export default function App() {
 
   // 메인 내비게이션 탭 상태
   // [추가] 조직도/공지사항/사내 메신저 - 그룹웨어(다우오피스 등) 대비 부족했던 핵심 기능 보강
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat'>('cards');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -717,6 +718,18 @@ export default function App() {
             )}
             {activeTab === 'team_chat' && currentUser && (
               <TeamChatView key={viewResetNonce} currentUser={currentUser} />
+            )}
+
+            {/* 프로필 설정 */}
+            {activeTab === 'profile' && currentUser && (
+              <UserProfileView
+                key={viewResetNonce}
+                currentUser={currentUser}
+                onUpdate={(updatedData) => {
+                  // 프로필 업데이트 로직 (나중에 구현)
+                  console.log('Profile update:', updatedData);
+                }}
+              />
             )}
 
             {/* [추가] AI Intelligence - 오늘의 브리핑/기업 인텔리전스/관계·영업 인텔리전스.
