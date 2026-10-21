@@ -586,7 +586,7 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => setActiveTab('nearby')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === 'nearby'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'text-indigo-600 font-bold'
                   : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
               }`}
             >
@@ -636,7 +636,7 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('dashboard')}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'dashboard'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
@@ -649,7 +649,7 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('cards')}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'cards'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
@@ -662,7 +662,7 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('vehicles')}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'vehicles'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
@@ -679,7 +679,7 @@ export const Navigation: React.FC<Props> = ({
               }}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'projects'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
@@ -692,7 +692,7 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('more')}
               className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'more'
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >

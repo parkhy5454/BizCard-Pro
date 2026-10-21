@@ -7,31 +7,31 @@
   /* 기본 Tailwind indigo보다 살짝 더 깊고 풍부한 바이올렛 톤으로 다듬은 브랜드 포인트 색상
      (앱 전체에서 bg-indigo-*, text-indigo-*, border-indigo-* 등으로 이미 쓰이고 있어
      이 값만 바꿔도 버튼/활성탭/포커스 색상이 자동으로 톤이 바뀝니다) */
-  --color-indigo-50: #F1F0FE;
-  --color-indigo-100: #E4E2FD;
-  --color-indigo-200: #CBC6FB;
-  --color-indigo-300: #A79EF6;
-  --color-indigo-400: #8A7BF0;
-  --color-indigo-500: #7460EA;
-  --color-indigo-600: #6247DD;
-  --color-indigo-700: #5138BC;
-  --color-indigo-800: #422F97;
-  --color-indigo-900: #382A78;
-  --color-indigo-950: #221A4D;
+  --color-indigo-50: #EEF4FF;
+  --color-indigo-100: #DBE7FF;
+  --color-indigo-200: #BDD3FF;
+  --color-indigo-300: #8FB4FF;
+  --color-indigo-400: #5C8EFF;
+  --color-indigo-500: #3D74FF;
+  --color-indigo-600: #2F6BFF;
+  --color-indigo-700: #2556E0;
+  --color-indigo-800: #1E45B5;
+  --color-indigo-900: #1B3D8A;
+  --color-indigo-950: #132857;
 
   /* 기본 Tailwind blue보다 채도를 낮추고 깊이를 더한 코발트 톤 — 위 indigo와 그라데이션으로
      이어졌을 때(from-blue-600 to-indigo-600 등, 앱 전반에 이미 쓰이는 패턴) 훨씬 자연스럽게 조화된다 */
-  --color-blue-50: #EFF5FF;
-  --color-blue-100: #DCE9FE;
-  --color-blue-200: #BAD4FD;
-  --color-blue-300: #8DB8FB;
-  --color-blue-400: #5C96F5;
-  --color-blue-500: #3D79EC;
-  --color-blue-600: #2E5FDB;
-  --color-blue-700: #2549B4;
-  --color-blue-800: #1F3D8F;
-  --color-blue-900: #1C356F;
-  --color-blue-950: #131F45;
+  --color-blue-50: #EEF4FF;
+  --color-blue-100: #DBE7FF;
+  --color-blue-200: #BDD3FF;
+  --color-blue-300: #8FB4FF;
+  --color-blue-400: #5C8EFF;
+  --color-blue-500: #3D74FF;
+  --color-blue-600: #2F6BFF;
+  --color-blue-700: #2556E0;
+  --color-blue-800: #1E45B5;
+  --color-blue-900: #1B3D8A;
+  --color-blue-950: #132857;
 
   /* 밋밋하고 칙칙하게 느껴지던 기본 slate 대신, 명도 단계 사이 대비를 또렷이 살리고
      아주 옅은 블루 톤을 섞어 더 고급스러운 "차콜/옵시디언" 느낌으로 다듬은 배경 색상.
@@ -42,7 +42,7 @@
   --color-slate-200: #D9DCE4;
   --color-slate-300: #B2B8C6;
   --color-slate-400: #8890A3;
-  --color-slate-500: #666E82;
+  --color-slate-500: #5B6573;
   --color-slate-600: #4C5265;
   --color-slate-700: #383D4D;
   --color-slate-800: #23262F;
@@ -417,3 +417,6 @@ html, body, #root { height: 100%; }
   .text-slate-400 { color: var(--color-slate-500); }
 }
 
+
+/* 앱 전체 바탕: 흰 카드가 떠 보이도록 연회색 바탕 (캡처한 앱과 같은 구성) */
+.app-shell { background-color: #F2F4F7; }
