@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem, ProjectCostSheet, ProjectCostSheetAmount, ProjectCostCategory, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER } from '../types.js';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -465,7 +467,6 @@ export const ProjectsView: React.FC<Props> = ({
     if (!project || !costSheetDraft) return;
     const { headerInfo, groups, finalRows } = getCostSheetExportData(project, costSheetDraft);
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('원가계산서', {
       pageSetup: {
@@ -686,7 +687,6 @@ export const ProjectsView: React.FC<Props> = ({
     const headers = ['No.', '프로젝트명', '발주처', '계약번호', '계약일자', '납품기한', '작성일', '작성부서', '매출(원)', '총원가(원)', '경상이익(원)', '경상이익율(%)', '비고'];
     const colCount = headers.length;
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('전체_원가계산서', {
       pageSetup: {
@@ -2480,7 +2480,6 @@ export const ProjectsView: React.FC<Props> = ({
   // 결과 파일에는 반영되지 않음, 유료 Pro 버전에서만 지원). 그래서 이 내보내기만 셀 서식
   // 쓰기를 지원하는 exceljs 라이브러리로 바꾼다.
   const handleExportProjectsExcel = async () => {
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('전체_프로젝트', {
       pageSetup: {
@@ -2756,7 +2755,6 @@ export const ProjectsView: React.FC<Props> = ({
 
     setIsImportingProjects(true);
     try {
-      const XLSX = await import('xlsx');
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: 'array' });
       const sheet = wb.Sheets[wb.SheetNames[0]];

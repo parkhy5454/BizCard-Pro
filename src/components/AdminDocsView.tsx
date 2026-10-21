@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
@@ -1111,7 +1112,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const [year, month] = (cc.yearMonth || '').split('-');
     const isMerged = printingDoc.id.startsWith('merged-corp-card-');
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('카드별_월_사용_내역', {
       pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
@@ -1244,7 +1244,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.vehicleFine) return;
     const vf = printingDoc.vehicleFine;
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('차량_과태료_내역', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
@@ -1365,7 +1364,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.incentive) return;
     const inc = printingDoc.incentive;
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('인센티브_및_명절_상여금', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
@@ -1501,7 +1499,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.overseasTrip) return;
     const ot = printingDoc.overseasTrip;
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('해외_출장_경비_사용내역', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
@@ -1650,7 +1647,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.annualLeaveStatus) return;
     const al = printingDoc.annualLeaveStatus;
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('연차_현황', {
       pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.59, right: 0.59, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
@@ -1814,7 +1810,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.cashFlowAnnual) return;
     const cf = printingDoc.cashFlowAnnual;
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
     const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
@@ -2124,7 +2119,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const firstYear = (ap.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
     const grandTotal = advanceGrandTotal(ap);
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('가지급내역', {
       pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
@@ -2251,7 +2245,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
     const grandTotal = managementGrandTotal(mf);
 
-    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('관리비내역', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
