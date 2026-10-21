@@ -682,7 +682,8 @@ export const Navigation: React.FC<Props> = ({
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
         <div className="fixed bottom-0 w-full flex flex-col items-center py-3 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
 
-          <nav className="flex items-center gap-1 w-full pb-1.5 px-3 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
+          <div className="flex items-end w-full pb-1.5 px-3 gap-1">
+          <nav className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
@@ -739,6 +740,11 @@ export const Navigation: React.FC<Props> = ({
               <span className="text-sm">프로젝트</span>
             </button>
 
+          </nav>
+
+          {/* [수정] 더보기 버튼과 드롭다운을 같은 relative 래퍼에 둬서, 메뉴가 버튼 바로 위에 뜨도록 한다.
+          탭 줄(nav)은 가로 스크롤이라 그 안에 두면 메뉴가 잘리므로 밖으로 뺐다. */}
+          <div className="relative shrink-0">
             {/* 5. 더보기 */}
             <button
               onClick={(e) => {
@@ -761,11 +767,10 @@ export const Navigation: React.FC<Props> = ({
                 </span>
               )}
             </button>
-          </nav>
 
         {/* 드롭다운 메뉴 (부모 div에서 절대 위치 렌더링) */}
         {isMoreMenuOpen && (
-          <div className="absolute right-2 bottom-14 max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+          <div className="absolute right-0 bottom-full mb-2 max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
                   {/* 업무일지 */}
                   <button
                     onClick={() => {
@@ -977,6 +982,8 @@ export const Navigation: React.FC<Props> = ({
 
             </div>
           )}
+          </div>
+          </div>
 
           {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이
           똑같은 알약형 버튼 스타일이라 구분이 잘 안 된다는 지적이 있었다. 하위 줄이 있는
