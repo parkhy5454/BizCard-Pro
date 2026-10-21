@@ -726,14 +726,40 @@ export default function App() {
                 key={viewResetNonce}
                 currentUser={currentUser}
                 onUpdate={async (updatedData) => {
-                  // 로컬 상태 및 localStorage 업데이트
-                  // [주의] 서버 엔드포인트는 아직 제공되지 않음
-                  const updatedUser = { ...currentUser, ...updatedData };
-                  setCurrentUser(updatedUser);
-                  localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
+                  try {
+                    // 서버에 프로필 변경사항 저장
+                    const response = await fetch('/api/auth/me', {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-id': currentUser.id,
+                      },
+                      body: JSON.stringify({
+                        name: updatedData.name,
+                        email: updatedData.email,
+                        phone: updatedData.phone,
+                        companyName: updatedData.company,
+                        location: updatedData.location,
+                      }),
+                    });
 
-                  // 모든 관련 UI 즉시 업데이트되도록 강제 렌더링 트리거
-                  // (currentUser 변경으로 인한 자동 리렌더링)
+                    if (!response.ok) {
+                      throw new Error('프로필 저장에 실패했습니다');
+                    }
+
+                    const updatedUser = await response.json();
+                    // 서버에서 받은 데이터를 로컬 상태로 업데이트
+                    // (company 필드는 companyName으로 매핑되므로 다시 수정)
+                    const normalizedUser = {
+                      ...updatedUser,
+                      company: updatedUser.companyName,
+                    };
+                    setCurrentUser(normalizedUser);
+                    localStorage.setItem('bizcard_user', JSON.stringify(normalizedUser));
+                  } catch (error) {
+                    console.error('Profile update error:', error);
+                    throw error;
+                  }
                 }}
               />
             )}

@@ -814,6 +814,8 @@ export interface User {
   businessNumber?: string;
   // [수정] 운영 현황에서 가입자 연락처를 확인할 수 있도록 (선택 입력)
   phone?: string;
+  // [추가] 사용자의 위치/지역 정보 (프로필 설정에서 편집 가능)
+  location?: string;
   // [수정] 코드 곳곳에서 이미 사용 중이었는데 타입 선언이 빠져있던 필드들
   // (직책 / 회사 내 역할). 회사(type: 'company') 회원에게만 의미가 있다.
   position?: string;
