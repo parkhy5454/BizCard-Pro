@@ -734,11 +734,11 @@ export const Navigation: React.FC<Props> = ({
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
         <div className="fixed bottom-0 w-full flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
 
-          <nav className="flex items-center gap-1 w-full pb-1 px-2 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
+          <nav className="flex items-center gap-0.5 w-full pb-1 px-2 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'dashboard' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -751,7 +751,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 2. 명함 (라벨: "전체 명함" → "명함") */}
             <button
               onClick={() => handleMainTabClick('cards')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'cards' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -764,7 +764,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 3. 차량관리 (라벨: "통합 차량 관리" → "차량관리") */}
             <button
               onClick={() => handleMainTabClick('vehicles')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'vehicles' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -781,7 +781,7 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleProjectTabClick();
               }}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'projects' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -798,7 +798,7 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleMoreMenuToggle();
               }}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                 isMoreMenuOpen
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
