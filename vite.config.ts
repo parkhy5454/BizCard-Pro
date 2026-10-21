@@ -5,11 +5,6 @@ export default defineConfig({
   plugins: [react()],
   build: {
     minify: 'esbuild',
-    terserOptions: {
-      compress: {
-        passes: 2,
-      },
-    },
     rollupOptions: {
       output: {
         manualChunks: {
