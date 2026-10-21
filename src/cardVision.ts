@@ -1,4 +1,11 @@
-import '@techstark/opencv-js';
+// OpenCV.js 동적 로딩 (번들 최적화)
+let openCvLoadPromise: Promise<any> | null = null;
+async function loadOpenCvModule() {
+  if (openCvLoadPromise) return openCvLoadPromise;
+  openCvLoadPromise = import('@techstark/opencv-js').then(m => m.default || m);
+  return openCvLoadPromise;
+}
+
 // OpenCV.js(WASM)를 @techstark/opencv-js 패키지로 지연 로딩해서 사용한다.
 // (동적 import()를 쓰면 Vite가 자동으로 별도 청크로 분리해서, 스캔 화면을 열 때만 내려받는다.)
 //
