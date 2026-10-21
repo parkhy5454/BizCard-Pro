@@ -101,6 +101,17 @@ export const Navigation: React.FC<Props> = ({
   const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
   // [추가] 친구 추천 모달 열림 상태
   const [isReferralOpen, setIsReferralOpen] = useState(false);
+  // [추가] 상단 우측 계정(아바타) 메뉴 열림 상태 + 바깥을 누르면 닫기
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isAccountMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) setIsAccountMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [isAccountMenuOpen]);
   const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
   // [추가] 개발자 계정의 "미읽음 문의" 건수(상태가 'new'인 문의). 하단 더보기 버튼과
   // 더보기 드롭다운의 문의함 항목에 배지로 표시한다. 메뉴를 열 때와 문의함을 닫을 때마다
@@ -269,45 +280,23 @@ export const Navigation: React.FC<Props> = ({
     바로 깔끔한 흰색이 되도록 한다. */}
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between py-4 md:py-0 md:h-16 gap-4">
-          
-          {/* 브랜드 로고 */}
-          <div className="flex items-center gap-4 w-full md:w-auto md:justify-between min-w-0 overflow-x-auto">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('cards')}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40">
-                <ScanLine className="w-6 h-6 text-white animate-pulse" />
-              </div>
-              <div>
-                <h1 className="font-bold text-xl tracking-tight bg-gradient-to-r from-slate-900 via-indigo-700 to-blue-600 bg-clip-text text-transparent">
-                  BizCard
-                </h1>
-                <p className="text-xs text-slate-500 font-medium">스마트 명함 & CRM</p>
-              </div>
+        {/* [수정] 상단 바는 모든 화면 크기에서 한 줄: 로고 / (데스크톱 명함 검색) / 전체검색·알림·계정.
+        회사 배너와 계정 기능(구독·백업·로그아웃·탈퇴)은 우측 계정(아바타) 메뉴로 모았다. */}
+        <div className="flex items-center justify-between gap-3 h-16">
+          <div className="flex items-center gap-3 cursor-pointer min-w-0 shrink-0" onClick={() => setActiveTab('cards')}>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/40 shrink-0">
+              <ScanLine className="w-6 h-6 text-white animate-pulse" />
             </div>
-
-            {/* 모바일 화면용 로그아웃 & 정보 (옵션) */}
-            {/* [수정] 아이콘 6개(검색/알림/구독/백업/로그아웃/탈퇴) + 로고 영역 폭을 합치면
-            좁은 휴대폰 화면 너비를 넘어서는데, 이 줄에 넘침 처리가 없어서 오른쪽 아이콘
-            한두 개가 화면 밖으로 그냥 잘려서 안 보이는 문제가 있었다. min-w-0 +
-            overflow-x-auto로 이 줄만 가로 스크롤되게 하고, 각 아이콘 버튼은 shrink-0으로
-            찌그러지지 않게 고정한다. */}
-            {currentUser && (
-              <div className="flex items-center gap-2 md:hidden min-w-0 overflow-x-auto scrollbar-none">
-                <button
-                  onClick={onOpenGlobalSearch}
-                  title="전체 검색"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-blue-500 border border-slate-200 transition-colors shrink-0"
-                >
-                  <Search className="w-4 h-4" />
-                </button>
-                <span className="shrink-0">
-                  <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
-                </span>
-              </div>
-            )}
+            <div className="min-w-0">
+              <h1 className="font-bold text-xl tracking-tight bg-gradient-to-r from-slate-900 via-indigo-700 to-blue-600 bg-clip-text text-transparent">
+                BizCard
+              </h1>
+              {/* 부제목은 모바일에서 숨겨 한 줄을 지킨다 */}
+              <p className="hidden sm:block text-xs text-slate-500 font-medium">스마트 명함 & CRM</p>
+            </div>
           </div>
 
-          {/* 중앙 검색창 (명함 목록 뷰일 때 활성) */}
+          {/* 데스크톱 명함 검색창 (명함 목록에서만 표시, 기존과 동일) */}
           {activeTab === 'cards' && (
             <div className="flex-1 max-w-sm relative hidden lg:block">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -319,7 +308,7 @@ export const Navigation: React.FC<Props> = ({
                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
               />
               {searchQuery && (
-                <button 
+                <button
                   onClick={() => setSearchQuery('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-800"
                 >
@@ -329,72 +318,104 @@ export const Navigation: React.FC<Props> = ({
             </div>
           )}
 
-          {/* 주요 액션 및 내비게이션 버튼 & 사용자 프로필 */}
-          <div className="flex items-center justify-between md:justify-end gap-2 w-full md:w-auto">
-            
-            {/* 사용자 공간 상태 배너 */}
-            {currentUser && (
-              <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-2xl px-3 py-1.5 text-xs text-slate-600 shrink-0">
-                {currentUser.type === 'company' ? (
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse" />
-                    <Building2 className="w-3.5 h-3.5 text-indigo-400" />
-                    <div>
-                      <p className="font-bold text-slate-800 max-w-[100px] truncate">{currentUser.companyName}</p>
-                      <p className="text-[9px] text-slate-400">사업자: {currentUser.businessNumber}</p>
+          {currentUser && (
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
+              <button
+                onClick={onOpenGlobalSearch}
+                title="전체 검색 (명함/프로젝트/차량/업무일지)"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-blue-500 border border-slate-200 transition-colors"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+
+              <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
+
+              {/* 계정 아바타 → 계정 메뉴 (회사 정보 / 프로필 / 구독 / 백업 / 로그아웃 / 탈퇴) */}
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  onClick={() => setIsAccountMenuOpen((v) => !v)}
+                  title="내 계정"
+                  aria-expanded={isAccountMenuOpen}
+                  className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-blue-500 text-white font-bold text-sm flex items-center justify-center shadow ring-2 ring-indigo-200 hover:ring-indigo-300 transition-all active:scale-95"
+                >
+                  {(currentUser.name || '?').charAt(0)}
+                </button>
+
+                {isAccountMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-72 max-w-[90vw] bg-white border border-slate-200 rounded-xl shadow-2xl z-40 overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+                      <p className="text-sm font-bold text-slate-800 truncate">{currentUser.name} 님</p>
+                      <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                      {currentUser.type === 'company' ? (
+                        <div className="mt-2 text-xs text-slate-700 space-y-0.5">
+                          <p className="flex items-center gap-1.5 min-w-0">
+                            <Building2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                            <span className="font-semibold truncate">{currentUser.companyName}</span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            사업자: {currentUser.businessNumber}
+                            {currentUser.role ? ` · ${currentUser.role === 'admin' ? '관리자' : '구성원'}` : ''}
+                            {currentUser.position ? ` · ${currentUser.position}` : ''}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-700 flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-emerald-400" />
+                          개인 공간
+                        </p>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />
-                    <User className="w-3.5 h-3.5 text-emerald-400" />
-                    <div>
-                      <p className="font-bold text-slate-800">{currentUser.name}</p>
-                      <p className="text-[9px] text-slate-400">개인 공간</p>
-                    </div>
+
+                    <button
+                      onClick={() => { handleMainTabClick('profile'); setIsAccountMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                    >
+                      <User className="w-4 h-4 text-indigo-500" />
+                      <span>프로필 설정</span>
+                    </button>
+
+                    <button
+                      onClick={() => { onOpenSubscriptionModal(); setIsAccountMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                    >
+                      <CreditCard className="w-4 h-4 text-indigo-400" />
+                      <span>구독 관리</span>
+                    </button>
+
+                    {canAccessBackup && (
+                      <button
+                        onClick={() => { setIsAccountMenuOpen(false); handleDownloadBackup(); }}
+                        disabled={isDownloadingBackup}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700 disabled:opacity-40"
+                      >
+                        <Download className="w-4 h-4 text-emerald-500" />
+                        <span>{isDownloadingBackup ? '백업 중...' : '데이터 백업'}</span>
+                      </button>
+                    )}
+
+                    <div className="border-t border-slate-200" />
+
+                    <button
+                      onClick={() => { setIsAccountMenuOpen(false); onLogout(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                    >
+                      <LogOut className="w-4 h-4 text-slate-500" />
+                      <span>로그아웃</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsAccountMenuOpen(false); onOpenWithdrawModal(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-rose-50 transition-all whitespace-nowrap text-rose-600"
+                    >
+                      <UserX className="w-4 h-4" />
+                      <span>회원 탈퇴</span>
+                    </button>
                   </div>
                 )}
-                
-                <div className="w-[1px] h-6 bg-slate-100 mx-1 hidden sm:block" />
-
-                <div className="hidden sm:flex flex-col text-right">
-                  <span className="font-medium text-slate-500 text-[10px]">{currentUser.name} 님</span>
-                  <span className="text-[9px] text-slate-400 truncate max-w-[120px]">{currentUser.email}</span>
-                </div>
-
-                <button
-                  onClick={onOpenGlobalSearch}
-                  title="전체 검색 (명함/프로젝트/차량/업무일지)"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-500 transition-colors hidden md:block"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                </button>
-                <span className="hidden md:block">
-                  <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
-                </span>
               </div>
-            )}
-
-            {/* [수정] 세무자료 발송 / 가입 회원 확인 / 문의함은 하단 "더보기" 드롭다운으로 옮겼다.
-            상단에는 친구 추천 버튼만 남긴다. */}
-            <div className="flex items-center gap-2 min-w-0 overflow-x-auto scrollbar-none">
-              {/* [추가] 친구 추천 — 로그인한 누구나(개인/회사 구성원 모두) 본인 추천 코드로
-              지인을 초대할 수 있고, 초대받은 사람이 첫 구독 결제를 하면 서로 1개월씩 무료. */}
-              {currentUser && (
-                <button
-                  type="button"
-                  onClick={() => setIsReferralOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
-                >
-                  <Gift className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>친구 추천</span>
-                </button>
-              )}
-
             </div>
-          </div>
+          )}
         </div>
-
       </div>
     </header>
 
@@ -873,20 +894,6 @@ export const Navigation: React.FC<Props> = ({
                     <span>AI Intelligence</span>
                   </button>
 
-                  {/* 프로필 설정 */}
-                  <button
-                    onClick={() => {
-                      handleMainTabClick('profile');
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 ${
-                      activeTab === 'profile' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                    }`}
-                  >
-                    <User className="w-4 h-4" />
-                    <span>프로필 설정</span>
-                  </button>
-
                   {/* [이동] 세무자료 발송 (상단 버튼에서 이동) */}
                   <button
                     onClick={() => {
@@ -932,6 +939,20 @@ export const Navigation: React.FC<Props> = ({
                     </button>
                   )}
 
+                  {/* [이동] 친구 추천 (상단 버튼에서 이동) */}
+                  {currentUser && (
+                    <button
+                      onClick={() => {
+                        setIsReferralOpen(true);
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                    >
+                      <Gift className="w-4 h-4 text-amber-600" />
+                      <span>친구 추천</span>
+                    </button>
+                  )}
+
                   {/* 문의하기 */}
                   <button
                     onClick={() => {
@@ -944,56 +965,6 @@ export const Navigation: React.FC<Props> = ({
                     <span>문의하기</span>
                   </button>
 
-                  {/* [이동] 계정 영역: 구독 / 데이터 백업 / 로그아웃 / 회원 탈퇴 (상단에서 이동).
-                  회원 탈퇴는 파괴적 작업이라 맨 아래 구분된 자리에 빨간색으로 둔다. */}
-                  <div className="border-t border-slate-200 my-1" />
-
-                  <button
-                    onClick={() => {
-                      onOpenSubscriptionModal();
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
-                  >
-                    <CreditCard className="w-4 h-4 text-indigo-400" />
-                    <span>구독 관리</span>
-                  </button>
-
-                  {canAccessBackup && (
-                    <button
-                      onClick={() => {
-                        handleDownloadBackup();
-                        setIsMoreMenuOpen(false);
-                      }}
-                      disabled={isDownloadingBackup}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700 disabled:opacity-40"
-                    >
-                      <Download className="w-4 h-4 text-emerald-500" />
-                      <span>{isDownloadingBackup ? '백업 중...' : '데이터 백업'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setIsMoreMenuOpen(false);
-                      onLogout();
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
-                  >
-                    <LogOut className="w-4 h-4 text-slate-500" />
-                    <span>로그아웃</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsMoreMenuOpen(false);
-                      onOpenWithdrawModal();
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-rose-50 transition-all whitespace-nowrap text-rose-600"
-                  >
-                    <UserX className="w-4 h-4" />
-                    <span>회원 탈퇴</span>
-                  </button>
             </div>
           )}
 

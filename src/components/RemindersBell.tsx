@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Bell, AlertTriangle, Wrench, Ban, Receipt, UserPlus } from 'lucide-react';
 import { User as UserType, Vehicle, MaintenanceInterval, AdminDoc, DailyWorkLog, WeeklyWorkLog } from '../types.js';
 import { getTodayLocalStr } from '../dateUtils.js';
@@ -31,6 +31,17 @@ export const RemindersBell: React.FC<Props> = ({ currentUser, onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState<ReminderItem[]>([]);
   const [loading, setLoading] = useState(false);
+  // [수정] 팝업 바깥 클릭 닫기: 헤더에 backdrop-blur가 있으면 fixed 오버레이가 헤더 안에서만 동작해서
+  // 문서 전체의 mousedown으로 바깥을 감지한다.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [isOpen]);
 
   const loadReminders = async () => {
     if (!currentUser) return;
@@ -204,7 +215,7 @@ export const RemindersBell: React.FC<Props> = ({ currentUser, onNavigate }) => {
   const badgeCount = items.length;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapRef}>
       <button
         onClick={() => setIsOpen((v) => !v)}
         title="알림"
@@ -224,7 +235,6 @@ export const RemindersBell: React.FC<Props> = ({ currentUser, onNavigate }) => {
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
           <div className="absolute right-0 top-full mt-1.5 w-80 max-w-[90vw] bg-white border border-slate-200 rounded-xl shadow-2xl z-40 overflow-hidden">
             <div className="px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700">다가오는 일정 · 알림</span>
