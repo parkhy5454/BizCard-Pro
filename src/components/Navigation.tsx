@@ -732,46 +732,46 @@ export const Navigation: React.FC<Props> = ({
     )}
 
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-        <div className="fixed bottom-0 w-full flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
+        <div className="fixed bottom-0 w-full flex flex-col items-center py-3 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
 
-          <nav className="flex items-center gap-0.5 w-full pb-1 px-2 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
+          <nav className="flex items-center gap-1 w-full pb-1.5 px-3 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'dashboard' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4 text-blue-400" />
-              <span className="text-xs">홈</span>
+              <LayoutDashboard className="w-5 h-5 text-blue-400" />
+              <span className="text-sm">홈</span>
             </button>
 
             {/* 2. 명함 */}
             <button
               onClick={() => handleMainTabClick('cards')}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'cards' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Users className="w-4 h-4" />
-              <span className="text-xs">명함</span>
+              <Users className="w-5 h-5" />
+              <span className="text-sm">명함</span>
             </button>
 
             {/* 3. 차량관리 */}
             <button
               onClick={() => handleMainTabClick('vehicles')}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'vehicles' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Car className="w-4 h-4 text-indigo-400" />
-              <span className="text-xs">차량</span>
+              <Car className="w-5 h-5 text-indigo-400" />
+              <span className="text-sm">차량</span>
             </button>
 
             {/* 4. 프로젝트 */}
@@ -781,14 +781,14 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleProjectTabClick();
               }}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'projects' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Briefcase className="w-4 h-4 text-indigo-400" />
-              <span className="text-xs">프로젝트</span>
+              <Briefcase className="w-5 h-5 text-indigo-400" />
+              <span className="text-sm">프로젝트</span>
             </button>
 
             {/* 5. 더보기 */}
@@ -798,14 +798,14 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleMoreMenuToggle();
               }}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 isMoreMenuOpen
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <span className="text-xs">더보기</span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
+              <span className="text-sm">더보기</span>
+              <ChevronDown className={`w-5 h-5 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
             </button>
           </nav>
 
