@@ -1,4 +1,4 @@
-// 명함/영수증 등 문서 스캔을 위한 실시간 컴퓨터비전 유틸리티.
+import '@techstark/opencv-js';
 // OpenCV.js(WASM)를 @techstark/opencv-js 패키지로 지연 로딩해서 사용한다.
 // (동적 import()를 쓰면 Vite가 자동으로 별도 청크로 분리해서, 스캔 화면을 열 때만 내려받는다.)
 //
@@ -12,7 +12,6 @@
 export type Point = [number, number];
 export type Quad = [Point, Point, Point, Point]; // [좌상, 우상, 우하, 좌하] 순서
 
-import '@techstark/opencv-js';
 export interface DetectedQuad {
   points: Quad;
   areaRatio: number; // 프레임 전체 넓이 대비 감지된 사각형 넓이 비율 (0~1)
