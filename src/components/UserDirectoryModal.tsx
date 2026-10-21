@@ -26,8 +26,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       if (!res.ok) throw new Error('회원 목록을 가져오지 못했습니다.');
       const data = await res.json();
       if (Array.isArray(data)) {
-        // [추가] 서버에서 받은 데이터와 currentUser를 동기화
-        // 현재 로그인한 사용자의 정보는 항상 currentUser의 최신 데이터로 override
+        // [추가] currentUser의 최신 데이터로 해당 사용자 정보 동기화
         const syncedData = data.map(user =>
           user.id === currentUser.id
             ? {
@@ -36,7 +35,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                 email: currentUser.email || user.email,
                 phone: currentUser.phone || user.phone,
                 location: currentUser.location || user.location,
-                company: currentUser.company || user.company
+                companyName: currentUser.companyName || user.companyName,
               }
             : user
         );
@@ -49,35 +48,11 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     }
   };
 
-  // 모달이 열릴 때만 fetchUsers 호출
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
     }
-  }, [isOpen]);
-
-  // [추가] currentUser 프로필 변경 시 users 목록 자동 업데이트
-  // currentUser의 주요 필드가 변경되면 해당 사용자의 정보를 즉시 동기화
-  // 또한 모달이 열려있을 때 항상 currentUser의 최신 데이터로 users 배열을 동기화
-  useEffect(() => {
-    if (isOpen && currentUser) {
-      setUsers(prevUsers => {
-        const updated = prevUsers.map(user =>
-          user.id === currentUser.id
-            ? {
-                ...user,
-                name: currentUser.name || user.name,
-                email: currentUser.email || user.email,
-                phone: currentUser.phone || user.phone,
-                location: currentUser.location || user.location,
-                company: currentUser.company || user.company
-              }
-            : user
-        );
-        return updated;
-      });
-    }
-  }, [isOpen, currentUser?.id, currentUser?.name, currentUser?.email, currentUser?.phone, currentUser?.location, currentUser?.company]);
+  }, [isOpen, currentUser.id]);
 
   if (!isOpen) return null;
 
