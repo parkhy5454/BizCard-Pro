@@ -4,11 +4,12 @@ import { User as UserType } from '../types.js';
 
 interface Props {
   currentUser: UserType;
-  onUpdate?: (updatedUser: Partial<UserType>) => void;
+  onUpdate?: (updatedUser: Partial<UserType>) => Promise<void> | void;
 }
 
 export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: currentUser.name || '',
     phone: currentUser.phone || '',
@@ -39,9 +40,14 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
     }
   };
 
-  const handleSave = () => {
-    onUpdate?.(formData);
-    setIsEditing(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdate?.(formData);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -203,10 +209,15 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
               <div className="flex gap-3 mt-8 pt-6 border-t border-slate-200">
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-2 flex-1 px-4 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-all"
+                  disabled={isSaving}
+                  className={`flex items-center gap-2 flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
+                    isSaving
+                      ? 'bg-indigo-400 text-white cursor-not-allowed'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
                 >
                   <Save className="w-4 h-4" />
-                  저장하기
+                  {isSaving ? '저장 중...' : '저장하기'}
                 </button>
                 <button
                   onClick={() => {
@@ -219,7 +230,12 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
                       company: currentUser.company || '',
                     });
                   }}
-                  className="flex items-center gap-2 flex-1 px-4 py-3 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-all"
+                  disabled={isSaving}
+                  className={`flex items-center gap-2 flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
+                    isSaving
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  }`}
                 >
                   <X className="w-4 h-4" />
                   취소하기

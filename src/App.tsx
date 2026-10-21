@@ -725,11 +725,29 @@ export default function App() {
               <UserProfileView
                 key={viewResetNonce}
                 currentUser={currentUser}
-                onUpdate={(updatedData) => {
-                  // 프로필 업데이트: 상태 및 localStorage 반영
-                  const updatedUser = { ...currentUser, ...updatedData };
-                  setCurrentUser(updatedUser);
-                  localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
+                onUpdate={async (updatedData) => {
+                  try {
+                    // 서버에 업데이트
+                    const res = await fetch('/api/auth/users', {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-id': currentUser.id
+                      },
+                      body: JSON.stringify(updatedData)
+                    });
+
+                    if (!res.ok) {
+                      throw new Error('프로필 업데이트 실패');
+                    }
+
+                    // 로컬 상태 및 localStorage 업데이트
+                    const updatedUser = { ...currentUser, ...updatedData };
+                    setCurrentUser(updatedUser);
+                    localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
+                  } catch (err) {
+                    console.error('프로필 업데이트 오류:', err);
+                  }
                 }}
               />
             )}
