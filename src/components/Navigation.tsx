@@ -81,6 +81,16 @@ export const Navigation: React.FC<Props> = ({
 }) => {
   // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태 - 먼저 선언해야 handleMainTabClick에서 사용 가능
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  // [추가] 더보기 메뉴 바깥을 누르면 닫기 (휴대폰은 덮개 overlay로도 닫힌다)
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setIsMoreMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [isMoreMenuOpen]);
   // [추가] 상단 메인 탭 버튼 클릭 공용 처리. 이미 그 탭에 있으면(같은 탭을 또 누른 경우)
   // setActiveTab만으로는 값이 안 바뀌어서 리액트가 리렌더를 건너뛰고 아무 반응이 없다 -
   // 이 경우엔 onRequestViewReset을 호출해서 지금 화면을 처음 상태로 되돌린다. 다른 탭이면
@@ -680,47 +690,47 @@ export const Navigation: React.FC<Props> = ({
     )}
 
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-        <div className="fixed bottom-0 w-full flex flex-col items-center py-3 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
+        <div className="fixed bottom-0 w-full flex flex-col items-center pt-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
 
           <div className="flex items-end w-full pb-1.5 px-3 gap-1">
-          <nav className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
+          <nav className="grid grid-cols-4 gap-1 flex-1 min-w-0">
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 (activeTab === 'dashboard' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
               <LayoutDashboard className="w-5 h-5 text-blue-400" />
-              <span className="text-sm">홈</span>
+              <span className="text-[11px] leading-none">홈</span>
             </button>
 
             {/* 2. 명함 */}
             <button
               onClick={() => handleMainTabClick('cards')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 (activeTab === 'cards' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
               <Users className="w-5 h-5" />
-              <span className="text-sm">명함</span>
+              <span className="text-[11px] leading-none">명함</span>
             </button>
 
             {/* 3. 차량관리 */}
             <button
               onClick={() => handleMainTabClick('vehicles')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 (activeTab === 'vehicles' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
               <Car className="w-5 h-5 text-indigo-400" />
-              <span className="text-sm">차량</span>
+              <span className="text-[11px] leading-none">차량</span>
             </button>
 
             {/* 4. 프로젝트 */}
@@ -730,21 +740,21 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleProjectTabClick();
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 (activeTab === 'projects' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
               <Briefcase className="w-5 h-5 text-indigo-400" />
-              <span className="text-sm">프로젝트</span>
+              <span className="text-[11px] leading-none">프로젝트</span>
             </button>
 
           </nav>
 
           {/* [수정] 더보기 버튼과 드롭다운을 같은 relative 래퍼에 둬서, 메뉴가 버튼 바로 위에 뜨도록 한다.
           탭 줄(nav)은 가로 스크롤이라 그 안에 두면 메뉴가 잘리므로 밖으로 뺐다. */}
-          <div className="relative shrink-0">
+          <div className="relative shrink-0" ref={moreMenuRef}>
             {/* 5. 더보기 */}
             <button
               onClick={(e) => {
@@ -752,14 +762,14 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleMoreMenuToggle();
               }}
-              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 shrink-0 px-3 ${
                 isMoreMenuOpen
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <span className="text-sm">더보기</span>
-              <ChevronDown className={`w-5 h-5 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
+              <span className="text-[11px] leading-none">더보기</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
               {/* [추가] 미읽음 문의가 있으면 더보기 버튼 우상단에 배지 표시 (개발자 계정 전용) */}
               {unreadFeedbackCount > 0 && (
                 <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -770,7 +780,10 @@ export const Navigation: React.FC<Props> = ({
 
         {/* 드롭다운 메뉴 (부모 div에서 절대 위치 렌더링) */}
         {isMoreMenuOpen && (
-          <div className="absolute right-0 bottom-full mb-2 max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+            <div className="md:hidden fixed inset-0 bg-slate-900/40 z-40" onClick={() => setIsMoreMenuOpen(false)} />
+          )}
+{isMoreMenuOpen && (
+          <div className="fixed inset-x-0 bottom-0 max-h-[70vh] overflow-y-auto bg-white rounded-t-2xl shadow-2xl z-50 md:absolute md:inset-auto md:right-0 md:bottom-full md:mb-2 md:w-56 md:rounded-lg md:border md:border-slate-200 md:shadow-lg">
                   {/* 업무일지 */}
                   <button
                     onClick={() => {

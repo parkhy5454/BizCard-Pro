@@ -358,3 +358,16 @@ body {
     min-height: auto !important;
   }
 }
+
+/* [추가] 앱처럼 보이게 하는 기본 동작 */
+html, body {
+  overscroll-behavior-y: none; /* 화면 끝에서 튕기는 효과 제거 (당겨서 새로고침 방지) */
+  -webkit-tap-highlight-color: transparent; /* 누를 때 파란 음영 제거 */
+}
+button, a, [role="button"], label {
+  touch-action: manipulation; /* 두 번 탭 확대 지연 제거 */
+}
+@media (max-width: 767px) {
+  /* iPhone은 입력창 글자가 16px보다 작으면 화면을 자동 확대하므로 최소 16px로 맞춘다 */
+  input, select, textarea { font-size: 16px; }
+}
