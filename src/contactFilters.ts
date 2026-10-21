@@ -1,4 +1,4 @@
-import { BusinessCard, ContactGroup } from './types.js';
+import { BusinessCard, ContactGroup } from './types';
 
 // [추가] "관계 인텔리전스"(CardGrid의 "지금 챙기면 좋은 거래처" 패널, AIIntelligenceView의
 // "기업 인텔리전스"·"관계·영업 인텔리전스" 탭)에서 분석 대상으로 삼지 않을 명함을 걸러내는

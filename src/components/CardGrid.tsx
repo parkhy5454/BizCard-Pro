@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone, MessageSquare, Share2, UserPlus } from 'lucide-react';
-import { BusinessCard, ContactGroup, Project, User } from '../types.js';
-import { getContactGroupIds } from '../groupUtils.js';
-import { getContactImageProxyUrl } from '../imageProxy.js';
-import { downloadContactVCard, generateContactVCardText } from '../vcardUtils.js';
-import { filterContactsForIntel } from '../contactFilters.js';
-import { getTodayLocalStr } from '../dateUtils.js';
-import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel.js';
+import { BusinessCard, ContactGroup, Project, User } from '../types';
+import { getContactGroupIds } from '../groupUtils';
+import { getContactImageProxyUrl } from '../imageProxy';
+import { downloadContactVCard, generateContactVCardText } from '../vcardUtils';
+import { filterContactsForIntel } from '../contactFilters';
+import { getTodayLocalStr } from '../dateUtils';
+import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel';
 
 interface Props {
   contacts: BusinessCard[];

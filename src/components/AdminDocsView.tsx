@@ -3,10 +3,10 @@ import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye } from 'lucide-react';
-import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
-import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
-import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
-import { ReceiptScanModal } from './ReceiptScanModal.js';
+import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat';
+import { getTodayLocalStr, dateToLocalStr } from '../dateUtils';
+import { ReceiptScanModal } from './ReceiptScanModal';
 
 interface Props {
   section: AdminDocSection;

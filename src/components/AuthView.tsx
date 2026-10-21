@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, Briefcase, FileText, ArrowRight, Check, AlertCircle, Building2, KeyRound, Phone, Gift } from 'lucide-react';
 import { motion } from 'motion/react';
-import { User as UserType } from '../types.js';
-import { formatPhoneNumber } from '../phoneFormat.js';
-import { LegalModal } from './LegalModal.js';
+import { User as UserType } from '../types';
+import { formatPhoneNumber } from '../phoneFormat';
+import { LegalModal } from './LegalModal';
 
 interface Props {
   onLoginSuccess: (user: UserType) => void;

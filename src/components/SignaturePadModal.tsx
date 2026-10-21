@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { X, RotateCcw, Check, PenTool, Upload, Image as ImageIcon } from 'lucide-react';
-import { User } from '../types.js';
+import { User } from '../types';
 
 // [수정] 전자결재에서 승인할 때 도장처럼 찍히는 손글씨 서명을 등록/변경하는 화면.
 // 마우스든 손가락(터치)이든 캔버스에 직접 그려서 등록하거나, 스캔/촬영해둔 서명 이미지

@@ -12,7 +12,7 @@ import {
   DailyWorkLog,
   WeeklyWorkLog,
   RegisteredUser
-} from '../types.js';
+} from '../types';
 
 // 서버(신뢰된 백엔드)에서만 사용하는 클라이언트이므로 Service Role Key를 사용합니다.
 // 절대 프론트엔드 번들에 노출되면 안 됩니다 (server.ts에서만 import).

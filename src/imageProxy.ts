@@ -1,4 +1,4 @@
-import { BusinessCard, MyProfile } from './types.js';
+import { BusinessCard, MyProfile } from './types';
 
 // [추가] 명함 사진은 실제로는 Supabase Storage의 길고 복잡한 서명 URL(토큰 포함)에
 // 저장돼 있다. 이 URL을 <img src>에 그대로 쓰면, 사진을 길게 눌렀을 때 뜨는

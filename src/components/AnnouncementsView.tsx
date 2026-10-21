@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Megaphone, Pin, Pencil, Trash2, Plus, X, Check, RefreshCw } from 'lucide-react';
-import { User as UserType } from '../types.js';
+import { User as UserType } from '../types';
 
 interface Props {
   currentUser: UserType;

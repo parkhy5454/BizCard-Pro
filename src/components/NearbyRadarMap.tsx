@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw, Search, LocateFixed } from 'lucide-react';
-import { BusinessCard, ContactGroup } from '../types.js';
-import { getContactGroupIds } from '../groupUtils.js';
-import { getTodayLocalStr } from '../dateUtils.js';
+import { BusinessCard, ContactGroup } from '../types';
+import { getContactGroupIds } from '../groupUtils';
+import { getTodayLocalStr } from '../dateUtils';
 
 interface Props {
   contacts: BusinessCard[];

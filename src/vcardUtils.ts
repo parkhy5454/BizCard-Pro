@@ -8,7 +8,7 @@
 // 통째로 비어버리는 문제가 있었다. ShareMyCardModal.tsx(내 명함 공유)에서는 이미 두 경우
 // 모두 처리하고 있었어서, 이 파일로 로직을 하나로 합쳐 CardDetailModal.tsx/CardGrid.tsx가
 // 함께 쓰게 한다.
-import { BusinessCard } from './types.js';
+import { BusinessCard } from './types';
 
 export function generateContactVCardText(contact: BusinessCard): string {
   let photoLine = '';

@@ -6,11 +6,11 @@ import {
   Download, ClipboardList, Car, Wrench, ChevronDown, Camera, PenTool, FileText,
   Image as ImageIcon, Trash
 } from 'lucide-react';
-import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User } from '../types.js';
-import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
-import { formatPhoneNumber } from '../phoneFormat.js';
-import { getTodayLocalStr } from '../dateUtils.js';
-import { SignaturePadModal } from './SignaturePadModal.js';
+import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User } from '../types';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat';
+import { formatPhoneNumber } from '../phoneFormat';
+import { getTodayLocalStr } from '../dateUtils';
+import { SignaturePadModal } from './SignaturePadModal';
 
 interface Props {
   currentUser: User | null;

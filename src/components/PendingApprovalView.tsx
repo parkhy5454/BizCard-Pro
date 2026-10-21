@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Clock3, LogOut, Building2, RefreshCw } from 'lucide-react';
-import { User } from '../types.js';
+import { User } from '../types';
 
 interface Props {
   currentUser: User;

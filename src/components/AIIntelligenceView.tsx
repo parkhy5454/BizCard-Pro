@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Calendar, Building2, Users, TrendingUp, AlertCircle, Clock, Search, RefreshCw, Briefcase, Phone, ChevronRight, CheckCircle2, ListTodo, UserPlus, X } from 'lucide-react';
-import { BusinessCard, ContactGroup, Project, User as UserType, DailyWorkLog, WeeklyWorkLog } from '../types.js';
-import { getIntelExcludedGroupIds } from '../contactFilters.js';
-import { getTodayLocalStr } from '../dateUtils.js';
-import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel.js';
+import { BusinessCard, ContactGroup, Project, User as UserType, DailyWorkLog, WeeklyWorkLog } from '../types';
+import { getIntelExcludedGroupIds } from '../contactFilters';
+import { getTodayLocalStr } from '../dateUtils';
+import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel';
 
 interface Props {
   contacts: BusinessCard[];

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { ArrowDownUp, Download, Upload, FileSpreadsheet, FileText, CheckCircle2, ShieldAlert } from 'lucide-react';
-import { BusinessCard, ContactGroup } from '../types.js';
-import { generateStandardCardImage } from '../cardImageGenerator.js';
+import { BusinessCard, ContactGroup } from '../types';
+import { generateStandardCardImage } from '../cardImageGenerator';
 import * as XLSX from 'xlsx';
-import { contactHasGroup } from '../groupUtils.js';
+import { contactHasGroup } from '../groupUtils';
 
 interface Props {
   contacts: BusinessCard[];

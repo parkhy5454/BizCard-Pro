@@ -6,14 +6,14 @@ import {
   AlertTriangle, DollarSign, Printer, Download, Clock, Landmark, Info, Pencil, Eye, FileSpreadsheet,
   Upload, X, Paperclip, RefreshCw, Camera, Sparkles, Navigation
 } from 'lucide-react';
-import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
-import { ContactSearchSelect } from './ContactPicker.js';
-import { ProjectSearchSelect } from './ProjectPicker.js';
-import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
-import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
-import { getTodayLocalStr } from '../dateUtils.js';
-import { formatPhoneNumber } from '../phoneFormat.js';
+import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types';
+import { ContactSearchSelect } from './ContactPicker';
+import { ProjectSearchSelect } from './ProjectPicker';
+import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal';
+import { LiveCameraCapture } from './LiveCameraCapture';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat';
+import { getTodayLocalStr } from '../dateUtils';
+import { formatPhoneNumber } from '../phoneFormat';
 
 // [추가] 운행기록부 인쇄/엑셀 내보내기(buildReportTableHtml)는 운전자명·부서·주행목적·
 // 출발지/도착지 주소 등 사용자가 직접 입력한 값을 HTML 문자열로 조립해서 그대로
@@ -60,8 +60,8 @@ const DISPLAY_MAINTENANCE_OPTIONS = [
 
 interface Props {
   currentUser: User;
-  contacts: import('../types.js').BusinessCard[];
-  setContacts: React.Dispatch<React.SetStateAction<import('../types.js').BusinessCard[]>>;
+  contacts: import('../types').BusinessCard[];
+  setContacts: React.Dispatch<React.SetStateAction<import('../types').BusinessCard[]>>;
 }
 
 export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContacts }) => {

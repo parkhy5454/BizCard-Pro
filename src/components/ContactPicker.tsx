@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, X, User, Building2, Check } from 'lucide-react';
-import { BusinessCard } from '../types.js';
+import { BusinessCard } from '../types';
 
 // [추가] 명함이 몇 개 안 될 땐 괜찮았지만, 2,000건이 넘어가면 "명함 쭉 나열된 드롭다운"에서
 // 원하는 사람을 스크롤로 찾는 게 사실상 불가능해진다. "연관 거래처 담당자"를 고르는 곳이

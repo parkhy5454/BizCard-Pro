@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Gift, Copy, Check, MessageSquare, Users, PartyPopper } from 'lucide-react';
-import { User as UserType } from '../types.js';
+import { User as UserType } from '../types';
 
 interface Props {
   currentUser: UserType;

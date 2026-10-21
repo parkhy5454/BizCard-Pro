@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, Search, X } from 'lucide-react';
-import { ContactGroup } from '../types.js';
+import { ContactGroup } from '../types';
 
 interface Props {
   groups: ContactGroup[];

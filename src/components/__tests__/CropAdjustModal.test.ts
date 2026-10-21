@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidNormalizedCorners } from '../CropAdjustModal.js';
+import { isValidNormalizedCorners } from '../CropAdjustModal';
 
 // [수정] AI가 알려주는 "명함/영수증 네 꼭짓점 좌표"의 유효성 검사(isValidNormalizedCorners) 테스트.
 // 이 함수가 잘못된 좌표를 걸러내지 못하면, 사진이 이상하게 잘리거나 앱이 깨질 수 있다.

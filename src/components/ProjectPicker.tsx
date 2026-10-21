@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, X, Briefcase, Check } from 'lucide-react';
-import { Project } from '../types.js';
+import { Project } from '../types';
 
 // [추가] 프로젝트가 늘어나면서 "연동 프로젝트"를 고르는 곳(운행기록/비용/정비/업무일지 등)에서
 // 순수 <select>나 정렬 안 된 목록을 스크롤로 훑어야 해서 원하는 프로젝트를 찾기 힘들다는

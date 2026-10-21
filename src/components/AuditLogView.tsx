@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { History, ShieldAlert, RefreshCw, Search } from 'lucide-react';
-import { User } from '../types.js';
+import { User } from '../types';
 
 interface Props {
   currentUser: User | null;

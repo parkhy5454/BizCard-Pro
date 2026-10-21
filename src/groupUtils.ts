@@ -1,4 +1,4 @@
-import { BusinessCard } from './types.js';
+import { BusinessCard } from './types';
 
 // [추가] 명함이 복수 그룹에 속할 수 있게 되면서, "이 명함이 실제로 속한 그룹 id 목록"을
 // 구하는 로직이 여러 화면에 반복해서 필요해졌다. 예전 데이터(groupId 단수)와 새 데이터

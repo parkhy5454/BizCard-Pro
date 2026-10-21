@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Eraser, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { User } from '../types.js';
+import { User } from '../types';
 
 // [추가] 명함 주소(주소/보조주소/자택주소)에 스캔·OCR이나 붙여넣기 과정에서 실수로 섞여
 // 들어간 "\" 문자를 찾아서 지워주는 관리자 전용 일회성 정리 도구. 실수로 잘못 지워지는

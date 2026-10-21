@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { findDuplicateContact } from '../ScanModal.js';
-import { BusinessCard } from '../../types.js';
+import { findDuplicateContact } from '../ScanModal';
+import { BusinessCard } from '../../types';
 
 // [수정] 명함 중복 감지 로직(findDuplicateContact) 테스트.
 // 이 함수는 "이름+회사가 같거나, 핸드폰 번호가 같으면 같은 사람"으로 판단해서

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Check, X } from 'lucide-react';
-import { BusinessCard } from '../types.js';
+import { BusinessCard } from '../types';
 
 interface Props {
   contacts: BusinessCard[];

@@ -1,4 +1,4 @@
-import { BusinessCard } from './types.js';
+import { BusinessCard } from './types';
 
 // [추가] 원래는 IOModal.tsx 안에만 있던 함수였는데, "가져오기 할 때 딱 한 번만 그려지고
 // 나중에 이름 등을 수정해도 사진은 그대로 남는" 문제가 있었다. 그래서 이 함수를 공용으로

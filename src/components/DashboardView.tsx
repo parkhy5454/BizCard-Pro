@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Users, Briefcase, Car, ClipboardList, ShieldCheck, TrendingUp, ArrowRight, FileCheck } from 'lucide-react';
-import { BusinessCard, Project, User as UserType, Vehicle } from '../types.js';
+import { BusinessCard, Project, User as UserType, Vehicle } from '../types';
 
 // [추가] "지금 확인한거 다 순차적으로 해줘"의 마지막 두 항목(홈 대시보드/차트)을 하나의
 // 화면으로 합쳤다 - 실제로 대시보드는 보통 차트를 포함하는 게 자연스럽고, 별도 화면으로

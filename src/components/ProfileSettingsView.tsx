@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User as UserType } from '../types.js';
+import { User as UserType } from '../types';
 import { User, Briefcase, Phone, Mail, Building2, AlertCircle, Check } from 'lucide-react';
 
 interface Props {

@@ -12,7 +12,7 @@ import {
   DailyWorkLog,
   WeeklyWorkLog,
   RegisteredUser
-} from '../types.js';
+} from '../types';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 export const isNeonConfigured = Boolean(DATABASE_URL);

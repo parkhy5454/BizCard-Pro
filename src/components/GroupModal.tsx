@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FolderTree, Plus, Trash2, Edit2, Check, X, ShieldAlert, Lock, Unlock } from 'lucide-react';
-import { ContactGroup, BusinessCard, User } from '../types.js';
-import { contactHasGroup } from '../groupUtils.js';
+import { ContactGroup, BusinessCard, User } from '../types';
+import { contactHasGroup } from '../groupUtils';
 
 interface Props {
   groups: ContactGroup[];

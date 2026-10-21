@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Building2, User, ShieldCheck, Info, Phone, Download } from 'lucide-react';
-import { User as UserType } from '../types.js';
+import { User as UserType } from '../types';
 
 interface Props {
   isOpen: boolean;

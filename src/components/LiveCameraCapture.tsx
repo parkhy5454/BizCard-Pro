@@ -3,7 +3,7 @@ import { X, RefreshCw, Image as ImageIcon, Camera, Loader2 } from 'lucide-react'
 import {
   loadOpenCv, detectQuad, warpToRect, enhanceMat, matToDataUrl,
   computeBlurScore, computeBrightness, computeGlareRatio, Quad
-} from '../cardVision.js';
+} from '../cardVision';
 
 interface Props {
   title?: string;

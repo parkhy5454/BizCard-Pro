@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Building2, Save, CheckCircle } from 'lucide-react';
-import { User as UserType } from '../types.js';
+import { User as UserType } from '../types';
 
 interface Props {
   currentUser: UserType;

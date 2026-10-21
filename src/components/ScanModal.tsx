@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
-import { BusinessCard, ContactGroup } from '../types.js';
-import { formatPhoneNumber } from '../phoneFormat.js';
-import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
-import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { loadOpenCv } from '../cardVision.js';
-import { generateStandardCardImage } from '../cardImageGenerator.js';
-import { GroupMultiSelect } from './GroupMultiSelect.js';
+import { BusinessCard, ContactGroup } from '../types';
+import { formatPhoneNumber } from '../phoneFormat';
+import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal';
+import { LiveCameraCapture } from './LiveCameraCapture';
+import { loadOpenCv } from '../cardVision';
+import { generateStandardCardImage } from '../cardImageGenerator';
+import { GroupMultiSelect } from './GroupMultiSelect';
 
 interface Props {
   groups: ContactGroup[];

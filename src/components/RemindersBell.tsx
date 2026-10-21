@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, AlertTriangle, Wrench, Ban, Receipt, UserPlus } from 'lucide-react';
-import { User as UserType, Vehicle, MaintenanceInterval, AdminDoc, DailyWorkLog, WeeklyWorkLog } from '../types.js';
-import { getTodayLocalStr } from '../dateUtils.js';
+import { User as UserType, Vehicle, MaintenanceInterval, AdminDoc, DailyWorkLog, WeeklyWorkLog } from '../types';
+import { getTodayLocalStr } from '../dateUtils';
 
 // [추가] "지금 확인한거 다 순차적으로 해줘"에서 마감/기한 알림 항목 - 알림 채널을 별도로
 // 정하지 않아서(문자/이메일 발송 인프라가 없음) 우선 인앱 방식(상단 알림 종 버튼)으로 구현.

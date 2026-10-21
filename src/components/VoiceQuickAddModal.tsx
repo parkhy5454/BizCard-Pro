@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mic, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
-import { BusinessCard, ContactGroup } from '../types.js';
-import { findDuplicateContact } from './ScanModal.js';
-import { generateStandardCardImage } from '../cardImageGenerator.js';
+import { BusinessCard, ContactGroup } from '../types';
+import { findDuplicateContact } from './ScanModal';
+import { generateStandardCardImage } from '../cardImageGenerator';
 
 interface Props {
   groups: ContactGroup[];

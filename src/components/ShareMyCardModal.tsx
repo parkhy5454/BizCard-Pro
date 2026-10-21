@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, CheckCircle2 } from 'lucide-react';
-import { formatPhoneNumber } from '../phoneFormat.js';
-import { MyProfile } from '../types.js';
-import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
-import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { loadOpenCv } from '../cardVision.js';
+import { formatPhoneNumber } from '../phoneFormat';
+import { MyProfile } from '../types';
+import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal';
+import { LiveCameraCapture } from './LiveCameraCapture';
+import { loadOpenCv } from '../cardVision';
 
 interface Props {
   onClose: () => void;

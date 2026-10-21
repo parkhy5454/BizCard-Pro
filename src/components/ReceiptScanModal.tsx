@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText, Camera } from 'lucide-react';
-import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
-import { getTodayLocalStr } from '../dateUtils.js';
-import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat';
+import { getTodayLocalStr } from '../dateUtils';
+import { LiveCameraCapture } from './LiveCameraCapture';
+import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal';
 
 // [추가] 해외 출장 경비(AdminDocsView) 화면의 "사용구분"/"지급방법" 값 체계를 그대로 따른다.
 // AdminDocsView.tsx의 OVERSEAS_TRIP_CATEGORY_PRESETS/OVERSEAS_TRIP_PAY_METHOD_PRESETS와 반드시

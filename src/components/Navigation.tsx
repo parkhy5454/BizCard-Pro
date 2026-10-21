@@ -1,10 +1,10 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare, Radar, Upload } from 'lucide-react';
-import { FeedbackInboxModal } from './FeedbackInboxModal.js';
-import { ReferralModal } from './ReferralModal.js';
-import { RemindersBell } from './RemindersBell.js';
-import { ContactGroup, Project, User as UserType } from '../types.js';
-import { getTodayLocalStr } from '../dateUtils.js';
+import { FeedbackInboxModal } from './FeedbackInboxModal';
+import { ReferralModal } from './ReferralModal';
+import { RemindersBell } from './RemindersBell';
+import { ContactGroup, Project, User as UserType } from '../types';
+import { getTodayLocalStr } from '../dateUtils';
 
 interface Props {
   activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat';

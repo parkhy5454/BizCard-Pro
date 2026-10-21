@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bug, Lightbulb, MessageSquare, RefreshCw, CheckCircle2, Clock, Loader2, BarChart3, Building2, Users, Activity, Inbox as InboxIcon, Download } from 'lucide-react';
-import { FeedbackItem, User } from '../types.js';
+import { FeedbackItem, User } from '../types';
 
 interface Props {
   currentUser?: User | null;

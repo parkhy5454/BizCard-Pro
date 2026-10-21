@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MailCheck, LogOut, RefreshCw } from 'lucide-react';
-import { User } from '../types.js';
+import { User } from '../types';
 
 interface Props {
   currentUser: User;

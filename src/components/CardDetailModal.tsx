@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home, Smartphone } from 'lucide-react';
-import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
-import { formatPhoneNumber } from '../phoneFormat.js';
-import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { CropAdjustModal, rotateDataUrlByDegrees } from './CropAdjustModal.js';
-import { generateStandardCardImage } from '../cardImageGenerator.js';
-import { getContactGroupIds } from '../groupUtils.js';
-import { getContactImageProxyUrl } from '../imageProxy.js';
-import { GroupMultiSelect } from './GroupMultiSelect.js';
-import { generateContactVCardText, downloadContactVCard } from '../vcardUtils.js';
+import { BusinessCard, ContactGroup, CallRecord, User } from '../types';
+import { formatPhoneNumber } from '../phoneFormat';
+import { LiveCameraCapture } from './LiveCameraCapture';
+import { CropAdjustModal, rotateDataUrlByDegrees } from './CropAdjustModal';
+import { generateStandardCardImage } from '../cardImageGenerator';
+import { getContactGroupIds } from '../groupUtils';
+import { getContactImageProxyUrl } from '../imageProxy';
+import { GroupMultiSelect } from './GroupMultiSelect';
+import { generateContactVCardText, downloadContactVCard } from '../vcardUtils';
 
 interface Props {
   contact: BusinessCard | null;

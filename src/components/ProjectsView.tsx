@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem, ProjectCostSheet, ProjectCostSheetAmount, ProjectCostCategory, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER } from '../types.js';
+import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem, ProjectCostSheet, ProjectCostSheetAmount, ProjectCostCategory, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER } from '../types';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
-import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
-import { getTodayLocalStr } from '../dateUtils.js';
-import { formatPhoneNumber } from '../phoneFormat.js';
-import { ContactMultiSearchSelect } from './ContactPicker.js';
-import { AttendeeContactSearchAdd } from './AttendeeContactSearchAdd.js';
+import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal';
+import { LiveCameraCapture } from './LiveCameraCapture';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat';
+import { getTodayLocalStr } from '../dateUtils';
+import { formatPhoneNumber } from '../phoneFormat';
+import { ContactMultiSearchSelect } from './ContactPicker';
+import { AttendeeContactSearchAdd } from './AttendeeContactSearchAdd';
 
 // [추가] 전체 프로젝트 목록 인쇄는 공유 CSS(index.css)의 named page(@page 커스텀 이름 +
 // page 속성) 방식 대신, 별도의 새 창(window.open)에 이 표만 담긴 완전히 독립된 HTML
@@ -248,7 +248,7 @@ interface Props {
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   filterStatus: 'all' | Project['status'];
   setFilterStatus: (status: 'all' | Project['status']) => void;
-  currentUser?: import('../types.js').User | null;
+  currentUser?: import('../types').User | null;
   triggerNewProject?: number;
   // [수정] "새 프로젝트 등록" 버튼과 같은 위치(Navigation 상단바)에서 엑셀/PDF 버튼을 눌렀을 때
   // 신호를 받기 위한 트리거. triggerNewProject와 동일한 방식(숫자가 바뀔 때마다 실행)이다.
@@ -877,7 +877,7 @@ export const ProjectsView: React.FC<Props> = ({
     }
     fetch('/api/auth/users')
       .then((res) => res.json())
-      .then((allUsers: import('../types.js').User[]) => {
+      .then((allUsers: import('../types').User[]) => {
         const staff = allUsers.filter(
           (u) =>
             u.type === 'company' &&

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Search, User as UserIcon, Briefcase, Car, ClipboardList } from 'lucide-react';
-import { BusinessCard, Project, User as UserType, Vehicle } from '../types.js';
+import { BusinessCard, Project, User as UserType, Vehicle } from '../types';
 
 // [추가] "지금 확인한거 다 순차적으로 해줘"의 마지막 항목인 전역 검색. 명함/프로젝트는
 // App.tsx가 이미 들고 있는 상태를 그대로 재사용하고(중복 요청 없음), 차량/업무일지는
