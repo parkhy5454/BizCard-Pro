@@ -596,7 +596,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                         draggable={false}
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
+                      <div className="w-full h-full bg-gradient-to-tr from-slate-100 via-blue-50 to-sky-100 flex items-center justify-center">
                         <span className="text-4xl font-extrabold text-white/10 tracking-widest">{contact.company || 'BIZCARD'}</span>
                       </div>
                     );

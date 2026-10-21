@@ -3518,7 +3518,7 @@ export const ProjectsView: React.FC<Props> = ({
               { key: 'opportunity', label: '💡 기회', color: 'text-blue-400', barColor: 'bg-blue-500' },
               { key: 'progress', label: '⚡ 진행', color: 'text-amber-400', barColor: 'bg-amber-500' },
               { key: 'completed', label: '✅ 완료', color: 'text-emerald-400', barColor: 'bg-emerald-500' },
-              { key: 'failed', label: '❌ 실패', color: 'text-rose-400', barColor: 'bg-rose-500' }
+              { key: 'failed', label: '❌ 실패', color: 'text-rose-600', barColor: 'bg-rose-500' }
             ];
             const maxCount = Math.max(1, ...funnelStages.map((s) => byStatus[s.key].length));
 
@@ -3844,7 +3844,7 @@ export const ProjectsView: React.FC<Props> = ({
                     </div>
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      {proj.salesRep && <span className="text-[10px] bg-indigo-50 border border-indigo-500/30 text-indigo-700 px-2 py-0.5 rounded-md font-bold">영업자: {proj.salesRep}</span>}
+                      {proj.salesRep && <span className="text-[10px] bg-indigo-50 border border-blue-300 text-indigo-700 px-2 py-0.5 rounded-md font-bold">영업자: {proj.salesRep}</span>}
                       {/* [수정] "최종고객(발주처)"와 "시행사(발주처)"를 하나로 합쳐서 endCustomer
                       값을 직접 보여준다 (developer는 이제 endCustomer를 그대로 미러링하는
                       내부용 값이라 화면 표시는 endCustomer 기준으로 통일). */}
@@ -3877,7 +3877,7 @@ export const ProjectsView: React.FC<Props> = ({
                         if (proj.status === 'opportunity' || proj.status === 'progress') {
                           const { days, reason } = getDaysSinceLastActivity(proj);
                           const isOverdue = days >= 5;
-                          const iconColor = isOverdue ? 'text-rose-400' : 'text-amber-400';
+                          const iconColor = isOverdue ? 'text-rose-600' : 'text-amber-400';
                           const textColor = isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500';
                           return (
                             <span className={`flex items-center gap-1 ${textColor}`}>
@@ -4252,7 +4252,7 @@ export const ProjectsView: React.FC<Props> = ({
                                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
                                   </div>
                                   <div className="space-y-0.5">
-                                    <span className="text-[11px] font-bold text-rose-400">🎤 음성 메모 녹음 및 한글 음성 인식 가동 중...</span>
+                                    <span className="text-[11px] font-bold text-rose-600">🎤 음성 메모 녹음 및 한글 음성 인식 가동 중...</span>
                                     <div className="flex items-center gap-1">
                                       {/* 애니메이션 오디오 파형 */}
                                       {[...Array(6)].map((_, i) => (
@@ -4283,7 +4283,7 @@ export const ProjectsView: React.FC<Props> = ({
                                 </div>
                               </div>
                             ) : voiceAttached ? (
-                              <div className="mt-2 p-2 bg-indigo-950/40 border border-indigo-500/20 rounded-xl flex items-center justify-between text-[11px] text-indigo-600">
+                              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-[11px] text-indigo-600">
                                 <div className="flex items-center gap-2">
                                   <Volume2 className="w-3.5 h-3.5 text-indigo-400 animate-pulse animate-duration-1000" />
                                   <span className="font-semibold text-slate-700">🎤 음성 메모 녹음 첨부됨 ({attachedVoiceDuration})</span>
@@ -4315,7 +4315,7 @@ export const ProjectsView: React.FC<Props> = ({
                                       type="button"
                                       onClick={handleSummarizeMeeting}
                                       disabled={isSummarizing}
-                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-950/30 border border-slate-200 hover:border-indigo-500/30 text-indigo-600 text-[10px] font-semibold transition-colors disabled:opacity-50"
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-indigo-600 text-[10px] font-semibold transition-colors disabled:opacity-50"
                                     >
                                       {isSummarizing ? (
                                         <div className="w-3 h-3 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
@@ -4328,9 +4328,9 @@ export const ProjectsView: React.FC<Props> = ({
                                   <button
                                     type="button"
                                     onClick={startRecording}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-rose-950/30 border border-slate-200 hover:border-rose-900/30 text-rose-400 text-[10px] font-semibold transition-colors"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 text-[10px] font-semibold transition-colors"
                                   >
-                                    <Mic className="w-3 h-3 text-rose-400" />
+                                    <Mic className="w-3 h-3 text-rose-600" />
                                     <span>🎤 음성 메모 녹음</span>
                                   </button>
                                 </div>
@@ -4340,7 +4340,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                           {/* [수정] AI 정리 결과 제안 패널: 요약 적용 + 액션아이템 + 언급된 금액을 지출로 바로 추가 */}
                           {meetingAISuggestion && (
-                            <div className="bg-indigo-950/20 border border-indigo-500/30 rounded-2xl p-3.5 space-y-2.5 animate-fadeIn">
+                            <div className="bg-blue-50/60 border border-blue-300 rounded-2xl p-3.5 space-y-2.5 animate-fadeIn">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-bold text-indigo-600 flex items-center gap-1.5">
                                   <Sparkles className="w-3.5 h-3.5" />
@@ -4481,7 +4481,7 @@ export const ProjectsView: React.FC<Props> = ({
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex items-center gap-2.5 flex-wrap">
                                     {/* 차수 뱃지 */}
-                                    <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-500/30 font-bold text-[10px]">
+                                    <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-blue-300 font-bold text-[10px]">
                                       {fu.meetingDegree ? buildMeetingSequenceLabel(fu.meetingDegree, fu.meetingType || 'meeting') : '업무 기록'}
                                     </span>
                                     
@@ -4490,7 +4490,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                                     {/* 담당 직원 (우리 회사) */}
                                     {fu.internalStaffName && (
-                                      <span className="text-[11px] text-emerald-600 flex items-center gap-1 font-medium bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">
+                                      <span className="text-[11px] text-emerald-600 flex items-center gap-1 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                                         <User className="w-3 h-3 text-emerald-400 shrink-0" />
                                         <span className="text-[10px] text-emerald-400/80 mr-0.5">담당:</span> {fu.internalStaffName}
                                       </span>
@@ -4506,7 +4506,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                                     {/* 첨부파일 개수 */}
                                     {(fu.attachments || []).length > 0 && (
-                                      <span className="text-[10px] text-indigo-600 flex items-center gap-1 font-bold bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-500/20">
+                                      <span className="text-[10px] text-indigo-600 flex items-center gap-1 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                                         <Paperclip className="w-3 h-3" />
                                         첨부 {(fu.attachments || []).length}개
                                       </span>
@@ -4526,7 +4526,7 @@ export const ProjectsView: React.FC<Props> = ({
                                         setEditAttendeeOfficeInput('');
                                         setEditAttendeeMobileInput('');
                                       }}
-                                      className="p-1.5 rounded bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-700 border border-slate-200 hover:border-indigo-900/30 transition-all shadow"
+                                      className="p-1.5 rounded bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-700 border border-slate-200 hover:border-blue-300 transition-all shadow"
                                       title="기록 수정"
                                     >
                                       <Edit2 className="w-3.5 h-3.5" />
@@ -4586,7 +4586,7 @@ export const ProjectsView: React.FC<Props> = ({
 
                                 {/* 비용 지출 내역 */}
                                 {(fu.expenses || []).length > 0 && (
-                                  <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-2.5 space-y-1" onClick={(e) => e.stopPropagation()}>
+                                  <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-2.5 space-y-1" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold">
                                       <Receipt className="w-3 h-3" />
                                       <span>비용 지출 {(fu.expenses || []).length}건</span>
@@ -5283,7 +5283,7 @@ export const ProjectsView: React.FC<Props> = ({
               </div>
 
               {editProjectSaveError && (
-                <div className="text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 text-[11px]">
+                <div className="text-rose-600 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 text-[11px]">
                   ⚠️ {editProjectSaveError}
                 </div>
               )}
@@ -5523,7 +5523,7 @@ export const ProjectsView: React.FC<Props> = ({
                 {renderExpenseSection(fu.expenses || [], editExpensesSetter)}
 
                 {followupSaveError && (
-                  <div className="text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 text-[11px]">
+                  <div className="text-rose-600 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 text-[11px]">
                     ⚠️ {followupSaveError}
                   </div>
                 )}
@@ -5619,7 +5619,7 @@ export const ProjectsView: React.FC<Props> = ({
           <div className="w-full max-w-[320mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
+                <div className="p-2 rounded-xl bg-indigo-50 border border-blue-200 text-indigo-700">
                   <FileText className="w-5 h-5" />
                 </div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">전체 프로젝트 목록 미리보기 (총 {filteredProjects.length}건)</h2>
