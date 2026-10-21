@@ -401,3 +401,19 @@ html, body, #root { height: 100%; }
   main { overflow: visible !important; }
 }
 
+/* [추가] 휴대폰(767px 이하) 글자 크기와 대비. PC 화면에는 영향이 없다. */
+@media (max-width: 767px) {
+  /* 1) 아주 작은 글자(9~11px)는 모두 12px 이상으로 */
+  .text-\[9px\], .text-\[10px\], .text-\[11px\],
+  [class*="text-[9px]"], [class*="text-[10px]"], [class*="text-[11px]"] {
+    font-size: 12px !important;
+  }
+  /* 2) 기본 글자 단계를 한 단계씩 키운다 (text-xs 12→13px, text-sm 14→15px) */
+  .text-xs { font-size: 13px; }
+  .text-sm { font-size: 15px; }
+  /* 하단 탭 글자는 13px로 읽기 쉽게 */
+  .fixed.bottom-0 .text-\[11px\], .fixed.bottom-0 .text-sm { font-size: 13px !important; }
+  /* 3) 연한 회색 글자는 휴대폰에서 한 단계 진하게 (밝은 배경 대비 확보) */
+  .text-slate-400 { color: var(--color-slate-500); }
+}
+
