@@ -418,5 +418,5 @@ html, body, #root { height: 100%; }
 }
 
 
-/* 앱 전체 바탕: 흰 카드가 떠 보이도록 연회색 바탕 (캡처한 앱과 같은 구성) */
-.app-shell { background-color: #F2F4F7; }
+/* 앱 전체 바탕: 흰색. 카드는 얇은 테두리와 그림자로 구분된다 */
+.app-shell { background-color: #FFFFFF; }
