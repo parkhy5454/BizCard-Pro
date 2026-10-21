@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import '@techstark/opencv-js';
 import { Check, RotateCcw, X } from 'lucide-react';
 // [추가] 색상/윤곽선 규칙을 사람이 손으로 정하는 OpenCV 방식은, 나무 무늬 배경처럼
 // 밝기가 들쭉날쭉한 배경에서 실제 명함 테두리와 배경을 구분 못 하는 근본적인 한계가
@@ -293,8 +294,7 @@ const loadOpenCv = (): Promise<any> => {
 
   const loadTask = (async () => {
     // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
-    const mod: any = await import('@techstark/opencv-js');
-    let cv = (mod && (mod.default ?? mod)) as any;
+let cv = window.cv || (globalThis as any).cv;
     if (cv && typeof cv.then === 'function') {
       cv = await cv;
     } else if (cv && !cv.Mat) {

@@ -12,6 +12,7 @@
 export type Point = [number, number];
 export type Quad = [Point, Point, Point, Point]; // [좌상, 우상, 우하, 좌하] 순서
 
+import '@techstark/opencv-js';
 export interface DetectedQuad {
   points: Quad;
   areaRatio: number; // 프레임 전체 넓이 대비 감지된 사각형 넓이 비율 (0~1)
@@ -32,8 +33,7 @@ export function loadOpenCv(): Promise<any> {
 
   const attemptLoad = async (): Promise<any> => {
     // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
-    const mod: any = await import('@techstark/opencv-js');
-    let cv = (mod && (mod.default ?? mod)) as any;
+let cv = window.cv || (globalThis as any).cv;
 
     // 이 패키지는 cv 자체가 Promise이거나(WASM 런타임 초기화까지 기다리는 형태),
     // 이미 준비된 객체이거나, onRuntimeInitialized 콜백을 기다려야 하는 경우가 있다.
