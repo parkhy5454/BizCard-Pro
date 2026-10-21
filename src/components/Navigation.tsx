@@ -792,26 +792,26 @@ export const Navigation: React.FC<Props> = ({
             </button>
 
             {/* 5. 더보기 버튼 */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleMoreMenuToggle();
-              }}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                isMoreMenuOpen
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <span>더보기</span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-          </nav>
+            <div className="relative z-50">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleMoreMenuToggle();
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  isMoreMenuOpen
+                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>더보기</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-          {/* 드롭다운 메뉴 (nav 밖으로 이동) */}
-          {isMoreMenuOpen && (
-            <div className="absolute left-2 bottom-20 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+              {/* 드롭다운 메뉴 */}
+              {isMoreMenuOpen && (
+                <div className="absolute right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
                   {/* 업무일지 */}
                   <button
                     onClick={() => {
@@ -975,8 +975,10 @@ export const Navigation: React.FC<Props> = ({
                     <MessageCircleQuestion className="w-4 h-4" />
                     <span>문의하기</span>
                   </button>
+                </div>
+              )}
             </div>
-          )}
+          </nav>
 
           {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이
           똑같은 알약형 버튼 스타일이라 구분이 잘 안 된다는 지적이 있었다. 하위 줄이 있는
