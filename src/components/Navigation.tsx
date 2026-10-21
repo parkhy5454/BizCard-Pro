@@ -702,7 +702,7 @@ export const Navigation: React.FC<Props> = ({
 
           {/* 2. 그룹 필터 칩 섹션 */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
-            <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">그룹필터:</span>
+            <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">그룹:</span>
             <button
               onClick={() => setSelectedGroup('all')}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
@@ -1058,7 +1058,7 @@ export const Navigation: React.FC<Props> = ({
           {/* 그룹 칩 필터링 (명함은 상단으로 이동) */}
           {['groups', 'io', 'nearby'].includes(activeTab) && (
             <div className="flex items-center gap-1.5 overflow-x-auto w-full">
-              <span className="text-xs text-slate-500 mr-1 hidden lg:inline">그룹필터:</span>
+              <span className="text-xs text-slate-500 mr-1 hidden lg:inline">그룹:</span>
               <button
                 onClick={() => setSelectedGroup('all')}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
