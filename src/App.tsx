@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BusinessCard, ContactGroup, Project, User } from './types.js';
 import { getContactGroupIds, contactHasGroup } from './groupUtils.js';
 import { Navigation } from './components/Navigation.js';
@@ -76,6 +76,8 @@ export default function App() {
   // 다시 마운트시켜서(=완전히 새로 시작) 아이폰에서 상태바를 눌러 맨 위로 가는 것과
   // 비슷한 효과를 낸다.
   const [viewResetNonce, setViewResetNonce] = useState<number>(0);
+  // [추가] 본문 스크롤 영역(main). 화면 전체가 아니라 이 영역만 스크롤된다.
+  const mainScrollRef = useRef<HTMLElement>(null);
   // [수정] Navigation의 "엑셀 다운로드"/"PDF 인쇄" 버튼 신호를 ProjectsView로 전달하기 위한 트리거
   const [triggerProjectsExcelExport, setTriggerProjectsExcelExport] = useState<number>(0);
   const [triggerProjectsPrintPreview, setTriggerProjectsPrintPreview] = useState<number>(0);
@@ -510,7 +512,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
+    <div className="app-shell h-[100dvh] overflow-hidden bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
       
       {/* 상단 통합 헤더 & 내비게이션 */}
       <Navigation
@@ -555,12 +557,12 @@ export default function App() {
           // 컴포넌트 재마운트는 그 컴포넌트 내부 상태만 초기화할 뿐, 페이지 자체가 아래로
           // 스크롤돼 있는 것까지는 되돌리지 않는다. 아이폰 상태바 탭처럼 "맨 위로" 가려면
           // 창 스크롤 위치도 같이 올려줘야 한다.
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 
       {/* 바디 메인 영역 */}
-      <main key={activeTab} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 animate-tab-in">
+      <main ref={mainScrollRef} key={activeTab} className="min-h-0 flex-1 overflow-y-auto overscroll-contain w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24 animate-tab-in">
         
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center space-y-4">

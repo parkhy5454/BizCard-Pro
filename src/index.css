@@ -391,3 +391,13 @@ button, a, [role="button"], label {
   }
 }
 
+/* [추가] 앱 셸: 화면 전체는 고정되고, 가운데 본문(main)만 스크롤된다.
+   상단 바와 하단 탭은 항상 그 자리에 있어서 앱처럼 보인다. */
+html, body, #root { height: 100%; }
+
+/* 인쇄할 때는 고정 높이/숨김을 풀어서 내용 전체가 나오게 한다 */
+@media print {
+  html, body, #root, .app-shell { height: auto !important; overflow: visible !important; }
+  main { overflow: visible !important; }
+}
+

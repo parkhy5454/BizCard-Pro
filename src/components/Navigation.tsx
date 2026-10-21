@@ -288,7 +288,7 @@ export const Navigation: React.FC<Props> = ({
     만들어서, 실선 구분선(border-b)이 있는데도 그 아래가 회색 그라데이션처럼 보인다는
     지적이 있었다. 실선 구분선만으로 충분히 구분되므로 그림자를 없애고 그 아래 영역이
     바로 깔끔한 흰색이 되도록 한다. */}
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 pt-[env(safe-area-inset-top)]">
+    <header className="shrink-0 sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* [수정] 상단 바는 모든 화면 크기에서 한 줄: 로고 / (데스크톱 명함 검색) / 전체검색·알림·계정.
         회사 배너와 계정 기능(구독·백업·로그아웃·탈퇴)은 우측 계정(아바타) 메뉴로 모았다. */}
@@ -441,7 +441,7 @@ export const Navigation: React.FC<Props> = ({
 
     {/* [추가] 프로젝트 탭일 때 상단에 고정되는 뷰 모드 탭 (카드/리스트/파이프라인/원가계산서) */}
     {activeTab === 'projects' && (
-      <div className="sticky top-[var(--header-height,64px)] z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 뷰 모드 탭 섹션 */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
@@ -600,7 +600,7 @@ export const Navigation: React.FC<Props> = ({
 
     {/* [추가] 명함 탭일 때 상단에 고정되는 액션 버튼 및 그룹 필터 */}
     {activeTab === 'cards' && (
-      <div className="sticky top-[var(--header-height,64px)] z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 액션 버튼 섹션 */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
