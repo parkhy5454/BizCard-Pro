@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Building2, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Phone, MapPin, Building2, Save, CheckCircle } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
 interface Props {
@@ -26,6 +26,17 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
+  // [추가] currentUser가 변경되면 formData도 업데이트 (저장 후 값이 돌아가는 문제 해결)
+  useEffect(() => {
+    setFormData({
+      name: currentUser.name || '',
+      email: currentUser.email || '',
+      phone: currentUser.phone || '',
+      location: currentUser.location || '',
+      company: currentUser.company || '',
+    });
+  }, [currentUser.id]);
+
   const handleInputChange = (field: string, value: string) => {
     if (field === 'phone') {
       setFormData(prev => ({ ...prev, [field]: formatPhoneNumber(value) }));
@@ -39,11 +50,13 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
     setSaveMessage('');
     try {
       await onUpdate(formData);
-      setSaveMessage('프로필이 저장되었습니다.');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setSaveMessage('success');
+      // 2초 후 메시지 사라짐 (좀 더 오래 표시)
+      setTimeout(() => setSaveMessage(''), 2000);
     } catch (error) {
-      setSaveMessage('저장에 실패했습니다.');
+      setSaveMessage('error');
       console.error('Profile save error:', error);
+      setTimeout(() => setSaveMessage(''), 3000);
     } finally {
       setIsSaving(false);
     }
@@ -162,14 +175,23 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
             />
           </div>
 
-          {/* 메시지 표시 */}
+          {/* 메시지 표시 - 저장 성공/실패 */}
           {saveMessage && (
-            <div className={`p-3 rounded-lg text-sm font-medium ${
-              saveMessage.includes('저장되었습니다') 
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                : 'bg-rose-50 text-rose-700 border border-rose-200'
+            <div className={`p-4 rounded-lg text-sm font-semibold flex items-center gap-2 animate-pulse ${
+              saveMessage === 'success'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                : 'bg-rose-50 text-rose-700 border border-rose-300'
             }`}>
-              {saveMessage}
+              {saveMessage === 'success' ? (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  <span>✅ 프로필이 저장되었습니다!</span>
+                </>
+              ) : (
+                <>
+                  <span>❌ 저장에 실패했습니다. 다시 시도해주세요.</span>
+                </>
+              )}
             </div>
           )}
 
