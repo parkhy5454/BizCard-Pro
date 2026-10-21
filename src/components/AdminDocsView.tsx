@@ -1,0 +1,10260 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import * as XLSX from 'xlsx';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye } from 'lucide-react';
+import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
+import { ReceiptScanModal } from './ReceiptScanModal.js';
+
+interface Props {
+  section: AdminDocSection;
+  currentUser: User | null;
+  projects: Project[];
+}
+
+// [수정] datalist 자동완성은 브라우저마다 동작이 다르고(포커스만으론 후보가 안 뜨는 경우도
+// 있어) 눈에 잘 안 띈다는 피드백이 있었다. 명함/프로젝트 담당자 선택에 쓰던 것과 같은,
+// 눈에 보이는 드롭다운 방식으로 바꾼다 - 입력칸에 포커스하면 바로 등록 차량 목록이 펼쳐지고,
+// 타이핑하면 그 목록이 실시간으로 좁혀지며(자유 입력도 그대로 유지), 목록에서 고르면 선택된다.
+interface VehicleSearchInputProps {
+  vehicles: Vehicle[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+  inputClassName?: string;
+}
+
+const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value, onChange, placeholder, className, inputClassName }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const labelOf = (v: Vehicle) => `${v.modelName} (${v.plateNumber})`;
+  const q = value.toLowerCase();
+  const filtered = vehicles
+    .filter((v) => !q || v.modelName.toLowerCase().includes(q) || v.plateNumber.toLowerCase().includes(q) || (v.owner || '').toLowerCase().includes(q))
+    .slice(0, 30);
+
+  return (
+    <div ref={wrapRef} className={`relative ${className || ''}`}>
+      <input
+        type="text"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        placeholder={placeholder}
+        className={inputClassName || 'w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500'}
+      />
+      {open && vehicles.length > 0 && (
+        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-slate-400 text-center py-3">일치하는 등록 차량이 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
+            ) : (
+              filtered.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => { onChange(labelOf(v)); setOpen(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-indigo-50 flex items-center gap-1.5 ${labelOf(v) === value ? 'bg-indigo-50' : ''}`}
+                >
+                  <Car className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span className="font-medium text-slate-700 truncate">{v.modelName}</span>
+                  <span className="text-slate-400 truncate">({v.plateNumber})</span>
+                  {labelOf(v) === value && <Check className="w-3 h-3 text-indigo-600 ml-auto shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// [추가] 통장 입금/카드 사용 내역의 "프로젝트" 칸을 - 자유 입력 텍스트가 아니라 - 등록된
+// 프로젝트 목록에서 골라 연결할 수 있게 하는 입력칸. VehicleSearchInput과 같은 방식(포커스
+// 시 목록이 펼쳐지고, 타이핑하면 좁혀지며, 자유 입력도 그대로 허용)이지만, 목록에서 실제로
+// 골랐을 때는 표시 이름뿐 아니라 Project.id도 함께 알려줘야 프로젝트 손익계산서에서 정확히
+// 집계할 수 있다 - 그래서 onChange가 (표시 이름, 선택한 경우의 projectId) 두 값을 넘긴다.
+// 직접 타이핑만 하고 목록에서 고르지 않으면 projectId는 undefined로 넘어간다(미매칭 처리).
+interface ProjectSearchInputProps {
+  projects: Project[];
+  value: string;
+  onChange: (name: string, projectId?: string) => void;
+  placeholder?: string;
+  className?: string;
+  inputClassName?: string;
+}
+
+const ProjectSearchInput: React.FC<ProjectSearchInputProps> = ({ projects, value, onChange, placeholder, className, inputClassName }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const q = value.toLowerCase();
+  const filtered = projects
+    .filter((p) => !q || p.name.toLowerCase().includes(q))
+    .slice(0, 30);
+
+  return (
+    <div ref={wrapRef} className={`relative ${className || ''}`}>
+      <input
+        type="text"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value, undefined); setOpen(true); }}
+        placeholder={placeholder}
+        className={inputClassName || 'w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500'}
+      />
+      {open && projects.length > 0 && (
+        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-slate-400 text-center py-3">일치하는 프로젝트가 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
+            ) : (
+              filtered.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => { onChange(p.name, p.id); setOpen(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-indigo-50 flex items-center gap-1.5 ${p.name === value ? 'bg-indigo-50' : ''}`}
+                >
+                  <span className="font-medium text-slate-700 truncate">{p.name}</span>
+                  {p.name === value && <Check className="w-3 h-3 text-indigo-600 ml-auto shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// [추가] 차량 과태료 "내용(위반 상세)"에서 자주 쓰는 항목을 골라 쓰거나, 직접 입력한 값도
+// (호출하는 쪽에서 저장된 데이터로부터 모아서) 다음부터 목록에 나타나 선택할 수 있게 하는
+// 범용 자동완성 입력칸. VehicleSearchInput과 같은 방식이지만 옵션이 문자열 목록이면 어디든
+// 재사용할 수 있게 일반화했다.
+const VEHICLE_FINE_DETAIL_PRESETS = [
+  '주정차 위반',
+  '신호 위반',
+  '어린이보호구역 내 속도 위반',
+  '통행료 미정산',
+  '안전지대 등 진입금지 위반',
+  '단말기 미부착',
+];
+
+// [추가] 인센티브(상여금) - "지급 내역" 드롭다운에서 고를 수 있는 기본 항목 순서.
+// 이 목록에 없는 값(=직접 입력한 값)이 저장돼 있으면 드롭다운은 "직접 입력"을 고른
+// 것으로 보여주고, 그 값을 자유 입력칸에 그대로 채워서 계속 고칠 수 있게 한다.
+const INCENTIVE_METHOD_PRESETS = ['현금', '상품권', '선물', '신용카드', '기타'] as const;
+// 위 기본 목록에 없는 값(빈 값 포함)은 전부 "직접 입력"으로 취급한다.
+const isIncentiveMethodCustom = (method: string): boolean => !(INCENTIVE_METHOD_PRESETS as readonly string[]).includes(method);
+
+// [추가] 해외 출장 경비 - "사용구분" 드롭다운 기본 항목 순서(공유해주신 양식과 동일한 순서).
+// 이 목록에 없는 값(=직접 입력한 값)은 "직접 입력"을 고른 것으로 보여준다.
+const OVERSEAS_TRIP_CATEGORY_PRESETS = ['항공료', '숙박비', '식비', '교통비', '환전 비용', '직원 선물', '기타'] as const;
+const isOverseasTripCategoryCustom = (category: string): boolean => !(OVERSEAS_TRIP_CATEGORY_PRESETS as readonly string[]).includes(category);
+// [추가] 해외 출장 경비 - "지급방법" 드롭다운 기본 항목.
+const OVERSEAS_TRIP_PAY_METHOD_PRESETS = ['신용카드', '현금'] as const;
+const isOverseasTripPayMethodCustom = (payMethod: string): boolean => !(OVERSEAS_TRIP_PAY_METHOD_PRESETS as readonly string[]).includes(payMethod);
+// [추가] 해외 출장 경비 - 항목이 "어느 해 출장 경비"로 잡힐지 판단하는 연도. 전시회가
+// 다음 해 초라 항공권 등을 그 전 해 말에 미리 결제하는 경우, 실제 결제일(date)의 연도와
+// 이 경비가 귀속될 연도(fiscalYear)가 다를 수 있다. fiscalYear를 직접 지정해뒀으면 그 값을,
+// 비어있으면 결제일(또는 문서 기준일)의 연도를 그대로 쓴다. 연도 목록/연도별 모아보기 모두
+// 이 함수 하나로 통일해서, "어느 연도로 잡히는지"가 항상 한 곳(이 함수)에서만 결정되게 한다.
+const overseasTripEntryYear = (e: { date?: string; fiscalYear?: string }, docDate?: string): string =>
+  (e.fiscalYear && e.fiscalYear.trim()) || (e.date || docDate || '').slice(0, 4);
+
+interface SuggestTextInputProps {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+const SuggestTextInput: React.FC<SuggestTextInputProps> = ({ options, value, onChange, placeholder, className }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const q = value.toLowerCase();
+  const filtered = options.filter((o) => !q || o.toLowerCase().includes(q)).slice(0, 30);
+
+  return (
+    <div ref={wrapRef} className={`relative ${className || ''}`}>
+      <input
+        type="text"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        placeholder={placeholder}
+        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+      />
+      {open && options.length > 0 && (
+        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-slate-400 text-center py-3">일치하는 항목이 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
+            ) : (
+              filtered.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => { onChange(o); setOpen(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 text-[11px] hover:bg-indigo-50 ${o === value ? 'bg-indigo-50 font-medium text-indigo-700' : 'text-slate-700'}`}
+                >
+                  {o}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// [추가] 카드번호 입력칸(법인카드 관리/카드사용내역 공용) - 숫자만 입력받아 "0000-0000-0000-0000"
+// 형태로 4자리마다 자동으로 하이픈을 넣어준다.
+function formatCardNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 16);
+  return digits.replace(/(\d{4})(?=\d)/g, '$1-');
+}
+
+// [추가] 연차 현황 - 휴가일 한 건(시작일~종료일)을 표에 보여줄 짧은 텍스트로 바꾼다.
+// 하루짜리는 "01월 02일", 같은 달 안에서 며칠 걸치면 "02월 02~06일", 달이 다르면
+// "02.28~03.02"처럼 점으로 구분해서 보여준다.
+function formatAnnualLeaveRange(startDate?: string, endDate?: string): string {
+  if (!startDate) return '';
+  const s = startDate.split('-');
+  if (s.length < 3) return startDate;
+  const [sYY, sMM, sDD] = s;
+  if (!endDate || endDate === startDate) return `${sMM}월 ${sDD}일`;
+  const e = endDate.split('-');
+  if (e.length < 3) return `${sMM}월 ${sDD}일~${endDate}`;
+  const [eYY, eMM, eDD] = e;
+  if (eYY === sYY && eMM === sMM) return `${sMM}월 ${sDD}~${eDD}일`;
+  return `${sMM}.${sDD}~${eMM}.${eDD}`;
+}
+
+// [추가] 연차 현황 - 직원 한 명의 표 안 "데이터 행" 개수. 연차 사용/휴일근무/대체휴가 세
+// 목록의 길이가 서로 다를 수 있어(예: 연차는 5건인데 휴일근무는 2건), 가장 긴 목록 기준으로
+// 행 수를 잡고 짧은 목록은 그만큼 빈 칸으로 둔다. 한 건도 없어도 최소 1행은 보여준다.
+function annualLeavePersonRowCount(p: { leaveEntries: any[]; overtimeEntries: any[]; substituteEntries: any[] }): number {
+  return Math.max(1, p.leaveEntries.length, p.overtimeEntries.length, p.substituteEntries.length);
+}
+function annualLeaveUsedTotal(p: { leaveEntries: { days: number }[] }): number {
+  return p.leaveEntries.reduce((s, e) => s + (Number(e.days) || 0), 0);
+}
+function annualLeaveRemaining(p: { totalAnnualDays: number; leaveEntries: { days: number }[] }): number {
+  return (Number(p.totalAnnualDays) || 0) - annualLeaveUsedTotal(p);
+}
+function annualLeaveOvertimeHoursTotal(p: { overtimeEntries: { hours?: number }[] }): number {
+  return p.overtimeEntries.reduce((s, e) => s + (Number(e.hours) || 0), 0);
+}
+function annualLeaveOvertimePeriodTotal(p: { overtimeEntries: { periodDays?: number }[] }): number {
+  return p.overtimeEntries.reduce((s, e) => s + (Number(e.periodDays) || 0), 0);
+}
+
+// [추가] 연차 현황 - "총 년차일수"를 입사일 기준으로 근로기준법 표준 규정에 맞춰 자동
+// 계산한다. 근속 1년 미만은 개근한 달마다 1일(최대 11일), 1년 이상은 15일에 매 2년마다
+// 1일씩 가산(최대 25일)하는 방식 - 실무에서 가장 널리 쓰이는 "입사일 기준" 계산법이다.
+// 회사마다 실제 부여 기준이 조금씩 다를 수 있어(자체 정책, 특별 가산 등) 어디까지나
+// 기본값 계산이고, 계산 후에도 총년차일수는 직접 고칠 수 있게 해준다.
+function calcStatutoryAnnualLeaveDays(hireDate: string, targetYear: string): number | null {
+  if (!hireDate || !targetYear) return null;
+  const parts = hireDate.split('-');
+  if (parts.length < 3) return null;
+  const hireYear = Number(parts[0]);
+  const hireMonth = Number(parts[1]);
+  const hireDay = Number(parts[2]);
+  const ty = Number(targetYear);
+  if (!hireYear || !hireMonth || !hireDay || !ty) return null;
+
+  const years = ty - hireYear;
+  if (years < 0) return null; // 입사 전 연도
+  if (years === 0) {
+    // 입사한 해 자체: 그 해 안에서 개근한 달 수(최대 11개월 → 11일)만큼만 발생한다.
+    // 12월 입사 등 아직 한 달도 안 채웠으면 0일.
+    const monthsElapsed = Math.max(0, 12 - hireMonth) + (hireDay === 1 ? 1 : 0);
+    return Math.min(11, monthsElapsed);
+  }
+  // 근속 1년 이상 - 15일 + 3년차부터 매 2년마다 1일 가산, 최대 25일
+  const bonus = Math.floor((years - 1) / 2);
+  return Math.min(25, 15 + bonus);
+}
+
+// [추가] 경영지원/회계관리 각 섹션의 서브 탭(서류 종류) 정의. 종류마다 필요한 항목이 조금씩
+// 다르지만(예: 근로계약서엔 "직원명"이 중요하고, 통장 출금 내역엔 "금액"이 중요하다), 화면은
+// 하나의 공용 폼(제목/날짜/관련자/금액/메모/첨부파일)을 그대로 쓰고 라벨과 플레이스홀더만
+// 종류별로 다르게 보여준다.
+const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: string; personLabel: string; showAmount: boolean }[]> = {
+  management: [
+    { id: 'labor_contract', label: '근로계약서', personLabel: '직원명', showAmount: false },
+    { id: 'salary_agreement', label: '연봉협약서', personLabel: '직원명', showAmount: true },
+    { id: 'employment_cert', label: '재직증명서', personLabel: '직원명', showAmount: false },
+    { id: 'annual_leave_status', label: '연차 현황', personLabel: '', showAmount: false },
+    { id: 'power_of_attorney', label: '위임장', personLabel: '위임받는 사람', showAmount: false },
+    { id: 'office_supplies', label: '사무실 비품 관리', personLabel: '담당자/비품명', showAmount: true },
+    { id: 'sales_contract', label: '영업 계약', personLabel: '거래처명', showAmount: true },
+    { id: 'corp_card', label: '법인카드 관리', personLabel: '카드 소지자', showAmount: true },
+    { id: 'cash_flow', label: '현금 흐름', personLabel: '', showAmount: false }
+  ],
+  accounting: [
+    { id: 'payslip', label: '급여명세서', personLabel: '직원명', showAmount: true },
+    { id: 'severance', label: '퇴직금 정산', personLabel: '직원명', showAmount: true },
+    { id: 'monthly_cashflow', label: '월별 자금 현황', personLabel: '작성자', showAmount: true },
+    { id: 'bank_withdrawal', label: '통장 출금 내역', personLabel: '거래처/적요', showAmount: true },
+    { id: 'bank_deposit', label: '통장 입금 내역', personLabel: '거래처/적요', showAmount: true },
+    { id: 'loan_repayment', label: '대출 현황', personLabel: '금융기관', showAmount: true },
+    { id: 'card_usage', label: '카드사용내역', personLabel: '카드 소지자', showAmount: true },
+    { id: 'advance_payment', label: '가지급내역', personLabel: '인원', showAmount: true },
+    { id: 'vehicle_fine', label: '차량 과태료 내역', personLabel: '차량', showAmount: true },
+    { id: 'tax', label: '각종 세금', personLabel: '내역', showAmount: true },
+    { id: 'management_fee', label: '관리비내역', personLabel: '호실', showAmount: true },
+    { id: 'incentive', label: '인센티브(상여금)', personLabel: '수령자', showAmount: true },
+    { id: 'overseas_trip', label: '해외 출장 경비', personLabel: '사용자', showAmount: true }
+  ]
+};
+
+const SECTION_LABEL: Record<AdminDocSection, string> = {
+  management: '경영지원',
+  accounting: '회계관리'
+};
+
+// [추가] 4대보험·지방소득세 공제율 기본값 (2026년 기준, 근로자 부담분). 국세청/공단 요율은
+// 매년 바뀌기 때문에, 이 값은 어디까지나 "처음 열었을 때 채워지는 기본값"일 뿐이고 화면에서
+// 언제든 직접 고쳐서 쓸 수 있다. 마지막으로 쓴 값은 브라우저(localStorage)에 저장해뒀다가
+// 다음에 급여명세서를 새로 만들 때 그대로 불러온다.
+const DEFAULT_RATES = {
+  pensionRate: 4.75,
+  healthRate: 3.595,
+  ltcRate: 13.14,
+  employmentRate: 0.9,
+  localTaxRate: 10
+};
+const RATES_STORAGE_KEY = 'bizcard_payslip_rates';
+
+function loadSavedRates(): typeof DEFAULT_RATES {
+  try {
+    const raw = localStorage.getItem(RATES_STORAGE_KEY);
+    if (!raw) return DEFAULT_RATES;
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_RATES, ...parsed };
+  } catch {
+    return DEFAULT_RATES;
+  }
+}
+
+const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
+  category,
+  title: '',
+  date: getTodayLocalStr(),
+  personName: '',
+  amount: '',
+  memo: '',
+  attachments: [],
+  // [추가] 급여명세서용 기본값. 다른 서류에서는 그냥 안 쓰이고 무시된다.
+  // 지급/공제 내역은 회사에서 거의 항상 쓰는 항목들을 미리 깔아두고, 필요하면 "항목 추가"로
+  // 더 늘리거나 X로 지워서 쓸 수 있게 한다 — 매번 기본급부터 손으로 다 치는 걸 줄여준다.
+  // 식대·차량유지비는 비과세 항목이라 4대보험 계산 기준(과세 대상 급여)에서 빠지도록
+  // taxable: false로 시작한다.
+  payslip: category === 'payslip' ? {
+    payMonth: getTodayLocalStr().slice(0, 7),
+    paymentDate: getTodayLocalStr(),
+    payItems: [
+      { id: `li-${Date.now()}-1`, label: '기본급', amount: 0, taxable: true },
+      { id: `li-${Date.now()}-2`, label: '연장수당', amount: 0, taxable: true },
+      { id: `li-${Date.now()}-3`, label: '식대', amount: 0, taxable: false },
+      { id: `li-${Date.now()}-4`, label: '차량유지비', amount: 0, taxable: false }
+    ],
+    deductionItems: [
+      { id: `li-${Date.now()}-5`, label: '국민연금', amount: 0 },
+      { id: `li-${Date.now()}-6`, label: '건강보험', amount: 0 },
+      { id: `li-${Date.now()}-7`, label: '장기요양보험료', amount: 0 },
+      { id: `li-${Date.now()}-8`, label: '고용보험', amount: 0 },
+      { id: `li-${Date.now()}-9`, label: '소득세', amount: 0 },
+      { id: `li-${Date.now()}-10`, label: '지방소득세', amount: 0 }
+    ],
+    rates: loadSavedRates()
+  } : undefined,
+  // [추가] 월별 자금 현황 기본값. 통장 하나를 빈 줄로 미리 하나 넣어두고, "계좌 추가"로
+  // 늘릴 수 있게 한다. periodStart/End는 선택한 date의 월 시작~끝으로 기본값을 잡는다.
+  cashflow: category === 'monthly_cashflow' ? (() => {
+    const now = new Date();
+    const start = dateToLocalStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    const end = dateToLocalStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    return {
+      periodStart: start,
+      periodEnd: end,
+      accounts: [{ id: `acc-${Date.now()}`, bankName: '', accountNumber: '', subCategory: '', broughtForward: 0, deposit: 0, withdrawal: 0, note: '' }]
+    };
+  })() : undefined,
+  // [추가] 통장 출금/입금 내역 기본값 - 두 카테고리 공용. 계좌 하나에 빈 거래 한 줄을
+  // 미리 넣어두고, "계좌 추가"/"거래 추가"로 늘릴 수 있게 한다.
+  bankLedger: (category === 'bank_withdrawal' || category === 'bank_deposit') ? {
+    accounts: [{
+      id: `bacc-${Date.now()}`,
+      bankName: '',
+      accountNumber: '',
+      subCategory: '',
+      entries: [{ id: `be-${Date.now()}`, date: getTodayLocalStr(), project: '', amount: 0, description: '', note: '' }]
+    }]
+  } : undefined,
+  // [추가] 대출 현황 기본값. 대출 하나를 빈 줄로 미리 넣어두고, "대출 추가"로 늘릴 수 있게 한다.
+  loanRepayment: category === 'loan_repayment' ? {
+    loans: [{
+      id: `loan-${Date.now()}`,
+      loanName: '',
+      loanAccount: '',
+      initialAmount: 0,
+      initialRate: 0,
+      currentRate: 0,
+      loanDate: '',
+      maturityDate: '',
+      paymentDay: '',
+      balance: 0,
+      principalPaid: 0,
+      interestPaid: 0,
+      withdrawBank: '',
+      withdrawAccount: '',
+      isRepaid: false
+    }]
+  } : undefined,
+  // [추가] 법인카드 사용내역 기본값. 카드 하나에 빈 사용 내역 한 줄을 미리 넣어두고,
+  // "카드 추가"/"내역 추가"로 늘릴 수 있게 한다.
+  cardUsage: category === 'card_usage' ? {
+    cards: [{
+      id: `card-${Date.now()}`,
+      cardName: '',
+      cardNumber: '',
+      holder: '',
+      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: getTodayLocalStr(), project: '', user: '', note: '' }]
+    }]
+  } : undefined,
+  // [추가] 법인카드 관리(월별 카드별 사용 요약) 기본값. 카드 한 장을 빈 줄로 미리 넣어두고
+  // "카드 추가"로 늘릴 수 있게 한다.
+  corpCard: category === 'corp_card' ? {
+    yearMonth: getTodayLocalStr().slice(0, 7),
+    cards: [{
+      id: `cc-${Date.now()}`,
+      cardCompany: '', cardNumber: '', expiry: '', user: '', periodLabel: '', paymentDay: '',
+      amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
+    }]
+  } : undefined,
+  // [추가] 가지급내역 기본값. 공유해주신 양식과 동일하게 12개월 행을 미리 다 채워두고
+  // (연중 아무 때나 열어도 1~12월이 다 보이게), 인원(열)은 빈 칸 하나만 두고 "인원 추가"로
+  // 늘려서 회사 상황에 맞는 이름을 직접 입력하게 한다.
+  advancePayment: category === 'advance_payment' ? (() => {
+    const year = new Date().getFullYear();
+    return {
+      people: [{ id: `person-${Date.now()}`, name: '' }],
+      months: Array.from({ length: 12 }, (_, i) => {
+        const mm = String(i + 1).padStart(2, '0');
+        return {
+          id: `apm-${Date.now()}-${i}`,
+          monthKey: `${year}-${mm}`,
+          label: `${mm}월`,
+          depositDate: '',
+          amounts: {},
+          note: ''
+        };
+      })
+    };
+  })() : undefined,
+  // [추가] 차량 과태료 내역 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  vehicleFine: category === 'vehicle_fine' ? {
+    entries: [{ id: `vf-${Date.now()}`, date: getTodayLocalStr(), vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]
+  } : undefined,
+  // [추가] 각종 세금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  taxPayment: category === 'tax' ? {
+    entries: [{ id: `tax-${Date.now()}`, description: '', paidDate: '', amount: 0, note: '' }]
+  } : undefined,
+  // [추가] 관리비내역 기본값. 가지급내역과 동일하게 12개월 행을 미리 다 채워두고,
+  // 호실(열)은 빈 칸 하나만 두고 "호실 추가"로 늘려서 직접 입력하게 한다.
+  managementFee: category === 'management_fee' ? (() => {
+    const year = new Date().getFullYear();
+    return {
+      units: [{ id: `unit-${Date.now()}`, name: '' }],
+      months: Array.from({ length: 12 }, (_, i) => {
+        const mm = String(i + 1).padStart(2, '0');
+        return {
+          id: `mfm-${Date.now()}-${i}`,
+          monthKey: `${year}-${mm}`,
+          label: `${mm}월`,
+          paymentDate: '',
+          amounts: {},
+          note: ''
+        };
+      })
+    };
+  })() : undefined,
+  // [추가] 인센티브 및 명절 상여금 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  incentive: category === 'incentive' ? {
+    entries: [{ id: `inc-${Date.now()}`, date: getTodayLocalStr(), amount: 0, method: '현금', description: '', note: '' }]
+  } : undefined,
+  // [추가] 해외 출장 경비 기본값. 빈 줄 하나를 미리 넣어두고 "항목 추가"로 늘릴 수 있게 한다.
+  overseasTrip: category === 'overseas_trip' ? {
+    entries: [{ id: `ot-${Date.now()}`, date: getTodayLocalStr(), amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]
+  } : undefined,
+  // [추가] 현금 흐름 기본값. "연도 하나 = 문서 하나"라서 대상 연도를 먼저 잡고, INFLOWS/
+  // OUTFLOWS는 빈 줄 하나씩만 미리 넣어두고 "행 추가"로 늘리게 하며, 경비는 실제로 자주
+  // 쓰시는 네 그룹(급여/소득공제, 사업 경비, 부채, 기타 경비)과 각 그룹의 흔한 항목들을
+  // 미리 깔아둔다(부채만 회사마다 대출명이 달라서 빈 목록으로 시작 - "항목 추가"로 등록).
+  cashFlowAnnual: category === 'cash_flow' ? (() => {
+    const year = String(new Date().getFullYear());
+    const emptyMonths = () => ({} as Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }>);
+    return {
+      year,
+      openingBalance: 0,
+      inflows: [{ id: `cfi-${Date.now()}`, name: '', recipient: '', contractAmount: 0, remainingAmount: 0, prevYear: 0, months: emptyMonths() }],
+      outflows: [{ id: `cfo-${Date.now()}`, name: '', recipient: '', estimatedTotal: 0, note: '', prevYear: 0, months: emptyMonths() }],
+      expenseGroups: [
+        {
+          id: `cfeg-${Date.now()}-1`, name: '급여/소득공제', items: [
+            { id: `cfei-${Date.now()}-1`, label: '급여', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-2`, label: '4대보험(퇴직연금/보)', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-3`, label: '세금 외(지방소득세 등)', months: emptyMonths() }
+          ]
+        },
+        {
+          id: `cfeg-${Date.now()}-2`, name: '사업 경비', items: [
+            { id: `cfei-${Date.now()}-4`, label: '개인경비(가지급금 등)', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-5`, label: '가로등', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-6`, label: '기타', months: emptyMonths() }
+          ]
+        },
+        { id: `cfeg-${Date.now()}-3`, name: '부채', items: [] },
+        {
+          id: `cfeg-${Date.now()}-4`, name: '기타 경비', items: [
+            { id: `cfei-${Date.now()}-7`, label: '차량 대여료', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-8`, label: '건물 관리비', months: emptyMonths() },
+            { id: `cfei-${Date.now()}-9`, label: '사무비품경비 및 기타비용', months: emptyMonths() }
+          ]
+        }
+      ]
+    };
+  })() : undefined,
+  // [추가] 연차 현황 기본값. 현금 흐름과 동일하게 "연도 하나 = 문서 하나"라서 대상 연도만
+  // 먼저 잡아두고, 직원은 빈 목록으로 시작한다("직원 추가"로 늘리거나, "전자결재에서
+  // 불러오기"로 승인된 연차 신청서에서 자동으로 만들어진다).
+  annualLeaveStatus: category === 'annual_leave_status' ? {
+    year: String(new Date().getFullYear()),
+    people: []
+  } : undefined,
+  // [추가] 근로계약서 기본값. 급여 구성 항목을 실제 회사 양식(기본급/연장근로수당/
+  // 차량유지비/식대)에 맞춰 미리 채워두고, 필요하면 항목을 더 추가/삭제할 수 있다.
+  laborContract: (category === 'labor_contract' || category === 'salary_agreement') ? {
+    companyBusinessType: '', companyAddress: '',
+    employeeName: '', employeeBirthDate: '', employeeAddress: '', employmentType: 'regular',
+    salaryItems: category === 'salary_agreement' ? [
+      { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
+      { id: `sal-${Date.now()}-2`, label: '연장근로수당', amount: 0 },
+      { id: `sal-${Date.now()}-3`, label: '차량 유지비', amount: 0 },
+      { id: `sal-${Date.now()}-4`, label: '식대', amount: 0 }
+    ] : [
+      { id: `sal-${Date.now()}-1`, label: '기본급', amount: 0 },
+      { id: `sal-${Date.now()}-2`, label: '연장근로수당', amount: 0 },
+      { id: `sal-${Date.now()}-3`, label: '차량 유지비', amount: 0 },
+      { id: `sal-${Date.now()}-4`, label: '식대', amount: 0 }
+    ],
+    contractStartDate: getTodayLocalStr(),
+    contractEndDate: category === 'salary_agreement' ? dateToLocalStr(new Date(new Date().setFullYear(new Date().getFullYear() + 1))) : '',
+    workLocation: category === 'salary_agreement' ? '주소지 회사(회사 사정이 있을 시 변경 가능)' : '주소지 회사(회사 사정이 있을 시 변경 가능) 및 프로젝트 현장',
+    jobDuties: '기술 영업 및 기술 지원(회사 사정이 있을 시 변경 가능)',
+    contractDate: getTodayLocalStr()
+  } : undefined,
+  // [추가] 재직증명서 기본값
+  employmentCert: category === 'employment_cert' ? {
+    companyAddress: '', employeeAddress: '', employeeName: '', residentNumberMasked: '',
+    hireDate: '', purpose: '제출용', submitTo: '',
+    applicationDate: getTodayLocalStr(),
+    department: '', position: '',
+    documentNumber: '', issueDate: getTodayLocalStr()
+  } : undefined,
+  // [추가] 위임장 기본값
+  powerOfAttorney: category === 'power_of_attorney' ? {
+    employeeAddress: '', employeeName: '', residentNumberMasked: '',
+    purpose: '', submitTo: '', taskDescription: '',
+    issueDate: getTodayLocalStr()
+  } : undefined,
+  // [추가] 영업 계약서 기본값. 매출구간별 누진 수수료율 등은 공유해주신 예시 계약의
+  // 표준 조건을 기본값으로 깔아두고, 거래처마다 조건이 다르면 직접 고쳐 쓸 수 있게 한다.
+  salesContract: category === 'sales_contract' ? {
+    counterpartyName: '', counterpartyAddress: '', counterpartyBizNumber: '', counterpartyRepName: '',
+    contractDate: getTodayLocalStr(),
+    contractStartDate: getTodayLocalStr(),
+    contractEndDate: dateToLocalStr(new Date(new Date().setFullYear(new Date().getFullYear() + 1))),
+    feeTier1Max: 1800000000, feeTier1Rate: 5,
+    feeTier2Max: 3000000000, feeTier2Rate: 4,
+    feeTier3Rate: 3,
+    lowProfitThreshold: 20, lowProfitRate: 20,
+    aftercareCapRate: 3,
+    recognitionMonths: 24, recognitionCapAmount: 2000000000
+  } : undefined,
+  // [추가] 퇴직금 정산 기본값
+  severance: category === 'severance' ? {
+    employeeName: '', residentNumberMasked: '', hireYearMonth: '',
+    periodStart: '', periodEnd: '', reason: '',
+    companyAdvanceAmount: 0, companyAdvanceDate: getTodayLocalStr(), companyAdvanceBank: '',
+    bankAccrualAmount: 0,
+    receiveDate: getTodayLocalStr()
+  } : undefined
+});
+
+// 급여명세서 지급/공제 내역 합계 계산
+function sumItems(items?: AdminDocLineItem[]): number {
+  return (items || []).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+}
+
+// [추가] 퇴직금 정산 지급명세서처럼, 금액을 숫자와 한글로 같이 적는 공식 문서 관행에 맞춰
+// 숫자를 한글 금액으로 자동 변환한다. "일천만원(₩10,000,000)"처럼 나란히 적을 때 쓴다.
+// 관용적으로 "일" 앞에 십/백/천이 붙어도 "일십/일백/일천"처럼 그대로 적는 방식(공문서에서
+// 흔한 표기)을 따른다.
+function numberToKoreanMoney(num: number): string {
+  if (!num || num === 0) return '영';
+  const digitsKo = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+  const smallUnits = ['', '십', '백', '천'];
+  const bigUnits = ['', '만', '억', '조'];
+
+  function convertGroup(n: number): string {
+    let result = '';
+    let divisor = 1000;
+    for (let i = 0; i < 4; i++) {
+      const digit = Math.floor(n / divisor) % 10;
+      if (digit > 0) result += digitsKo[digit] + smallUnits[3 - i];
+      divisor /= 10;
+    }
+    return result;
+  }
+
+  const groups: number[] = [];
+  let n = Math.floor(Math.abs(num));
+  while (n > 0) { groups.push(n % 10000); n = Math.floor(n / 10000); }
+  let result = '';
+  for (let i = groups.length - 1; i >= 0; i--) {
+    if (groups[i] > 0) result += convertGroup(groups[i]) + bigUnits[i];
+  }
+  return result || '영';
+}
+
+// [추가] 통장 출금/입금 내역 엑셀 가져오기용 - 은행에서 내려받은 엑셀은 날짜가
+// "2026.01.12", "2026/01/12", "2026-01-12", 44654(엑셀 일련번호) 등 제각각이라, 화면의
+// <input type="date">에 바로 채워지도록 최대한 "YYYY-MM-DD"로 맞춰본다. 못 알아보는
+// 형식이면 원본 텍스트를 그대로 둔다(날짜 칸은 비어 보여도 데이터 자체는 남아있음).
+function normalizeDateForInput(raw: string): string {
+  const s = (raw || '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (m) {
+    const [, y, mo, d] = m;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  // 엑셀 날짜 일련번호(예: 45678)인 경우 - 1900-01-01 기준 오프셋으로 변환
+  if (/^\d{4,6}$/.test(s)) {
+    const serial = Number(s);
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const parsed = new Date(epoch.getTime() + serial * 86400000);
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1990 && parsed.getFullYear() < 2100) {
+      return parsed.toISOString().split('T')[0];
+    }
+  }
+  return s;
+}
+
+// [추가] 통장 출금/입금 내역 엑셀 가져오기용 - "1,234,500", "₩1,234,500", "1234500" 등을
+// 숫자로 변환한다. 부호(-)가 있으면(은행 엑셀에서 출금을 음수로 표기하는 경우가 있음)
+// 절대값으로 바꿔서 저장한다 - 출금/입금 내역은 카테고리로 이미 방향이 정해져 있어서
+// 금액 칸에는 항상 양수만 저장하는 기존 방식과 맞춘다.
+function parseExcelAmount(raw: string): number {
+  const cleaned = (raw || '').toString().replace(/[^\d.-]/g, '');
+  const n = Number(cleaned);
+  return isNaN(n) ? 0 : Math.abs(n);
+}
+
+// [추가] "은행+계좌번호"가 일치하는 통장 입금/출금 내역 문서를 전체 목록(docs)에서 찾아,
+// 지정한 기간(periodStart~periodEnd)에 해당하는 거래 금액만 더한다. 월별 자금 현황의
+// 입금/출금 칸을 실제 입금/출금 내역과 자동으로 맞추기 위한 함수 — 은행명·계좌번호는
+// 공백을 없애고 비교해서, "하나은행"과 "하나은행 " 같은 사소한 표기 차이로 안 맞는
+// 일이 없게 한다.
+function sumLedgerByAccount(
+  allDocs: AdminDoc[],
+  category: 'bank_deposit' | 'bank_withdrawal',
+  bankName: string,
+  accountNumber: string,
+  periodStart?: string,
+  periodEnd?: string
+): number {
+  const norm = (s: string) => s.replace(/\s/g, '');
+  const targetBank = norm(bankName);
+  const targetAcc = norm(accountNumber);
+  if (!targetBank || !targetAcc) return 0;
+
+  let total = 0;
+  for (const doc of allDocs) {
+    if (doc.category !== category || !doc.bankLedger) continue;
+    for (const acc of doc.bankLedger.accounts) {
+      if (norm(acc.bankName || '') !== targetBank || norm(acc.accountNumber || '') !== targetAcc) continue;
+      for (const e of acc.entries) {
+        if (periodStart && e.date < periodStart) continue;
+        if (periodEnd && e.date > periodEnd) continue;
+        total += Number(e.amount) || 0;
+      }
+    }
+  }
+  return total;
+}
+
+// [추가] "카드사(cardCompany)+카드번호"가 일치하는 회계관리 > 카드사용내역 문서를 전체
+// 목록(docs)에서 찾아, 지정한 기간(periodStart~periodEnd)에 해당하는 사용 금액만 더한다.
+// 경영지원 > 법인카드 관리의 "출금 금액"을 실제 카드사용내역 합계와 대조하기 위한 함수.
+function sumCardUsageByCard(
+  allDocs: AdminDoc[],
+  cardCompany: string,
+  cardNumber: string,
+  periodStart?: string,
+  periodEnd?: string
+): number {
+  // [수정] 카드번호에 "0000-0000-0000-0000"처럼 하이픈 자동 서식이 붙게 되면서, 예전에
+  // 하이픈 없이 저장해둔 카드번호와 비교할 때도 같은 카드로 인식되도록 하이픈도 함께 지운다.
+  const norm = (s: string) => s.replace(/[\s-]/g, '');
+  const targetCompany = norm(cardCompany);
+  const targetNumber = norm(cardNumber);
+  if (!targetCompany || !targetNumber) return 0;
+
+  let total = 0;
+  for (const doc of allDocs) {
+    if (doc.category !== 'card_usage' || !doc.cardUsage) continue;
+    for (const card of doc.cardUsage.cards) {
+      if (norm(card.cardName || '') !== targetCompany || norm(card.cardNumber || '') !== targetNumber) continue;
+      for (const e of card.entries) {
+        if (periodStart && e.date < periodStart) continue;
+        if (periodEnd && e.date > periodEnd) continue;
+        total += Number(e.amount) || 0;
+      }
+    }
+  }
+  return total;
+}
+
+// [추가] 회계관리 > 카드사용내역에 "카드사(cardCompany)+카드번호"가 일치하는 내역이 하나라도
+// 기록되어 있는지 확인한다. 있으면 "연동됨" 상태로 보고 실사용 금액을 자동 계산해서 보여주고,
+// 없으면(아직 카드사용내역이 등록 안 된 카드) 입력해두신 금액을 그대로 보여준다.
+function hasCardUsageRecord(allDocs: AdminDoc[], cardCompany: string, cardNumber: string): boolean {
+  const norm = (s: string) => s.replace(/[\s-]/g, '');
+  const targetCompany = norm(cardCompany);
+  const targetNumber = norm(cardNumber);
+  if (!targetCompany || !targetNumber) return false;
+  return allDocs.some(
+    (doc) =>
+      doc.category === 'card_usage' &&
+      doc.cardUsage?.cards.some((card) => norm(card.cardName || '') === targetCompany && norm(card.cardNumber || '') === targetNumber)
+  );
+}
+
+// [수정] 처음엔 "전월 사용분을 이번 달에 결제"하는 관행을 가정해서 corpCard.yearMonth의
+// "전월" 기간으로 카드사용내역을 대조했는데, 실제로는 카드사용내역을 대상 연월과 "같은 달"
+// 날짜로 매일 실시간 입력/확인하는 방식으로 쓰고 계셔서(예: "2026-08" 법인카드 문서에
+// 8월 날짜 카드사용내역을 그때그때 기록) 전월 기준으로는 항상 0으로 집계되는 문제가 있었다.
+// 대상 연월과 같은 달(YYYY-MM-01 ~ 그 달 마지막 날) 기준으로 바꾼다.
+function getTargetMonthRange(yearMonth?: string): { start?: string; end?: string } {
+  if (!yearMonth) return {};
+  const [y, m] = yearMonth.split('-').map(Number);
+  if (!y || !m) return {};
+  const start = `${y}-${String(m).padStart(2, '0')}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  return { start, end };
+}
+
+// [추가] 경영지원 > 현금 흐름(category: 'cash_flow') - INFLOWS/OUTFLOWS/경비/현금흐름
+// 최종 네 화면이 전부 이 몇 개 순수 계산 함수를 공용으로 쓴다. "현금흐름 최종"은 사람이
+// 따로 입력하지 않고 INFLOWS·OUTFLOWS·경비를 월별로 더해서 자동으로 계산한다.
+type CashFlowAnnual = NonNullable<AdminDoc['cashFlowAnnual']>;
+type CashFlowRow = CashFlowAnnual['inflows'][number];
+type CashFlowOutflowRow = CashFlowAnnual['outflows'][number];
+type CashFlowExpenseGroup = CashFlowAnnual['expenseGroups'][number];
+type CashFlowExpenseItem = CashFlowExpenseGroup['items'][number];
+type CashFlowCell = CashFlowRow['months'][string];
+const CASH_FLOW_MONTHS: string[] = Array.from({ length: 12 }, (_, i) => String(i + 1));
+
+// 월별 셀 하나의 합계 = 직접 입력(manual) + 통장 내역에서 자동 불러온 금액(imported) 전부.
+function cfCellTotal(cell?: CashFlowCell): number {
+  if (!cell) return 0;
+  return (Number(cell.manual) || 0) + (cell.imported || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
+}
+function cfRowsMonthlyTotal(rows: CashFlowRow[], month: string): number {
+  return rows.reduce((s, r) => s + cfCellTotal(r.months[month]), 0);
+}
+function cfExpenseGroupMonthlyTotal(group: CashFlowExpenseGroup, month: string): number {
+  return group.items.reduce((s, it) => s + cfCellTotal(it.months[month]), 0);
+}
+function cfExpenseAllMonthlyTotal(groups: CashFlowExpenseGroup[], month: string): number {
+  return groups.reduce((s, g) => s + cfExpenseGroupMonthlyTotal(g, month), 0);
+}
+// OUTFLOWS(매입 합계) + 경비 합계 = Total OUTFLOWS(2)
+function cfTotalOutflowMonthly(cf: CashFlowAnnual, month: string): number {
+  return cfRowsMonthlyTotal(cf.outflows, month) + cfExpenseAllMonthlyTotal(cf.expenseGroups, month);
+}
+// 순 현금 흐름(1)-(2) = INFLOWS 합계 - Total OUTFLOWS
+function cfNetCashFlowMonthly(cf: CashFlowAnnual, month: string): number {
+  return cfRowsMonthlyTotal(cf.inflows, month) - cfTotalOutflowMonthly(cf, month);
+}
+// 통장잔고(월말기준) = 전년도이월금에서 시작해 매월 순현금흐름을 누적한 값.
+// 인덱스 0이 1월, 11이 12월.
+function cfBankBalances(cf: CashFlowAnnual): number[] {
+  let running = Number(cf.openingBalance) || 0;
+  return CASH_FLOW_MONTHS.map((m) => {
+    running += cfNetCashFlowMonthly(cf, m);
+    return running;
+  });
+}
+
+// [추가] 4대보험료 등을 요율에 맞춰 자동 계산한다. 소득세는 국세청 근로소득 간이세액표
+// (부양가족 수 등에 따라 달라짐)를 따로 봐야 해서 자동 계산 대상에서 제외하고 직접
+// 입력한 값을 그대로 쓴다 — 대신 지방소득세는 "소득세 × 지방소득세율"로 정확히 계산된다.
+function calcDeductions(
+  payItems: AdminDocLineItem[],
+  currentDeductions: AdminDocLineItem[],
+  rates: { pensionRate: number; healthRate: number; ltcRate: number; employmentRate: number; localTaxRate: number }
+): AdminDocLineItem[] {
+  // 과세 대상 급여(비과세 항목 제외) 합계
+  const taxableBase = payItems.filter((it) => it.taxable !== false).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+  const round = (n: number) => Math.round(n);
+
+  const findIncomeTax = currentDeductions.find((it) => it.label.replace(/\s/g, '') === '소득세')?.amount || 0;
+  const healthAmount = round(taxableBase * (rates.healthRate / 100));
+
+  const computed: Record<string, number> = {
+    '국민연금': round(taxableBase * (rates.pensionRate / 100)),
+    '건강보험': healthAmount,
+    '장기요양보험료': round(healthAmount * (rates.ltcRate / 100)),
+    '고용보험': round(taxableBase * (rates.employmentRate / 100)),
+    '지방소득세': round(findIncomeTax * (rates.localTaxRate / 100))
+  };
+
+  return currentDeductions.map((it) => {
+    const key = it.label.replace(/\s/g, '');
+    return key in computed ? { ...it, amount: computed[key] } : it;
+  });
+}
+
+export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects }) => {
+  const categories = CATEGORY_CONFIG[section];
+  const [activeCategory, setActiveCategory] = useState<AdminDocCategory>(categories[0].id);
+  const [docs, setDocs] = useState<AdminDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingDoc, setEditingDoc] = useState<Partial<AdminDoc> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  // [추가] 근로계약서/연봉협약서/재직증명서에서 반복 입력해야 하는 "회사 사업체 주소·사업종류"를
+  // 한 번만 입력하면 다음부터 자동으로 채워지도록, 회사 스코프에 저장된 값을 가져와둔다.
+  const [companySettings, setCompanySettings] = useState<{ address: string; businessType: string }>({ address: '', businessType: '' });
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    fetch('/api/company-settings', { headers: { 'x-user-id': currentUser.id } })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data) setCompanySettings({ address: data.address || '', businessType: data.businessType || '' }); })
+      .catch((err) => console.error('회사 설정 불러오기 실패:', err));
+  }, [currentUser?.id]);
+
+  // [추가] 회사 주소·사업종류를 문서 안에서 고치면, 다음에 새 문서를 만들 때도 그 값이
+  // 바로 기본으로 채워지도록 회사 스코프 설정에도 같이 저장해둔다(디바운스 없이 blur 시 저장).
+  const persistCompanySettings = (patch: Partial<{ address: string; businessType: string }>) => {
+    if (!currentUser) return;
+    const next = { ...companySettings, ...patch };
+    setCompanySettings(next);
+    fetch('/api/company-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify(next)
+    }).catch((err) => console.error('회사 설정 저장 실패:', err));
+  };
+
+  // [추가] 차량 과태료 내역의 "위반차량"을 직접 타이핑하지 않고 통합 차량관리에 등록된
+  // 차량에서 골라 쓸 수 있도록, 등록 차량 목록을 불러온다.
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    fetch('/api/vehicles', { headers: { 'x-user-id': currentUser.id } })
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => setVehicles(Array.isArray(data) ? data : []))
+      .catch((err) => console.error('등록 차량 목록 불러오기 실패:', err));
+  }, [currentUser?.id]);
+
+  // [추가] 차량 과태료 "내용(위반 상세)" - 자주 쓰는 항목을 기본 목록으로 두고, 직접
+  // 입력하신 값은 저장된 다른 과태료 문서들에서 모아서 다음부터 목록에 추가로 보이게 한다
+  // (별도 저장 없이, 이미 저장된 데이터에서 매번 다시 모음).
+  const vehicleFineDetailOptions = (() => {
+    const extra = new Set<string>();
+    docs.forEach((d) => {
+      if (d.category !== 'vehicle_fine' || !d.vehicleFine) return;
+      d.vehicleFine.entries.forEach((e) => {
+        const t = (e.detail || '').trim();
+        if (t && !VEHICLE_FINE_DETAIL_PRESETS.includes(t)) extra.add(t);
+      });
+    });
+    return [...VEHICLE_FINE_DETAIL_PRESETS, ...Array.from(extra).sort((a, b) => a.localeCompare(b, 'ko'))];
+  })();
+
+  // [추가] 해외 출장 경비 "지급구분"(카드명 등) - 회사마다 쓰는 법인카드 이름이 달라 고정
+  // 목록을 두지 않고, 이미 저장된 다른 해외 출장 경비 문서들에서 값을 모아 자동완성으로
+  // 보여준다(vehicleFineDetailOptions와 같은 방식).
+  const overseasTripPayDetailOptions = (() => {
+    const extra = new Set<string>();
+    docs.forEach((d) => {
+      if (d.category !== 'overseas_trip' || !d.overseasTrip) return;
+      d.overseasTrip.entries.forEach((e) => {
+        const t = (e.payDetail || '').trim();
+        if (t) extra.add(t);
+      });
+    });
+    return Array.from(extra).sort((a, b) => a.localeCompare(b, 'ko'));
+  })();
+
+  const activeConfig = categories.find((c) => c.id === activeCategory) || categories[0];
+
+  // [추가] 재직증명서를 새로 만드는 중에 신청일을 바꿔서 연도가 달라지면, 문서번호도
+  // 그 연도 기준으로 다시 계산해준다. 이미 저장된 문서를 열람/수정할 때는 번호를 그대로
+  // 유지한다(수정 화면에서 신청일을 바꿔도 이미 발급된 번호는 안 바뀌게).
+  const applicationYearForDocNumber = !editingDoc?.id ? editingDoc?.employmentCert?.applicationDate?.slice(0, 4) : undefined;
+  useEffect(() => {
+    if (!applicationYearForDocNumber || !editingDoc || editingDoc.id) return;
+    const currentNumberYear = editingDoc.employmentCert?.documentNumber?.split('-')[0];
+    if (currentNumberYear === applicationYearForDocNumber) return;
+    const countThisYear = docs.filter((d) => d.category === 'employment_cert' && d.employmentCert?.documentNumber?.startsWith(`${applicationYearForDocNumber}-`)).length;
+    setEditingDoc((prev) => prev && prev.employmentCert ? { ...prev, employmentCert: { ...prev.employmentCert, documentNumber: `${applicationYearForDocNumber}-${String(countThisYear + 1).padStart(3, '0')}` } } : prev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationYearForDocNumber]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch('/api/admin-docs', { headers: currentUser ? { 'x-user-id': currentUser.id } : {} })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+        return res.json();
+      })
+      .then((data: AdminDoc[]) => { if (!cancelled) setDocs(data); })
+      .catch((err) => { console.error('admin-docs 불러오기 실패:', err); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
+
+  const filteredDocs = docs
+    .filter((d) => d.section === section && d.category === activeCategory)
+    .filter((d) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return d.title.toLowerCase().includes(q) || (d.personName || '').toLowerCase().includes(q) || (d.memo || '').toLowerCase().includes(q);
+    })
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  // [추가] 법인카드 관리 - 카드 한 장씩 문서를 따로 등록해두신 경우가 많아서, "이번 달에 등록된
+  // 카드 문서를 전부 모아 한 표로 보여달라"는 요청에 맞춰 같은 연월(yearMonth)의 corp_card
+  // 문서를 전부 찾아 카드 목록을 하나로 합쳐서 인쇄 화면(renderPrintableCorpCard)에 넘긴다.
+  // 실제 데이터는 그대로 두고(문서를 합치거나 지우지 않음), 보여줄 때만 화면에서 합친다.
+  const corpCardDocs = docs.filter((d) => d.section === 'management' && d.category === 'corp_card' && d.corpCard);
+  const corpCardMonthSet = new Set<string>();
+  corpCardDocs.forEach((d) => { const ym = d.corpCard?.yearMonth; if (ym) corpCardMonthSet.add(ym); });
+  const corpCardMonths: string[] = Array.from(corpCardMonthSet).sort((a, b) => b.localeCompare(a)); // 최신 연월이 먼저 오도록
+
+  // [추가] 차량 과태료 내역 - "년도별로 보이게" 요청에 맞춰, 문서를 여러 개로 나눠 등록했거나
+  // 한 문서에 여러 건을 같이 넣어뒀어도 상관없이 전체 문서의 모든 항목(entries)을 위반일자
+  // 기준 연도로 모을 수 있게 미리 연도 목록을 뽑아둔다. 법인카드와 달리 문서 자체에 연월
+  // 필드가 없고 건(항목)마다 날짜가 따로 있어서, 문서 단위가 아니라 항목 단위로 연도를 센다.
+  const vehicleFineDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'vehicle_fine' && d.vehicleFine);
+  const vehicleFineYearSet = new Set<string>();
+  vehicleFineDocs.forEach((d) => {
+    (d.vehicleFine?.entries || []).forEach((e) => {
+      const y = (e.date || d.date || '').slice(0, 4);
+      if (y) vehicleFineYearSet.add(y);
+    });
+  });
+  const vehicleFineYears: string[] = Array.from(vehicleFineYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
+  // [추가] 관리비내역 - 호실(예: 518호, 519호)을 한 문서에 같이 등록하지 않고 호실마다 문서를
+  // 따로 등록해두신 경우가 많아서, "같은 연도 것끼리 호실을 다 합쳐서 한 표로 보여달라"는
+  // 요청에 맞춰 같은 연도(monthKey의 연도)의 management_fee 문서를 전부 찾아 호실(열)을
+  // 하나로 합쳐서 인쇄 화면(renderPrintableManagementFee)에 넘긴다. 실제 데이터는 그대로
+  // 두고(문서를 합치거나 지우지 않음), 보여줄 때만 화면에서 합친다.
+  const managementFeeDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'management_fee' && d.managementFee);
+  const managementFeeYearSet = new Set<string>();
+  managementFeeDocs.forEach((d) => {
+    (d.managementFee?.months || []).forEach((m) => {
+      const y = (m.monthKey || '').slice(0, 4);
+      if (y) managementFeeYearSet.add(y);
+    });
+  });
+  const managementFeeYears: string[] = Array.from(managementFeeYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
+  // [추가] 인센티브 및 명절 상여금 - 차량 과태료 내역과 같은 방식으로, 문서를 여러 개로
+  // 나눠 등록했거나 한 문서에 여러 건을 같이 넣어뒀어도 상관없이 전체 문서의 모든 항목을
+  // 일자 기준 연도로 모을 수 있게 미리 연도 목록을 뽑아둔다.
+  const incentiveDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'incentive' && d.incentive);
+  const incentiveYearSet = new Set<string>();
+  incentiveDocs.forEach((d) => {
+    (d.incentive?.entries || []).forEach((e) => {
+      const y = (e.date || d.date || '').slice(0, 4);
+      if (y) incentiveYearSet.add(y);
+    });
+  });
+  const incentiveYears: string[] = Array.from(incentiveYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
+  // [추가] 해외 출장 경비 - 출장 하나(=문서 하나)를 여러 건 등록해두고, 연도별로 모아
+  // 한 페이지로도 볼 수 있게, 개별 출장 건별로도 볼 수 있게 하기 위해 연도 목록을 뽑아둔다.
+  // [수정] 항공권처럼 결제일과 실제 출장(귀속)연도가 다른 항목은 overseasTripEntryYear가
+  // fiscalYear를 우선해서 판단하므로, 연도 목록도 결제일이 아니라 귀속연도 기준으로 잡힌다.
+  const overseasTripDocs = docs.filter((d) => d.section === 'accounting' && d.category === 'overseas_trip' && d.overseasTrip);
+  const overseasTripYearSet = new Set<string>();
+  overseasTripDocs.forEach((d) => {
+    (d.overseasTrip?.entries || []).forEach((e) => {
+      const y = overseasTripEntryYear(e, d.date);
+      if (y) overseasTripYearSet.add(y);
+    });
+  });
+  const overseasTripYears: string[] = Array.from(overseasTripYearSet).sort((a, b) => b.localeCompare(a)); // 최신 연도가 먼저 오도록
+
+  // [추가] 회계관리 > 카드사용내역에서 "카드명/카드번호/소지자"를 매번 직접 타이핑하지 않고,
+  // 경영지원 > 법인카드 관리에 이미 등록된 카드 목록에서 골라 그대로 연동해 채울 수 있도록
+  // 전체 문서에서 corp_card 카드 목록을 모아 카드사+카드번호 기준으로 중복 제거한다.
+  const knownCorpCards = (() => {
+    const seen = new Set<string>();
+    const list: { key: string; cardCompany: string; cardNumber: string; user: string }[] = [];
+    docs.forEach((d) => {
+      if (d.category !== 'corp_card' || !d.corpCard) return;
+      d.corpCard.cards.forEach((c) => {
+        const key = `${c.cardCompany.replace(/\s/g, '')}__${(c.cardNumber || '').replace(/[\s-]/g, '')}`;
+        if (!c.cardCompany || seen.has(key)) return;
+        seen.add(key);
+        list.push({ key, cardCompany: c.cardCompany, cardNumber: c.cardNumber, user: c.user });
+      });
+    });
+    return list;
+  })();
+
+  const handleViewAllCorpCards = () => {
+    const targetMonth = corpCardMergeMonth || corpCardMonths[0];
+    if (!targetMonth) return;
+    const docsForMonth = corpCardDocs
+      .filter((d) => (d.corpCard?.yearMonth || '') === targetMonth)
+      .sort((a, b) => (a.personName || a.title || '').localeCompare(b.personName || b.title || '', 'ko'));
+
+    // [추가] 관리자가 매일 확인해야 하는 화면이라, 저장해둔 금액을 그대로 보여주지 않고
+    // 회계관리 > 카드사용내역에 실제 기록된 내역에서 "오늘까지" 사용한 금액을 실시간으로
+    // 계산해서 보여준다. 대상 기간은 "대상 연월과 같은 달"이며(카드사용내역을 대상 연월과
+    // 같은 달 날짜로 매일 실시간 입력하시는 방식에 맞춘 것), 그 달이 아직 안 끝났으면
+    // 오늘 날짜까지만 합산한다.
+    const { start, end } = getTargetMonthRange(targetMonth);
+    const todayStr = getTodayLocalStr();
+    const cappedEnd = end ? (end > todayStr ? todayStr : end) : undefined;
+
+    const mergedCards = docsForMonth
+      .flatMap((d) => d.corpCard?.cards || [])
+      .map((c, i) => {
+        const linked = !!(start && cappedEnd) && hasCardUsageRecord(docs, c.cardCompany, c.cardNumber);
+        const liveAmount = linked ? sumCardUsageByCard(docs, c.cardCompany, c.cardNumber, start, cappedEnd) : (Number(c.amount) || 0);
+        // [수정] 연동 안 된 카드가 왜 안 되는지("카드사용내역에 아직 기록이 없어서"인지) 관리자가
+        // 화면만 보고 바로 알 수 있게, 미연동 카드에도 그 사실을 비고에 명시적으로 남긴다.
+        const note = linked
+          ? `${c.note ? c.note + ' · ' : ''}카드사용내역 연동(${todayStr} 기준)`
+          : `${c.note ? c.note + ' · ' : ''}카드사용내역 미연동(카드사용내역에 이 카드사+카드번호로 기록된 내역 없음)`;
+        return { ...c, id: `merged-${i}-${c.id}`, amount: liveAmount, note };
+      });
+    if (mergedCards.length === 0) return;
+    const [year, month] = targetMonth.split('-');
+    const base = docsForMonth[0];
+    setPrintingDoc({
+      ...base,
+      id: `merged-corp-card-${targetMonth}`,
+      title: `${year}년도 카드별 월 사용 내역(${Number(month)}월) - 전체`,
+      corpCard: { yearMonth: targetMonth, cards: mergedCards },
+    });
+  };
+
+  // [추가] "카드별 월 사용 내역" 인쇄 화면(renderPrintableCorpCard, 전체보기든 개별 문서든
+  // 동일)을 그대로 엑셀로도 받을 수 있게 한다. 지금까지 쓰던 xlsx 패키지(SheetJS 커뮤니티
+  // 버전)는 셀 배경색 등 서식을 저장할 수 없어서(프로젝트 목록 엑셀 내보내기 때 확인된
+  // 제약 - 위 handleExportProjectsExcel 참고), 서식 쓰기가 되는 exceljs로 화면과 똑같이
+  // 노란 헤더/합계 행 배경색을 넣어 만든다.
+  const handleExportCorpCardExcel = async () => {
+    if (!printingDoc || !printingDoc.corpCard) return;
+    const cc = printingDoc.corpCard;
+    const [year, month] = (cc.yearMonth || '').split('-');
+    const isMerged = printingDoc.id.startsWith('merged-corp-card-');
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('카드별_월_사용_내역', {
+      pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['번호', '카드사', '카드번호', '사용자', '사용일수', '출금일자', '사용금액', '출금은행', '출금계좌', '비 고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+
+    // 제목 줄
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = year && month ? `${year}년도 카드별 월 사용 내역(${Number(month)}월)` : printingDoc.title;
+    titleCell.font = { bold: true, size: 14, underline: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    let headerRowIdx = 2;
+    if (isMerged) {
+      ws.mergeCells(2, 1, 2, colCount);
+      const noteCell = ws.getCell(2, 1);
+      noteCell.value = `※ 금액은 회계관리 > 카드사용내역에 기록된 실제 사용 내역을 기준으로 ${getTodayLocalStr()} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)`;
+      noteCell.font = { size: 9, color: { argb: 'FF555555' } };
+      noteCell.alignment = { horizontal: 'center' };
+      headerRowIdx = 3;
+    }
+
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    cc.cards.forEach((c, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [i + 1, c.cardCompany, c.cardNumber, c.user, c.periodLabel || '', c.paymentDay || '', Number(c.amount) || 0, c.withdrawBank || '', c.withdrawAccount || '', c.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 0 || colIdx === 3 || colIdx === 4 ? 'center' : (colIdx === 6 ? 'right' : 'left'), wrapText: colIdx === 9 };
+        if (colIdx === 6) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = cc.cards.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + cc.cards.length;
+    ws.mergeCells(totalRowIdx, 1, totalRowIdx, 6);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(7);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    // 열 너비 - 헤더/데이터 기준으로 대략 계산
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      cc.cards.forEach((c, i) => {
+        const v = [i + 1, c.cardCompany, c.cardNumber, c.user, c.periodLabel, c.paymentDay, formatCurrencyInput(c.amount || 0), c.withdrawBank, c.withdrawAccount, c.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 8), colIdx === 9 ? 45 : 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `카드별_월_사용_내역_${cc.yearMonth || ''}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 차량 과태료 내역 - "개별이 아니라 년도별로 보이게" 요청에 맞춰, 문서 여러 개(또는
+  // 한 문서 안의 여러 건)에 나눠 등록된 항목들을 위반일자 기준으로 선택한 연도에 해당하는
+  // 것만 전부 모아 한 표(인쇄 화면)로 보여준다. 법인카드의 handleViewAllCorpCards와 같은
+  // 패턴 - 실제 문서는 그대로 두고, 보여줄 때만 화면에서 합친다.
+  const handleViewAllVehicleFines = () => {
+    const targetYear = vehicleFineMergeYear || vehicleFineYears[0];
+    if (!targetYear) return;
+
+    const matchesYear = (e: NonNullable<AdminDoc['vehicleFine']>['entries'][number], docDate?: string) =>
+      (e.date || docDate || '').slice(0, 4) === targetYear;
+
+    // 표시할 문서 기본값(제목/작성자 등 공용 필드)은 실제로 해당 연도 항목을 가진 문서 중
+    // 첫 번째 것을 쓴다. 메모는 특정 문서 하나의 것이라 합친 화면에 그대로 쓰면 오해를 살 수
+    // 있어 비워둔다.
+    const docsWithMatch = vehicleFineDocs.filter((d) => (d.vehicleFine?.entries || []).some((e) => matchesYear(e, d.date)));
+    const base = docsWithMatch[0] || vehicleFineDocs[0];
+    if (!base) return;
+
+    const mergedEntries = vehicleFineDocs
+      .flatMap((d) => (d.vehicleFine?.entries || []).map((e) => ({ entry: e, docDate: d.date })))
+      .filter(({ entry, docDate }) => matchesYear(entry, docDate))
+      .sort((a, b) => (a.entry.date || '').localeCompare(b.entry.date || ''))
+      .map(({ entry }, i) => ({ ...entry, id: `merged-${i}-${entry.id}` }));
+    if (mergedEntries.length === 0) return;
+
+    setPrintingDoc({
+      ...base,
+      id: `merged-vehicle-fine-${targetYear}`,
+      title: `${targetYear}년 법인차량 과태료 내역 - 전체`,
+      memo: undefined,
+      vehicleFine: { entries: mergedEntries },
+    });
+  };
+
+  // [추가] 차량 과태료 내역 인쇄 화면(renderPrintableVehicleFine)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 법인카드 관리 엑셀 출력(handleExportCorpCardExcel)과 같은 방식 - 서식 쓰기가
+  // 되는 exceljs로 노란 헤더/합계 행 배경색을 그대로 재현한다.
+  const handleExportVehicleFineExcel = async () => {
+    if (!printingDoc || !printingDoc.vehicleFine) return;
+    const vf = printingDoc.vehicleFine;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('차량_과태료_내역', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['위반일자', '위반차량', '금액', '처리일자', '내용', '비고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    vf.entries.forEach((e, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [fmtDate(e.date), e.vehicle, Number(e.amount) || 0, fmtDate(e.processedDate), e.detail || '', e.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 2 ? 'right' : (colIdx === 4 ? 'left' : 'center'), wrapText: colIdx === 4 };
+        if (colIdx === 2) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = vf.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + vf.entries.length;
+    ws.mergeCells(totalRowIdx, 1, totalRowIdx, 2);
+    ws.mergeCells(totalRowIdx, 4, totalRowIdx, colCount);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(3);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      vf.entries.forEach((e) => {
+        const v = [fmtDate(e.date), e.vehicle, formatCurrencyInput(e.amount || 0), fmtDate(e.processedDate), e.detail, e.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 4 ? 55 : 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '차량_과태료_내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 인센티브 및 명절 상여금 - "개별이 아니라 년도별로 보이게" 요청에 맞춰, 문서
+  // 여러 개(또는 한 문서 안의 여러 건)에 나눠 등록된 항목들을 일자 기준으로 선택한 연도에
+  // 해당하는 것만 전부 모아 한 표(인쇄 화면)로 보여준다. 차량 과태료 내역과 같은 패턴 -
+  // 실제 문서는 그대로 두고, 보여줄 때만 화면에서 합친다.
+  const handleViewAllIncentives = () => {
+    const targetYear = incentiveMergeYear || incentiveYears[0];
+    if (!targetYear) return;
+
+    const matchesYear = (e: NonNullable<AdminDoc['incentive']>['entries'][number], docDate?: string) =>
+      (e.date || docDate || '').slice(0, 4) === targetYear;
+
+    const docsWithMatch = incentiveDocs.filter((d) => (d.incentive?.entries || []).some((e) => matchesYear(e, d.date)));
+    const base = docsWithMatch[0] || incentiveDocs[0];
+    if (!base) return;
+
+    const mergedEntries = incentiveDocs
+      .flatMap((d) => (d.incentive?.entries || []).map((e) => ({ entry: e, docDate: d.date })))
+      .filter(({ entry, docDate }) => matchesYear(entry, docDate))
+      .sort((a, b) => (a.entry.date || '').localeCompare(b.entry.date || ''))
+      .map(({ entry }, i) => ({ ...entry, id: `merged-${i}-${entry.id}` }));
+    if (mergedEntries.length === 0) return;
+
+    setPrintingDoc({
+      ...base,
+      id: `merged-incentive-${targetYear}`,
+      title: `${targetYear}년 인센티브 및 명절 상여금`,
+      memo: undefined,
+      incentive: { entries: mergedEntries },
+    });
+  };
+
+  // [추가] 인센티브 및 명절 상여금 인쇄 화면(renderPrintableIncentive)을 그대로 엑셀로도
+  // 받을 수 있게 한다. 차량 과태료 내역 엑셀 출력(handleExportVehicleFineExcel)과 같은
+  // 방식 - 서식 쓰기가 되는 exceljs로 노란 헤더/합계 행 배경색을 그대로 재현한다.
+  const handleExportIncentiveExcel = async () => {
+    if (!printingDoc || !printingDoc.incentive) return;
+    const inc = printingDoc.incentive;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('인센티브_및_명절_상여금', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['일자', '금액', '지급 내역', '지급 대상자', '비고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    inc.entries.forEach((e, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [fmtDate(e.date), Number(e.amount) || 0, e.method || '', e.description || '', e.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'right' : (colIdx === 3 ? 'left' : 'center'), wrapText: colIdx === 3 };
+        if (colIdx === 1) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = inc.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + inc.entries.length;
+    ws.mergeCells(totalRowIdx, 3, totalRowIdx, colCount);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(2);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      inc.entries.forEach((e) => {
+        const v = [fmtDate(e.date), formatCurrencyInput(e.amount || 0), e.method, e.description, e.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 3 ? 40 : 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '인센티브_및_명절_상여금'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 해외 출장 경비 - "년도별로도, 출장 개별 건별로도 확인하고 싶다"는 요청에 맞춰,
+  // 출장 하나 = 문서 하나로 저장해두고(개별 확인은 문서 목록에서 그대로 열어보면 됨),
+  // "연도별로 한 페이지로 보기"를 누르면 인센티브/차량 과태료 내역과 같은 방식으로 선택한
+  // 연도에 해당하는 모든 출장의 항목을 일자순으로 모아 한 표로 보여준다.
+  const handleViewAllOverseasTrips = () => {
+    const targetYear = overseasTripMergeYear || overseasTripYears[0];
+    if (!targetYear) return;
+
+    // [수정] 결제일이 아니라 귀속연도(fiscalYear, 없으면 결제일의 연도) 기준으로 모은다 -
+    // 항공권처럼 전 해 말에 미리 결제한 항목도 지정해둔 귀속연도로 정확히 잡힌다.
+    const matchesYear = (e: NonNullable<AdminDoc['overseasTrip']>['entries'][number], docDate?: string) =>
+      overseasTripEntryYear(e, docDate) === targetYear;
+
+    const docsWithMatch = overseasTripDocs.filter((d) => (d.overseasTrip?.entries || []).some((e) => matchesYear(e, d.date)));
+    const base = docsWithMatch[0] || overseasTripDocs[0];
+    if (!base) return;
+
+    const mergedEntries = overseasTripDocs
+      .flatMap((d) => (d.overseasTrip?.entries || []).map((e) => ({ entry: e, docDate: d.date })))
+      .filter(({ entry, docDate }) => matchesYear(entry, docDate))
+      .sort((a, b) => (a.entry.date || '').localeCompare(b.entry.date || ''))
+      .map(({ entry }, i) => ({ ...entry, id: `merged-${i}-${entry.id}` }));
+    if (mergedEntries.length === 0) return;
+
+    setPrintingDoc({
+      ...base,
+      id: `merged-overseas-trip-${targetYear}`,
+      title: `${targetYear}년 해외 출장 경비 사용내역`,
+      memo: undefined,
+      overseasTrip: { entries: mergedEntries },
+    });
+  };
+
+  // [추가] 해외 출장 경비 - 사용구분(항공료/숙박비/식비/교통비/환전 비용/직원 선물/기타)별
+  // 소계를 계산한다. 공유해주신 양식에 있던 구분별 합계 표를 그대로 재현하기 위한 것으로,
+  // 인쇄 화면과 엑셀 출력 둘 다 이 함수를 같이 쓴다. 사전에 정의된 7개 구분에 없는 값(직접
+  // 입력한 값)은 "기타"로 합산해서, 표의 합계가 항상 전체 총액과 일치하게 한다.
+  const overseasTripCategoryBreakdown = (entries: NonNullable<AdminDoc['overseasTrip']>['entries']) => {
+    const sums: Record<string, number> = {};
+    OVERSEAS_TRIP_CATEGORY_PRESETS.forEach((c) => { sums[c] = 0; });
+    entries.forEach((e) => {
+      const key = (OVERSEAS_TRIP_CATEGORY_PRESETS as readonly string[]).includes(e.category) ? e.category : '기타';
+      sums[key] = (sums[key] || 0) + (Number(e.amount) || 0);
+    });
+    return OVERSEAS_TRIP_CATEGORY_PRESETS.map((c) => ({ label: c, amount: sums[c] || 0 }));
+  };
+
+  // [추가] 해외 출장 경비 인쇄 화면(renderPrintableOverseasTrip)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 인센티브/차량 과태료 내역 엑셀 출력과 같은 방식이되, 맨 아래에 사용구분별
+  // 소계 표를 추가로 붙인다.
+  const handleExportOverseasTripExcel = async () => {
+    if (!printingDoc || !printingDoc.overseasTrip) return;
+    const ot = printingDoc.overseasTrip;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('해외_출장_경비_사용내역', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = ['일자', '금액', '사용구분', '사용내역', '사용자', '지급방법', '지급구분', '비고'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    // [추가] 결제일과 귀속연도(fiscalYear)가 다른 항목(예: 전 해 말에 미리 결제한 항공권)은
+    // "일자" 칸에 "2025.12.10 (2026년 귀속)"처럼 귀속연도를 같이 표시해서, 엑셀만 봐도 어느
+    // 해 출장 경비로 잡힌 건지 바로 알 수 있게 한다.
+    const fmtDateWithFiscal = (e: { date?: string; fiscalYear?: string }) => {
+      const base = fmtDate(e.date);
+      const fy = (e.fiscalYear || '').trim();
+      if (fy && fy !== (e.date || '').slice(0, 4)) return `${base} (${fy}년 귀속)`;
+      return base;
+    };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    ot.entries.forEach((e, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [fmtDateWithFiscal(e), Number(e.amount) || 0, e.category || '', e.description || '', e.user || '', e.payMethod || '', e.payDetail || '', e.note || ''];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 1 ? 'right' : (colIdx === 3 ? 'left' : 'center'), wrapText: colIdx === 3 };
+        if (colIdx === 1) cell.numFmt = '#,##0';
+      });
+    });
+
+    const total = ot.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalRowIdx = headerRowIdx + 1 + ot.entries.length;
+    ws.mergeCells(totalRowIdx, 3, totalRowIdx, colCount);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const totalAmountCell = totalRow.getCell(2);
+    totalAmountCell.value = total;
+    totalAmountCell.numFmt = '#,##0';
+    totalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    // [추가] 사용구분별 소계 표 - 본문 표 아래 두 줄 띄우고 붙인다.
+    const breakdown = overseasTripCategoryBreakdown(ot.entries);
+    const bdTitleRowIdx = totalRowIdx + 2;
+    ws.mergeCells(bdTitleRowIdx, 1, bdTitleRowIdx, colCount);
+    const bdTitleCell = ws.getCell(bdTitleRowIdx, 1);
+    bdTitleCell.value = '사용구분별 합계';
+    bdTitleCell.font = { bold: true, size: 12 };
+    bdTitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    const bdHeaderRowIdx = bdTitleRowIdx + 1;
+    const bdHeaderRow = ws.getRow(bdHeaderRowIdx);
+    ['구분', '금액'].forEach((label, colIdx) => {
+      const cell = bdHeaderRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+
+    breakdown.forEach((row, i) => {
+      const r = ws.getRow(bdHeaderRowIdx + 1 + i);
+      const labelCell = r.getCell(1);
+      labelCell.value = row.label;
+      labelCell.border = fullBorder;
+      labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const amountCell = r.getCell(2);
+      amountCell.value = row.amount;
+      amountCell.numFmt = '#,##0';
+      amountCell.border = fullBorder;
+      amountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    });
+
+    const bdTotalRowIdx = bdHeaderRowIdx + 1 + breakdown.length;
+    const bdTotalRow = ws.getRow(bdTotalRowIdx);
+    const bdTotalLabelCell = bdTotalRow.getCell(1);
+    bdTotalLabelCell.value = '합 계';
+    bdTotalLabelCell.font = { bold: true };
+    bdTotalLabelCell.fill = yellowFill;
+    bdTotalLabelCell.border = fullBorder;
+    bdTotalLabelCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    const bdTotalAmountCell = bdTotalRow.getCell(2);
+    bdTotalAmountCell.value = breakdown.reduce((s, r) => s + r.amount, 0);
+    bdTotalAmountCell.numFmt = '#,##0';
+    bdTotalAmountCell.font = { bold: true };
+    bdTotalAmountCell.fill = yellowFill;
+    bdTotalAmountCell.border = fullBorder;
+    bdTotalAmountCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    columns.forEach((label, colIdx) => {
+      let maxLen = label.length;
+      ot.entries.forEach((e) => {
+        const v = [fmtDateWithFiscal(e), formatCurrencyInput(e.amount || 0), e.category, e.description, e.user, e.payMethod, e.payDetail, e.note][colIdx];
+        if (v !== undefined && v !== null) maxLen = Math.max(maxLen, String(v).length);
+      });
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 3 ? 40 : 18);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '해외_출장_경비_사용내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 연차 현황 - 공유해주신 "OOOO년 연차 / 휴일근무 및 대체 휴가" 양식을 그대로
+  // 엑셀로 재현한다. 이름/입사일자/총년차일수는 그 직원의 전체 행(연차 사용 내역 + 맨 아래
+  // 합계 행)에 걸쳐 세로로 병합하고, 연차 사용/휴일(초과)근무/대체휴가 세 목록은 각각
+  // 독립적인 목록이라 행 번호가 같아도 서로 다른 내용일 수 있다(짧은 목록은 그만큼
+  // 빈칸으로 둔다) - annualLeavePersonRowCount와 같은 규칙.
+  const handleExportAnnualLeaveStatusExcel = async () => {
+    if (!printingDoc || !printingDoc.annualLeaveStatus) return;
+    const al = printingDoc.annualLeaveStatus;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('연차_현황', {
+      pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.59, right: 0.59, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const colCount = 13;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const applyBorder = (row: number, col: number) => { ws.getCell(row, col).border = fullBorder; };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = printingDoc.title || `${al.year}년 연차 / 휴일근무 및 대체 휴가`;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    // 2행짜리 헤더(2~3행) - 대부분 열은 세로로 2행 병합, "휴일(초과) 근무"만 4개 하위 열을
+    // 거느린 그룹 헤더라서 2행에서는 가로로만 병합하고 3행에 하위 이름을 따로 적는다.
+    const singleHeaders: [number, string][] = [
+      [1, '이름'], [2, '입사일자'], [3, '총 년차일수'], [4, '휴가일'], [5, '사용연차일수'],
+      [6, '잔여일수'], [7, '비고'], [12, '대체휴가'], [13, '비고']
+    ];
+    singleHeaders.forEach(([col, label]) => {
+      ws.mergeCells(2, col, 3, col);
+      const cell = ws.getCell(2, col);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      for (let r = 2; r <= 3; r++) applyBorder(r, col);
+    });
+    ws.mergeCells(2, 8, 2, 11);
+    const overtimeGroupCell = ws.getCell(2, 8);
+    overtimeGroupCell.value = '휴 일 (초과) 근 무';
+    overtimeGroupCell.font = { bold: true };
+    overtimeGroupCell.fill = yellowFill;
+    overtimeGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    for (let c = 8; c <= 11; c++) applyBorder(2, c);
+    (['일자', '기간(일)', '시간', '현장'] as const).forEach((label, i) => {
+      const cell = ws.getCell(3, 8 + i);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      applyBorder(3, 8 + i);
+    });
+    ws.getRow(2).height = 18;
+    ws.getRow(3).height = 18;
+
+    let cursor = 4;
+    for (const p of al.people) {
+      const rowCount = annualLeavePersonRowCount(p);
+      const blockStart = cursor;
+      const blockEnd = cursor + rowCount; // 데이터 행 + 합계 행까지 포함해서 이름/입사일자/총년차일수를 병합
+
+      for (let i = 0; i < rowCount; i++) {
+        const r = cursor + i;
+        const row = ws.getRow(r);
+        const leaveEntry = p.leaveEntries[i];
+        const overtimeEntry = p.overtimeEntries[i];
+        const substituteEntry = p.substituteEntries[i];
+        const values: (string | number)[] = [
+          '', '', '', // 1~3열은 아래에서 병합 처리
+          leaveEntry ? formatAnnualLeaveRange(leaveEntry.startDate, leaveEntry.endDate) : '',
+          leaveEntry ? (leaveEntry.days || 0) : '',
+          '', // 잔여일수는 합계 행에서만 표시
+          leaveEntry?.note || '',
+          overtimeEntry?.date ? fmtDate(overtimeEntry.date) : '',
+          overtimeEntry?.periodDays || '',
+          overtimeEntry?.hours || '',
+          overtimeEntry?.site || '',
+          substituteEntry?.date ? fmtDate(substituteEntry.date) : '',
+          substituteEntry?.note || ''
+        ];
+        values.forEach((v, colIdx) => {
+          const col = colIdx + 1;
+          if (col <= 3) return; // 병합 영역 - 아래에서 따로 값/서식 지정
+          const cell = row.getCell(col);
+          cell.value = v;
+          cell.border = fullBorder;
+          cell.alignment = { vertical: 'middle', horizontal: (col === 4 || col === 7 || col === 13) ? 'left' : 'center', wrapText: col === 7 || col === 13 };
+          if (col === 5 || col === 9 || col === 10) cell.numFmt = '#,##0.##';
+        });
+      }
+
+      // 합계 행 - 사용연차일수 합계/잔여일수/휴일근무 시간·기간 합계를 노란 배경으로 표시
+      const totalR = cursor + rowCount;
+      const totalRow = ws.getRow(totalR);
+      for (let c = 4; c <= colCount; c++) {
+        const cell = totalRow.getCell(c);
+        cell.border = fullBorder;
+        cell.fill = yellowFill;
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      }
+      totalRow.getCell(4).value = '합 계';
+      totalRow.getCell(5).value = annualLeaveUsedTotal(p);
+      totalRow.getCell(5).numFmt = '#,##0.##';
+      totalRow.getCell(6).value = annualLeaveRemaining(p);
+      totalRow.getCell(6).numFmt = '#,##0.##';
+      const overtimePeriodTotal = annualLeaveOvertimePeriodTotal(p);
+      const overtimeHoursTotal = annualLeaveOvertimeHoursTotal(p);
+      totalRow.getCell(9).value = overtimePeriodTotal || 0;
+      totalRow.getCell(10).value = overtimeHoursTotal || 0;
+
+      // 이름/입사일자/총년차일수 - 데이터 행 + 합계 행 전체에 걸쳐 세로 병합
+      ws.mergeCells(blockStart, 1, blockEnd, 1);
+      ws.mergeCells(blockStart, 2, blockEnd, 2);
+      ws.mergeCells(blockStart, 3, blockEnd, 3);
+      const nameCell = ws.getCell(blockStart, 1);
+      nameCell.value = p.name;
+      nameCell.font = { bold: true };
+      nameCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const hireCell = ws.getCell(blockStart, 2);
+      hireCell.value = fmtDate(p.hireDate);
+      hireCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      const totalCell = ws.getCell(blockStart, 3);
+      totalCell.value = p.totalAnnualDays;
+      totalCell.numFmt = '#,##0.##';
+      totalCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      for (let r = blockStart; r <= blockEnd; r++) {
+        for (let c = 1; c <= 3; c++) applyBorder(r, c);
+      }
+
+      cursor = blockEnd + 1;
+    }
+
+    ws.getColumn(1).width = 12;
+    ws.getColumn(2).width = 12;
+    ws.getColumn(3).width = 11;
+    ws.getColumn(4).width = 14;
+    ws.getColumn(5).width = 10;
+    ws.getColumn(6).width = 9;
+    ws.getColumn(7).width = 22;
+    ws.getColumn(8).width = 12;
+    ws.getColumn(9).width = 8;
+    ws.getColumn(10).width = 7;
+    ws.getColumn(11).width = 10;
+    ws.getColumn(12).width = 12;
+    ws.getColumn(13).width = 22;
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || al.year + '년_연차_현황'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 현금 흐름 - INFLOWS/OUTFLOWS/경비/현금흐름 최종 표를 엑셀로 받는다. 인쇄/PDF
+  // 미리보기에서 고른 표(cashFlowPrintTab)와 똑같이 - "전체"를 고르면 네 표를 시트 4개로
+  // 나눠 한 파일에 담고, 특정 표만 골랐으면 그 표 하나만 시트 1개로 받는다.
+  const handleExportCashFlowExcel = async () => {
+    if (!printingDoc || !printingDoc.cashFlowAnnual) return;
+    const cf = printingDoc.cashFlowAnnual;
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+    const navyFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF3D5A99' } };
+    const greenFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFC6EFCE' } };
+    const grayFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE7E6E6' } };
+    const landscapeSetup = { orientation: 'landscape' as const, paperSize: 9, margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } };
+    const setColWidths = (ws: any, columns: string[], rowsAsStrings: (string | number)[][]) => {
+      columns.forEach((label, ci) => {
+        let maxLen = label.length;
+        rowsAsStrings.forEach((row) => {
+          const v = row[ci];
+          if (v !== undefined && v !== null && v !== '') maxLen = Math.max(maxLen, String(v).length);
+        });
+        ws.getColumn(ci + 1).width = Math.min(Math.max(maxLen + 2, 8), 26);
+      });
+    };
+
+    const addInflowsSheet = () => {
+      const columns = ['NO', '프로젝트명', '프로젝트 수주자', '계약금(VAT포함)', '잔여기성', '전년도', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('INFLOWS', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `INFLOWS (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = navyFill; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+      headerRow.height = 26;
+
+      const dataRows: (string | number)[][] = [];
+      cf.inflows.forEach((r, i) => {
+        const row = ws.getRow(3 + i);
+        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.contractAmount || 0, r.remainingAmount || 0, r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => cfCellTotal(r.months[m]))];
+        dataRows.push(values);
+        values.forEach((v, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = v; cell.border = fullBorder;
+          cell.alignment = { horizontal: ci === 0 || ci === 2 ? 'center' : (ci === 1 ? 'left' : 'right'), vertical: 'middle' };
+          if (ci >= 3) cell.numFmt = '#,##0';
+        });
+      });
+
+      const sumField = (key: 'contractAmount' | 'remainingAmount' | 'prevYear') => cf.inflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+      const totalRowIdx = 3 + cf.inflows.length;
+      const totalRow = ws.getRow(totalRowIdx);
+      const totals: (string | number)[] = ['합계(1)', '', '', sumField('contractAmount'), sumField('remainingAmount'), sumField('prevYear'), ...CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m))];
+      totals.forEach((v, ci) => {
+        const cell = totalRow.getCell(ci + 1);
+        cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+        cell.alignment = { horizontal: ci === 0 ? 'center' : 'right', vertical: 'middle' };
+        if (ci >= 3) cell.numFmt = '#,##0';
+      });
+      setColWidths(ws, columns, [...dataRows, totals]);
+    };
+
+    const addOutflowsSheet = () => {
+      const columns = ['NO', '프로젝트별 물품 매입처', '프로젝트 수주자', '예상물품구입(외주)총액', '비 고', '전년도 구입', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('OUTFLOWS', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `OUTFLOWS (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = navyFill; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+      headerRow.height = 26;
+
+      const dataRows: (string | number)[][] = [];
+      cf.outflows.forEach((r, i) => {
+        const row = ws.getRow(3 + i);
+        const values: (string | number)[] = [i + 1, r.name, r.recipient || '', r.estimatedTotal || 0, r.note || '', r.prevYear || 0, ...CASH_FLOW_MONTHS.map((m) => cfCellTotal(r.months[m]))];
+        dataRows.push(values);
+        values.forEach((v, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = v; cell.border = fullBorder;
+          cell.alignment = { horizontal: ci === 0 || ci === 2 ? 'center' : (ci === 1 || ci === 4 ? 'left' : 'right'), vertical: 'middle' };
+          if (ci === 3 || ci >= 5) cell.numFmt = '#,##0';
+        });
+      });
+
+      const sumField = (key: 'estimatedTotal' | 'prevYear') => cf.outflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+      const totalRowIdx = 3 + cf.outflows.length;
+      const totalRow = ws.getRow(totalRowIdx);
+      const totals: (string | number)[] = ['매입 합계', '', '', sumField('estimatedTotal'), '', sumField('prevYear'), ...CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m))];
+      totals.forEach((v, ci) => {
+        const cell = totalRow.getCell(ci + 1);
+        cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+        cell.alignment = { horizontal: ci === 0 ? 'center' : 'right', vertical: 'middle' };
+        if (ci === 3 || ci >= 5) cell.numFmt = '#,##0';
+      });
+      setColWidths(ws, columns, [...dataRows, totals]);
+    };
+
+    const addExpensesSheet = () => {
+      const columns = ['구분', '항목', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('경비', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `경비 (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = navyFill; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+      headerRow.height = 22;
+
+      let r = 3;
+      const dataRows: (string | number)[][] = [];
+      cf.expenseGroups.forEach((g) => {
+        const items = g.items.length > 0 ? g.items : [{ id: `${g.id}-empty`, label: '', months: {} as Record<string, number> }];
+        items.forEach((it, ii) => {
+          const row = ws.getRow(r);
+          const values: (string | number)[] = [ii === 0 ? g.name : '', it.label, ...CASH_FLOW_MONTHS.map((m) => cfCellTotal(it.months[m]))];
+          dataRows.push(values);
+          values.forEach((v, ci) => {
+            const cell = row.getCell(ci + 1);
+            cell.value = v; cell.border = fullBorder;
+            if (ci === 0) cell.font = { bold: true };
+            cell.alignment = { horizontal: ci <= 1 ? 'left' : 'right', vertical: 'middle' };
+            if (ci >= 2) cell.numFmt = '#,##0';
+          });
+          r++;
+        });
+        const subtotalRow = ws.getRow(r);
+        const subtotals: (string | number)[] = [`${g.name} 소계`, '', ...CASH_FLOW_MONTHS.map((m) => cfExpenseGroupMonthlyTotal(g, m))];
+        dataRows.push(subtotals);
+        subtotals.forEach((v, ci) => {
+          const cell = subtotalRow.getCell(ci + 1);
+          cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+          cell.alignment = { horizontal: ci === 0 ? 'left' : 'right', vertical: 'middle' };
+          if (ci >= 2) cell.numFmt = '#,##0';
+        });
+        r++;
+      });
+      const grandRow = ws.getRow(r);
+      const grandTotals: (string | number)[] = ['경비 총 합계', '', ...CASH_FLOW_MONTHS.map((m) => cfExpenseAllMonthlyTotal(cf.expenseGroups, m))];
+      dataRows.push(grandTotals);
+      grandTotals.forEach((v, ci) => {
+        const cell = grandRow.getCell(ci + 1);
+        cell.value = v; cell.font = { bold: true }; cell.fill = yellowFill; cell.border = fullBorder;
+        cell.alignment = { horizontal: ci === 0 ? 'left' : 'right', vertical: 'middle' };
+        if (ci >= 2) cell.numFmt = '#,##0';
+      });
+      setColWidths(ws, columns, dataRows);
+    };
+
+    const addSummarySheet = () => {
+      const columns = ['구분', ...CASH_FLOW_MONTHS.map((m) => `${m}월`)];
+      const colCount = columns.length;
+      const ws = wb.addWorksheet('현금흐름_최종', { pageSetup: landscapeSetup });
+      ws.mergeCells(1, 1, 1, colCount);
+      const t = ws.getCell(1, 1);
+      t.value = `현금 흐름 최종 (${cf.year}년도)`;
+      t.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+      t.fill = navyFill;
+      t.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 22;
+
+      const headerRow = ws.getRow(2);
+      columns.forEach((label, ci) => {
+        const c = headerRow.getCell(ci + 1);
+        c.value = label; c.font = { bold: true }; c.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFDBE5F1' } }; c.border = fullBorder;
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      const inflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m));
+      const outflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m));
+      const expenseTotals = CASH_FLOW_MONTHS.map((m) => cfExpenseAllMonthlyTotal(cf.expenseGroups, m));
+      const totalOutflowTotals = CASH_FLOW_MONTHS.map((m) => cfTotalOutflowMonthly(cf, m));
+      const netTotals = CASH_FLOW_MONTHS.map((m) => cfNetCashFlowMonthly(cf, m));
+      const balances = cfBankBalances(cf);
+
+      const dataRows: (string | number)[][] = [];
+      const writeRow = (rowIdx: number, label: string, values: number[], opts?: { bold?: boolean; fill?: any }) => {
+        const row = ws.getRow(rowIdx);
+        const rowValues: (string | number)[] = [label, ...values];
+        dataRows.push(rowValues);
+        rowValues.forEach((v, ci) => {
+          const cell = row.getCell(ci + 1);
+          cell.value = v; cell.border = fullBorder;
+          if (opts?.bold) cell.font = { bold: true };
+          if (opts?.fill) cell.fill = opts.fill;
+          cell.alignment = { horizontal: ci === 0 ? 'left' : 'right', vertical: 'middle' };
+          if (ci >= 1) cell.numFmt = '#,##0';
+        });
+      };
+      writeRow(3, 'INFLOWS 합계(1)', inflowTotals);
+      writeRow(4, '매입 합계', outflowTotals);
+      writeRow(5, '경비 합계', expenseTotals);
+      writeRow(6, 'Total OUTFLOWS(2)', totalOutflowTotals, { bold: true, fill: grayFill });
+      writeRow(7, '순 현금 흐름(1)-(2)', netTotals, { bold: true });
+      writeRow(8, `통장잔고(월말기준) [전년도이월금: ${new Intl.NumberFormat('ko-KR').format(cf.openingBalance || 0)}]`, balances, { bold: true, fill: greenFill });
+      setColWidths(ws, columns, dataRows);
+    };
+
+    if (cashFlowPrintTab === 'inflows') addInflowsSheet();
+    else if (cashFlowPrintTab === 'outflows') addOutflowsSheet();
+    else if (cashFlowPrintTab === 'expenses') addExpensesSheet();
+    else if (cashFlowPrintTab === 'summary') addSummarySheet();
+    else { addInflowsSheet(); addOutflowsSheet(); addExpensesSheet(); addSummarySheet(); }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${cf.year}년도_현금흐름_${cashFlowPrintTab === 'all' ? '전체' : cashFlowPrintTab}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 관리비내역 - "518호, 519호 각각 문서로 등록해도 함께 전체로 보이게" 요청에 맞춰,
+  // 같은 연도(monthKey의 연도)의 management_fee 문서를 모두 찾아 호실(열)을 하나의 표로
+  // 합친다. 문서마다 독립적으로 생성된 호실 id가 겹칠 수 있어 새 id로 재부여하고, 월별
+  // 금액(amounts)도 그 매핑을 따라 옮긴다. 납부일은 월마다 문서들 중 먼저 값이 있는 것을
+  // 쓴다(보통 같은 달 관리비는 다 같이 한 번에 납부되므로). 실제 데이터는 그대로 두고
+  // (문서를 합치거나 지우지 않음), 보여줄 때만 화면에서 합친다.
+  const handleViewAllManagementFees = () => {
+    const targetYear = managementFeeMergeYear || managementFeeYears[0];
+    if (!targetYear) return;
+    const docsForYear = managementFeeDocs.filter((d) => (d.managementFee?.months || []).some((m) => (m.monthKey || '').slice(0, 4) === targetYear));
+    if (docsForYear.length === 0) return;
+
+    const mergedUnits: { id: string; name: string }[] = [];
+    const idMaps: Record<string, string>[] = docsForYear.map((d, di) => {
+      const map: Record<string, string> = {};
+      const units = d.managementFee?.units || [];
+      // [수정] 호실별로 문서를 따로 등록하실 때, 표 안의 "호실(이 표의 열)" 이름칸은 그대로
+      // 비워두고 문서 위쪽 "호실" 칸(personName)에만 "518호"처럼 입력해두신 경우가 있었다
+      // (그 경우 목록에는 "518호"로 잘 보이지만, 정작 표의 열 이름은 비어 있어서 합친
+      // 화면에 "(호실명 미입력)"으로만 나왔음). 문서에 호실이 딱 하나뿐이면 표의 열
+      // 이름이 비어 있을 때 문서의 "호실" 칸 값을 대신 쓴다(호실이 여러 개인 문서는 어느
+      // 열이 문서의 호실 칸과 같은 건지 알 수 없어 그대로 둔다).
+      const fallbackName = units.length === 1 ? (d.personName || '') : '';
+      units.forEach((u) => {
+        const newId = `merged-${di}-${u.id}`;
+        map[u.id] = newId;
+        mergedUnits.push({ id: newId, name: u.name || fallbackName });
+      });
+      return map;
+    });
+
+    const monthOrder = Array.from({ length: 12 }, (_, i) => `${targetYear}-${String(i + 1).padStart(2, '0')}`);
+    const mergedMonths = monthOrder.map((monthKey, i) => {
+      let paymentDate = '';
+      const amounts: Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }> = {};
+      docsForYear.forEach((d, di) => {
+        const m = (d.managementFee?.months || []).find((mm) => mm.monthKey === monthKey);
+        if (!m) return;
+        if (!paymentDate && m.paymentDate) paymentDate = m.paymentDate;
+        Object.keys(m.amounts).forEach((unitId) => {
+          const newId = idMaps[di][unitId];
+          if (newId) amounts[newId] = m.amounts[unitId];
+        });
+      });
+      return { id: `merged-month-${monthKey}`, monthKey, label: `${i + 1}월`, paymentDate, amounts };
+    });
+
+    // 메모(입금 계좌 등)는 문서마다 같은 내용을 반복 입력해두신 경우가 많아, 중복을 걷어내고
+    // 서로 다른 내용만 " / "로 이어붙인다.
+    const memos = Array.from(new Set(docsForYear.map((d) => d.memo).filter((m): m is string => !!m && m.trim() !== '')));
+    const base = docsForYear[0];
+    setPrintingDoc({
+      ...base,
+      id: `merged-management-fee-${targetYear}`,
+      title: `${targetYear}년도 월별 관리비내역 - 전체`,
+      memo: memos.length ? memos.join(' / ') : undefined,
+      managementFee: { units: mergedUnits, months: mergedMonths },
+    });
+  };
+
+  // [추가] 가지급내역 인쇄 화면(renderPrintableAdvancePayment)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 다른 엑셀 출력과 같은 방식 - exceljs로 노란 헤더/합계 행 배경색을 화면과
+  // 똑같이 재현한다. 인원(열) 개수가 문서마다 달라서 열 구성을 동적으로 만들고, 입금일은
+  // "구분"과 별도 열로 두며, 금액이 0인 칸은 화면과 동일하게 "-"로 표시한다.
+  const handleExportAdvancePaymentExcel = async () => {
+    if (!printingDoc || !printingDoc.advancePayment) return;
+    const ap = printingDoc.advancePayment;
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (ap.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = advanceGrandTotal(ap);
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('가지급내역', {
+      pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
+    });
+
+    // 열 구성: 구분 | 인원1..N | 합계 | 입금일 | 비고
+    const columns = ['구분', ...ap.people.map((p) => p.name || '(이름 미입력)'), '합계', '입금일', '비 고'];
+    const colCount = columns.length;
+    const totalColIdx = colCount - 3; // 0-index, "합계" 열
+    const depositColIdx = colCount - 2; // 0-index, "입금일" 열
+    const noteColIdx = colCount - 1; // 0-index, "비고" 열
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = firstYear ? `${firstYear}년도 월별 가지급 내역` : printingDoc.title;
+    titleCell.font = { bold: true, size: 14, underline: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    ap.months.forEach((m, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [
+        m.label,
+        ...ap.people.map((p) => advanceCellTotal(m.amounts[p.id])),
+        advanceMonthTotal(m, ap.people),
+        m.depositDate || '',
+        m.note || '',
+      ];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        const isAmountCol = colIdx >= 1 && colIdx <= totalColIdx;
+        cell.border = fullBorder;
+        if (isAmountCol) {
+          cell.value = fmt(v as number) === '-' ? '-' : v;
+          cell.numFmt = '#,##0';
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+        } else if (colIdx === 0) {
+          cell.value = v;
+          cell.font = { bold: true };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else if (colIdx === depositColIdx) {
+          cell.value = v;
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else {
+          cell.value = v;
+          cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        }
+      });
+      const noteLines = m.note ? m.note.split('\n').length : 1;
+      row.height = Math.max(20, noteLines * 14);
+    });
+
+    const totalRowIdx = headerRowIdx + 1 + ap.months.length;
+    const totalRow = ws.getRow(totalRowIdx);
+    totalRow.getCell(1).value = '합계';
+    ap.people.forEach((p, i) => {
+      const cell = totalRow.getCell(2 + i);
+      cell.value = advancePersonTotal(p.id, ap.months);
+      cell.numFmt = '#,##0';
+    });
+    const grandCell = totalRow.getCell(totalColIdx + 1);
+    grandCell.value = grandTotal;
+    grandCell.numFmt = '#,##0';
+    const depositTotalCell = totalRow.getCell(depositColIdx + 1);
+    depositTotalCell.value = '-';
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = (c === 1 || c === depositColIdx + 1) ? { horizontal: 'center', vertical: 'middle' } : { horizontal: 'right', vertical: 'middle' };
+    }
+
+    columns.forEach((label, colIdx) => {
+      if (colIdx === noteColIdx) { ws.getColumn(colIdx + 1).width = 55; return; } // 비 고
+      const maxLen = Math.max(
+        String(label).length,
+        ...ap.months.map((m) => {
+          if (colIdx === 0) return m.label.length;
+          if (colIdx === totalColIdx) return String(advanceMonthTotal(m, ap.people)).length;
+          if (colIdx === depositColIdx) return (m.depositDate || '').length;
+          const p = ap.people[colIdx - 1];
+          return String(advanceCellTotal(m.amounts[p.id])).length;
+        })
+      );
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '가지급내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // [추가] 관리비내역 인쇄 화면(renderPrintableManagementFee)을 그대로 엑셀로도 받을 수
+  // 있게 한다. 다른 엑셀 출력(법인카드/차량 과태료)과 같은 방식 - exceljs로 노란 헤더/합계
+  // 행 배경색을 화면과 똑같이 재현한다. 호실(열) 개수가 문서마다 달라서 열 구성을 동적으로
+  // 만든다.
+  const handleExportManagementFeeExcel = async () => {
+    if (!printingDoc || !printingDoc.managementFee) return;
+    const mf = printingDoc.managementFee;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = managementGrandTotal(mf);
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('관리비내역', {
+      pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
+    });
+
+    const columns = [firstYear ? `${firstYear}년` : '연도', '납부일', ...mf.units.map((u) => u.name || '(호실명 미입력)'), '합계'];
+    const colCount = columns.length;
+    const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
+    const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
+    const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
+
+    ws.mergeCells(1, 1, 1, colCount);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = firstYear ? `${firstYear.slice(2)}년도 월별 관리비내역` : printingDoc.title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 24;
+
+    const headerRowIdx = 2;
+    const headerRow = ws.getRow(headerRowIdx);
+    columns.forEach((label, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = label;
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = fullBorder;
+    });
+    headerRow.height = 20;
+
+    mf.months.forEach((m, i) => {
+      const row = ws.getRow(headerRowIdx + 1 + i);
+      const values: (string | number)[] = [
+        m.label,
+        m.paymentDate || '',
+        ...mf.units.map((u) => managementCellTotal(m.amounts[u.id])),
+        managementMonthTotal(m, mf.units),
+      ];
+      values.forEach((v, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        const isAmountCol = colIdx >= 2;
+        cell.value = isAmountCol ? (fmt(v as number) === '' ? '' : v) : v;
+        cell.border = fullBorder;
+        cell.alignment = { vertical: 'middle', horizontal: colIdx === 0 ? 'center' : (colIdx === 1 ? 'center' : 'right') };
+        if (isAmountCol) cell.numFmt = '#,##0';
+        if (colIdx === 0) cell.font = { bold: true };
+        if (colIdx === colCount - 1) cell.font = { bold: true };
+      });
+    });
+
+    const totalRowIdx = headerRowIdx + 1 + mf.months.length;
+    ws.mergeCells(totalRowIdx, 1, totalRowIdx, colCount - 1);
+    const totalRow = ws.getRow(totalRowIdx);
+    for (let c = 1; c <= colCount; c++) {
+      const cell = totalRow.getCell(c);
+      cell.font = { bold: true };
+      cell.fill = yellowFill;
+      cell.border = fullBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    totalRow.getCell(1).value = '합 계';
+    const grandTotalCell = totalRow.getCell(colCount);
+    grandTotalCell.value = grandTotal;
+    grandTotalCell.numFmt = '#,##0';
+    grandTotalCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    let nextRowIdx = totalRowIdx + 1;
+    if (printingDoc.memo) {
+      ws.mergeCells(nextRowIdx, 1, nextRowIdx, colCount);
+      const noteCell = ws.getCell(nextRowIdx, 1);
+      noteCell.value = `*${printingDoc.memo}`;
+      noteCell.font = { size: 10, color: { argb: 'FF333333' } };
+      noteCell.alignment = { horizontal: 'left', vertical: 'middle' };
+      nextRowIdx += 1;
+    }
+
+    columns.forEach((label, colIdx) => {
+      const maxLen = Math.max(
+        String(label).length,
+        ...mf.months.map((m, i) => {
+          const v = colIdx === 0 ? m.label : colIdx === 1 ? (m.paymentDate || '') : colIdx === colCount - 1 ? String(managementMonthTotal(m, mf.units)) : String(managementCellTotal(m.amounts[mf.units[colIdx - 2]?.id]));
+          return String(v).length;
+        })
+      );
+      ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), 20);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${printingDoc.title || '관리비내역'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !files.length || !editingDoc) return;
+    Array.from(files).forEach((file: File) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const att: ProjectFollowUpAttachment = {
+          id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          dataUrl: reader.result as string,
+          size: file.size
+        };
+        setEditingDoc((prev) => prev ? { ...prev, attachments: [...(prev.attachments || []), att] } : prev);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeAttachment = (attId: string) => {
+    setEditingDoc((prev) => prev ? { ...prev, attachments: (prev.attachments || []).filter((a) => a.id !== attId) } : prev);
+  };
+
+  // [추가] 급여명세서 지급/공제 내역 줄 추가·삭제·수정. payItems/deductionItems 둘 다
+  // 같은 모양(label + amount)이라 kind로 어느 쪽인지만 구분해서 공용으로 처리한다.
+  const updatePayslipItems = (kind: 'payItems' | 'deductionItems', updater: (items: AdminDocLineItem[]) => AdminDocLineItem[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const payslip = prev.payslip || { payItems: [], deductionItems: [] };
+      return { ...prev, payslip: { ...payslip, [kind]: updater(payslip[kind] || []) } };
+    });
+  };
+  const addPayslipItem = (kind: 'payItems' | 'deductionItems') => {
+    updatePayslipItems(kind, (items) => [...items, { id: `li-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: '', amount: 0 }]);
+  };
+  const removePayslipItem = (kind: 'payItems' | 'deductionItems', id: string) => {
+    updatePayslipItems(kind, (items) => items.filter((it) => it.id !== id));
+  };
+  const updatePayslipItem = (kind: 'payItems' | 'deductionItems', id: string, patch: Partial<AdminDocLineItem>) => {
+    updatePayslipItems(kind, (items) => items.map((it) => it.id === id ? { ...it, ...patch } : it));
+  };
+
+  // [수정] 예전엔 이 버튼을 눌러야만 계산됐지만, 이제는 아래 useEffect가 지급 내역/공제율이
+  // 바뀔 때마다 자동으로 재계산한다(더 아래 참고). 이 함수는 더 이상 쓰이지 않는다.
+
+  const updateRate = (key: keyof typeof DEFAULT_RATES, value: number) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const payslip = prev.payslip || { payItems: [], deductionItems: [] };
+      const rates = { ...(payslip.rates || DEFAULT_RATES), [key]: value };
+      try { localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify(rates)); } catch { /* 저장 실패해도 무시 */ }
+      return { ...prev, payslip: { ...payslip, rates } };
+    });
+  };
+
+  const [showRateSettings, setShowRateSettings] = useState(false);
+
+  // [추가] 예전엔 "자동 계산" 버튼을 직접 눌러야만 계산됐는데, 지급 내역이나 공제율을 바꿀
+  // 때마다 매번 버튼 누르는 게 번거로워서, 바뀌는 즉시 자동으로 다시 계산되게 한다.
+  // 소득세 금액이 바뀌어도(지방소득세가 소득세에 딸려있으므로) 다시 계산한다.
+  // 실제로 계산 결과가 달라질 때만 상태를 갱신해서 무한 재실행을 막는다.
+  const payItemsKey = editingDoc?.payslip?.payItems?.map((it) => `${it.amount}_${it.taxable !== false}`).join('|') || '';
+  const ratesKey = JSON.stringify(editingDoc?.payslip?.rates || {});
+  const incomeTaxAmount = editingDoc?.payslip?.deductionItems?.find((it) => it.label.replace(/\s/g, '') === '소득세')?.amount || 0;
+  useEffect(() => {
+    if (!editingDoc || editingDoc.category !== 'payslip' || !editingDoc.payslip) return;
+    const rates = editingDoc.payslip.rates || DEFAULT_RATES;
+    const current = editingDoc.payslip.deductionItems || [];
+    const recalculated = calcDeductions(editingDoc.payslip.payItems || [], current, rates);
+    const isSame = recalculated.length === current.length && recalculated.every((it, i) => it.amount === current[i].amount);
+    if (!isSame) {
+      setEditingDoc((prev) => prev && prev.payslip ? { ...prev, payslip: { ...prev.payslip, deductionItems: recalculated } } : prev);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payItemsKey, ratesKey, incomeTaxAmount, editingDoc?.category]);
+
+  // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
+  const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
+
+  // [추가] 법인카드 관리 - "전체 카드 한 페이지로 보기"에서 고를 대상 연월
+  const [corpCardMergeMonth, setCorpCardMergeMonth] = useState('');
+
+  // [추가] 차량 과태료 내역 - "연도별로 모아보기"에서 고를 대상 연도
+  const [vehicleFineMergeYear, setVehicleFineMergeYear] = useState('');
+
+  // [추가] 관리비내역 - "호실 전체 합쳐보기"에서 고를 대상 연도
+  const [managementFeeMergeYear, setManagementFeeMergeYear] = useState('');
+
+  // [추가] 인센티브 및 명절 상여금 - "연도별로 모아보기"에서 고를 대상 연도
+  const [incentiveMergeYear, setIncentiveMergeYear] = useState('');
+
+  // [추가] 해외 출장 경비 - "연도별로 모아보기"에서 고를 대상 연도
+  const [overseasTripMergeYear, setOverseasTripMergeYear] = useState('');
+
+  // [추가] 해외 출장 경비 - "카드 사용내역에서 가져오기"(카드사용내역 + 업무일지) 패널 상태.
+  // 카드사용내역·업무일지에서 실제 결제 항목을 골라 항공료/숙박비/식비/교통비 등 항목으로
+  // 바로 채워 넣을 수 있게 한다.
+  type OverseasTripImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; project?: string; memo?: string; personName?: string };
+  const [overseasTripCardCandidates, setOverseasTripCardCandidates] = useState<OverseasTripImportCandidate[]>([]);
+  const [showOverseasTripCardImportPanel, setShowOverseasTripCardImportPanel] = useState(false);
+  const [isLoadingOverseasTripCardCandidates, setIsLoadingOverseasTripCardCandidates] = useState(false);
+  const [selectedOverseasTripCardImportKeys, setSelectedOverseasTripCardImportKeys] = useState<Set<string>>(new Set());
+
+  // [추가] 해외 출장 경비 - "통장 출금내역에서 가져오기" 패널 상태. 환전 비용처럼 통장에서
+  // 바로 출금한 경우, 또는 현금으로 지급한 항목(현금 인출)을 통장 출금 내역에서 가져온다.
+  const [overseasTripBankCandidates, setOverseasTripBankCandidates] = useState<OverseasTripImportCandidate[]>([]);
+  const [showOverseasTripBankImportPanel, setShowOverseasTripBankImportPanel] = useState(false);
+  const [isLoadingOverseasTripBankCandidates, setIsLoadingOverseasTripBankCandidates] = useState(false);
+  const [selectedOverseasTripBankImportKeys, setSelectedOverseasTripBankImportKeys] = useState<Set<string>>(new Set());
+
+  // 이미 어딘가(저장된 문서든, 지금 편집 중인 폼이든)의 해외 출장 경비 항목으로 가져와져
+  // 있는 sourceKey 모음 - 카드사용내역의 alreadyImportedKeys와 같은 방식.
+  const alreadyImportedOverseasTripKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'overseas_trip' || !d.overseasTrip) continue;
+    for (const e of d.overseasTrip.entries) {
+      if (e.sourceKey) alreadyImportedOverseasTripKeys.add(e.sourceKey);
+    }
+  }
+  for (const e of (editingDoc?.overseasTrip?.entries || [])) {
+    if (e.sourceKey) alreadyImportedOverseasTripKeys.add(e.sourceKey);
+  }
+
+  const handleOpenOverseasTripCardImportPanel = async () => {
+    if (!currentUser) return;
+    setShowOverseasTripCardImportPanel(true);
+    setIsLoadingOverseasTripCardCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/overseas-trip-card-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: OverseasTripImportCandidate[] = await res.json();
+      setOverseasTripCardCandidates(data);
+    } catch (err: any) {
+      alert(`카드사용내역/업무일지를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowOverseasTripCardImportPanel(false);
+    } finally {
+      setIsLoadingOverseasTripCardCandidates(false);
+    }
+  };
+
+  const handleOpenOverseasTripBankImportPanel = async () => {
+    if (!currentUser) return;
+    setShowOverseasTripBankImportPanel(true);
+    setIsLoadingOverseasTripBankCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: OverseasTripImportCandidate[] = await res.json();
+      setOverseasTripBankCandidates(data);
+    } catch (err: any) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowOverseasTripBankImportPanel(false);
+    } finally {
+      setIsLoadingOverseasTripBankCandidates(false);
+    }
+  };
+
+  const toggleOverseasTripCardImportKey = (key: string) => {
+    setSelectedOverseasTripCardImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const toggleOverseasTripBankImportKey = (key: string) => {
+    setSelectedOverseasTripBankImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // [추가] 카드사용내역/업무일지에서 고른 항목들을 해외 출장 경비 항목으로 채워 넣는다.
+  // 카드 결제 항목이라 지급방법은 "신용카드"로 기본 잡고, 사용구분은 사람마다 다를 수
+  // 있어 일단 "기타"로 넣어두고 필요하면 직접 골라 바꾸게 한다. 지급구분(카드명)은 후보의
+  // 메모/거래처 정보만으론 정확히 알 수 없어 비워두고, 비고에 원본 정보를 남겨 참고할 수
+  // 있게 한다.
+  const handleImportOverseasTripCardSelected = () => {
+    if (selectedOverseasTripCardImportKeys.size === 0) return;
+    const toImport = overseasTripCardCandidates.filter((c) => selectedOverseasTripCardImportKeys.has(c.sourceKey));
+    updateOverseasTripEntries((entries) => [
+      ...entries,
+      ...toImport.map((cand) => ({
+        id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: cand.date,
+        amount: cand.amount,
+        category: '기타',
+        description: cand.memo || cand.sourceLabel,
+        user: cand.personName || '',
+        payMethod: '신용카드',
+        payDetail: '',
+        note: `[${cand.sourceLabel}에서 자동 불러옴]`,
+        sourceKey: cand.sourceKey,
+        sourceLabel: cand.sourceLabel
+      }))
+    ]);
+    setSelectedOverseasTripCardImportKeys(new Set());
+    setShowOverseasTripCardImportPanel(false);
+  };
+
+  // [추가] 통장 출금 내역에서 고른 항목들을 해외 출장 경비 항목으로 채워 넣는다. 주로
+  // 환전 비용(은행에서 바로 환전) 또는 현금으로 지급하기 위해 인출한 경우라, 사용구분은
+  // "환전 비용", 지급방법은 "현금"으로 기본 잡아두고 필요하면 직접 바꾸게 한다.
+  const handleImportOverseasTripBankSelected = () => {
+    if (selectedOverseasTripBankImportKeys.size === 0) return;
+    const toImport = overseasTripBankCandidates.filter((c) => selectedOverseasTripBankImportKeys.has(c.sourceKey));
+    updateOverseasTripEntries((entries) => [
+      ...entries,
+      ...toImport.map((cand) => ({
+        id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: cand.date,
+        amount: cand.amount,
+        category: '환전 비용',
+        description: cand.memo || cand.sourceLabel,
+        user: '',
+        payMethod: '현금',
+        payDetail: '',
+        note: `[${cand.sourceLabel}에서 자동 불러옴]`,
+        sourceKey: cand.sourceKey,
+        sourceLabel: cand.sourceLabel
+      }))
+    ]);
+    setSelectedOverseasTripBankImportKeys(new Set());
+    setShowOverseasTripBankImportPanel(false);
+  };
+
+  // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기"에서 고를 대상 통장(은행+계좌번호)
+  const [bankAccountMergeKey, setBankAccountMergeKey] = useState('');
+
+  // [추가] 통장 출금/입금 내역 - 엑셀 가져오기 시, 파일을 바로 새 문서로 저장하지 않고
+  // "어느 통장 내역인지" 고르게 한 뒤 확정해야 하므로, 확정 전까지 파싱 결과를 잠깐
+  // 담아두는 상태. null이면 선택 화면이 안 보인다.
+  const [pendingBankImport, setPendingBankImport] = useState<{
+    category: 'bank_withdrawal' | 'bank_deposit';
+    fileName: string;
+    entries: { id: string; date: string; project: string; amount: number; description: string; note: string }[];
+    totalAmount: number;
+  } | null>(null);
+  const [bankImportSelectedKey, setBankImportSelectedKey] = useState('__new__');
+  const [bankImportNewBank, setBankImportNewBank] = useState('');
+  const [bankImportNewAccount, setBankImportNewAccount] = useState('');
+  const [bankImportNewSubCategory, setBankImportNewSubCategory] = useState('');
+  const [isSavingBankImport, setIsSavingBankImport] = useState(false);
+
+  // [추가] 현금 흐름 - 편집 화면에서 지금 보고 있는 표(INFLOWS/OUTFLOWS/경비/현금흐름
+  // 최종 미리보기)와, 인쇄/PDF·엑셀 미리보기에서 고를 표(전체 4장 포함).
+  const [cashFlowEditTab, setCashFlowEditTab] = useState<'inflows' | 'outflows' | 'expenses' | 'summary'>('inflows');
+  const [cashFlowPrintTab, setCashFlowPrintTab] = useState<'inflows' | 'outflows' | 'expenses' | 'summary' | 'all'>('all');
+
+  // [추가] 카드사용내역 인쇄/PDF 화면 - 사용일자 정렬 방향. 예전엔 저장된 순서 그대로(보통
+  // "자동 불러오기"로 채워진 순서라 날짜가 뒤죽박죽) 보여줬는데, 최근 날짜가 위로 오게
+  // 기본 내림차순으로 바꾸고, 오름차순으로도 바꿔볼 수 있게 한다.
+  const [cardUsageSortDir, setCardUsageSortDir] = useState<'desc' | 'asc'>('desc');
+
+  // [추가] 월별 자금 현황 - 통장(계좌) 줄 추가·삭제·수정
+  const updateCashflowAccounts = (updater: (accounts: NonNullable<AdminDoc['cashflow']>['accounts']) => NonNullable<AdminDoc['cashflow']>['accounts']) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const cashflow = prev.cashflow || { accounts: [] };
+      return { ...prev, cashflow: { ...cashflow, accounts: updater(cashflow.accounts || []) } };
+    });
+  };
+  const addCashflowAccount = () => {
+    updateCashflowAccounts((accounts) => [...accounts, { id: `acc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '', broughtForward: 0, deposit: 0, withdrawal: 0, note: '' }]);
+  };
+  const removeCashflowAccount = (id: string) => {
+    updateCashflowAccounts((accounts) => accounts.filter((a) => a.id !== id));
+  };
+  const updateCashflowAccount = (id: string, patch: Partial<NonNullable<AdminDoc['cashflow']>['accounts'][number]>) => {
+    updateCashflowAccounts((accounts) => accounts.map((a) => a.id === id ? { ...a, ...patch } : a));
+  };
+  // 통장잔액 = 이월금 + 입금 - 출금
+  const accountBalance = (a: { broughtForward: number; deposit: number; withdrawal: number }) => a.broughtForward + a.deposit - a.withdrawal;
+
+  // [추가] 통장 출금/입금 내역 - 계좌·거래 줄 추가·삭제·수정 (두 카테고리 공용)
+  type BankAccount = NonNullable<AdminDoc['bankLedger']>['accounts'][number];
+  type BankEntry = BankAccount['entries'][number];
+  const updateBankAccounts = (updater: (accounts: BankAccount[]) => BankAccount[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const bankLedger = prev.bankLedger || { accounts: [] };
+      return { ...prev, bankLedger: { ...bankLedger, accounts: updater(bankLedger.accounts || []) } };
+    });
+  };
+  const addBankAccount = () => {
+    updateBankAccounts((accounts) => [...accounts, {
+      id: `bacc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      bankName: '',
+      accountNumber: '',
+      subCategory: '',
+      entries: [{ id: `be-${Date.now()}`, date: getTodayLocalStr(), project: '', amount: 0, description: '', note: '' }]
+    }]);
+  };
+  const removeBankAccount = (accId: string) => {
+    updateBankAccounts((accounts) => accounts.filter((a) => a.id !== accId));
+  };
+  const updateBankAccountField = (accId: string, patch: Partial<Pick<BankAccount, 'bankName' | 'accountNumber' | 'subCategory'>>) => {
+    updateBankAccounts((accounts) => accounts.map((a) => a.id === accId ? { ...a, ...patch } : a));
+  };
+  const addBankEntry = (accId: string) => {
+    updateBankAccounts((accounts) => accounts.map((a) => a.id === accId
+      ? { ...a, entries: [...a.entries, { id: `be-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), project: '', amount: 0, description: '', note: '' }] }
+      : a));
+  };
+  const removeBankEntry = (accId: string, entryId: string) => {
+    updateBankAccounts((accounts) => accounts.map((a) => a.id === accId ? { ...a, entries: a.entries.filter((e) => e.id !== entryId) } : a));
+  };
+  const updateBankEntry = (accId: string, entryId: string, patch: Partial<BankEntry>) => {
+    updateBankAccounts((accounts) => accounts.map((a) => a.id === accId
+      ? { ...a, entries: a.entries.map((e) => e.id === entryId ? { ...e, ...patch } : e) }
+      : a));
+  };
+  const bankAccountTotal = (a: BankAccount) => a.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  // [추가] 통장 출금/입금 내역 - 엑셀 내보내기. 지금까지 등록된 이 종류(출금 또는 입금)의
+  // 모든 문서·통장·거래를 한 시트로 펼쳐서 다운로드한다 - 은행 사이트/회계 프로그램으로
+  // 옮기거나 백업해두기 좋게, 그리고 아래 "엑셀 가져오기"로 다시 그대로 불러올 수 있게
+  // 컬럼 순서를 맞춰뒀다.
+  const [isImportingBankLedger, setIsImportingBankLedger] = useState(false);
+  const handleExportBankLedgerExcel = () => {
+    const isWithdrawal = activeCategory === 'bank_withdrawal';
+    const targetDocs = docs.filter((d) => d.section === section && d.category === activeCategory);
+    const wsData: (string | number)[][] = [['문서 제목', '은행', '계좌번호', '구분', '일자', '프로젝트', '금액', '거래내용', '비고']];
+    targetDocs.forEach((d) => {
+      (d.bankLedger?.accounts || []).forEach((acc) => {
+        acc.entries.forEach((e) => {
+          wsData.push([d.title, acc.bankName || '', acc.accountNumber || '', acc.subCategory || '', e.date, e.project || '', Number(e.amount) || 0, e.description || '', e.note || '']);
+        });
+      });
+    });
+    if (wsData.length === 1) {
+      alert(`내보낼 ${isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'}이 없습니다.`);
+      return;
+    }
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = wsData[0].map((_, colIdx) => {
+      let maxLen = 8;
+      wsData.forEach((row) => { const len = (row[colIdx] ?? '').toString().length; if (len > maxLen) maxLen = Math.min(len, 40); });
+      return { wch: maxLen + 2 };
+    });
+    XLSX.utils.book_append_sheet(wb, ws, isWithdrawal ? '통장 출금 내역' : '통장 입금 내역');
+    XLSX.writeFile(wb, `${isWithdrawal ? '통장출금내역' : '통장입금내역'}_${getTodayLocalStr()}.xlsx`);
+  };
+
+  // [추가] 통장 출금/입금 내역 - 엑셀 가져오기. 위 "엑셀 내보내기"로 받은 파일이나, 은행에서
+  // 바로 내려받은 거래내역 엑셀을 업로드하면 새 문서 하나로 만들어준다(통장 하나, 거래
+  // 여러 줄). 은행마다 컬럼 이름이 달라서 자주 쓰이는 이름들을 최대한 알아보려고 하고,
+  // 못 알아본 컬럼은 빈 채로 둔다 - 가져온 뒤 "수정"에서 은행명/계좌번호 등을 채우거나
+  // 잘못 들어온 값을 고치면 된다.
+  const handleImportBankLedgerFile = async (file: File) => {
+    if (!currentUser) return;
+    setIsImportingBankLedger(true);
+    try {
+      const isWithdrawal = activeCategory === 'bank_withdrawal';
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1, raw: false, defval: '' });
+      if (rows.length < 2) throw new Error('엑셀에 데이터가 없습니다.');
+
+      const norm = (s: string) => (s || '').toString().replace(/\s/g, '').toLowerCase();
+      const header = rows[0].map((h) => norm(h));
+      const findCol = (candidates: string[]) => header.findIndex((h) => candidates.some((c) => h.includes(norm(c))));
+
+      const colDate = findCol(['거래일자', '거래일', '일자', '날짜', 'date']);
+      const colDesc = findCol(['거래내용', '적요', '내용', '거래처', 'description']);
+      const colProject = findCol(['프로젝트']);
+      const colNote = findCol(['비고', '메모', 'note']);
+      const colAmount = findCol(['금액', 'amount']);
+      const colWithdrawal = findCol(['출금액', '출금', 'withdrawal']);
+      const colDeposit = findCol(['입금액', '입금', 'deposit']);
+      // 이 카테고리(출금/입금)에 맞는 금액 컬럼을 우선 쓰고, 없으면 공용 "금액" 컬럼을 쓴다.
+      const amountCol = isWithdrawal
+        ? (colWithdrawal >= 0 ? colWithdrawal : colAmount)
+        : (colDeposit >= 0 ? colDeposit : colAmount);
+
+      if (amountCol < 0) {
+        throw new Error('금액 컬럼을 찾지 못했습니다. 첫 줄(헤더)에 "금액" 또는 "출금액"/"입금액" 컬럼이 있는지 확인해주세요.');
+      }
+
+      const entries = rows.slice(1)
+        .filter((row) => row.some((cell) => (cell || '').toString().trim() !== ''))
+        .map((row, idx) => {
+          const amount = parseExcelAmount(row[amountCol]);
+          return {
+            id: `be-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+            date: colDate >= 0 ? normalizeDateForInput(row[colDate]) : '',
+            project: colProject >= 0 ? (row[colProject] || '').toString() : '',
+            amount,
+            description: colDesc >= 0 ? (row[colDesc] || '').toString() : '',
+            note: colNote >= 0 ? (row[colNote] || '').toString() : ''
+          };
+        })
+        .filter((e) => e.amount > 0); // 다른 방향(예: 출금 파일에 섞여 들어온 입금 줄)은 0원으로 걸러진다
+
+      if (entries.length === 0) {
+        throw new Error('가져올 거래가 없습니다 (금액이 있는 줄을 찾지 못했습니다).');
+      }
+
+      const totalAmount = entries.reduce((s, e) => s + e.amount, 0);
+      // [수정] 예전엔 바로 은행명/계좌번호가 빈 새 문서로 저장해서 매번 나중에 수동으로
+      // 채워야 했다. 이제는 바로 저장하지 않고, "어느 통장 내역인지" 고르는 화면을 먼저
+      // 보여준다 - 이미 등록된 통장 중 고르면 그 통장에 이어붙이고(중복은 자동으로 걸러짐),
+      // 새 통장이면 은행명/계좌번호/구분을 입력해서 등록한다.
+      setPendingBankImport({ category: activeCategory as 'bank_withdrawal' | 'bank_deposit', fileName: file.name, entries, totalAmount });
+      setBankImportSelectedKey(knownBankAccounts[0]?.key || '__new__');
+      setBankImportNewBank('');
+      setBankImportNewAccount('');
+      setBankImportNewSubCategory('');
+    } catch (err: any) {
+      alert(`엑셀 가져오기에 실패했습니다.\n${err.message || '파일 형식을 확인해주세요.'}`);
+    } finally {
+      setIsImportingBankLedger(false);
+    }
+  };
+
+  // [추가] 통장 출금/입금 내역 - 위에서 파일을 가져온 뒤, 관리자가 "어느 통장인지" 고르고
+  // 확정을 누르면 실제로 저장한다. 이미 등록된 통장(은행명+계좌번호가 일치)이 있으면 그
+  // 문서를 찾아 거래를 이어붙이되(날짜+금액+거래내용이 완전히 같은 줄은 중복으로 보고
+  // 자동으로 걸러낸다), 없으면 새 문서를 만든다.
+  const handleConfirmBankImport = async () => {
+    if (!pendingBankImport || !currentUser) return;
+    const { category, entries } = pendingBankImport;
+    const isWithdrawal = category === 'bank_withdrawal';
+
+    let bankName = '';
+    let accountNumber = '';
+    let subCategory = '';
+    if (bankImportSelectedKey === '__new__') {
+      bankName = bankImportNewBank.trim();
+      accountNumber = bankImportNewAccount.trim();
+      subCategory = bankImportNewSubCategory.trim();
+      if (!bankName || !accountNumber) {
+        alert('새 통장으로 등록하려면 은행명과 계좌번호를 입력해주세요.');
+        return;
+      }
+    } else {
+      const picked = knownBankAccounts.find((k) => k.key === bankImportSelectedKey);
+      if (!picked) { alert('통장을 다시 선택해주세요.'); return; }
+      bankName = picked.bankName;
+      accountNumber = picked.accountNumber;
+      subCategory = picked.subCategory;
+    }
+    const normKey = (b: string, a: string) => `${b.replace(/\s/g, '')}__${a.replace(/\s/g, '')}`;
+    const targetKey = normKey(bankName, accountNumber);
+
+    setIsSavingBankImport(true);
+    try {
+      // 같은 카테고리(출금 또는 입금) 문서들 중, 이 통장(은행명+계좌번호 일치)을 이미
+      // 가지고 있는 문서를 찾는다 - 여러 문서에 걸쳐 있을 수 있지만, 그 중 가장 최근
+      // 문서(목록 맨 앞) 하나에 이어붙인다.
+      const existingDoc = docs.find((d) => d.category === category && (d.bankLedger?.accounts || []).some((a) => normKey(a.bankName || '', a.accountNumber || '') === targetKey));
+
+      if (existingDoc) {
+        const targetAcc = existingDoc.bankLedger!.accounts.find((a) => normKey(a.bankName || '', a.accountNumber || '') === targetKey)!;
+        const existingKeys = new Set(targetAcc.entries.map((e) => `${e.date}|${Number(e.amount) || 0}|${(e.description || '').trim()}`));
+        const freshEntries = entries.filter((e) => !existingKeys.has(`${e.date}|${Number(e.amount) || 0}|${(e.description || '').trim()}`));
+        const skipped = entries.length - freshEntries.length;
+        if (freshEntries.length === 0) {
+          alert(`이 파일의 내용이 "${existingDoc.title}" 문서의 ${accountLabel(targetAcc)} 통장에 이미 모두 들어있어(중복) 새로 추가된 내역이 없습니다.`);
+          setPendingBankImport(null);
+          return;
+        }
+        const updatedAccounts = existingDoc.bankLedger!.accounts.map((a) => a.id === targetAcc.id ? { ...a, entries: [...a.entries, ...freshEntries] } : a);
+        const res = await fetch(`/api/admin-docs/${existingDoc.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+          body: JSON.stringify({ bankLedger: { accounts: updatedAccounts } })
+        });
+        if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}).`);
+        const saved: AdminDoc = await res.json();
+        setDocs((prev) => prev.map((d) => d.id === saved.id ? saved : d));
+        alert(`${freshEntries.length}건을 "${saved.title}" 문서의 ${accountLabel(targetAcc)} 통장에 추가했습니다.${skipped > 0 ? ` (이미 있던 ${skipped}건은 중복으로 제외)` : ''}`);
+      } else {
+        const totalAmount = entries.reduce((s, e) => s + e.amount, 0);
+        const newDoc: Partial<AdminDoc> = {
+          section,
+          category,
+          title: `${isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'} 엑셀 가져오기 (${pendingBankImport.fileName.replace(/\.(xlsx|xls|csv)$/i, '')})`,
+          date: getTodayLocalStr(),
+          amount: String(totalAmount),
+          bankLedger: { accounts: [{ id: `bacc-${Date.now()}`, bankName, accountNumber, subCategory, entries }] }
+        };
+        const res = await fetch('/api/admin-docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+          body: JSON.stringify(newDoc)
+        });
+        if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}).`);
+        const saved: AdminDoc = await res.json();
+        setDocs((prev) => [saved, ...prev]);
+        alert(`${entries.length}건을 새 통장(${accountLabel({ bankName, accountNumber, subCategory })})으로 가져왔습니다.`);
+      }
+      setPendingBankImport(null);
+    } catch (err: any) {
+      alert(`가져오기 확정에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
+    } finally {
+      setIsSavingBankImport(false);
+    }
+  };
+
+  // [추가] 현금 흐름 - INFLOWS/OUTFLOWS 행, 경비 그룹·항목 추가·삭제·수정. 문서 자체에
+  // cashFlowAnnual이 아직 없는 경우(예전에 만들어진 문서 등)를 대비해, 없으면 빈 기본
+  // 구조를 새로 만들어서 시작한다.
+  const emptyCashFlowAnnual = (): CashFlowAnnual => ({
+    year: String(new Date().getFullYear()), openingBalance: 0, inflows: [], outflows: [],
+    expenseGroups: [
+      { id: `cfeg-${Date.now()}-1`, name: '급여/소득공제', items: [] },
+      { id: `cfeg-${Date.now()}-2`, name: '사업 경비', items: [] },
+      { id: `cfeg-${Date.now()}-3`, name: '부채', items: [] },
+      { id: `cfeg-${Date.now()}-4`, name: '기타 경비', items: [] }
+    ]
+  });
+  const updateCashFlow = (updater: (cf: CashFlowAnnual) => CashFlowAnnual) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      return { ...prev, cashFlowAnnual: updater(prev.cashFlowAnnual || emptyCashFlowAnnual()) };
+    });
+  };
+  const addCashFlowInflow = () => updateCashFlow((cf) => ({
+    ...cf, inflows: [...cf.inflows, { id: `cfi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '', recipient: '', contractAmount: 0, remainingAmount: 0, prevYear: 0, months: {} }]
+  }));
+  const removeCashFlowInflow = (id: string) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.filter((r) => r.id !== id) }));
+  const updateCashFlowInflowField = (id: string, patch: Partial<CashFlowRow>) => updateCashFlow((cf) => ({ ...cf, inflows: cf.inflows.map((r) => r.id === id ? { ...r, ...patch } : r) }));
+  // [수정] 월별 셀이 "직접 입력(manual) + 통장에서 자동 불러온 금액(imported)" 구조로
+  // 바뀌면서, 칸 입력은 이제 manual 값만 바꾸고 imported는 그대로 유지한다(관리비내역과
+  // 동일한 방식 - updateManagementCellManual 참고).
+  const updateCashFlowInflowMonthManual = (id: string, month: string, manual: number) => updateCashFlow((cf) => ({
+    ...cf, inflows: cf.inflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: { manual, imported: r.months[month]?.imported || [] } } } : r)
+  }));
+
+  const addCashFlowOutflow = () => updateCashFlow((cf) => ({
+    ...cf, outflows: [...cf.outflows, { id: `cfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '', recipient: '', estimatedTotal: 0, note: '', prevYear: 0, months: {} }]
+  }));
+  const removeCashFlowOutflow = (id: string) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.filter((r) => r.id !== id) }));
+  const updateCashFlowOutflowField = (id: string, patch: Partial<CashFlowOutflowRow>) => updateCashFlow((cf) => ({ ...cf, outflows: cf.outflows.map((r) => r.id === id ? { ...r, ...patch } : r) }));
+  const updateCashFlowOutflowMonthManual = (id: string, month: string, manual: number) => updateCashFlow((cf) => ({
+    ...cf, outflows: cf.outflows.map((r) => r.id === id ? { ...r, months: { ...r.months, [month]: { manual, imported: r.months[month]?.imported || [] } } } : r)
+  }));
+
+  const addCashFlowExpenseItem = (groupId: string) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId
+      ? { ...g, items: [...g.items, { id: `cfei-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: '', months: {} }] }
+      : g)
+  }));
+  const removeCashFlowExpenseItem = (groupId: string, itemId: string) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.filter((it) => it.id !== itemId) } : g)
+  }));
+  const updateCashFlowExpenseItemField = (groupId: string, itemId: string, patch: Partial<CashFlowExpenseItem>) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.map((it) => it.id === itemId ? { ...it, ...patch } : it) } : g)
+  }));
+  const updateCashFlowExpenseItemMonthManual = (groupId: string, itemId: string, month: string, manual: number) => updateCashFlow((cf) => ({
+    ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === groupId ? { ...g, items: g.items.map((it) => it.id === itemId ? { ...it, months: { ...it.months, [month]: { manual, imported: it.months[month]?.imported || [] } } } : it) } : g)
+  }));
+
+  // [추가] 현금 흐름 - "자동 불러오기". INFLOWS 행은 통장 입금 내역에서, OUTFLOWS 행과
+  // 경비 항목은 통장 출금 내역에서 후보를 가져와 고른 뒤, 날짜의 월(月)에 맞는 칸에
+  // imported로 채워 넣는다(관리비내역의 자동 불러오기와 같은 패턴). OUTFLOWS와 경비는
+  // 같은 통장 출금 내역 풀을 공유하므로, 한쪽에 이미 가져온 건은 다른 쪽에서 중복으로
+  // 다시 뜨지 않는다(같은 출금 거래를 매입과 경비 양쪽에 이중으로 반영하는 것을 방지).
+  type CashFlowImportTarget = { kind: 'inflow' | 'outflow' | 'expense'; rowId: string; groupId?: string; rowLabel: string };
+  type CashFlowImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
+  const [cashFlowImportTarget, setCashFlowImportTarget] = useState<CashFlowImportTarget | null>(null);
+  const [cashFlowImportCandidates, setCashFlowImportCandidates] = useState<CashFlowImportCandidate[]>([]);
+  const [isLoadingCashFlowCandidates, setIsLoadingCashFlowCandidates] = useState(false);
+  const [selectedCashFlowImportKeys, setSelectedCashFlowImportKeys] = useState<Set<string>>(new Set());
+
+  const collectCashFlowImportedKeys = (pickPools: (cf: CashFlowAnnual) => { imported: { sourceKey: string }[] }[][]) => {
+    const keys = new Set<string>();
+    const allDocs = [...docs, ...(editingDoc?.cashFlowAnnual ? [editingDoc] : [])];
+    for (const d of allDocs) {
+      if (d.category !== 'cash_flow' || !d.cashFlowAnnual) continue;
+      for (const cellGroup of pickPools(d.cashFlowAnnual)) {
+        for (const cell of cellGroup) {
+          for (const imp of (cell.imported || [])) keys.add(imp.sourceKey);
+        }
+      }
+    }
+    return keys;
+  };
+  // 통장 입금 내역 풀 - INFLOWS에서만 쓴다.
+  const alreadyImportedCashFlowDepositKeys = collectCashFlowImportedKeys((cf) => cf.inflows.map((r) => Object.values(r.months)));
+  // 통장 출금 내역 풀 - OUTFLOWS와 경비가 함께 쓴다(중복 방지를 위해 하나로 합쳐서 추적).
+  const alreadyImportedCashFlowWithdrawalKeys = collectCashFlowImportedKeys((cf) => [
+    ...cf.outflows.map((r) => Object.values(r.months)),
+    ...cf.expenseGroups.flatMap((g) => g.items.map((it) => Object.values(it.months)))
+  ]);
+
+  const handleOpenCashFlowImportPanel = async (target: CashFlowImportTarget) => {
+    if (!currentUser) return;
+    setCashFlowImportTarget(target);
+    setSelectedCashFlowImportKeys(new Set());
+    setIsLoadingCashFlowCandidates(true);
+    try {
+      const endpoint = target.kind === 'inflow' ? '/api/admin-docs/bank-deposit-candidates' : '/api/admin-docs/bank-withdrawal-candidates';
+      const res = await fetch(endpoint, { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: CashFlowImportCandidate[] = await res.json();
+      setCashFlowImportCandidates(data);
+    } catch (err: any) {
+      alert(`통장 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setCashFlowImportTarget(null);
+    } finally {
+      setIsLoadingCashFlowCandidates(false);
+    }
+  };
+
+  const toggleCashFlowImportKey = (key: string) => {
+    setSelectedCashFlowImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportCashFlowSelected = () => {
+    if (!cashFlowImportTarget || selectedCashFlowImportKeys.size === 0) return;
+    const target = cashFlowImportTarget;
+    const toImport = cashFlowImportCandidates.filter((c) => selectedCashFlowImportKeys.has(c.sourceKey));
+    const applyImports = (months: Record<string, { manual: number; imported: { sourceKey: string; sourceLabel: string; amount: number }[] }>) => {
+      let next = months;
+      toImport.forEach((cand) => {
+        const mm = Number((cand.date || '').slice(5, 7));
+        if (!mm) return; // 날짜 없는 후보는 건너뜀
+        const monthKey = String(mm);
+        const existing = next[monthKey] || { manual: 0, imported: [] };
+        next = { ...next, [monthKey]: { ...existing, imported: [...existing.imported, { sourceKey: cand.sourceKey, sourceLabel: cand.sourceLabel, amount: cand.amount }] } };
+      });
+      return next;
+    };
+    updateCashFlow((cf) => {
+      if (target.kind === 'inflow') {
+        return { ...cf, inflows: cf.inflows.map((r) => r.id === target.rowId ? { ...r, months: applyImports(r.months) } : r) };
+      }
+      if (target.kind === 'outflow') {
+        return { ...cf, outflows: cf.outflows.map((r) => r.id === target.rowId ? { ...r, months: applyImports(r.months) } : r) };
+      }
+      return { ...cf, expenseGroups: cf.expenseGroups.map((g) => g.id === target.groupId ? { ...g, items: g.items.map((it) => it.id === target.rowId ? { ...it, months: applyImports(it.months) } : it) } : g) };
+    });
+    setSelectedCashFlowImportKeys(new Set());
+    setCashFlowImportTarget(null);
+  };
+
+  // [추가] 대출이자 및 원금 상환 내역 - 대출 줄 추가·삭제·수정
+  type LoanEntry = NonNullable<AdminDoc['loanRepayment']>['loans'][number];
+  const updateLoans = (updater: (loans: LoanEntry[]) => LoanEntry[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const loanRepayment = prev.loanRepayment || { loans: [] };
+      return { ...prev, loanRepayment: { ...loanRepayment, loans: updater(loanRepayment.loans || []) } };
+    });
+  };
+  const addLoan = () => {
+    updateLoans((loans) => [...loans, {
+      id: `loan-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      loanName: '', loanAccount: '', initialAmount: 0, initialRate: 0, currentRate: 0,
+      loanDate: '', maturityDate: '', paymentDay: '', balance: 0,
+      principalPaid: 0, interestPaid: 0, withdrawBank: '', withdrawAccount: '', isRepaid: false
+    }]);
+  };
+  const removeLoan = (id: string) => {
+    updateLoans((loans) => loans.filter((l) => l.id !== id));
+  };
+  const updateLoan = (id: string, patch: Partial<LoanEntry>) => {
+    updateLoans((loans) => loans.map((l) => l.id === id ? { ...l, ...patch } : l));
+  };
+  const loanPaymentTotal = (l: LoanEntry) => (Number(l.principalPaid) || 0) + (Number(l.interestPaid) || 0);
+
+  // [추가] 법인카드 사용내역 - 카드·사용내역 줄 추가·삭제·수정 (통장 출금/입금 내역과 같은 패턴)
+  type CardGroup = NonNullable<AdminDoc['cardUsage']>['cards'][number];
+  type CardEntry = CardGroup['entries'][number];
+  const updateCards = (updater: (cards: CardGroup[]) => CardGroup[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const cardUsage = prev.cardUsage || { cards: [] };
+      return { ...prev, cardUsage: { ...cardUsage, cards: updater(cardUsage.cards || []) } };
+    });
+  };
+  const addCard = () => {
+    updateCards((cards) => [...cards, {
+      id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      cardName: '', cardNumber: '', holder: '',
+      entries: [{ id: `cue-${Date.now()}`, amount: 0, date: getTodayLocalStr(), project: '', user: '', note: '' }]
+    }]);
+  };
+  const removeCard = (cardId: string) => {
+    updateCards((cards) => cards.filter((c) => c.id !== cardId));
+  };
+  const updateCardField = (cardId: string, patch: Partial<Pick<CardGroup, 'cardName' | 'cardNumber' | 'holder'>>) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId ? { ...c, ...patch } : c));
+  };
+  const addCardEntry = (cardId: string) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId
+      ? { ...c, entries: [...c.entries, { id: `cue-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, amount: 0, date: getTodayLocalStr(), project: '', user: '', note: '' }] }
+      : c));
+  };
+  const removeCardEntry = (cardId: string, entryId: string) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId ? { ...c, entries: c.entries.filter((e) => e.id !== entryId) } : c));
+  };
+  const updateCardEntry = (cardId: string, entryId: string, patch: Partial<CardEntry>) => {
+    updateCards((cards) => cards.map((c) => c.id === cardId
+      ? { ...c, entries: c.entries.map((e) => e.id === entryId ? { ...e, ...patch } : e) }
+      : c));
+  };
+  const cardGroupTotal = (c: CardGroup) => c.entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  // [추가] 가지급내역 - 인원(열) 추가/삭제/이름수정, 월(행) 추가/삭제/수정, 칸(인원×월)
+  // 금액 직접입력수정. 칸 하나는 "직접 입력한 금액(manual) + 전자결재에서 자동으로 가져온
+  // 항목들(imported)의 합"으로 구성된다 - 자동 불러오기와 별개로 사람이 직접 조정 금액을
+  // 더 얹거나 뺄 수 있도록(공유해주신 양식의 "-8,800(주차료부족금액)" 같은 조정 내역), manual은
+  // 음수도 허용한다.
+  type AdvancePayment = NonNullable<AdminDoc['advancePayment']>;
+  type AdvancePerson = AdvancePayment['people'][number];
+  type AdvanceMonth = AdvancePayment['months'][number];
+  type AdvanceCell = AdvanceMonth['amounts'][string];
+  const updateAdvancePayment = (updater: (ap: AdvancePayment) => AdvancePayment) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const ap = prev.advancePayment || { people: [], months: [] };
+      return { ...prev, advancePayment: updater(ap) };
+    });
+  };
+  const addAdvancePerson = () => {
+    updateAdvancePayment((ap) => ({ ...ap, people: [...ap.people, { id: `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '' }] }));
+  };
+  const removeAdvancePerson = (personId: string) => {
+    updateAdvancePayment((ap) => ({
+      ...ap,
+      people: ap.people.filter((p) => p.id !== personId),
+      months: ap.months.map((m) => {
+        const nextAmounts = { ...m.amounts };
+        delete nextAmounts[personId];
+        return { ...m, amounts: nextAmounts };
+      })
+    }));
+  };
+  const updateAdvancePersonName = (personId: string, name: string) => {
+    updateAdvancePayment((ap) => ({ ...ap, people: ap.people.map((p) => p.id === personId ? { ...p, name } : p) }));
+  };
+  const addAdvanceMonth = () => {
+    updateAdvancePayment((ap) => ({
+      ...ap,
+      months: [...ap.months, { id: `apm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, monthKey: '', label: '', depositDate: '', amounts: {}, note: '' }]
+    }));
+  };
+  const removeAdvanceMonth = (monthId: string) => {
+    updateAdvancePayment((ap) => ({ ...ap, months: ap.months.filter((m) => m.id !== monthId) }));
+  };
+  const updateAdvanceMonthField = (monthId: string, patch: Partial<Pick<AdvanceMonth, 'monthKey' | 'label' | 'depositDate' | 'note'>>) => {
+    updateAdvancePayment((ap) => ({ ...ap, months: ap.months.map((m) => m.id === monthId ? { ...m, ...patch } : m) }));
+  };
+  const updateAdvanceCellManual = (monthId: string, personId: string, manual: number) => {
+    updateAdvancePayment((ap) => ({
+      ...ap,
+      months: ap.months.map((m) => m.id === monthId
+        ? { ...m, amounts: { ...m.amounts, [personId]: { manual, imported: m.amounts[personId]?.imported || [] } } }
+        : m)
+    }));
+  };
+  const advanceCellTotal = (cell?: AdvanceCell) => cell ? (Number(cell.manual) || 0) + cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+  const advanceMonthTotal = (m: AdvanceMonth, people: AdvancePerson[]) => people.reduce((sum, p) => sum + advanceCellTotal(m.amounts[p.id]), 0);
+  const advancePersonTotal = (personId: string, months: AdvanceMonth[]) => months.reduce((sum, m) => sum + advanceCellTotal(m.amounts[personId]), 0);
+  const advanceGrandTotal = (ap?: AdvancePayment) => ap ? ap.months.reduce((sum, m) => sum + advanceMonthTotal(m, ap.people), 0) : 0;
+
+  // [추가] "자동 불러오기" - 전자결재 > 가지급금 정산서가 승인(status: 'approved')되면 그
+  // 정산 내역을 서버에서 모아와서, 고른 항목을 이름이 일치하는 인원 열 + 날짜가 속한 월 행의
+  // 칸에 채워 넣는다. 일치하는 인원 열이 없으면 새로 만들고, 해당 월 행이 없으면 새로 만든다.
+  // 이미 가져온 적 있는 항목(sourceKey로 판단)은 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
+  type AdvanceImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; personName?: string; project?: string; memo?: string };
+  const [advanceImportCandidates, setAdvanceImportCandidates] = useState<AdvanceImportCandidate[]>([]);
+  const [showAdvanceImportPanel, setShowAdvanceImportPanel] = useState(false);
+  const [isLoadingAdvanceCandidates, setIsLoadingAdvanceCandidates] = useState(false);
+  const [selectedAdvanceImportKeys, setSelectedAdvanceImportKeys] = useState<Set<string>>(new Set());
+
+  const alreadyImportedAdvanceKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'advance_payment' || !d.advancePayment) continue;
+    for (const m of d.advancePayment.months) {
+      for (const personId of Object.keys(m.amounts)) {
+        for (const imp of (m.amounts[personId].imported || [])) alreadyImportedAdvanceKeys.add(imp.sourceKey);
+      }
+    }
+  }
+  for (const m of (editingDoc?.advancePayment?.months || [])) {
+    for (const personId of Object.keys(m.amounts)) {
+      for (const imp of (m.amounts[personId]?.imported || [])) alreadyImportedAdvanceKeys.add(imp.sourceKey);
+    }
+  }
+
+  const handleOpenAdvanceImportPanel = async () => {
+    if (!currentUser) return;
+    setShowAdvanceImportPanel(true);
+    setIsLoadingAdvanceCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/advance-payment-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: AdvanceImportCandidate[] = await res.json();
+      setAdvanceImportCandidates(data);
+    } catch (err: any) {
+      alert(`전자결재 가지급금 정산서 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowAdvanceImportPanel(false);
+    } finally {
+      setIsLoadingAdvanceCandidates(false);
+    }
+  };
+
+  const toggleAdvanceImportKey = (key: string) => {
+    setSelectedAdvanceImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const importAdvanceCandidate = (ap: AdvancePayment, cand: AdvanceImportCandidate): AdvancePayment => {
+    let people = ap.people;
+    const name = (cand.personName || '').trim();
+    let person = people.find((p) => p.name.trim() === name);
+    if (!person && name) {
+      person = { id: `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name };
+      people = [...people, person];
+    }
+    if (!person) return ap; // 이름 정보가 아예 없으면 어느 인원 열에 넣을지 알 수 없어 건너뜀
+
+    const monthKey = (cand.date || '').slice(0, 7);
+    let months = ap.months;
+    let month = months.find((m) => m.monthKey === monthKey);
+    if (!month) {
+      const mm = monthKey.slice(5, 7);
+      month = { id: `apm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, monthKey, label: mm ? `${mm}월` : (monthKey || ''), depositDate: '', amounts: {}, note: '' };
+      months = [...months, month].sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+    }
+    const targetMonthId = month.id;
+    months = months.map((m) => {
+      if (m.id !== targetMonthId) return m;
+      const existing = m.amounts[person!.id] || { manual: 0, imported: [] };
+      return { ...m, amounts: { ...m.amounts, [person!.id]: { ...existing, imported: [...existing.imported, { sourceKey: cand.sourceKey, sourceLabel: cand.sourceLabel, amount: cand.amount }] } } };
+    });
+    return { ...ap, people, months };
+  };
+
+  const handleImportAdvanceSelected = () => {
+    const toImport = advanceImportCandidates.filter((c) => selectedAdvanceImportKeys.has(c.sourceKey));
+    updateAdvancePayment((ap) => toImport.reduce((acc, cand) => importAdvanceCandidate(acc, cand), ap));
+    setSelectedAdvanceImportKeys(new Set());
+    setShowAdvanceImportPanel(false);
+  };
+
+  // [추가] "전자결재에서 가지급금 신청(정산서)이 승인되면 자동으로 가져오게" 요청에 맞춰,
+  // 예전엔 사람이 "자동 불러오기" 버튼을 눌러 목록을 열고 하나씩 체크해야 했는데, 이제는
+  // 가지급내역 문서를 열기(새로 만들거나 수정하기)만 하면 아직 안 가져온 승인된 정산서
+  // 내역을 자동으로 찾아서 조용히 채워 넣는다. 다만 실제 저장은 여전히 사람이 "저장"을
+  // 눌러야 반영되므로, 자동으로 채워진 내용은 저장 전에 그대로 확인하고 고칠 수 있다.
+  // 문서를 열 때 한 번만 실행되게 ref로 막고(안 그러면 채워 넣을 때마다 editingDoc이
+  // 바뀌면서 계속 다시 실행됨), 몇 건을 자동으로 채웠는지는 안내 문구로 보여준다.
+  const advanceAutoImportedForRef = useRef<string | null>(null);
+  const [advanceAutoImportedCount, setAdvanceAutoImportedCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!editingDoc || editingDoc.category !== 'advance_payment' || !currentUser) return;
+    const docKey = editingDoc.id || 'new';
+    if (advanceAutoImportedForRef.current === docKey) return;
+    advanceAutoImportedForRef.current = docKey;
+    setAdvanceAutoImportedCount(null);
+    (async () => {
+      try {
+        const res = await fetch('/api/admin-docs/advance-payment-candidates', { headers: { 'x-user-id': currentUser.id } });
+        if (!res.ok) return;
+        const data: AdvanceImportCandidate[] = await res.json();
+        const notYetImported = data.filter((c) => !alreadyImportedAdvanceKeys.has(c.sourceKey));
+        if (notYetImported.length === 0) return;
+        updateAdvancePayment((ap) => notYetImported.reduce((acc, cand) => importAdvanceCandidate(acc, cand), ap));
+        setAdvanceAutoImportedCount(notYetImported.length);
+      } catch {
+        // 조용히 무시 - 실패해도 기존 "자동 불러오기" 버튼으로 수동으로 가져올 수 있다.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingDoc?.id, editingDoc?.category, currentUser?.id]);
+
+  // [추가] 새 가지급내역 문서는 아직 서버에 저장된 id가 없어서(id가 계속 undefined) 위
+  // 자동 불러오기가 "한 번 실행함" 표시를 계속 같은 값으로 봐서, 폼을 닫았다가 다시 "새
+  // 문서"를 열어도 재실행이 안 될 수 있다. 폼이 닫힐 때(editingDoc이 null이 될 때) 표시를
+  // 지워서, 다음에 폼을 열 때 다시 확인하게 한다.
+  useEffect(() => {
+    if (!editingDoc) {
+      advanceAutoImportedForRef.current = null;
+      setAdvanceAutoImportedCount(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!editingDoc]);
+
+  // [추가] 차량 과태료 내역 - 항목 추가/삭제/수정 (건별로 여러 줄)
+  type VehicleFineRow = NonNullable<AdminDoc['vehicleFine']>['entries'][number];
+  const updateVehicleFineEntries = (updater: (entries: VehicleFineRow[]) => VehicleFineRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const vehicleFine = prev.vehicleFine || { entries: [] };
+      return { ...prev, vehicleFine: { ...vehicleFine, entries: updater(vehicleFine.entries || []) } };
+    });
+  };
+  const addVehicleFineEntry = () => {
+    updateVehicleFineEntries((entries) => [...entries, { id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), vehicle: '', amount: 0, processedDate: '', detail: '', note: '' }]);
+  };
+  const removeVehicleFineEntry = (id: string) => {
+    updateVehicleFineEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateVehicleFineEntry = (id: string, patch: Partial<VehicleFineRow>) => {
+    updateVehicleFineEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
+  // [추가] "자동 불러오기" - 회계관리 > 통장 출금 내역에 이미 등록된 거래 내역을 서버에서
+  // 모아와서, 실제로 과태료인 건만 골라 지금 편집 중인 차량 과태료 내역에 항목으로 채워
+  // 넣는다. 출금 내역 자체엔 "과태료 여부" 표시가 없어 전부 후보로 보여주고 사람이 고른다.
+  // 이미 가져온 적 있는 항목(sourceKey로 판단)은 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
+  type VehicleFineImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
+  const [vehicleFineImportCandidates, setVehicleFineImportCandidates] = useState<VehicleFineImportCandidate[]>([]);
+  const [showVehicleFineImportPanel, setShowVehicleFineImportPanel] = useState(false);
+  const [isLoadingVehicleFineCandidates, setIsLoadingVehicleFineCandidates] = useState(false);
+  const [selectedVehicleFineImportKeys, setSelectedVehicleFineImportKeys] = useState<Set<string>>(new Set());
+
+  const alreadyImportedVehicleFineKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'vehicle_fine' || !d.vehicleFine) continue;
+    for (const e of d.vehicleFine.entries) {
+      if (e.sourceKey) alreadyImportedVehicleFineKeys.add(e.sourceKey);
+    }
+  }
+  for (const e of (editingDoc?.vehicleFine?.entries || [])) {
+    if (e.sourceKey) alreadyImportedVehicleFineKeys.add(e.sourceKey);
+  }
+
+  const handleOpenVehicleFineImportPanel = async () => {
+    if (!currentUser) return;
+    setShowVehicleFineImportPanel(true);
+    setIsLoadingVehicleFineCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: VehicleFineImportCandidate[] = await res.json();
+      setVehicleFineImportCandidates(data);
+    } catch (err: any) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowVehicleFineImportPanel(false);
+    } finally {
+      setIsLoadingVehicleFineCandidates(false);
+    }
+  };
+
+  const toggleVehicleFineImportKey = (key: string) => {
+    setSelectedVehicleFineImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportVehicleFineSelected = () => {
+    const toImport = vehicleFineImportCandidates.filter((c) => selectedVehicleFineImportKeys.has(c.sourceKey));
+    updateVehicleFineEntries((entries) => [
+      ...entries,
+      ...toImport.map((cand) => ({
+        id: `vf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: cand.date,
+        vehicle: '',
+        amount: cand.amount,
+        processedDate: '',
+        detail: cand.memo || '',
+        note: '',
+        sourceKey: cand.sourceKey,
+        sourceLabel: cand.sourceLabel
+      }))
+    ]);
+    setSelectedVehicleFineImportKeys(new Set());
+    setShowVehicleFineImportPanel(false);
+  };
+
+  // [추가] 각종 세금 - 항목 추가/삭제/수정 (건별로 여러 줄)
+  type TaxRow = NonNullable<AdminDoc['taxPayment']>['entries'][number];
+  const updateTaxEntries = (updater: (entries: TaxRow[]) => TaxRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const taxPayment = prev.taxPayment || { entries: [] };
+      return { ...prev, taxPayment: { ...taxPayment, entries: updater(taxPayment.entries || []) } };
+    });
+  };
+  const addTaxEntry = () => {
+    updateTaxEntries((entries) => [...entries, { id: `tax-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, description: '', paidDate: '', amount: 0, note: '' }]);
+  };
+  const removeTaxEntry = (id: string) => {
+    updateTaxEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateTaxEntry = (id: string, patch: Partial<TaxRow>) => {
+    updateTaxEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
+  // [추가] 인센티브 및 명절 상여금 - 항목 추가/삭제/수정 (건별로 여러 줄, 각종 세금과 같은 패턴)
+  type IncentiveRow = NonNullable<AdminDoc['incentive']>['entries'][number];
+  const updateIncentiveEntries = (updater: (entries: IncentiveRow[]) => IncentiveRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const incentive = prev.incentive || { entries: [] };
+      return { ...prev, incentive: { ...incentive, entries: updater(incentive.entries || []) } };
+    });
+  };
+  const addIncentiveEntry = () => {
+    updateIncentiveEntries((entries) => [...entries, { id: `inc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), amount: 0, method: '현금', description: '', note: '' }]);
+  };
+  const removeIncentiveEntry = (id: string) => {
+    updateIncentiveEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateIncentiveEntry = (id: string, patch: Partial<IncentiveRow>) => {
+    updateIncentiveEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
+  // [추가] 해외 출장 경비 - 항목 추가/삭제/수정 (건별로 여러 줄, 인센티브와 같은 패턴)
+  type OverseasTripRow = NonNullable<AdminDoc['overseasTrip']>['entries'][number];
+  const updateOverseasTripEntries = (updater: (entries: OverseasTripRow[]) => OverseasTripRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const overseasTrip = prev.overseasTrip || { entries: [] };
+      return { ...prev, overseasTrip: { ...overseasTrip, entries: updater(overseasTrip.entries || []) } };
+    });
+  };
+  const addOverseasTripEntry = () => {
+    updateOverseasTripEntries((entries) => [...entries, { id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]);
+  };
+  const removeOverseasTripEntry = (id: string) => {
+    updateOverseasTripEntries((entries) => entries.filter((e) => e.id !== id));
+  };
+  const updateOverseasTripEntry = (id: string, patch: Partial<OverseasTripRow>) => {
+    updateOverseasTripEntries((entries) => entries.map((e) => e.id === id ? { ...e, ...patch } : e));
+  };
+
+  // [추가] 해외 출장 경비 - 항목별 영수증 스캔/첨부. "항목 추가" 버튼 옆의 "AI 영수증 스캔"을
+  // 누르면(scanningOverseasTripEntryId === null) 스캔 결과로 새 항목을 만들어 추가하고, 이미
+  // 있는 항목의 "영수증 스캔" 버튼을 누르면(해당 id가 들어있음) 그 항목을 스캔 결과로 덮어쓴다
+  // - 업무일지(WorkLogsView)의 비용 지출 영수증 스캔과 동일한 패턴.
+  const [isOverseasTripReceiptModalOpen, setIsOverseasTripReceiptModalOpen] = useState(false);
+  const [scanningOverseasTripEntryId, setScanningOverseasTripEntryId] = useState<string | null>(null);
+  const [viewingOverseasTripReceiptImage, setViewingOverseasTripReceiptImage] = useState<string | null>(null);
+  const handleOverseasTripReceiptScanComplete = (scanned: {
+    amount: number;
+    date: string;
+    merchantName: string;
+    memo: string;
+    category: string;
+    payMethod: string;
+    receiptImage: string;
+  }) => {
+    // 사용내역 칸에는 "상호명 - 메모" 형태로 합쳐서 채운다(예: "신라호텔 도쿄 - 2박 숙박").
+    const description = [scanned.merchantName, scanned.memo].filter(Boolean).join(' - ');
+    if (scanningOverseasTripEntryId) {
+      // [수정] description을 빈 문자열로라도 patch에 넣으면(스프레드 시 키 자체가 있으므로)
+      // 기존에 사용자가 입력해둔 사용내역을 지워버린다. OCR이 상호명/메모를 하나도 못 읽은
+      // 경우(description === '')에는 이 필드를 patch에서 아예 빼서 기존 값을 그대로 둔다.
+      const patch: Partial<OverseasTripRow> = {
+        amount: scanned.amount,
+        date: scanned.date || getTodayLocalStr(),
+        category: scanned.category,
+        payMethod: scanned.payMethod,
+        receiptImage: scanned.receiptImage
+      };
+      if (description) patch.description = description;
+      updateOverseasTripEntry(scanningOverseasTripEntryId, patch);
+    } else {
+      updateOverseasTripEntries((entries) => [...entries, {
+        id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        date: scanned.date || getTodayLocalStr(),
+        amount: scanned.amount,
+        category: scanned.category,
+        description,
+        user: currentUser?.name || '',
+        payMethod: scanned.payMethod,
+        payDetail: '',
+        note: '',
+        receiptImage: scanned.receiptImage
+      }]);
+    }
+    setScanningOverseasTripEntryId(null);
+  };
+
+  // [추가] 연차 현황 - 직원 추가/삭제/필드 수정 + 직원별 연차 사용/휴일(초과)근무/대체휴가
+  // 세 목록 각각의 항목 추가/삭제/수정. 인센티브·해외 출장 경비와 같은 패턴이지만, 이건
+  // "직원(사람) 목록 안에 목록이 세 개씩 더 있는" 한 단계 더 깊은 구조라 person을 먼저
+  // 찾아 그 사람만 업데이트하는 방식으로 처리한다.
+  type AnnualLeavePerson = NonNullable<AdminDoc['annualLeaveStatus']>['people'][number];
+  type AnnualLeaveEntry = AnnualLeavePerson['leaveEntries'][number];
+  type AnnualLeaveOvertimeEntry = AnnualLeavePerson['overtimeEntries'][number];
+  type AnnualLeaveSubstituteEntry = AnnualLeavePerson['substituteEntries'][number];
+
+  const updateAnnualLeavePeople = (updater: (people: AnnualLeavePerson[]) => AnnualLeavePerson[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const annualLeaveStatus = prev.annualLeaveStatus || { year: String(new Date().getFullYear()), people: [] };
+      return { ...prev, annualLeaveStatus: { ...annualLeaveStatus, people: updater(annualLeaveStatus.people || []) } };
+    });
+  };
+
+  const addAnnualLeavePerson = () => {
+    updateAnnualLeavePeople((people) => [...people, {
+      id: `alp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: '', hireDate: '', totalAnnualDays: 0,
+      leaveEntries: [], overtimeEntries: [], substituteEntries: []
+    }]);
+  };
+  const removeAnnualLeavePerson = (id: string) => {
+    updateAnnualLeavePeople((people) => people.filter((p) => p.id !== id));
+  };
+  const updateAnnualLeavePersonField = (id: string, patch: Partial<AnnualLeavePerson>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === id ? { ...p, ...patch } : p));
+  };
+
+  const addAnnualLeaveEntry = (personId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
+      ...p, leaveEntries: [...p.leaveEntries, { id: `ale-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, startDate: getTodayLocalStr(), endDate: '', days: 1, note: '' }]
+    } : p));
+  };
+  const removeAnnualLeaveEntry = (personId: string, entryId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, leaveEntries: p.leaveEntries.filter((e) => e.id !== entryId) } : p));
+  };
+  const updateAnnualLeaveEntry = (personId: string, entryId: string, patch: Partial<AnnualLeaveEntry>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, leaveEntries: p.leaveEntries.map((e) => e.id === entryId ? { ...e, ...patch } : e) } : p));
+  };
+
+  const addAnnualLeaveOvertime = (personId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
+      ...p, overtimeEntries: [...p.overtimeEntries, { id: `alo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), periodDays: 1, hours: 0, site: '', note: '' }]
+    } : p));
+  };
+  const removeAnnualLeaveOvertime = (personId: string, entryId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, overtimeEntries: p.overtimeEntries.filter((e) => e.id !== entryId) } : p));
+  };
+  const updateAnnualLeaveOvertime = (personId: string, entryId: string, patch: Partial<AnnualLeaveOvertimeEntry>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, overtimeEntries: p.overtimeEntries.map((e) => e.id === entryId ? { ...e, ...patch } : e) } : p));
+  };
+
+  const addAnnualLeaveSubstitute = (personId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? {
+      ...p, substituteEntries: [...p.substituteEntries, { id: `als-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), note: '' }]
+    } : p));
+  };
+  const removeAnnualLeaveSubstitute = (personId: string, entryId: string) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, substituteEntries: p.substituteEntries.filter((e) => e.id !== entryId) } : p));
+  };
+  const updateAnnualLeaveSubstitute = (personId: string, entryId: string, patch: Partial<AnnualLeaveSubstituteEntry>) => {
+    updateAnnualLeavePeople((people) => people.map((p) => p.id === personId ? { ...p, substituteEntries: p.substituteEntries.map((e) => e.id === entryId ? { ...e, ...patch } : e) } : p));
+  };
+
+  // [추가] 연차 현황 - "전자결재에서 불러오기" 패널 상태. 승인된 연차 신청서를 골라서
+  // 이름이 같은 직원에게 자동으로 채워 넣는다(없으면 새 직원으로 자동 등록).
+  type AnnualLeaveImportCandidate = { sourceKey: string; sourceLabel: string; author: string; startDate: string; endDate?: string; days: number; note: string; totalAnnualDays?: number };
+  const [annualLeaveImportCandidates, setAnnualLeaveImportCandidates] = useState<AnnualLeaveImportCandidate[]>([]);
+  const [showAnnualLeaveImportPanel, setShowAnnualLeaveImportPanel] = useState(false);
+  const [isLoadingAnnualLeaveImportCandidates, setIsLoadingAnnualLeaveImportCandidates] = useState(false);
+  const [selectedAnnualLeaveImportKeys, setSelectedAnnualLeaveImportKeys] = useState<Set<string>>(new Set());
+
+  // 이미 이 문서의 어느 직원에게든 가져와져 있는 sourceKey 모음 - 중복 방지용.
+  const alreadyImportedAnnualLeaveKeys = new Set<string>();
+  for (const p of (editingDoc?.annualLeaveStatus?.people || [])) {
+    for (const e of p.leaveEntries) {
+      if (e.sourceKey) alreadyImportedAnnualLeaveKeys.add(e.sourceKey);
+    }
+  }
+
+  const handleOpenAnnualLeaveImportPanel = async () => {
+    if (!currentUser) return;
+    setShowAnnualLeaveImportPanel(true);
+    setIsLoadingAnnualLeaveImportCandidates(true);
+    try {
+      const year = editingDoc?.annualLeaveStatus?.year || String(new Date().getFullYear());
+      const res = await fetch(`/api/admin-docs/annual-leave-candidates?year=${encodeURIComponent(year)}`, { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: AnnualLeaveImportCandidate[] = await res.json();
+      setAnnualLeaveImportCandidates(data);
+    } catch (err: any) {
+      alert(`전자결재 휴가 신청서를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowAnnualLeaveImportPanel(false);
+    } finally {
+      setIsLoadingAnnualLeaveImportCandidates(false);
+    }
+  };
+
+  const toggleAnnualLeaveImportKey = (key: string) => {
+    setSelectedAnnualLeaveImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // [추가] 골라온 승인된 연차 신청서들을 이름(author) 기준으로 자동 매칭해서, 이미 등록된
+  // 직원이면 그 사람의 연차 사용 내역에 추가하고, 아직 없는 이름이면 새 직원 줄을 만들어서
+  // (총 년차일수도 신청서에 있던 값으로 같이 채워서) 추가한다. 여러 건이 같은(아직 없는)
+  // 사람 것이어도 새 직원 줄이 중복으로 만들어지지 않도록, 이번에 새로 만든 사람은
+  // next 배열 안에서 계속 찾아 재사용한다.
+  const handleImportAnnualLeaveSelected = () => {
+    if (selectedAnnualLeaveImportKeys.size === 0) return;
+    const toImport = annualLeaveImportCandidates.filter((c) => selectedAnnualLeaveImportKeys.has(c.sourceKey));
+    updateAnnualLeavePeople((people) => {
+      const next = people.map((p) => ({ ...p, leaveEntries: [...p.leaveEntries] }));
+      for (const cand of toImport) {
+        const normalizedAuthor = (cand.author || '').trim();
+        let person = next.find((p) => p.name.trim() === normalizedAuthor);
+        if (!person) {
+          person = {
+            id: `alp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name: normalizedAuthor,
+            hireDate: '',
+            totalAnnualDays: cand.totalAnnualDays || 0,
+            leaveEntries: [],
+            overtimeEntries: [],
+            substituteEntries: []
+          };
+          next.push(person);
+        } else if (!person.totalAnnualDays && cand.totalAnnualDays) {
+          person.totalAnnualDays = cand.totalAnnualDays;
+        }
+        person.leaveEntries.push({
+          id: `ale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          startDate: cand.startDate,
+          endDate: cand.endDate,
+          days: cand.days,
+          note: cand.note || '',
+          sourceKey: cand.sourceKey,
+          sourceLabel: cand.sourceLabel
+        });
+      }
+      return next;
+    });
+    setSelectedAnnualLeaveImportKeys(new Set());
+    setShowAnnualLeaveImportPanel(false);
+  };
+
+  // [추가] "자동 불러오기" - 회계관리 > 통장 출금 내역에서 실제 세금 납부 건만 골라
+  // 지금 편집 중인 각종 세금 내역에 항목으로 채워 넣는다 (차량 과태료 내역과 같은 패턴).
+  type TaxImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
+  const [taxImportCandidates, setTaxImportCandidates] = useState<TaxImportCandidate[]>([]);
+  const [showTaxImportPanel, setShowTaxImportPanel] = useState(false);
+  const [isLoadingTaxCandidates, setIsLoadingTaxCandidates] = useState(false);
+  const [selectedTaxImportKeys, setSelectedTaxImportKeys] = useState<Set<string>>(new Set());
+
+  const alreadyImportedTaxKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'tax' || !d.taxPayment) continue;
+    for (const e of d.taxPayment.entries) {
+      if (e.sourceKey) alreadyImportedTaxKeys.add(e.sourceKey);
+    }
+  }
+  for (const e of (editingDoc?.taxPayment?.entries || [])) {
+    if (e.sourceKey) alreadyImportedTaxKeys.add(e.sourceKey);
+  }
+
+  const handleOpenTaxImportPanel = async () => {
+    if (!currentUser) return;
+    setShowTaxImportPanel(true);
+    setIsLoadingTaxCandidates(true);
+    try {
+      const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: TaxImportCandidate[] = await res.json();
+      setTaxImportCandidates(data);
+    } catch (err: any) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowTaxImportPanel(false);
+    } finally {
+      setIsLoadingTaxCandidates(false);
+    }
+  };
+
+  const toggleTaxImportKey = (key: string) => {
+    setSelectedTaxImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportTaxSelected = () => {
+    const toImport = taxImportCandidates.filter((c) => selectedTaxImportKeys.has(c.sourceKey));
+    updateTaxEntries((entries) => [
+      ...entries,
+      ...toImport.map((cand) => ({
+        id: `tax-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        description: cand.memo || '',
+        paidDate: cand.date,
+        amount: cand.amount,
+        note: '',
+        sourceKey: cand.sourceKey,
+        sourceLabel: cand.sourceLabel
+      }))
+    ]);
+    setSelectedTaxImportKeys(new Set());
+    setShowTaxImportPanel(false);
+  };
+
+  // [추가] 관리비내역 - 호실(열) 추가/삭제/이름수정, 월(행) 추가/삭제/수정, 칸(호실×월)
+  // 금액 직접입력수정. 가지급내역과 완전히 같은 패턴(호실 = 인원 자리).
+  type ManagementFee = NonNullable<AdminDoc['managementFee']>;
+  type ManagementUnit = ManagementFee['units'][number];
+  type ManagementMonth = ManagementFee['months'][number];
+  type ManagementCell = ManagementMonth['amounts'][string];
+  const updateManagementFee = (updater: (mf: ManagementFee) => ManagementFee) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const mf = prev.managementFee || { units: [], months: [] };
+      return { ...prev, managementFee: updater(mf) };
+    });
+  };
+  const addManagementUnit = () => {
+    updateManagementFee((mf) => ({ ...mf, units: [...mf.units, { id: `unit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: '' }] }));
+  };
+  const removeManagementUnit = (unitId: string) => {
+    updateManagementFee((mf) => ({
+      ...mf,
+      units: mf.units.filter((u) => u.id !== unitId),
+      months: mf.months.map((m) => {
+        const nextAmounts = { ...m.amounts };
+        delete nextAmounts[unitId];
+        return { ...m, amounts: nextAmounts };
+      })
+    }));
+  };
+  const updateManagementUnitName = (unitId: string, name: string) => {
+    updateManagementFee((mf) => ({ ...mf, units: mf.units.map((u) => u.id === unitId ? { ...u, name } : u) }));
+  };
+  const addManagementMonth = () => {
+    updateManagementFee((mf) => ({
+      ...mf,
+      months: [...mf.months, { id: `mfm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, monthKey: '', label: '', paymentDate: '', amounts: {}, note: '' }]
+    }));
+  };
+  const removeManagementMonth = (monthId: string) => {
+    updateManagementFee((mf) => ({ ...mf, months: mf.months.filter((m) => m.id !== monthId) }));
+  };
+  const updateManagementMonthField = (monthId: string, patch: Partial<Pick<ManagementMonth, 'monthKey' | 'label' | 'paymentDate' | 'note'>>) => {
+    updateManagementFee((mf) => ({ ...mf, months: mf.months.map((m) => m.id === monthId ? { ...m, ...patch } : m) }));
+  };
+  const updateManagementCellManual = (monthId: string, unitId: string, manual: number) => {
+    updateManagementFee((mf) => ({
+      ...mf,
+      months: mf.months.map((m) => m.id === monthId
+        ? { ...m, amounts: { ...m.amounts, [unitId]: { manual, imported: m.amounts[unitId]?.imported || [] } } }
+        : m)
+    }));
+  };
+  const managementCellTotal = (cell?: ManagementCell) => cell ? (Number(cell.manual) || 0) + cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+  const managementMonthTotal = (m: ManagementMonth, units: ManagementUnit[]) => units.reduce((sum, u) => sum + managementCellTotal(m.amounts[u.id]), 0);
+  const managementUnitTotal = (unitId: string, months: ManagementMonth[]) => months.reduce((sum, m) => sum + managementCellTotal(m.amounts[unitId]), 0);
+  const managementGrandTotal = (mf?: ManagementFee) => mf ? mf.months.reduce((sum, m) => sum + managementMonthTotal(m, mf.units), 0) : 0;
+
+  // [추가] "자동 불러오기" - 관리비는 보통 통장에서 한 번에 통합 출금되고(호실별로 나뉘어
+  // 출금되지 않음), 출금 내역만 봐서는 어느 호실 몫인지 알 수 없다. 그래서 가지급내역처럼
+  // 이름 자동 매칭 대신, 사람이 먼저 "가져올 대상 호실"을 고르고 그 호실의 해당 월 칸에
+  // 선택한 출금 건들을 채워 넣는 방식(법인카드 사용내역의 "자동 불러오기"와 같은 패턴)을 쓴다.
+  type ManagementImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
+  const [managementImportCandidates, setManagementImportCandidates] = useState<ManagementImportCandidate[]>([]);
+  const [showManagementImportPanel, setShowManagementImportPanel] = useState(false);
+  const [isLoadingManagementCandidates, setIsLoadingManagementCandidates] = useState(false);
+  const [selectedManagementImportKeys, setSelectedManagementImportKeys] = useState<Set<string>>(new Set());
+  const [managementImportTargetUnitId, setManagementImportTargetUnitId] = useState<string>('');
+
+  const alreadyImportedManagementKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'management_fee' || !d.managementFee) continue;
+    for (const m of d.managementFee.months) {
+      for (const unitId of Object.keys(m.amounts)) {
+        for (const imp of (m.amounts[unitId].imported || [])) alreadyImportedManagementKeys.add(imp.sourceKey);
+      }
+    }
+  }
+  for (const m of (editingDoc?.managementFee?.months || [])) {
+    for (const unitId of Object.keys(m.amounts)) {
+      for (const imp of (m.amounts[unitId]?.imported || [])) alreadyImportedManagementKeys.add(imp.sourceKey);
+    }
+  }
+
+  const handleOpenManagementImportPanel = async () => {
+    if (!currentUser) return;
+    setShowManagementImportPanel(true);
+    setIsLoadingManagementCandidates(true);
+    if (!managementImportTargetUnitId && editingDoc?.managementFee?.units?.length) {
+      setManagementImportTargetUnitId(editingDoc.managementFee.units[0].id);
+    }
+    try {
+      const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: ManagementImportCandidate[] = await res.json();
+      setManagementImportCandidates(data);
+    } catch (err: any) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowManagementImportPanel(false);
+    } finally {
+      setIsLoadingManagementCandidates(false);
+    }
+  };
+
+  const toggleManagementImportKey = (key: string) => {
+    setSelectedManagementImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportManagementSelected = () => {
+    if (!managementImportTargetUnitId || selectedManagementImportKeys.size === 0) return;
+    const toImport = managementImportCandidates.filter((c) => selectedManagementImportKeys.has(c.sourceKey));
+    updateManagementFee((mf) => {
+      let months = mf.months;
+      toImport.forEach((cand) => {
+        const monthKey = (cand.date || '').slice(0, 7);
+        let month = months.find((m) => m.monthKey === monthKey);
+        if (!month) {
+          const mm = monthKey.slice(5, 7);
+          month = { id: `mfm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, monthKey, label: mm ? `${mm}월` : (monthKey || ''), paymentDate: '', amounts: {}, note: '' };
+          months = [...months, month].sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+        }
+        const targetMonthId = month.id;
+        months = months.map((m) => {
+          if (m.id !== targetMonthId) return m;
+          const existing = m.amounts[managementImportTargetUnitId] || { manual: 0, imported: [] };
+          return { ...m, amounts: { ...m.amounts, [managementImportTargetUnitId]: { ...existing, imported: [...existing.imported, { sourceKey: cand.sourceKey, sourceLabel: cand.sourceLabel, amount: cand.amount }] } } };
+        });
+      });
+      return { ...mf, months };
+    });
+    setSelectedManagementImportKeys(new Set());
+    setShowManagementImportPanel(false);
+  };
+
+  // [추가] 법인카드 관리(월별 요약) - 카드 줄 추가·삭제·수정
+  type CorpCardRow = NonNullable<AdminDoc['corpCard']>['cards'][number];
+  const updateCorpCards = (updater: (cards: CorpCardRow[]) => CorpCardRow[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const corpCard = prev.corpCard || { cards: [] };
+      return { ...prev, corpCard: { ...corpCard, cards: updater(corpCard.cards || []) } };
+    });
+  };
+  const addCorpCard = () => {
+    updateCorpCards((cards) => [...cards, {
+      id: `cc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      cardCompany: '', cardNumber: '', expiry: '', user: '', periodLabel: '', paymentDay: '',
+      amount: 0, withdrawBank: '', withdrawAccount: '', note: ''
+    }]);
+  };
+  const removeCorpCard = (id: string) => {
+    updateCorpCards((cards) => cards.filter((c) => c.id !== id));
+  };
+  const updateCorpCard = (id: string, patch: Partial<CorpCardRow>) => {
+    updateCorpCards((cards) => cards.map((c) => c.id === id ? { ...c, ...patch } : c));
+  };
+
+  // [추가] 근로계약서 - 급여 구성 항목 추가·삭제·수정 (급여명세서 지급 내역과 같은 패턴)
+  const updateSalaryItems = (updater: (items: AdminDocLineItem[]) => AdminDocLineItem[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const laborContract = prev.laborContract || { salaryItems: [] };
+      return { ...prev, laborContract: { ...laborContract, salaryItems: updater(laborContract.salaryItems || []) } };
+    });
+  };
+  const addSalaryItem = () => {
+    updateSalaryItems((items) => [...items, { id: `sal-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: '', amount: 0 }]);
+  };
+  const removeSalaryItem = (id: string) => {
+    updateSalaryItems((items) => items.filter((it) => it.id !== id));
+  };
+  const updateSalaryItem = (id: string, patch: Partial<AdminDocLineItem>) => {
+    updateSalaryItems((items) => items.map((it) => it.id === id ? { ...it, ...patch } : it));
+  };
+  const updateLaborContractField = (patch: Partial<NonNullable<AdminDoc['laborContract']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, laborContract: { ...(prev.laborContract || { salaryItems: [] }), ...patch } } : prev);
+  };
+  const updateEmploymentCertField = (patch: Partial<NonNullable<AdminDoc['employmentCert']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, employmentCert: { ...(prev.employmentCert || {}), ...patch } } : prev);
+  };
+  const updatePowerOfAttorneyField = (patch: Partial<NonNullable<AdminDoc['powerOfAttorney']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, powerOfAttorney: { ...(prev.powerOfAttorney || {}), ...patch } } : prev);
+  };
+  const updateSalesContractField = (patch: Partial<NonNullable<AdminDoc['salesContract']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, salesContract: { ...(prev.salesContract || {}), ...patch } } : prev);
+  };
+  const updateSeveranceField = (patch: Partial<NonNullable<AdminDoc['severance']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, severance: { ...(prev.severance || {}), ...patch } } : prev);
+  };
+
+  // [추가] "자동 불러오기" - 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에
+  // 이미 "법인카드" 결제로 기록된 지출들을 서버에서 모아와서, 그중 원하는 것만 골라 지금
+  // 편집 중인 카드 그룹에 항목으로 채워 넣는다. 이미 가져온 적 있는 항목(sourceKey로 판단)은
+  // 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
+  type CardImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; project?: string; memo?: string; personName?: string };
+  const [cardImportCandidates, setCardImportCandidates] = useState<CardImportCandidate[]>([]);
+  const [showCardImportPanel, setShowCardImportPanel] = useState(false);
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
+  const [selectedImportKeys, setSelectedImportKeys] = useState<Set<string>>(new Set());
+  const [importTargetCardId, setImportTargetCardId] = useState<string>('');
+
+  // 이미 어딘가(저장된 문서든, 지금 편집 중인 폼이든)에 가져와져 있는 sourceKey 모음
+  const alreadyImportedKeys = new Set<string>();
+  for (const d of docs) {
+    if (d.category !== 'card_usage' || !d.cardUsage) continue;
+    for (const c of d.cardUsage.cards) {
+      for (const e of c.entries) {
+        if (e.sourceKey) alreadyImportedKeys.add(e.sourceKey);
+      }
+    }
+  }
+  for (const c of (editingDoc?.cardUsage?.cards || [])) {
+    for (const e of c.entries) {
+      if (e.sourceKey) alreadyImportedKeys.add(e.sourceKey);
+    }
+  }
+
+  const handleOpenCardImportPanel = async () => {
+    if (!currentUser) return;
+    setShowCardImportPanel(true);
+    setIsLoadingCandidates(true);
+    // 가져올 대상 카드를 기본으로 첫 번째 카드로 잡아둔다
+    if (!importTargetCardId && editingDoc?.cardUsage?.cards?.length) {
+      setImportTargetCardId(editingDoc.cardUsage.cards[0].id);
+    }
+    try {
+      const res = await fetch('/api/admin-docs/card-usage-candidates', { headers: { 'x-user-id': currentUser.id } });
+      if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
+      const data: CardImportCandidate[] = await res.json();
+      setCardImportCandidates(data);
+    } catch (err: any) {
+      alert(`법인카드 사용 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      setShowCardImportPanel(false);
+    } finally {
+      setIsLoadingCandidates(false);
+    }
+  };
+
+  const toggleImportKey = (key: string) => {
+    setSelectedImportKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const handleImportSelected = () => {
+    if (!importTargetCardId || selectedImportKeys.size === 0) return;
+    const toImport = cardImportCandidates.filter((c) => selectedImportKeys.has(c.sourceKey));
+    updateCards((cards) => cards.map((c) => c.id === importTargetCardId
+      ? {
+          ...c,
+          entries: [
+            ...c.entries,
+            ...toImport.map((cand) => ({
+              id: `cue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              amount: cand.amount,
+              date: cand.date,
+              project: cand.project || '',
+              user: cand.personName || '',
+              note: cand.memo || '',
+              sourceKey: cand.sourceKey,
+              sourceLabel: cand.sourceLabel
+            }))
+          ]
+        }
+      : c));
+    setSelectedImportKeys(new Set());
+    setShowCardImportPanel(false);
+  };
+
+  const handleSave = async () => {
+    if (!editingDoc || !editingDoc.title?.trim()) {
+      alert('제목을 입력해주세요.');
+      return;
+    }
+    if (!currentUser) return;
+    setIsSaving(true);
+    try {
+      const isNew = !editingDoc.id;
+      const payload: Partial<AdminDoc> = { ...editingDoc, section };
+      // [추가] 급여명세서는 지급/공제 내역 합계로 차인지급액(실수령액)을 계산해서, 목록/검색
+      // 화면에서 다른 서류들과 똑같이 amount 칸에 표시되게 한다.
+      if (payload.category === 'payslip' && payload.payslip) {
+        const net = sumItems(payload.payslip.payItems) - sumItems(payload.payslip.deductionItems);
+        payload.amount = String(net);
+      }
+      // [추가] 월별 자금 현황은 통장잔액 합계를 amount 칸에 표시해서, 목록 화면에서 바로
+      // 전체 잔액 규모를 볼 수 있게 한다.
+      if (payload.category === 'monthly_cashflow' && payload.cashflow) {
+        const totalBalance = payload.cashflow.accounts.reduce((sum, a) => sum + accountBalance(a), 0);
+        payload.amount = String(totalBalance);
+      }
+      // [추가] 통장 출금/입금 내역은 전체 거래 합계를 amount 칸에 표시한다.
+      if ((payload.category === 'bank_withdrawal' || payload.category === 'bank_deposit') && payload.bankLedger) {
+        const total = payload.bankLedger.accounts.reduce((sum, a) => sum + a.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 대출이자 및 원금 상환 내역은 이번 출금(원금+이자) 합계를 amount 칸에 표시한다.
+      if (payload.category === 'loan_repayment' && payload.loanRepayment) {
+        const total = payload.loanRepayment.loans.reduce((sum, l) => sum + loanPaymentTotal(l), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 법인카드 사용내역은 전체 사용 금액 합계를 amount 칸에 표시한다.
+      if (payload.category === 'card_usage' && payload.cardUsage) {
+        const total = payload.cardUsage.cards.reduce((sum, c) => sum + c.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 법인카드 관리(월별 요약)는 카드별 금액 합계를 amount 칸에 표시한다.
+      if (payload.category === 'corp_card' && payload.corpCard) {
+        const total = payload.corpCard.cards.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 가지급내역은 인원×월 전체 칸(직접입력+자동반영)의 총 합계를 amount 칸에 표시한다.
+      if (payload.category === 'advance_payment' && payload.advancePayment) {
+        payload.amount = String(advanceGrandTotal(payload.advancePayment));
+      }
+      // [추가] 차량 과태료 내역은 전체 과태료 합계를 amount 칸에 표시한다.
+      if (payload.category === 'vehicle_fine' && payload.vehicleFine) {
+        const total = payload.vehicleFine.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 각종 세금은 전체 세금 합계를 amount 칸에 표시한다.
+      if (payload.category === 'tax' && payload.taxPayment) {
+        const total = payload.taxPayment.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 관리비내역은 호실×월 전체 칸(직접입력+자동반영)의 총 합계를 amount 칸에 표시한다.
+      if (payload.category === 'management_fee' && payload.managementFee) {
+        payload.amount = String(managementGrandTotal(payload.managementFee));
+      }
+      // [추가] 인센티브 및 명절 상여금은 전체 지급 합계를 amount 칸에 표시한다.
+      if (payload.category === 'incentive' && payload.incentive) {
+        const total = payload.incentive.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 해외 출장 경비는 전체 사용 합계를 amount 칸에 표시한다.
+      if (payload.category === 'overseas_trip' && payload.overseasTrip) {
+        const total = payload.overseasTrip.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        payload.amount = String(total);
+      }
+      // [추가] 근로계약서는 월 급여 합계를 amount 칸에 표시하고, 근로자 이름을 검색 대상인
+      // personName에도 반영해서 다른 서류들처럼 이름으로 검색할 수 있게 한다.
+      if ((payload.category === 'labor_contract' || payload.category === 'salary_agreement') && payload.laborContract) {
+        const total = sumItems(payload.laborContract.salaryItems);
+        payload.amount = String(total);
+        if (payload.laborContract.employeeName) payload.personName = payload.laborContract.employeeName;
+      }
+      // [추가] 재직증명서는 금액 개념이 없는 서류라 amount는 그대로 두고, 이름만 검색용
+      // personName에 반영한다.
+      if (payload.category === 'employment_cert' && payload.employmentCert?.employeeName) {
+        payload.personName = payload.employmentCert.employeeName;
+      }
+      // [추가] 위임장도 금액 개념이 없는 서류라, 위임받는 사람 이름만 검색용 personName에 반영한다.
+      if (payload.category === 'power_of_attorney' && payload.powerOfAttorney?.employeeName) {
+        payload.personName = payload.powerOfAttorney.employeeName;
+      }
+      // [추가] 영업 계약서는 거래처(갑) 상호를 검색용 personName에 반영한다.
+      if (payload.category === 'sales_contract' && payload.salesContract?.counterpartyName) {
+        payload.personName = payload.salesContract.counterpartyName;
+      }
+      // [추가] 퇴직금 정산은 회사선지급+은행적립금 합계를 amount 칸에, 신청인 이름을
+      // personName에 반영한다.
+      if (payload.category === 'severance' && payload.severance) {
+        const total = (Number(payload.severance.companyAdvanceAmount) || 0) + (Number(payload.severance.bankAccrualAmount) || 0);
+        payload.amount = String(total);
+        if (payload.severance.employeeName) payload.personName = payload.severance.employeeName;
+      }
+      const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `저장에 실패했습니다 (상태: ${res.status}).`);
+      }
+      const saved: AdminDoc = await res.json();
+      setDocs((prev) => isNew ? [saved, ...prev] : prev.map((d) => d.id === saved.id ? saved : d));
+      setEditingDoc(null);
+    } catch (err: any) {
+      alert(`저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!currentUser) return;
+    if (!confirm('이 기록을 삭제하시겠습니까? 되돌릴 수 없습니다.')) return;
+    try {
+      const res = await fetch(`/api/admin-docs/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
+      setDocs((prev) => prev.filter((d) => d.id !== id));
+    } catch (err: any) {
+      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    }
+  };
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="max-w-lg mx-auto py-16 text-center space-y-3">
+        <ShieldAlert className="w-10 h-10 text-amber-400 mx-auto" />
+        <p className="text-sm text-slate-500">관리자만 접근할 수 있는 화면입니다.</p>
+      </div>
+    );
+  }
+
+  // [추가] 급여명세서 인쇄용 화면. 앱 트리 밖의 #print-root 포털에 그려서, 다른 화면
+  // 요소(메뉴, 여백 등)와 완전히 분리된 채로 이미지로 공유해주신 양식과 최대한 비슷하게
+  // 인쇄되도록 한다.
+  const renderPrintablePayslip = () => {
+    if (!printingDoc || !printingDoc.payslip) return null;
+    const p = printingDoc.payslip;
+    const payTotal = sumItems(p.payItems);
+    const deductionTotal = sumItems(p.deductionItems);
+    const net = payTotal - deductionTotal;
+    const [year, month] = (p.payMonth || '').split('-');
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    const maxRows = Math.max(p.payItems.length, p.deductionItems.length, 8);
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '20mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, marginBottom: '18px' }}>
+          {year && month ? `${year}년 ${month}월분 급여명세서` : printingDoc.title}
+        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px' }}>
+          <span>회사명 : {p.companyName || ''}</span>
+          <span>지 급 일 : {p.paymentDate || printingDoc.date}</span>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <tbody>
+            <tr style={{ background: '#f2f2f2' }}>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>사원코드 : {p.employeeCode || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>사 원 명 : {printingDoc.personName || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>입 사 일 : {p.hireDate || ''}</td>
+            </tr>
+            <tr style={{ background: '#f2f2f2' }}>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>부 서 : {p.department || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>직 위 : {p.position || ''}</td>
+              <td style={{ border: '1px solid #000', padding: '5px 8px' }} colSpan={2}>호 봉 : {p.salaryGrade || ''}</td>
+            </tr>
+            <tr style={{ background: '#e8e8e8', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지 급 내 역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지 급 액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>공 제 내 역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}>공 제 액</td>
+            </tr>
+            {Array.from({ length: maxRows }).map((_, i) => {
+              const pay = p.payItems[i];
+              const ded = p.deductionItems[i];
+              return (
+                <tr key={i}>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px', height: '22px' }}>{pay?.label || ''}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px', textAlign: 'right' }}>{pay ? fmt(pay.amount) : ''}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px' }}>{ded?.label || ''}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px 8px', textAlign: 'right' }} colSpan={3}>{ded ? fmt(ded.amount) : ''}</td>
+                </tr>
+              );
+            })}
+            <tr style={{ fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px 8px' }}>지 급 액 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'right' }}>{fmt(payTotal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px' }}>공 제 액 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'right' }} colSpan={3}>{fmt(deductionTotal)}</td>
+            </tr>
+            <tr style={{ fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px 8px' }} colSpan={2} align="center">차 인 지 급 액</td>
+              <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'right' }} colSpan={4}>{fmt(net)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ fontSize: '12px', marginTop: '14px' }}>귀하의 노고에 감사드립니다.</p>
+      </div>
+    );
+  };
+
+  // [추가] 월별 자금 현황 인쇄용 화면. 공유해주신 "N월 자금현황" 표 양식(NO/구분/이월금/
+  // 입금/출금/통장잔액/비고 + 합계)을 그대로 재현한다.
+  // [수정] 은행명+계좌번호+구분을 "하나(13004)_급여/외화송금/카드대금"처럼 사람이 보기
+  // 좋은 한 줄로 합쳐준다. 자금 현황과 통장 출금/입금 내역이 이제 같은 구조(은행/계좌번호/
+  // 구분)를 쓰므로, 인쇄 화면에서 둘 다 이 함수 하나를 공용으로 쓴다.
+  const accountLabel = (a: { bankName?: string; accountNumber?: string; subCategory?: string }) => {
+    const parts = [a.bankName, a.accountNumber].filter(Boolean).join(' ');
+    return [parts, a.subCategory].filter(Boolean).join('_') || '(계좌 미입력)';
+  };
+
+  // [추가] 통장 출금/입금 내역 - "은행명+계좌번호"를 매번 새로 타이핑하지 않고 기존에
+  // 등록된 통장 중에서 골라 이어붙일 수 있도록, 지금 보고 있는 카테고리(출금 또는 입금)의
+  // 문서들에서 이미 쓰인 통장 목록을 은행명+계좌번호 기준으로 중복 제거해 모은다.
+  // 출금 통장과 입금 통장은 서로 다른 문서 목록(카테고리)이라 따로 관리한다.
+  const knownBankAccounts = (() => {
+    const seen = new Set<string>();
+    const list: { key: string; bankName: string; accountNumber: string; subCategory: string; label: string }[] = [];
+    docs.forEach((d) => {
+      if (d.category !== activeCategory || !d.bankLedger) return;
+      d.bankLedger.accounts.forEach((a) => {
+        const normBank = (a.bankName || '').replace(/\s/g, '');
+        const normAcc = (a.accountNumber || '').replace(/\s/g, '');
+        if (!normBank || !normAcc) return; // 은행명/계좌번호가 비어있는(미입력) 통장은 고를 목록에서 제외
+        const key = `${normBank}__${normAcc}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        list.push({ key, bankName: a.bankName || '', accountNumber: a.accountNumber || '', subCategory: a.subCategory || '', label: accountLabel(a) });
+      });
+    });
+    return list;
+  })();
+
+  // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기". 같은 통장(은행명+계좌번호 일치)의
+  // 거래가 여러 문서(가져오기를 여러 번 했거나 수기로도 등록한 경우)에 나뉘어 있어도,
+  // 골라놓은 통장 하나로 전부 모아 한 페이지로 인쇄/PDF 저장할 수 있게 해준다. 혹시라도
+  // 겹치는 줄이 있으면(날짜+금액+거래내용 동일) 중복으로 보고 한 번만 보여준다.
+  const handleViewAllBankAccounts = () => {
+    const targetKey = bankAccountMergeKey || knownBankAccounts[0]?.key;
+    const target = knownBankAccounts.find((k) => k.key === targetKey);
+    if (!target) return;
+    const isWithdrawal = activeCategory === 'bank_withdrawal';
+    const normKey = (b: string, a: string) => `${b.replace(/\s/g, '')}__${a.replace(/\s/g, '')}`;
+    const docsForAccount = docs.filter((d) => d.category === activeCategory && (d.bankLedger?.accounts || []).some((a) => normKey(a.bankName || '', a.accountNumber || '') === target.key));
+    if (docsForAccount.length === 0) return;
+
+    const seen = new Set<string>();
+    const mergedEntries: { id: string; date: string; project: string; amount: number; description: string; note?: string }[] = [];
+    docsForAccount.forEach((d, di) => {
+      (d.bankLedger?.accounts || []).forEach((a) => {
+        if (normKey(a.bankName || '', a.accountNumber || '') !== target.key) return;
+        a.entries.forEach((e) => {
+          const dkey = `${e.date}|${Number(e.amount) || 0}|${(e.description || '').trim()}`;
+          if (seen.has(dkey)) return;
+          seen.add(dkey);
+          mergedEntries.push({ ...e, id: `merged-${di}-${e.id}` });
+        });
+      });
+    });
+    mergedEntries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const base = docsForAccount[0];
+    setPrintingDoc({
+      ...base,
+      id: `merged-bank-ledger-${target.key}`,
+      title: `${target.label} ${isWithdrawal ? '출금' : '입금'} 내역 - 전체`,
+      bankLedger: { accounts: [{ id: `merged-acc-${target.key}`, bankName: target.bankName, accountNumber: target.accountNumber, subCategory: target.subCategory, entries: mergedEntries }] }
+    });
+  };
+
+  const renderPrintableCashflow = () => {
+    if (!printingDoc || !printingDoc.cashflow) return null;
+    const c = printingDoc.cashflow;
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const monthLabel = printingDoc.cashflow.periodStart ? `${Number(printingDoc.cashflow.periodStart.split('-')[1])}월` : printingDoc.title;
+    const totals = c.accounts.reduce((acc, a) => ({
+      broughtForward: acc.broughtForward + a.broughtForward,
+      deposit: acc.deposit + a.deposit,
+      withdrawal: acc.withdrawal + a.withdrawal,
+      balance: acc.balance + accountBalance(a)
+    }), { broughtForward: 0, deposit: 0, withdrawal: 0, balance: 0 });
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '24px', fontWeight: 700, textDecoration: 'underline', marginBottom: '6px' }}>
+          {monthLabel} 자 금 현 황
+        </h1>
+        {c.periodStart && c.periodEnd && (
+          <p style={{ textAlign: 'center', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}>
+            ({c.periodStart.replace(/-/g, '.')}~{c.periodEnd.slice(5).replace('-', '.')})
+          </p>
+        )}
+        <p style={{ textAlign: 'center', fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>&lt;통장 잔액&gt;</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px', width: '5%' }}>NO.</td>
+              <td style={{ border: '1px solid #000', padding: '6px', width: '28%' }}>구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>이월금(원)</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>입금(원)</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>출금(원)</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>통장잔액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {c.accounts.map((a, i) => (
+              <tr key={a.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{accountLabel(a)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.broughtForward)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.deposit)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(a.withdrawal)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(accountBalance(a))}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', color: '#c00', fontSize: '11px' }}>{a.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }} colSpan={2}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.broughtForward)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.deposit)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.withdrawal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(totals.balance)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [수정] 이 화면(과 아래 대출 현황/법인카드 사용내역/카드별 월 사용 내역, 총 4개)은
+  // .print-landscape 클래스로 가로(297mm x 210mm) 인쇄를 지정해놓고, 정작 바깥 div의
+  // 실제 크기는 세로 문서 크기(width:210mm, minHeight:297mm)를 그대로 쓰고 있었다.
+  // 그러면 가로로 눕힌 297mm(가로)x210mm(세로) 용지 위에서 세로로 297mm짜리 내용을
+  // 채우려다 보니, 짧은 문서도 실제 인쇄 가능 영역(210mm)을 넘겨 뒤에 빈 페이지가
+  // 하나 더 생기고, 폭도 210mm만 써서 오른쪽에 약 87mm가 그냥 비어 보였다. 이미 올바르게
+  // 되어 있던 자금 현황(renderPrintableCashflow, width:297mm/minHeight:210mm)과
+  // 동일하게 맞춰서 고친다.
+  // [추가] 통장 출금/입금 내역 인쇄용 화면 (두 카테고리 공용). 공유해주신 양식대로
+  // 계좌별로 거래를 묶고, 계좌 소계 행과 맨 아래 전체 합계 행을 넣고, 오른쪽 끝
+  // "출금(입금)통장" 칸은 그 계좌의 거래+소계 행 전체에 걸쳐 하나로 병합해서 보여준다.
+  const renderPrintableBankLedger = () => {
+    if (!printingDoc || !printingDoc.bankLedger) return null;
+    const isWithdrawal = printingDoc.category === 'bank_withdrawal';
+    const ledger = printingDoc.bankLedger;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const grandTotal = ledger.accounts.reduce((s, a) => s + bankAccountTotal(a), 0);
+    const isMerged = printingDoc.id.startsWith('merged-bank-ledger-');
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>
+          &lt;{isWithdrawal ? '통장 출금 내역' : '통장 입금 내역'}&gt;
+        </h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 이 통장으로 등록된 여러 문서(가져오기 포함)의 거래를 날짜순으로 모두 모아 보여줍니다. (겹치는 거래는 한 번만 표시)
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#dbe5f1', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>일자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>프로젝트</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>금액(원)</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>거래내용</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>{isWithdrawal ? '출금통장' : '입금통장'}</td>
+            </tr>
+          </thead>
+          <tbody>
+            {ledger.accounts.map((acc, accIdx) => (
+              <React.Fragment key={acc.id}>
+                {acc.entries.map((e, i) => (
+                  <tr key={e.id}>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{e.date ? e.date.slice(5).replace('-', ' 월 ') + '일' : ''}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.project}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.description}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.note}</td>
+                    {i === 0 && (
+                      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700 }} rowSpan={acc.entries.length + 1}>
+                        {accountLabel(acc)}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                <tr style={{ background: '#f2f2f2', fontWeight: 700 }}>
+                  <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'center' }} colSpan={2}>
+                    {accountLabel(acc)} {isWithdrawal ? '출금' : '입금'} 합계({accIdx + 1})
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'right' }}>{fmt(bankAccountTotal(acc))}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px 6px' }} colSpan={2}></td>
+                </tr>
+              </React.Fragment>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={2}>
+                통장 {isWithdrawal ? '출금' : '입금'} 총 합계(1)~({ledger.accounts.length})
+              </td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 대출이자 및 원금 상환 내역 인쇄용 화면. 공유해주신 양식대로 진행 중인 대출과
+  // 상환완료된 대출을 구역을 나눠서 보여준다.
+  const renderPrintableLoanRepayment = () => {
+    if (!printingDoc || !printingDoc.loanRepayment) return null;
+    const loans = printingDoc.loanRepayment.loans;
+    const active = loans.filter((l) => !l.isRepaid);
+    const repaid = loans.filter((l) => l.isRepaid);
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const totals = active.reduce((acc, l) => ({
+      balance: acc.balance + l.balance,
+      principalPaid: acc.principalPaid + l.principalPaid,
+      interestPaid: acc.interestPaid + l.interestPaid,
+      total: acc.total + loanPaymentTotal(l)
+    }), { balance: 0, principalPaid: 0, interestPaid: 0, total: 0 });
+
+    // [추가] "대출잔액" 칸 폭을, 그 아래로 이어지는 원금+이자+계 세 칸을 합친 폭과 같게
+    // 맞춰서 큰 금액도 잘리지 않고 잘 보이게 한다.
+    const colWidths = ['3%', '9%', '9%', '7%', '5%', '5%', '6%', '6%', '5%', '15%', '5%', '5%', '5%', '8%', '7%'];
+    const colGroup = (
+      <colgroup>
+        {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+      </colgroup>
+    );
+
+    const headerRow = (
+      <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>NO.</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출 명</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출 계좌</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출 금액(원)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>최초 이자율(%)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>현재 이자율(%)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출일</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>만기일</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>납기일</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>대출잔액</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}>출금 금액(원)</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>출금 은행</td>
+        <td style={{ border: '1px solid #000', padding: '5px' }}>출금 계좌</td>
+      </tr>
+    );
+    const subHeaderRow = (
+      <tr style={{ background: '#fff7cc', fontWeight: 700, textAlign: 'center', fontSize: '10px' }}>
+        <td style={{ border: '1px solid #000', padding: '3px' }} colSpan={10}></td>
+        <td style={{ border: '1px solid #000', padding: '3px' }}>원금</td>
+        <td style={{ border: '1px solid #000', padding: '3px' }}>이자</td>
+        <td style={{ border: '1px solid #000', padding: '3px' }}>계</td>
+        <td style={{ border: '1px solid #000', padding: '3px' }} colSpan={2}></td>
+      </tr>
+    );
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>대출 현황</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000', tableLayout: 'fixed' }}>
+          {colGroup}
+          <thead>
+            {headerRow}
+            {subHeaderRow}
+          </thead>
+          <tbody>
+            {active.map((l, i) => (
+              <tr key={l.id}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanName}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanAccount}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.initialAmount)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.initialRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700 }}>{l.currentRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.loanDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.maturityDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.paymentDay}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 700 }}>{fmt(l.balance)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.principalPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.interestPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(loanPaymentTotal(l))}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawBank}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawAccount}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={9}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.balance)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.principalPaid)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.interestPaid)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(totals.total)}</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={2}></td>
+            </tr>
+            {repaid.map((l, i) => (
+              <tr key={l.id} style={{ background: '#e5e5e5' }}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700 }}>상환완료 {i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanName}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{l.loanAccount}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.initialAmount)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.initialRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.currentRate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.loanDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.maturityDate}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.paymentDay}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', color: '#c00', fontWeight: 700 }}>
+                  {l.repaidDate ? `${l.repaidDate} 상환${l.repaidFee ? ` (${l.repaidFee})` : ''}` : '상환완료'}
+                </td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.principalPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(l.interestPaid)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(loanPaymentTotal(l))}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawBank}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{l.withdrawAccount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 법인카드 사용내역 인쇄용 화면. 공유해주신 양식대로 카드(소지자)별로 묶어서
+  // 사용 내역을 나열하고, 카드마다 소계 행, 맨 아래에 총계 행을 넣는다. 왼쪽 끝 "구분"
+  // 칸(카드명/카드번호/소지자)은 그 카드의 사용내역+소계 행 전체에 걸쳐 하나로 병합한다.
+  const renderPrintableCardUsage = () => {
+    if (!printingDoc || !printingDoc.cardUsage) return null;
+    const cardUsage = printingDoc.cardUsage;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const grandTotal = cardUsage.cards.reduce((s, c) => s + cardGroupTotal(c), 0);
+    // [추가] "자동으로는 최근이 위로 보이게, 오름차순/내림차순도 선택할 수 있게" 요청에 맞춰
+    // 카드별 사용 내역을 사용일자 기준으로 정렬해서 보여준다(저장된 데이터 순서 자체는
+    // 건드리지 않고, 보여줄 때만 정렬). 날짜가 비어있는 건은 방향에 상관없이 맨 아래로 보낸다.
+    const sortEntries = (entries: typeof cardUsage.cards[number]['entries']) =>
+      [...entries].sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return cardUsageSortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+      });
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>법인 카드 사용내역</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <colgroup>
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '25%' }} />
+          </colgroup>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>구분</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드명</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드번호</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>소지자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용 금액(원)</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용일자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>프로젝트명</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {cardUsage.cards.map((c, cardIdx) => (
+              <React.Fragment key={c.id}>
+                {sortEntries(c.entries).map((e, i) => (
+                  <tr key={e.id}>
+                    {i === 0 && (
+                      <>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700 }} rowSpan={c.entries.length + 1}>
+                          {cardIdx + 1}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={c.entries.length + 1}>
+                          {c.cardName}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={c.entries.length + 1}>
+                          {c.cardNumber}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }} rowSpan={c.entries.length + 1}>
+                          {c.holder}
+                        </td>
+                      </>
+                    )}
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{e.date ? e.date.slice(5).replace('-', '월 ') + '일' : ''}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.project}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{e.user}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{e.note}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>합계</td>
+                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(cardGroupTotal(c))}</td>
+                  <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}></td>
+                </tr>
+              </React.Fragment>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }} colSpan={4}>총계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={4}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 법인카드 관리(월별 요약) 인쇄용 화면. 공유해주신 양식대로 카드사/카드번호/사용자/
+  // 사용일수/출금일자/금액/출금은행/출금계좌/비고를 카드 한 장당 한 줄로 나열하고, 맨 아래
+  // 합계 행을 넣는다.
+  const renderPrintableCorpCard = () => {
+    if (!printingDoc || !printingDoc.corpCard) return null;
+    const cc = printingDoc.corpCard;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const total = cc.cards.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const [year, month] = (cc.yearMonth || '').split('-');
+    const isMerged = printingDoc.id.startsWith('merged-corp-card-');
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '12mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, textDecoration: 'underline', marginBottom: isMerged ? '4px' : '14px' }}>
+          {year && month ? `${year}년도 카드별 월 사용 내역(${Number(month)}월)` : printingDoc.title}
+        </h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 금액은 회계관리 &gt; 카드사용내역에 기록된 실제 사용 내역을 기준으로 {getTodayLocalStr()} 현재까지 자동 집계된 금액입니다. (카드사용내역에 기록이 없는 카드는 입력해두신 금액을 그대로 표시)
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>번호</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드사</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>카드번호</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용일수</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>출금일자</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>사용금액</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>출금은행</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>출금계좌</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {cc.cards.map((c, i) => (
+              <tr key={c.id}>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 700 }}>{c.cardCompany}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.cardNumber}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.user}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.periodLabel}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', color: '#c00', fontWeight: 700 }}>{c.paymentDay}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(c.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.withdrawBank}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{c.withdrawAccount}</td>
+                <td style={{ border: '1px solid #000', padding: '5px' }}>{c.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={6}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 관리비내역 인쇄용 화면. 공유해주신 "월별 관리비내역" 양식대로 호실(열) × 월(행)
+  // 표로 그리고, 맨 아래 합계 행과(입력해두신 경우) 입금 계좌 등 참고사항을 메모에서
+  // 가져와 표 아래에 각주로 넣는다.
+  const renderPrintableManagementFee = () => {
+    if (!printingDoc || !printingDoc.managementFee) return null;
+    const mf = printingDoc.managementFee;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = managementGrandTotal(mf);
+    const isMerged = printingDoc.id.startsWith('merged-management-fee-');
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>
+          {firstYear ? `${firstYear.slice(2)}년도 월별 관리비내역` : printingDoc.title}
+        </h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 호실별로 나눠 등록하신 관리비내역 문서를 이 연도 기준으로 모두 모아 보여줍니다.
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>{firstYear ? `${firstYear}년` : '연도'}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>납부일</td>
+              {mf.units.map((u) => (
+                <td key={u.id} style={{ border: '1px solid #000', padding: '6px' }}>{u.name || '(호실명 미입력)'}</td>
+              ))}
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합계</td>
+            </tr>
+          </thead>
+          <tbody>
+            {mf.months.map((m) => (
+              <tr key={m.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontWeight: 700 }}>{m.label}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{m.paymentDate}</td>
+                {mf.units.map((u) => (
+                  <td key={u.id} style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(managementCellTotal(m.amounts[u.id]))}</td>
+                ))}
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right', fontWeight: 700 }}>{fmt(managementMonthTotal(m, mf.units))}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={2 + mf.units.length}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
+            </tr>
+          </tbody>
+        </table>
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
+  // [추가] 가지급내역 인쇄용 화면. 공유해주신 "OOOO년도 월별 가지급 내역" 양식대로 인원별
+  // 월별 금액 + 카이저합계(그 달 인원 전체 합) + 비고 열로 표를 그리고, 맨 아래 인원별/전체
+  // 합계 행을 넣는다. 비고는 계산식 메모를 길게 적어두시는 경우가 많아 줄바꿈을 그대로
+  // 살린다(white-space: pre-line). 인원(열)이 많고 비고가 길어서 가로(landscape)로 그린다.
+  const renderPrintableAdvancePayment = () => {
+    if (!printingDoc || !printingDoc.advancePayment) return null;
+    const ap = printingDoc.advancePayment;
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const firstYear = (ap.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
+    const grandTotal = advanceGrandTotal(ap);
+
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, textDecoration: 'underline', marginBottom: '14px' }}>
+          {firstYear ? `${firstYear}년도 월별 가지급 내역` : printingDoc.title}
+        </h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>구분</td>
+              {ap.people.map((p) => (
+                <td key={p.id} style={{ border: '1px solid #000', padding: '5px' }}>{p.name || '(이름 미입력)'}</td>
+              ))}
+              <td style={{ border: '1px solid #000', padding: '5px' }}>합계</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>입금일</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>비 고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {ap.months.map((m) => (
+              <tr key={m.id}>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 700 }}>{m.label}</td>
+                {ap.people.map((p) => (
+                  <td key={p.id} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(advanceCellTotal(m.amounts[p.id]))}</td>
+                ))}
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right', fontWeight: 700 }}>{fmt(advanceMonthTotal(m, ap.people))}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{m.depositDate}</td>
+                <td style={{ border: '1px solid #000', padding: '5px', whiteSpace: 'pre-line' }}>{m.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합계</td>
+              {ap.people.map((p) => (
+                <td key={p.id} style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(advancePersonTotal(p.id, ap.months))}</td>
+              ))}
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(grandTotal)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>-</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 차량 과태료 내역 인쇄용 화면. 공유해주신 "OOOO년 법인차량 과태료 내역" 양식대로
+  // 위반일자/위반차량/금액/처리일자/내용/비고 열로 표를 그리고, 맨 아래 합계 행을 넣는다.
+  const renderPrintableVehicleFine = () => {
+    if (!printingDoc || !printingDoc.vehicleFine) return null;
+    const vf = printingDoc.vehicleFine;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const total = vf.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const isMerged = printingDoc.id.startsWith('merged-vehicle-fine-');
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>{printingDoc.title}</h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 문서별로 나눠 등록하신 차량 과태료 내역 중 위반일자가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>위반일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>위반차량</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>처리일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>내용</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {vf.entries.map((e) => (
+              <tr key={e.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.date)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.vehicle}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.processedDate)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{e.detail}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={2}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
+  // [추가] 인센티브 및 명절 상여금 인쇄용 화면. 공유해주신 "인센티브 및 명절 상여금" 양식대로
+  // 일자/금액/현금·상품권·기타 구분/내역/비고 열로 표를 그리고, 맨 아래 합계 행을 넣는다.
+  const renderPrintableIncentive = () => {
+    if (!printingDoc || !printingDoc.incentive) return null;
+    const inc = printingDoc.incentive;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const total = inc.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const isMerged = printingDoc.id.startsWith('merged-incentive-');
+
+    return (
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>{printingDoc.title}</h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 문서별로 나눠 등록하신 인센티브 및 명절 상여금 내역 중 일자가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급 내역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급 대상자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {inc.entries.map((e) => (
+              <tr key={e.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{fmtDate(e.date)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.method}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{e.description}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={3}></td>
+            </tr>
+          </tbody>
+        </table>
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
+  // [추가] 해외 출장 경비 인쇄/PDF 화면. 인센티브와 같은 구조에 사용구분별 소계 표를 아래에
+  // 하나 더 붙인다. "출력이 2페이지 넘어가면 2페이지부터 상단 여백을 1페이지의 2배 정도로"
+  // 요청에 맞춰, 이 문서만의 padding 대신 index.css에 새로 정의한 named @page 규칙
+  // (overseas-trip-page)을 쓰는 print-overseas-trip-margins 클래스를 붙인다 - div의 padding은
+  // 문서 맨 처음/끝에만 적용되고 중간 페이지 경계에는 적용되지 않아서, 페이지마다 똑같이
+  // 적용되는 여백은 반드시 @page margin으로 줘야 한다(현금흐름 인쇄에서 이미 검증된 방식).
+  const renderPrintableOverseasTrip = () => {
+    if (!printingDoc || !printingDoc.overseasTrip) return null;
+    const ot = printingDoc.overseasTrip;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const total = ot.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const isMerged = printingDoc.id.startsWith('merged-overseas-trip-');
+    const breakdown = overseasTripCategoryBreakdown(ot.entries);
+
+    return (
+      <div className="print-overseas-trip-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: isMerged ? '4px' : '14px' }}>{printingDoc.title}</h1>
+        {isMerged && (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '12px' }}>
+            ※ 출장 건별로 나눠 등록하신 해외 출장 경비 사용내역 중 귀속연도가 이 연도에 해당하는 건을 모두 모아 보여줍니다.
+            결제일과 귀속연도가 다른 항목은 일자 아래에 "(YYYY년 귀속)"으로 표시됩니다.
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>일자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>사용구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>사용내역</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>사용자</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급방법</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>지급구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>비고</td>
+            </tr>
+          </thead>
+          <tbody>
+            {ot.entries.map((e) => (
+              <tr key={e.id}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
+                  {fmtDate(e.date)}
+                  {/* [추가] 결제일과 귀속연도가 다른 항목(예: 전 해 말에 미리 결제한 항공권)은
+                  일자 아래에 작게 "(YYYY년 귀속)"을 표시해서, 표에 찍힌 결제일만 보고 다른
+                  연도 출장 경비로 착각하지 않게 한다. */}
+                  {e.fiscalYear && e.fiscalYear.trim() && e.fiscalYear !== (e.date || '').slice(0, 4) && (
+                    <div style={{ fontSize: '9px', color: '#c2410c', marginTop: '2px' }}>({e.fiscalYear}년 귀속)</div>
+                  )}
+                </td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(e.amount)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.category}</td>
+                <td style={{ border: '1px solid #000', padding: '6px' }}>{e.description}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.user}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.payMethod}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.payDetail}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{e.note}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(total)}</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={6}></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 style={{ fontSize: '13px', fontWeight: 700, marginTop: '18px', marginBottom: '6px' }}>사용구분별 합계</h2>
+        <table style={{ width: '60%', borderCollapse: 'collapse', fontSize: '11px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>구분</td>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>금액</td>
+            </tr>
+          </thead>
+          <tbody>
+            {breakdown.map((row) => (
+              <tr key={row.label}>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>{row.label}</td>
+                <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(row.amount)}</td>
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }}>합 계</td>
+              <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'right' }}>{fmt(breakdown.reduce((s, r) => s + r.amount, 0))}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
+  // [추가] 연차 현황 인쇄/PDF 화면. 공유해주신 "OOOO년 연차 / 휴일근무 및 대체 휴가" 양식과
+  // 같은 열 구성(이름/입사일자/총년차일수/휴가일/사용연차일수/잔여일수/비고 + 휴일(초과)
+  // 근무 4열 + 대체휴가 + 비고)으로 재현한다. 표가 가로로 넓어 가로(landscape)로 인쇄하고,
+  // 페이지가 넘어가면 2페이지부터 상단 여백이 2배가 되도록 print-annual-leave-margins
+  // 클래스를 쓴다(해외 출장 경비와 동일한 방식).
+  const renderPrintableAnnualLeaveStatus = () => {
+    if (!printingDoc || !printingDoc.annualLeaveStatus) return null;
+    const al = printingDoc.annualLeaveStatus;
+    const fmtDate = (d?: string) => d ? d.replace(/-/g, '.') : '';
+    const th: React.CSSProperties = { border: '1px solid #000', padding: '5px', background: '#ffe600', fontWeight: 700, textAlign: 'center' };
+    const td: React.CSSProperties = { border: '1px solid #000', padding: '5px', textAlign: 'center' };
+
+    return (
+      <div className="print-landscape print-annual-leave-margins" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>{printingDoc.title || `${al.year}년 연차 / 휴일근무 및 대체 휴가`}</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', border: '1px solid #000' }}>
+          <thead>
+            <tr>
+              <td style={th} rowSpan={2}>이름</td>
+              <td style={th} rowSpan={2}>입사일자</td>
+              <td style={th} rowSpan={2}>총 년차일수</td>
+              <td style={th} rowSpan={2}>휴가일</td>
+              <td style={th} rowSpan={2}>사용<br />연차일수</td>
+              <td style={th} rowSpan={2}>잔여일수</td>
+              <td style={th} rowSpan={2}>비고</td>
+              <td style={th} colSpan={4}>휴 일 (초과) 근 무</td>
+              <td style={th} rowSpan={2}>대체휴가</td>
+              <td style={th} rowSpan={2}>비고</td>
+            </tr>
+            <tr>
+              <td style={th}>일자</td>
+              <td style={th}>기간(일)</td>
+              <td style={th}>시간</td>
+              <td style={th}>현장</td>
+            </tr>
+          </thead>
+          <tbody>
+            {al.people.map((p) => {
+              const rowCount = annualLeavePersonRowCount(p);
+              const used = annualLeaveUsedTotal(p);
+              const remaining = annualLeaveRemaining(p);
+              const overtimePeriodTotal = annualLeaveOvertimePeriodTotal(p);
+              const overtimeHoursTotal = annualLeaveOvertimeHoursTotal(p);
+              return (
+                <React.Fragment key={p.id}>
+                  {Array.from({ length: rowCount }, (_, i) => {
+                    const leaveEntry = p.leaveEntries[i];
+                    const overtimeEntry = p.overtimeEntries[i];
+                    const substituteEntry = p.substituteEntries[i];
+                    return (
+                      <tr key={i}>
+                        {i === 0 && (
+                          <>
+                            <td style={{ ...td, fontWeight: 700, verticalAlign: 'middle' }} rowSpan={rowCount + 1}>{p.name}</td>
+                            <td style={{ ...td, verticalAlign: 'middle' }} rowSpan={rowCount + 1}>{fmtDate(p.hireDate)}</td>
+                            <td style={{ ...td, verticalAlign: 'middle' }} rowSpan={rowCount + 1}>{p.totalAnnualDays || 0}</td>
+                          </>
+                        )}
+                        <td style={{ ...td, textAlign: 'left' }}>{leaveEntry ? formatAnnualLeaveRange(leaveEntry.startDate, leaveEntry.endDate) : ''}</td>
+                        <td style={td}>{leaveEntry ? (leaveEntry.days || 0) : ''}</td>
+                        <td style={td}></td>
+                        <td style={{ ...td, textAlign: 'left' }}>{leaveEntry?.note || ''}</td>
+                        <td style={td}>{overtimeEntry?.date ? fmtDate(overtimeEntry.date) : ''}</td>
+                        <td style={td}>{overtimeEntry?.periodDays || ''}</td>
+                        <td style={td}>{overtimeEntry?.hours || ''}</td>
+                        <td style={td}>{overtimeEntry?.site || ''}</td>
+                        <td style={td}>{substituteEntry?.date ? fmtDate(substituteEntry.date) : ''}</td>
+                        <td style={{ ...td, textAlign: 'left' }}>{substituteEntry?.note || ''}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+                    <td style={td}>합 계</td>
+                    <td style={td}>{used}</td>
+                    <td style={td}>{remaining}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                    <td style={td}>{overtimePeriodTotal || 0}</td>
+                    <td style={td}>{overtimeHoursTotal || 0}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+        {al.people.length === 0 && (
+          <p style={{ textAlign: 'center', fontSize: '12px', color: '#888', marginTop: '16px' }}>등록된 직원이 없습니다.</p>
+        )}
+        {printingDoc.memo && (
+          <p style={{ fontSize: '11px', color: '#333', marginTop: '10px' }}>*{printingDoc.memo}</p>
+        )}
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - INFLOWS 표 인쇄/PDF·엑셀 화면. 공유해주신 양식(NO/프로젝트명/
+  // 프로젝트 수주자/계약금(VAT포함)/잔여기성/전년도/1~12월 + 합계(1))을 그대로 재현한다.
+  const renderCashFlowInflowsTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const monthTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m));
+    const sumField = (key: 'contractAmount' | 'remainingAmount' | 'prevYear') => cf.inflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={18}>INFLOWS ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>NO</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트명</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트 수주자</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>계약금(VAT포함)</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>잔여기성</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>전년도</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            {cf.inflows.map((r, i) => (
+              <tr key={r.id}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{r.name}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{r.recipient}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.contractAmount || 0)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.remainingAmount || 0)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.prevYear || 0)}</td>
+                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfCellTotal(r.months[m]))}</td>)}
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}>합계(1)</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('contractAmount'))}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('remainingAmount'))}</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('prevYear'))}</td>
+              {monthTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - OUTFLOWS(매입) 표 인쇄/PDF·엑셀 화면.
+  const renderCashFlowOutflowsTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const monthTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m));
+    const sumField = (key: 'estimatedTotal' | 'prevYear') => cf.outflows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={18}>OUTFLOWS ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>NO</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트별 물품 매입처</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>프로젝트 수주자</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>예상물품구입(외주)총액</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>비 고</td>
+              <td style={{ border: '1px solid #000', padding: '4px' }}>전년도 구입</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            {cf.outflows.map((r, i) => (
+              <tr key={r.id}>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{r.name}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>{r.recipient}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.estimatedTotal || 0)}</td>
+                <td style={{ border: '1px solid #000', padding: '4px' }}>{r.note}</td>
+                <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(r.prevYear || 0)}</td>
+                {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfCellTotal(r.months[m]))}</td>)}
+              </tr>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={3}>매입 합계</td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('estimatedTotal'))}</td>
+              <td style={{ border: '1px solid #000', padding: '5px' }}></td>
+              <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(sumField('prevYear'))}</td>
+              {monthTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - 경비 표 인쇄/PDF·엑셀 화면. 그룹(급여/소득공제, 사업 경비, 부채,
+  // 기타 경비)별로 항목을 묶어서 보여주고, 그룹마다 소계(노란 배경) 행을 넣는다.
+  const renderCashFlowExpensesTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={14}>경비 ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '4px' }} colSpan={2}>구 분</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            {cf.expenseGroups.map((g) => (
+              <React.Fragment key={g.id}>
+                {g.items.length === 0 ? (
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700 }} colSpan={2}>{g.name}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px' }} colSpan={12}></td>
+                  </tr>
+                ) : g.items.map((it, ii) => (
+                  <tr key={it.id}>
+                    {ii === 0 && (
+                      <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 700, verticalAlign: 'middle' }} rowSpan={g.items.length}>{g.name}</td>
+                    )}
+                    <td style={{ border: '1px solid #000', padding: '4px' }}>{it.label}</td>
+                    {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfCellTotal(it.months[m]))}</td>)}
+                  </tr>
+                ))}
+                <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+                  <td style={{ border: '1px solid #000', padding: '4px' }} colSpan={2}>{g.name} 소계</td>
+                  {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right' }}>{fmt(cfExpenseGroupMonthlyTotal(g, m))}</td>)}
+                </tr>
+              </React.Fragment>
+            ))}
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }} colSpan={2}>경비 총 합계</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(cfExpenseAllMonthlyTotal(cf.expenseGroups, m))}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - 최종(자동 계산) 표 인쇄/PDF·엑셀 화면. INFLOWS/OUTFLOWS/경비
+  // 입력값으로 Total OUTFLOWS/순 현금 흐름/통장잔고(월말기준)를 자동 계산해서 보여준다.
+  const renderCashFlowSummaryTable = (cf: CashFlowAnnual) => {
+    const fmt = (n: number) => n === 0 ? '-' : new Intl.NumberFormat('ko-KR').format(n);
+    const inflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.inflows, m));
+    const outflowTotals = CASH_FLOW_MONTHS.map((m) => cfRowsMonthlyTotal(cf.outflows, m));
+    const expenseTotals = CASH_FLOW_MONTHS.map((m) => cfExpenseAllMonthlyTotal(cf.expenseGroups, m));
+    const totalOutflowTotals = CASH_FLOW_MONTHS.map((m) => cfTotalOutflowMonthly(cf, m));
+    const netTotals = CASH_FLOW_MONTHS.map((m) => cfNetCashFlowMonthly(cf, m));
+    const balances = cfBankBalances(cf);
+    return (
+      <div className="print-landscape" style={{ width: '297mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', border: '1px solid #000' }}>
+          <thead>
+            <tr style={{ background: '#3d5a99', color: '#fff', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '6px' }} colSpan={13}>현금 흐름 최종 ({cf.year}년도)</td>
+            </tr>
+            <tr style={{ background: '#dbe5f1', fontWeight: 700, textAlign: 'center' }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>구 분</td>
+              {CASH_FLOW_MONTHS.map((m) => <td key={m} style={{ border: '1px solid #000', padding: '5px' }}>{m}월</td>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>INFLOWS 합계(1)</td>
+              {inflowTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>매입 합계</td>
+              {outflowTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>경비 합계</td>
+              {expenseTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr style={{ background: '#e7e6e6', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>Total OUTFLOWS(2)</td>
+              {totalOutflowTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr style={{ fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>순 현금 흐름(1)-(2)</td>
+              {netTotals.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+            <tr style={{ background: '#c6efce', fontWeight: 700 }}>
+              <td style={{ border: '1px solid #000', padding: '5px' }}>
+                통장잔고(월말기준)
+                <div style={{ fontWeight: 400, fontSize: '9px', color: '#333' }}>전년도이월금: {fmt(cf.openingBalance)}</div>
+              </td>
+              {balances.map((v, i) => <td key={i} style={{ border: '1px solid #000', padding: '5px', textAlign: 'right' }}>{fmt(v)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // [추가] 현금 흐름 - 위 네 표 중 "인쇄/PDF 저장" 화면에서 골라놓은 표(cashFlowPrintTab)를
+  // 보여준다. "전체"를 고르면 네 표를 한 번에(표마다 새 페이지로 나눠서) 이어서 보여준다.
+  const renderPrintableCashFlow = () => {
+    if (!printingDoc || !printingDoc.cashFlowAnnual) return null;
+    const cf = printingDoc.cashFlowAnnual;
+    if (cashFlowPrintTab === 'all') {
+      return (
+        <>
+          <div style={{ pageBreakAfter: 'always' }}>{renderCashFlowInflowsTable(cf)}</div>
+          <div style={{ pageBreakAfter: 'always' }}>{renderCashFlowOutflowsTable(cf)}</div>
+          <div style={{ pageBreakAfter: 'always' }}>{renderCashFlowExpensesTable(cf)}</div>
+          <div>{renderCashFlowSummaryTable(cf)}</div>
+        </>
+      );
+    }
+    if (cashFlowPrintTab === 'inflows') return renderCashFlowInflowsTable(cf);
+    if (cashFlowPrintTab === 'outflows') return renderCashFlowOutflowsTable(cf);
+    if (cashFlowPrintTab === 'expenses') return renderCashFlowExpensesTable(cf);
+    return renderCashFlowSummaryTable(cf);
+  };
+
+  // [추가] 근로계약서 인쇄용 화면. 공유해주신 실제 계약서 전문(고정 조항 포함)을 그대로
+  // 재현하고, 근로자 정보/급여 구성/계약기간처럼 사람마다 달라지는 부분만 채워 넣는다.
+  const renderPrintableLaborContract = () => {
+    if (!printingDoc || !printingDoc.laborContract) return null;
+    const lc = printingDoc.laborContract;
+    const isSalaryAgreement = printingDoc.category === 'salary_agreement';
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    const monthlyTotal = sumItems(lc.salaryItems);
+    const annualTotal = monthlyTotal * 12;
+    const employmentTypeLabel = { regular: '정규직', contract: '계약직', intern: '인턴' }[lc.employmentType || 'regular'];
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const bizNumber = currentUser?.businessNumber || '';
+    const repName = currentUser?.name || '';
+
+    const cellStyle: React.CSSProperties = { border: '0.5px solid #999', padding: '5px 8px', fontSize: '11px' };
+    const labelCellStyle: React.CSSProperties = { ...cellStyle, background: '#f5f5f5', fontWeight: 700, width: '18%', textAlign: 'center' };
+
+    // [추가] 연봉협약서(salary_agreement)는 공유해주신 실제 "연봉 계약서" 양식(표 3개로
+    // 구성된 짧은 A4 1장짜리 양식)을 그대로 재현한다. 근로계약서(labor_contract)의 9개
+    // 조항짜리 긴 양식과는 구조가 아예 달라서 별도로 분기한다.
+    if (isSalaryAgreement) {
+      const cellStyle2: React.CSSProperties = { border: '0.5px solid #999', padding: '6px 8px', fontSize: '11px', verticalAlign: 'middle' };
+      const labelCellStyle2: React.CSSProperties = { ...cellStyle2, background: '#f5f5f5', fontWeight: 700, textAlign: 'center' };
+      const sectionHeaderStyle: React.CSSProperties = { background: '#e8e8e8', fontWeight: 700, padding: '6px 10px', border: '0.5px solid #999', fontSize: '12px' };
+
+      return (
+        <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
+          <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, marginBottom: '20px' }}>연봉 계약서</h1>
+
+          <p style={{ margin: '0 0 16px' }}>
+            <b>{companyName}</b>과 근로자 {lc.employeeName}은 연봉 제 규정에 따라 아래와 같이 연봉 계약을 체결하고, 본 계약에 정함이 없는 사항은 당사 취업규칙 및 제규정에 따른다.
+          </p>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', breakInside: 'avoid' }}>
+            <tbody>
+              <tr><td colSpan={6} style={sectionHeaderStyle}>인적 사항 및 근무 정보</td></tr>
+              <tr>
+                <td style={{ ...labelCellStyle2, width: '14%' }}>성 명</td>
+                <td style={{ ...cellStyle2, width: '19%' }}>{lc.employeeName}</td>
+                <td style={{ ...labelCellStyle2, width: '14%' }}>생년월일</td>
+                <td style={{ ...cellStyle2, width: '19%' }}>{fmtDateKo(lc.employeeBirthDate)}</td>
+                <td style={{ ...labelCellStyle2, width: '14%' }}>입사일</td>
+                <td style={{ ...cellStyle2, width: '20%' }}>{fmtDateKo(lc.hireDate)}</td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>소 속</td>
+                <td style={cellStyle2} colSpan={2}>{lc.department}</td>
+                <td style={labelCellStyle2}>현재직급</td>
+                <td style={cellStyle2} colSpan={2}>{lc.position}</td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>근로 시간</td>
+                <td style={cellStyle2} colSpan={5}>
+                  <p style={{ margin: 0 }}>매주 월요일 ~ 금요일 09:00~18:00(휴게시간 : 12:00~13:00)</p>
+                  <p style={{ margin: 0 }}>-주간 40시간 만근 시 일요일 유급 휴일, 토요일 무급 휴일</p>
+                  <p style={{ margin: 0 }}>-주 12시간의 연장 근로를 할 수 있음에 동의하고 이에 해당하는 수당은 급여에 포함한 금액으로 한다.</p>
+                </td>
+              </tr>
+              <tr>
+                <td style={labelCellStyle2}>근무 장소</td>
+                <td style={cellStyle2} colSpan={5}>{lc.workLocation}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* [수정] 원래는 "가. 임금계산 원칙" 칸 안에 급여 항목들을 별도의 중첩 <table>로
+          넣었었다. 그런데 border-collapse는 "같은 표 안"에서만 인접한 셀의 테두리를 하나로
+          합쳐준다 - 중첩된 표는 바깥 표와는 별개의 표라서 합쳐지지 않고, 바깥 셀 테두리와
+          안쪽 표 첫/끝 행 테두리가 같은 자리에 각각 따로 그려지면서 그 부분만 다른 곳보다
+          두 배로 겹쳐 두껍게 보였다. 표를 중첩하지 않고, "가." 라벨 칸을 급여 항목
+          개수만큼 rowSpan으로 늘려서 표 하나로 합쳤다 - 이제 모든 테두리가 같은 표의
+          border-collapse로 처리되어 두께가 완전히 통일된다. */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', breakInside: 'avoid' }}>
+            <tbody>
+              <tr><td colSpan={3} style={sectionHeaderStyle}>연봉 산정 및 지급내용</td></tr>
+              {(lc.salaryItems.length > 0 ? lc.salaryItems : [{ id: 'empty-placeholder', label: '', amount: 0 }]).map((it, idx, arr) => (
+                <tr key={it.id}>
+                  {idx === 0 && (
+                    <td style={{ ...labelCellStyle2, width: '26%', whiteSpace: 'nowrap' }} rowSpan={arr.length + 2}>가. 임금계산 원칙</td>
+                  )}
+                  <td style={{ ...cellStyle2, width: '25%' }}>{it.label}</td>
+                  <td style={{ ...cellStyle2, textAlign: 'right' }}>{fmt(it.amount)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td style={{ ...cellStyle2, fontWeight: 700, textAlign: 'center' }}>지급합계</td>
+                <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cellStyle2, fontWeight: 700, background: '#fff7cc', textAlign: 'center' }}>총액</td>
+                <td style={{ ...cellStyle2, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>나. 계산기간 및 계산방법</td>
+                <td style={cellStyle2} colSpan={2}>월 급여의 계산 기간은 초일부터 기산하여 당월 말일로 마감한다.</td>
+              </tr>
+              <tr>
+                <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>다. 지급일 및 지급방법</td>
+                <td style={cellStyle2} colSpan={2}>월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</td>
+              </tr>
+              <tr>
+                <td style={{ ...labelCellStyle2, whiteSpace: 'nowrap' }}>라. 연봉협약기간</td>
+                <td style={cellStyle2} colSpan={2}>{fmtDateKo(lc.contractStartDate)} ~ {fmtDateKo(lc.contractEndDate)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px', breakInside: 'avoid' }}>
+            <tbody>
+              <tr><td style={sectionHeaderStyle}>특이사항</td></tr>
+              <tr><td style={{ ...cellStyle2, padding: '10px' }}>연봉과 관련된 사항을 회사 직원이나 업무적으로 관련 있는 사람에게 공해하지 않으며 이를 어겼을 때 회사 인사 규정에 따른다.</td></tr>
+            </tbody>
+          </table>
+
+          <p style={{ textAlign: 'center', margin: '10px 0 6px' }}>위 내용을 증명하기 위하여 본 계약서 2부를 작성하여 상호 서명 후 각각 1부씩 보관한다.</p>
+          <p style={{ textAlign: 'center', margin: '0 0 30px', fontWeight: 700 }}>{fmtDateKo(lc.contractDate)}</p>
+
+          <div style={{ marginLeft: 'auto', width: '260px' }}>
+            <p style={{ textAlign: 'right', margin: '6px 0' }}>근로자&nbsp;&nbsp;&nbsp;{lc.employeeName} (인)</p>
+            <p style={{ textAlign: 'right', margin: '6px 0' }}>대표자&nbsp;&nbsp;&nbsp;{repName} (인)</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>근로 계약서</h1>
+
+        <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>1. 계약 당사자</p>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '4px 0' }}>사용자</p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
+            <tr><td style={labelCellStyle}>사업체명</td><td style={cellStyle}>{companyName}</td><td style={labelCellStyle}>대표</td><td style={cellStyle}>{repName}</td></tr>
+            <tr><td style={labelCellStyle}>사업종류</td><td style={cellStyle}>{lc.companyBusinessType}</td><td style={labelCellStyle}>사업자등록번호</td><td style={cellStyle}>{bizNumber}</td></tr>
+            <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.companyAddress}</td></tr>
+          </tbody></table>
+        </div>
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '8px 0 4px' }}>근로자</p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}><tbody>
+            <tr><td style={labelCellStyle}>성 명</td><td style={cellStyle}>{lc.employeeName}</td><td style={labelCellStyle}>생년월일</td><td style={cellStyle}>{fmtDateKo(lc.employeeBirthDate)}</td></tr>
+            <tr><td style={labelCellStyle}>주 소</td><td style={cellStyle} colSpan={3}>{lc.employeeAddress}</td></tr>
+            <tr><td style={labelCellStyle}>고용형태</td><td style={cellStyle} colSpan={3}>
+              {(['regular', 'contract', 'intern'] as const).map((t) => (
+                <span key={t} style={{ marginRight: '14px' }}>{lc.employmentType === t ? '■' : '□'} {({ regular: '정규직', contract: '계약직', intern: '인턴' } as any)[t]}</span>
+              ))}
+            </td></tr>
+          </tbody></table>
+        </div>
+
+        {/* [추가] 인쇄할 때 페이지가 넘어가면서 소제목만 페이지 맨 아래 외따로 남고 내용은
+        다음 페이지로 넘어가는 문제가 있었다(예: "5. 퇴직 시 준수 사항"만 1페이지 끝에 남음).
+        breakInside: 'avoid'로 소제목+본문을 하나로 묶어서, 이 묶음이 남은 공간에 다 안
+        들어가면 통째로 다음 페이지로 넘어가게 한다. */}
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>2. 근로 조건</p>
+          <p style={{ margin: '4px 0' }}>1) 급여 : 상여금을 포함한 포괄 연봉제이며, 급여는 매월 말일에 계좌로 입금하거나 본인이 현금 지급을 원할 시 현금으로 지급한다.</p>
+        </div>
+        <p style={{ margin: '4px 0 6px', paddingLeft: '10px' }}>가. 임금계산 원칙 - 구체적인 항목 및 지급액은 다음과 같다</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px', breakInside: 'avoid' }}>
+          <thead><tr>
+            <td style={{ ...labelCellStyle, width: '25%', textAlign: 'center' }}>지급 항목</td>
+            <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700, background: '#f5f5f5' }}>금액(원)</td>
+          </tr></thead>
+          <tbody>
+            {lc.salaryItems.map((it) => (
+              <tr key={it.id}><td style={cellStyle}>{it.label}</td><td style={{ ...cellStyle, textAlign: 'right' }}>{fmt(it.amount)}</td></tr>
+            ))}
+            <tr><td style={{ ...cellStyle, fontWeight: 700, textAlign: 'center' }}>지급 합계 (월 급여)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700 }}>{fmt(monthlyTotal)}</td></tr>
+            <tr><td style={{ ...cellStyle, fontWeight: 700, background: '#fff7cc', textAlign: 'center' }}>총 액 (연봉)</td><td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, background: '#fff7cc' }}>{fmt(annualTotal)}</td></tr>
+          </tbody>
+        </table>
+        <p style={{ margin: '4px 0', paddingLeft: '10px' }}>나. 계산기간 및 계산방법 - 월 급여의 계산기간은 초일부터 기산하여 당월 말일로 마감한다.</p>
+        <p style={{ margin: '4px 0 8px', paddingLeft: '10px' }}>다. 지급일 및 지급방법 - 월 급여의 지급일은 매월 말일 근로자의 통장으로 지급한다.</p>
+        <p style={{ margin: '4px 0' }}>2) 급여 외 수당 : 없음 - 주 12시간의 연장 근로를 할 수 있음에 동의하고 이에 해당하는 수당은 급여에 포함한 금액으로 한다.</p>
+        <p style={{ margin: '4px 0' }}>3) 근로 시간 : 매주 월요일 ~ 금요일 09:00~18:00(휴게시간 : 12:00~13:00) - 주간 40시간 만근 시 일요일 유급 휴일, 토요일 무급 휴일</p>
+        <p style={{ margin: '4px 0' }}>4) 근무 장소 : {lc.workLocation}</p>
+        <p style={{ margin: '4px 0' }}>5) 담당 업무 : {lc.jobDuties}</p>
+        <p style={{ margin: '4px 0 8px' }}>6) 근무 지침 : 당사 직원 수첩 규정에 동의하고 이에 따름</p>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>3. 고용 기간</p>
+          <p style={{ margin: '4px 0' }}>- 계약 기간은 {fmtDateKo(lc.contractStartDate)} ~ {lc.contractEndDate ? fmtDateKo(lc.contractEndDate) : '(기간의 정함 없음)'}</p>
+          <p style={{ margin: '4px 0 8px' }}>- 계약 후 1년은 업무 적응 기간으로 당사의 업무에 적합하지 않다고 판단될 시 이 기간 내에라도 계약 종료 가능</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>4. 연차 휴가</p>
+          <p style={{ margin: '4px 0' }}>- 1년간 8할 이상 출근 시 15일의 유급 휴가 부여(2년에 1개씩 가산)</p>
+          <p style={{ margin: '4px 0 8px' }}>- 또한, 별도의 서면 합의로 특정 근로일을 연차 휴가로 대체 가능</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>5. 퇴직 시 준수 사항</p>
+          <p style={{ margin: '4px 0 8px' }}>- 퇴직 1개월 이전까지 회사에 퇴사 의사를 알리고 업무 인수 인계서를 작성하여 제출하고, 후임자를 선임하여 업무 인수인계를 완료할 때까지 성실하게 근무하여야 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>6. 근로 계약 해지 사유</p>
+          <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 무단 결근 시</p>
+          <p style={{ margin: '4px 0' }}>- 업무 태만, 업무 수행 능력 부족 또는 건강상 장애로 업무 수행이 곤란 시</p>
+          <p style={{ margin: '4px 0' }}>- 정당한 사유 없이 상사의 업무 지시 또는 작업 지시를 이행하지 않을 시</p>
+          <p style={{ margin: '4px 0' }}>- 회사의 명예를 손상시켰거나 고의 또는 중과실로 회사에 손해를 입혔을 시</p>
+          <p style={{ margin: '4px 0 8px' }}>- 당사 직원 수첩의 취업 규칙 또는 기타 사회통념 상 더 이상 근로관계 유지 어렵다고 판단될 시</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>7. 지적 자산의 소유, 기밀 유지(비밀 보호) 및 손해 배상</p>
+          <p style={{ margin: '4px 0' }}>- 근로자는 업무를 수행함에 있어 지적 자산에 관한 권리는 회사에 귀속된다는 점에 동의한다.</p>
+          <p style={{ margin: '4px 0' }}>- 근로자는 계약서에 명시된 연봉 및 월 급여에 대하여 상호 간에 비교·공개하거나 타인에게 누설하여서는 아니 되며, 이를 위반한 경우 이로 인한 모든 불이익을 감수한다.</p>
+          <p style={{ margin: '4px 0' }}>- 근로자는 근로 계약 기간을 포함하여 퇴사 후에라도 회사의 서면 허가 없이는 회사에서 지득한 업무상 기밀사항 또는 고객의 비밀 사항에 대해 그 경중을 막론하고 외부에 유출하여서는 아니 되며, 만일 위반할 경우 민·형사상의 모든 책임을 진다.</p>
+          <p style={{ margin: '4px 0 8px' }}>- 근로자는 고의 또는 과실로 갑에 손해를 입힌 경우 그 손해의 한도 내에서 배상 책임을 진다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>8. 기타 조건</p>
+          <p style={{ margin: '4px 0 8px' }}>- 상기 조건 이외의 개별약정이 있는 경우 그 약정을 본 계약에 우선하여 적용.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '14px 0 6px' }}>9. 준용</p>
+          <p style={{ margin: '4px 0 8px' }}>- 본 계약서에 명시되지 않은 사항은 근로기준법 등 노동관계법령, 취업규칙을 준용한다.</p>
+        </div>
+
+        <p style={{ textAlign: 'center', margin: '20px 0 6px' }}>양 당사자는 상기 계약 조건을 성실히 준수할 것을 약속하며 본 근로계약을 체결합니다.</p>
+        <p style={{ textAlign: 'center', margin: '10px 0 20px', fontWeight: 700 }}>{fmtDateKo(lc.contractDate)}</p>
+
+        <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '20px' }}>
+          <p>사용자 : {repName} (인)</p>
+          <p>근로자 : {lc.employeeName} (인)</p>
+        </div>
+      </div>
+    );
+  };
+
+  // [추가] 재직증명서 인쇄용 화면. 공유해주신 실제 양식대로, 테두리 박스 안에 증명 내용을
+  // 담고, 구분선 아래에 문서번호·발급일·회사 직인 영역을 별도로 둔다.
+  const renderPrintableEmploymentCert = () => {
+    if (!printingDoc || !printingDoc.employmentCert) return null;
+    const ec = printingDoc.employmentCert;
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const repName = currentUser?.name || '';
+    const rowStyle: React.CSSProperties = { display: 'flex', margin: '10px 0', fontSize: '13px' };
+    const labelStyle: React.CSSProperties = { fontWeight: 700, width: '90px', flexShrink: 0 };
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7 }}>
+        <div style={{ border: '1.5px solid #000', padding: '15mm 20mm', breakInside: 'avoid' }}>
+          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '10px', marginBottom: '30px' }}>재 직 증 명</h1>
+
+          <div style={rowStyle}><span style={labelStyle}>주 소</span><span>: {ec.employeeAddress}</span></div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>성 명</span><span style={{ width: '160px' }}>: {ec.employeeName}</span>
+            <span style={{ fontWeight: 700, marginRight: '8px' }}>주민등록번호</span><span>: {ec.residentNumberMasked}</span>
+          </div>
+          <div style={rowStyle}><span style={labelStyle}>입사일</span><span>: {fmtDateKo(ec.hireDate)}</span></div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>용 도</span><span style={{ width: '160px' }}>: {ec.purpose}</span>
+            <span style={{ fontWeight: 700, marginRight: '8px' }}>제출처</span><span>: {ec.submitTo}</span>
+          </div>
+
+          <p style={{ margin: '25px 0' }}>
+            위와 같이 {companyName ? `주식회사 ${companyName.replace(/^\(주\)|주식회사\s?/g, '')}` : ''} {ec.position || ''}로 재직하고 있음을 증명하여 주시기 바랍니다.
+          </p>
+
+          <div style={{ marginLeft: 'auto', width: '260px', position: 'relative' }}>
+            <div style={rowStyle}><span style={labelStyle}>신청일</span><span>: {fmtDateKo(ec.applicationDate)}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>소 속</span><span>: {ec.department}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>직 위</span><span>: {ec.position}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>위원인</span><span>: {ec.employeeName} (인)</span></div>
+          </div>
+
+          <p style={{ textAlign: 'center', fontSize: '17px', fontWeight: 700, margin: '25px 0' }}>{companyName} 대표 귀하</p>
+
+          <div style={{ borderTop: '1px solid #000', margin: '20px 0' }} />
+
+          <p style={{ margin: '10px 0' }}>{ec.documentNumber}</p>
+          <p style={{ margin: '10px 0' }}>위와 같이 증명함.</p>
+          <p style={{ textAlign: 'right', margin: '10px 0', fontWeight: 700 }}>{fmtDateKo(ec.issueDate)}</p>
+          <p style={{ margin: '20px 0 10px' }}>{ec.companyAddress}</p>
+          <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700, margin: '10px 0' }}>{companyName} 대표</p>
+        </div>
+      </div>
+    );
+  };
+
+  // [추가] 위임장 인쇄용 화면. 공유해주신 양식대로 위임받는 사람 정보 + 위임 업무 내용을
+  // 채운다.
+  const renderPrintablePowerOfAttorney = () => {
+    if (!printingDoc || !printingDoc.powerOfAttorney) return null;
+    const poa = printingDoc.powerOfAttorney;
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const rowStyle: React.CSSProperties = { display: 'flex', margin: '10px 0', fontSize: '13px' };
+    const labelStyle: React.CSSProperties = { fontWeight: 700, width: '110px', flexShrink: 0 };
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7 }}>
+        <div style={{ border: '1.5px solid #000', padding: '15mm 20mm', breakInside: 'avoid' }}>
+          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '14px', marginBottom: '15mm' }}>위 임 장</h1>
+
+          <div style={rowStyle}><span style={labelStyle}>주 소</span><span>: {poa.employeeAddress}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>성 명</span><span>: {poa.employeeName}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>주민등록번호</span><span>: {poa.residentNumberMasked}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>용 도</span><span>: {poa.purpose}</span></div>
+          <div style={rowStyle}><span style={labelStyle}>제 출 처</span><span>: {poa.submitTo}</span></div>
+
+          <p style={{ margin: '30px 0' }}>
+            위 사람을 {poa.submitTo}에서 {companyName} 지점 {poa.taskDescription} 관련 업무 일체의 권한을 위임합니다.
+          </p>
+
+          <p style={{ textAlign: 'center', fontWeight: 700, margin: '30px 0 20px' }}>{fmtDateKo(poa.issueDate)}</p>
+          <p style={{ textAlign: 'center', fontSize: '17px', fontWeight: 700 }}>{companyName} 대표 (인)</p>
+        </div>
+      </div>
+    );
+  };
+
+  // [추가] 영업 계약서 인쇄용 화면. 공유해주신 18개 조항 전문을 그대로 재현하고, 거래처(갑)
+  // 정보·계약기간·수수료 구조만 입력받은 값으로 치환한다.
+  const renderPrintableSalesContract = () => {
+    if (!printingDoc || !printingDoc.salesContract) return null;
+    const sc = printingDoc.salesContract;
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${y}년 ${m}월 ${day}일`;
+    };
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    // 1억 단위로 딱 떨어지면 "18억 원"처럼, 아니면 콤마 금액으로 표시
+    const fmtEok = (n?: number) => {
+      if (!n) return '0원';
+      const eok = Math.floor(n / 100000000);
+      const remainder = n % 100000000;
+      if (eok > 0 && remainder === 0) return `${eok}억 원`;
+      return `${fmt(n)}원`;
+    };
+    const companyName = currentUser?.companyName || '';
+    const bizNumber = currentUser?.businessNumber || '';
+    const repName = currentUser?.name || '';
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.65 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>영업 계약서</h1>
+        <p style={{ textAlign: 'center', margin: '4px 0 20px' }}>
+          본 계약서는 영업 개발(수요업체 발굴) 자문 업무와 관련하여 계약 당사자 간의 권리·의무 및 보수 정산 기준을 명확히 함을 목적으로 한다.
+        </p>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>§ 계약 당사자</p>
+          <p style={{ fontWeight: 700, margin: '6px 0 2px' }}>갑 (영업 자문사)</p>
+          <p style={{ margin: '2px 0' }}>• 상호 : {sc.counterpartyName}</p>
+          <p style={{ margin: '2px 0' }}>• 주소 : {sc.counterpartyAddress}</p>
+          <p style={{ margin: '2px 0' }}>• 사업자등록번호 : {sc.counterpartyBizNumber}</p>
+          <p style={{ margin: '2px 0 8px' }}>• 대표이사 : {sc.counterpartyRepName}</p>
+          <p style={{ fontWeight: 700, margin: '6px 0 2px' }}>을 (수주사)</p>
+          <p style={{ margin: '2px 0' }}>• 상호 : {companyName}</p>
+          <p style={{ margin: '2px 0' }}>• 사업자등록번호 : {bizNumber}</p>
+          <p style={{ margin: '2px 0 8px' }}>• 대표이사 : {repName}</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제1조 (목적)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약은 갑이 을의 사업과 관련하여 영업(수요업체 발굴) 자문 업무를 수행하고, 이에 따른 보수 산정 기준, 지급 조건 및 상호 권리·의무를 명확히 함을 목적으로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제2조 (영업 업무의 범위)</p>
+          <p style={{ margin: '2px 0' }}>1. 신규 수요업체 및 발주 가능 거래처 발굴</p>
+          <p style={{ margin: '2px 0' }}>2. 프로젝트 및 사업 기회 정보 제공</p>
+          <p style={{ margin: '2px 0' }}>3. 발주처 소개 및 영업 기회 연결</p>
+          <p style={{ margin: '2px 0 8px' }}>4. 기타 상호 합의한 영업개발 관련 업무 * 갑은 계약 체결, 가격 결정, 조건 협상 및 법적 대리권을 보유하지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제3조 (계약기간)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약의 계약 기간은 {fmtDateKo(sc.contractStartDate)}부터 {fmtDateKo(sc.contractEndDate)}까지로 하며 계약기간 만료 전 상호 합의 시 서면으로 연장할 수 있다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제4조 (보수 산정의 기본 원칙)</p>
+          <p style={{ margin: '2px 0' }}>1. 갑의 보수는 갑의 영업개발 활동을 통해 실제 수주가 성립되어 발생한 매출을 기준으로 산정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 보수 산정은 발주처로부터 실제 수금이 완료된 매출에 한하여 적용한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>3. 보수 정산의 기준 자료는 을이 작성·확정한 프로젝트별 손익계산서로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제5조 (경상이익 및 경상이익률 산정)</p>
+          <p style={{ margin: '2px 0' }}>1. 경상이익은 다음 산식에 따른다. 경상이익 = 매출액 – 총원가 / 경상이익률(%) = (경상이익 ÷ 매출액) × 100</p>
+          <p style={{ margin: '2px 0 8px' }}>2. 총원가에는 직접비, 간접비, 일반관리비 및 사후 관리 예상 비용을 포함한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제6조 (사후 관리 비용 산정 한도)</p>
+          <p style={{ margin: '2px 0 8px' }}>경상이익 산정을 위한 사후 관리 관련 비용은 실제 발생 여부와 관계없이 해당 프로젝트 매출액의 최대 {sc.aftercareCapRate}%를 초과하여 계상할 수 없다. 본 조항은 경상이익률 산정의 객관성과 정산의 공정성 확보하기 위한 강행 기준으로 적용한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제7조 (수수료 산정의 기본 원칙)</p>
+          <p style={{ margin: '2px 0' }}>1. 수수료는 갑의 영업개발 활동으로 실제 수주가 성립되고, 발주처로부터 대금이 실제 수금된 매출액을 기준으로 산정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 수수료는 매출 증가에 따라 총 수수료 금액이 감소하거나 불리해지지 않도록 적용한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>3. 수수료는 구간별 누진 방식으로 적용하며, 단일 수수료율을 소급 적용하지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제8조 (매출액 기준 누진 수수료율)</p>
+          <p style={{ margin: '2px 0' }}>갑의 영업 개발 활동으로 발생한 매출액에 대하여 다음과 같이 구간별 누진 수수료율을 적용한다.</p>
+          <p style={{ margin: '2px 0' }}>1. 매출액 {fmtEok(sc.feeTier1Max)} 이하 구간 → 해당 구간 매출액의 {sc.feeTier1Rate}%</p>
+          <p style={{ margin: '2px 0' }}>2. 매출액 {fmtEok(sc.feeTier1Max)} 초과 ~ {fmtEok(sc.feeTier2Max)} 이하 구간 → 해당 초과 구간 매출액의 {sc.feeTier2Rate}%</p>
+          <p style={{ margin: '2px 0' }}>3. 매출액 {fmtEok(sc.feeTier2Max)} 초과 구간 → 해당 초과 구간 매출액의 {sc.feeTier3Rate}%</p>
+          <p style={{ margin: '2px 0 8px' }}>4. 경상이익율이 {sc.lowProfitThreshold}%미만의 경우 경상 이익의 {sc.lowProfitRate}%</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제9조 (누진 적용 방식의 명확화)</p>
+          <p style={{ margin: '2px 0' }}>1. 수수료는 각 매출 구간별로 분리하여 계산한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 매출 구간 초과로 인해 기존 구간에 적용된 수수료율이 변경되거나 감소하지 아니한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>3. 본 조의 누진 적용 방식은 수수료 산정의 유일한 기준으로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제10조 (수수료 역전 방지 조항)</p>
+          <p style={{ margin: '2px 0' }}>1. 매출 증가로 인해 수수료 총액이 감소하거나, 낮은 매출 구간의 수수료 총액보다 불리하게 산정되는 결과는 허용되지 아니한다.</p>
+          <p style={{ margin: '2px 0 8px' }}>2. 수수료 산정과 관련한 해석상 다툼은 누진 적용 및 역전 방지 원칙을 우선 기준으로 해석한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제11조 (영업 기여도 인정 제한)</p>
+          <p style={{ margin: '2px 0' }}>1. 갑의 영업 기여도는 갑의 단독 행위로 발주처가 특정되고, 그 결과로 을과 발주처 간 계약이 최초로 체결된 경우에 한하여 인정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 다음 각 호의 경우 영업 기여도로 인정하지 아니한다.</p>
+          <p style={{ margin: '2px 0' }}>1) 을과 기존 거래 또는 사전 접촉 이력이 있는 발주처</p>
+          <p style={{ margin: '2px 0' }}>2) 갑의 소개 이전에 을이 협의·견적·미팅을 진행한 경우</p>
+          <p style={{ margin: '2px 0' }}>3) 단순 명단·정보·연락처 제공</p>
+          <p style={{ margin: '2px 0 8px' }}>4) 갑의 행위와 수주 간 인과관계가 입증되지 않는 경우</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제12조 (영업 기여 입증 책임)</p>
+          <p style={{ margin: '2px 0 8px' }}>갑이 보수를 청구하기 위해서는 영업기여 사실 및 수주와의 인과관계를 객관적 자료로 입증하여야 하며, 입증되지 않는 경우 을은 보수 지급 의무를 부담하지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제13조 (지속 거래에 대한 제한적 보수 인정)</p>
+          <p style={{ margin: '2px 0' }}>1. 갑의 영업 개발 활동으로 최초 수주가 성립된 발주처에 한하여, 동일 발주처에서 발생하는 후속 매출에 대하여는 본 조에서 정한 범위 내에서만 예외적으로 보수를 인정한다.</p>
+          <p style={{ margin: '2px 0' }}>2. 보수 인정 기간은 최초 수주일로부터 {sc.recognitionMonths}개월로 제한한다.</p>
+          <p style={{ margin: '2px 0' }}>3. 보수 인정 대상이 되는 후속 매출 누적 매출 한도는 {fmtEok(sc.recognitionCapAmount)}을 초과할 수 없다.</p>
+          <p style={{ margin: '2px 0' }}>4. 위 기간 또는 금액 한도 중 어느 하나가 먼저 도달한 시점 이후, 발생하는 매출에 대하여는 갑은 어떠한 명목으로도 보수를 청구할 수 없다.</p>
+          <p style={{ margin: '2px 0 8px' }}>5. 본 조는 갑의 영업기여도에 대한 유일하고 한정적인 예외 규정이며, 본 계약의 다른 조항에 우선하여 적용된다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제14조 (계약 종료 후 보수 청구 제한)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약이 해지·종료·만료된 이후 체결되는 모든 수주에 대하여 갑은 어떠한 명목으로도 보수를 청구할 수 없다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제15조 (보수의 법적 성격)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약에 따른 보수는 조건부 성과 보수이며, 자문료·고문료·고정비 성격을 가지지 아니한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제16조 (손익 및 원가 산정 기준)</p>
+          <p style={{ margin: '2px 0 8px' }}>매출액, 경상이익, 원가 및 사후관리 비용 산정은 을이 작성·확정한 회계 자료를 최종 기준으로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제17조 (계약 해석 원칙)</p>
+          <p style={{ margin: '2px 0 8px' }}>보수 조항은 엄격하고 제한적으로 해석하며, 해석상 불명확한 경우 을에게 유리하게 해석한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>제18조 (관할 법원)</p>
+          <p style={{ margin: '2px 0 8px' }}>본 계약과 관련하여 발생하는 모든 분쟁은 을의 본점 소재지를 관할하는 법원을 전속 관할로 한다.</p>
+        </div>
+
+        <div style={{ breakInside: 'avoid' }}>
+          <p style={{ textAlign: 'center', fontWeight: 700, margin: '16px 0 6px' }}>【 서명 및 날인 】</p>
+          <p style={{ textAlign: 'center', margin: '4px 0' }}>본 계약의 내용을 모두 확인하고 이에 동의하여 본 계약서를 2부 작성하여 각자 기명 날인 후 1부씩 보관한다.</p>
+          <p style={{ textAlign: 'center', margin: '4px 0 14px', fontWeight: 700 }}>계약일자 : {fmtDateKo(sc.contractDate)}</p>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', border: '0.5px solid #999' }}>
+            <tbody>
+              <tr>
+                <td style={{ border: '0.5px solid #999', padding: '6px', textAlign: 'center', fontWeight: 700, width: '10%' }}>구분</td>
+                <td style={{ border: '0.5px solid #999', padding: '6px', textAlign: 'center', fontWeight: 700 }}>서명</td>
+              </tr>
+              <tr>
+                <td style={{ border: '0.5px solid #999', padding: '8px', textAlign: 'center', fontWeight: 700 }}>갑</td>
+                <td style={{ border: '0.5px solid #999', padding: '8px' }}>{sc.counterpartyName} 대표이사 {sc.counterpartyRepName} (인)</td>
+              </tr>
+              <tr>
+                <td style={{ border: '0.5px solid #999', padding: '8px', textAlign: 'center', fontWeight: 700 }}>을</td>
+                <td style={{ border: '0.5px solid #999', padding: '8px' }}>{companyName} 대표이사 {repName} (인)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // [추가] 퇴직금 정산 지급명세서 인쇄용 화면. 공유해주신 양식대로 신청인 정보/중간정산
+  // 대상기간/정산금 내역을 나열하고, 금액은 숫자와 한글을 나란히 표기한다.
+  const renderPrintableSeverance = () => {
+    if (!printingDoc || !printingDoc.severance) return null;
+    const sv = printingDoc.severance;
+    const fmt = (n: number) => new Intl.NumberFormat('ko-KR').format(n);
+    const fmtDateKo = (d?: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return day ? `${y}년 ${m}월 ${day}일` : `${y}년 ${m}월`;
+    };
+    const total = (Number(sv.companyAdvanceAmount) || 0) + (Number(sv.bankAccrualAmount) || 0);
+    const companyName = currentUser?.companyName || '';
+    const repName = currentUser?.name || '';
+    const periodLabelMonths = (() => {
+      if (!sv.periodStart || !sv.periodEnd) return '';
+      const start = new Date(sv.periodStart);
+      const end = new Date(sv.periodEnd);
+      const totalMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      const years = Math.floor(totalMonths / 12);
+      const months = totalMonths % 12;
+      return `${years > 0 ? `${years}년 ` : ''}${months > 0 ? `${months}개월` : ''}`.trim();
+    })();
+
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '12px', lineHeight: 1.8 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, marginBottom: '25mm' }}>퇴직금 중간정산 지급명세서</h1>
+
+        <p style={{ margin: '4px 0' }}>1. 신 청 인 : {sv.employeeName}</p>
+        <p style={{ margin: '4px 0' }}>2. 주민번호 : {sv.residentNumberMasked}</p>
+        <p style={{ margin: '4px 0' }}>3. 입사년도 : {fmtDateKo(sv.hireYearMonth)}</p>
+        <p style={{ margin: '4px 0' }}>4. 중간정산 대상기간 : {fmtDateKo(sv.periodStart)} ~ {fmtDateKo(sv.periodEnd)}</p>
+        <p style={{ margin: '4px 0 16px' }}>5. 중간정산 사유 : {sv.reason}</p>
+
+        <p style={{ margin: '10px 0' }}>
+          &nbsp;&nbsp;상기 본인은 {companyName} 근무하는 자로서 상기와 같은 이유로 아래와 같이 중간정산금 ({periodLabelMonths ? `${periodLabelMonths}_` : ''}{fmtDateKo(sv.periodStart)}부터 {fmtDateKo(sv.periodEnd)}까지의 퇴직금)을 지급 받았습니다.
+        </p>
+
+        <p style={{ fontWeight: 700, margin: '16px 0 6px' }}>6. 정산금 내역</p>
+        <p style={{ margin: '4px 0' }}>
+          ① 회사 선지급 - {numberToKoreanMoney(sv.companyAdvanceAmount || 0)}원 정(₩{fmt(sv.companyAdvanceAmount || 0)})
+          {sv.companyAdvanceDate ? `_${sv.companyAdvanceDate.replace(/-/g, '.')}.` : ''}
+          {sv.companyAdvanceBank ? `/${sv.companyAdvanceBank}에서 입금` : ''}
+        </p>
+        <p style={{ margin: '4px 0' }}>② 은행 적립금 - {numberToKoreanMoney(sv.bankAccrualAmount || 0)}원 (₩{fmt(sv.bankAccrualAmount || 0)})</p>
+        <p style={{ margin: '4px 0 30mm' }}>③ ①+② = {numberToKoreanMoney(total)}원 (₩{fmt(total)})</p>
+
+        <p style={{ textAlign: 'right', margin: '0 0 4px' }}>수령인 &nbsp; {sv.employeeName} &nbsp; (서명)</p>
+        <p style={{ textAlign: 'right', margin: '4px 0 30mm' }}>{fmtDateKo(sv.receiveDate)}</p>
+        <p style={{ textAlign: 'right', fontWeight: 700, margin: 0 }}>{companyName} 대표이사 {repName} 귀중</p>
+      </div>
+    );
+  };
+
+  // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
+  // 지원하게 되면 여기에 한 줄만 추가하면 된다.
+  const renderActivePrintable = () => {
+    if (!printingDoc) return null;
+    if (printingDoc.category === 'payslip') return renderPrintablePayslip();
+    if (printingDoc.category === 'monthly_cashflow') return renderPrintableCashflow();
+    if (printingDoc.category === 'bank_withdrawal' || printingDoc.category === 'bank_deposit') return renderPrintableBankLedger();
+    if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
+    if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
+    if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
+    if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
+    if (printingDoc.category === 'advance_payment') return renderPrintableAdvancePayment();
+    if (printingDoc.category === 'vehicle_fine') return renderPrintableVehicleFine();
+    if (printingDoc.category === 'incentive') return renderPrintableIncentive();
+    if (printingDoc.category === 'overseas_trip') return renderPrintableOverseasTrip();
+    if (printingDoc.category === 'annual_leave_status') return renderPrintableAnnualLeaveStatus();
+    if (printingDoc.category === 'cash_flow') return renderPrintableCashFlow();
+    if (printingDoc.category === 'labor_contract' || printingDoc.category === 'salary_agreement') return renderPrintableLaborContract();
+    if (printingDoc.category === 'employment_cert') return renderPrintableEmploymentCert();
+    if (printingDoc.category === 'power_of_attorney') return renderPrintablePowerOfAttorney();
+    if (printingDoc.category === 'sales_contract') return renderPrintableSalesContract();
+    if (printingDoc.category === 'severance') return renderPrintableSeverance();
+    return null;
+  };
+
+  return (
+    <>
+    <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-xl font-bold text-slate-900">{SECTION_LABEL[section]}</h2>
+        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-500/30 px-2.5 py-1 rounded-full font-semibold">관리자 전용</span>
+      </div>
+
+      {/* 서류 종류 서브 탭 */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {categories.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setActiveCategory(c.id)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
+              activeCategory === c.id
+                ? 'bg-indigo-600 text-white shadow'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 검색 + 추가 버튼 */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={activeConfig.personLabel ? `${activeConfig.label} 검색 (제목, ${activeConfig.personLabel}, 메모)` : `${activeConfig.label} 검색 (제목, 메모)`}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-500"
+          />
+        </div>
+        <button
+          onClick={() => {
+            const fresh = emptyForm(activeCategory);
+            // [추가] 새 문서를 만들 때, 저장돼 있던 회사 주소·사업종류를 자동으로 채워 넣는다.
+            if (fresh.laborContract) {
+              fresh.laborContract = { ...fresh.laborContract, companyAddress: companySettings.address, companyBusinessType: companySettings.businessType };
+            }
+            if (fresh.employmentCert) {
+              fresh.employmentCert = { ...fresh.employmentCert, companyAddress: companySettings.address };
+            }
+            // [추가] 재직증명서는 문서번호를 신청년도 기준 일련번호로 자동 생성해준다
+            // (예: 2026년 첫 신청 2026-001, 두 번째 2026-002...). 그 해에 이미 만들어진
+            // 재직증명서 개수를 세어서 다음 번호를 매긴다.
+            if (fresh.employmentCert) {
+              const year = (fresh.employmentCert.applicationDate || getTodayLocalStr()).slice(0, 4);
+              const countThisYear = docs.filter((d) => d.category === 'employment_cert' && d.employmentCert?.documentNumber?.startsWith(`${year}-`)).length;
+              fresh.employmentCert.documentNumber = `${year}-${String(countThisYear + 1).padStart(3, '0')}`;
+            }
+            // [추가] 현금 흐름은 "연도 하나 = 문서 하나"라서, 제목을 미리 "{연도}년도 현금
+            // 흐름"으로 채워두고(직접 고쳐도 됨), 편집 화면은 항상 INFLOWS 탭부터 보여준다.
+            if (fresh.cashFlowAnnual) {
+              fresh.title = `${fresh.cashFlowAnnual.year}년도 현금 흐름`;
+              setCashFlowEditTab('inflows');
+            }
+            setEditingDoc(fresh);
+          }}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95 whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4" />
+          <span>{activeConfig.label} 추가</span>
+        </button>
+      </div>
+
+      {/* [추가] 통장 출금/입금 내역만 엑셀 가져오기/내보내기 제공. 은행 사이트에서 받은
+      거래내역 엑셀을 그대로 올리거나, 여기서 내보낸 엑셀로 백업/편집 후 다시 올릴 수 있다. */}
+      {(activeCategory === 'bank_withdrawal' || activeCategory === 'bank_deposit') && (
+        <div className="flex items-center gap-2 -mt-1">
+          <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors ${isImportingBankLedger ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload className="w-3.5 h-3.5" />
+            {isImportingBankLedger ? '가져오는 중...' : '엑셀 가져오기'}
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportBankLedgerFile(file);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleExportBankLedgerExcel}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            엑셀 내보내기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 통장 출금/입금 내역 - 가져오기를 여러 번 하거나 수기로도 등록해서 같은
+      통장의 거래가 여러 문서에 나뉘어 있어도, 통장 하나를 골라 전체 거래를 한 페이지로
+      모아 인쇄/PDF 저장할 수 있게 해준다. */}
+      {(activeCategory === 'bank_withdrawal' || activeCategory === 'bank_deposit') && knownBankAccounts.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={bankAccountMergeKey || knownBankAccounts[0]?.key}
+            onChange={(e) => setBankAccountMergeKey(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {knownBankAccounts.map((k) => (
+              <option key={k.key} value={k.key}>{k.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllBankAccounts}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            통장별 전체 합쳐보기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 법인카드 관리 - 카드별로 문서를 따로 등록해도, 같은 달 것끼리 모아서
+      한 페이지(엑셀표 양식)로 인쇄/미리보기 할 수 있게 해준다. */}
+      {activeCategory === 'corp_card' && corpCardMonths.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={corpCardMergeMonth || corpCardMonths[0]}
+            onChange={(e) => setCorpCardMergeMonth(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {corpCardMonths.map((m) => {
+              const [y, mo] = m.split('-');
+              return <option key={m} value={m}>{y}년 {Number(mo)}월</option>;
+            })}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllCorpCards}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            전체 카드 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 차량 과태료 내역 - 문서를 여러 개로 나눠 등록하거나 한 문서에 여러 건을
+      같이 넣어둬도, 위반일자 기준으로 선택한 연도의 건을 전부 모아 한 페이지(표)로
+      인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'vehicle_fine' && vehicleFineYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={vehicleFineMergeYear || vehicleFineYears[0]}
+            onChange={(e) => setVehicleFineMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {vehicleFineYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllVehicleFines}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            연도별로 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 관리비내역 - 호실(예: 518호, 519호)을 각각 문서로 따로 등록해도, 같은 연도
+      것끼리 호실을 다 합쳐서 한 페이지(표)로 인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'management_fee' && managementFeeYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={managementFeeMergeYear || managementFeeYears[0]}
+            onChange={(e) => setManagementFeeMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {managementFeeYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllManagementFees}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            호실 전체 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 인센티브 및 명절 상여금 - 문서를 여러 개로 나눠 등록하거나 한 문서에 여러
+      건을 같이 넣어둬도, 일자 기준으로 선택한 연도의 건을 전부 모아 한 페이지(표)로
+      인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'incentive' && incentiveYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={incentiveMergeYear || incentiveYears[0]}
+            onChange={(e) => setIncentiveMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {incentiveYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllIncentives}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            연도별로 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
+      {/* [추가] 해외 출장 경비 - 출장 하나(=문서 하나)를 여러 건 등록해두고, 개별 확인은
+      문서 목록에서 그대로 열어보고, 이 버튼으로는 일자 기준으로 선택한 연도의 모든 출장
+      항목을 전부 모아 한 페이지(표)로 인쇄/엑셀 출력 할 수 있게 해준다. */}
+      {activeCategory === 'overseas_trip' && overseasTripYears.length > 0 && (
+        <div className="flex items-center gap-2 -mt-1 flex-wrap">
+          <select
+            value={overseasTripMergeYear || overseasTripYears[0]}
+            onChange={(e) => setOverseasTripMergeYear(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+          >
+            {overseasTripYears.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleViewAllOverseasTrips}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            연도별로 한 페이지로 보기
+          </button>
+        </div>
+      )}
+
+      {/* 목록 */}
+      {loading ? (
+        <div className="text-center py-12 text-sm text-slate-400">불러오는 중...</div>
+      ) : filteredDocs.length === 0 ? (
+        <div className="text-center py-16 text-sm text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+          아직 등록된 {activeConfig.label}가 없습니다.
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {filteredDocs.map((d) => (
+            <div key={d.id} className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-slate-800 truncate">{d.title}</h3>
+                    <span className="text-[11px] text-slate-400 font-mono shrink-0">{d.date}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                    {d.personName && <span>{activeConfig.personLabel}: <b className="text-slate-700">{d.personName}</b></span>}
+                    {activeConfig.showAmount && d.amount && (
+                      <span className="text-emerald-600 font-mono font-bold">
+                        {/^\d+$/.test(d.amount) ? `${formatCurrencyInput(d.amount)}원` : d.amount}
+                      </span>
+                    )}
+                  </div>
+                  {d.memo && <p className="text-xs text-slate-500 mt-1.5 whitespace-pre-line">{d.memo}</p>}
+                  {d.attachments && d.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {d.attachments.map((a) => (
+                        <a
+                          key={a.id}
+                          href={a.dataUrl}
+                          download={a.name}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 hover:bg-slate-100"
+                        >
+                          <Paperclip className="w-3 h-3" />
+                          <span className="max-w-[140px] truncate">{a.name}</span>
+                          <Download className="w-3 h-3 text-slate-400" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-300 mt-2">{d.createdByUserName ? `${d.createdByUserName} 등록` : ''}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
+                  쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                    <button
+                      onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
+                      className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
+                      title="인쇄"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { if (d.category === 'cash_flow') setCashFlowEditTab('inflows'); setEditingDoc(d); }}
+                    className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(d.id)}
+                    className="p-2 rounded-lg bg-slate-50 hover:bg-rose-600 text-slate-500 hover:text-white transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 등록/수정 모달 */}
+      {editingDoc && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div onClick={() => setEditingDoc(null)} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 z-10 max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => setEditingDoc(null)}
+                className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-2 pr-8">
+                <FileText className="w-5 h-5 text-indigo-500" />
+                <h3 className="text-base font-bold text-slate-800">
+                  {editingDoc.id ? `${activeConfig.label} 수정` : `${activeConfig.label} 추가`}
+                </h3>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">제목 *</label>
+                  <input
+                    type="text"
+                    value={editingDoc.title || ''}
+                    onChange={(e) => setEditingDoc({ ...editingDoc, title: e.target.value })}
+                    placeholder={`예: 2026년 ${activeConfig.personLabel} ${activeConfig.label}`}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                {/* [수정] "연차 현황", "현금 흐름"처럼 관련자 항목 자체가 없는(personLabel: '')
+                서류 종류는, 아래에 각자 전용 입력 블록(대상 연도 등)이 따로 있으므로 여기서
+                빈 라벨의 관련자 칸을 만들지 않는다 — 그렇지 않으면 그 전용 블록 바로 위에
+                이름 없는 빈 칸이 하나 더 떠서 화면이 틀어져 보인다. 날짜 칸은 그대로 두되
+                이 경우엔 한 줄 전체 폭으로 넓힌다. */}
+                <div className={activeConfig.personLabel ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">날짜</label>
+                    <input
+                      type="date"
+                      value={editingDoc.date || ''}
+                      onChange={(e) => setEditingDoc({ ...editingDoc, date: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  {activeConfig.personLabel && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{activeConfig.personLabel}</label>
+                      {/* [수정] 차량 과태료 내역에서는 이 "차량"도 통합 차량관리 등록 차량에서
+                      골라 쓸 수 있게 한다(다른 서류 종류는 기존 자유 입력 그대로 유지). */}
+                      {activeCategory === 'vehicle_fine' ? (
+                        <VehicleSearchInput
+                          vehicles={vehicles}
+                          value={editingDoc.personName || ''}
+                          onChange={(v) => setEditingDoc({ ...editingDoc, personName: v })}
+                          inputClassName="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={editingDoc.personName || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, personName: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* [추가] 급여명세서 전용 구조화 입력: 회사에서 실제로 쓰는 양식(사원코드/입사일/
+                부서/직위/호봉 + 지급내역·공제내역 여러 줄)을 그대로 입력받는다. 다른 서류
+                종류에서는 이 블록 자체가 안 보인다. */}
+                {activeCategory === 'payslip' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">회사명</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.companyName || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), companyName: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">지급월</label>
+                        <input
+                          type="month"
+                          value={editingDoc.payslip?.payMonth || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), payMonth: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">지급일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.payslip?.paymentDate || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), paymentDate: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">사원코드</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.employeeCode || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), employeeCode: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">입사일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.payslip?.hireDate || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), hireDate: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">부서</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.department || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), department: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">직위</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.position || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), position: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">호봉</label>
+                        <input
+                          type="text"
+                          value={editingDoc.payslip?.salaryGrade || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), salaryGrade: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 지급 내역 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">지급 내역</label>
+                        <button type="button" onClick={() => addPayslipItem('payItems')} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.payslip?.payItems || []).map((it) => (
+                          <div key={it.id} className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={it.label}
+                              onChange={(e) => updatePayslipItem('payItems', it.id, { label: e.target.value })}
+                              placeholder="예: 기본급"
+                              className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={it.amount ? formatCurrencyInput(it.amount) : ''}
+                              onChange={(e) => updatePayslipItem('payItems', it.id, { amount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            {/* [추가] 비과세 항목(식대·차량유지비 등)은 4대보험 자동계산 기준
+                            (과세 대상 급여)에서 빼야 해서, 항목별로 직접 체크할 수 있게 한다. */}
+                            <label className="flex items-center gap-1 text-[10px] text-slate-500 whitespace-nowrap shrink-0" title="체크 해제하면 비과세 처리되어 4대보험 자동계산에서 제외됩니다">
+                              <input
+                                type="checkbox"
+                                checked={it.taxable !== false}
+                                onChange={(e) => updatePayslipItem('payItems', it.id, { taxable: e.target.checked })}
+                                className="w-3 h-3"
+                              />
+                              과세
+                            </label>
+                            <button type="button" onClick={() => removePayslipItem('payItems', it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-right text-[11px] text-slate-500 mt-1.5">지급액 계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.payslip?.payItems))}원</b></p>
+                    </div>
+
+                    {/* [추가] 4대보험 등 공제율 설정. 요율은 매년 바뀌므로 여기서 직접 고칠 수
+                    있게 하고, "자동 계산"을 누르면 지급 내역(비과세 항목 제외) 합계에 이 요율을
+                    곱해서 공제 내역 금액을 채운다. 소득세만 국세청 간이세액표 기준이라 자동
+                    계산이 안 되니 직접 입력해야 하고, 지방소득세는 그 소득세의 10%(조정 가능)로
+                    계산된다. */}
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowRateSettings((v) => !v)}
+                        className="w-full flex items-center justify-between px-2.5 py-2 bg-white text-[11px] font-bold text-slate-600"
+                      >
+                        <span className="flex items-center gap-1"><Percent className="w-3 h-3" /> 공제율 설정 (매년 변경될 수 있음)</span>
+                        <span className="text-slate-400">{showRateSettings ? '접기' : '펼치기'}</span>
+                      </button>
+                      {showRateSettings && (
+                        <div className="p-2.5 bg-white border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {([
+                            ['pensionRate', '국민연금 (%)'],
+                            ['healthRate', '건강보험 (%)'],
+                            ['ltcRate', '장기요양보험료 (건강보험료 대비 %)'],
+                            ['employmentRate', '고용보험 (%)'],
+                            ['localTaxRate', '지방소득세 (소득세 대비 %)']
+                          ] as [keyof typeof DEFAULT_RATES, string][]).map(([key, label]) => (
+                            <div key={key}>
+                              <label className="block text-[10px] text-slate-500 mb-0.5">{label}</label>
+                              <input
+                                type="number"
+                                step="0.001"
+                                value={editingDoc.payslip?.rates?.[key] ?? DEFAULT_RATES[key]}
+                                onChange={(e) => updateRate(key, Number(e.target.value))}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="flex items-center gap-1.5 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-2">
+                      <Calculator className="w-3.5 h-3.5 shrink-0" />
+                      지급 내역이나 공제율을 바꾸면 4대보험료가 자동으로 다시 계산됩니다. (소득세는 직접 입력 — 입력하면 지방소득세도 자동 계산)
+                    </p>
+
+                    {/* 공제 내역 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">공제 내역</label>
+                        <button type="button" onClick={() => addPayslipItem('deductionItems')} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.payslip?.deductionItems || []).map((it) => (
+                          <div key={it.id} className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={it.label}
+                              onChange={(e) => updatePayslipItem('deductionItems', it.id, { label: e.target.value })}
+                              placeholder="예: 국민연금"
+                              className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={it.amount ? formatCurrencyInput(it.amount) : ''}
+                              onChange={(e) => updatePayslipItem('deductionItems', it.id, { amount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removePayslipItem('deductionItems', it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-right text-[11px] text-slate-500 mt-1.5">공제액 계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.payslip?.deductionItems))}원</b></p>
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      차인지급액: {formatCurrencyInput(sumItems(editingDoc.payslip?.payItems) - sumItems(editingDoc.payslip?.deductionItems))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 월별 자금 현황 전용 구조화 입력: 통장(계좌)별 이월금/입금/출금을
+                입력하면 통장잔액은 자동 계산되고, 맨 아래 합계도 자동으로 더해진다. */}
+                {activeCategory === 'monthly_cashflow' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 시작일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.cashflow?.periodStart || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, cashflow: { ...(editingDoc.cashflow || { accounts: [] }), periodStart: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 종료일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.cashflow?.periodEnd || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, cashflow: { ...(editingDoc.cashflow || { accounts: [] }), periodEnd: e.target.value } })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">통장 잔액</label>
+                        <button type="button" onClick={addCashflowAccount} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 계좌 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.cashflow?.accounts || []).map((a) => {
+                          // [추가] 같은 은행+계좌번호를 쓰는 입금/출금 내역 문서가 있으면, 이
+                          // 계좌의 집계 기간(periodStart~periodEnd)에 해당하는 거래만 뽑아
+                          // 합산한 금액을 미리 보여준다. 자동 불러오기 버튼을 누르면 그
+                          // 값을 입금/출금 칸에 그대로 채워 넣어서, 세 문서(자금현황/입금
+                          // 내역/출금내역)의 숫자가 항상 일치하도록 맞출 수 있다.
+                          const matched = a.bankName && a.accountNumber
+                            ? {
+                                deposit: sumLedgerByAccount(docs, 'bank_deposit', a.bankName, a.accountNumber, editingDoc.cashflow?.periodStart, editingDoc.cashflow?.periodEnd),
+                                withdrawal: sumLedgerByAccount(docs, 'bank_withdrawal', a.bankName, a.accountNumber, editingDoc.cashflow?.periodStart, editingDoc.cashflow?.periodEnd)
+                              }
+                            : null;
+                          return (
+                          <div key={a.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                              <input
+                                type="text"
+                                value={a.bankName || ''}
+                                onChange={(e) => updateCashflowAccount(a.id, { bankName: e.target.value })}
+                                placeholder="은행 (예: 하나은행)"
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={a.accountNumber || ''}
+                                onChange={(e) => updateCashflowAccount(a.id, { accountNumber: e.target.value })}
+                                placeholder="계좌번호"
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  value={a.subCategory || ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { subCategory: e.target.value })}
+                                  placeholder="구분 (예: 급여/카드대금)"
+                                  className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                                <button type="button" onClick={() => removeCashflowAccount(a.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">이월금</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={a.broughtForward ? formatCurrencyInput(a.broughtForward) : ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { broughtForward: parseCurrencyInput(e.target.value) })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">입금</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={a.deposit ? formatCurrencyInput(a.deposit) : ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { deposit: parseCurrencyInput(e.target.value) })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-0.5">출금</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={a.withdrawal ? formatCurrencyInput(a.withdrawal) : ''}
+                                  onChange={(e) => updateCashflowAccount(a.id, { withdrawal: parseCurrencyInput(e.target.value) })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                            </div>
+                            {matched && (matched.deposit > 0 || matched.withdrawal > 0) && (
+                              <button
+                                type="button"
+                                onClick={() => updateCashflowAccount(a.id, { deposit: matched.deposit, withdrawal: matched.withdrawal })}
+                                className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-bold"
+                              >
+                                <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3" /> 입금/출금 내역에서 불러오기</span>
+                                <span>입금 {formatCurrencyInput(matched.deposit)} · 출금 {formatCurrencyInput(matched.withdrawal)}</span>
+                              </button>
+                            )}
+                            <input
+                              type="text"
+                              value={a.note || ''}
+                              onChange={(e) => updateCashflowAccount(a.id, { note: e.target.value })}
+                              placeholder="비고 (예: *은민_만기 08.28)"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                            />
+                            <p className="text-right text-[11px] text-slate-500">통장잔액: <b className="text-emerald-600">{formatCurrencyInput(accountBalance(a))}원</b></p>
+                          </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600 space-y-0.5">
+                      <p className="flex justify-between"><span>이월금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.broughtForward, 0))}원</b></p>
+                      <p className="flex justify-between"><span>입금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.deposit, 0))}원</b></p>
+                      <p className="flex justify-between"><span>출금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.withdrawal, 0))}원</b></p>
+                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>통장잔액 합계</span><span>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + accountBalance(a), 0))}원</span></p>
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 통장 출금/입금 내역 전용 구조화 입력 (두 카테고리 공용). 통장(계좌)별로
+                묶어서 여러 거래(일자/프로젝트/금액/거래내용/비고)를 입력하고, 계좌마다 소계,
+                맨 아래에 전체 합계가 자동으로 표시된다. */}
+                {(activeCategory === 'bank_withdrawal' || activeCategory === 'bank_deposit') && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600">{activeCategory === 'bank_withdrawal' ? '출금통장별 거래 내역' : '입금통장별 거래 내역'}</label>
+                      <button type="button" onClick={addBankAccount} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 통장 추가
+                      </button>
+                    </div>
+
+                    {(editingDoc.bankLedger?.accounts || []).map((acc) => (
+                      <div key={acc.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                        {/* [수정] 자금 현황과 완전히 똑같은 구조(은행/계좌번호/구분)로
+                        통일했다. 표시 이름을 따로 안 만들어도, 인쇄/목록에서는 이 세 값을
+                        합쳐서 "하나은행(13004)_급여" 같은 형태로 자동으로 보여준다. */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                          <input
+                            type="text"
+                            value={acc.bankName || ''}
+                            onChange={(e) => updateBankAccountField(acc.id, { bankName: e.target.value })}
+                            placeholder="은행 (예: 하나은행)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={acc.accountNumber || ''}
+                            onChange={(e) => updateBankAccountField(acc.id, { accountNumber: e.target.value })}
+                            placeholder="계좌번호"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={acc.subCategory || ''}
+                              onChange={(e) => updateBankAccountField(acc.id, { subCategory: e.target.value })}
+                              placeholder="구분 (예: 급여/카드대금)"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            {(editingDoc.bankLedger?.accounts.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeBankAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {acc.entries.map((e) => (
+                            // [수정] grid-cols-12로 6개 칸을 욱여넣었더니, 폰처럼 화면이 좁으면
+                            // 칸 하나하나가 너무 좁아져서 글자가 겹쳐 보이고 입력할 수 없었다.
+                            // flex-wrap으로 바꿔서, 좁은 화면에서는 자연스럽게 여러 줄로
+                            // 줄바꿈되고 넓은 화면에서는 한 줄로 붙어 보이게 한다.
+                            <div key={e.id} className="flex flex-wrap items-center gap-1">
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateBankEntry(acc.id, e.id, { date: ev.target.value })}
+                                className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <ProjectSearchInput
+                                projects={projects}
+                                value={e.project}
+                                onChange={(name, projectId) => updateBankEntry(acc.id, e.id, { project: name, projectId })}
+                                placeholder="프로젝트"
+                                className="flex-1 min-w-[90px]"
+                              />
+                              {/* [추가] 프로젝트가 연결된 거래만, 원가계산서의 어느 항목(원재료비/
+                              외주가공비 등)에 해당하는 지출인지 태그할 수 있게 한다 - 원가계산서
+                              "자동 불러오기"가 이 값과 프로젝트를 기준으로 거래를 찾는다. */}
+                              {e.projectId && (
+                                <select
+                                  value={e.costCategory || ''}
+                                  onChange={(ev) => updateBankEntry(acc.id, e.id, { costCategory: (ev.target.value || undefined) as ProjectCostCategory | undefined })}
+                                  className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                >
+                                  <option value="">원가 항목 (선택 안 함)</option>
+                                  {PROJECT_COST_CATEGORY_ORDER.map((c) => (
+                                    <option key={c} value={c}>{PROJECT_COST_CATEGORY_LABELS[c]}</option>
+                                  ))}
+                                </select>
+                              )}
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateBankEntry(acc.id, e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="금액"
+                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={e.description}
+                                onChange={(ev) => updateBankEntry(acc.id, e.id, { description: ev.target.value })}
+                                placeholder="거래내용"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={e.note || ''}
+                                onChange={(ev) => updateBankEntry(acc.id, e.id, { note: ev.target.value })}
+                                placeholder="비고"
+                                className="flex-1 min-w-[70px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => removeBankEntry(acc.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <button type="button" onClick={() => addBankEntry(acc.id)} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" /> 거래 추가
+                          </button>
+                          <p className="text-[11px] text-slate-500">소계: <b className="text-slate-700">{formatCurrencyInput(bankAccountTotal(acc))}원</b></p>
+                        </div>
+                      </div>
+                    ))}
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      총 합계: {formatCurrencyInput((editingDoc.bankLedger?.accounts || []).reduce((s, a) => s + bankAccountTotal(a), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 대출이자 및 원금 상환 내역 전용 구조화 입력. 대출 건별로 입력하고,
+                "상환완료" 체크를 켜면 상환일/메모 칸이 추가로 나타난다. */}
+                {activeCategory === 'loan_repayment' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600">대출 목록</label>
+                      <button type="button" onClick={addLoan} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 대출 추가
+                      </button>
+                    </div>
+
+                    {(editingDoc.loanRepayment?.loans || []).map((l) => (
+                      <div key={l.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={l.loanName}
+                            onChange={(e) => updateLoan(l.id, { loanName: e.target.value })}
+                            placeholder="대출 명 (예: 우리은행_중진직대출)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={l.loanAccount || ''}
+                              onChange={(e) => updateLoan(l.id, { loanAccount: e.target.value })}
+                              placeholder="대출 계좌"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeLoan(l.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">대출 금액</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.initialAmount ? formatCurrencyInput(l.initialAmount) : ''}
+                              onChange={(e) => updateLoan(l.id, { initialAmount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">최초 이자율(%)</label>
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={l.initialRate || ''}
+                              onChange={(e) => updateLoan(l.id, { initialRate: Number(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">현재 이자율(%)</label>
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={l.currentRate || ''}
+                              onChange={(e) => updateLoan(l.id, { currentRate: Number(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">대출잔액</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.balance ? formatCurrencyInput(l.balance) : ''}
+                              onChange={(e) => updateLoan(l.id, { balance: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">대출일</label>
+                            <input
+                              type="date"
+                              value={l.loanDate || ''}
+                              onChange={(e) => updateLoan(l.id, { loanDate: e.target.value })}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">만기일</label>
+                            <input
+                              type="date"
+                              value={l.maturityDate || ''}
+                              onChange={(e) => updateLoan(l.id, { maturityDate: e.target.value })}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">납기일</label>
+                            <input
+                              type="text"
+                              value={l.paymentDay || ''}
+                              onChange={(e) => updateLoan(l.id, { paymentDay: e.target.value })}
+                              placeholder="예: 29일"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 - 원금</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.principalPaid ? formatCurrencyInput(l.principalPaid) : ''}
+                              onChange={(e) => updateLoan(l.id, { principalPaid: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 - 이자</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={l.interestPaid ? formatCurrencyInput(l.interestPaid) : ''}
+                              onChange={(e) => updateLoan(l.id, { interestPaid: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 은행</label>
+                            <input
+                              type="text"
+                              value={l.withdrawBank || ''}
+                              onChange={(e) => updateLoan(l.id, { withdrawBank: e.target.value })}
+                              placeholder="예: 하나은행"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">출금 계좌</label>
+                            <input
+                              type="text"
+                              value={l.withdrawAccount || ''}
+                              onChange={(e) => updateLoan(l.id, { withdrawAccount: e.target.value })}
+                              placeholder="계좌번호"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-right text-[11px] text-slate-500">출금 계: <b className="text-slate-700">{formatCurrencyInput(loanPaymentTotal(l))}원</b></p>
+
+                        <label className="flex items-center gap-1.5 text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                          <input
+                            type="checkbox"
+                            checked={l.isRepaid}
+                            onChange={(e) => updateLoan(l.id, { isRepaid: e.target.checked })}
+                            className="w-3.5 h-3.5"
+                          />
+                          상환완료
+                        </label>
+                        {l.isRepaid && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-0.5">상환일</label>
+                              <input
+                                type="date"
+                                value={l.repaidDate || ''}
+                                onChange={(e) => updateLoan(l.id, { repaidDate: e.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-0.5">비고 (상환수수료 등)</label>
+                              <input
+                                type="text"
+                                value={l.repaidFee || ''}
+                                onChange={(e) => updateLoan(l.id, { repaidFee: e.target.value })}
+                                placeholder="예: 상환수수료 16,593원"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600 space-y-0.5">
+                      <p className="flex justify-between"><span>대출 잔액 합계</span><b>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).filter((l) => !l.isRepaid).reduce((s, l) => s + l.balance, 0))}원</b></p>
+                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>출금 총 합계</span><span>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).reduce((s, l) => s + loanPaymentTotal(l), 0))}원</span></p>
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 법인카드 사용내역 전용 구조화 입력. 카드(소지자)별로 묶어서 여러
+                사용 내역(금액/일자/프로젝트명/사용자/비고)을 입력하고, 카드마다 소계, 맨
+                아래 총계가 자동으로 표시된다. 통장 출금/입금 내역과 같은 구조다. */}
+                {activeCategory === 'card_usage' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-600">카드별 사용 내역</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenCardImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 카드 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에서
+                    법인카드 결제로 이미 기록된 지출들을 모아 보여주고, 고른 것만 선택한 카드에
+                    항목으로 채워 넣는다. */}
+                    {showCardImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">차량·프로젝트·업무일지에서 법인카드 지출 불러오기</span>
+                          <button type="button" onClick={() => setShowCardImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">가져올 대상 카드</label>
+                          <select
+                            value={importTargetCardId}
+                            onChange={(e) => setImportTargetCardId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          >
+                            {(editingDoc.cardUsage?.cards || []).map((c) => (
+                              <option key={c.id} value={c.id}>{c.cardName || '(카드명 미입력)'} {c.holder ? `- ${c.holder}` : ''}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {isLoadingCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = cardImportCandidates.filter((c) => !alreadyImportedKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 법인카드 지출이 없습니다 (전부 이미 가져왔거나, 법인카드로 결제된 기록이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.project && <span className="text-slate-400"> · {c.project}</span>}
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                          {c.personName && <span className="text-slate-400"> · {c.personName}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportSelected}
+                              disabled={selectedImportKeys.size === 0 || !importTargetCardId}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {(editingDoc.cardUsage?.cards || []).map((c) => (
+                      <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                        {/* [추가] 경영지원 > 법인카드 관리에 등록된 카드에서 골라 카드명/카드번호/
+                        소지자를 그대로 연동해 채운다 - 직접 타이핑하지 않아도 되고, 두 화면의
+                        카드 정보가 서로 어긋나지 않게 해준다. */}
+                        {knownCorpCards.length > 0 && (
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              const picked = knownCorpCards.find((k) => k.key === e.target.value);
+                              if (picked) updateCardField(c.id, { cardName: picked.cardCompany, cardNumber: picked.cardNumber, holder: picked.user });
+                            }}
+                            className="w-full bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1.5 text-[11px] font-bold text-indigo-700 outline-none focus:border-indigo-500"
+                          >
+                            <option value="">법인카드 관리에서 카드 불러오기...</option>
+                            {knownCorpCards.map((k) => (
+                              <option key={k.key} value={k.key}>{k.cardCompany}{k.cardNumber ? ` (${k.cardNumber})` : ''}{k.user ? ` - ${k.user}` : ''}</option>
+                            ))}
+                          </select>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                          <input
+                            type="text"
+                            value={c.cardName}
+                            onChange={(e) => updateCardField(c.id, { cardName: e.target.value })}
+                            placeholder="카드명 (예: 국민카드)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={c.cardNumber || ''}
+                            onChange={(e) => updateCardField(c.id, { cardNumber: formatCardNumber(e.target.value) })}
+                            placeholder="카드번호 (0000-0000-0000-0000)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={c.holder}
+                              onChange={(e) => updateCardField(c.id, { holder: e.target.value })}
+                              placeholder="소지자"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            {(editingDoc.cardUsage?.cards.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeCard(c.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {c.entries.map((e) => (
+                            <div key={e.id} className="space-y-0.5">
+                              {e.sourceLabel && (
+                                <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                                  <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                                </span>
+                              )}
+                              {/* [수정] grid-cols-12를 flex-wrap으로 바꿔서, 폰처럼 화면이
+                              좁으면 자연스럽게 여러 줄로 줄바꿈되고 글자가 안 겹치게 한다. */}
+                              <div className="flex flex-wrap items-center gap-1">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="사용금액"
+                                className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { date: ev.target.value })}
+                                className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <ProjectSearchInput
+                                projects={projects}
+                                value={e.project || ''}
+                                onChange={(name, projectId) => updateCardEntry(c.id, e.id, { project: name, projectId })}
+                                placeholder="프로젝트명"
+                                className="flex-1 min-w-[90px]"
+                              />
+                              {/* [추가] 통장 출금 내역과 같은 이유 - 프로젝트가 연결된 사용 건만
+                              원가계산서 항목을 태그할 수 있게 한다. */}
+                              {e.projectId && (
+                                <select
+                                  value={e.costCategory || ''}
+                                  onChange={(ev) => updateCardEntry(c.id, e.id, { costCategory: (ev.target.value || undefined) as ProjectCostCategory | undefined })}
+                                  className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                >
+                                  <option value="">원가 항목 (선택 안 함)</option>
+                                  {PROJECT_COST_CATEGORY_ORDER.map((c2) => (
+                                    <option key={c2} value={c2}>{PROJECT_COST_CATEGORY_LABELS[c2]}</option>
+                                  ))}
+                                </select>
+                              )}
+                              <input
+                                type="text"
+                                value={e.user || ''}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { user: ev.target.value })}
+                                placeholder="사용자"
+                                className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={e.note || ''}
+                                onChange={(ev) => updateCardEntry(c.id, e.id, { note: ev.target.value })}
+                                placeholder="비고"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => removeCardEntry(c.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <button type="button" onClick={() => addCardEntry(c.id)} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" /> 사용내역 추가
+                          </button>
+                          <p className="text-[11px] text-slate-500">소계: <b className="text-slate-700">{formatCurrencyInput(cardGroupTotal(c))}원</b></p>
+                        </div>
+                      </div>
+                    ))}
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      총계: {formatCurrencyInput((editingDoc.cardUsage?.cards || []).reduce((s, c) => s + cardGroupTotal(c), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 법인카드 관리(월별 요약) 전용 입력. 카드 한 장이 한 줄이고, 카드사/
+                카드번호/사용자/사용일수/출금일자/금액/출금은행/출금계좌/비고를 입력한다. */}
+                {activeCategory === 'corp_card' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">대상 연월</label>
+                        <input
+                          type="month"
+                          value={editingDoc.corpCard?.yearMonth || ''}
+                          onChange={(e) => setEditingDoc({ ...editingDoc, corpCard: { ...(editingDoc.corpCard || { cards: [] }), yearMonth: e.target.value } })}
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <button type="button" onClick={addCorpCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 카드 추가
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400">※ 회계관리 &gt; 카드사용내역과 대조할 때는 "대상 연월과 같은 달" 사용분 합계를 기준으로 비교합니다.</p>
+
+                    {(editingDoc.corpCard?.cards || []).map((c) => (
+                      <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                        {/* [수정] 세 입력칸을 flex-1로만 나열하면(카드번호처럼 긴 값이 들어있을 때)
+                        input의 기본 최소 폭 때문에 줄어들지 못하고 셋을 합친 폭이 모달 폭을
+                        넘어가 "사용자" 칸이 화면 밖으로 삐져나오는 문제가 있었다. 카드사용내역의
+                        카드명/카드번호/소지자와 같은 grid-cols-3(모바일 1열) 패턴으로 맞춘다. */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-1.5">
+                          <input
+                            type="text"
+                            value={c.cardCompany}
+                            onChange={(e) => updateCorpCard(c.id, { cardCompany: e.target.value })}
+                            placeholder="카드사 (예: 국민카드)"
+                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={c.cardNumber}
+                            onChange={(e) => updateCorpCard(c.id, { cardNumber: formatCardNumber(e.target.value) })}
+                            placeholder="카드번호 (0000-0000-0000-0000)"
+                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          {/* [추가] 카드 유효기간(MM/YY). 숫자만 입력받아 "00/00" 형태로 자동으로
+                          슬래시를 넣어준다. */}
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={c.expiry || ''}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+                              updateCorpCard(c.id, { expiry: formatted });
+                            }}
+                            placeholder="유효기간(MM/YY)"
+                            maxLength={5}
+                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={c.user}
+                              onChange={(e) => updateCorpCard(c.id, { user: e.target.value })}
+                              placeholder="사용자"
+                              className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            {(editingDoc.corpCard?.cards.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeCorpCard(c.id)} className="p-1.5 text-slate-400 hover:text-rose-500 shrink-0">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                          <input
+                            type="text"
+                            value={c.periodLabel || ''}
+                            onChange={(e) => updateCorpCard(c.id, { periodLabel: e.target.value })}
+                            placeholder="사용일수 (예: 전월 01일~전월 말일)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.paymentDay || ''}
+                            onChange={(e) => updateCorpCard(c.id, { paymentDay: e.target.value })}
+                            placeholder="출금일자 (예: 15일)"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={c.amount ? formatCurrencyInput(c.amount) : ''}
+                            onChange={(e) => updateCorpCard(c.id, { amount: parseCurrencyInput(e.target.value) })}
+                            placeholder="금액"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        {/* [추가] 회계관리 > 카드사용내역과 대조. 같은 카드사+카드번호로 기록된
+                        카드사용내역 합계(전월 사용분 기준)를 보여주고, 지금 입력된 출금 금액과
+                        일치하는지 표시한다. 다르면 카드사용내역 쪽 합계로 바로 맞출 수 있다. */}
+                        {c.cardCompany && c.cardNumber && (() => {
+                          const { start, end } = getTargetMonthRange(editingDoc.corpCard?.yearMonth);
+                          const matched = sumCardUsageByCard(docs, c.cardCompany, c.cardNumber, start, end);
+                          if (matched === 0) return null;
+                          const isMatch = matched === Number(c.amount);
+                          return (
+                            <div className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] border ${isMatch ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-300 text-amber-700'}`}>
+                              <span>
+                                {isMatch ? '✓ 카드사용내역과 일치' : '⚠ 카드사용내역과 다름'} (카드사용내역 합계: {formatCurrencyInput(matched)}원)
+                              </span>
+                              {!isMatch && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateCorpCard(c.id, { amount: matched })}
+                                  className="shrink-0 px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold"
+                                >
+                                  이 금액으로 맞추기
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={c.withdrawBank || ''}
+                            onChange={(e) => updateCorpCard(c.id, { withdrawBank: e.target.value })}
+                            placeholder="출금은행"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.withdrawAccount || ''}
+                            onChange={(e) => updateCorpCard(c.id, { withdrawAccount: e.target.value })}
+                            placeholder="출금계좌"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <input
+                          type="text"
+                          value={c.note || ''}
+                          onChange={(e) => updateCorpCard(c.id, { note: e.target.value })}
+                          placeholder="비고"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    ))}
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.corpCard?.cards || []).reduce((s, c) => s + (Number(c.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 가지급내역 전용 입력. 공유해주신 "2026년도 월별 가지급 내역" 양식과
+                동일하게 인원(열) × 월(행)의 표로 입력받는다. 인원은 자유롭게 추가/삭제할 수
+                있고, 카이저합계(그 달 전체 합)와 맨 아래 인원별/전체 합계는 자동으로 계산된다.
+                전자결재 > 가지급금 정산서가 승인되면 "자동 불러오기"로 이름이 일치하는 인원의
+                해당 월 칸에 자동으로 반영할 수 있다. */}
+                {activeCategory === 'advance_payment' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    {/* [추가] 문서를 열면(새로 만들거나 수정하기) 전자결재 > 가지급금 정산서 중
+                    아직 안 가져온 승인 건을 자동으로 찾아서 조용히 채워 넣는데, 그 사실을
+                    모르고 지나치지 않도록 몇 건 채웠는지 안내한다. 실제 저장은 여전히
+                    "저장"을 눌러야 반영된다. */}
+                    {advanceAutoImportedCount !== null && advanceAutoImportedCount > 0 && (
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
+                        <RefreshCw className="w-3 h-3 shrink-0" />
+                        전자결재 &gt; 가지급금 정산서(승인)에서 {advanceAutoImportedCount}건을 자동으로 불러와 채웠습니다. 확인 후 저장해주세요.
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">인원별 월별 가지급 내역</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenAdvanceImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addAdvancePerson} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 인원 추가
+                        </button>
+                        <button type="button" onClick={addAdvanceMonth} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 월 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 전자결재 > 가지급금 정산서 중 승인된 건의 정산 내역을 모아 보여주고,
+                    고른 것만 이름이 일치하는 인원의 해당 월 칸으로 자동 반영한다. */}
+                    {showAdvanceImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">전자결재 가지급금 정산서(승인) 불러오기</span>
+                          <button type="button" onClick={() => setShowAdvanceImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">이름이 일치하는 인원 열이 없으면 새로 만들고, 해당 월 행이 없으면 새로 만들어서 채웁니다.</p>
+
+                        {isLoadingAdvanceCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = advanceImportCandidates.filter((c) => !alreadyImportedAdvanceKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 승인된 가지급금 정산서 내역이 없습니다.</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedAdvanceImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedAdvanceImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedAdvanceImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedAdvanceImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleAdvanceImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{c.personName || '(이름 없음)'}</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.project && <span className="text-slate-400"> · {c.project}</span>}
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportAdvanceSelected}
+                              disabled={selectedAdvanceImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedAdvanceImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* [수정] 예전엔 표(table) 형태였는데, 인원이 여러 명이면 화면(특히 폰/좁은
+                    창)에서 열이 넘쳐서 항목끼리 겹쳐 보이는 문제가 있었다. 인원 이름은 위에서
+                    따로 관리하고, 달마다 카드 하나로 나눠서 그 안에 인원별 금액 입력칸을
+                    grid로 자연스럽게 줄바꿈되게 배치하면 화면 폭에 상관없이 안 겹친다. */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                      <label className="block text-[10px] font-bold text-slate-500">인원 (이 표의 열)</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(editingDoc.advancePayment?.people || []).map((p) => (
+                          <div key={p.id} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-0.5 py-0.5">
+                            <input
+                              type="text"
+                              value={p.name}
+                              onChange={(e) => updateAdvancePersonName(p.id, e.target.value)}
+                              placeholder="이름"
+                              className="w-20 bg-transparent text-[11px] font-bold text-slate-700 outline-none"
+                            />
+                            {(editingDoc.advancePayment?.people.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeAdvancePerson(p.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(editingDoc.advancePayment?.months || []).map((m) => (
+                        <div key={m.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <input
+                              type="text"
+                              value={m.label}
+                              onChange={(e) => updateAdvanceMonthField(m.id, { label: e.target.value })}
+                              placeholder="구분 (예: 01월)"
+                              className="w-24 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={m.depositDate || ''}
+                              onChange={(e) => updateAdvanceMonthField(m.id, { depositDate: e.target.value })}
+                              placeholder="입금일 (예: 2026,03,06)"
+                              className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeAdvanceMonth(m.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* [수정] 예전엔 한 줄짜리 입력칸이라 "*이름: 계산식"을 사람별로
+                          적어도 Enter로 줄을 나눌 수 없어서 인쇄/엑셀에서 전부 한 줄로 붙어
+                          보였다. 여러 줄 입력이 되는 textarea로 바꿔서, Enter로 사람별 한
+                          줄씩 적으면 인쇄/PDF/엑셀에도 그 줄바꿈 그대로 나뉘어 보이게 한다
+                          (renderPrintableAdvancePayment/handleExportAdvancePaymentExcel은
+                          이미 줄바꿈을 그대로 살리게 되어 있어 수정 없이도 바로 적용된다). */}
+                          <textarea
+                            value={m.note || ''}
+                            onChange={(e) => updateAdvanceMonthField(m.id, { note: e.target.value })}
+                            placeholder="비고 (예: *성시욱: 계산식... ↵Enter로 줄바꿈해서 사람별로 한 줄씩 적으면 인쇄/엑셀에서도 줄이 나뉘어 보입니다)"
+                            rows={3}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500 resize-y"
+                          />
+
+                          <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
+                            {(editingDoc.advancePayment?.people || []).map((p) => {
+                              const cell = m.amounts[p.id];
+                              const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                              return (
+                                <div key={p.id}>
+                                  <label className="block text-[9px] text-slate-400 truncate mb-0.5">{p.name || '(이름 미입력)'}</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                    onChange={(e) => updateAdvanceCellManual(m.id, p.id, parseCurrencyInput(e.target.value))}
+                                    placeholder="0"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  {importedSum > 0 && (
+                                    <p className="text-[9px] text-emerald-600 mt-0.5 text-right">+{formatCurrencyInput(importedSum)} 자동반영</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                            카이저합계: {formatCurrencyInput(advanceMonthTotal(m, editingDoc.advancePayment?.people || []))}원
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-indigo-100 pt-2 space-y-1">
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-600">
+                        {(editingDoc.advancePayment?.people || []).map((p) => (
+                          <span key={p.id}>{p.name || '(이름 미입력)'}: <b className="text-slate-700">{formatCurrencyInput(advancePersonTotal(p.id, editingDoc.advancePayment?.months || []))}원</b></span>
+                        ))}
+                      </div>
+                      <p className="text-right text-xs font-bold text-emerald-600">
+                        전체 합계: {formatCurrencyInput(advanceGrandTotal(editingDoc.advancePayment))}원
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 차량 과태료 내역 전용 입력. 건별로 여러 줄 입력하는 단순한 표
+                (일자/차량/위반내용/금액/납부여부/비고). */}
+                {activeCategory === 'vehicle_fine' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">차량 과태료 내역</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenVehicleFineImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addVehicleFineEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 통장 출금 내역에 이미 등록된 거래 중 실제 과태료인 건만 골라서
+                    가져온다. 출금 내역엔 과태료 여부 표시가 없어 전부 후보로 보여준다. */}
+                    {showVehicleFineImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 과태료 불러오기</span>
+                          <button type="button" onClick={() => setShowVehicleFineImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">차량번호는 출금 내역에 없어 비어있는 채로 가져옵니다 - 가져온 뒤 직접 입력해주세요.</p>
+
+                        {isLoadingVehicleFineCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = vehicleFineImportCandidates.filter((c) => !alreadyImportedVehicleFineKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 통장 출금 내역이 없습니다.</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedVehicleFineImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedVehicleFineImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedVehicleFineImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedVehicleFineImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleVehicleFineImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportVehicleFineSelected}
+                              disabled={selectedVehicleFineImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedVehicleFineImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.vehicleFine?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          {e.sourceLabel && (
+                            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                              <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                            </span>
+                          )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">위반일자</label>
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateVehicleFineEntry(e.id, { date: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">위반차량</label>
+                              {/* [수정] 통합 차량관리에 등록된 차량을 눈에 보이는 드롭다운으로 골라
+                              쓸 수 있게 한다. 등록 안 된 차량(예: 렌터카)은 그대로 직접 입력 가능. */}
+                              <VehicleSearchInput
+                                vehicles={vehicles}
+                                value={e.vehicle}
+                                onChange={(v) => updateVehicleFineEntry(e.id, { vehicle: v })}
+                                placeholder="예: 벤츠(8030)"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[90px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">금액</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateVehicleFineEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="금액"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">처리일자</label>
+                              <input
+                                type="date"
+                                value={e.processedDate || ''}
+                                onChange={(ev) => updateVehicleFineEntry(e.id, { processedDate: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <button type="button" onClick={() => removeVehicleFineEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {/* [수정] 자주 쓰는 위반 항목을 목록에서 고르거나 직접 입력할 수 있게
+                            하고, 직접 입력한 값은 저장된 다른 문서에서 모아 다음부터 목록에
+                            나타난다(vehicleFineDetailOptions). */}
+                            <SuggestTextInput
+                              options={vehicleFineDetailOptions}
+                              value={e.detail}
+                              onChange={(v) => updateVehicleFineEntry(e.id, { detail: v })}
+                              placeholder="내용 (위반 상세)"
+                              className="flex-[2] min-w-[140px]"
+                            />
+                            <input
+                              type="text"
+                              value={e.note || ''}
+                              onChange={(ev) => updateVehicleFineEntry(e.id, { note: ev.target.value })}
+                              placeholder="비고 (담당자 등)"
+                              className="flex-1 min-w-[100px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.vehicleFine?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 각종 세금 전용 입력. 건별로 여러 줄 입력하는 단순한 표
+                (세목/귀속기간/신고기한/납부일/금액/납부여부/비고). */}
+                {/* [수정] 공유해주신 "2026년 각종 세금 내역" 양식과 동일하게 내역/결재일자/
+                금액/비고로 단순화. 결재일자는 "없음.", "2026.04.24완료"처럼 날짜가 아닌
+                텍스트가 섞이는 실제 사용 패턴 때문에 날짜 선택기 대신 자유 텍스트로 둔다. */}
+                {activeCategory === 'tax' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">각종 세금 내역</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenTaxImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addTaxEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 통장 출금 내역에 이미 등록된 거래 중 실제 세금 납부 건만 골라서
+                    가져온다. 출금 내역엔 세금 여부 표시가 없어 전부 후보로 보여준다. */}
+                    {showTaxImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 세금 불러오기</span>
+                          <button type="button" onClick={() => setShowTaxImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {isLoadingTaxCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = taxImportCandidates.filter((c) => !alreadyImportedTaxKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 통장 출금 내역이 없습니다.</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedTaxImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedTaxImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedTaxImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedTaxImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleTaxImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportTaxSelected}
+                              disabled={selectedTaxImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedTaxImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.taxPayment?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          {e.sourceLabel && (
+                            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                              <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                            </span>
+                          )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            <input
+                              type="text"
+                              value={e.description}
+                              onChange={(ev) => updateTaxEntry(e.id, { description: ev.target.value })}
+                              placeholder="내역 (예: 부가가치세(26년1기분))"
+                              className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={e.paidDate || ''}
+                              onChange={(ev) => updateTaxEntry(e.id, { paidDate: ev.target.value })}
+                              placeholder="결재일자 (예: 2026.01.12)"
+                              className="flex-1 min-w-[120px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                              onChange={(ev) => updateTaxEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                              placeholder="금액"
+                              className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={e.note || ''}
+                              onChange={(ev) => updateTaxEntry(e.id, { note: ev.target.value })}
+                              placeholder="비고 (예: 완료)"
+                              className="flex-1 min-w-[90px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeTaxEntry(e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.taxPayment?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 인센티브 및 명절 상여금 전용 입력. 공유해주신 "인센티브 및 명절
+                상여금" 양식과 동일하게 일자/금액/현금·상품권·기타 구분/내역/비고로 건별
+                여러 줄을 입력하는 단순한 표(각종 세금과 같은 패턴). */}
+                {activeCategory === 'incentive' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">인센티브 및 명절 상여금 내역</label>
+                      <button type="button" onClick={addIncentiveEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 항목 추가
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.incentive?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">일자</label>
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateIncentiveEntry(e.id, { date: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[90px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">금액</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateIncentiveEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="금액"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">지급 내역</label>
+                              {/* [수정] "현금/상품권/선물/신용카드/기타" 중 골라 쓰는 게 보통이지만,
+                              여기 없는 지급 방식도 있을 수 있어 "직접 입력"을 고르면 아래에
+                              자유 입력칸이 나타난다. 이미 저장된 값이 이 목록에 없는 경우(=예전에
+                              직접 입력해둔 값)도 자동으로 "직접 입력"으로 보여주고 그 값을 그대로
+                              고칠 수 있게 한다. */}
+                              <select
+                                value={isIncentiveMethodCustom(e.method) ? '__custom__' : (e.method || '현금')}
+                                onChange={(ev) => {
+                                  const v = ev.target.value;
+                                  updateIncentiveEntry(e.id, { method: v === '__custom__' ? '' : v });
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              >
+                                {INCENTIVE_METHOD_PRESETS.map((m) => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                                <option value="__custom__">직접 입력</option>
+                              </select>
+                              {isIncentiveMethodCustom(e.method) && (
+                                <input
+                                  type="text"
+                                  value={e.method}
+                                  onChange={(ev) => updateIncentiveEntry(e.id, { method: ev.target.value })}
+                                  placeholder="직접 입력"
+                                  autoFocus
+                                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              )}
+                            </div>
+                            <button type="button" onClick={() => removeIncentiveEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {/* [수정] "비고"를 지급 대상자 옆 좁은 칸에 같이 넣었더니 입력할 공간이
+                          너무 좁다는 지적이 있어, 아래 줄로 내려서 폭 전체를 쓸 수 있게 한다. */}
+                          <input
+                            type="text"
+                            value={e.description}
+                            onChange={(ev) => updateIncentiveEntry(e.id, { description: ev.target.value })}
+                            placeholder="지급 대상자 (예: 박현용 구정 보너스)"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={e.note || ''}
+                            onChange={(ev) => updateIncentiveEntry(e.id, { note: ev.target.value })}
+                            placeholder="비고"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.incentive?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 해외 출장 경비 전용 입력. 출장 하나(=문서 하나) 안에 여러 사용
+                내역을 건별로 입력한다 - 인센티브와 같은 구조에, 사용구분/지급방법 선택 +
+                지급구분(카드명) 자동완성 입력칸을 추가로 둔다. */}
+                {activeCategory === 'overseas_trip' && (
+                  <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">해외 출장 경비 사용내역</label>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleOpenOverseasTripCardImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 카드 사용내역에서 가져오기
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenOverseasTripBankImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 통장 출금내역에서 가져오기
+                        </button>
+                        {/* [추가] 해외출장 중 영수증을 바로 스캔해서 항목을 추가할 수 있게.
+                        스캔 완료 시 결과로 새 항목이 만들어지도록 scanningOverseasTripEntryId를
+                        비워둔 채 모달을 연다(handleOverseasTripReceiptScanComplete 참고). */}
+                        <button
+                          type="button"
+                          onClick={() => { setScanningOverseasTripEntryId(null); setIsOverseasTripReceiptModalOpen(true); }}
+                          className="text-[11px] text-indigo-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-600" /> 영수증 스캔으로 추가
+                        </button>
+                        <button type="button" onClick={addOverseasTripEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 회계관리 > 카드사용내역 + 업무일지(일일/주간)에서 법인카드로
+                    결제한 지출들을 모아 보여주고, 고른 것만 해외 출장 경비 항목으로 채워
+                    넣는다. 같은 지출이 카드사용내역/업무일지 양쪽에 다 걸려 있으면(=업무일지
+                    지출이 이미 카드사용내역으로 한 번 가져와졌으면) 서버에서 카드사용내역
+                    쪽만 남기고 미리 걸러서 내려주므로 중복으로 보이지 않는다. */}
+                    {showOverseasTripCardImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">카드사용내역·업무일지에서 법인카드 지출 불러오기</span>
+                          <button type="button" onClick={() => setShowOverseasTripCardImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isLoadingOverseasTripCardCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = overseasTripCardCandidates.filter((c) => !alreadyImportedOverseasTripKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 법인카드 지출이 없습니다 (전부 이미 가져왔거나, 법인카드로 결제된 기록이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedOverseasTripCardImportKeys.has(c.sourceKey))}
+                                      onChange={(ev) => {
+                                        if (ev.target.checked) {
+                                          setSelectedOverseasTripCardImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedOverseasTripCardImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedOverseasTripCardImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleOverseasTripCardImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.project && <span className="text-slate-400"> · {c.project}</span>}
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                          {c.personName && <span className="text-slate-400"> · {c.personName}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportOverseasTripCardSelected}
+                              disabled={selectedOverseasTripCardImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedOverseasTripCardImportKeys.size}건 가져오기 (사용구분·지급구분은 가져온 뒤 확인해서 골라주세요)
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* [추가] 통장 출금 내역에서 항목을 골라 해외 출장 경비로 가져온다. 환전
+                    비용처럼 은행에서 바로 처리한 지출, 또는 현금으로 지급하려고 인출한 경우에
+                    쓴다 - 기본값은 "환전 비용/현금"으로 채워지지만, 가져온 뒤 다른 사용구분으로
+                    바꿀 수 있다. */}
+                    {showOverseasTripBankImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 불러오기 (환전 비용·현금 지급용)</span>
+                          <button type="button" onClick={() => setShowOverseasTripBankImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isLoadingOverseasTripBankCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = overseasTripBankCandidates.filter((c) => !alreadyImportedOverseasTripKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 통장 출금 내역이 없습니다 (전부 이미 가져왔거나, 등록된 출금 내역이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedOverseasTripBankImportKeys.has(c.sourceKey))}
+                                      onChange={(ev) => {
+                                        if (ev.target.checked) {
+                                          setSelectedOverseasTripBankImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedOverseasTripBankImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedOverseasTripBankImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleOverseasTripBankImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-mono text-slate-400 mr-1">[{c.sourceLabel}]</span>
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportOverseasTripBankSelected}
+                              disabled={selectedOverseasTripBankImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedOverseasTripBankImportKeys.size}건 가져오기 (기본: 환전 비용/현금)
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      {(editingDoc.overseasTrip?.entries || []).map((e) => (
+                        <div key={e.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                          {e.sourceLabel && (
+                            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                              <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                            </span>
+                          )}
+                          <div className="flex flex-wrap items-start gap-1">
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">일자(결제일)</label>
+                              <input
+                                type="date"
+                                value={e.date}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { date: ev.target.value })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[80px]">
+                              {/* [추가] 귀속연도 - 전시회가 다음 해 초라 항공권 등을 그 전 해 말에
+                              미리 결제하는 경우, 실제 결제일과 이 경비가 잡힐 연도가 다를 수 있다.
+                              비워두면 결제일의 연도를 그대로 쓰고, 다르게 잡고 싶을 때만 직접
+                              지정한다(예: 2025년 12월 결제 항공권을 2026년 출장 경비로). */}
+                              <label className="block text-[9px] text-slate-400 mb-0.5">귀속연도</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.fiscalYear || ''}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { fiscalYear: ev.target.value.replace(/\D/g, '').slice(0, 4) })}
+                                placeholder={(e.date || '').slice(0, 4) || 'YYYY'}
+                                title="비워두면 결제일의 연도를 그대로 씁니다. 결제일과 다른 해 출장 경비로 잡으려면 여기에 연도를 입력하세요."
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-center text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[90px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">금액</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={e.amount ? formatCurrencyInput(e.amount) : ''}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { amount: parseCurrencyInput(ev.target.value) })}
+                                placeholder="금액"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">사용구분</label>
+                              <select
+                                value={isOverseasTripCategoryCustom(e.category) ? '__custom__' : (e.category || '항공료')}
+                                onChange={(ev) => {
+                                  const v = ev.target.value;
+                                  updateOverseasTripEntry(e.id, { category: v === '__custom__' ? '' : v });
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              >
+                                {OVERSEAS_TRIP_CATEGORY_PRESETS.map((c) => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                                <option value="__custom__">직접 입력</option>
+                              </select>
+                              {isOverseasTripCategoryCustom(e.category) && (
+                                <input
+                                  type="text"
+                                  value={e.category}
+                                  onChange={(ev) => updateOverseasTripEntry(e.id, { category: ev.target.value })}
+                                  placeholder="직접 입력"
+                                  autoFocus
+                                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              )}
+                            </div>
+                            <div className="flex items-start gap-0.5">
+                              {e.receiptImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingOverseasTripReceiptImage(e.receiptImage!)}
+                                  className="shrink-0 p-1.5 text-emerald-500 hover:text-emerald-600"
+                                  title="영수증 원본 보기"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => { setScanningOverseasTripEntryId(e.id); setIsOverseasTripReceiptModalOpen(true); }}
+                                className="shrink-0 p-1.5 text-indigo-400 hover:text-indigo-600"
+                                title="이 항목에 영수증 스캔/연동"
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                              </button>
+                              <button type="button" onClick={() => removeOverseasTripEntry(e.id)} className="shrink-0 p-1.5 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <input
+                            type="text"
+                            value={e.description}
+                            onChange={(ev) => updateOverseasTripEntry(e.id, { description: ev.target.value })}
+                            placeholder="사용내역 (예: 인천-도쿄 왕복 항공권)"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <div className="flex flex-wrap items-start gap-1">
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">사용자</label>
+                              <input
+                                type="text"
+                                value={e.user}
+                                onChange={(ev) => updateOverseasTripEntry(e.id, { user: ev.target.value })}
+                                placeholder="사용자"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[100px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">지급방법</label>
+                              <select
+                                value={isOverseasTripPayMethodCustom(e.payMethod) ? '__custom__' : (e.payMethod || '신용카드')}
+                                onChange={(ev) => {
+                                  const v = ev.target.value;
+                                  updateOverseasTripEntry(e.id, { payMethod: v === '__custom__' ? '' : v });
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              >
+                                {OVERSEAS_TRIP_PAY_METHOD_PRESETS.map((m) => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                                <option value="__custom__">직접 입력</option>
+                              </select>
+                              {isOverseasTripPayMethodCustom(e.payMethod) && (
+                                <input
+                                  type="text"
+                                  value={e.payMethod}
+                                  onChange={(ev) => updateOverseasTripEntry(e.id, { payMethod: ev.target.value })}
+                                  placeholder="직접 입력"
+                                  autoFocus
+                                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-[110px]">
+                              <label className="block text-[9px] text-slate-400 mb-0.5">지급구분 (카드명 등)</label>
+                              <SuggestTextInput
+                                options={overseasTripPayDetailOptions}
+                                value={e.payDetail || ''}
+                                onChange={(v) => updateOverseasTripEntry(e.id, { payDetail: v })}
+                                placeholder="예: 국민카드"
+                              />
+                            </div>
+                          </div>
+                          <input
+                            type="text"
+                            value={e.note || ''}
+                            onChange={(ev) => updateOverseasTripEntry(e.id, { note: ev.target.value })}
+                            placeholder="비고"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      합계: {formatCurrencyInput((editingDoc.overseasTrip?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
+                    </p>
+                  </div>
+                )}
+
+                {/* [추가] 관리비내역 전용 입력. 가지급내역과 완전히 같은 구조(호실(열) × 월(행)
+                표)를 그대로 쓴다. 관리비는 통장에서 보통 한 번에 통합 출금되므로, "자동
+                불러오기"는 이름 자동 매칭 대신 사람이 먼저 대상 호실을 고르는 방식이다. */}
+                {activeCategory === 'management_fee' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-600">호실별 월별 관리비내역</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleOpenManagementImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                        </button>
+                        <button type="button" onClick={addManagementUnit} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 호실 추가
+                        </button>
+                        <button type="button" onClick={addManagementMonth} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 월 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {showManagementImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 관리비 불러오기</span>
+                          <button type="button" onClick={() => setShowManagementImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">가져올 대상 호실</label>
+                          <select
+                            value={managementImportTargetUnitId}
+                            onChange={(e) => setManagementImportTargetUnitId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          >
+                            {(editingDoc.managementFee?.units || []).map((u) => (
+                              <option key={u.id} value={u.id}>{u.name || '(호실명 미입력)'}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {isLoadingManagementCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = managementImportCandidates.filter((c) => !alreadyImportedManagementKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 통장 출금 내역이 없습니다.</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedManagementImportKeys.has(c.sourceKey))}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedManagementImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedManagementImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedManagementImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleManagementImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{c.date}</span>
+                                          {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportManagementSelected}
+                              disabled={selectedManagementImportKeys.size === 0 || !managementImportTargetUnitId}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedManagementImportKeys.size}건 가져오기
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                      <label className="block text-[10px] font-bold text-slate-500">호실 (이 표의 열)</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(editingDoc.managementFee?.units || []).map((u) => (
+                          <div key={u.id} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-0.5 py-0.5">
+                            <input
+                              type="text"
+                              value={u.name}
+                              onChange={(e) => updateManagementUnitName(u.id, e.target.value)}
+                              placeholder="예: 518호"
+                              className="w-20 bg-transparent text-[11px] font-bold text-slate-700 outline-none"
+                            />
+                            {(editingDoc.managementFee?.units.length || 0) > 1 && (
+                              <button type="button" onClick={() => removeManagementUnit(u.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(editingDoc.managementFee?.months || []).map((m) => (
+                        <div key={m.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <input
+                              type="text"
+                              value={m.label}
+                              onChange={(e) => updateManagementMonthField(m.id, { label: e.target.value })}
+                              placeholder="구분 (예: 01월)"
+                              className="w-24 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={m.paymentDate || ''}
+                              onChange={(e) => updateManagementMonthField(m.id, { paymentDate: e.target.value })}
+                              placeholder="납부일 (예: 03월 03일)"
+                              className="flex-1 min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              value={m.note || ''}
+                              onChange={(e) => updateManagementMonthField(m.id, { note: e.target.value })}
+                              placeholder="비고"
+                              className="flex-[2] min-w-[120px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeManagementMonth(m.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
+                            {(editingDoc.managementFee?.units || []).map((u) => {
+                              const cell = m.amounts[u.id];
+                              const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                              return (
+                                <div key={u.id}>
+                                  <label className="block text-[9px] text-slate-400 truncate mb-0.5">{u.name || '(호실명 미입력)'}</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                    onChange={(e) => updateManagementCellManual(m.id, u.id, parseCurrencyInput(e.target.value))}
+                                    placeholder="0"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  {importedSum > 0 && (
+                                    <p className="text-[9px] text-emerald-600 mt-0.5 text-right">+{formatCurrencyInput(importedSum)} 자동반영</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                            합계: {formatCurrencyInput(managementMonthTotal(m, editingDoc.managementFee?.units || []))}원
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-indigo-100 pt-2 space-y-1">
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-600">
+                        {(editingDoc.managementFee?.units || []).map((u) => (
+                          <span key={u.id}>{u.name || '(호실명 미입력)'}: <b className="text-slate-700">{formatCurrencyInput(managementUnitTotal(u.id, editingDoc.managementFee?.months || []))}원</b></span>
+                        ))}
+                      </div>
+                      <p className="text-right text-xs font-bold text-emerald-600">
+                        전체 합계: {formatCurrencyInput(managementGrandTotal(editingDoc.managementFee))}원
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 연차 현황 전용 입력. "연도 하나 = 문서 하나"이고, 그 안에 직원별로
+                연차 사용 내역/휴일(초과)근무/대체휴가 세 목록을 각각 여러 줄 입력한다.
+                "전자결재에서 불러오기"로 승인된 연차 신청서를 이름 기준 자동 매칭해서
+                채울 수 있고, 총 년차일수는 입사일 기준으로 자동 계산하는 버튼도 있다. */}
+                {activeCategory === 'annual_leave_status' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <label className="text-[11px] font-bold text-slate-600">연차 현황 (연도별)</label>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">대상 연도</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editingDoc.annualLeaveStatus?.year || ''}
+                            onChange={(e) => setEditingDoc((prev) => prev ? { ...prev, annualLeaveStatus: { ...(prev.annualLeaveStatus || { year: '', people: [] }), year: e.target.value.replace(/\D/g, '').slice(0, 4) } } : prev)}
+                            placeholder="2026"
+                            className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenAnnualLeaveImportPanel}
+                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200"
+                        >
+                          <RefreshCw className="w-3 h-3" /> 전자결재에서 불러오기
+                        </button>
+                        <button type="button" onClick={addAnnualLeavePerson} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 직원 추가
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* [추가] 승인된 연차 신청서 중, 이름이 같은 직원이 이미 있으면 그 사람의
+                    연차 사용 내역에, 없으면 새 직원으로 자동 등록하며 채워 넣는다. */}
+                    {showAnnualLeaveImportPanel && (
+                      <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-700">전자결재 휴가 신청서에서 불러오기 (승인된 연차만)</span>
+                          <button type="button" onClick={() => setShowAnnualLeaveImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {isLoadingAnnualLeaveImportCandidates ? (
+                          <p className="text-[11px] text-slate-400 text-center py-3">불러오는 중...</p>
+                        ) : (
+                          <>
+                            {(() => {
+                              const available = annualLeaveImportCandidates.filter((c) => !alreadyImportedAnnualLeaveKeys.has(c.sourceKey));
+                              if (available.length === 0) {
+                                return <p className="text-[11px] text-slate-400 text-center py-3">새로 가져올 승인된 연차 신청서가 없습니다 (전부 이미 가져왔거나, 이 연도에 승인된 연차 신청이 없습니다).</p>;
+                              }
+                              return (
+                                <div className="space-y-1">
+                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={available.every((c) => selectedAnnualLeaveImportKeys.has(c.sourceKey))}
+                                      onChange={(ev) => {
+                                        if (ev.target.checked) {
+                                          setSelectedAnnualLeaveImportKeys(new Set(available.map((c) => c.sourceKey)));
+                                        } else {
+                                          setSelectedAnnualLeaveImportKeys(new Set());
+                                        }
+                                      }}
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    전체 선택 ({available.length}건)
+                                  </label>
+                                  <div className="max-h-56 overflow-y-auto space-y-1">
+                                    {available.map((c) => (
+                                      <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedAnnualLeaveImportKeys.has(c.sourceKey)}
+                                          onChange={() => toggleAnnualLeaveImportKey(c.sourceKey)}
+                                          className="w-3.5 h-3.5 mt-0.5"
+                                        />
+                                        <span className="flex-1">
+                                          <span className="font-bold text-slate-700">{c.author}</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span>{formatAnnualLeaveRange(c.startDate, c.endDate)}</span>
+                                          <span className="text-slate-400 mx-1">·</span>
+                                          <span className="font-bold">{c.days}일</span>
+                                          {c.note && <span className="text-slate-400"> · {c.note}</span>}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={handleImportAnnualLeaveSelected}
+                              disabled={selectedAnnualLeaveImportKeys.size === 0}
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                            >
+                              선택한 {selectedAnnualLeaveImportKeys.size}건 가져오기 (이름이 같은 직원이 없으면 새로 등록됩니다)
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      {(editingDoc.annualLeaveStatus?.people || []).map((p) => {
+                        const used = annualLeaveUsedTotal(p);
+                        const remaining = annualLeaveRemaining(p);
+                        const calcYear = editingDoc.annualLeaveStatus?.year || '';
+                        const calculated = calcStatutoryAnnualLeaveDays(p.hireDate || '', calcYear);
+                        return (
+                          <div key={p.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                            <div className="flex flex-wrap items-end gap-1.5">
+                              <div className="flex-1 min-w-[110px]">
+                                <label className="block text-[9px] text-slate-400 mb-0.5">이름</label>
+                                <input
+                                  type="text"
+                                  value={p.name}
+                                  onChange={(e) => updateAnnualLeavePersonField(p.id, { name: e.target.value })}
+                                  placeholder="이름"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-[9px] text-slate-400 mb-0.5">입사일자</label>
+                                <input
+                                  type="date"
+                                  value={p.hireDate || ''}
+                                  // [수정] 입사일자를 입력/수정하면 총 년차일수를 버튼을 따로 누르지
+                                  // 않아도 근로기준법 표준 계산으로 바로 채워준다("자동으로 입력되게
+                                  // 해줘" 요청 반영) - 계산된 값은 위 "총 년차일수" 칸에서 언제든
+                                  // 직접 고칠 수 있다.
+                                  onChange={(e) => {
+                                    const newHireDate = e.target.value;
+                                    const autoCalc = calcStatutoryAnnualLeaveDays(newHireDate, calcYear);
+                                    updateAnnualLeavePersonField(p.id, autoCalc !== null ? { hireDate: newHireDate, totalAnnualDays: autoCalc } : { hireDate: newHireDate });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[90px]">
+                                <label className="block text-[9px] text-slate-400 mb-0.5">총 년차일수</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={p.totalAnnualDays || ''}
+                                  onChange={(e) => updateAnnualLeavePersonField(p.id, { totalAnnualDays: Number(e.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                  placeholder="0"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              {/* [추가] 근로기준법 표준 계산(1년 미만 개근 월 1일씩, 1년 이상 15일
+                              + 매 2년마다 1일 가산, 최대 25일)으로 총 년차일수를 자동 채운다.
+                              회사 자체 기준과 다를 수 있어 채운 뒤에도 위 칸에서 직접 고칠 수
+                              있다. */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (calculated === null) { alert('입사일자와 대상 연도를 먼저 입력해주세요.'); return; }
+                                  updateAnnualLeavePersonField(p.id, { totalAnnualDays: calculated });
+                                }}
+                                title="근로기준법 표준 계산: 1년 미만은 개근 월마다 1일(최대 11일), 1년 이상은 15일+매 2년마다 1일 가산(최대 25일). 회사 자체 기준과 다를 수 있어 채운 뒤 직접 수정 가능합니다."
+                                className="text-[10px] text-indigo-600 font-bold px-2 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 whitespace-nowrap"
+                              >
+                                입사일 기준 자동계산{calculated !== null ? ` (${calculated}일)` : ''}
+                              </button>
+                              <button type="button" onClick={() => removeAnnualLeavePerson(p.id)} className="shrink-0 p-1.5 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <p className="text-[11px] text-slate-500">
+                              사용연차일수 <b className="text-slate-700">{used}</b>일 · 잔여일수 <b className={remaining < 0 ? 'text-rose-600' : 'text-emerald-600'}>{remaining}</b>일
+                            </p>
+
+                            {/* 연차 사용 내역 */}
+                            <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">연차 사용 내역</span>
+                                <button type="button" onClick={() => addAnnualLeaveEntry(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                  <Plus className="w-3 h-3" /> 추가
+                                </button>
+                              </div>
+                              {p.leaveEntries.map((e) => (
+                                <div key={e.id} className="space-y-0.5">
+                                  {e.sourceLabel && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                                      <RefreshCw className="w-2.5 h-2.5" /> {e.sourceLabel}에서 자동으로 가져옴
+                                    </span>
+                                  )}
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <input
+                                      type="date"
+                                      value={e.startDate}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { startDate: ev.target.value })}
+                                      className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <span className="text-[10px] text-slate-400">~</span>
+                                    <input
+                                      type="date"
+                                      value={e.endDate || ''}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { endDate: ev.target.value })}
+                                      placeholder="(하루면 비워둠)"
+                                      className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={e.days || ''}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { days: Number(ev.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                      placeholder="일수"
+                                      className="w-16 bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={e.note}
+                                      onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { note: ev.target.value })}
+                                      placeholder="비고 (예: 전체년차)"
+                                      className="flex-[2] min-w-[120px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                    <button type="button" onClick={() => removeAnnualLeaveEntry(p.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* 휴일(초과) 근무 */}
+                            <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">휴일(초과) 근무</span>
+                                <button type="button" onClick={() => addAnnualLeaveOvertime(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                  <Plus className="w-3 h-3" /> 추가
+                                </button>
+                              </div>
+                              {p.overtimeEntries.map((e) => (
+                                <div key={e.id} className="flex flex-wrap items-center gap-1">
+                                  <input
+                                    type="date"
+                                    value={e.date}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { date: ev.target.value })}
+                                    className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={e.periodDays || ''}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { periodDays: Number(ev.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                    placeholder="기간(일)"
+                                    className="w-20 bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={e.hours || ''}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { hours: Number(ev.target.value.replace(/[^0-9.]/g, '')) || 0 })}
+                                    placeholder="시간"
+                                    className="w-16 bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={e.site || ''}
+                                    onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { site: ev.target.value })}
+                                    placeholder="현장"
+                                    className="flex-1 min-w-[100px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <button type="button" onClick={() => removeAnnualLeaveOvertime(p.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* 대체휴가 */}
+                            <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">대체휴가</span>
+                                <button type="button" onClick={() => addAnnualLeaveSubstitute(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                  <Plus className="w-3 h-3" /> 추가
+                                </button>
+                              </div>
+                              {p.substituteEntries.map((e) => (
+                                <div key={e.id} className="flex flex-wrap items-center gap-1">
+                                  <input
+                                    type="date"
+                                    value={e.date}
+                                    onChange={(ev) => updateAnnualLeaveSubstitute(p.id, e.id, { date: ev.target.value })}
+                                    className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={e.note || ''}
+                                    onChange={(ev) => updateAnnualLeaveSubstitute(p.id, e.id, { note: ev.target.value })}
+                                    placeholder="비고 (예: 20일 대체휴가_정리완료)"
+                                    className="flex-[2] min-w-[140px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  <button type="button" onClick={() => removeAnnualLeaveSubstitute(p.id, e.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {(editingDoc.annualLeaveStatus?.people || []).length === 0 && (
+                        <p className="text-center text-[11px] text-slate-400 py-4">등록된 직원이 없습니다. "직원 추가" 또는 "전자결재에서 불러오기"로 시작하세요.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 현금 흐름 전용 입력. "연도 하나 = 문서 하나"이고, 그 안에서
+                INFLOWS/OUTFLOWS/경비 세 표를 서브탭으로 전환하며 입력한다. "현금흐름
+                최종"은 따로 입력하지 않고 세 표 입력값으로 자동 계산된 미리보기만 보여준다
+                (정식 표는 "인쇄/PDF·엑셀"에서 확인). */}
+                {activeCategory === 'cash_flow' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <label className="text-[11px] font-bold text-slate-600">현금 흐름 (연도별)</label>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">대상 연도</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editingDoc.cashFlowAnnual?.year || ''}
+                            onChange={(e) => updateCashFlow((cf) => ({ ...cf, year: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                            placeholder="2026"
+                            className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">전년도이월금(연초 통장잔고)</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editingDoc.cashFlowAnnual?.openingBalance ? formatCurrencyInput(editingDoc.cashFlowAnnual.openingBalance) : ''}
+                            onChange={(e) => updateCashFlow((cf) => ({ ...cf, openingBalance: parseCurrencyInput(e.target.value) }))}
+                            placeholder="0"
+                            className="w-32 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 flex-wrap">
+                      {([
+                        { key: 'inflows', label: 'INFLOWS' },
+                        { key: 'outflows', label: 'OUTFLOWS' },
+                        { key: 'expenses', label: '경비' },
+                        { key: 'summary', label: '현금흐름 최종 (미리보기)' }
+                      ] as const).map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => setCashFlowEditTab(t.key)}
+                          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${cashFlowEditTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {cashFlowEditTab === 'inflows' && (
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          <button type="button" onClick={addCashFlowInflow} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" /> 프로젝트 행 추가
+                          </button>
+                        </div>
+                        {(editingDoc.cashFlowAnnual?.inflows || []).length === 0 && (
+                          <p className="text-[11px] text-slate-400 text-center py-3">아직 행이 없습니다. "프로젝트 행 추가"를 눌러주세요.</p>
+                        )}
+                        {(editingDoc.cashFlowAnnual?.inflows || []).map((r) => (
+                          <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={r.name}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { name: e.target.value })}
+                                placeholder="프로젝트명 (예: 양평 YP주택, 기타 매출 등)"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={r.recipient || ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { recipient: e.target.value })}
+                                placeholder="프로젝트 수주자"
+                                className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCashFlowImportPanel({ kind: 'inflow', rowId: r.id, rowLabel: r.name || '(프로젝트명 미입력)' })}
+                                className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                              >
+                                <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                              </button>
+                              <button type="button" onClick={() => removeCashFlowInflow(r.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.contractAmount ? formatCurrencyInput(r.contractAmount) : ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { contractAmount: parseCurrencyInput(e.target.value) })}
+                                placeholder="계약금(VAT포함)"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.remainingAmount ? formatCurrencyInput(r.remainingAmount) : ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { remainingAmount: parseCurrencyInput(e.target.value) })}
+                                placeholder="잔여기성"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.prevYear ? formatCurrencyInput(r.prevYear) : ''}
+                                onChange={(e) => updateCashFlowInflowField(r.id, { prevYear: parseCurrencyInput(e.target.value) })}
+                                placeholder="전년도"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {CASH_FLOW_MONTHS.map((m) => {
+                                const cell = r.months[m];
+                                const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                                return (
+                                  <div key={m} className="flex flex-col bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                    <div className="flex items-center gap-0.5">
+                                      <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                        onChange={(e) => updateCashFlowInflowMonthManual(r.id, m, parseCurrencyInput(e.target.value))}
+                                        placeholder="0"
+                                        className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                      />
+                                    </div>
+                                    {importedSum > 0 && <p className="text-[9px] text-emerald-600 text-right">+{formatCurrencyInput(importedSum)} 자동</p>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
+                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfCellTotal(r.months[m]), 0))}원
+                            </p>
+                          </div>
+                        ))}
+                        <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                          INFLOWS 총 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfRowsMonthlyTotal(editingDoc.cashFlowAnnual?.inflows || [], m), 0))}원
+                        </p>
+                      </div>
+                    )}
+
+                    {cashFlowEditTab === 'outflows' && (
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          <button type="button" onClick={addCashFlowOutflow} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" /> 매입처 행 추가
+                          </button>
+                        </div>
+                        {(editingDoc.cashFlowAnnual?.outflows || []).length === 0 && (
+                          <p className="text-[11px] text-slate-400 text-center py-3">아직 행이 없습니다. "매입처 행 추가"를 눌러주세요.</p>
+                        )}
+                        {(editingDoc.cashFlowAnnual?.outflows || []).map((r) => (
+                          <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={r.name}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { name: e.target.value })}
+                                placeholder="프로젝트별 물품 매입처 (예: 양평 YP주택, 기타 매입 등)"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={r.recipient || ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { recipient: e.target.value })}
+                                placeholder="프로젝트 수주자"
+                                className="flex-1 min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCashFlowImportPanel({ kind: 'outflow', rowId: r.id, rowLabel: r.name || '(매입처 미입력)' })}
+                                className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                              >
+                                <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                              </button>
+                              <button type="button" onClick={() => removeCashFlowOutflow(r.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.estimatedTotal ? formatCurrencyInput(r.estimatedTotal) : ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { estimatedTotal: parseCurrencyInput(e.target.value) })}
+                                placeholder="예상물품구입(외주)총액"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                value={r.note || ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { note: e.target.value })}
+                                placeholder="비고"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={r.prevYear ? formatCurrencyInput(r.prevYear) : ''}
+                                onChange={(e) => updateCashFlowOutflowField(r.id, { prevYear: parseCurrencyInput(e.target.value) })}
+                                placeholder="전년도 구입"
+                                className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {CASH_FLOW_MONTHS.map((m) => {
+                                const cell = r.months[m];
+                                const importedSum = cell ? cell.imported.reduce((s, it) => s + (Number(it.amount) || 0), 0) : 0;
+                                return (
+                                  <div key={m} className="flex flex-col bg-slate-50 border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                    <div className="flex items-center gap-0.5">
+                                      <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                        onChange={(e) => updateCashFlowOutflowMonthManual(r.id, m, parseCurrencyInput(e.target.value))}
+                                        placeholder="0"
+                                        className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                      />
+                                    </div>
+                                    {importedSum > 0 && <p className="text-[9px] text-emerald-600 text-right">+{formatCurrencyInput(importedSum)} 자동</p>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
+                              연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfCellTotal(r.months[m]), 0))}원
+                            </p>
+                          </div>
+                        ))}
+                        <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                          매입 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfRowsMonthlyTotal(editingDoc.cashFlowAnnual?.outflows || [], m), 0))}원
+                        </p>
+                      </div>
+                    )}
+
+                    {cashFlowEditTab === 'expenses' && (
+                      <div className="space-y-3">
+                        {(editingDoc.cashFlowAnnual?.expenseGroups || []).map((g) => (
+                          <div key={g.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <input
+                                type="text"
+                                value={g.name}
+                                onChange={(e) => updateCashFlow((cf) => ({ ...cf, expenseGroups: cf.expenseGroups.map((gg) => gg.id === g.id ? { ...gg, name: e.target.value } : gg) }))}
+                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              />
+                              <button type="button" onClick={() => addCashFlowExpenseItem(g.id)} className="shrink-0 text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                <Plus className="w-3 h-3" /> 항목 추가
+                              </button>
+                            </div>
+                            {g.items.length === 0 && (
+                              <p className="text-[11px] text-slate-400 text-center py-2">아직 항목이 없습니다. "항목 추가"를 눌러주세요.</p>
+                            )}
+                            {g.items.map((it) => (
+                              <div key={it.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={it.label}
+                                    onChange={(e) => updateCashFlowExpenseItemField(g.id, it.id, { label: e.target.value })}
+                                    placeholder="항목명 (예: 급여)"
+                                    className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                  />
+                                  {g.name === '부채' && (
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={it.initialAmount ? formatCurrencyInput(it.initialAmount) : ''}
+                                      onChange={(e) => updateCashFlowExpenseItemField(g.id, it.id, { initialAmount: parseCurrencyInput(e.target.value) })}
+                                      placeholder="대출 최초 금액(선택)"
+                                      className="w-36 shrink-0 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-right text-slate-700 outline-none focus:border-indigo-500"
+                                    />
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenCashFlowImportPanel({ kind: 'expense', rowId: it.id, groupId: g.id, rowLabel: `${g.name} · ${it.label || '(항목명 미입력)'}` })}
+                                    className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                                  >
+                                    <RefreshCw className="w-3 h-3" /> 자동 불러오기
+                                  </button>
+                                  <button type="button" onClick={() => removeCashFlowExpenseItem(g.id, it.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {CASH_FLOW_MONTHS.map((m) => {
+                                    const cell = it.months[m];
+                                    const importedSum = cell ? cell.imported.reduce((s, x) => s + (Number(x.amount) || 0), 0) : 0;
+                                    return (
+                                      <div key={m} className="flex flex-col bg-white border border-slate-200 rounded-lg pl-1.5 pr-1 py-1">
+                                        <div className="flex items-center gap-0.5">
+                                          <span className="text-[10px] text-slate-400 w-5">{m}월</span>
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={cell?.manual ? formatCurrencyInput(cell.manual) : ''}
+                                            onChange={(e) => updateCashFlowExpenseItemMonthManual(g.id, it.id, m, parseCurrencyInput(e.target.value))}
+                                            placeholder="0"
+                                            className="w-16 bg-transparent text-[11px] text-right text-slate-700 outline-none"
+                                          />
+                                        </div>
+                                        {importedSum > 0 && <p className="text-[9px] text-emerald-600 text-right">+{formatCurrencyInput(importedSum)} 자동</p>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                              {g.name} 소계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfExpenseGroupMonthlyTotal(g, m), 0))}원
+                            </p>
+                          </div>
+                        ))}
+                        <p className="text-right text-xs font-bold text-emerald-600">
+                          경비 총 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfExpenseAllMonthlyTotal(editingDoc.cashFlowAnnual?.expenseGroups || [], m), 0))}원
+                        </p>
+                      </div>
+                    )}
+
+                    {cashFlowEditTab === 'summary' && editingDoc.cashFlowAnnual && (
+                      <div className="bg-white border border-slate-200 rounded-lg p-2.5 overflow-x-auto">
+                        <p className="text-[10px] text-slate-400 mb-2">※ INFLOWS/OUTFLOWS/경비 입력값으로 자동 계산된 미리보기입니다(직접 입력하지 않습니다). 정식 표는 목록에서 인쇄 버튼을 눌러 확인하세요.</p>
+                        <table className="text-[11px] border-collapse w-full min-w-[760px]">
+                          <thead>
+                            <tr className="text-slate-400">
+                              <td className="p-1"></td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right font-bold">{m}월</td>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td className="p-1 text-slate-500 whitespace-nowrap">INFLOWS 합계</td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right">{formatCurrencyInput(cfRowsMonthlyTotal(editingDoc.cashFlowAnnual!.inflows, m))}</td>)}
+                            </tr>
+                            <tr>
+                              <td className="p-1 text-slate-500 whitespace-nowrap">Total OUTFLOWS(매입+경비)</td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right">{formatCurrencyInput(cfTotalOutflowMonthly(editingDoc.cashFlowAnnual!, m))}</td>)}
+                            </tr>
+                            <tr className="font-bold text-slate-700 border-t border-slate-100">
+                              <td className="p-1 whitespace-nowrap">순 현금 흐름</td>
+                              {CASH_FLOW_MONTHS.map((m) => <td key={m} className="p-1 text-right">{new Intl.NumberFormat('ko-KR').format(cfNetCashFlowMonthly(editingDoc.cashFlowAnnual!, m))}</td>)}
+                            </tr>
+                            <tr className="font-bold text-emerald-600">
+                              <td className="p-1 whitespace-nowrap">통장잔고(월말기준)</td>
+                              {cfBankBalances(editingDoc.cashFlowAnnual!).map((v, i) => <td key={i} className="p-1 text-right">{new Intl.NumberFormat('ko-KR').format(v)}</td>)}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* [추가] 근로계약서 전용 입력. 근로자 정보 + 급여 구성만 채우면, 근로시간/
+                연차/퇴직/기밀유지 등 고정 조항은 인쇄할 때 자동으로 다 채워져서 나온다. */}
+                {(activeCategory === 'labor_contract' || activeCategory === 'salary_agreement') && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    {activeCategory === 'labor_contract' && (
+                      <div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={editingDoc.laborContract?.companyBusinessType || ''}
+                            onChange={(e) => updateLaborContractField({ companyBusinessType: e.target.value })}
+                            onBlur={(e) => persistCompanySettings({ businessType: e.target.value })}
+                            placeholder="사업 종류 (예: 제조업)"
+                            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="text"
+                            value={editingDoc.laborContract?.companyAddress || ''}
+                            onChange={(e) => updateLaborContractField({ companyAddress: e.target.value })}
+                            onBlur={(e) => persistCompanySettings({ address: e.target.value })}
+                            placeholder="사업체 주소"
+                            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.laborContract?.employeeName || ''}
+                        onChange={(e) => updateLaborContractField({ employeeName: e.target.value })}
+                        placeholder="근로자 성명"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="date"
+                        value={editingDoc.laborContract?.employeeBirthDate || ''}
+                        onChange={(e) => updateLaborContractField({ employeeBirthDate: e.target.value })}
+                        placeholder="생년월일"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    {/* [추가] 연봉협약서 전용 - 공유해주신 "연봉 계약서" 양식의 "인적 사항 및
+                    근무 정보" 표에 필요한 입사일/소속/현재직급. 근로계약서에는 없는 항목. */}
+                    {activeCategory === 'salary_agreement' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">입사일</label>
+                          <input
+                            type="date"
+                            value={editingDoc.laborContract?.hireDate || ''}
+                            onChange={(e) => updateLaborContractField({ hireDate: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.department || ''}
+                          onChange={(e) => updateLaborContractField({ department: e.target.value })}
+                          placeholder="소속"
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
+                        />
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.position || ''}
+                          onChange={(e) => updateLaborContractField({ position: e.target.value })}
+                          placeholder="현재직급"
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
+                        />
+                      </div>
+                    )}
+
+                    {activeCategory === 'labor_contract' && (
+                      <>
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.employeeAddress || ''}
+                          onChange={(e) => updateLaborContractField({ employeeAddress: e.target.value })}
+                          placeholder="근로자 주소"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">고용형태</label>
+                          <div className="flex gap-1.5">
+                            {([['regular', '정규직'], ['contract', '계약직'], ['intern', '인턴']] as const).map(([val, label]) => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => updateLaborContractField({ employmentType: val })}
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                  editingDoc.laborContract?.employmentType === val
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-slate-500 border-slate-200'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-600">급여 구성 (월)</label>
+                        <button type="button" onClick={addSalaryItem} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <Plus className="w-3 h-3" /> 항목 추가
+                        </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(editingDoc.laborContract?.salaryItems || []).map((it) => (
+                          <div key={it.id} className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={it.label}
+                              onChange={(e) => updateSalaryItem(it.id, { label: e.target.value })}
+                              placeholder="예: 기본급"
+                              className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={it.amount ? formatCurrencyInput(it.amount) : ''}
+                              onChange={(e) => updateSalaryItem(it.id, { amount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                            <button type="button" onClick={() => removeSalaryItem(it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-right text-[11px] text-slate-500 mt-1.5 space-y-0.5">
+                        <p>월 급여 합계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.laborContract?.salaryItems))}원</b></p>
+                        <p className="text-emerald-600 font-bold">연 총액(월×12): {formatCurrencyInput(sumItems(editingDoc.laborContract?.salaryItems) * 12)}원</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 시작일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.laborContract?.contractStartDate || ''}
+                          onChange={(e) => updateLaborContractField({ contractStartDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 종료일 (기간 정함 없으면 비워둠)</label>
+                        <input
+                          type="date"
+                          value={editingDoc.laborContract?.contractEndDate || ''}
+                          onChange={(e) => updateLaborContractField({ contractEndDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">근무 장소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.laborContract?.workLocation || ''}
+                        onChange={(e) => updateLaborContractField({ workLocation: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    {activeCategory === 'labor_contract' && (
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">담당 업무</label>
+                        <input
+                          type="text"
+                          value={editingDoc.laborContract?.jobDuties || ''}
+                          onChange={(e) => updateLaborContractField({ jobDuties: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">계약서 작성일 (서명 날짜)</label>
+                      <input
+                        type="date"
+                        value={editingDoc.laborContract?.contractDate || ''}
+                        onChange={(e) => updateLaborContractField({ contractDate: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 재직증명서 전용 입력. */}
+                {activeCategory === 'employment_cert' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">사업체 주소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.companyAddress || ''}
+                        onChange={(e) => updateEmploymentCertField({ companyAddress: e.target.value })}
+                        onBlur={(e) => persistCompanySettings({ address: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.employeeName || ''}
+                        onChange={(e) => updateEmploymentCertField({ employeeName: e.target.value })}
+                        placeholder="성명"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.residentNumberMasked || ''}
+                        onChange={(e) => updateEmploymentCertField({ residentNumberMasked: e.target.value })}
+                        placeholder="주민등록번호 (예: 000000-0******)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">재직자 주소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.employeeAddress || ''}
+                        onChange={(e) => updateEmploymentCertField({ employeeAddress: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">입사일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.employmentCert?.hireDate || ''}
+                          onChange={(e) => updateEmploymentCertField({ hireDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">신청일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.employmentCert?.applicationDate || ''}
+                          onChange={(e) => updateEmploymentCertField({ applicationDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.purpose || ''}
+                        onChange={(e) => updateEmploymentCertField({ purpose: e.target.value })}
+                        placeholder="용도 (예: 제출용)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.submitTo || ''}
+                        onChange={(e) => updateEmploymentCertField({ submitTo: e.target.value })}
+                        placeholder="제출처 (예: 노원구청)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.department || ''}
+                        onChange={(e) => updateEmploymentCertField({ department: e.target.value })}
+                        placeholder="소속"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.employmentCert?.position || ''}
+                        onChange={(e) => updateEmploymentCertField({ position: e.target.value })}
+                        placeholder="직위"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">문서번호 (예: 제 2026-0001호)</label>
+                        <input
+                          type="text"
+                          value={editingDoc.employmentCert?.documentNumber || ''}
+                          onChange={(e) => updateEmploymentCertField({ documentNumber: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">증명 발급일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.employmentCert?.issueDate || ''}
+                          onChange={(e) => updateEmploymentCertField({ issueDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 위임장 전용 입력. */}
+                {activeCategory === 'power_of_attorney' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.employeeName || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ employeeName: e.target.value })}
+                        placeholder="위임받는 사람 성명"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.residentNumberMasked || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ residentNumberMasked: e.target.value })}
+                        placeholder="주민등록번호 (예: 000000-0******)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">위임받는 사람 주소</label>
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.employeeAddress || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ employeeAddress: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.purpose || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ purpose: e.target.value })}
+                        placeholder="용도 (예: 법인지점 통장 개설)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.submitTo || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ submitTo: e.target.value })}
+                        placeholder="제출처 (예: 하나은행)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">위임 업무 내용 (예: 법인통장 개설)</label>
+                      <input
+                        type="text"
+                        value={editingDoc.powerOfAttorney?.taskDescription || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ taskDescription: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">작성일자</label>
+                      <input
+                        type="date"
+                        value={editingDoc.powerOfAttorney?.issueDate || ''}
+                        onChange={(e) => updatePowerOfAttorneyField({ issueDate: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {activeCategory === 'sales_contract' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <label className="block text-[11px] font-bold text-slate-600">갑 (영업 자문사) 정보</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.salesContract?.counterpartyName || ''}
+                        onChange={(e) => updateSalesContractField({ counterpartyName: e.target.value })}
+                        placeholder="상호"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.salesContract?.counterpartyRepName || ''}
+                        onChange={(e) => updateSalesContractField({ counterpartyRepName: e.target.value })}
+                        placeholder="대표이사"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={editingDoc.salesContract?.counterpartyAddress || ''}
+                      onChange={(e) => updateSalesContractField({ counterpartyAddress: e.target.value })}
+                      placeholder="주소"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      value={editingDoc.salesContract?.counterpartyBizNumber || ''}
+                      onChange={(e) => updateSalesContractField({ counterpartyBizNumber: e.target.value })}
+                      placeholder="사업자등록번호"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약일자</label>
+                        <input
+                          type="date"
+                          value={editingDoc.salesContract?.contractDate || ''}
+                          onChange={(e) => updateSalesContractField({ contractDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 시작일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.salesContract?.contractStartDate || ''}
+                          onChange={(e) => updateSalesContractField({ contractStartDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">계약 종료일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.salesContract?.contractEndDate || ''}
+                          onChange={(e) => updateSalesContractField({ contractEndDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="block text-[11px] font-bold text-slate-600 pt-1">매출액 기준 누진 수수료율</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">1구간 매출 상한(원)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.salesContract?.feeTier1Max ? formatCurrencyInput(editingDoc.salesContract.feeTier1Max) : ''}
+                          onChange={(e) => updateSalesContractField({ feeTier1Max: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">1구간 수수료율(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.feeTier1Rate ?? ''}
+                          onChange={(e) => updateSalesContractField({ feeTier1Rate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">2구간 매출 상한(원)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.salesContract?.feeTier2Max ? formatCurrencyInput(editingDoc.salesContract.feeTier2Max) : ''}
+                          onChange={(e) => updateSalesContractField({ feeTier2Max: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">2구간 수수료율(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.feeTier2Rate ?? ''}
+                          onChange={(e) => updateSalesContractField({ feeTier2Rate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">3구간(초과분) 수수료율(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.feeTier3Rate ?? ''}
+                          onChange={(e) => updateSalesContractField({ feeTier3Rate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">경상이익률 기준(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.lowProfitThreshold ?? ''}
+                          onChange={(e) => updateSalesContractField({ lowProfitThreshold: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">기준 미만시 경상이익 대비(%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.lowProfitRate ?? ''}
+                          onChange={(e) => updateSalesContractField({ lowProfitRate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">사후관리비용 한도(매출대비%)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.aftercareCapRate ?? ''}
+                          onChange={(e) => updateSalesContractField({ aftercareCapRate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">후속매출 보수인정 기간(개월)</label>
+                        <input
+                          type="number"
+                          value={editingDoc.salesContract?.recognitionMonths ?? ''}
+                          onChange={(e) => updateSalesContractField({ recognitionMonths: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">후속매출 누적 한도(원)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.salesContract?.recognitionCapAmount ? formatCurrencyInput(editingDoc.salesContract.recognitionCapAmount) : ''}
+                          onChange={(e) => updateSalesContractField({ recognitionCapAmount: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400">※ 원가계산서/손익계산서/보수율계산표/사업자등록증 등 첨부서류는 이 화면 아래 "첨부파일"에서 파일로 올려주세요 (프로젝트마다 내용이 달라 자동 생성하지 않습니다).</p>
+                  </div>
+                )}
+
+                {/* [추가] 퇴직금 정산 전용 입력. */}
+                {activeCategory === 'severance' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.severance?.employeeName || ''}
+                        onChange={(e) => updateSeveranceField({ employeeName: e.target.value })}
+                        placeholder="신청인(성명)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={editingDoc.severance?.residentNumberMasked || ''}
+                        onChange={(e) => updateSeveranceField({ residentNumberMasked: e.target.value })}
+                        placeholder="주민번호 (예: 000000-0000000)"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">입사년월</label>
+                      <input
+                        type="month"
+                        value={editingDoc.severance?.hireYearMonth || ''}
+                        onChange={(e) => updateSeveranceField({ hireYearMonth: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">중간정산 대상기간 시작</label>
+                        <input
+                          type="date"
+                          value={editingDoc.severance?.periodStart || ''}
+                          onChange={(e) => updateSeveranceField({ periodStart: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">중간정산 대상기간 종료</label>
+                        <input
+                          type="date"
+                          value={editingDoc.severance?.periodEnd || ''}
+                          onChange={(e) => updateSeveranceField({ periodEnd: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={editingDoc.severance?.reason || ''}
+                      onChange={(e) => updateSeveranceField({ reason: e.target.value })}
+                      placeholder="중간정산 사유 (예: 무주택자의 주택구입)"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                    />
+
+                    <label className="block text-[11px] font-bold text-slate-600 pt-1">정산금 내역</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">① 회사 선지급 금액</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editingDoc.severance?.companyAdvanceAmount ? formatCurrencyInput(editingDoc.severance.companyAdvanceAmount) : ''}
+                          onChange={(e) => updateSeveranceField({ companyAdvanceAmount: parseCurrencyInput(e.target.value) })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">① 지급일</label>
+                        <input
+                          type="date"
+                          value={editingDoc.severance?.companyAdvanceDate || ''}
+                          onChange={(e) => updateSeveranceField({ companyAdvanceDate: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">① 입금 은행</label>
+                        <input
+                          type="text"
+                          value={editingDoc.severance?.companyAdvanceBank || ''}
+                          onChange={(e) => updateSeveranceField({ companyAdvanceBank: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">② 은행 적립금(퇴직연금 등)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editingDoc.severance?.bankAccrualAmount ? formatCurrencyInput(editingDoc.severance.bankAccrualAmount) : ''}
+                        onChange={(e) => updateSeveranceField({ bankAccrualAmount: parseCurrencyInput(e.target.value) })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                      ①+② 합계: {formatCurrencyInput((Number(editingDoc.severance?.companyAdvanceAmount) || 0) + (Number(editingDoc.severance?.bankAccrualAmount) || 0))}원
+                      <br />
+                      <span className="text-[11px] text-slate-400 font-normal">
+                        ({numberToKoreanMoney((Number(editingDoc.severance?.companyAdvanceAmount) || 0) + (Number(editingDoc.severance?.bankAccrualAmount) || 0))}원)
+                      </span>
+                    </p>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">수령일 (서명 날짜)</label>
+                      <input
+                        type="date"
+                        value={editingDoc.severance?.receiveDate || ''}
+                        onChange={(e) => updateSeveranceField({ receiveDate: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && activeCategory !== 'advance_payment' && activeCategory !== 'vehicle_fine' && activeCategory !== 'tax' && activeCategory !== 'management_fee' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={editingDoc.amount ? formatCurrencyInput(editingDoc.amount) : ''}
+                      onChange={(e) => setEditingDoc({ ...editingDoc, amount: String(parseCurrencyInput(e.target.value)) })}
+                      placeholder="예: 3,000,000"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">메모</label>
+                  <textarea
+                    value={editingDoc.memo || ''}
+                    onChange={(e) => setEditingDoc({ ...editingDoc, memo: e.target.value })}
+                    rows={3}
+                    placeholder="참고사항을 자유롭게 적어주세요."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">첨부파일 (계약서, 명세서 등)</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {(editingDoc.attachments || []).map((a) => (
+                      <span key={a.id} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-[11px] text-indigo-700">
+                        <Paperclip className="w-3 h-3" />
+                        <span className="max-w-[140px] truncate">{a.name}</span>
+                        <button type="button" onClick={() => removeAttachment(a.id)} className="text-indigo-400 hover:text-rose-500">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <label className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-dashed border-slate-300 text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">
+                    <Paperclip className="w-3.5 h-3.5" />
+                    파일 선택 (PDF, 이미지 등 여러 개 가능)
+                    <input type="file" multiple onChange={handleFileAttach} className="hidden" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setEditingDoc(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md transition-all disabled:opacity-50"
+                >
+                  {isSaving ? '저장 중...' : '저장'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* [추가] 통장 출금/입금 내역 - 엑셀 가져오기 확인 화면. 파일을 바로 새 문서로 만들지
+    않고, 어느 통장(은행+계좌번호)의 내역인지 먼저 고르게 한다. 이미 등록된 통장을 고르면
+    거기에 이어붙이고(중복 자동 제외), 새 통장이면 은행명/계좌번호를 입력해 등록한다. */}
+    {pendingBankImport && (
+      <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">
+              {pendingBankImport.category === 'bank_withdrawal' ? '통장 출금 내역' : '통장 입금 내역'} 가져오기
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              "{pendingBankImport.fileName}"에서 {pendingBankImport.entries.length}건을 찾았습니다. 어느 통장의 내역인지 골라주세요.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-600">통장 선택</label>
+            <select
+              value={bankImportSelectedKey}
+              onChange={(e) => setBankImportSelectedKey(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-500"
+            >
+              {knownBankAccounts.map((k) => (
+                <option key={k.key} value={k.key}>{k.label}</option>
+              ))}
+              <option value="__new__">+ 새 통장으로 등록</option>
+            </select>
+          </div>
+
+          {bankImportSelectedKey === '__new__' && (
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={bankImportNewBank}
+                onChange={(e) => setBankImportNewBank(e.target.value)}
+                placeholder="은행명 (예: 하나은행)"
+                className="col-span-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+              <input
+                type="text"
+                value={bankImportNewAccount}
+                onChange={(e) => setBankImportNewAccount(e.target.value)}
+                placeholder="계좌번호"
+                className="col-span-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+              <input
+                type="text"
+                value={bankImportNewSubCategory}
+                onChange={(e) => setBankImportNewSubCategory(e.target.value)}
+                placeholder="구분 (예: 급여, 선택 사항)"
+                className="col-span-2 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+            </div>
+          )}
+
+          <p className="text-[11px] text-slate-400">
+            이미 등록된 통장을 고르면 그 통장의 기존 문서에 이어붙이며, 날짜·금액·거래내용이 완전히 같은 줄은 중복으로 보고 자동으로 제외합니다.
+          </p>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setPendingBankImport(null)}
+              disabled={isSavingBankImport}
+              className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold transition-colors disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleConfirmBankImport}
+              disabled={isSavingBankImport}
+              className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md transition-all disabled:opacity-50"
+            >
+              {isSavingBankImport ? '가져오는 중...' : '가져오기 확정'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* [추가] 현금 흐름 - "자동 불러오기" 확인 화면. INFLOWS 행은 통장 입금 내역에서,
+    OUTFLOWS 행/경비 항목은 통장 출금 내역에서 골라 그 행의 해당 월 칸에 채워 넣는다
+    (관리비내역의 자동 불러오기와 같은 방식). */}
+    {cashFlowImportTarget && (
+      <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">자동 불러오기</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                {cashFlowImportTarget.kind === 'inflow' ? '통장 입금 내역' : '통장 출금 내역'}에서 골라
+                "{cashFlowImportTarget.rowLabel}"의 날짜에 맞는 월 칸에 채워 넣습니다.
+              </p>
+            </div>
+            <button onClick={() => setCashFlowImportTarget(null)} className="shrink-0 text-slate-400 hover:text-slate-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {isLoadingCashFlowCandidates ? (
+            <p className="text-[11px] text-slate-400 text-center py-6">불러오는 중...</p>
+          ) : (
+            <>
+              {(() => {
+                const targetYear = editingDoc?.cashFlowAnnual?.year || '';
+                const alreadyImported = cashFlowImportTarget.kind === 'inflow' ? alreadyImportedCashFlowDepositKeys : alreadyImportedCashFlowWithdrawalKeys;
+                const available = cashFlowImportCandidates.filter((c) => !alreadyImported.has(c.sourceKey) && (!targetYear || (c.date || '').slice(0, 4) === targetYear));
+                if (available.length === 0) {
+                  return <p className="text-[11px] text-slate-400 text-center py-6">{targetYear ? `${targetYear}년에 해당하는, ` : ''}아직 안 가져온 내역이 없습니다.</p>;
+                }
+                return (
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={available.every((c) => selectedCashFlowImportKeys.has(c.sourceKey))}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedCashFlowImportKeys(new Set(available.map((c) => c.sourceKey)));
+                          else setSelectedCashFlowImportKeys(new Set());
+                        }}
+                        className="w-3.5 h-3.5"
+                      />
+                      전체 선택 ({available.length}건)
+                    </label>
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {available.map((c) => (
+                        <label key={c.sourceKey} className="flex items-start gap-1.5 text-[11px] text-slate-600 hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedCashFlowImportKeys.has(c.sourceKey)}
+                            onChange={() => toggleCashFlowImportKey(c.sourceKey)}
+                            className="w-3.5 h-3.5 mt-0.5"
+                          />
+                          <span className="flex-1">
+                            <span className="font-bold text-slate-700">{formatCurrencyInput(c.amount)}원</span>
+                            <span className="text-slate-400 mx-1">·</span>
+                            <span>{c.date}</span>
+                            {c.memo && <span className="text-slate-400"> · {c.memo}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              <button
+                type="button"
+                onClick={handleImportCashFlowSelected}
+                disabled={selectedCashFlowImportKeys.size === 0}
+                className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40"
+              >
+                선택한 {selectedCashFlowImportKeys.size}건 가져오기
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* 인쇄 전 미리보기 + 인쇄 실행 바 (화면에는 보이지만 인쇄될 때는 안 보임) */}
+    {printingDoc && (
+      <div className="fixed inset-0 z-50 bg-slate-900/70 overflow-y-auto py-8 print:hidden">
+        <div className="max-w-3xl mx-auto flex items-center justify-end gap-2 mb-3 px-4">
+          <button
+            onClick={() => setPrintingDoc(null)}
+            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
+          >
+            닫기
+          </button>
+          {/* [추가] "카드사용내역"은 자동으로 최근 날짜가 위로 오게 기본 정렬해서 보여주고,
+          오름차순/내림차순을 직접 골라볼 수 있게 버튼을 추가한다. */}
+          {printingDoc.category === 'card_usage' && (
+            <div className="flex items-center gap-1 mr-auto bg-white border border-slate-200 rounded-xl p-1">
+              <button
+                onClick={() => setCardUsageSortDir('desc')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${cardUsageSortDir === 'desc' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                최근 날짜순(내림차순)
+              </button>
+              <button
+                onClick={() => setCardUsageSortDir('asc')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${cardUsageSortDir === 'asc' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                오래된 날짜순(오름차순)
+              </button>
+            </div>
+          )}
+          {/* [추가] "현금 흐름"은 INFLOWS/OUTFLOWS/경비/현금흐름 최종 네 표 중 어느 것을
+          인쇄/PDF·엑셀로 볼지 여기서 고른다. "전체"를 고르면 네 표를 표마다 새 페이지로
+          나눠서 한 번에 인쇄/PDF 저장한다. */}
+          {printingDoc.category === 'cash_flow' && (
+            <div className="flex items-center gap-1 mr-auto bg-white border border-slate-200 rounded-xl p-1 flex-wrap">
+              {([
+                { key: 'inflows', label: 'INFLOWS' },
+                { key: 'outflows', label: 'OUTFLOWS' },
+                { key: 'expenses', label: '경비' },
+                { key: 'summary', label: '현금흐름 최종' },
+                { key: 'all', label: '전체' }
+              ] as const).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setCashFlowPrintTab(t.key)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${cashFlowPrintTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* [추가] "카드별 월 사용 내역"(법인카드 관리)/"차량 과태료 내역"/"관리비내역"은
+          화면 표 그대로(노란 헤더/합계 행 색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
+          {printingDoc.category === 'corp_card' && (
+            <button
+              onClick={handleExportCorpCardExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'vehicle_fine' && (
+            <button
+              onClick={handleExportVehicleFineExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'incentive' && (
+            <button
+              onClick={handleExportIncentiveExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'overseas_trip' && (
+            <button
+              onClick={handleExportOverseasTripExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'annual_leave_status' && (
+            <button
+              onClick={handleExportAnnualLeaveStatusExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'cash_flow' && (
+            <button
+              onClick={handleExportCashFlowExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'management_fee' && (
+            <button
+              onClick={handleExportManagementFeeExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          {printingDoc.category === 'advance_payment' && (
+            <button
+              onClick={handleExportAdvancePaymentExcel}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 출력
+            </button>
+          )}
+          <button
+            onClick={() => {
+              // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
+              // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
+              // 인쇄가 끝나면(취소해도) 바로 원래대로 되돌린다.
+              document.body.classList.add('print-portal-mode');
+              window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
+              window.print();
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
+          >
+            <Printer className="w-4 h-4" />
+            인쇄 / PDF 저장
+          </button>
+        </div>
+        {/* [수정] 미리보기 화면(이 바깥 흰색 A4 박스)의 폭이 그동안 세로(210mm)로 고정돼
+        있어서, 가로(.print-landscape, 297mm)로 그리는 화면들(자금 현황/통장 출금·입금
+        내역/대출 현황/법인카드 사용내역/카드별 월 사용 내역)은 실제 인쇄와 달리 미리보기에서만
+        표가 흰 박스 폭을 넘어가 화면 밖으로 삐져나와 보였다. 실제 인쇄(#print-root)는 이
+        바깥 박스와 무관하게 항상 올바르게 나왔던 것이라, 가로로 그리는 카테고리를 전부
+        여기에도 반영해서 미리보기와 실제 인쇄가 항상 같은 폭으로 보이게 맞춘다. */}
+        <div
+          className="bg-white shadow-2xl mx-auto"
+          style={{
+            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category)
+              ? '297mm'
+              : '210mm',
+          }}
+        >
+          {renderActivePrintable()}
+        </div>
+      </div>
+    )}
+
+    {/* 실제 인쇄 시에는 위 미리보기 대신 앱 트리 밖의 #print-root에 그려진 내용만 단독으로
+    인쇄된다 (다른 화면 요소의 영향을 받지 않기 위함). */}
+    {typeof document !== 'undefined' && document.getElementById('print-root') &&
+      createPortal(renderActivePrintable(), document.getElementById('print-root')!)}
+
+    {/* [추가] 해외 출장 경비 - 항목 추가/수정용 영수증 스캔 모달. 업무일지(WorkLogsView)의
+    비용 지출 영수증 스캔과 동일한 컴포넌트를 재사용한다(expenseType="overseas_trip"). */}
+    {isOverseasTripReceiptModalOpen && (
+      <ReceiptScanModal
+        expenseType="overseas_trip"
+        onClose={() => {
+          setIsOverseasTripReceiptModalOpen(false);
+          setScanningOverseasTripEntryId(null);
+        }}
+        onScanComplete={(scanned) => {
+          handleOverseasTripReceiptScanComplete(scanned);
+          setIsOverseasTripReceiptModalOpen(false);
+        }}
+      />
+    )}
+
+    {/* [추가] 해외 출장 경비 - 첨부된 영수증 원본 확대보기 라이트박스. */}
+    {viewingOverseasTripReceiptImage && (
+      <div
+        className="fixed inset-0 z-[110] bg-slate-900/85 backdrop-blur-md flex items-center justify-center p-4"
+        onClick={() => setViewingOverseasTripReceiptImage(null)}
+      >
+        <button
+          onClick={() => setViewingOverseasTripReceiptImage(null)}
+          className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
+        >
+          닫기
+        </button>
+        <img
+          src={viewingOverseasTripReceiptImage}
+          alt="영수증 원본 이미지"
+          onClick={(e) => e.stopPropagation()}
+          className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
+        />
+      </div>
+    )}
+    </>
+  );
+};
