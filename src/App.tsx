@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BusinessCard, ContactGroup, Project, User } from './types.js';
 import { getContactGroupIds, contactHasGroup } from './groupUtils.js';
 import { Navigation } from './components/Navigation.js';
@@ -14,9 +14,7 @@ import { VoiceQuickAddModal } from './components/VoiceQuickAddModal.js';
 import { TaxPackageModal } from './components/TaxPackageModal.js';
 import { GroupModal } from './components/GroupModal.js';
 import { IOModal } from './components/IOModal.js';
-import { NearbyRadarMap } from './components/NearbyRadarMap.js';
 import { ShareMyCardModal } from './components/ShareMyCardModal.js';
-import { ProjectsView } from './components/ProjectsView.js';
 import { AuthView } from './components/AuthView.js';
 import { PendingApprovalView } from './components/PendingApprovalView.js';
 import { EmailVerificationRequiredView } from './components/EmailVerificationRequiredView.js';
@@ -24,19 +22,23 @@ import { WithdrawAccountModal } from './components/WithdrawAccountModal.js';
 import { SubscriptionModal } from './components/SubscriptionModal.js';
 import { UserDirectoryModal } from './components/UserDirectoryModal.js';
 import { AddressBackslashCleanupModal } from './components/AddressBackslashCleanupModal.js';
-import { VehicleView } from './components/VehicleView.js';
-import { WorkLogsView } from './components/WorkLogsView.js';
-import { ElectronicApprovalView } from './components/ElectronicApprovalView.js';
-import { AdminDocsView } from './components/AdminDocsView.js';
-import { AuditLogView } from './components/AuditLogView.js';
-import { GlobalSearchModal } from './components/GlobalSearchModal.js';
-import { DashboardView } from './components/DashboardView.js';
-import { AIIntelligenceView } from './components/AIIntelligenceView.js';
 import { LegalModal } from './components/LegalModal.js';
-import { OrgChartView } from './components/OrgChartView.js';
-import { AnnouncementsView } from './components/AnnouncementsView.js';
-import { TeamChatView } from './components/TeamChatView.js';
-import { UserProfileView } from './components/UserProfileView.js';
+
+// [최적화] 무거운 컴포넌트는 lazy loading으로 초기 번들 크기 감소 및 초기화 순서 문제 해결
+const NearbyRadarMap = lazy(() => import('./components/NearbyRadarMap.js').then(m => ({ default: m.NearbyRadarMap })));
+const ProjectsView = lazy(() => import('./components/ProjectsView.js').then(m => ({ default: m.ProjectsView })));
+const VehicleView = lazy(() => import('./components/VehicleView.js').then(m => ({ default: m.VehicleView })));
+const WorkLogsView = lazy(() => import('./components/WorkLogsView.js').then(m => ({ default: m.WorkLogsView })));
+const ElectronicApprovalView = lazy(() => import('./components/ElectronicApprovalView.js').then(m => ({ default: m.ElectronicApprovalView })));
+const AdminDocsView = lazy(() => import('./components/AdminDocsView.js').then(m => ({ default: m.AdminDocsView })));
+const AuditLogView = lazy(() => import('./components/AuditLogView.js').then(m => ({ default: m.AuditLogView })));
+const GlobalSearchModal = lazy(() => import('./components/GlobalSearchModal.js').then(m => ({ default: m.GlobalSearchModal })));
+const DashboardView = lazy(() => import('./components/DashboardView.js').then(m => ({ default: m.DashboardView })));
+const AIIntelligenceView = lazy(() => import('./components/AIIntelligenceView.js').then(m => ({ default: m.AIIntelligenceView })));
+const OrgChartView = lazy(() => import('./components/OrgChartView.js').then(m => ({ default: m.OrgChartView })));
+const AnnouncementsView = lazy(() => import('./components/AnnouncementsView.js').then(m => ({ default: m.AnnouncementsView })));
+const TeamChatView = lazy(() => import('./components/TeamChatView.js').then(m => ({ default: m.TeamChatView })));
+const UserProfileView = lazy(() => import('./components/UserProfileView.js').then(m => ({ default: m.UserProfileView })));
 
 export default function App() {
   // 회원 세션 상태
@@ -547,17 +549,19 @@ export default function App() {
           <>
             {/* 탭 0: 홈 대시보드 (KPI + 차트 + 최근 활동) */}
             {activeTab === 'dashboard' && currentUser && (
-              <DashboardView
-                key={viewResetNonce}
-                currentUser={currentUser}
-                contacts={contacts}
-                projects={projects}
-                onOpenContact={handleOpenContactFromSearch}
-                onOpenProject={handleOpenProjectFromSearch}
-                onOpenGlobalSearch={() => setIsGlobalSearchOpen(true)}
-                onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
-                onOpenApprovals={() => setActiveTab('approvals')}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <DashboardView
+                  key={viewResetNonce}
+                  currentUser={currentUser}
+                  contacts={contacts}
+                  projects={projects}
+                  onOpenContact={handleOpenContactFromSearch}
+                  onOpenProject={handleOpenProjectFromSearch}
+                  onOpenGlobalSearch={() => setIsGlobalSearchOpen(true)}
+                  onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
+                  onOpenApprovals={() => setActiveTab('approvals')}
+                />
+              </Suspense>
             )}
 
             {/* 탭 1: 전체 명함 뷰 */}
@@ -590,16 +594,18 @@ export default function App() {
 
             {/* 탭 2: 주변 레이더 지도 뷰 */}
             {activeTab === 'nearby' && (
-              <NearbyRadarMap
-                contacts={contacts}
-                groups={groups}
-                onSelectContact={(c) => {
-                  setDetailModalTab('info');
-                  setSelectedContactDetail(c);
-                }}
-                onContactsRefresh={setContacts}
-                onAddCallHistory={handleAddCallHistory}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <NearbyRadarMap
+                  contacts={contacts}
+                  groups={groups}
+                  onSelectContact={(c) => {
+                    setDetailModalTab('info');
+                    setSelectedContactDetail(c);
+                  }}
+                  onContactsRefresh={setContacts}
+                  onAddCallHistory={handleAddCallHistory}
+                />
+              </Suspense>
             )}
 
             {/* 탭 3: 그룹 관리 뷰 */}
@@ -626,165 +632,189 @@ export default function App() {
 
             {/* 탭 5: 프로젝트 및 영업 팔로우업 관리 뷰 */}
             {activeTab === 'projects' && (
-              <ProjectsView
-                key={viewResetNonce}
-                contacts={contacts}
-                setContacts={setContacts}
-                projects={projects}
-                setProjects={setProjects}
-                filterStatus={projectFilterStatus}
-                setFilterStatus={setProjectFilterStatus}
-                currentUser={currentUser}
-                triggerNewProject={triggerNewProject}
-                triggerExcelExport={triggerProjectsExcelExport}
-                triggerPrintPreview={triggerProjectsPrintPreview}
-                viewMode={projectsViewMode}
-                focusProjectId={focusProjectId}
-                focusProjectSignal={focusProjectSignal}
-                onFocusProject={handleOpenProjectFromSearch}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <ProjectsView
+                  key={viewResetNonce}
+                  contacts={contacts}
+                  setContacts={setContacts}
+                  projects={projects}
+                  setProjects={setProjects}
+                  filterStatus={projectFilterStatus}
+                  setFilterStatus={setProjectFilterStatus}
+                  currentUser={currentUser}
+                  triggerNewProject={triggerNewProject}
+                  triggerExcelExport={triggerProjectsExcelExport}
+                  triggerPrintPreview={triggerProjectsPrintPreview}
+                  viewMode={projectsViewMode}
+                  focusProjectId={focusProjectId}
+                  focusProjectSignal={focusProjectSignal}
+                  onFocusProject={handleOpenProjectFromSearch}
+                />
+              </Suspense>
             )}
 
             {/* 탭 6: 통합 차량 관리 뷰 */}
             {activeTab === 'vehicles' && (
-              <VehicleView
-                key={viewResetNonce}
-                currentUser={currentUser}
-                contacts={contacts}
-                setContacts={setContacts}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <VehicleView
+                  key={viewResetNonce}
+                  currentUser={currentUser}
+                  contacts={contacts}
+                  setContacts={setContacts}
+                />
+              </Suspense>
             )}
 
             {/* 탭 7: 업무일지 (일일/주간) 뷰 */}
             {activeTab === 'worklogs' && (
-              <WorkLogsView
-                key={viewResetNonce}
-                contacts={contacts}
-                setContacts={setContacts}
-                projects={projects}
-                currentUser={currentUser}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <WorkLogsView
+                  key={viewResetNonce}
+                  contacts={contacts}
+                  setContacts={setContacts}
+                  projects={projects}
+                  currentUser={currentUser}
+                />
+              </Suspense>
             )}
 
             {/* 탭 8: 전자결재 (가지급금 정산서 / 휴가 신청서) 뷰 */}
             {activeTab === 'approvals' && (
-              <ElectronicApprovalView
-                key={viewResetNonce}
-                currentUser={currentUser}
-                onUpdateCurrentUser={(updatedUser) => {
-                  // [추가] 전자결재 화면에서 서명을 새로 등록/변경했을 때 앱 전체 상태와
-                  // localStorage에 반영해, 새로고침 후에도 서명이 계속 남아있도록 한다
-                  // (로그인 시 저장하는 방식과 동일).
-                  setCurrentUser(updatedUser);
-                  localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
-                }}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <ElectronicApprovalView
+                  key={viewResetNonce}
+                  currentUser={currentUser}
+                  onUpdateCurrentUser={(updatedUser) => {
+                    // [추가] 전자결재 화면에서 서명을 새로 등록/변경했을 때 앱 전체 상태와
+                    // localStorage에 반영해, 새로고침 후에도 서명이 계속 남아있도록 한다
+                    // (로그인 시 저장하는 방식과 동일).
+                    setCurrentUser(updatedUser);
+                    localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
+                  }}
+                />
+              </Suspense>
             )}
 
             {/* 탭 9/10: 경영지원 / 회계관리 - 관리자만 접근 가능. Navigation에서도 관리자에게만
             탭 자체가 보이지만, 직접 URL 조작 등으로 우회하는 경우를 대비해 화면 진입 시점에도
             한 번 더 권한을 확인한다. */}
             {activeTab === 'management' && currentUser?.role === 'admin' && (
-              <AdminDocsView
-                key={viewResetNonce}
-                section="management"
-                currentUser={currentUser}
-                projects={projects}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <AdminDocsView
+                  key={viewResetNonce}
+                  section="management"
+                  currentUser={currentUser}
+                  projects={projects}
+                />
+              </Suspense>
             )}
             {activeTab === 'accounting' && currentUser?.role === 'admin' && (
-              <AdminDocsView
-                key={viewResetNonce}
-                section="accounting"
-                projects={projects}
-                currentUser={currentUser}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <AdminDocsView
+                  key={viewResetNonce}
+                  section="accounting"
+                  projects={projects}
+                  currentUser={currentUser}
+                />
+              </Suspense>
             )}
 
             {/* [추가] 활동 로그 - 관리자만 접근 가능. 민감한 작업(권한 변경/가입 승인/결제/백업 등)의
             감사 기록을 보여준다. */}
             {activeTab === 'audit_logs' && currentUser?.role === 'admin' && (
-              <AuditLogView key={viewResetNonce} currentUser={currentUser} />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <AuditLogView key={viewResetNonce} currentUser={currentUser} />
+              </Suspense>
             )}
 
             {/* [추가] 조직도 / 사내 공지사항 / 사내 메신저 - 그룹웨어(다우오피스, 하이웍스 등)
             대비 부족했던 핵심 기능들. 셋 다 회사(company) 회원이면 누구나 볼 수 있고,
             작성/편집 권한만 각 화면 내부에서 관리자로 제한한다. */}
             {activeTab === 'org_chart' && currentUser && (
-              <OrgChartView key={viewResetNonce} currentUser={currentUser} />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <OrgChartView key={viewResetNonce} currentUser={currentUser} />
+              </Suspense>
             )}
             {activeTab === 'announcements' && currentUser && (
-              <AnnouncementsView key={viewResetNonce} currentUser={currentUser} />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <AnnouncementsView key={viewResetNonce} currentUser={currentUser} />
+              </Suspense>
             )}
             {activeTab === 'team_chat' && currentUser && (
-              <TeamChatView key={viewResetNonce} currentUser={currentUser} />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <TeamChatView key={viewResetNonce} currentUser={currentUser} />
+              </Suspense>
             )}
 
             {/* 프로필 설정 */}
             {activeTab === 'profile' && currentUser && (
-              <UserProfileView
-                key={viewResetNonce}
-                currentUser={currentUser}
-                onUpdate={async (updatedData) => {
-                  try {
-                    // 비밀번호 변경인지 프로필 수정인지 확인
-                    const isPasswordChange = 'currentPassword' in updatedData && 'newPassword' in updatedData;
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <UserProfileView
+                  key={viewResetNonce}
+                  currentUser={currentUser}
+                  onUpdate={async (updatedData) => {
+                    try {
+                      // 비밀번호 변경인지 프로필 수정인지 확인
+                      const isPasswordChange = 'currentPassword' in updatedData && 'newPassword' in updatedData;
 
-                    const endpoint = isPasswordChange ? '/api/auth/change-password' : '/api/auth/me';
-                    const body = isPasswordChange
-                      ? {
-                          currentPassword: updatedData.currentPassword,
-                          newPassword: updatedData.newPassword,
-                        }
-                      : {
-                          name: updatedData.name,
-                          email: updatedData.email,
-                          phone: updatedData.phone,
-                          companyName: updatedData.companyName,
-                          location: updatedData.location,
-                        };
+                      const endpoint = isPasswordChange ? '/api/auth/change-password' : '/api/auth/me';
+                      const body = isPasswordChange
+                        ? {
+                            currentPassword: updatedData.currentPassword,
+                            newPassword: updatedData.newPassword,
+                          }
+                        : {
+                            name: updatedData.name,
+                            email: updatedData.email,
+                            phone: updatedData.phone,
+                            companyName: updatedData.companyName,
+                            location: updatedData.location,
+                          };
 
-                    const response = await fetch(endpoint, {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'x-user-id': currentUser.id,
-                      },
-                      body: JSON.stringify(body),
-                    });
+                      const response = await fetch(endpoint, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-user-id': currentUser.id,
+                        },
+                        body: JSON.stringify(body),
+                      });
 
-                    if (!response.ok) {
-                      const error = await response.json();
-                      throw new Error(error.error || '변경에 실패했습니다');
+                      if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || '변경에 실패했습니다');
+                      }
+
+                      const updatedUser = await response.json();
+                      setCurrentUser(updatedUser);
+                      localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
+                    } catch (error) {
+                      console.error('Update error:', error);
+                      throw error;
                     }
-
-                    const updatedUser = await response.json();
-                    setCurrentUser(updatedUser);
-                    localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
-                  } catch (error) {
-                    console.error('Update error:', error);
-                    throw error;
-                  }
-                }}
-              />
+                  }}
+                />
+              </Suspense>
             )}
 
             {/* [추가] AI Intelligence - 오늘의 브리핑/기업 인텔리전스/관계·영업 인텔리전스.
             경영지원/회계관리와 달리 관리자 제한이 없다 - 누구나 유용하게 쓸 수 있는 화면. */}
             {activeTab === 'ai_intelligence' && (
-              <AIIntelligenceView
-                key={viewResetNonce}
-                contacts={contacts}
-                groups={groups}
-                projects={projects}
-                currentUser={currentUser}
-                onSelectContact={(c) => {
-                  setDetailModalTab('info');
-                  setSelectedContactDetail(c);
-                }}
-                onNavigateToProjects={() => setActiveTab('projects')}
-                onOpenProject={handleOpenProjectFromSearch}
-              />
+              <Suspense fallback={<div className="py-32 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
+                <AIIntelligenceView
+                  key={viewResetNonce}
+                  contacts={contacts}
+                  groups={groups}
+                  projects={projects}
+                  currentUser={currentUser}
+                  onSelectContact={(c) => {
+                    setDetailModalTab('info');
+                    setSelectedContactDetail(c);
+                  }}
+                  onNavigateToProjects={() => setActiveTab('projects')}
+                  onOpenProject={handleOpenProjectFromSearch}
+                />
+              </Suspense>
             )}
           </>
         )}
