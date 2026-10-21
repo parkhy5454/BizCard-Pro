@@ -827,6 +827,9 @@ export interface User {
   // true가 된다. 값이 없는(undefined) 기존 계정은 이 기능이 생기기 전에 가입한
   // 것이므로 인증된 것으로 간주한다(true 취급).
   emailVerified?: boolean;
+  // [추가] 이메일 변경 요청 중인 새 주소. 인증 링크를 눌러 확인되기 전까지는 로그인 이메일(email)은
+  // 그대로 두고, 여기에만 보관한다. 화면에서는 "변경 대기 중" 안내에만 쓴다.
+  pendingEmail?: string;
   // [추가] 토스페이먼츠 구독 결제 상태. 회사(company) 관리자 계정에만 의미가 있다 —
   // 그 회사 전체의 구독 여부를 관리자 한 명의 결제 정보로 관리한다.
   // - plan: 'free'(무료, 기본 기능만) | 'pro'(구독 결제 완료, 전체 기능)
@@ -867,6 +870,9 @@ export interface RegisteredUser extends User {
   // [추가] 이메일 인증 토큰/만료시각 (서버 내부용, 클라이언트로는 절대 내려주지 않음)
   emailVerificationToken?: string;
   emailVerificationTokenExpiresAt?: number;
+  // [추가] 이메일 변경 인증 토큰/만료시각 (서버 내부용, 클라이언트로는 절대 내려주지 않음)
+  pendingEmailToken?: string;
+  pendingEmailTokenExpiresAt?: number;
   // [추가] 토스페이먼츠 연동용 서버 전용 필드 (클라이언트로는 절대 내려주지 않음)
   // - tossCustomerKey: 토스에 등록하는 구매자 식별키 (추측 불가능한 무작위 값이어야 함)
   // - tossBillingKey: 카드 등록 완료 후 발급되는 빌링키. 이걸로 매달 자동결제를 청구한다.

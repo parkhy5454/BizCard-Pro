@@ -53,3 +53,27 @@ export function isEmailVerified(emailVerified: boolean | undefined): boolean {
 export function isSameScope(a: MinimalUser, b: MinimalUser): boolean {
   return scopeIdForUser(a) === scopeIdForUser(b);
 }
+
+// [추가] 이메일 형식 검사 (서버 가입/이메일 변경에서 같은 기준을 쓰도록 한 곳에 모은다)
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+// [추가] 프로필 저장 입력값 검증. 문제가 없으면 null, 있으면 사용자에게 보여줄 메시지를 돌려준다.
+// 값이 undefined인 항목은 "바꾸지 않겠다"는 뜻이므로 검사하지 않는다.
+// 회사명/사업자번호/이메일은 이 함수의 대상이 아니다 (각각 관리자 도구/이메일 인증 흐름으로 처리).
+export function validateProfileFields(input: { name?: unknown; phone?: unknown; position?: unknown }): string | null {
+  if (input.name !== undefined) {
+    if (typeof input.name !== 'string' || input.name.trim().length === 0) return '이름을 입력해주세요.';
+    if (input.name.trim().length > 50) return '이름은 50자 이하로 입력해주세요.';
+  }
+  if (input.phone !== undefined && input.phone !== null && input.phone !== '') {
+    if (typeof input.phone !== 'string') return '전화번호 형식이 잘못되었습니다.';
+    const digits = input.phone.replace(/\D/g, '');
+    if (digits.length < 9 || digits.length > 11) return '전화번호 형식이 잘못되었습니다.';
+  }
+  if (input.position !== undefined && input.position !== null) {
+    if (typeof input.position !== 'string' || input.position.trim().length > 50) return '직책은 50자 이하로 입력해주세요.';
+  }
+  return null;
+}

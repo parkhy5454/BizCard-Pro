@@ -157,6 +157,30 @@ export default function App() {
   // 예전 emailVerified/approvalStatus 값을 그대로 믿고 있었기 때문이다(로그아웃 후 다시
   // 로그인해야만 풀렸음). 이제는 서버가 응답으로 주는 최신 사용자 정보로 항상 갱신해서,
   // 새로고침 한 번이면 최신 상태(인증/승인 완료 여부)가 바로 반영되게 한다.
+  // [추가] 새 이메일로 받은 인증 링크(?emailChangeToken=...)로 들어오면 이메일 변경을 확정한다.
+  // 토큰이 곧 본인 확인 수단이라 로그인 상태와 상관없이 처리하고, 끝나면 주소를 정리하고 다시 불러온다.
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('emailChangeToken');
+    if (!token) return;
+    const cleanUrl = window.location.pathname;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/email/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        const data = await res.json().catch(() => ({}));
+        alert(res.ok ? (data.message || '이메일이 변경되었습니다.') : (data.error || '이메일 변경에 실패했습니다.'));
+      } catch {
+        alert('이메일 변경 처리 중 네트워크 오류가 발생했습니다. 링크를 다시 열어주세요.');
+      } finally {
+        window.history.replaceState(null, '', cleanUrl);
+        window.location.reload();
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (!currentUser) return;
 
@@ -726,14 +750,24 @@ export default function App() {
                 key={viewResetNonce}
                 currentUser={currentUser}
                 onUpdate={async (updatedData) => {
-                  // 로컬 상태 및 localStorage 업데이트
-                  // [주의] 서버 엔드포인트는 아직 제공되지 않음
-                  const updatedUser = { ...currentUser, ...updatedData };
+                  // 서버에 저장한 뒤, 서버가 돌려준 값으로 화면과 localStorage를 맞춘다.
+                  // (로컬에서만 합치면 새로고침 때 수정 내용이 사라진다)
+                  const res = await fetch('/api/auth/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+                    body: JSON.stringify({ name: updatedData.name, phone: updatedData.phone, position: updatedData.position })
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) throw new Error(data.error || '프로필 저장에 실패했습니다.');
+                  const updatedUser = { ...currentUser, ...data.user };
                   setCurrentUser(updatedUser);
                   localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
-
-                  // 모든 관련 UI 즉시 업데이트되도록 강제 렌더링 트리거
-                  // (currentUser 변경으로 인한 자동 리렌더링)
+                }}
+                onLocalUserPatch={(patch) => {
+                  // 이메일 변경 요청 후 "변경 대기 중" 표시처럼 서버 저장이 필요 없는 상태만 반영한다
+                  const updatedUser = { ...currentUser, ...patch };
+                  setCurrentUser(updatedUser);
+                  localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
                 }}
               />
             )}

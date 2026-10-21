@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified, isSameScope } from './authLogic';
+import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified, isSameScope, isValidEmail, validateProfileFields } from './authLogic';
 
 describe('scopeIdForUser', () => {
   it('회사 계정은 사업자번호 기준 스코프를 반환한다', () => {
@@ -63,5 +63,48 @@ describe('isSameScope', () => {
     const a = { id: 'u1', type: 'company' as const, businessNumber: '111-11-11111' };
     const b = { id: 'u1', type: 'individual' as const };
     expect(isSameScope(a, b)).toBe(false);
+  });
+});
+
+describe('isValidEmail — 이메일 형식 검사', () => {
+  it('정상 형식은 통과한다', () => {
+    expect(isValidEmail('user@example.com')).toBe(true);
+  });
+  it('@나 도메인이 없으면 거부한다', () => {
+    expect(isValidEmail('userexample.com')).toBe(false);
+    expect(isValidEmail('user@example')).toBe(false);
+    expect(isValidEmail('')).toBe(false);
+  });
+});
+
+describe('validateProfileFields — 프로필 저장 입력값 검증', () => {
+  it('값이 없는(undefined) 항목은 검사하지 않는다', () => {
+    expect(validateProfileFields({})).toBeNull();
+  });
+  it('이름이 비어 있거나 공백뿐이면 거부한다', () => {
+    expect(validateProfileFields({ name: '' })).not.toBeNull();
+    expect(validateProfileFields({ name: '   ' })).not.toBeNull();
+  });
+  it('이름이 50자를 넘으면 거부한다', () => {
+    expect(validateProfileFields({ name: 'a'.repeat(51) })).not.toBeNull();
+    expect(validateProfileFields({ name: 'a'.repeat(50) })).toBeNull();
+  });
+  it('전화번호는 하이픈이 있어도 숫자 9~11자리면 통과한다', () => {
+    expect(validateProfileFields({ phone: '010-1234-5678' })).toBeNull();
+    expect(validateProfileFields({ phone: '02-123-4567' })).toBeNull();
+  });
+  it('전화번호가 너무 짧거나 길면 거부한다', () => {
+    expect(validateProfileFields({ phone: '010-12' })).not.toBeNull();
+    expect(validateProfileFields({ phone: '010-1234-567890' })).not.toBeNull();
+  });
+  it('전화번호를 비우는 것(빈 문자열)은 허용한다 — 번호 삭제 의미', () => {
+    expect(validateProfileFields({ phone: '' })).toBeNull();
+  });
+  it('직책이 50자를 넘으면 거부한다', () => {
+    expect(validateProfileFields({ position: 'b'.repeat(51) })).not.toBeNull();
+  });
+  it('문자열이 아닌 값은 거부한다', () => {
+    expect(validateProfileFields({ name: 123 })).not.toBeNull();
+    expect(validateProfileFields({ phone: 123 })).not.toBeNull();
   });
 });

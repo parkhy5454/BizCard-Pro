@@ -291,7 +291,7 @@ function toFriendlyAiErrorMessage(err: any): string {
 }
 
 import { createServer as createViteServer } from 'vite';
-import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified } from './src/authLogic.js';
+import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified, isValidEmail, validateProfileFields } from './src/authLogic.js';
 import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
@@ -1394,6 +1394,7 @@ const PENDING_APPROVAL_ALLOWED_PATHS = new Set([
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
   '/api/auth/verify-email',
+  '/api/auth/email/confirm', // [추가] 새 이메일로 받은 인증 링크 (토큰으로만 본인 확인)
   '/api/auth/resend-verification',
   '/api/auth/withdraw',
   '/api/auth/lookup-company', // 회원가입 화면에서 로그인 전에도 써야 하는 유일한 공개 API
@@ -2366,6 +2367,8 @@ app.post('/api/auth/login', async (req, res) => {
       role: user.role,
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
+      phone: user.phone,
+      pendingEmail: user.pendingEmail,
       signatureImage: user.signatureImage
     }
   });
@@ -2447,6 +2450,176 @@ app.post('/api/auth/logout', async (req, res) => {
 
 // [수정] 새로고침/재방문 시 프런트가 로컬에 저장해둔 로그인 정보가 아직 유효한지
 // 서버 세션 기준으로 재확인하기 위한 엔드포인트.
+// ------------------------------------------------------------------
+// [추가] 프로필 저장 / 이메일 변경
+// - 프로필(이름/전화/직책)은 로그인한 본인 계정만, 허용된 항목만 바꿀 수 있다.
+// - 회사명/사업자번호/역할/승인상태는 여기서 절대 바꾸지 않는다.
+// - 이메일은 새 주소로 보낸 인증 링크를 눌러야만 바뀐다 (그 전까지는 기존 이메일 유지).
+// ------------------------------------------------------------------
+const emailChangeRateLimiter = new RateLimiter({ maxAttempts: 3, windowMs: 15 * 60 * 1000 });
+const EMAIL_CHANGE_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
+
+// 클라이언트에 내려도 되는 사용자 정보만 골라낸다 (비밀번호/토큰/결제키 등은 제외)
+function toClientUserShape(user: RegisteredUser) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    type: user.type,
+    companyName: user.companyName,
+    businessNumber: user.businessNumber,
+    phone: user.phone,
+    position: user.position,
+    role: user.role,
+    approvalStatus: user.approvalStatus,
+    emailVerified: isEmailVerified(user.emailVerified),
+    pendingEmail: user.pendingEmail,
+    signatureImage: user.signatureImage
+  };
+}
+
+app.put('/api/auth/profile', async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
+
+  const requesterId = req.headers['x-user-id'] as string;
+  const user = users.find(u => u.id === requesterId);
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const body = req.body || {};
+  const validationError = validateProfileFields(body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  if (typeof body.name === 'string') user.name = body.name.trim();
+  if (body.phone !== undefined) {
+    user.phone = typeof body.phone === 'string' && body.phone.trim() ? body.phone.trim() : undefined;
+  }
+  // 직책은 회사 소속 사용자에게만 의미가 있다
+  if (body.position !== undefined && user.type === 'company') {
+    user.position = typeof body.position === 'string' && body.position.trim() ? body.position.trim() : undefined;
+  }
+
+  await addUser(user);
+  res.json({ success: true, user: toClientUserShape(user) });
+});
+
+// 1단계: 새 이메일 + 현재 비밀번호를 받아, 새 주소로 인증 링크를 보낸다. 이 단계에서는 이메일을 바꾸지 않는다.
+app.post('/api/auth/email/change-request', async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
+
+  const requesterId = req.headers['x-user-id'] as string;
+  const user = users.find(u => u.id === requesterId);
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { newEmail, password } = req.body || {};
+  if (typeof newEmail !== 'string' || !isValidEmail(newEmail)) {
+    return res.status(400).json({ error: '올바른 이메일 형식이 아닙니다.' });
+  }
+  if (typeof password !== 'string' || !password) {
+    return res.status(400).json({ error: '현재 비밀번호를 입력해주세요.' });
+  }
+  const normalizedEmail = newEmail.trim().toLowerCase();
+  if (normalizedEmail === user.email.toLowerCase()) {
+    return res.status(400).json({ error: '현재 사용 중인 이메일과 같습니다.' });
+  }
+
+  // 비밀번호를 틀리는 시도도 횟수에 포함되도록, 검사 전에 먼저 기록한다
+  const limitCheck = emailChangeRateLimiter.check(user.id);
+  emailChangeRateLimiter.registerAttempt(user.id);
+  if (!limitCheck.allowed) {
+    return res.status(429).json({ error: `요청이 너무 많습니다. ${limitCheck.retryAfterSec}초 후 다시 시도해주세요.` });
+  }
+
+  if (!user.password || !bcrypt.compareSync(password, user.password)) {
+    return res.status(400).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+  }
+  if (users.some(u => u.id !== user.id && u.email.toLowerCase() === normalizedEmail)) {
+    return res.status(400).json({ error: '이미 사용 중인 이메일입니다.' });
+  }
+  // 인증 메일을 보낼 수 없으면 주소를 바꿔 버리면 안 되므로 요청 자체를 막는다
+  if (!isMailerConfigured) {
+    return res.status(503).json({ error: '메일 발송 설정이 없어 이메일을 변경할 수 없습니다. 관리자에게 문의해주세요.' });
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  user.pendingEmail = normalizedEmail;
+  user.pendingEmailToken = token;
+  user.pendingEmailTokenExpiresAt = Date.now() + EMAIL_CHANGE_TTL_MS;
+  await addUser(user);
+
+  try {
+    const confirmUrl = `${APP_BASE_URL}/?emailChangeToken=${token}`;
+    await sendEmail({
+      to: normalizedEmail,
+      subject: '[BizCard] 새 이메일 주소를 인증해주세요',
+      html: `
+        <p>안녕하세요, ${escapeHtml(user.name)}님.</p>
+        <p>BizCard 계정의 이메일을 이 주소로 변경하려고 합니다. 아래 버튼을 눌러 변경을 완료해주세요 (24시간 이내 유효).</p>
+        <p><a href="${confirmUrl}" style="display:inline-block;padding:10px 20px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;">새 이메일 인증하기</a></p>
+        <p>본인이 요청하지 않았다면 이 메일을 무시해주세요. 이메일은 링크를 누르기 전까지 바뀌지 않습니다.</p>
+      `
+    });
+  } catch (err) {
+    console.error('이메일 변경 인증 메일 발송 실패:', err);
+    user.pendingEmail = undefined;
+    user.pendingEmailToken = undefined;
+    user.pendingEmailTokenExpiresAt = undefined;
+    await addUser(user);
+    return res.status(500).json({ error: '인증 메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+
+  res.json({ success: true, pendingEmail: normalizedEmail, message: '새 이메일로 인증 메일을 보냈습니다. 메일의 링크를 누르면 변경됩니다.' });
+});
+
+// 2단계: 새 주소로 받은 링크의 토큰을 확인하고 이메일을 바꾼다. 토큰이 곧 본인 확인 수단이다.
+app.post('/api/auth/email/confirm', async (req, res) => {
+  const { token } = req.body || {};
+  if (typeof token !== 'string' || !token) return res.status(400).json({ error: '인증 토큰이 없습니다.' });
+
+  const user = users.find(u => u.pendingEmailToken === token);
+  if (!user || !user.pendingEmail) {
+    return res.status(400).json({ error: '인증 링크가 유효하지 않습니다. 이미 사용됐거나 잘못된 링크일 수 있습니다.' });
+  }
+
+  const clearPending = async () => {
+    user.pendingEmail = undefined;
+    user.pendingEmailToken = undefined;
+    user.pendingEmailTokenExpiresAt = undefined;
+    await addUser(user);
+  };
+
+  if (!user.pendingEmailTokenExpiresAt || user.pendingEmailTokenExpiresAt < Date.now()) {
+    await clearPending();
+    return res.status(400).json({ error: '인증 링크가 만료되었습니다. 이메일 변경을 다시 요청해주세요.' });
+  }
+
+  const newEmail = user.pendingEmail;
+  // 요청 후 다른 사람이 같은 주소로 가입했을 수 있으므로 한 번 더 확인한다
+  if (users.some(u => u.id !== user.id && u.email.toLowerCase() === newEmail)) {
+    await clearPending();
+    return res.status(400).json({ error: '이미 사용 중인 이메일입니다. 다른 이메일로 다시 요청해주세요.' });
+  }
+
+  const oldEmail = user.email;
+  user.email = newEmail;
+  user.emailVerified = true;
+  await clearPending();
+
+  // 기존 주소로도 변경 사실을 알려서, 본인이 모르는 변경을 빨리 알아챌 수 있게 한다
+  if (isMailerConfigured) {
+    try {
+      await sendEmail({
+        to: oldEmail,
+        subject: '[BizCard] 로그인 이메일이 변경되었습니다',
+        html: `<p>${escapeHtml(user.name)}님, BizCard 계정의 이메일이 ${escapeHtml(newEmail)} 로 변경되었습니다. 본인이 변경하지 않았다면 즉시 관리자에게 문의해주세요.</p>`
+      });
+    } catch (err) {
+      console.error('이메일 변경 알림 메일 발송 실패:', err);
+    }
+  }
+
+  res.json({ success: true, email: newEmail, message: '이메일이 변경되었습니다. 새 이메일로 로그인해주세요.' });
+});
+
 app.get('/api/auth/me', (req, res) => {
   const userId = req.headers['x-user-id'] as string; // 세션 미들웨어가 검증한 경우에만 존재
   const user = userId ? users.find(u => u.id === userId) : undefined;
@@ -2466,6 +2639,8 @@ app.get('/api/auth/me', (req, res) => {
       role: user.role,
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
+      phone: user.phone,
+      pendingEmail: user.pendingEmail,
       signatureImage: user.signatureImage,
       // DB에서 로드된 모든 사용자 데이터
       businessCards: dbData.contacts || [],
