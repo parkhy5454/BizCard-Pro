@@ -329,11 +329,11 @@ import {
   createReferral,
   markReferralRewarded,
   getReferralsForUser,
-  migrateScopedItemsToAppUsers
+  migrateScopedItemsToUserData
 } from './src/db/neonStore.js';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 3000;
 
 // [추가] 필수 환경 변수 검증
 const requiredEnvVars = [
@@ -364,7 +364,7 @@ console.log(`🔗 APP_BASE_URL: ${process.env.APP_BASE_URL}`);
     console.log('✅ Neon 데이터베이스 초기화 완료');
   } catch (err) {
     console.error('❌ 데이터베이스 초기화 실패:', err);
-    // process.exit(1) 제거됨 - 서버가 DB 실패에도 포트 8080에서 리스닝을 시작해야 함
+    process.exit(1);
   }
 })();
 
@@ -435,31 +435,20 @@ app.use(helmet({
 // [추가] 배포 플랫폼(Render 등)이나 외부 모니터링/핑 서비스가 "서버가 살아있는지"만 빠르게
 // 확인할 수 있는 엔드포인트. 로그인/DB 조회 없이 즉시 응답한다. 5~10분 간격으로 이 주소에
 // 외부에서 핑을 보내면, 무료 요금제의 "일정 시간 뒤 서버가 잠드는" 문제도 줄일 수 있다.
-// [추가] 매우 간단한 diagnostics 엔드포인트
-app.get('/ping', (req, res) => {
-  res.status(200).send('pong');
-});
-
 // [수정] 상세한 헬스 체크 엔드포인트
 app.get('/health', async (req, res) => {
   try {
     const health = {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      uptime: Math.round(process.uptime()),
+      uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
-      version: 'v1.0.0-sync-startup', // 버전 추적
       memory: {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
       },
-      database: process.env.DATABASE_URL ? 'configured' : 'not configured',
-      monitoring: SENTRY_DSN ? 'enabled' : 'disabled',
-      server: {
-        started: true,
-        synchronous: true,
-        bootstrapRunning: true
-      }
+      database: process.env.DATABASE_URL ? 'connected' : 'not configured',
+      monitoring: SENTRY_DSN ? 'enabled' : 'disabled'
     };
 
     res.status(200).json(health);
@@ -1873,8 +1862,11 @@ app.get('/api/referral/me', async (req, res) => {
 // 함께 갱신하는 setScopedDoc/deleteScopedDoc 패턴을 그대로 따른다.
 // ------------------------------------------------------------------
 app.get('/api/announcements', (req, res) => {
-  const dbData = getScopedData(req);
-  const list: Announcement[] = dbData.announcements || [];
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const list: Announcement[] = (requester as any).announcements || [];
   // 고정(pinned) 공지를 맨 위에, 그 안에서는 최신순으로 정렬.
   const sorted = [...list].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -1988,15 +1980,11 @@ app.get('/api/chat/messages', (req, res) => {
     if (!parts.includes(requester.id)) {
       return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
     }
-  } else if (channel.startsWith('group:')) {
-    const dbData = getScopedData(req);
-    if (!canAccessGroupChannel(dbData, channel, requester.id)) {
-      return res.status(403).json({ error: '이 그룹 대화를 조회할 권한이 없습니다.' });
-    }
+  } else if (channel.startsWith('group:') && !canAccessGroupChannel(requester as any, channel, requester.id)) {
+    return res.status(403).json({ error: '이 그룹 대화를 조회할 권한이 없습니다.' });
   }
 
-  const dbData = getScopedData(req);
-  const all: ChatMessage[] = (dbData.chatMessages || []);
+  const all: ChatMessage[] = ((requester as any).chatMessages || []);
   const since = req.query.sinceId ? String(req.query.sinceId) : undefined;
   let list = all.filter((m) => m.channel === channel);
   if (since) {
@@ -2056,8 +2044,7 @@ app.get('/api/chat/groups', (req, res) => {
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  const dbData = getScopedData(req);
-  const groups: ChatGroup[] = (dbData.chatGroups || []);
+  const groups: ChatGroup[] = ((requester as any).chatGroups || []);
   const myGroups = groups.filter((g) => g.memberUserIds.includes(requester.id));
   res.json(myGroups);
 });
@@ -2452,8 +2439,7 @@ app.get('/api/auth/me', (req, res) => {
   const user = userId ? users.find(u => u.id === userId) : undefined;
   if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  // DB에서 로드된 데이터
-  const dbData = getScopedData(req);
+  // Neon DB에서 로드된 사용자 객체는 이미 businessCards, vehicles 등을 포함하고 있음
   res.json({
     user: {
       id: user.id,
@@ -2467,13 +2453,13 @@ app.get('/api/auth/me', (req, res) => {
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
       signatureImage: user.signatureImage,
-      // DB에서 로드된 모든 사용자 데이터
-      businessCards: dbData.contacts || [],
-      vehicles: dbData.vehicles || [],
-      workLogs: dbData.weeklyLogs || [],
-      dailyLogs: dbData.dailyLogs || [],
-      projects: dbData.projects || [],
-      expenses: dbData.expenses || []
+      // Neon DB에서 이미 로드된 마이그레이션 데이터
+      businessCards: (user as any).businessCards || [],
+      vehicles: (user as any).vehicles || [],
+      workLogs: (user as any).workLogs || [],
+      dailyLogs: (user as any).dailyLogs || [],
+      projects: (user as any).projects || [],
+      expenses: (user as any).expenses || []
     }
   });
 });
@@ -2991,6 +2977,30 @@ app.get('/api/backup/export', async (req, res) => {
 
 // ------------------------------------------------------------------
 // 🗑️ 회원 탈퇴
+// [추가] 사용자 본인의 기본 프로필 정보(이름, 이메일, 전화번호, 회사명) 수정
+// 프로필 설정 UI에서 사용자가 자신의 정보를 편집하고 저장할 때 호출된다.
+app.put('/api/auth/me', async (req, res) => {
+  // ✅ 데이터 수정 Rate Limiting
+  if (!checkModifyRateLimit(req, res)) return;
+
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  // 업데이트 가능한 필드들
+  const { name, email, phone, companyName, location } = req.body;
+
+  if (typeof name === 'string') requester.name = name;
+  if (typeof email === 'string') requester.email = email;
+  if (typeof phone === 'string') requester.phone = phone;
+  if (typeof companyName === 'string') requester.companyName = companyName;
+  if (typeof location === 'string') requester.location = location;
+
+  // 응답: 업데이트된 사용자 정보 (민감한 정보 제외)
+  const { password, ...safeUser } = requester;
+  res.json(safeUser);
+});
+
 // [추가] 개인정보처리방침에 "회원 탈퇴를 요청한 경우 지체 없이 파기한다"고 명시돼 있는데,
 // 정작 탈퇴 기능이 없었다. 세션 탈취 등으로 악용되지 않도록 비밀번호 재확인을 받는다.
 //
@@ -4063,10 +4073,9 @@ app.get('/api/contacts', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const dbData = getScopedData(req);
-  // DB에서 로드된 명함 및 그룹 추출
-  const businessCards = dbData.contacts || [];
-  const groups = dbData.groups || [];
+  // Neon DB에서 로드된 사용자 객체에서 businessCards, groups 추출
+  const businessCards = (requester as any).businessCards || [];
+  const groups = (requester as any).groups || [];
 
   // [수정] "나만 보기(비공개)"로 설정된 명함은 등록한 본인 것만 내려주고, 다른 사람에게는 숨긴다.
   const privateGroupIds = new Set(
@@ -4251,8 +4260,7 @@ app.get('/api/groups', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const dbData = getScopedData(req);
-  const groups = dbData.groups || [];
+  const groups = (requester as any).groups || [];
   // [수정] "나만 보기(비공개)"로 설정된 그룹은 만든 본인에게만 보이고, 다른 사람에게는
   // 목록/필터 칩 자체에서 숨긴다. 명함의 isPrivate와 동일한 방식.
   const visible = groups.filter(g => !g.isPrivate || !g.createdByUserId || g.createdByUserId === requesterId);
@@ -5329,8 +5337,7 @@ app.get('/api/my-profile', async (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const dbData = getScopedData(req);
-  const myProfile = (dbData.myProfile || {
+  const myProfile = ((requester as any).myProfile || {
     name: '', company: '', department: '', title: '',
     phoneMobile: '', phoneOffice: '', phoneFax: '', email: '',
     address: '', snsUrl: '', website: '', memo: ''
@@ -5549,8 +5556,7 @@ app.get('/api/projects', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const dbData = getScopedData(req);
-  res.json(dbData.projects || []);
+  res.json((requester as any).projects || []);
 });
 
 app.post('/api/projects', async (req, res) => {
@@ -5738,9 +5744,8 @@ app.get('/api/vehicles', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  // DB에서 사용자의 vehicles 데이터 직접 로드
-  const dbData = getScopedData(req);
-  res.json(dbData.vehicles || []);
+  // Neon DB에서 사용자의 vehicles 데이터 직접 로드
+  res.json((requester as any).vehicles || []);
 });
 
 app.post('/api/vehicles', async (req, res) => {
@@ -6737,8 +6742,7 @@ app.get('/api/worklogs/daily', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const dbData = getScopedData(req);
-  res.json(dbData.dailyLogs || []);
+  res.json((requester as any).dailyLogs || []);
 });
 
 app.post('/api/worklogs/daily', async (req, res) => {
@@ -6845,8 +6849,7 @@ app.get('/api/worklogs/weekly', (req, res) => {
     return res.status(401).json({ error: '로그인이 필요합니다.' });
   }
 
-  const dbData = getScopedData(req);
-  res.json(dbData.weeklyLogs || []);
+  res.json((requester as any).weeklyLogs || []);
 });
 
 app.post('/api/worklogs/weekly', async (req, res) => {
@@ -7318,9 +7321,7 @@ app.post('/api/admin/migrate-scope', async (req, res) => {
   }
 });
 
-// [추가] scoped_items의 데이터를 app_users.data로 마이그레이션하는 엔드포인트
-// 성능 최적화용: getUsers()는 이미 실시간 병합을 수행하므로 필수는 아니지만,
-// 이 API를 한 번 호출하면 모든 scoped_items이 app_users.data로 이동되어 조회 성능 향상
+// [새로 추가] scoped_items 데이터를 app_users.data로 일괄 마이그레이션 (관리자 전용)
 app.post('/api/admin/migrate-scoped-items', async (req, res) => {
   const userId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === userId);
@@ -7329,26 +7330,19 @@ app.post('/api/admin/migrate-scoped-items', async (req, res) => {
   }
 
   try {
-    const result = await migrateScopedItemsToAppUsers();
+    console.log('[API] 관리자가 scoped_items → app_users.data 마이그레이션 시작');
+    const result = await migrateScopedItemsToUserData();
 
     if (result.success) {
-      // 마이그레이션 완료 후 메모리 캐시 갱신
+      // 마이그레이션 후 메모리 캐시 리로드
       users = await getUsers();
-      res.json({
-        success: true,
-        message: `${result.migratedUsers}/${result.totalUsers} 사용자의 데이터를 마이그레이션했습니다.`,
-        ...result
-      });
+      res.json({ success: true, message: result.message });
     } else {
-      res.status(500).json({
-        success: false,
-        error: '마이그레이션 중 오류가 발생했습니다.',
-        ...result
-      });
+      res.status(500).json({ success: false, message: result.message });
     }
-  } catch (err: any) {
-    console.error('scoped_items 마이그레이션 오류:', err);
-    res.status(500).json({ error: '마이그레이션 중 오류가 발생했습니다.' });
+  } catch (error) {
+    console.error('마이그레이션 API 오류:', error);
+    res.status(500).json({ error: '마이그레이션 실패' });
   }
 });
 
@@ -8619,11 +8613,20 @@ app.post('/api/send-tax-package', async (req, res) => {
   }
 });
 
-// [수정] Production: 동기 시작 (app.listen()을 즉시 호출해서 Health Check 통과)
-// [수정] Development: 별도 비동기 함수 (Vite 서버 설정까지 기다렸다 시작)
-function startServer() {
-  // Production 환경: 정적 파일 제공 설정 (Vite 없음)
-  if (process.env.NODE_ENV === 'production') {
+async function startServer() {
+  // [수정] 마케팅 홈페이지(bizcardai.kr)는 Render 도메인 추가 비용(3번째 도메인부터
+  // 월 $0.25) 없이 Netlify 무료 호스팅에 별도로 올리기로 해서, 이 서버가 Host 헤더를
+  // 보고 홈페이지/앱을 분기하던 라우팅은 더 이상 필요 없어 제거했다. 이제 이 서버는
+  // app.bizcardai.kr(과 기존 *.onrender.com) 요청에 대해서만 앱(dist/index.html)을
+  // 응답하면 된다 — Render에는 도메인을 app.bizcardai.kr 하나만 추가하면 된다.
+
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa'
+    });
+    app.use(vite.middlewares);
+  } else {
     app.use(express.static('dist'));
   }
 
@@ -8633,59 +8636,23 @@ function startServer() {
     Sentry.setupExpressErrorHandler(app);
   }
 
-  // ✅ 동기 호출: 즉시 포트에서 리스닝 시작
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
-    console.log(`✅ 서버 시작 완료 - 동기 startup (app.listen 즉시 호출)`);
-    console.log(`📌 DATABASE: ${process.env.DATABASE_URL ? '설정됨' : '미설정'}`);
-    console.log(`🔒 SENTRY: ${SENTRY_DSN ? '활성화' : '비활성화'}`);
-    console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
   });
 
-  // 백그라운드: bootstrapUsers 실행 (비동기, 비블로킹)
-  // [수정] 타임아웃 30초: bootstrap이 너무 오래 걸리면 로그만 남기고 계속 진행
-  // (서버 중단 없이, 나중에 필요하면 캐시가 자동으로 로드됨)
-  (async () => {
-    try {
-      const bootstrapPromise = bootstrapUsers();
-      const timeoutPromise = new Promise((resolve) =>
-        setTimeout(() => resolve('TIMEOUT'), 30000)
-      );
-      const result = await Promise.race([bootstrapPromise, timeoutPromise]);
+  // [수정] bootstrapUsers를 배경 작업으로 실행하여 서버 응답성 확보
+  // 서버가 즉시 요청을 처리할 수 있도록 await 제거
+  // Health Check timeout 방지를 위해 캐시 로드는 완전히 백그라운드에서 진행
+  const bootstrapPromise = bootstrapUsers().catch(err => {
+    console.error('사용자 부트스트랩 오류:', err);
+  });
 
-      if (result === 'TIMEOUT') {
-        console.warn('⚠️ 사용자 부트스트랩이 30초 초과 - 백그라운드에서 계속 실행 중...');
-        // 백그라운드에서 계속 실행되도록 놔둔다 (await 없이)
-        bootstrapUsers().catch((err) => {
-          console.error('❌ 백그라운드 부트스트랩 최종 실패:', err);
-        });
-      } else {
-        console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
-      }
-    } catch (err) {
-      console.error('❌ 사용자 부트스트랩 실패 (서버는 계속 실행):', err);
-      // 서버는 계속 실행된다 - 에러가 발생해도 프로세스 종료 안 함
-    }
-  })();
+  // 백그라운드 부트스트랩 진행 상황을 로깅
+  bootstrapPromise.then(() => {
+    console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
+  }).catch(err => {
+    console.error('❌ 사용자 부트스트랩 실패:', err.message);
+  });
 }
 
-// [추가] Development 전용: Vite 서버 설정 (production에서는 호출 안 됨)
-async function setupDevServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  }
-}
-
-// Production: 동기 시작 (즉시)
 startServer();
-
-// Development: Vite 설정 (백그라운드)
-if (process.env.NODE_ENV !== 'production') {
-  setupDevServer().catch((err) => {
-    console.error('❌ Vite 서버 설정 실패:', err);
-  });
-}
