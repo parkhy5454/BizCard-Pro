@@ -735,83 +735,83 @@ export const Navigation: React.FC<Props> = ({
         <div className="fixed bottom-0 w-full flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
 
           <nav className="flex items-center gap-0.5 w-full pb-1 px-2 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
-            {/* 1. 홈 */}
+            {/* 1. 홈 - 아이콘만 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`p-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'dashboard' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
+              title="홈"
             >
               <LayoutDashboard className="w-4 h-4 text-blue-400" />
-              <span>홈</span>
             </button>
 
-            {/* 2. 명함 (라벨: "전체 명함" → "명함") */}
+            {/* 2. 명함 - 아이콘만 */}
             <button
               onClick={() => handleMainTabClick('cards')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`p-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'cards' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
+              title="명함"
             >
               <Users className="w-4 h-4" />
-              <span>명함</span>
             </button>
 
-            {/* 3. 차량관리 (라벨: "통합 차량 관리" → "차량관리") */}
+            {/* 3. 차량관리 - 아이콘만 */}
             <button
               onClick={() => handleMainTabClick('vehicles')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`p-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'vehicles' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
+              title="차량관리"
             >
               <Car className="w-4 h-4 text-indigo-400" />
-              <span>차량관리</span>
             </button>
 
-            {/* 4. 프로젝트 */}
+            {/* 4. 프로젝트 - 아이콘만 */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 handleProjectTabClick();
               }}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`p-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 (activeTab === 'projects' && !isMoreMenuOpen)
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
+              title="프로젝트"
             >
               <Briefcase className="w-4 h-4 text-indigo-400" />
-              <span>프로젝트</span>
             </button>
 
-            {/* 5. 더보기 버튼 */}
-            <div className="relative z-50">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  handleMoreMenuToggle();
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                  isMoreMenuOpen
-                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                <span>더보기</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
+            {/* 5. 더보기 */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleMoreMenuToggle();
+              }}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                isMoreMenuOpen
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <span className="text-xs">더보기</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </nav>
 
-              {/* 드롭다운 메뉴 */}
-              {isMoreMenuOpen && (
-                <div className="absolute right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+        {/* 드롭다운 메뉴 (부모 div에서 절대 위치 렌더링) */}
+        {isMoreMenuOpen && (
+          <div className="absolute right-2 bottom-16 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
                   {/* 업무일지 */}
                   <button
                     onClick={() => {
@@ -975,10 +975,8 @@ export const Navigation: React.FC<Props> = ({
                     <MessageCircleQuestion className="w-4 h-4" />
                     <span>문의하기</span>
                   </button>
-                </div>
-              )}
             </div>
-          </nav>
+          )}
 
           {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이
           똑같은 알약형 버튼 스타일이라 구분이 잘 안 된다는 지적이 있었다. 하위 줄이 있는
