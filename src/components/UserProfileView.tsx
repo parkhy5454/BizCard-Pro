@@ -23,8 +23,15 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
     company: currentUser.companyName || '',
   });
 
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     setFormData({
@@ -55,6 +62,48 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
       setSaveMessage('error');
       console.error('Profile save error:', error);
       setTimeout(() => setSaveMessage(''), 3000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+
+    // 유효성 검사
+    if (!passwordData.currentPassword) {
+      setPasswordError('현재 비밀번호를 입력해주세요');
+      return;
+    }
+    if (!passwordData.newPassword) {
+      setPasswordError('새 비밀번호를 입력해주세요');
+      return;
+    }
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError('새 비밀번호는 8자 이상이어야 합니다');
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('새 비밀번호가 일치하지 않습니다');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onUpdate({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setSaveMessage('success');
+      setTimeout(() => setSaveMessage(''), 2000);
+    } catch (error) {
+      setPasswordError('비밀번호 변경에 실패했습니다');
+      console.error('Password change error:', error);
     } finally {
       setIsSaving(false);
     }
@@ -173,6 +222,73 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
             />
           </div>
 
+          {/* 구분선 */}
+          <div className="border-t border-slate-200 pt-6"></div>
+
+          {/* 비밀번호 변경 섹션 */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-slate-800">비밀번호 변경</h2>
+
+            {/* 현재 비밀번호 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-indigo-600" />
+                  현재 비밀번호
+                </div>
+              </label>
+              <input
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                placeholder="현재 비밀번호를 입력하세요"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-800 placeholder-slate-400 transition-all"
+              />
+            </div>
+
+            {/* 새 비밀번호 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-indigo-600" />
+                  새 비밀번호
+                </div>
+              </label>
+              <input
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                placeholder="새 비밀번호를 입력하세요"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-800 placeholder-slate-400 transition-all"
+              />
+              <p className="text-xs text-slate-400">8자 이상의 비밀번호를 입력해주세요</p>
+            </div>
+
+            {/* 새 비밀번호 확인 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-indigo-600" />
+                  새 비밀번호 확인
+                </div>
+              </label>
+              <input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                placeholder="새 비밀번호를 다시 입력하세요"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-800 placeholder-slate-400 transition-all"
+              />
+            </div>
+
+            {/* 에러 메시지 */}
+            {passwordError && (
+              <div className="p-4 rounded-lg text-sm font-semibold bg-rose-50 text-rose-700 border border-rose-300">
+                {passwordError}
+              </div>
+            )}
+          </div>
+
           {/* 메시지 표시 - 저장 성공/실패 */}
           {saveMessage && (
             <div className={`p-4 rounded-lg text-sm font-semibold flex items-center gap-2 animate-pulse ${
@@ -198,12 +314,12 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
         {/* 버튼 영역 */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-3 justify-end">
           <button
-            disabled={isSaving || !hasChanges}
-            onClick={handleSave}
+            disabled={isSaving || (!hasChanges && !passwordData.currentPassword)}
+            onClick={passwordData.currentPassword ? handleChangePassword : handleSave}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors active:scale-95"
           >
             <Save className="w-4 h-4" />
-            {isSaving ? '저장 중...' : '저장하기'}
+            {isSaving ? '처리 중...' : passwordData.currentPassword ? '비밀번호 변경' : '저장하기'}
           </button>
         </div>
 

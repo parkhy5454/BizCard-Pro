@@ -727,31 +727,42 @@ export default function App() {
                 currentUser={currentUser}
                 onUpdate={async (updatedData) => {
                   try {
-                    // 서버에 프로필 변경사항 저장
-                    const response = await fetch('/api/auth/me', {
+                    // 비밀번호 변경인지 프로필 수정인지 확인
+                    const isPasswordChange = 'currentPassword' in updatedData && 'newPassword' in updatedData;
+
+                    const endpoint = isPasswordChange ? '/api/auth/change-password' : '/api/auth/me';
+                    const body = isPasswordChange
+                      ? {
+                          currentPassword: updatedData.currentPassword,
+                          newPassword: updatedData.newPassword,
+                        }
+                      : {
+                          name: updatedData.name,
+                          email: updatedData.email,
+                          phone: updatedData.phone,
+                          companyName: updatedData.companyName,
+                          location: updatedData.location,
+                        };
+
+                    const response = await fetch(endpoint, {
                       method: 'PUT',
                       headers: {
                         'Content-Type': 'application/json',
                         'x-user-id': currentUser.id,
                       },
-                      body: JSON.stringify({
-                        name: updatedData.name,
-                        email: updatedData.email,
-                        phone: updatedData.phone,
-                        companyName: updatedData.companyName,
-                        location: updatedData.location,
-                      }),
+                      body: JSON.stringify(body),
                     });
 
                     if (!response.ok) {
-                      throw new Error('프로필 저장에 실패했습니다');
+                      const error = await response.json();
+                      throw new Error(error.error || '변경에 실패했습니다');
                     }
 
                     const updatedUser = await response.json();
                     setCurrentUser(updatedUser);
                     localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
                   } catch (error) {
-                    console.error('Profile update error:', error);
+                    console.error('Update error:', error);
                     throw error;
                   }
                 }}

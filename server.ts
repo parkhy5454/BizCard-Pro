@@ -3005,6 +3005,36 @@ app.put('/api/auth/me', async (req, res) => {
   res.json(safeUser);
 });
 
+// [추가] 사용자 본인의 비밀번호 변경
+// 프로필 설정 UI의 비밀번호 변경에서 호출된다.
+app.put('/api/auth/change-password', async (req, res) => {
+  // ✅ 데이터 수정 Rate Limiting
+  if (!checkModifyRateLimit(req, res)) return;
+
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { currentPassword, newPassword } = req.body;
+
+  // 현재 비밀번호 확인
+  if (!currentPassword || !verifyPassword(currentPassword, requester.password)) {
+    return res.status(401).json({ error: '현재 비밀번호가 일치하지 않습니다.' });
+  }
+
+  // 새 비밀번호 유효성 검사
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: '새 비밀번호는 8자 이상이어야 합니다.' });
+  }
+
+  // 새 비밀번호 해싱 및 저장
+  requester.password = hashPassword(newPassword);
+
+  // 응답: 업데이트된 사용자 정보 (민감한 정보 제외)
+  const { password, ...safeUser } = requester;
+  res.json(safeUser);
+});
+
 app.post('/api/auth/withdraw', async (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
