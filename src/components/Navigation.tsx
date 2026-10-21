@@ -1,14 +1,14 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare, Radar, Upload } from 'lucide-react';
+import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare, Radar, Upload, LayoutGrid } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ReferralModal } from './ReferralModal.js';
 import { RemindersBell } from './RemindersBell.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
-import { getTodayLocalStr } from '../dateUtils.js';
+import { downloadBackup } from '../backupDownload.js';
 
 interface Props {
-  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile';
-  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile') => void;
+  activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile' | 'more';
+  setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile' | 'more') => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   selectedGroup: string;
@@ -45,6 +45,14 @@ interface Props {
   // 돌아가고 싶을 때 쓴다. (다른 탭으로 이동하는 경우는 화면이 새로 그려지면서 이미
   // 초기화되므로, 이 콜백은 "같은 탭을 다시 눌렀을 때"만 필요하다.)
   onRequestViewReset?: () => void;
+  // 문의/추천 모달 상태와 미읽음 건수는 App에서 관리한다 (더보기 전체 화면과 공유)
+  isFeedbackOpen: boolean;
+  setIsFeedbackOpen: (v: boolean) => void;
+  isFeedbackInboxOpen: boolean;
+  setIsFeedbackInboxOpen: (v: boolean) => void;
+  isReferralOpen: boolean;
+  setIsReferralOpen: (v: boolean) => void;
+  unreadFeedbackCount: number;
 }
 
 export const Navigation: React.FC<Props> = ({
@@ -77,20 +85,15 @@ export const Navigation: React.FC<Props> = ({
   onLogout,
   onOpenWithdrawModal,
   onOpenSubscriptionModal,
-  onRequestViewReset = () => {}
+  onRequestViewReset = () => {},
+  isFeedbackOpen,
+  setIsFeedbackOpen,
+  isFeedbackInboxOpen,
+  setIsFeedbackInboxOpen,
+  isReferralOpen,
+  setIsReferralOpen,
+  unreadFeedbackCount,
 }) => {
-  // [추가] 하단 고정 탭 "더보기" 드롭다운 열림 상태 - 먼저 선언해야 handleMainTabClick에서 사용 가능
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  // [추가] 더보기 메뉴 바깥을 누르면 닫기 (휴대폰은 덮개 overlay로도 닫힌다)
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!isMoreMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setIsMoreMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [isMoreMenuOpen]);
   // [추가] 상단 메인 탭 버튼 클릭 공용 처리. 이미 그 탭에 있으면(같은 탭을 또 누른 경우)
   // setActiveTab만으로는 값이 안 바뀌어서 리액트가 리렌더를 건너뛰고 아무 반응이 없다 -
   // 이 경우엔 onRequestViewReset을 호출해서 지금 화면을 처음 상태로 되돌린다. 다른 탭이면
@@ -101,16 +104,11 @@ export const Navigation: React.FC<Props> = ({
     } else {
       setActiveTab(tab);
     }
-    // 다른 탭 클릭 시 더보기 메뉴 닫기
-    setIsMoreMenuOpen(false);
-  }, [activeTab, onRequestViewReset, setActiveTab, setIsMoreMenuOpen]);
+  }, [activeTab, onRequestViewReset, setActiveTab]);
   // [수정] 명함뿐 아니라 앱 전체 어디서나 접수 가능한 "문의하기" 기능 상태
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   // [수정] 관리자(개발자)용 "문의함" 화면 열림 상태. 이 화면은 회사 구분 없이 앱 전체 문의가
   // 다 모이는 화면이라, 아무나 보면 안 되고 개발자 계정에서만 보이게 제한한다.
-  const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
   // [추가] 친구 추천 모달 열림 상태
-  const [isReferralOpen, setIsReferralOpen] = useState(false);
   // [추가] 상단 우측 계정(아바타) 메뉴 열림 상태 + 바깥을 누르면 닫기
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -122,26 +120,6 @@ export const Navigation: React.FC<Props> = ({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [isAccountMenuOpen]);
-  const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
-  // [추가] 개발자 계정의 "미읽음 문의" 건수(상태가 'new'인 문의). 하단 더보기 버튼과
-  // 더보기 드롭다운의 문의함 항목에 배지로 표시한다. 메뉴를 열 때와 문의함을 닫을 때마다
-  // 다시 세서, 문의함에서 처리한 내용이 바로 반영되게 한다.
-  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
-  const fetchUnreadFeedbackCount = useCallback(async () => {
-    if (!isDeveloperAccount || !currentUser) return;
-    try {
-      const res = await fetch('/api/feedback', { headers: { 'x-user-id': currentUser.id } });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setUnreadFeedbackCount(data.filter((it: any) => it.status === 'new').length);
-      }
-    } catch {
-      // 배지는 부가 정보라서 조회가 실패해도 메뉴 동작에는 영향을 주지 않게 무시한다.
-    }
-  }, [isDeveloperAccount, currentUser]);
-  useEffect(() => {
-    fetchUnreadFeedbackCount();
-  }, [fetchUnreadFeedbackCount, isMoreMenuOpen, isFeedbackInboxOpen]);
   // [추가] 데이터 백업 - 서버(/api/backup/export)는 이미 있었는데 어디서도 눌러볼 방법이
   // 없었다. 서버 쪽 권한 규칙과 똑같이(개인 계정은 항상 본인 데이터를, 회사 계정은
   // 관리자만) 내려받을 수 있게 버튼을 노출한다. 커스텀 헤더(x-user-id)가 필요해서 그냥
@@ -152,20 +130,7 @@ export const Navigation: React.FC<Props> = ({
     if (!currentUser || isDownloadingBackup) return;
     setIsDownloadingBackup(true);
     try {
-      const res = await fetch('/api/backup/export', { headers: { 'x-user-id': currentUser.id } });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `백업에 실패했습니다 (상태: ${res.status}).`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `bizcard-backup-${getTodayLocalStr()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await downloadBackup(currentUser.id);
     } catch (err: any) {
       alert(`데이터 백업에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
     } finally {
@@ -175,37 +140,9 @@ export const Navigation: React.FC<Props> = ({
   // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록 및 글로벌 락
-  const lastMoreMenuClickRef = useRef<number>(0);
   const lastProjectClickRef = useRef<number>(0);
-  const isProcessingMoreMenuRef = useRef(false);
   const isProcessingProjectRef = useRef(false);
   const globalProcessingRef = useRef(false); // 전체 버튼 클릭 락
-
-  const handleMoreMenuToggle = (e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-
-    // 글로벌 또는 개별 처리 중이면 무시
-    if (globalProcessingRef.current || isProcessingMoreMenuRef.current) return;
-
-    const now = Date.now();
-    if (now - lastMoreMenuClickRef.current < 350) return; // 350ms 이내 클릭 무시
-
-    // 처리 중으로 표시
-    globalProcessingRef.current = true;
-    isProcessingMoreMenuRef.current = true;
-    lastMoreMenuClickRef.current = now;
-
-    setIsMoreMenuOpen(prev => !prev);
-
-    // 처리 완료 표시
-    setTimeout(() => {
-      isProcessingMoreMenuRef.current = false;
-      globalProcessingRef.current = false;
-    }, 150);
-  };
 
   const handleProjectTabClick = (e?: React.MouseEvent) => {
     if (e) {
@@ -693,12 +630,12 @@ export const Navigation: React.FC<Props> = ({
         <div className="fixed bottom-0 w-full flex flex-col items-center pt-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
 
           <div className="flex items-end w-full pb-1.5 px-3 gap-1">
-          <nav className="grid grid-cols-4 gap-1 flex-1 min-w-0">
+          <nav className="grid grid-cols-5 gap-1 flex-1 min-w-0">
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
-                (activeTab === 'dashboard' && !isMoreMenuOpen)
+                activeTab === 'dashboard'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
@@ -711,7 +648,7 @@ export const Navigation: React.FC<Props> = ({
             <button
               onClick={() => handleMainTabClick('cards')}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
-                (activeTab === 'cards' && !isMoreMenuOpen)
+                activeTab === 'cards'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
@@ -724,7 +661,7 @@ export const Navigation: React.FC<Props> = ({
             <button
               onClick={() => handleMainTabClick('vehicles')}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
-                (activeTab === 'vehicles' && !isMoreMenuOpen)
+                activeTab === 'vehicles'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
@@ -741,7 +678,7 @@ export const Navigation: React.FC<Props> = ({
                 handleProjectTabClick();
               }}
               className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
-                (activeTab === 'projects' && !isMoreMenuOpen)
+                activeTab === 'projects'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
@@ -750,252 +687,24 @@ export const Navigation: React.FC<Props> = ({
               <span className="text-[11px] leading-none">프로젝트</span>
             </button>
 
-          </nav>
-
-          {/* [수정] 더보기 버튼과 드롭다운을 같은 relative 래퍼에 둬서, 메뉴가 버튼 바로 위에 뜨도록 한다.
-          탭 줄(nav)은 가로 스크롤이라 그 안에 두면 메뉴가 잘리므로 밖으로 뺐다. */}
-          <div className="relative shrink-0" ref={moreMenuRef}>
-            {/* 5. 더보기 */}
+            {/* 5. 더보기 - 드롭다운이 아니라 전체 화면 탭으로 연다 (앱의 '내 정보' 탭과 같은 방식) */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleMoreMenuToggle();
-              }}
-              className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 shrink-0 px-3 ${
-                isMoreMenuOpen
+              onClick={() => handleMainTabClick('more')}
+              className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+                activeTab === 'more'
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
               }`}
             >
+              <LayoutGrid className="w-5 h-5 text-violet-500" />
               <span className="text-[11px] leading-none">더보기</span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
-              {/* [추가] 미읽음 문의가 있으면 더보기 버튼 우상단에 배지 표시 (개발자 계정 전용) */}
+              {/* 미읽음 문의가 있으면 점으로 알려준다 (개발자 계정 전용) */}
               {unreadFeedbackCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
-                  {unreadFeedbackCount > 9 ? '9+' : unreadFeedbackCount}
-                </span>
+                <span className="absolute top-1 right-[calc(50%-14px)] w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
               )}
             </button>
 
-        {/* 드롭다운 메뉴 (부모 div에서 절대 위치 렌더링) */}
-        {isMoreMenuOpen && (
-            <div className="md:hidden fixed inset-0 bg-slate-900/40 z-40" onClick={() => setIsMoreMenuOpen(false)} />
-          )}
-{isMoreMenuOpen && (
-          <div className="fixed inset-x-0 bottom-0 max-h-[70vh] overflow-y-auto bg-white rounded-t-2xl shadow-2xl z-50 md:absolute md:inset-auto md:right-0 md:bottom-full md:mb-2 md:w-56 md:rounded-lg md:border md:border-slate-200 md:shadow-lg">
-                  {/* 업무일지 */}
-                  <button
-                    onClick={() => {
-                      handleMainTabClick('worklogs');
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                      activeTab === 'worklogs' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                    }`}
-                  >
-                    <ClipboardCheck className="w-4 h-4" />
-                    <span>업무일지</span>
-                  </button>
-
-                  {/* 전자결재 */}
-                  <button
-                    onClick={() => {
-                      handleMainTabClick('approvals');
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                      activeTab === 'approvals' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                    }`}
-                  >
-                    <FileSignature className="w-4 h-4" />
-                    <span>전자결재</span>
-                  </button>
-
-                  {/* 조직도 (회사 계정만) */}
-                  {currentUser?.type === 'company' && (
-                    <button
-                      onClick={() => {
-                        handleMainTabClick('org_chart');
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                        activeTab === 'org_chart' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                      }`}
-                    >
-                      <Network className="w-4 h-4" />
-                      <span>조직도</span>
-                    </button>
-                  )}
-
-                  {/* 공지사항 (회사 계정만) */}
-                  {currentUser?.type === 'company' && (
-                    <button
-                      onClick={() => {
-                        handleMainTabClick('announcements');
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                        activeTab === 'announcements' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                      }`}
-                    >
-                      <Megaphone className="w-4 h-4" />
-                      <span>공지사항</span>
-                    </button>
-                  )}
-
-                  {/* 사내 메신저 (회사 계정만) */}
-                  {currentUser?.type === 'company' && (
-                    <button
-                      onClick={() => {
-                        handleMainTabClick('team_chat');
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                        activeTab === 'team_chat' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                      }`}
-                    >
-                      <MessagesSquare className="w-4 h-4" />
-                      <span>사내 메신저</span>
-                    </button>
-                  )}
-
-                  {/* 경영지원 (관리자만) */}
-                  {currentUser?.role === 'admin' && (
-                    <button
-                      onClick={() => {
-                        handleMainTabClick('management');
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                        activeTab === 'management' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                      }`}
-                    >
-                      <Building2 className="w-4 h-4" />
-                      <span>경영지원</span>
-                    </button>
-                  )}
-
-                  {/* 회계관리 (관리자만) */}
-                  {currentUser?.role === 'admin' && (
-                    <button
-                      onClick={() => {
-                        handleMainTabClick('accounting');
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                        activeTab === 'accounting' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                      }`}
-                    >
-                      <TrendingUp className="w-4 h-4" />
-                      <span>회계관리</span>
-                    </button>
-                  )}
-
-                  {/* 활동 로그 (관리자만) */}
-                  {currentUser?.role === 'admin' && (
-                    <button
-                      onClick={() => {
-                        handleMainTabClick('audit_logs');
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap ${
-                        activeTab === 'audit_logs' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                      }`}
-                    >
-                      <History className="w-4 h-4" />
-                      <span>활동 로그</span>
-                    </button>
-                  )}
-
-                  {/* AI Intelligence */}
-                  <button
-                    onClick={() => {
-                      handleMainTabClick('ai_intelligence');
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 ${
-                      activeTab === 'ai_intelligence' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>AI Intelligence</span>
-                  </button>
-
-                  {/* [이동] 세무자료 발송 (상단 버튼에서 이동) */}
-                  <button
-                    onClick={() => {
-                      onOpenTaxPackage();
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 text-slate-700"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                    <span>세무자료 발송</span>
-                  </button>
-
-                  {/* [이동] 가입 회원 확인 (상단 버튼에서 이동) */}
-                  <button
-                    onClick={() => {
-                      onOpenUserDirectory();
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
-                  >
-                    <Users className="w-4 h-4 text-indigo-600" />
-                    <span>가입 회원 확인</span>
-                  </button>
-
-                  {/* [이동] 문의함 (상단 버튼에서 이동, 개발자 계정 전용, 미읽음 건수 배지) */}
-                  {isDeveloperAccount && (
-                    <button
-                      onClick={() => {
-                        setIsFeedbackInboxOpen(true);
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className="w-full flex items-center justify-between gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Inbox className="w-4 h-4" />
-                        <span>문의함</span>
-                      </span>
-                      {unreadFeedbackCount > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
-                          {unreadFeedbackCount > 9 ? '9+' : unreadFeedbackCount}
-                        </span>
-                      )}
-                    </button>
-                  )}
-
-                  {/* [이동] 친구 추천 (상단 버튼에서 이동) */}
-                  {currentUser && (
-                    <button
-                      onClick={() => {
-                        setIsReferralOpen(true);
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
-                    >
-                      <Gift className="w-4 h-4 text-amber-600" />
-                      <span>친구 추천</span>
-                    </button>
-                  )}
-
-                  {/* 문의하기 */}
-                  <button
-                    onClick={() => {
-                      setIsFeedbackOpen(true);
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
-                  >
-                    <MessageCircleQuestion className="w-4 h-4" />
-                    <span>문의하기</span>
-                  </button>
-
-            </div>
-          )}
-          </div>
+          </nav>
           </div>
 
           {/* [추가] 상위 탭(홈/전체 명함/···/AI Intelligence)과 그 아래 하위 액션 버튼 줄이

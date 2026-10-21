@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BusinessCard, ContactGroup, Project, User } from './types.js';
 import { getContactGroupIds, contactHasGroup } from './groupUtils.js';
 import { Navigation } from './components/Navigation.js';
+import { MoreMenuView } from './components/MoreMenuView.js';
 import { CardGrid } from './components/CardGrid.js';
 import { CardDetailModal } from './components/CardDetailModal.js';
 import { ScanModal } from './components/ScanModal.js';
@@ -47,7 +48,7 @@ export default function App() {
 
   // 메인 내비게이션 탭 상태
   // [추가] 조직도/공지사항/사내 메신저 - 그룹웨어(다우오피스 등) 대비 부족했던 핵심 기능 보강
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile'>('cards');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile' | 'more'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -76,6 +77,28 @@ export default function App() {
   // 다시 마운트시켜서(=완전히 새로 시작) 아이폰에서 상태바를 눌러 맨 위로 가는 것과
   // 비슷한 효과를 낸다.
   const [viewResetNonce, setViewResetNonce] = useState<number>(0);
+  // 더보기 화면에서 여는 문의/추천 모달 상태. 모달 렌더링은 Navigation이 하고 여기서 상태만 관리한다.
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
+  const [isReferralOpen, setIsReferralOpen] = useState(false);
+  // 개발자 계정의 미읽음 문의 건수 (하단 더보기 점, 더보기 화면의 문의함 배지)
+  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
+  const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
+  const fetchUnreadFeedbackCount = useCallback(async () => {
+    if (!isDeveloperAccount || !currentUser) return;
+    try {
+      const res = await fetch('/api/feedback', { headers: { 'x-user-id': currentUser.id } });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setUnreadFeedbackCount(data.filter((it: any) => it.status === 'new').length);
+      }
+    } catch {
+      // 배지는 부가 정보라서 조회가 실패해도 화면 동작에는 영향을 주지 않게 무시한다.
+    }
+  }, [isDeveloperAccount, currentUser]);
+  useEffect(() => {
+    fetchUnreadFeedbackCount();
+  }, [fetchUnreadFeedbackCount, activeTab, isFeedbackInboxOpen]);
   // [추가] 본문 스크롤 영역(main). 화면 전체가 아니라 이 영역만 스크롤된다.
   const mainScrollRef = useRef<HTMLElement>(null);
   // [수정] Navigation의 "엑셀 다운로드"/"PDF 인쇄" 버튼 신호를 ProjectsView로 전달하기 위한 트리거
@@ -545,6 +568,13 @@ export default function App() {
         onLogout={handleLogout}
         onOpenWithdrawModal={() => setIsWithdrawModalOpen(true)}
         onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)}
+        isFeedbackOpen={isFeedbackOpen}
+        setIsFeedbackOpen={setIsFeedbackOpen}
+        isFeedbackInboxOpen={isFeedbackInboxOpen}
+        setIsFeedbackInboxOpen={setIsFeedbackInboxOpen}
+        isReferralOpen={isReferralOpen}
+        setIsReferralOpen={setIsReferralOpen}
+        unreadFeedbackCount={unreadFeedbackCount}
         // [추가] 같은 메인 탭을 다시 눌렀을 때 - 화면 컴포넌트를 통째로 다시 마운트시키는
         // 것(viewResetNonce)만으로는 App.tsx 쪽에 끌어올려져 있는 검색어/상태 필터/보기
         // 모드까지는 안 지워진다(이 값들은 컴포넌트 내부 상태가 아니라 여기서 내려주는
@@ -744,6 +774,23 @@ export default function App() {
             )}
             {activeTab === 'team_chat' && currentUser && (
               <TeamChatView key={viewResetNonce} currentUser={currentUser} />
+            )}
+
+            {/* 더보기 - 하단 탭에서 여는 전체 화면 (앱의 '내 정보' 탭과 같은 구성) */}
+            {activeTab === 'more' && currentUser && (
+              <MoreMenuView
+                currentUser={currentUser}
+                unreadFeedbackCount={unreadFeedbackCount}
+                onNavigate={(tab) => setActiveTab(tab)}
+                onOpenTaxPackage={() => setIsTaxPackageOpen(true)}
+                onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
+                onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)}
+                onOpenWithdrawModal={() => setIsWithdrawModalOpen(true)}
+                onOpenReferral={() => setIsReferralOpen(true)}
+                onOpenFeedback={() => setIsFeedbackOpen(true)}
+                onOpenFeedbackInbox={() => setIsFeedbackInboxOpen(true)}
+                onLogout={handleLogout}
+              />
             )}
 
             {/* 프로필 설정 */}
