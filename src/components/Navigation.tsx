@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare, Radar, Upload } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ReferralModal } from './ReferralModal.js';
@@ -102,6 +102,25 @@ export const Navigation: React.FC<Props> = ({
   // [추가] 친구 추천 모달 열림 상태
   const [isReferralOpen, setIsReferralOpen] = useState(false);
   const isDeveloperAccount = currentUser?.email === 'parkhy5454@gmail.com';
+  // [추가] 개발자 계정의 "미읽음 문의" 건수(상태가 'new'인 문의). 하단 더보기 버튼과
+  // 더보기 드롭다운의 문의함 항목에 배지로 표시한다. 메뉴를 열 때와 문의함을 닫을 때마다
+  // 다시 세서, 문의함에서 처리한 내용이 바로 반영되게 한다.
+  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
+  const fetchUnreadFeedbackCount = useCallback(async () => {
+    if (!isDeveloperAccount || !currentUser) return;
+    try {
+      const res = await fetch('/api/feedback', { headers: { 'x-user-id': currentUser.id } });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setUnreadFeedbackCount(data.filter((it: any) => it.status === 'new').length);
+      }
+    } catch {
+      // 배지는 부가 정보라서 조회가 실패해도 메뉴 동작에는 영향을 주지 않게 무시한다.
+    }
+  }, [isDeveloperAccount, currentUser]);
+  useEffect(() => {
+    fetchUnreadFeedbackCount();
+  }, [fetchUnreadFeedbackCount, isMoreMenuOpen, isFeedbackInboxOpen]);
   // [추가] 데이터 백업 - 서버(/api/backup/export)는 이미 있었는데 어디서도 눌러볼 방법이
   // 없었다. 서버 쪽 권한 규칙과 똑같이(개인 계정은 항상 본인 데이터를, 회사 계정은
   // 관리자만) 내려받을 수 있게 버튼을 노출한다. 커스텀 헤더(x-user-id)가 필요해서 그냥
@@ -420,32 +439,9 @@ export const Navigation: React.FC<Props> = ({
               </div>
             )}
 
-            {/* [수정] 이 버튼들(세무자료 발송/가입 회원 확인/친구 추천/문의함)에 shrink-0을
-            안 줘서, 화면이 좁은 휴대폰에서 폭이 모자라면 flex가 버튼들을 억지로 찌그러뜨렸다.
-            한글은 띄어쓰기가 없어도 글자 사이마다 줄바꿈이 가능해서, 버튼이 눌리다 못해
-            "가입 회원 확인" 같은 글자가 세로로 한 글자씩 쌓여 보이는 문제가 있었다(우측은
-            화면 밖으로 잘려서 아예 안 보임). min-w-0 + overflow-x-auto로 이 줄만 따로
-            가로 스크롤되게 하고, 각 버튼은 shrink-0 + whitespace-nowrap으로 절대 안
-            찌그러지게 고정했다 — 하단 메인 탭 줄과 동일한 해법. */}
+            {/* [수정] 세무자료 발송 / 가입 회원 확인 / 문의함은 하단 "더보기" 드롭다운으로 옮겼다.
+            상단에는 친구 추천 버튼만 남긴다. */}
             <div className="flex items-center gap-2 min-w-0 overflow-x-auto scrollbar-none">
-              {/* [수정] 그 달의 모든 지출/영수증을 세무사에게 이메일로 바로 보내는 버튼 (전체 화면에서 접근 가능) */}
-              <button
-                onClick={onOpenTaxPackage}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="hidden sm:inline">세무자료 발송</span>
-              </button>
-
-              {/* 가입 회원 및 동료 확인 버튼 */}
-              <button
-                onClick={onOpenUserDirectory}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
-              >
-                <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                <span>가입 회원 확인</span>
-              </button>
-
               {/* [추가] 친구 추천 — 로그인한 누구나(개인/회사 구성원 모두) 본인 추천 코드로
               지인을 초대할 수 있고, 초대받은 사람이 첫 구독 결제를 하면 서로 1개월씩 무료. */}
               {currentUser && (
@@ -459,21 +455,6 @@ export const Navigation: React.FC<Props> = ({
                 </button>
               )}
 
-              {/* [수정] 화면 위에 항상 떠있는 동그란 플로팅 버튼이었는데, 특히 모바일에서
-              화면을 가리고 걸리적거린다는 의견이 있었다. "가입 회원 확인"과 똑같이 헤더
-              안의 일반 버튼으로 옮겨서, 운영자 계정에게만 보이는 건 그대로 유지하면서
-              화면을 안 가리게 했다. */}
-              {isDeveloperAccount && (
-                <button
-                  type="button"
-                  onClick={() => setIsFeedbackInboxOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-semibold text-xs shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
-                  title="문의함 (관리자 전용)"
-                >
-                  <Inbox className="w-3.5 h-3.5 shrink-0" />
-                  <span>문의함</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -798,7 +779,7 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleMoreMenuToggle();
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 isMoreMenuOpen
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -806,6 +787,12 @@ export const Navigation: React.FC<Props> = ({
             >
               <span className="text-sm">더보기</span>
               <ChevronDown className={`w-5 h-5 transition-transform ${isMoreMenuOpen ? 'rotate-180' : ''}`} />
+              {/* [추가] 미읽음 문의가 있으면 더보기 버튼 우상단에 배지 표시 (개발자 계정 전용) */}
+              {unreadFeedbackCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadFeedbackCount > 9 ? '9+' : unreadFeedbackCount}
+                </span>
+              )}
             </button>
           </nav>
 
@@ -963,6 +950,51 @@ export const Navigation: React.FC<Props> = ({
                     <User className="w-4 h-4" />
                     <span>프로필 설정</span>
                   </button>
+
+                  {/* [이동] 세무자료 발송 (상단 버튼에서 이동) */}
+                  <button
+                    onClick={() => {
+                      onOpenTaxPackage();
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap border-t border-slate-200 text-slate-700"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>세무자료 발송</span>
+                  </button>
+
+                  {/* [이동] 가입 회원 확인 (상단 버튼에서 이동) */}
+                  <button
+                    onClick={() => {
+                      onOpenUserDirectory();
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                  >
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    <span>가입 회원 확인</span>
+                  </button>
+
+                  {/* [이동] 문의함 (상단 버튼에서 이동, 개발자 계정 전용, 미읽음 건수 배지) */}
+                  {isDeveloperAccount && (
+                    <button
+                      onClick={() => {
+                        setIsFeedbackInboxOpen(true);
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Inbox className="w-4 h-4" />
+                        <span>문의함</span>
+                      </span>
+                      {unreadFeedbackCount > 0 && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {unreadFeedbackCount > 9 ? '9+' : unreadFeedbackCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
 
                   {/* 문의하기 */}
                   <button
