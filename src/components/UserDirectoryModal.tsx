@@ -26,7 +26,21 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       if (!res.ok) throw new Error('회원 목록을 가져오지 못했습니다.');
       const data = await res.json();
       if (Array.isArray(data)) {
-        setUsers(data);
+        // [추가] 서버에서 받은 데이터와 currentUser를 동기화
+        // 현재 로그인한 사용자의 정보는 항상 currentUser의 최신 데이터로 override
+        const syncedData = data.map(user =>
+          user.id === currentUser.id
+            ? {
+                ...user,
+                name: currentUser.name || user.name,
+                email: currentUser.email || user.email,
+                phone: currentUser.phone || user.phone,
+                location: currentUser.location || user.location,
+                company: currentUser.company || user.company
+              }
+            : user
+        );
+        setUsers(syncedData);
       }
     } catch (err: any) {
       setError(err.message || '오류 발생');
@@ -44,8 +58,9 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
 
   // [추가] currentUser 프로필 변경 시 users 목록 자동 업데이트
   // currentUser의 주요 필드가 변경되면 해당 사용자의 정보를 즉시 동기화
+  // 또한 모달이 열려있을 때 항상 currentUser의 최신 데이터로 users 배열을 동기화
   useEffect(() => {
-    if (users.length > 0 && currentUser) {
+    if (isOpen && currentUser) {
       setUsers(prevUsers => {
         const updated = prevUsers.map(user =>
           user.id === currentUser.id
@@ -62,7 +77,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         return updated;
       });
     }
-  }, [currentUser?.name, currentUser?.email, currentUser?.phone, currentUser?.location, currentUser?.company]);
+  }, [isOpen, currentUser?.id, currentUser?.name, currentUser?.email, currentUser?.phone, currentUser?.location, currentUser?.company]);
 
   if (!isOpen) return null;
 
