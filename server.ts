@@ -328,8 +328,7 @@ import {
   getPlatformStats,
   createReferral,
   markReferralRewarded,
-  getReferralsForUser,
-  migrateScopedItemsToUserData
+  getReferralsForUser
 } from './src/db/neonStore.js';
 
 const app = express();
@@ -1866,7 +1865,8 @@ app.get('/api/announcements', (req, res) => {
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  const list: Announcement[] = (requester as any).announcements || [];
+  const dbData = getScopedData(req);
+  const list: Announcement[] = dbData.announcements || [];
   // 고정(pinned) 공지를 맨 위에, 그 안에서는 최신순으로 정렬.
   const sorted = [...list].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -1960,9 +1960,9 @@ function dmChannelId(userIdA: string, userIdB: string): string {
 // group: 채널은 채널명(그룹 id)만으로는 누가 멤버인지 알 수 없으므로, 그때그때
 // chatGroups에서 실제 멤버 목록을 찾아 확인한다. 그룹 자체가 없으면(삭제됐거나
 // 잘못된 id) 접근을 막는다.
-function canAccessGroupChannel(requester: any, channel: string, requesterId: string): boolean {
+function canAccessGroupChannel(dbData: any, channel: string, requesterId: string): boolean {
   const groupId = channel.slice('group:'.length);
-  const group = (requester.chatGroups || []).find((g: ChatGroup) => g.id === groupId);
+  const group = (dbData.chatGroups || []).find((g: ChatGroup) => g.id === groupId);
   return Boolean(group && group.memberUserIds.includes(requesterId));
 }
 
@@ -1972,6 +1972,7 @@ app.get('/api/chat/messages', (req, res) => {
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
   const channel = String(req.query.channel || 'team');
+  const dbData = getScopedData(req);
   // 1:1 대화방(dm:a:b)은 그 두 사람만, 소그룹 대화방(group:id)은 멤버로 지정된
   // 사람만 조회할 수 있게 막는다 — 안 그러면 채널 이름만 알면 남의 대화를 그대로
   // 읽을 수 있는 문제가 생긴다.
@@ -1980,11 +1981,11 @@ app.get('/api/chat/messages', (req, res) => {
     if (!parts.includes(requester.id)) {
       return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
     }
-  } else if (channel.startsWith('group:') && !canAccessGroupChannel(requester as any, channel, requester.id)) {
+  } else if (channel.startsWith('group:') && !canAccessGroupChannel(dbData, channel, requester.id)) {
     return res.status(403).json({ error: '이 그룹 대화를 조회할 권한이 없습니다.' });
   }
 
-  const all: ChatMessage[] = ((requester as any).chatMessages || []);
+  const all: ChatMessage[] = dbData.chatMessages || [];
   const since = req.query.sinceId ? String(req.query.sinceId) : undefined;
   let list = all.filter((m) => m.channel === channel);
   if (since) {
@@ -2044,7 +2045,8 @@ app.get('/api/chat/groups', (req, res) => {
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  const groups: ChatGroup[] = ((requester as any).chatGroups || []);
+  const dbData = getScopedData(req);
+  const groups: ChatGroup[] = dbData.chatGroups || [];
   const myGroups = groups.filter((g) => g.memberUserIds.includes(requester.id));
   res.json(myGroups);
 });
@@ -2438,8 +2440,6 @@ app.get('/api/auth/me', (req, res) => {
   const userId = req.headers['x-user-id'] as string; // 세션 미들웨어가 검증한 경우에만 존재
   const user = userId ? users.find(u => u.id === userId) : undefined;
   if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
-
-  // Neon DB에서 로드된 사용자 객체는 이미 businessCards, vehicles 등을 포함하고 있음
   res.json({
     user: {
       id: user.id,
@@ -2452,14 +2452,7 @@ app.get('/api/auth/me', (req, res) => {
       role: user.role,
       approvalStatus: user.approvalStatus,
       emailVerified: isEmailVerified(user.emailVerified),
-      signatureImage: user.signatureImage,
-      // Neon DB에서 이미 로드된 마이그레이션 데이터
-      businessCards: (user as any).businessCards || [],
-      vehicles: (user as any).vehicles || [],
-      workLogs: (user as any).workLogs || [],
-      dailyLogs: (user as any).dailyLogs || [],
-      projects: (user as any).projects || [],
-      expenses: (user as any).expenses || []
+      signatureImage: user.signatureImage
     }
   });
 });
@@ -2977,6 +2970,17 @@ app.get('/api/backup/export', async (req, res) => {
 
 // ------------------------------------------------------------------
 // 🗑️ 회원 탈퇴
+// [추가] 개인정보처리방침에 "회원 탈퇴를 요청한 경우 지체 없이 파기한다"고 명시돼 있는데,
+// 정작 탈퇴 기능이 없었다. 세션 탈취 등으로 악용되지 않도록 비밀번호 재확인을 받는다.
+//
+// - 개인(individual) 계정: 그 스코프가 곧 본인 데이터 전부이므로, 명함/프로젝트/차량기록
+//   등을 전부 지우고 계정도 삭제한다.
+// - 회사(company) 계정: 동료들과 데이터를 공유하는 구조라, 회사 데이터까지 지우면 다른
+//   사람들 업무가 멈춘다. 그래서 "이 사람 계정"만 지우고 회사 데이터는 그대로 둔다.
+//   단, 그 회사의 유일한 관리자인데 다른 동료가 남아있으면, 관리자가 없어져 아무도
+//   승인/관리를 못 하게 되므로 먼저 다른 사람에게 관리자 권한을 넘기도록 안내하고 막는다.
+// ------------------------------------------------------------------
+
 // [추가] 사용자 본인의 기본 프로필 정보(이름, 이메일, 전화번호, 회사명) 수정
 // 프로필 설정 UI에서 사용자가 자신의 정보를 편집하고 저장할 때 호출된다.
 app.put('/api/auth/me', async (req, res) => {
@@ -3001,16 +3005,6 @@ app.put('/api/auth/me', async (req, res) => {
   res.json(safeUser);
 });
 
-// [추가] 개인정보처리방침에 "회원 탈퇴를 요청한 경우 지체 없이 파기한다"고 명시돼 있는데,
-// 정작 탈퇴 기능이 없었다. 세션 탈취 등으로 악용되지 않도록 비밀번호 재확인을 받는다.
-//
-// - 개인(individual) 계정: 그 스코프가 곧 본인 데이터 전부이므로, 명함/프로젝트/차량기록
-//   등을 전부 지우고 계정도 삭제한다.
-// - 회사(company) 계정: 동료들과 데이터를 공유하는 구조라, 회사 데이터까지 지우면 다른
-//   사람들 업무가 멈춘다. 그래서 "이 사람 계정"만 지우고 회사 데이터는 그대로 둔다.
-//   단, 그 회사의 유일한 관리자인데 다른 동료가 남아있으면, 관리자가 없어져 아무도
-//   승인/관리를 못 하게 되므로 먼저 다른 사람에게 관리자 권한을 넘기도록 안내하고 막는다.
-// ------------------------------------------------------------------
 app.post('/api/auth/withdraw', async (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
@@ -4065,23 +4059,17 @@ app.get('/api/img/my-profile/:side', (req, res) => {
 });
 
 app.get('/api/contacts', (req, res) => {
+  const dbData = getScopedData(req);
   const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-
-  // Neon DB에서 사용자의 businessCards 데이터 직접 로드
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  // Neon DB에서 로드된 사용자 객체에서 businessCards, groups 추출
-  const businessCards = (requester as any).businessCards || [];
-  const groups = (requester as any).groups || [];
-
   // [수정] "나만 보기(비공개)"로 설정된 명함은 등록한 본인 것만 내려주고, 다른 사람에게는 숨긴다.
+  // addedByUserId가 아예 없는(기존 데이터) 명함은 예전처럼 회사 전체에 그대로 보인다.
+  // [추가] 명함 자체는 공개여도, 그 명함이 속한 그룹 중 하나가 "비공개 그룹"이고 내가 그
+  // 그룹을 만든 사람이 아니면 역시 숨긴다 — 그룹을 비공개로 만든 의미가 있으려면, 그
+  // 그룹에 들어있는 명함도 함께 안 보여야 한다.
   const privateGroupIds = new Set(
-    groups.filter(g => g.isPrivate && g.createdByUserId && g.createdByUserId !== requesterId).map(g => g.id)
+    dbData.groups.filter(g => g.isPrivate && g.createdByUserId && g.createdByUserId !== requesterId).map(g => g.id)
   );
-  const visible = businessCards.filter(c => {
+  const visible = dbData.contacts.filter(c => {
     if (c.isPrivate && c.addedByUserId && c.addedByUserId !== requesterId) return false;
     if (privateGroupIds.size > 0 && getContactGroupIds(c).some(gid => privateGroupIds.has(gid))) return false;
     return true;
@@ -4253,17 +4241,11 @@ app.post('/api/admin/contacts-backslash-clean', async (req, res) => {
 
 // 그룹 CRUD
 app.get('/api/groups', (req, res) => {
+  const dbData = getScopedData(req);
   const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  const groups = (requester as any).groups || [];
   // [수정] "나만 보기(비공개)"로 설정된 그룹은 만든 본인에게만 보이고, 다른 사람에게는
   // 목록/필터 칩 자체에서 숨긴다. 명함의 isPrivate와 동일한 방식.
-  const visible = groups.filter(g => !g.isPrivate || !g.createdByUserId || g.createdByUserId === requesterId);
+  const visible = dbData.groups.filter(g => !g.isPrivate || !g.createdByUserId || g.createdByUserId === requesterId);
   res.json(visible);
 });
 
@@ -5330,25 +5312,13 @@ app.post('/api/contacts/import', async (req, res) => {
 
 // 내 명함 프로필 API
 app.get('/api/my-profile', async (req, res) => {
-  const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  const myProfile = ((requester as any).myProfile || {
-    name: '', company: '', department: '', title: '',
-    phoneMobile: '', phoneOffice: '', phoneFax: '', email: '',
-    address: '', snsUrl: '', website: '', memo: ''
-  }) as MyProfile;
-
+  const dbData = getScopedData(req);
   // [수정] 공유 랜딩 페이지(/s/:slug)용 공개 식별자가 없으면 최초 조회 시 자동 생성해서 저장한다.
-  if (!myProfile.shareSlug) {
-    myProfile.shareSlug = crypto.randomBytes(6).toString('hex');
-    await setScopedProfile((req as any).scopeId, myProfile);
+  if (!dbData.myProfile.shareSlug) {
+    dbData.myProfile.shareSlug = crypto.randomBytes(6).toString('hex');
+    await setScopedProfile((req as any).scopeId, dbData.myProfile);
   }
-  res.json(myProfile);
+  res.json(dbData.myProfile);
 });
 
 app.put('/api/my-profile', async (req, res) => {
@@ -5549,14 +5519,8 @@ app.get('/s/:slug/photo', async (req, res) => {
 
 // 프로젝트 CRUD API
 app.get('/api/projects', (req, res) => {
-  const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  res.json((requester as any).projects || []);
+  const dbData = getScopedData(req);
+  res.json(dbData.projects);
 });
 
 app.post('/api/projects', async (req, res) => {
@@ -5737,15 +5701,8 @@ app.delete('/api/projects/:id/followups/:fid', async (req, res) => {
 // ==========================================
 
 app.get('/api/vehicles', (req, res) => {
-  const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  // Neon DB에서 사용자의 vehicles 데이터 직접 로드
-  res.json((requester as any).vehicles || []);
+  const dbData = getScopedData(req);
+  res.json(dbData.vehicles || []);
 });
 
 app.post('/api/vehicles', async (req, res) => {
@@ -6735,14 +6692,8 @@ app.use('/caldav', caldavRouter);
 
 // 일일 업무일지 CRUD
 app.get('/api/worklogs/daily', (req, res) => {
-  const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  res.json((requester as any).dailyLogs || []);
+  const dbData = getScopedData(req);
+  res.json(dbData.dailyLogs || []);
 });
 
 app.post('/api/worklogs/daily', async (req, res) => {
@@ -6842,14 +6793,8 @@ app.delete('/api/worklogs/daily/:id', async (req, res) => {
 
 // 주간 업무일지 CRUD
 app.get('/api/worklogs/weekly', (req, res) => {
-  const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-
-  if (!requester) {
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  res.json((requester as any).weeklyLogs || []);
+  const dbData = getScopedData(req);
+  res.json(dbData.weeklyLogs || []);
 });
 
 app.post('/api/worklogs/weekly', async (req, res) => {
@@ -7318,31 +7263,6 @@ app.post('/api/admin/migrate-scope', async (req, res) => {
   } catch (err: any) {
     console.error('scope migrate 오류:', err);
     res.status(500).json({ error: '데이터 병합 중 오류가 발생했습니다.' });
-  }
-});
-
-// [새로 추가] scoped_items 데이터를 app_users.data로 일괄 마이그레이션 (관리자 전용)
-app.post('/api/admin/migrate-scoped-items', async (req, res) => {
-  const userId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === userId);
-  if (!requester || requester.email !== ADMIN_EMAIL) {
-    return res.status(403).json({ error: '접근 권한이 없습니다.' });
-  }
-
-  try {
-    console.log('[API] 관리자가 scoped_items → app_users.data 마이그레이션 시작');
-    const result = await migrateScopedItemsToUserData();
-
-    if (result.success) {
-      // 마이그레이션 후 메모리 캐시 리로드
-      users = await getUsers();
-      res.json({ success: true, message: result.message });
-    } else {
-      res.status(500).json({ success: false, message: result.message });
-    }
-  } catch (error) {
-    console.error('마이그레이션 API 오류:', error);
-    res.status(500).json({ error: '마이그레이션 실패' });
   }
 });
 
@@ -8614,6 +8534,8 @@ app.post('/api/send-tax-package', async (req, res) => {
 });
 
 async function startServer() {
+  await bootstrapUsers();
+
   // [수정] 마케팅 홈페이지(bizcardai.kr)는 Render 도메인 추가 비용(3번째 도메인부터
   // 월 $0.25) 없이 Netlify 무료 호스팅에 별도로 올리기로 해서, 이 서버가 Host 헤더를
   // 보고 홈페이지/앱을 분기하던 라우팅은 더 이상 필요 없어 제거했다. 이제 이 서버는
@@ -8638,20 +8560,6 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 명함 관리 서버가 포트 ${PORT}번에서 성공적으로 가동되었습니다.`);
-  });
-
-  // [수정] bootstrapUsers를 배경 작업으로 실행하여 서버 응답성 확보
-  // 서버가 즉시 요청을 처리할 수 있도록 await 제거
-  // Health Check timeout 방지를 위해 캐시 로드는 완전히 백그라운드에서 진행
-  const bootstrapPromise = bootstrapUsers().catch(err => {
-    console.error('사용자 부트스트랩 오류:', err);
-  });
-
-  // 백그라운드 부트스트랩 진행 상황을 로깅
-  bootstrapPromise.then(() => {
-    console.log('✅ 사용자 부트스트랩 및 캐시 로드 완료');
-  }).catch(err => {
-    console.error('❌ 사용자 부트스트랩 실패:', err.message);
   });
 }
 

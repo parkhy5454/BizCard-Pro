@@ -47,7 +47,7 @@ export default function App() {
 
   // 메인 내비게이션 탭 상태
   // [추가] 조직도/공지사항/사내 메신저 - 그룹웨어(다우오피스 등) 대비 부족했던 핵심 기능 보강
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile'>('cards');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat'>('cards');
   
   // 데이터 상태
   const [contacts, setContacts] = useState<BusinessCard[]>([]);
@@ -738,7 +738,7 @@ export default function App() {
                         name: updatedData.name,
                         email: updatedData.email,
                         phone: updatedData.phone,
-                        companyName: updatedData.company,
+                        companyName: updatedData.companyName,
                         location: updatedData.location,
                       }),
                     });
@@ -748,14 +748,8 @@ export default function App() {
                     }
 
                     const updatedUser = await response.json();
-                    // 서버에서 받은 데이터를 로컬 상태로 업데이트
-                    // (company 필드는 companyName으로 매핑되므로 다시 수정)
-                    const normalizedUser = {
-                      ...updatedUser,
-                      company: updatedUser.companyName,
-                    };
-                    setCurrentUser(normalizedUser);
-                    localStorage.setItem('bizcard_user', JSON.stringify(normalizedUser));
+                    setCurrentUser(updatedUser);
+                    localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
                   } catch (error) {
                     console.error('Profile update error:', error);
                     throw error;

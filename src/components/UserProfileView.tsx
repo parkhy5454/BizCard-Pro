@@ -26,7 +26,6 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
-  // [추가] currentUser가 변경되면 formData도 업데이트 (저장 후 값이 돌아가는 문제 해결)
   useEffect(() => {
     setFormData({
       name: currentUser.name || '',
@@ -51,7 +50,6 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
     try {
       await onUpdate(formData);
       setSaveMessage('success');
-      // 2초 후 메시지 사라짐 (좀 더 오래 표시)
       setTimeout(() => setSaveMessage(''), 2000);
     } catch (error) {
       setSaveMessage('error');
@@ -72,7 +70,7 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
   return (
     <div className="max-w-2xl mx-auto py-8">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        
+
         {/* 헤더 */}
         <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-6 border-b border-slate-200">
           <div className="flex items-center gap-3">
@@ -88,7 +86,7 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate }) => {
 
         {/* 프로필 폼 */}
         <div className="p-6 space-y-5">
-          
+
           {/* 이름 필드 */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700">
