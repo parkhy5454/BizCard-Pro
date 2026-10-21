@@ -303,37 +303,6 @@ export const Navigation: React.FC<Props> = ({
                 <span className="shrink-0">
                   <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
                 </span>
-                <button
-                  onClick={onOpenSubscriptionModal}
-                  title="구독 관리"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-indigo-400 border border-slate-200 transition-colors shrink-0"
-                >
-                  <CreditCard className="w-4 h-4" />
-                </button>
-                {canAccessBackup && (
-                  <button
-                    onClick={handleDownloadBackup}
-                    disabled={isDownloadingBackup}
-                    title="데이터 백업"
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-emerald-500 border border-slate-200 transition-colors disabled:opacity-40 shrink-0"
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                )}
-                <button
-                  onClick={onLogout}
-                  title="로그아웃"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-rose-400 border border-slate-200 transition-colors shrink-0"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={onOpenWithdrawModal}
-                  title="회원 탈퇴"
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-rose-500 border border-slate-200 transition-colors shrink-0"
-                >
-                  <UserX className="w-4 h-4" />
-                </button>
               </div>
             )}
           </div>
@@ -403,39 +372,6 @@ export const Navigation: React.FC<Props> = ({
                 <span className="hidden md:block">
                   <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
                 </span>
-                <button
-                  onClick={onOpenSubscriptionModal}
-                  title="구독 관리"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-400 transition-colors hidden md:block"
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                </button>
-                {canAccessBackup && (
-                  <button
-                    onClick={handleDownloadBackup}
-                    disabled={isDownloadingBackup}
-                    title="데이터 백업 (전체 내려받기)"
-                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-emerald-500 transition-colors ml-1 hidden md:block disabled:opacity-40"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <button
-                  onClick={onLogout}
-                  title="로그아웃"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-400 transition-colors ml-1 hidden md:block"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-                {/* [추가] 회원 탈퇴 — 자주 누를 일이 없는 파괴적 작업이라 로그아웃보다 눈에 덜 띄게,
-                하지만 접근은 가능하게 둔다. */}
-                <button
-                  onClick={onOpenWithdrawModal}
-                  title="회원 탈퇴"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-rose-500 transition-colors hidden md:block"
-                >
-                  <UserX className="w-3.5 h-3.5" />
-                </button>
               </div>
             )}
 
@@ -798,7 +734,7 @@ export const Navigation: React.FC<Props> = ({
 
         {/* 드롭다운 메뉴 (부모 div에서 절대 위치 렌더링) */}
         {isMoreMenuOpen && (
-          <div className="absolute right-2 bottom-14 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+          <div className="absolute right-2 bottom-14 max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
                   {/* 업무일지 */}
                   <button
                     onClick={() => {
@@ -1006,6 +942,57 @@ export const Navigation: React.FC<Props> = ({
                   >
                     <MessageCircleQuestion className="w-4 h-4" />
                     <span>문의하기</span>
+                  </button>
+
+                  {/* [이동] 계정 영역: 구독 / 데이터 백업 / 로그아웃 / 회원 탈퇴 (상단에서 이동).
+                  회원 탈퇴는 파괴적 작업이라 맨 아래 구분된 자리에 빨간색으로 둔다. */}
+                  <div className="border-t border-slate-200 my-1" />
+
+                  <button
+                    onClick={() => {
+                      onOpenSubscriptionModal();
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                  >
+                    <CreditCard className="w-4 h-4 text-indigo-400" />
+                    <span>구독 관리</span>
+                  </button>
+
+                  {canAccessBackup && (
+                    <button
+                      onClick={() => {
+                        handleDownloadBackup();
+                        setIsMoreMenuOpen(false);
+                      }}
+                      disabled={isDownloadingBackup}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700 disabled:opacity-40"
+                    >
+                      <Download className="w-4 h-4 text-emerald-500" />
+                      <span>{isDownloadingBackup ? '백업 중...' : '데이터 백업'}</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      onLogout();
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                  >
+                    <LogOut className="w-4 h-4 text-slate-500" />
+                    <span>로그아웃</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      onOpenWithdrawModal();
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-rose-50 transition-all whitespace-nowrap text-rose-600"
+                  >
+                    <UserX className="w-4 h-4" />
+                    <span>회원 탈퇴</span>
                   </button>
             </div>
           )}
