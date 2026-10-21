@@ -1,16 +1,8 @@
-// OpenCV.js 동적 로딩 (번들 최적화)
-let openCvLoadPromise: Promise<any> | null = null;
-async function loadOpenCvModule() {
-  if (openCvLoadPromise) return openCvLoadPromise;
-  openCvLoadPromise = import('@techstark/opencv-js').then(m => m.default || m);
-  return openCvLoadPromise;
-}
-
-// OpenCV.js(WASM)를 @techstark/opencv-js 패키지로 지연 로딩해서 사용한다.
-// (동적 import()를 쓰면 Vite가 자동으로 별도 청크로 분리해서, 스캔 화면을 열 때만 내려받는다.)
+// OpenCV.js(WASM)를 완전히 동적으로 로드한다 (정적 import 제거, CDN 중심).
+// (번들 완성 후 실제 사용 시점에만 로드하므로, 번들 크기를 줄이고 초기화 순서 문제를 근본적으로 해결한다.)
 //
 // 제공 기능:
-//  - loadOpenCv(): OpenCV.js 지연 로딩
+//  - loadOpenCv(): OpenCV.js 동적 로딩 (npm 시도 후 CDN 폴백)
 //  - detectQuad(): 카메라 프레임에서 문서로 보이는 사각형(네 모서리) 실시간 탐지
 //  - warpToRect(): 탐지된 네 모서리를 기준으로 perspective transform 적용 (비스듬한 문서를 정면 직사각형으로 보정)
 //  - computeBlurScore() / computeBrightness() / computeGlareRatio(): 초점/밝기/반사광 품질 체크
@@ -31,93 +23,161 @@ export interface DetectedQuad {
 let openCvPromise: Promise<any> | null = null;
 
 // OpenCV.js를 지연 로딩. 여러 컴포넌트에서 동시에 호출해도 한 번만 로딩되도록 프로미스를 캐시한다.
-// [수정] 네트워크 순간 오류로 로딩이 실패하는 경우를 대비해, 실패 시 한 번 더 자동으로 재시도한다.
+// [전략]
+// 1. npm @techstark/opencv-js 패키지 시도 (3회 재시도)
+// 2. 실패하면 공식 CDN에서 직접 로드 (https://docs.opencv.org/4.9.0/opencv.js)
+// 3. 둘 다 실패하면 이전 로드 시도 캐시를 비우고 다음 호출 때 처음부터 다시 시도
 export function loadOpenCv(): Promise<any> {
   const w = window as any;
-  if (w.cv && w.cv.Mat) return Promise.resolve(w.cv);
-  if (openCvPromise) return openCvPromise;
 
-  const attemptLoad = async (): Promise<any> => {
-    // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
-let cv = window.cv || (globalThis as any).cv;
+  // 이미 로드된 경우 즉시 반환
+  if (w.cv && w.cv.Mat && typeof w.cv.Mat === 'function') {
+    console.log('[OpenCV] 이미 로드된 cv 객체 사용');
+    return Promise.resolve(w.cv);
+  }
 
-    // 이 패키지는 cv 자체가 Promise이거나(WASM 런타임 초기화까지 기다리는 형태),
-    // 이미 준비된 객체이거나, onRuntimeInitialized 콜백을 기다려야 하는 경우가 있다.
-    if (cv && typeof cv.then === 'function') {
-      cv = await cv;
-    } else if (cv && !cv.Mat) {
-      await new Promise<void>((resolve) => {
-        cv.onRuntimeInitialized = () => resolve();
-      });
+  // 진행 중인 로딩이 있으면 그 결과를 기다림
+  if (openCvPromise) {
+    return openCvPromise;
+  }
+
+  // npm 패키지에서 로드 시도
+  const attemptNpmLoad = async (attemptNum: number): Promise<any> => {
+    try {
+      console.log(`[OpenCV] npm 패키지 로드 시도 (${attemptNum}/3)...`);
+      const module = await import('@techstark/opencv-js');
+      let cv = module.default || module;
+
+      // WASM 런타임이 Promise인 경우 대기
+      if (cv && typeof cv.then === 'function') {
+        cv = await cv;
+      }
+
+      // onRuntimeInitialized 콜백을 기다려야 하는 경우
+      if (cv && !cv.Mat) {
+        cv = await new Promise<any>((resolve) => {
+          cv.onRuntimeInitialized = () => resolve(cv);
+        });
+      }
+
+      if (!cv || !cv.Mat || typeof cv.Mat !== 'function') {
+        throw new Error('cv.Mat 초기화 실패');
+      }
+
+      console.log('[OpenCV] npm 패키지에서 로드 완료');
+      w.cv = cv;
+      return cv;
+    } catch (err) {
+      console.warn(`[OpenCV] npm 로드 실패 (${attemptNum}/3):`, err);
+      if (attemptNum < 3) {
+        // 다음 시도 전에 짧은 대기
+        await new Promise(r => setTimeout(r, 500 * attemptNum));
+        return attemptNpmLoad(attemptNum + 1);
+      }
+      throw err;
     }
-
-    if (!cv || !cv.Mat) throw new Error('OpenCV 모듈 초기화에 실패했습니다.');
-    w.cv = cv;
-    return cv;
   };
 
-  // [수정] npm 패키지 방식(ES 모듈 동적 import)이 특정 브라우저/네트워크 환경에서 반복적으로
-  // 실패하는 경우를 대비해, 완전히 다른 방식(공식 OpenCV.js CDN을 <script> 태그로 직접 삽입)으로
-  // 한 번 더 시도하는 최후의 수단을 추가한다. 두 경로 모두 실패해야만 진짜로 실패로 처리된다.
-  const attemptLoadFromCdn = (): Promise<any> => {
+  // CDN에서 로드 (최후의 수단)
+  const attemptCdnLoad = (): Promise<any> => {
     return new Promise((resolve, reject) => {
       const w2 = window as any;
-      if (w2.cv && w2.cv.Mat) { resolve(w2.cv); return; }
 
-      const existing = document.getElementById('opencv-cdn-fallback-script') as HTMLScriptElement | null;
+      // CDN 로드 이후 이미 cv가 있으면 즉시 사용
+      if (w2.cv && w2.cv.Mat && typeof w2.cv.Mat === 'function') {
+        console.log('[OpenCV] CDN에서 이미 로드된 cv 객체 사용');
+        return resolve(w2.cv);
+      }
+
+      // 이미 스크립트 태그가 있으면 (이전 시도 잔재), 초기화 완료 폴링
+      const existing = document.getElementById('opencv-cdn-script') as HTMLScriptElement | null;
       if (existing) {
-        // 이미 스크립트 태그가 붙어있다면(이전 시도 잔재) 초기화 완료를 폴링으로 기다린다
-        const started = Date.now();
-        const check = () => {
-          if (w2.cv && w2.cv.Mat) { resolve(w2.cv); return; }
-          if (Date.now() - started > 20000) { reject(new Error('CDN 폴백에서 OpenCV.js 초기화 시간 초과')); return; }
-          window.setTimeout(check, 250);
-        };
-        check();
+        console.log('[OpenCV] 기존 CDN 스크립트 태그 발견, 초기화 대기 중...');
+        const checkInterval = setInterval(() => {
+          const w3 = window as any;
+          if (w3.cv && w3.cv.Mat && typeof w3.cv.Mat === 'function') {
+            clearInterval(checkInterval);
+            console.log('[OpenCV] CDN 스크립트 초기화 완료');
+            resolve(w3.cv);
+          }
+        }, 500);
+
+        // 30초 타임아웃
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          reject(new Error('CDN에서 OpenCV.js 초기화 시간 초과 (30초)'));
+        }, 30000);
         return;
       }
 
+      // 새 스크립트 태그 생성 및 삽입
+      console.log('[OpenCV] CDN 스크립트 태그 생성 및 삽입...');
       const script = document.createElement('script');
-      script.id = 'opencv-cdn-fallback-script';
+      script.id = 'opencv-cdn-script';
       script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
       script.async = true;
+
       script.onload = () => {
+        console.log('[OpenCV] CDN 스크립트 로드 완료, cv 초기화 확인 중...');
         const w3 = window as any;
-        if (w3.cv && w3.cv.Mat) { resolve(w3.cv); return; }
-        if (w3.cv) {
-          w3.cv.onRuntimeInitialized = () => resolve(w3.cv);
+
+        if (w3.cv && w3.cv.Mat && typeof w3.cv.Mat === 'function') {
+          console.log('[OpenCV] CDN에서 로드 완료, cv.Mat 초기화됨');
+          resolve(w3.cv);
+        } else if (w3.cv && typeof w3.cv.then === 'function') {
+          // cv가 Promise인 경우
+          w3.cv.then((cv: any) => {
+            console.log('[OpenCV] CDN cv Promise 해결');
+            resolve(cv);
+          }).catch((err: any) => {
+            reject(new Error('CDN cv Promise 실패: ' + err.message));
+          });
+        } else if (w3.cv && w3.cv.onRuntimeInitialized) {
+          // onRuntimeInitialized 콜백 필요
+          console.log('[OpenCV] onRuntimeInitialized 콜백 등록...');
+          w3.cv.onRuntimeInitialized = () => {
+            console.log('[OpenCV] onRuntimeInitialized 콜백 호출됨');
+            resolve(w3.cv);
+          };
         } else {
-          reject(new Error('CDN 스크립트는 로드됐지만 cv 객체를 찾지 못했습니다.'));
+          reject(new Error('CDN 스크립트는 로드됐지만 cv 객체가 초기화되지 않았습니다'));
         }
       };
-      script.onerror = () => reject(new Error('CDN에서 OpenCV.js 스크립트 로딩 자체에 실패했습니다.'));
+
+      script.onerror = () => {
+        reject(new Error('CDN 스크립트 네트워크 로드 실패 (https://docs.opencv.org/4.9.0/opencv.js)'));
+      };
+
+      // 10초 타임아웃
+      setTimeout(() => {
+        if (!w2.cv || !w2.cv.Mat) {
+          reject(new Error('CDN 스크립트 로드 타임아웃 (10초)'));
+        }
+      }, 10000);
+
       document.head.appendChild(script);
     });
   };
 
-  const withTimeout = (task: Promise<any>, ms: number) => Promise.race([
-    task,
-    new Promise<never>((_, reject) => {
-      window.setTimeout(() => reject(new Error(`OpenCV.js 초기화가 시간 내에 끝나지 않았습니다 (${Math.round(ms / 1000)}초 초과).`)), ms);
-    })
-  ]);
-
-  const loadWithRetry = async () => {
+  // 메인 로딩 로직: npm 시도 → CDN 폴백
+  const loadWithFallback = async (): Promise<any> => {
     try {
-      return await withTimeout(attemptLoad(), 18000);
-    } catch (firstErr) {
-      console.warn('OpenCV.js 1차 로딩 실패, 한 번 더 시도합니다:', firstErr);
+      return await attemptNpmLoad(1);
+    } catch (npmErr) {
+      console.warn('[OpenCV] npm 로드 모두 실패, CDN 폴백 시작:', npmErr);
       try {
-        return await withTimeout(attemptLoad(), 22000);
-      } catch (secondErr) {
-        console.warn('OpenCV.js 2차 로딩(같은 방식)도 실패, CDN 폴백으로 마지막 시도합니다:', secondErr);
-        return await withTimeout(attemptLoadFromCdn(), 25000);
+        return await attemptCdnLoad();
+      } catch (cdnErr) {
+        console.error('[OpenCV] CDN 로드도 실패:', cdnErr);
+        throw new Error(`OpenCV.js 로드 완전 실패 - npm: ${npmErr instanceof Error ? npmErr.message : String(npmErr)} / CDN: ${cdnErr instanceof Error ? cdnErr.message : String(cdnErr)}`);
       }
     }
   };
 
-  openCvPromise = loadWithRetry().catch((err) => {
-    openCvPromise = null; // 재시도까지 모두 실패한 경우, 다음 진입 때 다시 로딩을 시도할 수 있도록 캐시를 비운다
+  // 프로미스 캐시 저장 (실패 시 캐시 제거)
+  openCvPromise = loadWithFallback().catch((err) => {
+    console.error('[OpenCV] 최종 로드 실패, 캐시 제거:', err);
+    openCvPromise = null; // 다음 호출 때 재시도 가능하도록 캐시 비움
     throw err;
   });
 
@@ -176,7 +236,7 @@ const DETECTION_STRATEGY_LADDER: DetectionStrategy[] = [
 
 // [추가] 명함 비율(targetAspect)과 이보다 더 벌어지면 "명함 모양이 아니다"로 보고 후보에서
 // 제외한다. CropAdjustModal의 동일한 안전장치와 같은 값(0.3)을 쓴다 — 정사각형(비율 1.0)은
-// 명함 비율(1.586) 대비 차이가 약 0.37이라 이 문턱을 확실히 넘어서 걸러진다.
+// 명함 비율(1.586) 대비 차이가 약 0.37이라 이 턱을 확실히 넘어서 걸러진다.
 const MAX_ACCEPTABLE_ASPECT_DIFF = 0.3;
 
 function detectQuadOnce(
