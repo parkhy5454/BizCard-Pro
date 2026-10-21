@@ -5,7 +5,6 @@ export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
     include: ['@techstark/opencv-js'],
-    exclude: []
   },
   build: {
     rollupOptions: {
@@ -14,7 +13,6 @@ export default defineConfig({
           'opencv': ['@techstark/opencv-js']
         }
       }
-    },
-    minify: 'terser'
+    }
   }
 });
