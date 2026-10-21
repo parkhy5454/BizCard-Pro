@@ -39,7 +39,18 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     if (isOpen) {
       fetchUsers();
     }
-  }, [isOpen]);
+  }, [isOpen, currentUser]);
+
+  // [추가] currentUser 정보 변경 시 users 목록에서 해당 사용자 정보 자동 업데이트
+  useEffect(() => {
+    if (users.length > 0 && currentUser) {
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === currentUser.id ? { ...user, ...currentUser } : user
+        )
+      );
+    }
+  }, [currentUser?.name, currentUser?.email, currentUser?.phone, currentUser?.location, currentUser?.company]);
 
   if (!isOpen) return null;
 
