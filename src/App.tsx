@@ -726,28 +726,14 @@ export default function App() {
                 key={viewResetNonce}
                 currentUser={currentUser}
                 onUpdate={async (updatedData) => {
-                  try {
-                    // 서버에 업데이트
-                    const res = await fetch('/api/auth/users', {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'x-user-id': currentUser.id
-                      },
-                      body: JSON.stringify(updatedData)
-                    });
+                  // 로컬 상태 및 localStorage 업데이트
+                  // [주의] 서버 엔드포인트는 아직 제공되지 않음
+                  const updatedUser = { ...currentUser, ...updatedData };
+                  setCurrentUser(updatedUser);
+                  localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
 
-                    if (!res.ok) {
-                      throw new Error('프로필 업데이트 실패');
-                    }
-
-                    // 로컬 상태 및 localStorage 업데이트
-                    const updatedUser = { ...currentUser, ...updatedData };
-                    setCurrentUser(updatedUser);
-                    localStorage.setItem('bizcard_user', JSON.stringify(updatedUser));
-                  } catch (err) {
-                    console.error('프로필 업데이트 오류:', err);
-                  }
+                  // 모든 관련 UI 즉시 업데이트되도록 강제 렌더링 트리거
+                  // (currentUser 변경으로 인한 자동 리렌더링)
                 }}
               />
             )}

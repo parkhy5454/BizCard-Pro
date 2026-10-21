@@ -35,20 +35,32 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
     }
   };
 
+  // 모달이 열릴 때만 fetchUsers 호출
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
     }
-  }, [isOpen, currentUser]);
+  }, [isOpen]);
 
-  // [추가] currentUser 정보 변경 시 users 목록에서 해당 사용자 정보 자동 업데이트
+  // [추가] currentUser 프로필 변경 시 users 목록 자동 업데이트
+  // currentUser의 주요 필드가 변경되면 해당 사용자의 정보를 즉시 동기화
   useEffect(() => {
     if (users.length > 0 && currentUser) {
-      setUsers(prevUsers =>
-        prevUsers.map(user =>
-          user.id === currentUser.id ? { ...user, ...currentUser } : user
-        )
-      );
+      setUsers(prevUsers => {
+        const updated = prevUsers.map(user =>
+          user.id === currentUser.id
+            ? {
+                ...user,
+                name: currentUser.name || user.name,
+                email: currentUser.email || user.email,
+                phone: currentUser.phone || user.phone,
+                location: currentUser.location || user.location,
+                company: currentUser.company || user.company
+              }
+            : user
+        );
+        return updated;
+      });
     }
   }, [currentUser?.name, currentUser?.email, currentUser?.phone, currentUser?.location, currentUser?.company]);
 
