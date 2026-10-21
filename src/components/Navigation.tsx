@@ -278,7 +278,7 @@ export const Navigation: React.FC<Props> = ({
     만들어서, 실선 구분선(border-b)이 있는데도 그 아래가 회색 그라데이션처럼 보인다는
     지적이 있었다. 실선 구분선만으로 충분히 구분되므로 그림자를 없애고 그 아래 영역이
     바로 깔끔한 흰색이 되도록 한다. */}
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 pt-[env(safe-area-inset-top)]">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* [수정] 상단 바는 모든 화면 크기에서 한 줄: 로고 / (데스크톱 명함 검색) / 전체검색·알림·계정.
         회사 배너와 계정 기능(구독·백업·로그아웃·탈퇴)은 우측 계정(아바타) 메뉴로 모았다. */}
@@ -381,6 +381,16 @@ export const Navigation: React.FC<Props> = ({
                       <CreditCard className="w-4 h-4 text-indigo-400" />
                       <span>구독 관리</span>
                     </button>
+
+                    {currentUser && (
+                      <button
+                        onClick={() => { setIsAccountMenuOpen(false); setIsReferralOpen(true); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-50 transition-all whitespace-nowrap text-slate-700"
+                      >
+                        <Gift className="w-4 h-4 text-amber-600" />
+                        <span>친구 추천</span>
+                      </button>
+                    )}
 
                     {canAccessBackup && (
                       <button
