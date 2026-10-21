@@ -732,9 +732,9 @@ export const Navigation: React.FC<Props> = ({
     )}
 
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-        <div className="fixed bottom-0 left-0 right-0 flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
+        <div className="fixed bottom-0 w-full flex flex-col items-start py-2 gap-1.5 border-t border-slate-200 text-sm bg-white z-50">
 
-          <nav className="flex items-center gap-1 pb-1 px-2 overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ minWidth: '100%' }}>
+          <nav className="flex items-center gap-1 w-full pb-1 px-2 overflow-x-auto overflow-y-hidden scrollbar-hide flex-nowrap">
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
