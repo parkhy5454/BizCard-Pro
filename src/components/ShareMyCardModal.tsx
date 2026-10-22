@@ -1,3 +1,4 @@
+import { APP_SHARE_THUMB_URL } from '../appConfig.js';
 import React, { useState, useEffect } from 'react';
 import { QrCode, Send, MessageSquare, Mail, Share2, Copy, Check, Edit3, Smartphone, ExternalLink, Globe, Camera, Sparkles, X, CheckCircle2 } from 'lucide-react';
 import { formatPhoneNumber } from '../phoneFormat.js';
@@ -121,7 +122,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const shareUrl = profile.shareSlug ? `${window.location.origin}/s/${profile.shareSlug}` : (profile.website || window.location.origin);
   const shareImageUrl = profile.shareSlug && profile.frontImage
     ? `${window.location.origin}/s/${profile.shareSlug}/photo`
-    : 'https://bizcard-pro.onrender.com/kakao-share-thumb.png';
+    : APP_SHARE_THUMB_URL;
 
   // 공유 메시지 텍스트 (링크를 포함해서, 문자/이메일/트위터로 보내도 상대방이 눌러서 실제 명함 페이지를 볼 수 있게 한다)
   const shareMessage = `${profile.company} ${profile.department} ${profile.name} ${profile.title}\n📞 핸드폰: ${profile.phoneMobile}\n📧 이메일: ${profile.email}\n🏢 주소: ${profile.address}\n🔗 명함 보기: ${shareUrl}`;

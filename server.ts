@@ -6421,7 +6421,7 @@ app.get('/api/worklogs/calendar.ics', (req, res) => {
 // 타이밍)에서 조정이 더 필요할 수 있다.
 //
 // 사용법(아이폰): 설정 > 캘린더 > 계정 > 계정 추가 > 기타 > CalDAV 계정 추가
-//   서버: bizcard-pro.onrender.com  사용자 이름: (로그인 이메일)  암호: (로그인 비밀번호)
+//   서버: app.bizcardai.kr  사용자 이름: (로그인 이메일)  암호: (로그인 비밀번호)
 // ------------------------------------------------------------------
 
 // CalDAV는 세션 대신 매 요청마다 Basic 인증(이메일+비밀번호)을 사용한다.
@@ -7127,7 +7127,7 @@ app.delete('/api/worklogs/weekly/:id', async (req, res) => {
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || '';
 const SMTP_FROM_NAME = process.env.SMTP_FROM_NAME || 'BizCard 전자결재';
-const APP_BASE_URL = process.env.APP_BASE_URL || 'https://bizcard-pro.onrender.com';
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://app.bizcardai.kr';
 
 const isMailerConfigured = Boolean(BREVO_API_KEY && SMTP_FROM_EMAIL);
 if (!isMailerConfigured) {

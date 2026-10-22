@@ -1,3 +1,4 @@
+import { APP_SHARE_THUMB_URL } from '../appConfig.js';
 import React, { useEffect, useState } from 'react';
 import { X, Gift, Copy, Check, MessageSquare, Users, PartyPopper } from 'lucide-react';
 import { User as UserType } from '../types.js';
@@ -80,7 +81,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
         content: {
           title: 'BizCard 추천',
           description: '가입하고 첫 구독 결제를 완료하면 서로 1개월씩 무료!',
-          imageUrl: 'https://bizcard-pro.onrender.com/kakao-share-thumb.png',
+          imageUrl: APP_SHARE_THUMB_URL,
           link: { mobileWebUrl: info.shareUrl, webUrl: info.shareUrl }
         },
         buttons: [

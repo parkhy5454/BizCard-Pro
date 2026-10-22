@@ -1,3 +1,4 @@
+import { APP_PUBLIC_URL } from '../appConfig.js';
 import React, { useState } from 'react';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home, Smartphone } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
@@ -385,7 +386,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     const inviteText = [
       `${currentUser?.name ? currentUser.name + '님이' : '지인이'} BizCard Pro를 추천했어요!`,
       `명함을 카메라로 찍기만 하면 AI가 자동으로 인식해서 저장해주는 스마트 명함 관리 앱이에요.`,
-      `👉 https://bizcard-pro.onrender.com`
+      `👉 ${APP_PUBLIC_URL}`
     ].join('\n');
 
     let channel: 'sms' | 'share' | 'other' = 'other';
