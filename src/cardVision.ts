@@ -22,49 +22,59 @@ export interface DetectedQuad {
   rotated: boolean;
 }
 
-let openCvPromise: Promise<any> | null = null;
+let openCvPromise: Promise<CvModule> | null = null;
+
+// window.cv는 CDN 방식으로 불러왔을 때 전역에 생기는 객체다
+type WindowWithCv = Window & { cv?: unknown };
+
+// 값이 "then"을 가진 객체(Promise처럼 기다려야 하는 값)인지 확인한다
+const isThenable = (v: unknown): v is PromiseLike<unknown> =>
+  !!v && typeof v === 'object' && typeof (v as { then?: unknown }).then === 'function';
 
 // OpenCV.js를 지연 로딩. 여러 컴포넌트에서 동시에 호출해도 한 번만 로딩되도록 프로미스를 캐시한다.
 // [수정] 네트워크 순간 오류로 로딩이 실패하는 경우를 대비해, 실패 시 한 번 더 자동으로 재시도한다.
-export function loadOpenCv(): Promise<any> {
-  const w = window as any;
-  if (w.cv && w.cv.Mat) return Promise.resolve(w.cv);
+export function loadOpenCv(): Promise<CvModule> {
+  const w = window as WindowWithCv;
+  const ready = w.cv as CvModule | undefined;
+  if (ready && ready.Mat) return Promise.resolve(ready);
   if (openCvPromise) return openCvPromise;
 
-  const attemptLoad = async (): Promise<any> => {
-    // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
-    const mod: any = await import('@techstark/opencv-js');
-    let cv = (mod && (mod.default ?? mod)) as any;
+  const attemptLoad = async (): Promise<CvModule> => {
+    const mod = await import('@techstark/opencv-js');
+    // 패키지 형태에 따라 default 아래에 있을 수도, 모듈 자체일 수도 있다
+    let cv: unknown = (mod as unknown as { default?: unknown }).default ?? mod;
 
     // 이 패키지는 cv 자체가 Promise이거나(WASM 런타임 초기화까지 기다리는 형태),
     // 이미 준비된 객체이거나, onRuntimeInitialized 콜백을 기다려야 하는 경우가 있다.
-    if (cv && typeof cv.then === 'function') {
+    if (isThenable(cv)) {
       cv = await cv;
-    } else if (cv && !cv.Mat) {
+    } else if (cv && typeof cv === 'object' && !(cv as { Mat?: unknown }).Mat) {
       await new Promise<void>((resolve) => {
-        cv.onRuntimeInitialized = () => resolve();
+        (cv as { onRuntimeInitialized?: () => void }).onRuntimeInitialized = () => resolve();
       });
     }
 
-    if (!cv || !cv.Mat) throw new Error('OpenCV 모듈 초기화에 실패했습니다.');
+    if (!cv || !(cv as { Mat?: unknown }).Mat) throw new Error('OpenCV 모듈 초기화에 실패했습니다.');
     w.cv = cv;
-    return cv;
+    return cv as CvModule;
   };
 
   // [수정] npm 패키지 방식(ES 모듈 동적 import)이 특정 브라우저/네트워크 환경에서 반복적으로
   // 실패하는 경우를 대비해, 완전히 다른 방식(공식 OpenCV.js CDN을 <script> 태그로 직접 삽입)으로
   // 한 번 더 시도하는 최후의 수단을 추가한다. 두 경로 모두 실패해야만 진짜로 실패로 처리된다.
-  const attemptLoadFromCdn = (): Promise<any> => {
+  const attemptLoadFromCdn = (): Promise<CvModule> => {
     return new Promise((resolve, reject) => {
-      const w2 = window as any;
-      if (w2.cv && w2.cv.Mat) { resolve(w2.cv); return; }
+      const w2 = window as WindowWithCv;
+      const readyNow = w2.cv as CvModule | undefined;
+      if (readyNow && readyNow.Mat) { resolve(readyNow); return; }
 
       const existing = document.getElementById('opencv-cdn-fallback-script') as HTMLScriptElement | null;
       if (existing) {
         // 이미 스크립트 태그가 붙어있다면(이전 시도 잔재) 초기화 완료를 폴링으로 기다린다
         const started = Date.now();
         const check = () => {
-          if (w2.cv && w2.cv.Mat) { resolve(w2.cv); return; }
+          const current = w2.cv as CvModule | undefined;
+          if (current && current.Mat) { resolve(current); return; }
           if (Date.now() - started > 20000) { reject(new Error('CDN 폴백에서 OpenCV.js 초기화 시간 초과')); return; }
           window.setTimeout(check, 250);
         };
@@ -77,10 +87,11 @@ export function loadOpenCv(): Promise<any> {
       script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
       script.async = true;
       script.onload = () => {
-        const w3 = window as any;
-        if (w3.cv && w3.cv.Mat) { resolve(w3.cv); return; }
-        if (w3.cv) {
-          w3.cv.onRuntimeInitialized = () => resolve(w3.cv);
+        const w3 = window as WindowWithCv;
+        const loaded = w3.cv as CvModule | undefined;
+        if (loaded && loaded.Mat) { resolve(loaded); return; }
+        if (loaded) {
+          (loaded as unknown as { onRuntimeInitialized?: () => void }).onRuntimeInitialized = () => resolve(loaded);
         } else {
           reject(new Error('CDN 스크립트는 로드됐지만 cv 객체를 찾지 못했습니다.'));
         }
@@ -90,14 +101,14 @@ export function loadOpenCv(): Promise<any> {
     });
   };
 
-  const withTimeout = (task: Promise<any>, ms: number) => Promise.race([
+  const withTimeout = <T,>(task: Promise<T>, ms: number): Promise<T> => Promise.race([
     task,
     new Promise<never>((_, reject) => {
       window.setTimeout(() => reject(new Error(`OpenCV.js 초기화가 시간 내에 끝나지 않았습니다 (${Math.round(ms / 1000)}초 초과).`)), ms);
     })
   ]);
 
-  const loadWithRetry = async () => {
+  const loadWithRetry = async (): Promise<CvModule> => {
     try {
       return await withTimeout(attemptLoad(), 18000);
     } catch (firstErr) {
@@ -190,8 +201,8 @@ function detectQuadOnce(
   const closeKernel = cv.Mat.ones(9, 9, cv.CV_8U);
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
-  let hsv: any = null;
-  let whiteMask: any = null;
+  let hsv: CvMat | null = null;
+  let whiteMask: CvMat | null = null;
 
   let best: { quad: Quad; score: number; areaRatio: number; rotated: boolean } | null = null;
   // [수정] 영수증처럼 얇은 종이는 살짝 휘거나 구겨져 있어서 윤곽선이 "정확히 꼭짓점 4개"로

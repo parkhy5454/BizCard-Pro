@@ -11,6 +11,7 @@ import { scanDocument } from 'scanic';
 
 import { getErrorMessage } from '../errorUtils.js';
 import type { CvModule, CvMat } from '../opencvTypes.js';
+import { loadOpenCv } from '../cardVision.js';
 
 type WindowWithCv = Window & { cv?: unknown };
 // 이미지 요소별로 감지된 모서리 좌표를 기억해 둔다 (이전에는 이미지 객체에 임시 속성을 붙였음)
@@ -292,36 +293,7 @@ export const normalizeImageOrientation = async (dataUrl: string): Promise<string
 };
 
 // OpenCV.js를 최초 1회만 지연 로딩 (여러 화면에서 공유)
-let openCvLoadPromise: Promise<any> | null = null;
-const loadOpenCv = (): Promise<any> => {
-  const w = window as any;
-  if (w.cv && w.cv.Mat) return Promise.resolve(w.cv);
-  if (openCvLoadPromise) return openCvLoadPromise;
-
-  const loadTask = (async () => {
-    // @ts-ignore - CommonJS/UMD 패키지라 타입 선언이 완전히 맞지 않을 수 있음
-    const mod: any = await import('@techstark/opencv-js');
-    let cv = (mod && (mod.default ?? mod)) as any;
-    if (cv && typeof cv.then === 'function') {
-      cv = await cv;
-    } else if (cv && !cv.Mat) {
-      await new Promise<void>((resolve) => { cv.onRuntimeInitialized = () => resolve(); });
-    }
-    if (!cv || !cv.Mat) throw new Error('OpenCV 모듈 초기화에 실패했습니다.');
-    w.cv = cv;
-    return cv;
-  })();
-
-  const timeoutTask = new Promise<never>((_, reject) => {
-    window.setTimeout(() => reject(new Error('OpenCV.js 초기화 시간 초과')), 15000);
-  });
-
-  openCvLoadPromise = Promise.race([loadTask, timeoutTask]).catch((err) => {
-    openCvLoadPromise = null;
-    throw err;
-  });
-  return openCvLoadPromise;
-};
+// OpenCV 로더는 cardVision.ts의 loadOpenCv를 함께 쓴다 (재시도와 CDN 대체 경로가 있는 쪽)
 
 // [수정] 명함이 배경과 색·명암 대비가 약할 때(예: 크림색 명함 + 회색 벽), Canny(경계선 명암차
 // 기반) 방식 하나로는 아무리 민감도를 조절해도 실패하는 경우가 있었다. Canny 민감도를 단계적으로
