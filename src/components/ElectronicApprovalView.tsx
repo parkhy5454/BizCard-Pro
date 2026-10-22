@@ -511,9 +511,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const [lvCategoryCustom, setLvCategoryCustom] = useState('');
   const [lvSpecialType, setLvSpecialType] = useState<LeaveSpecialType>('birth');
   const [lvSpecialTypeCustom, setLvSpecialTypeCustom] = useState('');
-  const [lvSpecialDropdownOpen, setLvSpecialDropdownOpen] = useState(false);
+  const [isLvSpecialDropdownOpen, setIsLvSpecialDropdownOpen] = useState(false);
   const [lvAnnualType, setLvAnnualType] = useState<LeaveAnnualType>('full');
-  const [lvAnnualDropdownOpen, setLvAnnualDropdownOpen] = useState(false);
+  const [isLvAnnualDropdownOpen, setIsLvAnnualDropdownOpen] = useState(false);
   const [lvReason, setLvReason] = useState('');
   const [lvStartDate, setLvStartDate] = useState(todayStr());
   const [lvEndDate, setLvEndDate] = useState(todayStr());
@@ -819,9 +819,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     setLvCategoryCustom('');
     setLvSpecialType('birth');
     setLvSpecialTypeCustom('');
-    setLvSpecialDropdownOpen(false);
+    setIsLvSpecialDropdownOpen(false);
     setLvAnnualType('full');
-    setLvAnnualDropdownOpen(false);
+    setIsLvAnnualDropdownOpen(false);
     setLvReason('');
     setLvStartDate(todayStr());
     setLvEndDate(todayStr());
@@ -2749,20 +2749,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                     c === 'special' ? (
                       <div key={c} className="relative">
                         <button type="button"
-                          onClick={() => { setLvCategory('special'); setLvSpecialDropdownOpen(v => !v); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
+                          onClick={() => { setLvCategory('special'); setIsLvSpecialDropdownOpen(v => !v); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
                           className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'special' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
                           <span>
                             특별휴가{lvCategory === 'special' ? ` · ${lvSpecialType === 'custom' ? (lvSpecialTypeCustom || '직접입력') : SPECIAL_TYPE_LABEL[lvSpecialType]}` : ''}
                           </span>
                           <ChevronDown className="w-3 h-3" />
                         </button>
-                        {lvSpecialDropdownOpen && (
+                        {isLvSpecialDropdownOpen && (
                           <>
-                            <div className="fixed inset-0 z-20" onClick={() => setLvSpecialDropdownOpen(false)} />
+                            <div className="fixed inset-0 z-20" onClick={() => setIsLvSpecialDropdownOpen(false)} />
                             <div className="absolute z-30 mt-1 left-0 w-40 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
                               {SPECIAL_TYPE_ORDER.map(t => (
                                 <button key={t} type="button"
-                                  onClick={() => { setLvSpecialType(t); if (t !== 'custom') setLvSpecialDropdownOpen(false); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
+                                  onClick={() => { setLvSpecialType(t); if (t !== 'custom') setIsLvSpecialDropdownOpen(false); setLvStartTime('09:00'); setLvEndTime('18:00'); }}
                                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${lvSpecialType === t ? 'bg-indigo-600/20 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`}>
                                   {SPECIAL_TYPE_LABEL[t]}
                                 </button>
@@ -2776,7 +2776,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                         <button type="button"
                           onClick={() => {
                             setLvCategory('annual');
-                            setLvAnnualDropdownOpen(v => !v);
+                            setIsLvAnnualDropdownOpen(v => !v);
                             if (lvAnnualType === 'full') { setLvStartTime('09:00'); setLvEndTime('18:00'); }
                           }}
                           className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${lvCategory === 'annual' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
@@ -2785,15 +2785,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                           </span>
                           <ChevronDown className="w-3 h-3" />
                         </button>
-                        {lvAnnualDropdownOpen && (
+                        {isLvAnnualDropdownOpen && (
                           <>
-                            <div className="fixed inset-0 z-20" onClick={() => setLvAnnualDropdownOpen(false)} />
+                            <div className="fixed inset-0 z-20" onClick={() => setIsLvAnnualDropdownOpen(false)} />
                             <div className="absolute z-30 mt-1 left-0 w-40 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
                               {ANNUAL_TYPE_ORDER.map(t => (
                                 <button key={t} type="button"
                                   onClick={() => {
                                     setLvAnnualType(t);
-                                    setLvAnnualDropdownOpen(false);
+                                    setIsLvAnnualDropdownOpen(false);
                                     if (t === 'full') {
                                       setLvStartTime('09:00');
                                       setLvEndTime('18:00');

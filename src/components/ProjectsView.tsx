@@ -326,12 +326,12 @@ export const ProjectsView: React.FC<Props> = ({
   // 보였다. 이제 상단 검색창 하나만 남기고, 원가계산서 탭에서는 이 검색창이 모드에 따라
   // 역할을 바꾼다 - "개별" 모드에서는 타이핑하면 목록이 펼쳐지는 검색+선택창(예전
   // ProjectPnlPicker와 동일한 동작)으로, "전체" 모드에서는 요약표를 좁혀서 보여주는
-  // 필터로 동작한다. pnlPickerOpen은 "개별" 모드일 때만 그 드롭다운의 열림 상태를 관리한다.
-  const [pnlPickerOpen, setPnlPickerOpen] = useState<boolean>(false);
+  // 필터로 동작한다. isPnlPickerOpen은 "개별" 모드일 때만 그 드롭다운의 열림 상태를 관리한다.
+  const [isPnlPickerOpen, setIsPnlPickerOpen] = useState<boolean>(false);
   const pnlPickerWrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
-      if (pnlPickerWrapRef.current && !pnlPickerWrapRef.current.contains(e.target as Node)) setPnlPickerOpen(false);
+      if (pnlPickerWrapRef.current && !pnlPickerWrapRef.current.contains(e.target as Node)) setIsPnlPickerOpen(false);
     };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
@@ -341,7 +341,7 @@ export const ProjectsView: React.FC<Props> = ({
   // 들고 가면 혼란스럽다 - 화면이 바뀔 때마다 검색어를 비우고 드롭다운도 닫는다.
   useEffect(() => {
     setProjectSearchQuery('');
-    setPnlPickerOpen(false);
+    setIsPnlPickerOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, costSheetMode]);
 
@@ -2957,12 +2957,12 @@ export const ProjectsView: React.FC<Props> = ({
               <input
                 type="text"
                 placeholder="프로젝트명으로 검색 또는 목록에서 선택..."
-                value={pnlPickerOpen ? projectSearchQuery : (projects.find((p) => p.id === pnlSelectedProjectId)?.name || '')}
-                onFocus={() => { setPnlPickerOpen(true); setProjectSearchQuery(''); }}
-                onChange={(e) => { setProjectSearchQuery(e.target.value); setPnlPickerOpen(true); }}
+                value={isPnlPickerOpen ? projectSearchQuery : (projects.find((p) => p.id === pnlSelectedProjectId)?.name || '')}
+                onFocus={() => { setIsPnlPickerOpen(true); setProjectSearchQuery(''); }}
+                onChange={(e) => { setProjectSearchQuery(e.target.value); setIsPnlPickerOpen(true); }}
                 className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
               />
-              {pnlPickerOpen && (
+              {isPnlPickerOpen && (
                 <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
                   <div className="max-h-72 overflow-y-auto">
                     {(() => {
@@ -2972,7 +2972,7 @@ export const ProjectsView: React.FC<Props> = ({
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => { setPnlSelectedProjectId(p.id); setProjectSearchQuery(''); setPnlPickerOpen(false); }}
+                          onClick={() => { setPnlSelectedProjectId(p.id); setProjectSearchQuery(''); setIsPnlPickerOpen(false); }}
                           className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 flex items-center justify-between gap-2 ${p.id === pnlSelectedProjectId ? 'bg-indigo-50' : ''}`}
                         >
                           <span className="font-semibold text-slate-700 truncate">{p.name}</span>
