@@ -2923,7 +2923,7 @@ export const ProjectsView: React.FC<Props> = ({
                         key={p.id}
                         onClick={() => handleJumpToProject(p.id)}
                         title="눌러서 이 프로젝트로 이동"
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-blue-600 text-white border border-blue-600 animate-pulse' : 'bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-blue-700'}`}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-blue-600 text-white border border-blue-600 animate-pulse' : 'bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900'}`}
                       >
                         <span className="font-bold">{p.name}</span>
                         <span className="text-[10px] opacity-80 font-mono">({days}일 경과)</span>
