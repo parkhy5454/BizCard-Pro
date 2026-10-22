@@ -11,6 +11,7 @@ import { ContactMultiSearchSelect } from './ContactPicker.js';
 import { AttendeeContactSearchAdd } from './AttendeeContactSearchAdd.js';
 
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
+import { getSpeechRecognitionCtor, type SpeechRecognitionLike, type SpeechResultEventLike } from '../speechRecognition.js';
 // [추가] 전체 프로젝트 목록 인쇄는 공유 CSS(index.css)의 named page(@page 커스텀 이름 +
 // page 속성) 방식 대신, 별도의 새 창(window.open)에 이 표만 담긴 완전히 독립된 HTML
 // 문서를 열어서 그 창에서 인쇄한다. named page 방식은 브라우저별로 실제 인쇄(파일 인쇄
@@ -957,18 +958,18 @@ export const ProjectsView: React.FC<Props> = ({
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState<{ [key: string]: number }>({});
 
-  const [recognition, setRecognition] = useState<any>(null);
+  const [recognition, setRecognition] = useState<SpeechRecognitionLike | null>(null);
 
   // 브라우저 음성 인식 API 바인딩
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognitionCtor();
     if (SpeechRecognition) {
       const rec = new SpeechRecognition();
       rec.continuous = true;
       rec.interimResults = true;
       rec.lang = 'ko-KR';
       
-      rec.onresult = (event: any) => {
+      rec.onresult = (event: SpeechResultEventLike) => {
         let interimTranscript = '';
         let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {

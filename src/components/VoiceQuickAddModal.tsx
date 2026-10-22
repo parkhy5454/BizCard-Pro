@@ -5,6 +5,7 @@ import { findDuplicateContact } from './ScanModal.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
 
 import { getErrorMessage } from '../errorUtils.js';
+import { getSpeechRecognitionCtor, type SpeechRecognitionLike, type SpeechResultEventLike, type SpeechErrorEventLike } from '../speechRecognition.js';
 interface Props {
   groups: ContactGroup[];
   contacts: BusinessCard[];
@@ -23,13 +24,13 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
   const [parsed, setParsed] = useState<{ name: string; company: string; department: string; title: string; memo: string } | null>(null);
   const [duplicateMatch, setDuplicateMatch] = useState<BusinessCard | null>(null);
   const [saved, setSaved] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const transcriptRef = useRef<string>(''); // [수정] state는 비동기라 타이밍이 어긋날 수 있어, ref로 항상 최신값을 같이 들고 있는다
   const [speechSupported, setSpeechSupported] = useState(true);
   const [voiceError, setVoiceError] = useState('');
 
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognitionCtor();
     if (!SpeechRecognition) {
       setSpeechSupported(false);
       return;
@@ -38,7 +39,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = 'ko-KR';
-    rec.onresult = (event: any) => {
+    rec.onresult = (event: SpeechResultEventLike) => {
       let finalText = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
@@ -50,7 +51,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
       }
     };
     // [수정] 에러가 나도 그냥 조용히 멈추지 않고, 이유를 사용자에게 보여준다
-    rec.onerror = (event: any) => {
+    rec.onerror = (event: SpeechErrorEventLike) => {
       setIsListening(false);
       if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
         setVoiceError('마이크 권한이 꺼져있어요. 브라우저 설정에서 마이크 권한을 허용해주세요.');
