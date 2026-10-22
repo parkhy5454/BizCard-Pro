@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
-import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
+import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry, MyProfile } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,6 +12,22 @@ import { ProjectMultiSearchSelect } from './ProjectPicker.js';
 import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker.js';
 
 import { getErrorMessage } from '../errorUtils.js';
+
+// 보고서 표 한 줄 (표 1~4가 같은 모양을 쓴다)
+interface ReportRowExpense { id: string; description: string; amount: number }
+interface ReportRow {
+  id: string;
+  date?: string;
+  dateLabel?: string;
+  weekLabel?: string;
+  project?: string;
+  description?: string;
+  progress?: string;
+  estimatedTime?: string;
+  remark?: string;
+  expenseItems?: ReportRowExpense[];
+}
+
 interface Props {
   contacts: BusinessCard[];
   setContacts: React.Dispatch<React.SetStateAction<BusinessCard[]>>;
@@ -165,7 +181,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const [formAuthor, setFormAuthor] = useState<string>('');
   const [formDepartment, setFormDepartment] = useState<string>('');
   
-  const [myProfile, setMyProfile] = useState<any>(null);
+  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [formTasksTomorrow, setFormTasksTomorrow] = useState<string>('');
   const [formIssues, setFormIssues] = useState<string>('');
   const [formAchievementsThisWeek, setFormAchievementsThisWeek] = useState<string>('');
@@ -300,9 +316,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const [viewingReceiptImage, setViewingReceiptImage] = useState<string | null>(null);
   
   // 주간보고서 테이블 데이터
-  const [reportTable1, setReportTable1] = useState<any[]>([]);
-  const [reportTable2, setReportTable2] = useState<any[]>([]);
-  const [reportTable3, setReportTable3] = useState<any[]>([]);
+  const [reportTable1, setReportTable1] = useState<ReportRow[]>([]);
+  const [reportTable2, setReportTable2] = useState<ReportRow[]>([]);
+  const [reportTable3, setReportTable3] = useState<ReportRow[]>([]);
   const [reportTable4, setReportTable4] = useState<any[]>([]);
   const [reportOption, setReportOption] = useState<'A' | 'B'>('A');
 
@@ -497,7 +513,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   };
 
   // 모달 열기 핸들러 (수정)
-  const handleOpenEditLog = (log: any, type: 'daily' | 'weekly') => {
+  const handleOpenEditLog = (log: DailyWorkLog | WeeklyWorkLog, type: 'daily' | 'weekly') => {
     setWriteFormType(type);
     setEditingLogId(log.id);
     setFormTitle(log.title);
@@ -770,7 +786,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // 완성해준다.
   const buildWeeklyLogUpdatePayload = (wl: WeeklyWorkLog, entriesByDay: Record<DayKey, WorkLogDayEntry[]>) => {
     const dayLabels: Record<DayKey, string> = { mon: '월요일', tue: '화요일', wed: '수요일', thu: '목요일', fri: '금요일', sat: '토요일', sun: '일요일' };
-    const achievementsByDay: Record<DayKey, string> = {} as any;
+    const achievementsByDay: Record<DayKey, string> = {} as Record<DayKey, string>;
     const dailyAchievementsList: string[] = [];
     ALL_DAY_KEYS.forEach((k) => {
       const text = composeEntriesText(entriesByDay[k]);
@@ -792,7 +808,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   //   옮기려는 날짜가 포함된 주간 업무일지가 아직 없으면, 새로 만들지 않고 안내 후 취소한다.
   const handleDropEntry = async (raw: string, targetDateStr: string) => {
     if (!raw || !currentUser) return;
-    let payload: any;
+    // 드래그로 옮긴 항목의 정보 (kind: 일일/주간/업무 항목 등)
+    let payload: { kind?: string; logId?: string; dayKey?: string; taskId?: string } = {};
     try {
       payload = JSON.parse(raw);
     } catch {
@@ -840,7 +857,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       // 주간 업무일지 항목 이동
       const sourceLog = weeklyLogs.find((w) => w.id === payload.logId);
       if (!sourceLog) return;
-      const sourceDayKey: DayKey = payload.dayKey;
+      const sourceDayKey = payload.dayKey as DayKey;
       const targetDayKey = getDayOfWeekKey(targetDateStr);
       if (!sourceDayKey || !targetDayKey) return;
 
@@ -1097,19 +1114,19 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     setIsReportModalOpen(true);
   };
 
-  const handleTable1Change = (rowId: string, field: string, val: any) => {
+  const handleTable1Change = (rowId: string, field: string, val: string) => {
     setReportTable1(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
   };
-  const handleTable2Change = (rowId: string, field: string, val: any) => {
+  const handleTable2Change = (rowId: string, field: string, val: string) => {
     setReportTable2(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
   };
-  const handleTable3Change = (rowId: string, field: string, val: any) => {
+  const handleTable3Change = (rowId: string, field: string, val: string) => {
     setReportTable3(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
   };
-  const handleTable4Change = (rowId: string, field: string, val: any) => {
+  const handleTable4Change = (rowId: string, field: string, val: string) => {
     setReportTable4(prev => prev.map(row => row.id === rowId ? { ...row, [field]: val } : row));
   };
-  const handleTable1ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: any) => {
+  const handleTable1ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: string) => {
     setReportTable1(prev => prev.map(row => {
       if (row.id === rowId) {
         const nextExp = [...(row.expenses || [])];
@@ -1124,7 +1141,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       return row;
     }));
   };
-  const handleTable2ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: any) => {
+  const handleTable2ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: string) => {
     setReportTable2(prev => prev.map(row => {
       if (row.id === rowId) {
         const nextExp = [...(row.expenses || [])];
@@ -1139,7 +1156,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       return row;
     }));
   };
-  const handleTable3ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: any) => {
+  const handleTable3ExpenseChange = (rowId: string, expIdx: number, field: 'description' | 'amount', val: string) => {
     setReportTable3(prev => prev.map(row => {
       if (row.id === rowId) {
         const nextExp = [...(row.expenses || [])];
@@ -1172,7 +1189,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       if (row.id === rowId) {
         return {
           ...row,
-          expenses: (row.expenses || []).filter((_: any, i: number) => i !== expIdx)
+          expenses: (row.expenses || []).filter((_, i: number) => i !== expIdx)
         };
       }
       return row;
@@ -1200,7 +1217,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       printColorAdjust: 'exact'
     } as React.CSSProperties;
 
-    const renderMainTable = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
+    const renderMainTable = (heading: string, rows: ReportRow[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
       let total = 0;
       return (
         <div key={heading} style={{ marginTop: 16 }}>
@@ -1224,7 +1241,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             <tbody>
               {rows.map((row, idx) => {
                 const items = row.expenseItems || [];
-                total += items.reduce((s: number, e: any) => s + e.amount, 0);
+                total += items.reduce((s: number, e) => s + e.amount, 0);
                 return (
                   <tr key={row.id}>
                     {idx === 0 && (
@@ -1235,10 +1252,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <td style={{ ...cellStyle, textAlign: 'left', whiteSpace: 'pre-line' }}>{row.description}</td>
                     <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row[thirdColField] || ''}</td>
                     <td style={{ ...cellStyle, textAlign: 'left' }}>
-                      {items.length > 0 ? items.map((e: any) => <div key={e.id}>{e.description}</div>) : '-'}
+                      {items.length > 0 ? items.map((e) => <div key={e.id}>{e.description}</div>) : '-'}
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'right' }}>
-                      {items.length > 0 ? items.map((e: any) => <div key={e.id}>{e.amount.toLocaleString()}</div>) : '-'}
+                      {items.length > 0 ? items.map((e) => <div key={e.id}>{e.amount.toLocaleString()}</div>) : '-'}
                     </td>
                   </tr>
                 );
@@ -1299,7 +1316,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
               </tr>
             </thead>
             <tbody>
-              {(reportTable3 as any[]).map((row, idx) => (
+              {reportTable3.map((row, idx) => (
                 <tr key={row.id}>
                   {idx === 0 && (
                     <td rowSpan={reportTable3.length} style={{ ...cellStyle, textAlign: 'center', fontWeight: 700 }}>{row.weekLabel}</td>
@@ -1342,7 +1359,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
   // 주간 업무 보고서를 화면에 보이는 것과 똑같은 양식(4개 표)으로 엑셀 다운로드
   const downloadReportToExcel = () => {
-    const esc = (str: any): string => (str === null || str === undefined ? '' : String(str))
+    const esc = (str: unknown): string => (str === null || str === undefined ? '' : String(str))
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -1353,13 +1370,13 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
 
     // 표 1/2 용: Week(rowspan)/Date/Project/Description/진행율또는예상시간/Expenses(Description,Won)
-    const buildMainTableHtml = (heading: string, rows: any[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
+    const buildMainTableHtml = (heading: string, rows: ReportRow[], thirdColLabel: string, thirdColField: 'progress' | 'estimatedTime') => {
       let total = 0;
       const bodyRows = rows.map((row, idx) => {
         const items = row.expenseItems || [];
-        total += items.reduce((s: number, e: any) => s + e.amount, 0);
-        const expDesc = items.map((e: any) => esc(e.description)).join('<br/>') || '-';
-        const expWon = items.map((e: any) => e.amount.toLocaleString()).join('<br/>') || '-';
+        total += items.reduce((s: number, e) => s + e.amount, 0);
+        const expDesc = items.map((e) => esc(e.description)).join('<br/>') || '-';
+        const expWon = items.map((e) => e.amount.toLocaleString()).join('<br/>') || '-';
         return `
           <tr>
             ${idx === 0 ? `<td rowspan="${rows.length}" style="${cellBorder} text-align:center; vertical-align:middle; font-weight:bold; ${baseFont}">${esc(row.weekLabel)}</td>` : ''}
@@ -1398,7 +1415,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
     // 표 3: Week(rowspan)/Date/Project/Description/Estimated Time/Remark (비용 없음)
     const buildPlanTableHtml = () => {
-      const rows = reportTable3 as any[];
+      const rows = reportTable3;
       const bodyRows = rows.map((row, idx) => `
         <tr>
           ${idx === 0 ? `<td rowspan="${rows.length}" style="${cellBorder} text-align:center; vertical-align:middle; font-weight:bold; ${baseFont}">${esc(row.weekLabel)}</td>` : ''}
@@ -1549,17 +1566,17 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     if (scanningExpenseRowId) {
       handleUpdateExpenseRow(scanningExpenseRowId, {
         amount: scanned.amount,
-        category: scanned.category as any,
-        payMethod: scanned.payMethod as any,
+        category: scanned.category as WorkLogExpense['category'],
+        payMethod: scanned.payMethod as WorkLogExpense['payMethod'],
         memo: scanned.merchantName ? `${scanned.merchantName} | ${scanned.memo || ''}`.replace(/ \| $/, '') : scanned.memo,
         receiptImage: scanned.receiptImage
       });
     } else {
       const newExpense: WorkLogExpense = {
         id: `wle-${Date.now()}-${Math.random()}`,
-        category: scanned.category as any,
+        category: scanned.category as WorkLogExpense['category'],
         amount: scanned.amount,
-        payMethod: scanned.payMethod as any,
+        payMethod: scanned.payMethod as WorkLogExpense['payMethod'],
         memo: scanned.merchantName ? `${scanned.merchantName} | ${scanned.memo || ''}`.replace(/ \| $/, '') : scanned.memo,
         receiptImage: scanned.receiptImage
       };
@@ -1936,7 +1953,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       return;
     }
 
-    const wsData: any[] = [];
+    const wsData: (string | number)[][] = [];
     
     if (isDaily) {
       // Header for Daily Logs
@@ -1952,7 +1969,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         '연관 거래처 인맥'
       ]);
       
-      dataToExport.forEach((log: any) => {
+      dataToExport.forEach((log) => {
         const projNames = projects
           .filter(p => (log.projectIds || []).includes(p.id))
           .map(p => p.name)
@@ -1997,7 +2014,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         '연관 거래처 인맥'
       ]);
       
-      dataToExport.forEach((log: any) => {
+      dataToExport.forEach((log) => {
         const projNames = projects
           .filter(p => (log.projectIds || []).includes(p.id))
           .map(p => p.name)
@@ -2034,7 +2051,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     // 컬럼 너비 자동 설정
-    const colWidths = wsData[0].map((_: any, colIdx: number) => {
+    const colWidths = wsData[0].map((_, colIdx: number) => {
       let maxLen = 10;
       wsData.forEach(row => {
         const val = row[colIdx];
@@ -2059,39 +2076,41 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   };
 
   // 엑셀 다운로드 (개별 보고서 형태)
-  const downloadSingleToExcel = (log: any, type: 'daily' | 'weekly') => {
+  const downloadSingleToExcel = (log: DailyWorkLog | WeeklyWorkLog, type: 'daily' | 'weekly') => {
     const isDaily = type === 'daily';
-    const wsData: any[] = [];
+    const wsData: (string | number)[][] = [];
     
     // 이쁘게 양식화된 보고서형 시트 구성
     wsData.push([log.title || (isDaily ? '일일 업무 보고서' : '주간 업무 보고서'), '', '', '']); // 제목행
     wsData.push(['']); // 여백
     
     if (isDaily) {
-      wsData.push(['작성일자', log.date || '', '작성자', log.author || '-']);
-      wsData.push(['소속 부서', log.department || '-', '연관 프로젝트', projects.filter(p => (log.projectIds || []).includes(p.id)).map(p => p.name).join(', ') || '-']);
-      wsData.push(['연관 거래처 인맥', contacts.filter(c => (log.contactIds || []).includes(c.id)).map(c => `${c.name} (${c.company})`).join(', ') || '-', '', '']);
+      const d = log as DailyWorkLog;
+      wsData.push(['작성일자', d.date || '', '작성자', d.author || '-']);
+      wsData.push(['소속 부서', d.department || '-', '연관 프로젝트', projects.filter(p => (d.projectIds || []).includes(p.id)).map(p => p.name).join(', ') || '-']);
+      wsData.push(['연관 거래처 인맥', contacts.filter(c => (d.contactIds || []).includes(c.id)).map(c => `${c.name} (${c.company})`).join(', ') || '-', '', '']);
       wsData.push(['']); // 여백
       
       wsData.push(['[금일 실시 사항]']);
-      wsData.push([log.tasksToday || '']);
+      wsData.push([d.tasksToday || '']);
       wsData.push(['']);
       
       wsData.push(['[명일 예정 사항]']);
-      wsData.push([log.tasksTomorrow || '']);
+      wsData.push([d.tasksTomorrow || '']);
       wsData.push(['']);
       
-      if (log.issues) {
+      if (d.issues) {
         wsData.push(['[특이 사항 / 미결 사항]']);
-        wsData.push([log.issues]);
+        wsData.push([d.issues]);
       }
     } else {
-      wsData.push(['보고 기간', `${log.startDate} ~ ${log.endDate}`, '작성자', log.author || '-']);
-      wsData.push(['소속 부서', log.department || '-', '연관 프로젝트', projects.filter(p => (log.projectIds || []).includes(p.id)).map(p => p.name).join(', ') || '-']);
-      wsData.push(['연관 거래처 인맥', contacts.filter(c => (log.contactIds || []).includes(c.id)).map(c => `${c.name} (${c.company})`).join(', ') || '-', '', '']);
+      const w = log as WeeklyWorkLog;
+      wsData.push(['보고 기간', `${w.startDate} ~ ${w.endDate}`, '작성자', w.author || '-']);
+      wsData.push(['소속 부서', w.department || '-', '연관 프로젝트', projects.filter(p => (w.projectIds || []).includes(p.id)).map(p => p.name).join(', ') || '-']);
+      wsData.push(['연관 거래처 인맥', contacts.filter(c => (w.contactIds || []).includes(c.id)).map(c => `${c.name} (${c.company})`).join(', ') || '-', '', '']);
       wsData.push(['']); // 여백
       
-      if (log.achievementsByDay && Object.values(log.achievementsByDay).some(v => typeof v === 'string' && (v as string).trim().length > 0)) {
+      if (w.achievementsByDay && Object.values(w.achievementsByDay).some(v => typeof v === 'string' && (v as string).trim().length > 0)) {
         wsData.push(['[금주 요일별 상세 실시 사항]']);
         const days = [
           { k: 'mon', label: '월요일' },
@@ -2103,7 +2122,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           { k: 'sun', label: '일요일' }
         ];
         days.forEach(d => {
-          const txt = log.achievementsByDay[d.k];
+          const txt = w.achievementsByDay[d.k];
           if (txt && txt.trim()) {
             wsData.push([`• ${d.label}`]);
             wsData.push([txt]);
@@ -2111,17 +2130,17 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         });
       } else {
         wsData.push(['[금주 실시 사항]']);
-        wsData.push([log.achievementsThisWeek || '']);
+        wsData.push([w.achievementsThisWeek || '']);
       }
       wsData.push(['']);
       
       wsData.push(['[차주 예정 사항]']);
-      wsData.push([log.plansNextWeek || '']);
+      wsData.push([w.plansNextWeek || '']);
       wsData.push(['']);
       
-      if (log.feedbacks) {
+      if (w.feedbacks) {
         wsData.push(['[애로 및 건의 사항/피드백]']);
-        wsData.push([log.feedbacks]);
+        wsData.push([w.feedbacks]);
       }
     }
 
@@ -2135,7 +2154,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     
     // 내용이 긴 셀들 병합
     wsData.forEach((row, idx) => {
-      if (row.length === 1 && row[0] && (row[0].startsWith('[') || row[0].startsWith('•') || idx > 4)) {
+      const first = row[0];
+      if (row.length === 1 && typeof first === 'string' && first && (first.startsWith('[') || first.startsWith('•') || idx > 4)) {
         merges.push({ s: { r: idx, c: 0 }, e: { r: idx, c: 3 } });
       }
     });
@@ -2153,7 +2173,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     XLSX.utils.book_append_sheet(wb, ws, '업무 보고서');
     
     const sanitizedTitle = (log.title || '업무보고서').replace(/[\/\\?%*:|"<>]/g, '_');
-    const fileName = `${sanitizedTitle}_${log.date || log.endDate || '보고서'}.xlsx`;
+    const fileDate = (log as { date?: string }).date || (log as { endDate?: string }).endDate || '보고서';
+    const fileName = `${sanitizedTitle}_${fileDate}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
@@ -2647,7 +2668,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             ) : (
         <div className="space-y-4">
           <AnimatePresence initial={false}>
-            {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).slice(0, visibleLogCount).map((log: any) => {
+            {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).slice(0, visibleLogCount).map((log) => {
               const isExpanded = expandedLogId === log.id;
               // [추가] 지금 이 로그가 수정 모달에서 편집 중인지 여부. isWriteModalOpen까지
               // 같이 확인하는 이유는, 모달을 취소로 닫아도 editingLogId 값 자체는 남아있어서
@@ -2895,10 +2916,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
                                 <Receipt className="w-3.5 h-3.5 text-emerald-400" />
                                 <span>첨부된 지출 비용 내역</span>
-                                <span className="text-[10px] text-slate-400 font-mono">({log.expenses.length}건, 총 {log.expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0).toLocaleString()}원)</span>
+                                <span className="text-[10px] text-slate-400 font-mono">({log.expenses.length}건, 총 {log.expenses.reduce((sum: number, e) => sum + (e.amount || 0), 0).toLocaleString()}원)</span>
                               </h4>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {log.expenses.map((expense: any) => {
+                                {log.expenses.map((expense) => {
                                   // Find if matched vehicle
                                   const v = vehicles.find(veh => veh.id === expense.vehicleId);
                                   
@@ -3348,7 +3369,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               <button
                                 key={day.id}
                                 type="button"
-                                onClick={() => setActiveDayTab(day.id as any)}
+                                onClick={() => setActiveDayTab(day.id as typeof activeDayTab)}
                                 className={`relative py-2 text-xs font-bold rounded-lg transition-all ${
                                   isSelected 
                                     ? 'bg-indigo-600 text-white shadow-md' 
@@ -4086,12 +4107,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               />
                             </td>
                             <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
-                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
                               )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
                             <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
-                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
                               )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
@@ -4100,7 +4121,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <tr>
                           <td colSpan={5} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px]">계</td>
                           <td colSpan={2} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px] font-mono">
-                            {reportTable1.reduce((sum, r: any) => sum + (r.expenseItems || []).reduce((s: number, e: any) => s + e.amount, 0), 0).toLocaleString()}
+                            {reportTable1.reduce((sum, r) => sum + (r.expenseItems || []).reduce((s: number, e) => s + e.amount, 0), 0).toLocaleString()}
                           </td>
                         </tr>
                       </tbody>
@@ -4168,12 +4189,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                               />
                             </td>
                             <td className="border border-black p-1 text-left bg-white w-[10%] align-middle">
-                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.description}</div>
                               )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
                             <td className="border border-black p-1 text-right bg-white w-[5%] align-middle font-mono">
-                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp: any) => (
+                              {(row.expenseItems && row.expenseItems.length > 0) ? row.expenseItems.map((exp) => (
                                 <div key={exp.id} className="text-[10px] leading-tight py-0.5">{exp.amount.toLocaleString()}</div>
                               )) : <span className="text-[10px] text-slate-500">-</span>}
                             </td>
@@ -4182,7 +4203,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <tr>
                           <td colSpan={5} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px]">계</td>
                           <td colSpan={2} className="border border-black p-1.5 text-right font-bold bg-yellow-50 text-[10.5px] font-mono">
-                            {reportTable2.reduce((sum, r: any) => sum + (r.expenseItems || []).reduce((s: number, e: any) => s + e.amount, 0), 0).toLocaleString()}
+                            {reportTable2.reduce((sum, r) => sum + (r.expenseItems || []).reduce((s: number, e) => s + e.amount, 0), 0).toLocaleString()}
                           </td>
                         </tr>
                       </tbody>
@@ -4222,7 +4243,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             <td className="border border-black p-1 text-center bg-white w-[15%] align-middle">
                               <input
                                 type="text"
-                                value={(row as any).project || ''}
+                                value={row.project || ''}
                                 onChange={(e) => handleTable3Change(row.id, 'project', e.target.value)}
                                 placeholder="-"
                                 className="w-full bg-transparent border-0 outline-none text-[10.5px] text-center text-black p-1 focus:ring-0"
