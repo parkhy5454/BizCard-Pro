@@ -12,13 +12,13 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
   :root {
-    --blue: #2563eb;
-    --indigo: #4f46e5;
+    --blue: #2f6bff;
+    --indigo: #3d74ff;
     --ink: #0f172a;
-    --sub: #475569;
-    --faint: #94a3b8;
-    --line: #e2e8f0;
-    --bg: #f8fafc;
+    --sub: #4a5568;
+    --faint: #8a94a6;
+    --line: #dbe3f0;
+    --bg: #f3f7ff;
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -60,17 +60,17 @@
   .btn-primary {
     background: linear-gradient(135deg, var(--blue), var(--indigo));
     color: #fff;
-    box-shadow: 0 8px 20px -6px rgba(79,70,229,0.45);
+    box-shadow: 0 8px 20px -6px rgba(47,107,255,0.45);
   }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -6px rgba(79,70,229,0.55); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -6px rgba(47,107,255,0.55); }
   .btn-ghost { background: #f1f5f9; color: var(--ink); border: 1px solid var(--line); }
   .btn-ghost:hover { background: #e2e8f0; }
 
   /* 히어로 */
-  .hero { padding: 96px 24px 80px; text-align: center; background: radial-gradient(circle at 50% -10%, #eef2ff 0%, #ffffff 55%); }
+  .hero { padding: 96px 24px 80px; text-align: center; background: radial-gradient(circle at 50% -10%, #dbe7ff 0%, #ffffff 60%); }
   .badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: #eef2ff; color: var(--indigo); border: 1px solid #c7d2fe;
+    background: #e8f0ff; color: #2556e0; border: 1px solid #bdd3ff;
     font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; margin-bottom: 24px;
   }
   h1.hero-title { font-size: clamp(32px, 5vw, 52px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 20px; }
@@ -91,7 +91,7 @@
 
   section { padding: 88px 24px; }
   .section-head { text-align: center; max-width: 640px; margin: 0 auto 56px; }
-  .eyebrow { font-size: 13px; font-weight: 800; color: var(--indigo); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 10px; }
+  .eyebrow { font-size: 13px; font-weight: 800; color: var(--blue); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 10px; }
   .section-head h2 { font-size: clamp(26px, 3.4vw, 34px); font-weight: 800; margin: 0 0 14px; letter-spacing: -0.01em; }
   .section-head p { color: var(--sub); font-size: 16px; margin: 0; }
 
@@ -102,17 +102,17 @@
     background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 28px;
     transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
   }
-  .card:hover { transform: translateY(-3px); box-shadow: 0 16px 32px -18px rgba(15,23,42,0.18); border-color: #c7d2fe; }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 16px 32px -18px rgba(15,23,42,0.18); border-color: #bdd3ff; }
   .icon-badge {
     width: 46px; height: 46px; border-radius: 14px;
     display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 16px;
   }
   .icon-blue { background: #dbeafe; }
-  .icon-indigo { background: #e0e7ff; }
+  .icon-indigo { background: #dbe7ff; }
   .icon-emerald { background: #d1fae5; }
   .icon-amber { background: #fef3c7; }
   .icon-rose { background: #ffe4e6; }
-  .icon-slate { background: #f1f5f9; }
+  .icon-slate { background: #eaf0f8; }
   .card h3 { font-size: 17px; font-weight: 800; margin: 0 0 8px; }
   .card p { font-size: 14px; color: var(--sub); margin: 0; }
 
@@ -131,23 +131,23 @@
 
   /* CTA 배너 */
   .cta-banner {
-    background: linear-gradient(135deg, #1e3a8a, #4338ca);
+    background: linear-gradient(135deg, #2f6bff, #5c8eff);
     border-radius: 28px; padding: 64px 40px; text-align: center; color: #fff;
     margin: 0 24px;
   }
   .cta-banner h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 800; margin: 0 0 14px; }
-  .cta-banner p { color: #c7d2fe; font-size: 15px; margin: 0 0 30px; }
-  .cta-banner .btn-primary { background: #fff; color: var(--indigo); box-shadow: none; }
-  .cta-banner .btn-primary:hover { background: #eef2ff; }
+  .cta-banner p { color: #e4edff; font-size: 15px; margin: 0 0 30px; }
+  .cta-banner .btn-primary { background: #fff; color: #2556e0; box-shadow: none; }
+  .cta-banner .btn-primary:hover { background: #e8f0ff; }
 
   /* 푸터 */
-  footer { padding: 56px 24px 40px; background: #0f172a; color: #cbd5e1; }
+  footer { padding: 56px 24px 40px; background: #eef4ff; color: var(--sub); }
   .footer-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 32px; margin-bottom: 32px; }
-  .footer-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; color: #fff; }
+  .footer-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; color: var(--ink); }
   .footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
-  .footer-links a { font-size: 13px; color: #94a3b8; font-weight: 600; }
-  .footer-links a:hover { color: #fff; }
-  .legal { border-top: 1px solid #1e293b; padding-top: 24px; font-size: 11.5px; color: #64748b; line-height: 1.8; }
+  .footer-links a { font-size: 13px; color: var(--sub); font-weight: 600; }
+  .footer-links a:hover { color: var(--blue); }
+  .legal { border-top: 1px solid #c9d7ee; padding-top: 24px; font-size: 11.5px; color: #5f6b7d; line-height: 1.8; }
   .legal p { margin: 0 0 6px; }
 
   @media (max-width: 860px) {
