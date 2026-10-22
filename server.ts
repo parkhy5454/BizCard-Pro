@@ -61,11 +61,14 @@ process.on('unhandledRejection', (reason) => {
 const PRIMARY_GEMINI_MODEL = 'gemini-3.5-flash';
 const FALLBACK_GEMINI_MODEL = 'gemini-2.5-flash';
 
+type GenerateParams = Parameters<GoogleGenAI['models']['generateContent']>[0];
+type GenerateResult = Awaited<ReturnType<GoogleGenAI['models']['generateContent']>>;
+
 async function generateContentWithRetry(
-  ai: any,
-  params: any,
+  ai: GoogleGenAI,
+  params: GenerateParams,
   maxRetries: number = 2
-): Promise<any> {
+): Promise<GenerateResult> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -296,7 +299,7 @@ import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified, isValidEm
 import { getContactGroupIds } from './src/groupUtils.js';
 import { RateLimiter } from './src/rateLimiter.js';
 import { issueBillingKey, chargeBilling, generateCustomerKey, generateOrderId, addOneMonth } from './src/billing.js';
-import { BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup, CompanyBranding } from './src/types.js';
+import { WorkLogExpense, BusinessCard, ContactGroup, CallRecord, Project, ProjectFollowUp, MyProfile, Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, MaintenanceInterval, DailyWorkLog, WeeklyWorkLog, WorkLogDayEntry, RegisteredUser, AdvancePaymentSettlement, LeaveRequest, OfficialDocument, ApprovalStep, FeedbackItem, InviteRecord, AdminDoc, Announcement, ChatMessage, ChatGroup, CompanyBranding } from './src/types.js';
 import {
   initializeDatabase,
   ensureUsersSeeded,
@@ -334,6 +337,25 @@ import {
 } from './src/db/neonStore.js';
 
 
+
+
+
+// Gemini 응답 중 그라운딩(출처) 정보만 정의한다
+interface GeminiGroundingResponse {
+  candidates?: Array<{ groundingMetadata?: { groundingChunks?: Array<{ web?: { uri?: string } }> } }>;
+}
+
+// 회사 설정(companySettings) 문서 중 서버가 읽고 쓰는 필드
+interface CompanySettingsDoc {
+  id?: string;
+  address?: string;
+  businessType?: string;
+  phone?: string;
+  fax?: string;
+  email?: string;
+  docPrefix?: string;
+  [key: string]: unknown;
+}
 
 // 카카오 로컬 API 응답 중 서버에서 쓰는 부분만 정의한다
 interface KakaoLocalResponse {
@@ -1227,6 +1249,9 @@ const db: { [scopeId: string]: {
   chatGroups: ChatGroup[];
 } } = {};
 
+// 스코프(회사/개인 데이터 묶음) 한 개의 데이터 타입
+type ScopedData = (typeof db)[string];
+
 // 동시에 여러 요청이 같은 스코프를 불러오려고 하면(예: 페이지 로딩 시 여러 화면이 동시에 호출),
 // 각자 따로 전체 재조회를 시작하지 않고 "이미 진행 중인 로딩"에 함께 올라타도록 합니다.
 // (안 그러면 응답이 늦어질수록 중복 재시도가 계속 쌓여 Supabase 연결 부담이 눈덩이처럼 커집니다.)
@@ -1380,7 +1405,7 @@ function resolveScopeId(req: express.Request): string {
 
 // Express 전용 스코프 데이터 동기 반환
 // (스코프 데이터는 아래 app.use 미들웨어에서 요청 처리 전에 이미 로드가 보장됩니다)
-function getScopedData(req: express.Request): any {
+function getScopedData(req: express.Request): ScopedData {
   const scopeId = req.scopeId || 'default';
   return db[scopeId] || {
     contacts: [],
@@ -1880,9 +1905,9 @@ app.get('/api/referral/me', async (req, res) => {
     referralCode: code,
     shareUrl: `${APP_BASE_URL}/?ref=${code}`,
     totalReferred: referrals.length,
-    totalRewarded: referrals.filter((r: any) => r.status === 'rewarded').length,
+    totalRewarded: referrals.filter((r) => r.status === 'rewarded').length,
     pendingCreditMonths: requester.referralCreditMonths || 0,
-    referrals: referrals.map((r: any) => ({
+    referrals: referrals.map((r) => ({
       refereeName: r.referee_name,
       refereeEmail: r.referee_email,
       status: r.status,
@@ -2298,7 +2323,7 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 
   // 가입 즉시 해당 스코프의 데이터 생성/초기화 유도
-  const dummyReq = { headers: { 'x-user-id': newUser.id } } as any;
+  const dummyReq = { headers: { 'x-user-id': newUser.id } } as unknown as express.Request;
   await loadScopeFromSupabase(resolveScopeId(dummyReq));
 
   // [추가] 인증 메일 발송 (실패해도 가입 자체는 막지 않는다 — 재전송 버튼으로 다시 받을 수 있음)
@@ -4393,13 +4418,13 @@ app.delete('/api/contacts/:id', async (req, res) => {
 function stripBackslashFromAddress(value: string): string {
   return value.replace(/\\/g, '').replace(/\s{2,}/g, ' ').trim();
 }
-function findBackslashAddressFixes(dbData: any) {
+function findBackslashAddressFixes(dbData: ScopedData) {
   const fields: Array<'address' | 'address2' | 'homeAddress'> = ['address', 'address2', 'homeAddress'];
   const results: { id: string; name: string; company: string; changes: Record<string, { before: string; after: string }> }[] = [];
   for (const c of (dbData.contacts || [])) {
     const changes: Record<string, { before: string; after: string }> = {};
     for (const field of fields) {
-      const before = (c as any)[field];
+      const before = (c as unknown as Record<string, unknown>)[field];
       if (typeof before === 'string' && before.includes('\\')) {
         changes[field] = { before, after: stripBackslashFromAddress(before) };
       }
@@ -4431,10 +4456,8 @@ app.post('/api/admin/contacts-backslash-clean', async (req, res) => {
   dbData.contacts = dbData.contacts.map((c: BusinessCard) => {
     if (!fixIds.has(c.id)) return c;
     const fix = fixes.find(f => f.id === c.id)!;
-    const updated = { ...c } as any;
-    for (const field of Object.keys(fix.changes)) {
-      updated[field] = fix.changes[field].after;
-    }
+    const changedFields = Object.fromEntries(Object.keys(fix.changes).map((f) => [f, fix.changes[f].after]));
+    const updated: BusinessCard = { ...c, ...changedFields };
     updatedContacts.push(updated);
     return updated;
   });
@@ -4551,7 +4574,7 @@ app.post('/api/detect-card-corners', async (req, res) => {
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
 
-    const contents: any[] = [
+    const contents: Array<string | { inlineData: { mimeType: string; data: string } }> = [
       "이 사진에 찍힌 명함(종이 카드) 실물의 네 모서리 좌표를 찾아줘. " +
       "좌표는 이미지의 가로/세로 크기에 대한 0~1 사이의 비율로 표현해줘 (예: 이미지 맨 왼쪽 위는 x:0, y:0). " +
       "카메라 각도 때문에 명함이 기울어져 찍혔어도 실제 카드의 네 꼭짓점 위치를 최대한 정확하게 찾아줘 " +
@@ -4570,7 +4593,7 @@ app.post('/api/detect-card-corners', async (req, res) => {
     });
 
     const text = response.text || '';
-    let parsedJson: any = { corners: null };
+    let parsedJson: Record<string, unknown> = { corners: null };
     try {
       const jsonStr = text.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
       parsedJson = JSON.parse(jsonStr);
@@ -4605,7 +4628,7 @@ app.post('/api/scan-card', async (req, res) => {
     // 보내는 경우(예: 아직 base64로 안 바꾼 기존 이미지 주소), Gemini에 그대로 넘기면
     // "Base64 decoding failed for https://..." 같은 알아보기 힘든 에러가 났었다. 여기서
     // 미리 걸러서 원인을 바로 알 수 있는 메시지로 답한다.
-    const isDataUrl = (v: any) => typeof v === 'string' && v.startsWith('data:image');
+    const isDataUrl = (v) => typeof v === 'string' && v.startsWith('data:image');
     if ((frontImage && !isDataUrl(frontImage)) || (backImage && !isDataUrl(backImage))) {
       return res.status(400).json({ error: '이미지 데이터 형식이 올바르지 않습니다 (base64 사진 데이터가 아닌 URL 등이 전달됨).' });
     }
@@ -4645,7 +4668,7 @@ app.post('/api/scan-card', async (req, res) => {
     }
     
     // Google Cloud Vision API REST 호출
-    const requests: any[] = [];
+    const requests: unknown[] = [];
 
     if (frontImage) {
       const base64Data = frontImage.replace(/^data:image\/\w+;base64,/, '');
@@ -4699,7 +4722,7 @@ app.post('/api/scan-card', async (req, res) => {
       // 첫 번째 줄들에서 이름과 회사 추론
       const lines = fullText.split('\n').filter(l => l.trim()).slice(0, 5);
 
-      const parsedJson: any = {
+      const parsedJson: Record<string, unknown> = {
         name: lines[0] || '',
         company: lines[1] || '',
         department: '',
@@ -4760,7 +4783,7 @@ app.post('/api/summarize-meeting', async (req, res) => {
     });
 
     const text = response.text || '';
-    let parsed: any = {};
+    let parsed: Record<string, unknown> = {};
     try {
       const cleaned = text.replace(/```json\s*|```/g, '').trim();
       parsed = JSON.parse(cleaned);
@@ -4816,7 +4839,7 @@ app.post('/api/parse-voice-contact', async (req, res) => {
     });
 
     const text = response.text || '';
-    let parsed: any = {};
+    let parsed: Record<string, unknown> = {};
     try {
       const cleaned = text.replace(/```json\s*|```/g, '').trim();
       parsed = JSON.parse(cleaned);
@@ -4887,7 +4910,7 @@ app.post('/api/scan-receipt', async (req, res) => {
     
     // 이미지 파트 생성
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-    const contents: any[] = [
+    const contents: Array<string | { inlineData: { mimeType: string; data: string } }> = [
       "이 영수증 이미지(또는 비용 영수증 사진)를 분석하여 지출 정보를 추출하고 적합한 카테고리를 분류해줘.\n" +
       // [추가] 해외 출장 경비(회계관리 > AdminDocsView, context === 'overseas_trip') 화면에서
       // 올라온 영수증은 국내 일반 비용(주유비/식대 등)과 분류 체계가 전혀 달라서(항공료/숙박비/
@@ -4987,7 +5010,7 @@ app.post('/api/scan-receipt', async (req, res) => {
     });
 
     const text = response.text || '';
-    let parsedJson: any = {};
+    let parsedJson: Record<string, unknown> = {};
     try {
       const jsonStr = text.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
       parsedJson = JSON.parse(jsonStr);
@@ -5128,7 +5151,7 @@ async function generateCompanySummary(company: string): Promise<{ fields: Compan
   // 구조가 없을 수도 있어서 옵셔널 체이닝으로 방어적으로 읽는다.
   const sourceUrls: string[] = [];
   try {
-    const chunks = (response as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const chunks = (response as unknown as GeminiGroundingResponse)?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     for (const chunk of chunks) {
       const uri = chunk?.web?.uri;
       if (uri && !sourceUrls.includes(uri)) sourceUrls.push(uri);
@@ -5317,7 +5340,7 @@ async function searchProjectRelations(input: { projectName: string; endCustomer?
 
   const sourceUrls: string[] = [];
   try {
-    const chunks = (response as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const chunks = (response as unknown as GeminiGroundingResponse)?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     for (const chunk of chunks) {
       const uri = chunk?.web?.uri;
       if (uri && !sourceUrls.includes(uri)) sourceUrls.push(uri);
@@ -6215,18 +6238,18 @@ app.delete('/api/vehicles/intervals/:id', async (req, res) => {
 // === 업무일지 (Work Logs) API ===
 
 // 업무일지 비용과 차량 비용 관리 동기화 헬퍼 함수
-function syncWorkLogExpenses(dbData: any, logId: string, logDate: string, logTitle: string, expenses: any[] | undefined) {
+function syncWorkLogExpenses(dbData: ScopedData, logId: string, logDate: string, logTitle: string, expenses: WorkLogExpense[] | undefined) {
   dbData.expenses = dbData.expenses || [];
   // 해당 업무일지로부터 등록되었던 기존 연동 차량 비용 내역 제거
-  dbData.expenses = dbData.expenses.filter((e: any) => !e.id.startsWith(`ve-wl-${logId}-`));
+  dbData.expenses = dbData.expenses.filter((e) => !e.id.startsWith(`ve-wl-${logId}-`));
 
   if (!expenses || !Array.isArray(expenses)) return;
 
-  expenses.forEach((expense: any) => {
+  expenses.forEach((expense) => {
     if (!expense.vehicleId) return; // 차량 연동 선택이 안 된 지출은 건너뜀
 
     // 카테고리 매핑
-    let category: string = 'other';
+    let category: VehicleExpense['category'] = 'other';
     let memoPrefix = '';
 
     switch (expense.category) {
@@ -6265,7 +6288,7 @@ function syncWorkLogExpenses(dbData: any, logId: string, logDate: string, logTit
     }
 
     // 결제 수단 매핑
-    let payMethod: string = 'cash';
+    let payMethod: NonNullable<VehicleExpense['payMethod']> = 'cash';
     if (expense.payMethod === 'company_card') {
       payMethod = 'company_card';
     } else if (expense.payMethod === 'personal_card') {
@@ -6561,7 +6584,7 @@ function buildVEventIcs(ev: { uid: string; summary: string; description: string;
 function parseVEvent(ics: string): { uid?: string; summary?: string; description?: string; dtstart?: string; dtend?: string } {
   const unescape = (v: string) => v.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
   const lines = ics.split(/\r\n|\n|\r/);
-  const result: any = {};
+  const result: Record<string, string> = {};
   for (const line of lines) {
     const idx = line.indexOf(':');
     if (idx === -1) continue;
@@ -7010,7 +7033,7 @@ app.delete('/api/worklogs/daily/:id', async (req, res) => {
   
   // 해당 업무일지에 매핑되어 있던 비용 내역도 제거
   dbData.expenses = dbData.expenses || [];
-  dbData.expenses = dbData.expenses.filter((e: any) => !e.id.startsWith(`ve-wl-${req.params.id}-`));
+  dbData.expenses = dbData.expenses.filter((e) => !e.id.startsWith(`ve-wl-${req.params.id}-`));
 
   await Promise.all([
     deleteScopedDoc(scopeId, 'dailyLogs', req.params.id),
@@ -7115,7 +7138,7 @@ app.delete('/api/worklogs/weekly/:id', async (req, res) => {
   
   // 해당 업무일지에 매핑되어 있던 비용 내역도 제거
   dbData.expenses = dbData.expenses || [];
-  dbData.expenses = dbData.expenses.filter((e: any) => !e.id.startsWith(`ve-wl-${req.params.id}-`));
+  dbData.expenses = dbData.expenses.filter((e) => !e.id.startsWith(`ve-wl-${req.params.id}-`));
 
   await Promise.all([
     deleteScopedDoc(scopeId, 'weeklyLogs', req.params.id),
@@ -7151,7 +7174,7 @@ async function sendEmail(opts: {
     console.warn(`[mailer] 미설정 상태라 ${opts.to}에게 메일을 보내지 못했습니다.`);
     return;
   }
-  const payload: any = {
+  const payload: Record<string, unknown> = {
     sender: { name: SMTP_FROM_NAME, email: SMTP_FROM_EMAIL },
     to: [{ email: opts.to, name: opts.toName || opts.to }],
     subject: opts.subject,
@@ -7464,14 +7487,14 @@ app.post('/api/admin/migrate-scope', async (req, res) => {
     const summary: Record<string, number> = {};
 
     for (const name of MIGRATABLE_COLLECTIONS) {
-      const oldItems = await getScopedCollection(fromScopeId, name as any);
+      const oldItems = await getScopedCollection<{ id: string }>(fromScopeId, name);
       if (!oldItems || oldItems.length === 0) continue;
 
-      const newItems = await getScopedCollection(toScopeId, name as any);
+      const newItems = await getScopedCollection<{ id: string }>(toScopeId, name);
       const merged = [...(newItems || []), ...oldItems];
 
-      await replaceScopedCollection(toScopeId, name as any, merged as any);
-      await replaceScopedCollection(fromScopeId, name as any, [] as any);
+      await replaceScopedCollection(toScopeId, name, merged);
+      await replaceScopedCollection(fromScopeId, name, []);
 
       summary[name] = oldItems.length;
     }
@@ -7736,7 +7759,7 @@ app.delete('/api/approvals/advance/:id', async (req, res) => {
 // "전자결재에서 불러오기" 버튼을 누르지 않아도 자동으로 그 해의 "연차 현황" 문서에 반영한다.
 // 업무일지 차량비용 동기화(syncWorkLogExpenses)와 같은 방식으로, 여기서는 dbData만 직접
 // 고쳐놓고 실제 저장(setScopedDoc)은 호출한 쪽에서 한다.
-function findOrCreateAnnualLeaveStatusDoc(dbData: any, year: string): AdminDoc {
+function findOrCreateAnnualLeaveStatusDoc(dbData: ScopedData, year: string): AdminDoc {
   dbData.adminDocs = dbData.adminDocs || [];
   let doc = dbData.adminDocs.find((d: AdminDoc) => d.category === 'annual_leave_status' && d.annualLeaveStatus?.year === year);
   if (!doc) {
@@ -7758,7 +7781,7 @@ function findOrCreateAnnualLeaveStatusDoc(dbData: any, year: string): AdminDoc {
 // 승인된 연차 신청서 1건을 "연차 현황"의 해당 연도 문서에 반영(같은 이름의 직원이 이미
 // 있으면 그 사람의 연차 사용 내역에 추가/갱신, 없으면 새 직원 줄을 만들어 추가)한다.
 // 승인 상태가 아니거나 연차(annual)가 아니면 아무 것도 하지 않고 null을 반환한다.
-function syncApprovedAnnualLeaveToStatus(dbData: any, leaveReq: LeaveRequest): AdminDoc | null {
+function syncApprovedAnnualLeaveToStatus(dbData: ScopedData, leaveReq: LeaveRequest): AdminDoc | null {
   if (leaveReq.status !== 'approved' || leaveReq.leaveCategory !== 'annual') return null;
   const author = (leaveReq.author || '').trim();
   if (!author || !leaveReq.startDate) return null;
@@ -7802,7 +7825,7 @@ function syncApprovedAnnualLeaveToStatus(dbData: any, leaveReq: LeaveRequest): A
 // 승인 취소/반려, 연차→다른 종류로 변경, 대상 연도 변경 등으로 더 이상 자동 반영 대상이
 // 아니게 된 신청서가 예전에 자동으로 채워 넣었던 내역을 전부 찾아서 지운다. 연도가 바뀐
 // 경우까지 놓치지 않도록 모든 "연차 현황" 문서를 훑는다.
-function removeSyncedAnnualLeaveEntry(dbData: any, leaveReqId: string): AdminDoc[] {
+function removeSyncedAnnualLeaveEntry(dbData: ScopedData, leaveReqId: string): AdminDoc[] {
   dbData.adminDocs = dbData.adminDocs || [];
   const sourceKey = `leave_request:${leaveReqId}`;
   const affected: AdminDoc[] = [];
@@ -7811,7 +7834,7 @@ function removeSyncedAnnualLeaveEntry(dbData: any, leaveReqId: string): AdminDoc
     let changed = false;
     for (const person of doc.annualLeaveStatus.people) {
       const before = person.leaveEntries.length;
-      person.leaveEntries = person.leaveEntries.filter((e: any) => e.sourceKey !== sourceKey);
+      person.leaveEntries = person.leaveEntries.filter((e) => e.sourceKey !== sourceKey);
       if (person.leaveEntries.length !== before) changed = true;
     }
     if (changed) affected.push(doc);
@@ -8076,8 +8099,8 @@ app.put('/api/company-settings', async (req, res) => {
   // [수정] 예전엔 요청 본문에 없는 필드를 전부 빈 값으로 덮어써서, 예를 들어 공문서 탭에서
   // 전화/팩스만 저장해도 근로계약서 쪽에서 써둔 주소·사업종류가 날아가는 문제가 있었다.
   // 기존 값을 먼저 불러와 보낸 필드만 덮어쓰는 부분 업데이트(병합) 방식으로 바꾼다.
-  const existingList = await getScopedCollection<any>(scopeId, 'companySettings');
-  const existing = existingList[0] || {};
+  const existingList = await getScopedCollection<CompanySettingsDoc>(scopeId, 'companySettings');
+  const existing: CompanySettingsDoc = existingList[0] || {};
   const record = {
     id: 'default',
     address: req.body.address !== undefined ? req.body.address : (existing.address || ''),
@@ -8667,7 +8690,7 @@ app.post('/api/send-tax-package', async (req, res) => {
     };
 
     // 1) 차량 비용
-    (dbData.expenses || []).forEach((e: any) => {
+    (dbData.expenses || []).forEach((e) => {
       if ((e.date || '').startsWith(prefix)) {
         rows.push({
           date: e.date, category: '차량비용', merchant: e.merchantName || e.categoryCustom || e.category || '',
@@ -8677,7 +8700,7 @@ app.post('/api/send-tax-package', async (req, res) => {
     });
 
     // 2) 차량 정비
-    (dbData.maintenances || []).forEach((m: any) => {
+    (dbData.maintenances || []).forEach((m) => {
       if ((m.date || '').startsWith(prefix)) {
         rows.push({
           date: m.date, category: '차량정비', merchant: m.shopName || m.title || '',
@@ -8687,10 +8710,10 @@ app.post('/api/send-tax-package', async (req, res) => {
     });
 
     // 3) 프로젝트 미팅 지출
-    (dbData.projects || []).forEach((p: any) => {
-      (p.followUps || []).forEach((fu: any) => {
+    (dbData.projects || []).forEach((p) => {
+      (p.followUps || []).forEach((fu) => {
         if ((fu.date || '').startsWith(prefix)) {
-          (fu.expenses || []).forEach((exp: any) => {
+          (fu.expenses || []).forEach((exp) => {
             rows.push({
               date: fu.date, category: '미팅지출', merchant: exp.categoryCustom || exp.category || '',
               amount: exp.amount || 0, payMethod: payMethodKo(exp.payMethod),
@@ -8702,9 +8725,9 @@ app.post('/api/send-tax-package', async (req, res) => {
     });
 
     // 4) 업무일지 지출 (일일)
-    (dbData.dailyLogs || []).forEach((log: any) => {
+    (dbData.dailyLogs || []).forEach((log) => {
       if ((log.date || '').startsWith(prefix)) {
-        (log.expenses || []).forEach((exp: any) => {
+        (log.expenses || []).forEach((exp) => {
           rows.push({
             date: log.date, category: '업무일지 지출', merchant: exp.categoryCustom || exp.category || '',
             amount: exp.amount || 0, payMethod: payMethodKo(exp.payMethod), memo: exp.memo || '', receiptImage: exp.receiptImage
@@ -8714,9 +8737,9 @@ app.post('/api/send-tax-package', async (req, res) => {
     });
 
     // 5) 업무일지 지출 (주간 - 시작일 기준)
-    (dbData.weeklyLogs || []).forEach((log: any) => {
+    (dbData.weeklyLogs || []).forEach((log) => {
       if ((log.startDate || '').startsWith(prefix)) {
-        (log.expenses || []).forEach((exp: any) => {
+        (log.expenses || []).forEach((exp) => {
           rows.push({
             date: log.startDate, category: '업무일지 지출(주간)', merchant: exp.categoryCustom || exp.category || '',
             amount: exp.amount || 0, payMethod: payMethodKo(exp.payMethod), memo: exp.memo || '', receiptImage: exp.receiptImage
