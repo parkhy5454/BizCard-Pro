@@ -1257,7 +1257,7 @@ export const ProjectsView: React.FC<Props> = ({
     setVisibleProjectCount(50);
   }, [filterStatus, projectSearchQuery, projectSortOrder]);
   // [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하기 위한 상태
-  const [showProjectsPrintPreview, setShowProjectsPrintPreview] = useState<boolean>(false);
+  const [isProjectsPrintPreviewOpen, setIsProjectsPrintPreviewOpen] = useState<boolean>(false);
   // [추가] "리스트 출력" 표에서 개별/전체 선택 삭제를 위한 선택된 프로젝트 id 목록.
   // 필터가 바뀌어 화면에서 사라진 프로젝트의 선택은 굳이 자동으로 풀지 않아도 되지만
   // (다시 필터를 풀면 여전히 선택돼 있는 게 자연스럽다), 실제로 삭제된 항목은
@@ -2863,7 +2863,7 @@ export const ProjectsView: React.FC<Props> = ({
   }, [triggerExcelExport]);
 
   useEffect(() => {
-    if (triggerPrintPreview) setShowProjectsPrintPreview(true);
+    if (triggerPrintPreview) setIsProjectsPrintPreviewOpen(true);
   }, [triggerPrintPreview]);
 
   return (
@@ -3657,7 +3657,7 @@ export const ProjectsView: React.FC<Props> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => setShowProjectsPrintPreview(true)}
+                  onClick={() => setIsProjectsPrintPreviewOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -5609,7 +5609,7 @@ export const ProjectsView: React.FC<Props> = ({
       />
 
       {/* [수정] 전체 프로젝트 목록 PDF 인쇄/미리보기 모달 */}
-      {showProjectsPrintPreview && (
+      {isProjectsPrintPreviewOpen && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
           {/* [수정] 이 모달의 max-width가 세로(A4 portrait, 210mm) 문서 기준(215mm)으로 남아있어서,
           가로(297mm)로 바뀐 미리보기 내용이 이 좁은 폭 안에 억지로 눌려 들어가 컬럼 헤더가
@@ -5631,7 +5631,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <button onClick={handlePrintProjectsList} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
                   <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
                 </button>
-                <button onClick={() => setShowProjectsPrintPreview(false)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
+                <button onClick={() => setIsProjectsPrintPreviewOpen(false)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>

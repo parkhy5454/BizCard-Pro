@@ -59,8 +59,8 @@ const formatCallDate = (isoStr: string) => {
 
 export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], currentUser, searchQuery, setSearchQuery, onSelectContact, onEditContact, onDeleteContact, onUpdateContact, onNavigateToProjects, onOpenProject, onAddCallHistory, sortOrder = 'recent', setSortOrder, isAdmin, onOpenAddressCleanup }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
+  const [isLeftArrowVisible, setIsLeftArrowVisible] = useState(false);
+  const [isRightArrowVisible, setIsRightArrowVisible] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   // [추가] 목록 화면의 여러 카드 중 지금 "AI 기업 인텔리전스"를 조회 중인 카드가 어느
   // 것인지 추적한다(카드마다 독립적으로 로딩 상태를 보여주기 위함).
@@ -247,8 +247,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
   const checkScroll = () => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setShowLeftArrow(scrollLeft > 10);
-      setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 10);
+      setIsLeftArrowVisible(scrollLeft > 10);
+      setIsRightArrowVisible(scrollLeft + clientWidth < scrollWidth - 10);
 
       // Estimate current index based on item size
       const cardWidth = scrollRef.current.firstElementChild?.clientWidth || 380;
@@ -543,7 +543,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         <>
           <div className="relative group/slider w-full">
         {/* 왼쪽 화살표 */}
-        {showLeftArrow && (
+        {isLeftArrowVisible && (
           <button
             onClick={() => scroll('left')}
             className="absolute -left-2 md:-left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-slate-200 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-slate-600 hover:text-white flex items-center justify-center shadow-lg transition-all duration-200"
@@ -554,7 +554,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         )}
 
         {/* 오른쪽 화살표 */}
-        {showRightArrow && (
+        {isRightArrowVisible && (
           <button
             onClick={() => scroll('right')}
             className="absolute -right-2 md:-right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-slate-200 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-slate-600 hover:text-white flex items-center justify-center shadow-lg transition-all duration-200"

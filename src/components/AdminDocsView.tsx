@@ -2406,7 +2406,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     });
   };
 
-  const [showRateSettings, setShowRateSettings] = useState(false);
+  const [isRateSettingsOpen, setIsRateSettingsOpen] = useState(false);
 
   // [추가] 예전엔 "자동 계산" 버튼을 직접 눌러야만 계산됐는데, 지급 내역이나 공제율을 바꿀
   // 때마다 매번 버튼 누르는 게 번거로워서, 바뀌는 즉시 자동으로 다시 계산되게 한다.
@@ -2450,14 +2450,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 바로 채워 넣을 수 있게 한다.
   type OverseasTripImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; project?: string; memo?: string; personName?: string };
   const [overseasTripCardCandidates, setOverseasTripCardCandidates] = useState<OverseasTripImportCandidate[]>([]);
-  const [showOverseasTripCardImportPanel, setShowOverseasTripCardImportPanel] = useState(false);
+  const [isOverseasTripCardImportPanelOpen, setIsOverseasTripCardImportPanelOpen] = useState(false);
   const [isLoadingOverseasTripCardCandidates, setIsLoadingOverseasTripCardCandidates] = useState(false);
   const [selectedOverseasTripCardImportKeys, setSelectedOverseasTripCardImportKeys] = useState<Set<string>>(new Set());
 
   // [추가] 해외 출장 경비 - "통장 출금내역에서 가져오기" 패널 상태. 환전 비용처럼 통장에서
   // 바로 출금한 경우, 또는 현금으로 지급한 항목(현금 인출)을 통장 출금 내역에서 가져온다.
   const [overseasTripBankCandidates, setOverseasTripBankCandidates] = useState<OverseasTripImportCandidate[]>([]);
-  const [showOverseasTripBankImportPanel, setShowOverseasTripBankImportPanel] = useState(false);
+  const [isOverseasTripBankImportPanelOpen, setIsOverseasTripBankImportPanelOpen] = useState(false);
   const [isLoadingOverseasTripBankCandidates, setIsLoadingOverseasTripBankCandidates] = useState(false);
   const [selectedOverseasTripBankImportKeys, setSelectedOverseasTripBankImportKeys] = useState<Set<string>>(new Set());
 
@@ -2476,7 +2476,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenOverseasTripCardImportPanel = async () => {
     if (!currentUser) return;
-    setShowOverseasTripCardImportPanel(true);
+    setIsOverseasTripCardImportPanelOpen(true);
     setIsLoadingOverseasTripCardCandidates(true);
     try {
       const res = await fetch('/api/admin-docs/overseas-trip-card-candidates', { headers: { 'x-user-id': currentUser.id } });
@@ -2485,7 +2485,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setOverseasTripCardCandidates(data);
     } catch (err: any) {
       alert(`카드사용내역/업무일지를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowOverseasTripCardImportPanel(false);
+      setIsOverseasTripCardImportPanelOpen(false);
     } finally {
       setIsLoadingOverseasTripCardCandidates(false);
     }
@@ -2493,7 +2493,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenOverseasTripBankImportPanel = async () => {
     if (!currentUser) return;
-    setShowOverseasTripBankImportPanel(true);
+    setIsOverseasTripBankImportPanelOpen(true);
     setIsLoadingOverseasTripBankCandidates(true);
     try {
       const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
@@ -2502,7 +2502,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setOverseasTripBankCandidates(data);
     } catch (err: any) {
       alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowOverseasTripBankImportPanel(false);
+      setIsOverseasTripBankImportPanelOpen(false);
     } finally {
       setIsLoadingOverseasTripBankCandidates(false);
     }
@@ -2548,7 +2548,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       }))
     ]);
     setSelectedOverseasTripCardImportKeys(new Set());
-    setShowOverseasTripCardImportPanel(false);
+    setIsOverseasTripCardImportPanelOpen(false);
   };
 
   // [추가] 통장 출금 내역에서 고른 항목들을 해외 출장 경비 항목으로 채워 넣는다. 주로
@@ -2574,7 +2574,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       }))
     ]);
     setSelectedOverseasTripBankImportKeys(new Set());
-    setShowOverseasTripBankImportPanel(false);
+    setIsOverseasTripBankImportPanelOpen(false);
   };
 
   // [추가] 통장 출금/입금 내역 - "통장별 전체 합쳐보기"에서 고를 대상 통장(은행+계좌번호)
@@ -3122,7 +3122,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 이미 가져온 적 있는 항목(sourceKey로 판단)은 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
   type AdvanceImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; personName?: string; project?: string; memo?: string };
   const [advanceImportCandidates, setAdvanceImportCandidates] = useState<AdvanceImportCandidate[]>([]);
-  const [showAdvanceImportPanel, setShowAdvanceImportPanel] = useState(false);
+  const [isAdvanceImportPanelOpen, setIsAdvanceImportPanelOpen] = useState(false);
   const [isLoadingAdvanceCandidates, setIsLoadingAdvanceCandidates] = useState(false);
   const [selectedAdvanceImportKeys, setSelectedAdvanceImportKeys] = useState<Set<string>>(new Set());
 
@@ -3143,7 +3143,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenAdvanceImportPanel = async () => {
     if (!currentUser) return;
-    setShowAdvanceImportPanel(true);
+    setIsAdvanceImportPanelOpen(true);
     setIsLoadingAdvanceCandidates(true);
     try {
       const res = await fetch('/api/admin-docs/advance-payment-candidates', { headers: { 'x-user-id': currentUser.id } });
@@ -3152,7 +3152,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setAdvanceImportCandidates(data);
     } catch (err: any) {
       alert(`전자결재 가지급금 정산서 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowAdvanceImportPanel(false);
+      setIsAdvanceImportPanelOpen(false);
     } finally {
       setIsLoadingAdvanceCandidates(false);
     }
@@ -3197,7 +3197,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const toImport = advanceImportCandidates.filter((c) => selectedAdvanceImportKeys.has(c.sourceKey));
     updateAdvancePayment((ap) => toImport.reduce((acc, cand) => importAdvanceCandidate(acc, cand), ap));
     setSelectedAdvanceImportKeys(new Set());
-    setShowAdvanceImportPanel(false);
+    setIsAdvanceImportPanelOpen(false);
   };
 
   // [추가] "전자결재에서 가지급금 신청(정산서)이 승인되면 자동으로 가져오게" 요청에 맞춰,
@@ -3268,7 +3268,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 이미 가져온 적 있는 항목(sourceKey로 판단)은 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
   type VehicleFineImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
   const [vehicleFineImportCandidates, setVehicleFineImportCandidates] = useState<VehicleFineImportCandidate[]>([]);
-  const [showVehicleFineImportPanel, setShowVehicleFineImportPanel] = useState(false);
+  const [isVehicleFineImportPanelOpen, setIsVehicleFineImportPanelOpen] = useState(false);
   const [isLoadingVehicleFineCandidates, setIsLoadingVehicleFineCandidates] = useState(false);
   const [selectedVehicleFineImportKeys, setSelectedVehicleFineImportKeys] = useState<Set<string>>(new Set());
 
@@ -3285,7 +3285,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenVehicleFineImportPanel = async () => {
     if (!currentUser) return;
-    setShowVehicleFineImportPanel(true);
+    setIsVehicleFineImportPanelOpen(true);
     setIsLoadingVehicleFineCandidates(true);
     try {
       const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
@@ -3294,7 +3294,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setVehicleFineImportCandidates(data);
     } catch (err: any) {
       alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowVehicleFineImportPanel(false);
+      setIsVehicleFineImportPanelOpen(false);
     } finally {
       setIsLoadingVehicleFineCandidates(false);
     }
@@ -3325,7 +3325,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       }))
     ]);
     setSelectedVehicleFineImportKeys(new Set());
-    setShowVehicleFineImportPanel(false);
+    setIsVehicleFineImportPanelOpen(false);
   };
 
   // [추가] 각종 세금 - 항목 추가/삭제/수정 (건별로 여러 줄)
@@ -3504,7 +3504,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 이름이 같은 직원에게 자동으로 채워 넣는다(없으면 새 직원으로 자동 등록).
   type AnnualLeaveImportCandidate = { sourceKey: string; sourceLabel: string; author: string; startDate: string; endDate?: string; days: number; note: string; totalAnnualDays?: number };
   const [annualLeaveImportCandidates, setAnnualLeaveImportCandidates] = useState<AnnualLeaveImportCandidate[]>([]);
-  const [showAnnualLeaveImportPanel, setShowAnnualLeaveImportPanel] = useState(false);
+  const [isAnnualLeaveImportPanelOpen, setIsAnnualLeaveImportPanelOpen] = useState(false);
   const [isLoadingAnnualLeaveImportCandidates, setIsLoadingAnnualLeaveImportCandidates] = useState(false);
   const [selectedAnnualLeaveImportKeys, setSelectedAnnualLeaveImportKeys] = useState<Set<string>>(new Set());
 
@@ -3518,7 +3518,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenAnnualLeaveImportPanel = async () => {
     if (!currentUser) return;
-    setShowAnnualLeaveImportPanel(true);
+    setIsAnnualLeaveImportPanelOpen(true);
     setIsLoadingAnnualLeaveImportCandidates(true);
     try {
       const year = editingDoc?.annualLeaveStatus?.year || String(new Date().getFullYear());
@@ -3528,7 +3528,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setAnnualLeaveImportCandidates(data);
     } catch (err: any) {
       alert(`전자결재 휴가 신청서를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowAnnualLeaveImportPanel(false);
+      setIsAnnualLeaveImportPanelOpen(false);
     } finally {
       setIsLoadingAnnualLeaveImportCandidates(false);
     }
@@ -3582,14 +3582,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       return next;
     });
     setSelectedAnnualLeaveImportKeys(new Set());
-    setShowAnnualLeaveImportPanel(false);
+    setIsAnnualLeaveImportPanelOpen(false);
   };
 
   // [추가] "자동 불러오기" - 회계관리 > 통장 출금 내역에서 실제 세금 납부 건만 골라
   // 지금 편집 중인 각종 세금 내역에 항목으로 채워 넣는다 (차량 과태료 내역과 같은 패턴).
   type TaxImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
   const [taxImportCandidates, setTaxImportCandidates] = useState<TaxImportCandidate[]>([]);
-  const [showTaxImportPanel, setShowTaxImportPanel] = useState(false);
+  const [isTaxImportPanelOpen, setIsTaxImportPanelOpen] = useState(false);
   const [isLoadingTaxCandidates, setIsLoadingTaxCandidates] = useState(false);
   const [selectedTaxImportKeys, setSelectedTaxImportKeys] = useState<Set<string>>(new Set());
 
@@ -3606,7 +3606,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenTaxImportPanel = async () => {
     if (!currentUser) return;
-    setShowTaxImportPanel(true);
+    setIsTaxImportPanelOpen(true);
     setIsLoadingTaxCandidates(true);
     try {
       const res = await fetch('/api/admin-docs/bank-withdrawal-candidates', { headers: { 'x-user-id': currentUser.id } });
@@ -3615,7 +3615,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setTaxImportCandidates(data);
     } catch (err: any) {
       alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowTaxImportPanel(false);
+      setIsTaxImportPanelOpen(false);
     } finally {
       setIsLoadingTaxCandidates(false);
     }
@@ -3644,7 +3644,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       }))
     ]);
     setSelectedTaxImportKeys(new Set());
-    setShowTaxImportPanel(false);
+    setIsTaxImportPanelOpen(false);
   };
 
   // [추가] 관리비내역 - 호실(열) 추가/삭제/이름수정, 월(행) 추가/삭제/수정, 칸(호실×월)
@@ -3708,7 +3708,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 선택한 출금 건들을 채워 넣는 방식(법인카드 사용내역의 "자동 불러오기"와 같은 패턴)을 쓴다.
   type ManagementImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
   const [managementImportCandidates, setManagementImportCandidates] = useState<ManagementImportCandidate[]>([]);
-  const [showManagementImportPanel, setShowManagementImportPanel] = useState(false);
+  const [isManagementImportPanelOpen, setIsManagementImportPanelOpen] = useState(false);
   const [isLoadingManagementCandidates, setIsLoadingManagementCandidates] = useState(false);
   const [selectedManagementImportKeys, setSelectedManagementImportKeys] = useState<Set<string>>(new Set());
   const [managementImportTargetUnitId, setManagementImportTargetUnitId] = useState<string>('');
@@ -3730,7 +3730,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenManagementImportPanel = async () => {
     if (!currentUser) return;
-    setShowManagementImportPanel(true);
+    setIsManagementImportPanelOpen(true);
     setIsLoadingManagementCandidates(true);
     if (!managementImportTargetUnitId && editingDoc?.managementFee?.units?.length) {
       setManagementImportTargetUnitId(editingDoc.managementFee.units[0].id);
@@ -3742,7 +3742,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setManagementImportCandidates(data);
     } catch (err: any) {
       alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowManagementImportPanel(false);
+      setIsManagementImportPanelOpen(false);
     } finally {
       setIsLoadingManagementCandidates(false);
     }
@@ -3779,7 +3779,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       return { ...mf, months };
     });
     setSelectedManagementImportKeys(new Set());
-    setShowManagementImportPanel(false);
+    setIsManagementImportPanelOpen(false);
   };
 
   // [추가] 법인카드 관리(월별 요약) - 카드 줄 추가·삭제·수정
@@ -3844,7 +3844,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 다시 목록에 안 뜨게 해서 중복 등록을 막는다.
   type CardImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; project?: string; memo?: string; personName?: string };
   const [cardImportCandidates, setCardImportCandidates] = useState<CardImportCandidate[]>([]);
-  const [showCardImportPanel, setShowCardImportPanel] = useState(false);
+  const [isCardImportPanelOpen, setIsCardImportPanelOpen] = useState(false);
   const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
   const [selectedImportKeys, setSelectedImportKeys] = useState<Set<string>>(new Set());
   const [importTargetCardId, setImportTargetCardId] = useState<string>('');
@@ -3867,7 +3867,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   const handleOpenCardImportPanel = async () => {
     if (!currentUser) return;
-    setShowCardImportPanel(true);
+    setIsCardImportPanelOpen(true);
     setIsLoadingCandidates(true);
     // 가져올 대상 카드를 기본으로 첫 번째 카드로 잡아둔다
     if (!importTargetCardId && editingDoc?.cardUsage?.cards?.length) {
@@ -3880,7 +3880,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setCardImportCandidates(data);
     } catch (err: any) {
       alert(`법인카드 사용 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
-      setShowCardImportPanel(false);
+      setIsCardImportPanelOpen(false);
     } finally {
       setIsLoadingCandidates(false);
     }
@@ -3916,7 +3916,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         }
       : c));
     setSelectedImportKeys(new Set());
-    setShowCardImportPanel(false);
+    setIsCardImportPanelOpen(false);
   };
 
   const handleSave = async () => {
@@ -6363,13 +6363,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     <div className="border border-slate-200 rounded-lg overflow-hidden">
                       <button
                         type="button"
-                        onClick={() => setShowRateSettings((v) => !v)}
+                        onClick={() => setIsRateSettingsOpen((v) => !v)}
                         className="w-full flex items-center justify-between px-2.5 py-2 bg-white text-[11px] font-bold text-slate-600"
                       >
                         <span className="flex items-center gap-1"><Percent className="w-3 h-3" /> 공제율 설정 (매년 변경될 수 있음)</span>
-                        <span className="text-slate-400">{showRateSettings ? '접기' : '펼치기'}</span>
+                        <span className="text-slate-400">{isRateSettingsOpen ? '접기' : '펼치기'}</span>
                       </button>
-                      {showRateSettings && (
+                      {isRateSettingsOpen && (
                         <div className="p-2.5 bg-white border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {([
                             ['pensionRate', '국민연금 (%)'],
@@ -6935,11 +6935,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {/* [추가] 통합 차량 관리(비용관리/정비일지)·프로젝트·업무일지(일일/주간)에서
                     법인카드 결제로 이미 기록된 지출들을 모아 보여주고, 고른 것만 선택한 카드에
                     항목으로 채워 넣는다. */}
-                    {showCardImportPanel && (
+                    {isCardImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">차량·프로젝트·업무일지에서 법인카드 지출 불러오기</span>
-                          <button type="button" onClick={() => setShowCardImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsCardImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -7350,11 +7350,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     {/* [추가] 전자결재 > 가지급금 정산서 중 승인된 건의 정산 내역을 모아 보여주고,
                     고른 것만 이름이 일치하는 인원의 해당 월 칸으로 자동 반영한다. */}
-                    {showAdvanceImportPanel && (
+                    {isAdvanceImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">전자결재 가지급금 정산서(승인) 불러오기</span>
-                          <button type="button" onClick={() => setShowAdvanceImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsAdvanceImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -7551,11 +7551,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     {/* [추가] 통장 출금 내역에 이미 등록된 거래 중 실제 과태료인 건만 골라서
                     가져온다. 출금 내역엔 과태료 여부 표시가 없어 전부 후보로 보여준다. */}
-                    {showVehicleFineImportPanel && (
+                    {isVehicleFineImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 과태료 불러오기</span>
-                          <button type="button" onClick={() => setShowVehicleFineImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsVehicleFineImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -7728,11 +7728,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     {/* [추가] 통장 출금 내역에 이미 등록된 거래 중 실제 세금 납부 건만 골라서
                     가져온다. 출금 내역엔 세금 여부 표시가 없어 전부 후보로 보여준다. */}
-                    {showTaxImportPanel && (
+                    {isTaxImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 세금 불러오기</span>
-                          <button type="button" onClick={() => setShowTaxImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsTaxImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -7989,11 +7989,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     넣는다. 같은 지출이 카드사용내역/업무일지 양쪽에 다 걸려 있으면(=업무일지
                     지출이 이미 카드사용내역으로 한 번 가져와졌으면) 서버에서 카드사용내역
                     쪽만 남기고 미리 걸러서 내려주므로 중복으로 보이지 않는다. */}
-                    {showOverseasTripCardImportPanel && (
+                    {isOverseasTripCardImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">카드사용내역·업무일지에서 법인카드 지출 불러오기</span>
-                          <button type="button" onClick={() => setShowOverseasTripCardImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsOverseasTripCardImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -8064,11 +8064,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     비용처럼 은행에서 바로 처리한 지출, 또는 현금으로 지급하려고 인출한 경우에
                     쓴다 - 기본값은 "환전 비용/현금"으로 채워지지만, 가져온 뒤 다른 사용구분으로
                     바꿀 수 있다. */}
-                    {showOverseasTripBankImportPanel && (
+                    {isOverseasTripBankImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 불러오기 (환전 비용·현금 지급용)</span>
-                          <button type="button" onClick={() => setShowOverseasTripBankImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsOverseasTripBankImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -8323,11 +8323,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     </div>
 
-                    {showManagementImportPanel && (
+                    {isManagementImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 관리비 불러오기</span>
-                          <button type="button" onClick={() => setShowManagementImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsManagementImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -8535,11 +8535,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     {/* [추가] 승인된 연차 신청서 중, 이름이 같은 직원이 이미 있으면 그 사람의
                     연차 사용 내역에, 없으면 새 직원으로 자동 등록하며 채워 넣는다. */}
-                    {showAnnualLeaveImportPanel && (
+                    {isAnnualLeaveImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-emerald-700">전자결재 휴가 신청서에서 불러오기 (승인된 연차만)</span>
-                          <button type="button" onClick={() => setShowAnnualLeaveImportPanel(false)} className="text-slate-400 hover:text-slate-600">
+                          <button type="button" onClick={() => setIsAnnualLeaveImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>

@@ -76,7 +76,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   const [companyMismatches, setCompanyMismatches] = useState<CompanyMismatch[] | null>(null);
   const [normalizingBizNum, setNormalizingBizNum] = useState<string | null>(null);
   const [expandedScopeId, setExpandedScopeId] = useState<string | null>(null);
-  const [showIndividuals, setShowIndividuals] = useState<boolean>(false);
+  const [isIndividualsExpanded, setIsIndividualsExpanded] = useState<boolean>(false);
 
   // [추가] 고아 데이터(사업자번호 표기 오류 등으로 엉뚱한 스코프에 쌓인 데이터)를
   // 올바른 스코프로 병합하기 위한 도구 상태.
@@ -627,12 +627,12 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
               <div className="space-y-2">
                 <button
                   type="button"
-                  onClick={() => setShowIndividuals((v) => !v)}
+                  onClick={() => setIsIndividualsExpanded((v) => !v)}
                   className="text-xs font-bold text-slate-500 underline underline-offset-2 hover:text-slate-600"
                 >
-                  개인 가입자 목록 ({stats.individuals.length}명) {showIndividuals ? '▲' : '▾'}
+                  개인 가입자 목록 ({stats.individuals.length}명) {isIndividualsExpanded ? '▲' : '▾'}
                 </button>
-                {showIndividuals && (
+                {isIndividualsExpanded && (
                   stats.individuals.length === 0 ? (
                     <div className="py-6 text-center text-slate-400 text-xs">개인으로 가입한 사람이 없습니다.</div>
                   ) : (

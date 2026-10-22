@@ -79,11 +79,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [maintSubMode, setMaintSubMode] = useState<'history' | 'intervals'>('history');
 
   // 등록 모달/폼 활성화 여부
-  const [showVehicleForm, setShowVehicleForm] = useState(false);
-  const [showDrivingForm, setShowDrivingForm] = useState(false);
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [showMaintForm, setShowMaintForm] = useState(false);
-  const [showIntervalForm, setShowIntervalForm] = useState(false);
+  const [isVehicleFormOpen, setIsVehicleFormOpen] = useState(false);
+  const [isDrivingFormOpen, setIsDrivingFormOpen] = useState(false);
+  const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
+  const [isMaintFormOpen, setIsMaintFormOpen] = useState(false);
+  const [isIntervalFormOpen, setIsIntervalFormOpen] = useState(false);
 
   // 현재 수정 중인 차량 상태
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
@@ -439,7 +439,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (res.ok) {
         const added = await res.json();
         setVehicles([added, ...vehicles]);
-        setShowVehicleForm(false);
+        setIsVehicleFormOpen(false);
         setNewVehicle({
           modelName: '',
           plateNumber: '',
@@ -848,7 +848,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           setActiveDrivingReceiptTempId(null);
         }
 
-        setShowDrivingForm(false);
+        setIsDrivingFormOpen(false);
         setNewDriving({
           vehicleId: '',
           driverName: currentUser.name,
@@ -979,7 +979,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (res.ok) {
         const added = await res.json();
         setExpenses([added, ...expenses]);
-        setShowExpenseForm(false);
+        setIsExpenseFormOpen(false);
         setNewExpense({
           vehicleId: '',
           date: getTodayLocalStr(),
@@ -1131,7 +1131,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         setMaintenances([added, ...maintenances]);
         // [추가] 정비 비용이 있으면 차량 비용 지출 목록에도 자동으로 같이 등록해준다.
         await syncLinkedExpenseForMaint(added);
-        setShowMaintForm(false);
+        setIsMaintFormOpen(false);
         setIsMaintTitleCustom(false);
         setNewMaint({
           vehicleId: '',
@@ -1347,7 +1347,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (res.ok) {
         const added = await res.json();
         setMaintenanceIntervals([added, ...maintenanceIntervals]);
-        setShowIntervalForm(false);
+        setIsIntervalFormOpen(false);
         setIsIntervalItemCustom(false);
         setNewInterval({
           vehicleId: '',
@@ -1890,7 +1890,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowVehicleForm(!showVehicleForm)}
+              onClick={() => setIsVehicleFormOpen(!isVehicleFormOpen)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -1909,14 +1909,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           </div>
 
           {/* 1. 차량 신규 등록 폼 */}
-          {showVehicleForm && (
+          {isVehicleFormOpen && (
             <div className="p-6 bg-white border border-slate-200 rounded-2xl space-y-6">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Car className="w-4 h-4 text-indigo-400" />
                   <span>신규 차량 등록 대장 기입</span>
                 </h3>
-                <button onClick={() => setShowVehicleForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
+                <button onClick={() => setIsVehicleFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               
               <form onSubmit={handleAddVehicle} className="space-y-6">
@@ -2184,7 +2184,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                   <button 
                     type="button"
-                    onClick={() => setShowVehicleForm(false)}
+                    onClick={() => setIsVehicleFormOpen(false)}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
@@ -2381,7 +2381,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     alert('차량을 먼저 등록하세요.');
                     return;
                   }
-                  setShowDrivingForm(!showDrivingForm);
+                  setIsDrivingFormOpen(!isDrivingFormOpen);
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
               >
@@ -2441,7 +2441,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           </div>
 
           {/* 2. 운행일지 신규 작성 폼 */}
-          {showDrivingForm && (() => {
+          {isDrivingFormOpen && (() => {
             // 이전에 등록된 출발지 및 목적지 고유 목록 추출 (주소 정보 매칭 목적)
             const uniqueStarts = Array.from(new Map<string, DrivingLog>(drivingLogs.filter((l): l is DrivingLog & { startPlace: string } => !!l.startPlace).map(l => [l.startPlace, l])).values());
             const uniqueEnds = Array.from(new Map<string, DrivingLog>(drivingLogs.filter((l): l is DrivingLog & { endPlace: string } => !!l.endPlace).map(l => [l.endPlace, l])).values());
@@ -2453,7 +2453,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <MapPin className="w-4 h-4 text-indigo-400" />
                     <span>운행기록 신규 작성</span>
                   </h3>
-                  <button onClick={() => setShowDrivingForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
+                  <button onClick={() => setIsDrivingFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
                 </div>
                 <form onSubmit={handleAddDriving} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="col-span-1 sm:col-span-2 lg:col-span-4 space-y-2">
@@ -2986,7 +2986,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     </div>
                     <button 
                       type="button"
-                      onClick={() => setShowDrivingForm(false)}
+                      onClick={() => setIsDrivingFormOpen(false)}
                       className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                     >
                       취소
@@ -3190,7 +3190,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     alert('비용을 기입하려면 차량을 먼저 대장에 등록해야 합니다.');
                     return;
                   }
-                  setShowExpenseForm(!showExpenseForm);
+                  setIsExpenseFormOpen(!isExpenseFormOpen);
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
               >
@@ -3268,14 +3268,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             </div>
           </div>
 
-          {showExpenseForm && (
+          {isExpenseFormOpen && (
             <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Plus className="w-4 h-4 text-indigo-400" />
                   <span>차량 지출 비용 등록</span>
                 </h3>
-                <button onClick={() => setShowExpenseForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
+                <button onClick={() => setIsExpenseFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
@@ -3534,7 +3534,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-200/50 pt-3">
                   <button 
                     type="button"
-                    onClick={() => setShowExpenseForm(false)}
+                    onClick={() => setIsExpenseFormOpen(false)}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
@@ -3719,9 +3719,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return;
                   }
                   if (maintSubMode === 'intervals') {
-                    setShowIntervalForm(!showIntervalForm);
+                    setIsIntervalFormOpen(!isIntervalFormOpen);
                   } else {
-                    setShowMaintForm(!showMaintForm);
+                    setIsMaintFormOpen(!isMaintFormOpen);
                   }
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold"
@@ -3733,14 +3733,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           </div>
 
           {/* 정비기록 신규 등록 폼 */}
-          {maintSubMode === 'history' && showMaintForm && (
+          {maintSubMode === 'history' && isMaintFormOpen && (
             <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Wrench className="w-4 h-4 text-indigo-400" />
                   <span>차량 정비 일지 기록</span>
                 </h3>
-                <button onClick={() => setShowMaintForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
+                <button onClick={() => setIsMaintFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddMaint} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
@@ -3900,14 +3900,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           )}
 
           {/* 소모품 점검 주기 신규 등록 폼 */}
-          {maintSubMode === 'intervals' && showIntervalForm && (
+          {maintSubMode === 'intervals' && isIntervalFormOpen && (
             <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <RefreshCw className="w-4 h-4 text-indigo-400" />
                   <span>소모품 정기 점검 주기 등록</span>
                 </h3>
-                <button onClick={() => setShowIntervalForm(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
+                <button onClick={() => setIsIntervalFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddInterval} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
@@ -4039,7 +4039,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div className="lg:col-span-4 flex justify-end gap-2 border-t border-slate-200/50 pt-3">
                   <button 
                     type="button"
-                    onClick={() => setShowIntervalForm(false)}
+                    onClick={() => setIsIntervalFormOpen(false)}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
                     취소
