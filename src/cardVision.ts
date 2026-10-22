@@ -1,3 +1,4 @@
+import type { CvModule, CvMat } from './opencvTypes.js';
 // 명함/영수증 등 문서 스캔을 위한 실시간 컴퓨터비전 유틸리티.
 // OpenCV.js(WASM)를 @techstark/opencv-js 패키지로 지연 로딩해서 사용한다.
 // (동적 import()를 쓰면 Vite가 자동으로 별도 청크로 분리해서, 스캔 화면을 열 때만 내려받는다.)
@@ -174,8 +175,8 @@ const DETECTION_STRATEGY_LADDER: DetectionStrategy[] = [
 const MAX_ACCEPTABLE_ASPECT_DIFF = 0.3;
 
 function detectQuadOnce(
-  cv: any,
-  srcMat: any,
+  cv: CvModule,
+  srcMat: CvMat,
   targetAspect: number,
   strategy: DetectionStrategy,
   documentType: 'card' | 'receipt' = 'card'
@@ -356,7 +357,7 @@ function detectQuadOnce(
   return best;
 }
 
-export function detectQuad(cv: any, srcMat: any, targetAspect: number, documentType: 'card' | 'receipt' = 'card'): DetectedQuad | null {
+export function detectQuad(cv: CvModule, srcMat: CvMat, targetAspect: number, documentType: 'card' | 'receipt' = 'card'): DetectedQuad | null {
   // 기본 민감도부터 순서대로 시도하고, 뭔가 찾아지는 순간 바로 반환한다.
   // (대부분의 경우 첫 번째 시도에서 바로 찾아지므로, 실시간 감지 성능에 거의 영향이 없다)
   for (const strategy of DETECTION_STRATEGY_LADDER) {
@@ -369,7 +370,7 @@ export function detectQuad(cv: any, srcMat: any, targetAspect: number, documentT
 }
 
 // 탐지된 네 모서리를 기준으로 perspective transform을 적용해 정면 직사각형 이미지로 보정
-export function warpToRect(cv: any, srcMat: any, quad: Quad, outW: number, outH: number): any {
+export function warpToRect(cv: CvModule, srcMat: CvMat, quad: Quad, outW: number, outH: number): CvMat {
   const [tl, tr, br, bl] = quad;
   const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
     tl[0], tl[1], tr[0], tr[1], br[0], br[1], bl[0], bl[1]
@@ -388,7 +389,7 @@ export function warpToRect(cv: any, srcMat: any, quad: Quad, outW: number, outH:
 }
 
 // 초점(선명도) 점수: 라플라시안 분산. 값이 작을수록 흐릿함.
-export function computeBlurScore(cv: any, mat: any): number {
+export function computeBlurScore(cv: CvModule, mat: CvMat): number {
   const gray = new cv.Mat();
   const lap = new cv.Mat();
   const mean = new cv.Mat();
@@ -407,7 +408,7 @@ export function computeBlurScore(cv: any, mat: any): number {
 }
 
 // 밝기 점수(0~255)
-export function computeBrightness(cv: any, mat: any): number {
+export function computeBrightness(cv: CvModule, mat: CvMat): number {
   const gray = new cv.Mat();
   try {
     cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
@@ -419,7 +420,7 @@ export function computeBrightness(cv: any, mat: any): number {
 }
 
 // 반사광(글레어) 비율: 거의 흰색으로 포화된 픽셀의 비율(0~1). 높을수록 반사광이 심함.
-export function computeGlareRatio(cv: any, mat: any): number {
+export function computeGlareRatio(cv: CvModule, mat: CvMat): number {
   const gray = new cv.Mat();
   const thresh = new cv.Mat();
   try {
@@ -434,7 +435,7 @@ export function computeGlareRatio(cv: any, mat: any): number {
 }
 
 // 대비/선명도 보정 + 약한 노이즈(그림자 얼룩 등) 완화
-export function enhanceMat(cv: any, mat: any): any {
+export function enhanceMat(cv: CvModule, mat: CvMat): CvMat {
   const adjusted = new cv.Mat();
   const sharpened = new cv.Mat();
   const denoised = new cv.Mat();
@@ -460,7 +461,7 @@ export function enhanceMat(cv: any, mat: any): any {
   }
 }
 
-export function matToDataUrl(cv: any, mat: any, quality = 0.88): string {
+export function matToDataUrl(cv: CvModule, mat: CvMat, quality = 0.88): string {
   const canvas = document.createElement('canvas');
   canvas.width = mat.cols;
   canvas.height = mat.rows;

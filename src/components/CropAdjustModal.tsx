@@ -10,6 +10,12 @@ import { Check, RotateCcw, X } from 'lucide-react';
 import { scanDocument } from 'scanic';
 
 import { getErrorMessage } from '../errorUtils.js';
+import type { CvModule, CvMat } from '../opencvTypes.js';
+
+type WindowWithCv = Window & { cv?: unknown };
+// 이미지 요소별로 감지된 모서리 좌표를 기억해 둔다 (이전에는 이미지 객체에 임시 속성을 붙였음)
+const detectedCornersByImg = new WeakMap<HTMLImageElement, Point[]>();
+
 interface Point {
   x: number;
   y: number;
@@ -269,7 +275,7 @@ export const normalizeImageOrientation = async (dataUrl: string): Promise<string
     const res = await fetch(dataUrl);
     const blob = await res.blob();
     // imageOrientation: 'from-image' 옵션이 EXIF 회전 정보를 읽어서 자동으로 바로잡아 디코딩한다.
-    const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' } as any);
+    const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
     const canvas = document.createElement('canvas');
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;
@@ -355,14 +361,16 @@ function getSourceDims(src: HTMLImageElement | HTMLCanvasElement): { width: numb
     : { width: src.naturalWidth, height: src.naturalHeight };
 }
 
-const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: any, strategy: DetectionStrategyCrop, documentType: 'card' | 'receipt' = 'card'): DetectionResult | null => {
+const detectCornersOnce = (imgSrc: HTMLImageElement | HTMLCanvasElement, cv: CvModule, strategy: DetectionStrategyCrop, documentType: 'card' | 'receipt' = 'card'): DetectionResult | null => {
   // [추가] 영수증은 고정된 규격 비율이 없으므로(가게마다/길이마다 제각각, 아주 길고 좁은
   // 경우도 흔함), 명함 전용 비율 필터(CARD_TARGET_ASPECT)를 아예 적용하지 않는다. 이 필터를
   // 그대로 적용하면 진짜 영수증 윤곽까지 "명함 비율과 안 맞는다"는 이유로 후보에서 제외돼,
   // 결국 배경과 뭉친 엉뚱한(마름모/삼각형처럼 보이는) 사각형이 대신 선택되는 문제가 있었다.
   const isCard = documentType !== 'receipt';
-  let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy, hsv, whiteMask: any = null;
-  let bestApprox: any = null;
+  let src, gray, blurred, edged, dilated, kernel, closeKernel, contours, hierarchy;
+  let hsv: CvMat | null = null;
+  let whiteMask: CvMat | null = null;
+  let bestApprox: CvMat | null = null;
   let bestApproxScore = -1;
   let fallbackQuad: Point[] | null = null;
   let fallbackAreaRatio = -1;
@@ -568,7 +576,7 @@ const detectCorners = async (imgSrc: HTMLImageElement | HTMLCanvasElement, docum
   } catch {
     return null;
   }
-  const cv = (window as any).cv;
+  const cv = (window as WindowWithCv).cv as CvModule;
   for (const strategy of DETECTION_STRATEGY_LADDER_CROP) {
     const result = detectCornersOnce(imgSrc, cv, strategy, documentType);
     if (result) return result;
@@ -605,7 +613,7 @@ function orientQuadForExpectedAspect(corners: Point[], expectedAspectRatio?: num
 // 4개 점(원본 이미지 좌표)을 기준으로 원근 보정하여 반듯하게 자름
 export const warpToCorners = async (img: HTMLImageElement, corners: Point[], expectedAspectRatio?: number): Promise<string> => {
   await loadOpenCv();
-  const cv = (window as any).cv;
+  const cv = (window as WindowWithCv).cv as CvModule;
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
@@ -660,16 +668,17 @@ export interface NormalizedCorners {
 // [수정] AI가 응답에 꼭짓점 좌표를 아예 안 주거나(파싱 실패 등), 좌표가 말이 안 되는 값(예: 네 점이
 // 거의 겹쳐서 면적이 0에 가까움)일 때는 재크롭을 시도하지 않고 기존 사진을 그대로 쓰기 위한 안전장치.
 // 명함 등록(ScanModal), 내 명함 공유(ShareMyCardModal) 등 여러 화면에서 공통으로 재사용한다.
-export function isValidNormalizedCorners(c: any): c is NormalizedCorners {
+export function isValidNormalizedCorners(c: unknown): c is NormalizedCorners {
   if (!c || typeof c !== 'object') return false;
   const keys = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'] as const;
   for (const k of keys) {
-    const p = c[k];
+    const p = (c as Record<string, { x?: unknown; y?: unknown } | undefined>)[k];
     if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') return false;
     if (p.x < -0.05 || p.x > 1.05 || p.y < -0.05 || p.y > 1.05) return false;
   }
   // 신발끈 공식으로 대략적인 면적을 구해, 네 점이 거의 한 점에 겹쳐있는 경우(찌그러진 응답)를 걸러낸다.
-  const pts = [c.topLeft, c.topRight, c.bottomRight, c.bottomLeft];
+  const shape = c as NormalizedCorners;
+  const pts = [shape.topLeft, shape.topRight, shape.bottomRight, shape.bottomLeft];
   let area = 0;
   for (let i = 0; i < 4; i++) {
     const p1 = pts[i];
@@ -829,7 +838,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           let cvOnRotated: DetectionResult | null = null;
           try {
             await loadOpenCv();
-            const cv = (window as any).cv;
+            const cv = (window as WindowWithCv).cv as CvModule;
             for (const strategy of DETECTION_STRATEGY_LADDER_CROP) {
               const result = detectCornersOnce(mlOrientation.canvas, cv, strategy, docType);
               if (result) { cvOnRotated = result; break; }
@@ -841,7 +850,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           if (cvOnRotated && quadsRoughlyAgree(mlOrientation.canvasPts, cvOnRotated.points)) {
             // 서로 다른 두 방법이 (기울기 보정 후) 같은 위치를 가리켰으니 안심하고 확정,
             // 뒤 단계(Gemini AI)는 건너뛴다.
-            (img as any).__detectedCorners = mlOrientation.originalPts;
+            detectedCornersByImg.set(img, mlOrientation.originalPts);
             setIsDetecting(false);
             setAutoDetected(true);
             setMlConfirmed(true);
@@ -851,7 +860,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           // 회전 보정된 프레임에서도 교차검증이 안 됐다면, 마지막으로 원본(기울어진) 프레임의
           // OpenCV 결과와도 비교해본다 (기존 로직과 동일한 안전망).
           if (cvOnOriginal && quadsRoughlyAgree(mlPts!, cvOnOriginal.points)) {
-            (img as any).__detectedCorners = mlPts;
+            detectedCornersByImg.set(img, mlPts);
             setIsDetecting(false);
             setAutoDetected(true);
             setMlConfirmed(true);
@@ -866,7 +875,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         setIsDetecting(false);
         setAutoDetected(!!initialPts);
         if (initialPts) {
-          (img as any).__detectedCorners = initialPts;
+          detectedCornersByImg.set(img, initialPts);
         }
 
         // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤(속도), OpenCV 스스로 확신이 높고(confident)
@@ -891,7 +900,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           { x: aiCorners.bottomRight.x * img.naturalWidth, y: aiCorners.bottomRight.y * img.naturalHeight },
           { x: aiCorners.bottomLeft.x * img.naturalWidth, y: aiCorners.bottomLeft.y * img.naturalHeight }
         ];
-        (img as any).__detectedCorners = aiNaturalPts;
+        detectedCornersByImg.set(img, aiNaturalPts);
         setAutoDetected(true);
         setAiConfirmed(true);
         const { width: dw, height: dh } = displaySizeRef.current;
@@ -946,7 +955,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           // 최초 1회만: 자동 감지 결과 또는 기본 여백 박스로 초기화
           const scaleX = w / imgEl.naturalWidth;
           const scaleY = h / imgEl.naturalHeight;
-          const detected = (imgEl as any).__detectedCorners as Point[] | undefined;
+          const detected = detectedCornersByImg.get(imgEl);
           if (detected) {
             setCorners(detected.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
           } else {
@@ -1117,7 +1126,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
 
   const handleReset = () => {
     if (!imgEl) return;
-    const detected = (imgEl as any).__detectedCorners as Point[] | undefined;
+    const detected = detectedCornersByImg.get(imgEl);
     const scaleX = displaySize.width / imgEl.naturalWidth;
     const scaleY = displaySize.height / imgEl.naturalHeight;
     if (detected) {
