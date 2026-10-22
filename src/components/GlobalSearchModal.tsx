@@ -59,10 +59,10 @@ export const GlobalSearchModal: React.FC<Props> = ({
       fetch('/api/worklogs/weekly', { headers }).then((r) => (r.ok ? r.json() : [])).catch(() => [])
     ]).then(([v, daily, weekly]) => {
       setVehicles(Array.isArray(v) ? v : []);
-      const dailyHits: WorkLogHit[] = (Array.isArray(daily) ? daily : []).map((l: any) => ({
+      const dailyHits: WorkLogHit[] = (Array.isArray(daily) ? daily : []).map((l) => ({
         id: l.id, kind: 'daily', title: l.title || '(제목 없음)', author: l.author, department: l.department, date: l.date
       }));
-      const weeklyHits: WorkLogHit[] = (Array.isArray(weekly) ? weekly : []).map((l: any) => ({
+      const weeklyHits: WorkLogHit[] = (Array.isArray(weekly) ? weekly : []).map((l) => ({
         id: l.id, kind: 'weekly', title: l.title || '(제목 없음)', author: l.author, department: l.department, date: l.weekStartDate || l.date
       }));
       setWorkLogs([...dailyHits, ...weeklyHits]);

@@ -226,7 +226,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     if (!rescanDiffs || !contact) return;
     const patch: Partial<BusinessCard> = {};
     rescanDiffs.forEach((d) => {
-      if (d.selected) (patch as any)[d.field] = d.newValue;
+      if (d.selected) (patch as Record<string, unknown>)[d.field] = d.newValue;
     });
     const updated = { ...contact, ...editForm, ...patch } as BusinessCard;
     onUpdateContact(updated);
@@ -407,7 +407,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
 
       // 발송 이력 기록 (실패해도 사용자 경험엔 영향 없도록 조용히 무시)
       try {
-        const headers: any = { 'Content-Type': 'application/json' };
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (currentUser) headers['x-user-id'] = currentUser.id;
         await fetch('/api/invites', {
           method: 'POST',

@@ -6,6 +6,7 @@ import { getTodayLocalStr } from '../dateUtils.js';
 import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel.js';
 
 import { getErrorMessage } from '../errorUtils.js';
+import type { LucideIcon } from 'lucide-react';
 interface Props {
   contacts: BusinessCard[];
   groups: ContactGroup[];
@@ -32,7 +33,7 @@ const normalizeCompanyName = (s: string): string =>
 // (계산이 끝난) 데이터를 그대로 서버에 넘겨서 "해석/조언"만 부탁하는 방식이라, 매번 처음부터
 // 다시 검색·계산하는 것보다 가볍다. 탭을 열 때마다 자동으로 도는 게 절대 아니고, 사용자가
 // 버튼을 누른 횟수만큼만 호출되므로 비용/할당량이 실제 사용량에 비례한다.
-const AiAnalysisPanel: React.FC<{ label: string; endpoint: string; payload: any; disabled?: boolean; disabledReason?: string }> = ({ label, endpoint, payload, disabled, disabledReason }) => {
+const AiAnalysisPanel: React.FC<{ label: string; endpoint: string; payload: Record<string, unknown>; disabled?: boolean; disabledReason?: string }> = ({ label, endpoint, payload, disabled, disabledReason }) => {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,7 +118,7 @@ export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects
     [contacts, myCompanyNorm, intelExcludedGroupIds]
   );
 
-  const subTabs: { id: typeof activeSubTab; label: string; icon: any; desc: string }[] = [
+  const subTabs: { id: typeof activeSubTab; label: string; icon: LucideIcon; desc: string }[] = [
     { id: 'briefing', label: '오늘의 브리핑', icon: Calendar, desc: '지금 내가 해야 할 일과 중요한 변화' },
     { id: 'company', label: '기업 인텔리전스', icon: Building2, desc: '회사·기관 분석' },
     { id: 'relationship', label: '관계·영업 인텔리전스', icon: Users, desc: '사람·거래처·영업기회 분석' }
@@ -408,7 +409,7 @@ const BriefingGroup: React.FC<{ emoji: string; title: string; children: React.Re
 );
 
 
-const Section: React.FC<{ title: string; icon: any; tone: 'rose' | 'amber' | 'indigo'; children: React.ReactNode }> = ({ title, icon: Icon, tone, children }) => {
+const Section: React.FC<{ title: string; icon: LucideIcon; tone: 'rose' | 'amber' | 'indigo'; children: React.ReactNode }> = ({ title, icon: Icon, tone, children }) => {
   const toneMap = {
     rose: 'text-rose-600 bg-rose-50 border-rose-100',
     amber: 'text-amber-600 bg-amber-50 border-amber-100',

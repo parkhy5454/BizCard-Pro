@@ -41,7 +41,7 @@ export async function issueBillingKey(
     },
     body: JSON.stringify({ authKey, customerKey })
   });
-  const data: any = await res.json();
+  const data = (await res.json()) as IssueBillingKeyResult & { message?: string };
   if (!res.ok) {
     throw new Error(data?.message || '카드 등록(빌링키 발급)에 실패했습니다.');
   }
@@ -62,7 +62,7 @@ export async function chargeBilling(
   secretKey: string,
   billingKey: string,
   params: ChargeBillingParams
-): Promise<any> {
+): Promise<Record<string, unknown> & { message?: string }> {
   const res = await fetch(`${TOSS_API_BASE}/billing/${billingKey}`, {
     method: 'POST',
     headers: {
@@ -71,7 +71,7 @@ export async function chargeBilling(
     },
     body: JSON.stringify(params)
   });
-  const data: any = await res.json();
+  const data = (await res.json()) as Record<string, unknown> & { message?: string };
   if (!res.ok) {
     throw new Error(data?.message || '결제 승인에 실패했습니다.');
   }

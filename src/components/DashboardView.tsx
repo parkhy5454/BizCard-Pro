@@ -54,7 +54,7 @@ export const DashboardView: React.FC<Props> = ({
     if (!currentUser) return;
     setLoading(true);
     const headers = { 'x-user-id': currentUser.id };
-    const requests: Promise<any>[] = [
+    const requests: Promise<unknown>[] = [
       fetch('/api/vehicles', { headers }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
       fetch('/api/worklogs/daily', { headers }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
       fetch('/api/worklogs/weekly', { headers }).then((r) => (r.ok ? r.json() : [])).catch(() => [])

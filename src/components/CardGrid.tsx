@@ -193,7 +193,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
       }
 
       try {
-        const headers: any = { 'Content-Type': 'application/json' };
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (currentUser) headers['x-user-id'] = currentUser.id;
         await fetch('/api/invites', {
           method: 'POST',

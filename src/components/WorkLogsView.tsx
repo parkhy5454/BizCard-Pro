@@ -319,7 +319,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const [reportTable1, setReportTable1] = useState<ReportRow[]>([]);
   const [reportTable2, setReportTable2] = useState<ReportRow[]>([]);
   const [reportTable3, setReportTable3] = useState<ReportRow[]>([]);
-  const [reportTable4, setReportTable4] = useState<any[]>([]);
+  const [reportTable4, setReportTable4] = useState<ReportRow[]>([]);
   const [reportOption, setReportOption] = useState<'A' | 'B'>('A');
 
   // 일간/주간 탭 전환을 위한 모바일 좌우 스와이프 상태 및 핸들러

@@ -6,6 +6,7 @@ import {
 } from '../cardVision.js';
 
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
+import type { CvModule, CvMat } from '../opencvTypes.js';
 interface Props {
   title?: string;
   guideAspectRatio?: number; // 문서 가로:세로 비율 (명함 ≈ 1.586, 영수증은 세로로 길게 등)
@@ -136,7 +137,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const [statusMessage, setStatusMessage] = useState(`${docLabel}을(를) 화면 안에 맞춰주세요`);
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
-  const cvRef = useRef<any>(null);
+  const cvRef = useRef<CvModule | null>(null);
   const quadHistoryRef = useRef<{ quad: Quad; t: number }[]>([]);
   const stableSinceRef = useRef<number | null>(null);
   const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number; rotated: boolean } | null>(null);
@@ -426,7 +427,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, detectW, detectH);
 
-    let srcMat: any;
+    let srcMat: CvMat | undefined;
     try {
       srcMat = cv.imread(canvas);
     } catch {

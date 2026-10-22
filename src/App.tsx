@@ -91,7 +91,7 @@ export default function App() {
       const res = await fetch('/api/feedback', { headers: { 'x-user-id': currentUser.id } });
       const data = await res.json();
       if (Array.isArray(data)) {
-        setUnreadFeedbackCount(data.filter((it: any) => it.status === 'new').length);
+        setUnreadFeedbackCount(data.filter((it: { status?: string }) => it.status === 'new').length);
       }
     } catch {
       // 배지는 부가 정보라서 조회가 실패해도 화면 동작에는 영향을 주지 않게 무시한다.

@@ -8,6 +8,7 @@ import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
 
 import { getErrorMessage } from '../errorUtils.js';
+import type { Worksheet, Fill } from 'exceljs';
 interface Props {
   section: AdminDocSection;
   currentUser: User | null;
@@ -267,7 +268,7 @@ function formatAnnualLeaveRange(startDate?: string, endDate?: string): string {
 // [추가] 연차 현황 - 직원 한 명의 표 안 "데이터 행" 개수. 연차 사용/휴일근무/대체휴가 세
 // 목록의 길이가 서로 다를 수 있어(예: 연차는 5건인데 휴일근무는 2건), 가장 긴 목록 기준으로
 // 행 수를 잡고 짧은 목록은 그만큼 빈 칸으로 둔다. 한 건도 없어도 최소 1행은 보여준다.
-function annualLeavePersonRowCount(p: { leaveEntries: any[]; overtimeEntries: any[]; substituteEntries: any[] }): number {
+function annualLeavePersonRowCount(p: { leaveEntries: unknown[]; overtimeEntries: unknown[]; substituteEntries: unknown[] }): number {
   return Math.max(1, p.leaveEntries.length, p.overtimeEntries.length, p.substituteEntries.length);
 }
 function annualLeaveUsedTotal(p: { leaveEntries: { days: number }[] }): number {
@@ -1824,7 +1825,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const greenFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFC6EFCE' } };
     const grayFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE7E6E6' } };
     const landscapeSetup = { orientation: 'landscape' as const, paperSize: 9, margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.3, footer: 0.3 } };
-    const setColWidths = (ws: any, columns: string[], rowsAsStrings: (string | number)[][]) => {
+    const setColWidths = (ws: Worksheet, columns: string[], rowsAsStrings: (string | number)[][]) => {
       columns.forEach((label, ci) => {
         let maxLen = label.length;
         rowsAsStrings.forEach((row) => {
@@ -2014,7 +2015,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       const balances = cfBankBalances(cf);
 
       const dataRows: (string | number)[][] = [];
-      const writeRow = (rowIdx: number, label: string, values: number[], opts?: { bold?: boolean; fill?: any }) => {
+      const writeRow = (rowIdx: number, label: string, values: number[], opts?: { bold?: boolean; fill?: Fill }) => {
         const row = ws.getRow(rowIdx);
         const rowValues: (string | number)[] = [label, ...values];
         dataRows.push(rowValues);

@@ -185,7 +185,7 @@ export const Navigation: React.FC<Props> = ({
     setFeedbackSubmitting(true);
     setFeedbackError('');
     try {
-      const headers: any = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (currentUser) headers['x-user-id'] = currentUser.id;
       const res = await fetch('/api/feedback', {
         method: 'POST',

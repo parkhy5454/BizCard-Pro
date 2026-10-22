@@ -1569,7 +1569,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveSubTab(tab.id as any)}
+                onClick={() => setActiveSubTab(tab.id as typeof activeSubTab)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                   active 
                     ? 'bg-slate-100 border-b-2 border-indigo-500 text-indigo-600 shadow-sm' 

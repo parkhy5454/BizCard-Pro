@@ -90,7 +90,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   const fetchFeedback = async () => {
     setLoading(true);
     try {
-      const headers: any = {};
+      const headers: Record<string, string> = {};
       if (currentUser) headers['x-user-id'] = currentUser.id;
       const res = await fetch('/api/feedback', { headers });
       const data = await res.json();
@@ -110,7 +110,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   const fetchStats = async () => {
     setStatsLoading(true);
     try {
-      const headers: any = {};
+      const headers: Record<string, string> = {};
       if (currentUser) headers['x-user-id'] = currentUser.id;
       const res = await fetch('/api/admin/platform-stats', { headers });
       if (!res.ok) throw new Error('통계 조회 실패');
@@ -132,7 +132,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
     if (!window.confirm(`이 사업자번호(${businessNumber})에 속한 모든 회원의 회사명을 "${canonicalName}"으로 통일할까요?`)) return;
     setNormalizingBizNum(businessNumber);
     try {
-      const headers: any = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (currentUser) headers['x-user-id'] = currentUser.id;
       const res = await fetch('/api/admin/normalize-company-name', {
         method: 'POST',
@@ -177,7 +177,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
 
     setMergeLoading(true);
     try {
-      const headers: any = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (currentUser) headers['x-user-id'] = currentUser.id;
       const res = await fetch('/api/admin/migrate-scope', {
         method: 'POST',
@@ -264,7 +264,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   const updateStatus = async (id: string, status: FeedbackItem['status']) => {
     setUpdatingId(id);
     try {
-      const headers: any = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (currentUser) headers['x-user-id'] = currentUser.id;
       const res = await fetch(`/api/feedback/${id}`, {
         method: 'PUT',

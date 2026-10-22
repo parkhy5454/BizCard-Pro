@@ -314,13 +314,13 @@ export async function setScopedDocs<T extends { id: string }>(scopeId: string, c
 
 export async function setScopedProfile(scopeId: string, profile: MyProfile): Promise<boolean> {
   if (!isNeonConfigured) return true;
-  return setScopedDoc(scopeId, 'myProfile', { ...profile, id: 'profile' } as any);
+  return setScopedDoc(scopeId, 'myProfile', { ...profile, id: 'profile' });
 }
 
 export async function updateScopedDoc<T>(scopeId: string, collectionName: string, docId: string, updates: Partial<T>): Promise<void> {
   if (!isNeonConfigured) return;
   try {
-    const existing = await getScopedDoc<any>(scopeId, collectionName, docId);
+    const existing = await getScopedDoc<Record<string, unknown>>(scopeId, collectionName, docId);
     const merged = { ...(existing || {}), ...updates, id: docId };
     await setScopedDoc(scopeId, collectionName, merged);
   } catch (error) {
