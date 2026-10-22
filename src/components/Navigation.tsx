@@ -634,7 +634,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'dashboard'
                   ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -647,7 +647,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 2. 명함 */}
             <button
               onClick={() => handleMainTabClick('cards')}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'cards'
                   ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -660,7 +660,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 3. 차량관리 */}
             <button
               onClick={() => handleMainTabClick('vehicles')}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'vehicles'
                   ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -677,7 +677,7 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleProjectTabClick();
               }}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'projects'
                   ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -690,7 +690,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 5. 더보기 - 드롭다운이 아니라 전체 화면 탭으로 연다 (앱의 '내 정보' 탭과 같은 방식) */}
             <button
               onClick={() => handleMainTabClick('more')}
-              className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`relative flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'more'
                   ? 'text-indigo-600 font-bold'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
