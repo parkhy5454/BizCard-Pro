@@ -6,7 +6,7 @@ import {
   Download, ClipboardList, Car, Wrench, ChevronDown, Camera, PenTool, FileText,
   Image as ImageIcon, Trash
 } from 'lucide-react';
-import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User } from '../types.js';
+import { AdvancePaymentSettlement, AdvancePaymentItem, LeaveRequest, LeaveCategory, LeaveSpecialType, LeaveAnnualType, OfficialDocument, ApprovalStatus, ApprovalStep, User, MyProfile } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { getTodayLocalStr } from '../dateUtils.js';
@@ -437,7 +437,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   // [추가] 경영지원 서류(근로계약서 등)와 공유하는 회사 공통 설정값. 공문서 작성 시
   // 발신처 주소/전화/팩스/이메일과 시행번호 접두어(기본 "KS")를 자동으로 채우는 데 쓰인다.
   const [companySettings, setCompanySettings] = useState<{ address: string; businessType: string; phone: string; fax: string; email: string; docPrefix: string }>({ address: '', businessType: '', phone: '', fax: '', email: '', docPrefix: 'KS' });
-  const [myProfile, setMyProfile] = useState<any>(null);
+  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [companyPositions, setCompanyPositions] = useState<string[]>([]);
   // [수정] 회사마다 결재 단계/직책명이 다를 수 있어, 서버에 저장된 "우리 회사 기본 결재선"을 불러와 사용한다.
   // 저장된 게 없으면 null로 남아있고, 이 경우에만 내장된 예시 기본값을 쓴다.
@@ -579,13 +579,13 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       const mine = currentUser;
       if (!mine || mine.type !== 'company') return;
       const positions = allUsers
-        .filter((u: any) =>
+        .filter((u) =>
           u.type === 'company' &&
           (u.companyName || '').trim() === (mine.companyName || '').trim() &&
           (u.businessNumber || '').trim() === (mine.businessNumber || '').trim() &&
           u.position
         )
-        .map((u: any) => u.position as string);
+        .map((u) => u.position as string);
       setCompanyPositions(Array.from(new Set(positions)));
     } catch (err) {
       console.error('Company positions fetch error:', err);
@@ -661,7 +661,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     setSavingBranding(true);
     setBrandingError('');
     try {
-      const body: any = {};
+      const body: Record<string, string> = {};
       if (brandingLogoPreview) body.logoImage = brandingLogoPreview;
       if (brandingSealPreview) body.sealImage = brandingSealPreview;
       const res = await fetch('/api/company-branding', {
@@ -719,7 +719,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     const cleanedLine = line.map(s => ({ role: s.role })); // 이름/날짜는 템플릿에 저장하지 않고 직책만
     const nextTemplate = { ...companyApprovalTemplate, [kind]: cleanedLine };
     try {
-      const headers: any = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (currentUser) headers['x-user-id'] = currentUser.id;
       const res = await fetch('/api/approval-line-templates', {
         method: 'PUT',
@@ -727,7 +727,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         body: JSON.stringify(nextTemplate)
       });
       if (res.ok) {
-        setCompanyApprovalTemplate(nextTemplate as any);
+        setCompanyApprovalTemplate(nextTemplate);
         alert('현재 결재선을 우리 회사 기본값으로 저장했습니다. 다음부터 새 문서 작성 시 자동으로 채워집니다.');
       } else {
         alert('저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
@@ -976,16 +976,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
     const projectNameById: Record<string, string> = {};
     if (Array.isArray(projects)) {
-      projects.forEach((p: any) => { projectNameById[p.id] = p.name || p.title || ''; });
+      projects.forEach((p) => { projectNameById[p.id] = p.name || p.title || ''; });
     }
 
     const worklogRows: ImportableExpenseRow[] = [];
     if (Array.isArray(dailyLogs)) {
-      dailyLogs.forEach((log: any) => {
+      dailyLogs.forEach((log) => {
         const projectLabel = (log.projectIds || []).map((pid: string) => projectNameById[pid]).filter(Boolean).join(', ');
         (log.expenses || [])
-          .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash_personal')
-          .forEach((exp: any) => {
+          .filter((exp) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash_personal')
+          .forEach((exp) => {
             worklogRows.push({
               id: `wl-${exp.id}`,
               date: log.date,
@@ -1005,8 +1005,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     const vehicleRows: ImportableExpenseRow[] = [];
     if (Array.isArray(vehicleExpenses)) {
       vehicleExpenses
-        .filter((exp: any) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash')
-        .forEach((exp: any) => {
+        .filter((exp) => exp.payMethod === 'personal_card' || exp.payMethod === 'cash')
+        .forEach((exp) => {
           vehicleRows.push({
             id: `veh-${exp.id}`,
             date: exp.date,
@@ -1025,8 +1025,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     const maintenanceRows: ImportableExpenseRow[] = [];
     if (Array.isArray(maintenances)) {
       maintenances
-        .filter((m: any) => m.payMethod === 'personal_card' || m.payMethod === 'cash')
-        .forEach((m: any) => {
+        .filter((m) => m.payMethod === 'personal_card' || m.payMethod === 'cash')
+        .forEach((m) => {
           maintenanceRows.push({
             id: `maint-${m.id}`,
             date: m.date,
@@ -1116,7 +1116,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
   // 화면에 보이는 가지급금 정산서 양식 그대로 엑셀(.xls)로 다운로드
   const downloadAdvanceToExcel = (doc: AdvancePaymentSettlement) => {
-    const esc = (str: any): string => (str === null || str === undefined ? '' : String(str))
+    const esc = (str: unknown): string => (str === null || str === undefined ? '' : String(str))
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
     const cellBorder = 'border: 0.5pt solid #000000;';
     const grayBg = 'background-color: #f3f4f6;';
@@ -1358,7 +1358,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
   // 화면에 보이는 휴가 신청서 양식 그대로 엑셀(.xls)로 다운로드
   const downloadLeaveToExcel = (doc: LeaveRequest) => {
-    const esc = (str: any): string => (str === null || str === undefined ? '' : String(str))
+    const esc = (str: unknown): string => (str === null || str === undefined ? '' : String(str))
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
     const cellBorder = 'border: 0.5pt solid #000000;';
     const grayBg = 'background-color: #f3f4f6;';
@@ -1719,8 +1719,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const advanceNextApprovalStep = async (kind: 'advance' | 'leave' | 'official', id: string, approverOverride?: User) => {
     const approver = approverOverride || currentUser;
     if (!approver) return;
-    const list: any[] = kind === 'advance' ? advanceList : kind === 'leave' ? leaveList : officialList;
-    const doc = list.find((d: any) => d.id === id);
+    const list: Array<AdvancePaymentSettlement | LeaveRequest | OfficialDocument> = kind === 'advance' ? advanceList : kind === 'leave' ? leaveList : officialList;
+    const doc = list.find((d) => d.id === id);
     if (!doc) return;
     const line: ApprovalStep[] = [...doc.approvalLine];
     const idx = line.findIndex(s => !s.date);
@@ -1766,8 +1766,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const rejectDoc = async (kind: 'advance' | 'leave' | 'official', id: string) => {
     if (!currentUser) return;
     const memo = prompt('반려 사유를 입력해 주세요.') || '';
-    const list: any[] = kind === 'advance' ? advanceList : kind === 'leave' ? leaveList : officialList;
-    const doc = list.find((d: any) => d.id === id);
+    const list: Array<AdvancePaymentSettlement | LeaveRequest | OfficialDocument> = kind === 'advance' ? advanceList : kind === 'leave' ? leaveList : officialList;
+    const doc = list.find((d) => d.id === id);
     const headers = { 'Content-Type': 'application/json', 'x-user-id': currentUser.id };
     // [수정] 승인 처리와 동일하게, 동시 처리 충돌을 감지할 수 있도록 expectedUpdatedAt을 같이 보낸다.
     const body = JSON.stringify({ status: 'rejected', approverMemo: memo, expectedUpdatedAt: doc?.updatedAt });
