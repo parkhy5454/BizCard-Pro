@@ -452,18 +452,19 @@ export async function getUsers(): Promise<RegisteredUser[]> {
           const collection = scopedRow.collection;
           const data = scopedRow.data;
 
-          if (!user[collection as keyof RegisteredUser]) {
-            user[collection as keyof RegisteredUser] = [] as any;
+          const target = user as unknown as Record<string, unknown>;
+          if (!target[collection]) {
+            target[collection] = [];
           }
 
-          if (Array.isArray(user[collection as keyof RegisteredUser])) {
+          if (Array.isArray(target[collection])) {
             // 중복 확인 후 추가
-            const arr = user[collection as keyof RegisteredUser] as any[];
+            const arr = target[collection] as any[];
             if (!arr.find(item => item.id === data.id)) {
               arr.push(data);
             }
           } else if (collection === 'myProfile') {
-            user[collection as keyof RegisteredUser] = data;
+            target[collection] = data;
           }
         }
       } catch (scopedError) {

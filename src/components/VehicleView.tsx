@@ -4433,8 +4433,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const buildReportTableHtml = (v: Vehicle): string => {
           const carLogs = drivingLogs.filter(log => log.vehicleId === v.id && log.date.startsWith(reportYearMonth));
           const year = reportYearMonth.split('-')[0];
-          const companyName = escapeHtml(currentUser.companyName || '초이스커피');
-          const bizNumber = escapeHtml(currentUser.businessNumber || '207-16-23565');
+          const companyName = escapeHtml(currentUser.companyName || '');
+          const bizNumber = escapeHtml(currentUser.businessNumber || '');
 
           const totalCommuteDistance = carLogs.filter(log => log.purpose.includes('출퇴근')).reduce((sum, x) => sum + x.distance, 0);
           const totalWorkDistance = carLogs.filter(log => !log.purpose.includes('출퇴근')).reduce((sum, x) => sum + x.distance, 0);
@@ -4845,7 +4845,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                   상호명
                                 </td>
                                 <td className="w-[18%] border border-slate-300 p-2 text-center font-semibold text-slate-800">
-                                  {currentUser.companyName || '초이스커피'}
+                                  {currentUser.companyName || '-'}
                                 </td>
                               </tr>
                               <tr>
@@ -4853,7 +4853,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                   사업자등록번호
                                 </td>
                                 <td className="border border-slate-300 p-2 text-center font-mono text-slate-800">
-                                  {currentUser.businessNumber || '207-16-23565'}
+                                  {currentUser.businessNumber || '-'}
                                 </td>
                               </tr>
                             </tbody>

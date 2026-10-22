@@ -1333,7 +1333,8 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
 // 서버 시작 시 1회: 로그인 계정 시딩 및 로컬 캐시 적재
 async function bootstrapUsers() {
   users = await getUsers();
-  if (users.length === 0) {
+  // 운영 환경에서는 demo/partner 같은 기본 계정(비밀번호 공통)을 만들지 않는다.
+  if (users.length === 0 && process.env.NODE_ENV !== 'production') {
     await ensureUsersSeeded(initialUsers);
     users = await getUsers();
   }
@@ -5138,22 +5139,7 @@ function normalizeCompanyKey(company: string): string {
 async function getOrGenerateCompanySummary(company: string): Promise<{ summary: string; fromCache: boolean }> {
   const key = normalizeCompanyKey(company);
 
-  if (key && process.env.DATABASE_URL) {
-    const { data: cached, error } = await supabase
-      .from('company')
-      .select('*')
-      .eq('company_name_normalized', key)
-      .maybeSingle();
-    if (error) console.error('company 테이블 조회 실패:', error);
-    if (cached && cached.business_summary) {
-      const age = Date.now() - new Date(cached.last_searched_at).getTime();
-      // summary_version이 지금 코드의 버전과 다르면(=프롬프트/스키마가 그 사이 바뀌었으면)
-      // 오래된 형식의 캐시로 취급해서 새로 검색한다.
-      if (age < COMPANY_CACHE_TTL_MS && cached.summary_version === COMPANY_SUMMARY_SCHEMA_VERSION) {
-        return { summary: cached.business_summary, fromCache: true };
-      }
-    }
-  }
+  // 캐시(company 테이블)는 Neon 마이그레이션 후 아직 구현되지 않아 여기서는 건너뛴다.
 
   const { fields, sourceUrls } = await generateCompanySummary(company);
 
@@ -5232,8 +5218,6 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
     // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
     // TODO: company 테이블 구현 또는 이 엔드포인트 제거 필요
     return res.json({ items: [] });
-    if (error) return res.json({ items: [] });
-    res.json({ items: data || [] });
   } catch (error: any) {
     res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
   }
@@ -7405,7 +7389,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     const featureTotals: Record<string, number> = {};
     for (const s of scopeStats) {
       for (const [collection, count] of Object.entries(s.itemCounts)) {
-        featureTotals[collection] = (featureTotals[collection] || 0) + count;
+        featureTotals[collection] = (featureTotals[collection] || 0) + (count as number);
       }
     }
 
@@ -7528,13 +7512,22 @@ app.post('/api/admin/migrate-scoped-items', async (req, res) => {
 });
 
 // 접수된 문의 목록 조회 (관리자용 문의함 화면에서 사용)
+// 문의함은 개발자 계정만 볼 수 있다. 세션으로 확인된 x-user-id(미들웨어가 채움)의 이메일로 판단한다.
+const isDeveloperRequest = (req: express.Request): boolean => {
+  const uid = req.headers['x-user-id'] as string | undefined;
+  const requester = uid ? users.find((u) => u.id === uid) : undefined;
+  return !!requester && requester.email === 'parkhy5454@gmail.com';
+};
+
 app.get('/api/feedback', async (req, res) => {
+  if (!isDeveloperRequest(req)) return res.status(403).json({ error: '권한이 없습니다.' });
   const list = await getScopedCollection<FeedbackItem>(GLOBAL_FEEDBACK_SCOPE, 'feedback');
   res.json(list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
 });
 
 // 문의 처리 상태 변경 (신규 → 처리중 → 완료)
 app.put('/api/feedback/:id', async (req, res) => {
+  if (!isDeveloperRequest(req)) return res.status(403).json({ error: '권한이 없습니다.' });
   try {
     const existing = await getScopedDoc<FeedbackItem>(GLOBAL_FEEDBACK_SCOPE, 'feedback', req.params.id);
     if (!existing) return res.status(404).json({ error: '해당 문의를 찾을 수 없습니다.' });
