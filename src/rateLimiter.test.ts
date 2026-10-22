@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RateLimiter } from './rateLimiter';
+import { RateLimiter } from './rateLimiter.js';
 
 // 테스트 안에서 시간을 마음대로 움직이기 위해 가짜 시계를 주입한다.
 function fakeClock(startAt = 0) {

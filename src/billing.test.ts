@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addOneMonth, generateCustomerKey, generateOrderId } from './billing';
+import { addOneMonth, generateCustomerKey, generateOrderId } from './billing.js';
 
 describe('addOneMonth', () => {
   it('일반적인 날짜는 정확히 한 달 뒤가 된다', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified, isSameScope, isValidEmail, validateProfileFields } from './authLogic';
+import { scopeIdForUser, decideSignupRoleAndApproval, isEmailVerified, isSameScope, isValidEmail, validateProfileFields } from './authLogic.js';
 
 describe('scopeIdForUser', () => {
   it('회사 계정은 사업자번호 기준 스코프를 반환한다', () => {

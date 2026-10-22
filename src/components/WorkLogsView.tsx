@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
-import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types';
-import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat';
-import { getTodayLocalStr, dateToLocalStr } from '../dateUtils';
+import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry } from '../types.js';
+import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
+import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
-import { ReceiptScanModal } from './ReceiptScanModal';
-import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker';
-import { ProjectMultiSearchSelect } from './ProjectPicker';
-import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker';
+import { ReceiptScanModal } from './ReceiptScanModal.js';
+import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.js';
+import { ProjectMultiSearchSelect } from './ProjectPicker.js';
+import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker.js';
 
 interface Props {
   contacts: BusinessCard[];
