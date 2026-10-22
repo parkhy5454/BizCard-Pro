@@ -3898,7 +3898,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <div className="flex items-center gap-3 shrink-0 self-end md:self-center" onClick={(e) => e.stopPropagation()}>
                     <select
                       value={proj.status}
-                      onChange={(e) => handleStatusChange(proj.id, e.target.value as any, e)}
+                      onChange={(e) => handleStatusChange(proj.id, e.target.value as Project['status'], e)}
                       className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 shadow-inner"
                     >
                       <option value="opportunity">💡 기회</option>
@@ -4845,7 +4845,7 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">파이프라인 단계</label>
-                    <select value={newPipelineStage} onChange={(e) => setNewPipelineStage(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                    <select value={newPipelineStage} onChange={(e) => setNewPipelineStage(e.target.value as typeof newPipelineStage)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                       <option value="">선택 안 함</option>
                       {PIPELINE_STAGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
@@ -4868,7 +4868,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
-                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as typeof newStatus)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                       <option value="opportunity">기회 (Opportunity)</option>
                       <option value="progress">진행 (Progress)</option>
                       <option value="completed">완료 (Completed)</option>
@@ -4881,7 +4881,7 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">중요도</label>
-                    <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                    <select value={newPriority} onChange={(e) => setNewPriority(e.target.value as typeof newPriority)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                       <option value="high">🔥 높음</option>
                       <option value="medium">⚡ 보통</option>
                       <option value="low">🌱 낮음</option>
@@ -5160,7 +5160,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
-                    <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                    <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as NonNullable<typeof editingProject>['status'] })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                       <option value="opportunity">기회 (Opportunity)</option>
                       <option value="progress">진행 (Progress)</option>
                       <option value="completed">완료 (Completed)</option>
@@ -5173,7 +5173,7 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">중요도</label>
-                    <select value={editingProject.priority} onChange={(e) => setEditingProject({ ...editingProject, priority: e.target.value as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                    <select value={editingProject.priority} onChange={(e) => setEditingProject({ ...editingProject, priority: e.target.value as NonNullable<typeof editingProject>['priority'] })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                       <option value="high">🔥 높음</option>
                       <option value="medium">⚡ 보통</option>
                       <option value="low">🌱 낮음</option>

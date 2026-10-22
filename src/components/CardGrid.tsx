@@ -138,7 +138,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     }
 
     try {
-      const nav = navigator as any;
+      const nav = navigator;
       if (nav.canShare && typeof File !== 'undefined') {
         try {
           const vcardText = generateContactVCardText(contact);
@@ -179,7 +179,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
 
     let channel: 'sms' | 'share' | 'other' = 'other';
     try {
-      const nav = navigator as any;
+      const nav = navigator;
       if (nav.share) {
         channel = 'share';
         await nav.share({ title: 'BizCard Pro 추천', text: inviteText });

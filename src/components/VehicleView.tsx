@@ -1953,7 +1953,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <label className="text-xs text-slate-500">기본 유종 *</label>
                       <select 
                         value={newVehicle.fuelType}
-                        onChange={e => setNewVehicle({ ...newVehicle, fuelType: e.target.value as any })}
+                        onChange={e => setNewVehicle({ ...newVehicle, fuelType: e.target.value as NonNullable<typeof newVehicle>['fuelType'] })}
                         className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       >
                         <option value="gasoline">가솔린 (휘발유)</option>
@@ -2025,7 +2025,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <label className="text-xs text-slate-500">임차 구분</label>
                       <select 
                         value={newVehicle.rentalType}
-                        onChange={e => setNewVehicle({ ...newVehicle, rentalType: e.target.value as any })}
+                        onChange={e => setNewVehicle({ ...newVehicle, rentalType: e.target.value as NonNullable<typeof newVehicle>['rentalType'] })}
                         className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       >
                         <option value="own">자가 (소유 자산)</option>
@@ -2107,7 +2107,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <label className="text-xs text-slate-500">운행 허용 상태</label>
                       <select 
                         value={newVehicle.status}
-                        onChange={e => setNewVehicle({ ...newVehicle, status: e.target.value as any })}
+                        onChange={e => setNewVehicle({ ...newVehicle, status: e.target.value as NonNullable<typeof newVehicle>['status'] })}
                         className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                       >
                         <option value="active">운행 가능</option>
@@ -3327,7 +3327,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">비용 분류 *</label>
                   <select 
                     value={newExpense.category}
-                    onChange={e => setNewExpense({ ...newExpense, category: e.target.value as any })}
+                    onChange={e => setNewExpense({ ...newExpense, category: e.target.value as NonNullable<typeof newExpense>['category'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="fuel">주유비 (유류대)</option>
@@ -3362,7 +3362,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">결제 수단 *</label>
                   <select 
                     value={newExpense.payMethod}
-                    onChange={e => setNewExpense({ ...newExpense, payMethod: e.target.value as any })}
+                    onChange={e => setNewExpense({ ...newExpense, payMethod: e.target.value as NonNullable<typeof newExpense>['payMethod'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>
@@ -3867,7 +3867,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">정비 상태</label>
                   <select 
                     value={newMaint.status}
-                    onChange={e => setNewMaint({ ...newMaint, status: e.target.value as any })}
+                    onChange={e => setNewMaint({ ...newMaint, status: e.target.value as NonNullable<typeof newMaint>['status'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="completed">정비 완료</option>
@@ -3878,7 +3878,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">결제 수단</label>
                   <select 
                     value={newMaint.payMethod || 'company_card'}
-                    onChange={e => setNewMaint({ ...newMaint, payMethod: e.target.value as any })}
+                    onChange={e => setNewMaint({ ...newMaint, payMethod: e.target.value as NonNullable<typeof newMaint>['payMethod'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>
@@ -5171,7 +5171,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <label className="text-xs text-slate-500">기본 유종 *</label>
                     <select 
                       value={editingVehicle.fuelType}
-                      onChange={e => setEditingVehicle({ ...editingVehicle, fuelType: e.target.value as any })}
+                      onChange={e => setEditingVehicle({ ...editingVehicle, fuelType: e.target.value as NonNullable<typeof editingVehicle>['fuelType'] })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="gasoline">가솔린 (휘발유)</option>
@@ -5223,7 +5223,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <label className="text-xs text-slate-500">운행 허용 상태</label>
                     <select 
                       value={editingVehicle.status}
-                      onChange={e => setEditingVehicle({ ...editingVehicle, status: e.target.value as any })}
+                      onChange={e => setEditingVehicle({ ...editingVehicle, status: e.target.value as NonNullable<typeof editingVehicle>['status'] })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="active">운행 가능</option>
@@ -5244,7 +5244,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <label className="text-xs text-slate-500">임차 구분</label>
                     <select 
                       value={editingVehicle.rentalType || 'own'}
-                      onChange={e => setEditingVehicle({ ...editingVehicle, rentalType: e.target.value as any })}
+                      onChange={e => setEditingVehicle({ ...editingVehicle, rentalType: e.target.value as NonNullable<typeof editingVehicle>['rentalType'] })}
                       className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                     >
                       <option value="own">자가 (소유 자산)</option>
@@ -6015,7 +6015,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">결제 수단 *</label>
                   <select 
                     value={editingExpense.payMethod || 'company_card'}
-                    onChange={e => setEditingExpense({ ...editingExpense, payMethod: e.target.value as any })}
+                    onChange={e => setEditingExpense({ ...editingExpense, payMethod: e.target.value as NonNullable<typeof editingExpense>['payMethod'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>
@@ -6028,7 +6028,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">비용 카테고리 *</label>
                   <select 
                     value={editingExpense.category}
-                    onChange={e => setEditingExpense({ ...editingExpense, category: e.target.value as any })}
+                    onChange={e => setEditingExpense({ ...editingExpense, category: e.target.value as NonNullable<typeof editingExpense>['category'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="fuel">주유비 (유류대)</option>
@@ -6297,7 +6297,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">정비 상태</label>
                   <select 
                     value={editingMaint.status}
-                    onChange={e => setEditingMaint({ ...editingMaint, status: e.target.value as any })}
+                    onChange={e => setEditingMaint({ ...editingMaint, status: e.target.value as NonNullable<typeof editingMaint>['status'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="completed">정비 완료</option>
@@ -6309,7 +6309,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   <label className="text-xs text-slate-500">결제 수단</label>
                   <select 
                     value={editingMaint.payMethod || 'company_card'}
-                    onChange={e => setEditingMaint({ ...editingMaint, payMethod: e.target.value as any })}
+                    onChange={e => setEditingMaint({ ...editingMaint, payMethod: e.target.value as NonNullable<typeof editingMaint>['payMethod'] })}
                     className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
                   >
                     <option value="company_card">법인(회사)카드</option>

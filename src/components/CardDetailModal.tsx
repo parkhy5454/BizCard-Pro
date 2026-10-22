@@ -343,7 +343,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
     }
 
     try {
-      const nav = navigator as any;
+      const nav = navigator;
       // 1) 파일 공유가 가능한 환경이면 명함 이미지 + vCard 파일을 함께 전달 (상대방이 명함
       // 사진도 보고 바로 연락처 저장도 가능)
       if (nav.canShare && typeof File !== 'undefined') {
@@ -392,7 +392,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
 
     let channel: 'sms' | 'share' | 'other' = 'other';
     try {
-      const nav = navigator as any;
+      const nav = navigator;
       if (nav.share) {
         channel = 'share';
         await nav.share({ title: 'BizCard Pro 추천', text: inviteText });

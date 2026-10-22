@@ -333,6 +333,17 @@ import {
   migrateScopedItemsToAppUsers
 } from './src/db/neonStore.js';
 
+
+// 요청 객체에 미들웨어가 붙이는 값들의 타입 (any 대신 사용)
+declare global {
+  namespace Express {
+    interface Request {
+      scopeId?: string;
+      caldavUser?: RegisteredUser;
+    }
+  }
+}
+
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
 
@@ -1358,7 +1369,7 @@ function resolveScopeId(req: express.Request): string {
 // Express 전용 스코프 데이터 동기 반환
 // (스코프 데이터는 아래 app.use 미들웨어에서 요청 처리 전에 이미 로드가 보장됩니다)
 function getScopedData(req: express.Request): any {
-  const scopeId = (req as any).scopeId || 'default';
+  const scopeId = req.scopeId || 'default';
   return db[scopeId] || {
     contacts: [],
     projects: [],
@@ -1456,7 +1467,7 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   try {
     const scopeId = resolveScopeId(req);
-    (req as any).scopeId = scopeId;
+    req.scopeId = scopeId;
     await loadScopeFromSupabase(scopeId);
     next();
   } catch (error) {
@@ -1889,7 +1900,7 @@ app.get('/api/announcements', (req, res) => {
 app.post('/api/announcements', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const dbData = getScopedData(req);
 
   const { title, content, pinned } = req.body;
@@ -1923,7 +1934,7 @@ app.post('/api/announcements', async (req, res) => {
 app.put('/api/announcements/:id', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const dbData = getScopedData(req);
   dbData.announcements = dbData.announcements || [];
   const idx = dbData.announcements.findIndex((a: Announcement) => a.id === req.params.id);
@@ -1950,7 +1961,7 @@ app.put('/api/announcements/:id', async (req, res) => {
 app.delete('/api/announcements/:id', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const dbData = getScopedData(req);
   dbData.announcements = dbData.announcements || [];
   dbData.announcements = dbData.announcements.filter((a: Announcement) => a.id !== req.params.id);
@@ -2021,7 +2032,7 @@ app.post('/api/chat/messages', async (req, res) => {
   const content = String(req.body.content || '').trim();
   if (!content) return res.status(400).json({ error: '내용을 입력해주세요.' });
   if (content.length > 2000) return res.status(400).json({ error: '메시지가 너무 깁니다 (최대 2000자).' });
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const dbData = getScopedData(req);
   if (channel.startsWith('dm:')) {
     const parts = channel.slice(3).split(':');
@@ -2077,7 +2088,7 @@ app.post('/api/chat/groups', async (req, res) => {
   // 만든 사람은 항상 포함시키고, 중복은 제거한다. 본인 외 최소 1명은 있어야 대화가 된다
   // (본인 외 1명이면 사실상 1:1 대화방과 같지만, 이름을 붙여 구분하고 싶을 수 있으니
   // 굳이 막지 않는다).
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const uniqueMemberIds = Array.from(new Set([requester.id, ...memberUserIds]));
   if (uniqueMemberIds.length < 2) {
     return res.status(400).json({ error: '본인 외에 1명 이상을 선택해주세요.' });
@@ -4135,7 +4146,7 @@ app.get('/api/contacts/geocode-failures', (req, res) => {
 
 app.post('/api/contacts/regeocode', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
 
   // [수정] 예전엔 "아직 처리 안 된 것"을 매번 다시 필터링해서 판단했는데, retryFailed
   // 모드(주소 있는 것 전부 대상)에서는 이 필터가 "이미 처리했는지"를 구분 못 해서, 몇
@@ -4259,7 +4270,7 @@ app.get('/api/contacts', (req, res) => {
 
 app.post('/api/contacts', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const newCard: BusinessCard = req.body;
   if (!newCard.id) newCard.id = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!newCard.createdAt) newCard.createdAt = new Date().toISOString();
@@ -4311,7 +4322,7 @@ app.put('/api/contacts/:id', async (req, res) => {
   if (!checkModifyRateLimit(req, res)) return;
 
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const idx = dbData.contacts.findIndex(c => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Contact not found' });
 
@@ -4358,7 +4369,7 @@ app.delete('/api/contacts/:id', async (req, res) => {
 
   const dbData = getScopedData(req);
   dbData.contacts = dbData.contacts.filter(c => c.id !== req.params.id);
-  await deleteScopedDoc((req as any).scopeId, 'contacts', req.params.id);
+  await deleteScopedDoc(req.scopeId, 'contacts', req.params.id);
   res.json({ success: true });
 });
 
@@ -4399,7 +4410,7 @@ app.post('/api/admin/contacts-backslash-clean', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const fixes = findBackslashAddressFixes(dbData);
   if (!fixes.length) return res.json({ fixedCount: 0 });
 
@@ -4448,7 +4459,7 @@ app.post('/api/groups', async (req, res) => {
     g.createdByUserName = requester.name;
   }
   dbData.groups.push(g);
-  await setScopedDoc((req as any).scopeId, 'groups', g);
+  await setScopedDoc(req.scopeId, 'groups', g);
   res.status(201).json(g);
 });
 
@@ -4457,13 +4468,13 @@ app.put('/api/groups/:id', async (req, res) => {
   const idx = dbData.groups.findIndex(g => g.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Group not found' });
   dbData.groups[idx] = { ...dbData.groups[idx], ...req.body };
-  await setScopedDoc((req as any).scopeId, 'groups', dbData.groups[idx]);
+  await setScopedDoc(req.scopeId, 'groups', dbData.groups[idx]);
   res.json(dbData.groups[idx]);
 });
 
 app.delete('/api/groups/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const gid = req.params.id;
   dbData.groups = dbData.groups.filter(g => g.id !== gid);
   // 삭제된 그룹에 속해있던 연락처는 첫 번째 그룹으로 이동
@@ -4496,7 +4507,7 @@ app.post('/api/contacts/:id/history', async (req, res) => {
   };
   
   dbData.contacts[idx].callHistory.unshift(record);
-  await setScopedDoc((req as any).scopeId, 'contacts', dbData.contacts[idx]);
+  await setScopedDoc(req.scopeId, 'contacts', dbData.contacts[idx]);
   res.json(dbData.contacts[idx]);
 });
 
@@ -5385,7 +5396,7 @@ app.post('/api/ai-intelligence/relationship-analysis', async (req, res) => {
 // 데이터 전체 입출력을 위한 벌크 업데이트 API
 app.post('/api/contacts/import', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const { importedContacts } = req.body;
   if (!Array.isArray(importedContacts)) return res.status(400).json({ error: 'Invalid data' });
 
@@ -5499,7 +5510,7 @@ app.get('/api/my-profile', async (req, res) => {
   // [수정] 공유 랜딩 페이지(/s/:slug)용 공개 식별자가 없으면 최초 조회 시 자동 생성해서 저장한다.
   if (!myProfile.shareSlug) {
     myProfile.shareSlug = crypto.randomBytes(6).toString('hex');
-    await setScopedProfile((req as any).scopeId, myProfile);
+    await setScopedProfile(req.scopeId, myProfile);
   }
   res.json(myProfile);
 });
@@ -5509,7 +5520,7 @@ app.put('/api/my-profile', async (req, res) => {
   if (!checkModifyRateLimit(req, res)) return;
 
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   // [추가] DB 저장 실패 시 메모리 캐시를 되돌리기 위해 수정 전 값을 남겨둔다.
   const previousProfile = dbData.myProfile;
   dbData.myProfile = { ...dbData.myProfile, ...req.body };
@@ -5533,7 +5544,7 @@ app.put('/api/my-profile', async (req, res) => {
 // 저장된 템플릿이 없으면 null을 내려주고, 프론트에서 내장 기본값을 사용한다.
 // ------------------------------------------------------------------
 app.get('/api/approval-line-templates', async (req, res) => {
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const existing = await getScopedDoc<{ id: string; advance?: ApprovalStep[]; leave?: ApprovalStep[]; official?: ApprovalStep[] }>(scopeId, 'approvalLineTemplates', 'default');
   res.json(existing || { id: 'default', advance: null, leave: null, official: null });
 });
@@ -5544,7 +5555,7 @@ app.get('/api/approval-line-templates', async (req, res) => {
 app.put('/api/approval-line-templates', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const template = { id: 'default', advance: req.body.advance || null, leave: req.body.leave || null, official: req.body.official || null };
   await setScopedDoc(scopeId, 'approvalLineTemplates', template);
   res.json(template);
@@ -5561,7 +5572,7 @@ app.get('/api/company-branding', async (req, res) => {
   const requester = users.find(u => u.id === userId);
   if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const existing = await getScopedDoc<CompanyBranding>(scopeId, 'branding', 'branding');
   res.json(existing || { id: 'branding', scopeId, logoUrl: undefined, sealUrl: undefined, updatedAt: '' });
 });
@@ -5569,7 +5580,7 @@ app.get('/api/company-branding', async (req, res) => {
 app.put('/api/company-branding', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
 
   const existing = await getScopedDoc<CompanyBranding>(scopeId, 'branding', 'branding');
   let logoUrl = existing?.logoUrl;
@@ -5721,7 +5732,7 @@ app.post('/api/projects', async (req, res) => {
   if (!p.followUps) p.followUps = [];
   if (!p.contactIds) p.contactIds = [];
   dbData.projects.unshift(p);
-  await setScopedDoc((req as any).scopeId, 'projects', p);
+  await setScopedDoc(req.scopeId, 'projects', p);
   res.status(201).json(p);
 });
 
@@ -5731,7 +5742,7 @@ app.post('/api/projects', async (req, res) => {
 // 기본값 채우기 규칙을 그대로 따른다.
 app.post('/api/projects/import', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const importedProjects = req.body.importedProjects;
   if (!Array.isArray(importedProjects)) {
     return res.status(400).json({ error: 'importedProjects 배열이 필요합니다.' });
@@ -5779,14 +5790,14 @@ app.put('/api/projects/:id', async (req, res) => {
   const idx = dbData.projects.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Project not found' });
   dbData.projects[idx] = { ...dbData.projects[idx], ...req.body };
-  await setScopedDoc((req as any).scopeId, 'projects', dbData.projects[idx]);
+  await setScopedDoc(req.scopeId, 'projects', dbData.projects[idx]);
   res.json(dbData.projects[idx]);
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
   const dbData = getScopedData(req);
   dbData.projects = dbData.projects.filter(p => p.id !== req.params.id);
-  await deleteScopedDoc((req as any).scopeId, 'projects', req.params.id);
+  await deleteScopedDoc(req.scopeId, 'projects', req.params.id);
   res.json({ success: true });
 });
 
@@ -5795,7 +5806,7 @@ app.delete('/api/projects/:id', async (req, res) => {
 // 효과지만, 요청 한 번으로 처리해 다건 삭제 시 네트워크 왕복을 줄인다.
 app.post('/api/projects/bulk-delete', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const ids: string[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
   if (ids.length === 0) return res.json({ success: true, deletedCount: 0 });
   const idSet = new Set(ids);
@@ -5809,7 +5820,7 @@ app.post('/api/projects/bulk-delete', async (req, res) => {
 // 프로젝트 팔로우업 노트 관리
 app.post('/api/projects/:id/followups', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const idx = dbData.projects.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Project not found' });
   
@@ -5848,7 +5859,7 @@ app.post('/api/projects/:id/followups', async (req, res) => {
 
 app.put('/api/projects/:id/followups/:fid', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const idx = dbData.projects.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Project not found' });
   
@@ -5882,7 +5893,7 @@ app.delete('/api/projects/:id/followups/:fid', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Project not found' });
   
   dbData.projects[idx].followUps = dbData.projects[idx].followUps.filter(f => f.id !== req.params.fid);
-  await setScopedDoc((req as any).scopeId, 'projects', dbData.projects[idx]);
+  await setScopedDoc(req.scopeId, 'projects', dbData.projects[idx]);
   res.json(dbData.projects[idx]);
 });
 
@@ -5905,7 +5916,7 @@ app.get('/api/vehicles', (req, res) => {
 
 app.post('/api/vehicles', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const v: Vehicle = req.body;
   if (!v.id) v.id = `vh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!v.createdAt) v.createdAt = new Date().toISOString();
@@ -5927,7 +5938,7 @@ app.post('/api/vehicles', async (req, res) => {
 
 app.put('/api/vehicles/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const idx = dbData.vehicles.findIndex(v => v.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Vehicle not found' });
 
@@ -5947,7 +5958,7 @@ app.put('/api/vehicles/:id', async (req, res) => {
 
 app.delete('/api/vehicles/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.vehicles = dbData.vehicles.filter(v => v.id !== req.params.id);
   dbData.drivingLogs = dbData.drivingLogs.filter(log => log.vehicleId !== req.params.id);
   dbData.expenses = dbData.expenses.filter(e => e.vehicleId !== req.params.id);
@@ -5969,7 +5980,7 @@ app.get('/api/vehicles/driving', (req, res) => {
 
 app.post('/api/vehicles/driving', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const log: DrivingLog = req.body;
   if (!log.id) log.id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!log.createdAt) log.createdAt = new Date().toISOString();
@@ -5995,7 +6006,7 @@ app.post('/api/vehicles/driving', async (req, res) => {
 app.delete('/api/vehicles/driving/:id', async (req, res) => {
   const dbData = getScopedData(req);
   dbData.drivingLogs = dbData.drivingLogs.filter(log => log.id !== req.params.id);
-  await deleteScopedDoc((req as any).scopeId, 'drivingLogs', req.params.id);
+  await deleteScopedDoc(req.scopeId, 'drivingLogs', req.params.id);
   res.json({ success: true });
 });
 
@@ -6007,7 +6018,7 @@ app.get('/api/vehicles/expenses', (req, res) => {
 
 app.post('/api/vehicles/expenses', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const exp: VehicleExpense = req.body;
   // [수정] 예전엔 서버가 id를 자동으로 채울 때 `exp-${Date.now()}`처럼 밀리초 타임스탬프만
   // 썼다. 운행일지 하나에 영수증을 여러 개 연달아 등록하거나, 같은 요청이 겹치는 경우
@@ -6032,7 +6043,7 @@ app.post('/api/vehicles/expenses', async (req, res) => {
 app.delete('/api/vehicles/expenses/:id', async (req, res) => {
   const dbData = getScopedData(req);
   dbData.expenses = dbData.expenses.filter(e => e.id !== req.params.id);
-  await deleteScopedDoc((req as any).scopeId, 'expenses', req.params.id);
+  await deleteScopedDoc(req.scopeId, 'expenses', req.params.id);
   res.json({ success: true });
 });
 
@@ -6044,7 +6055,7 @@ app.get('/api/vehicles/maintenances', (req, res) => {
 
 app.post('/api/vehicles/maintenances', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const maint: VehicleMaintenance = req.body;
   if (!maint.id) maint.id = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!maint.createdAt) maint.createdAt = new Date().toISOString();
@@ -6063,7 +6074,7 @@ app.post('/api/vehicles/maintenances', async (req, res) => {
 
 app.put('/api/vehicles/maintenances/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const idx = dbData.maintenances.findIndex(m => m.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Maintenance not found' });
 
@@ -6082,14 +6093,14 @@ app.put('/api/vehicles/maintenances/:id', async (req, res) => {
 app.delete('/api/vehicles/maintenances/:id', async (req, res) => {
   const dbData = getScopedData(req);
   dbData.maintenances = dbData.maintenances.filter(m => m.id !== req.params.id);
-  await deleteScopedDoc((req as any).scopeId, 'maintenances', req.params.id);
+  await deleteScopedDoc(req.scopeId, 'maintenances', req.params.id);
   res.json({ success: true });
 });
 
 // === 운행기록 수정 API ===
 app.put('/api/vehicles/driving/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const idx = dbData.drivingLogs.findIndex(log => log.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Driving log not found' });
 
@@ -6139,7 +6150,7 @@ app.put('/api/vehicles/driving/:id', async (req, res) => {
 // === 지출비용 수정 API ===
 app.put('/api/vehicles/expenses/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const idx = dbData.expenses.findIndex(e => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Expense not found' });
   const previousExpense = dbData.expenses[idx];
@@ -6167,7 +6178,7 @@ app.post('/api/vehicles/intervals', async (req, res) => {
   if (!interval.createdAt) interval.createdAt = new Date().toISOString();
   dbData.maintenanceIntervals = dbData.maintenanceIntervals || [];
   dbData.maintenanceIntervals.unshift(interval);
-  await setScopedDoc((req as any).scopeId, 'maintenanceIntervals', interval);
+  await setScopedDoc(req.scopeId, 'maintenanceIntervals', interval);
   res.status(201).json(interval);
 });
 
@@ -6177,7 +6188,7 @@ app.put('/api/vehicles/intervals/:id', async (req, res) => {
   const idx = dbData.maintenanceIntervals.findIndex(item => item.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Interval not found' });
   dbData.maintenanceIntervals[idx] = { ...dbData.maintenanceIntervals[idx], ...req.body };
-  await setScopedDoc((req as any).scopeId, 'maintenanceIntervals', dbData.maintenanceIntervals[idx]);
+  await setScopedDoc(req.scopeId, 'maintenanceIntervals', dbData.maintenanceIntervals[idx]);
   res.json(dbData.maintenanceIntervals[idx]);
 });
 
@@ -6185,7 +6196,7 @@ app.delete('/api/vehicles/intervals/:id', async (req, res) => {
   const dbData = getScopedData(req);
   dbData.maintenanceIntervals = dbData.maintenanceIntervals || [];
   dbData.maintenanceIntervals = dbData.maintenanceIntervals.filter(item => item.id !== req.params.id);
-  await deleteScopedDoc((req as any).scopeId, 'maintenanceIntervals', req.params.id);
+  await deleteScopedDoc(req.scopeId, 'maintenanceIntervals', req.params.id);
   res.json({ success: true });
 });
 
@@ -6566,7 +6577,7 @@ function parseIcsDateTime(v?: string): { date: string; time?: string } | null {
 caldavRouter.use(async (req, res, next) => {
   const user = requireCalDavAuth(req, res);
   if (!user) return; // requireCalDavAuth가 이미 401 응답을 보냄
-  (req as any).caldavUser = user;
+  req.caldavUser = user;
   // [수정] 목록 조회(PROPFIND/REPORT)에서는 이 로딩을 빼먹어서, 아직 메모리에 캐시되지
   // 않은 스코프의 경우 db[scopeId]가 비어있어 빈 캘린더처럼 보이는 문제가 있었다.
   // 모든 caldav 요청 공통으로 여기서 한 번에 로딩을 보장한다.
@@ -6603,7 +6614,7 @@ app.all('/', (req, res, next) => {
 // 루트: 로그인한 사용자의 principal 위치를 알려준다
 caldavRouter.all('/', (req, res) => {
   if (req.method !== 'PROPFIND') return res.status(405).end();
-  const user = (req as any).caldavUser as RegisteredUser;
+  const user = req.caldavUser as RegisteredUser;
   const xml = `<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:">
   <D:response>
@@ -6622,7 +6633,7 @@ caldavRouter.all('/', (req, res) => {
 // principal: 이 사용자의 캘린더 홈 위치를 알려준다
 caldavRouter.all('/principals/:userId/', (req, res) => {
   if (req.method !== 'PROPFIND') return res.status(405).end();
-  const user = (req as any).caldavUser as RegisteredUser;
+  const user = req.caldavUser as RegisteredUser;
   const xml = `<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:response>
@@ -6642,7 +6653,7 @@ caldavRouter.all('/principals/:userId/', (req, res) => {
 // 캘린더 홈: 그 안에 캘린더가 하나("worklogs") 있다고 알려준다
 caldavRouter.all('/calendars/:userId/', (req, res) => {
   if (req.method !== 'PROPFIND') return res.status(405).end();
-  const user = (req as any).caldavUser as RegisteredUser;
+  const user = req.caldavUser as RegisteredUser;
   const depth = req.headers['depth'] || '0';
   let responses = `
   <D:response>
@@ -6673,7 +6684,7 @@ caldavRouter.all('/calendars/:userId/', (req, res) => {
 
 // 실제 캘린더 컬렉션: depth 0이면 컬렉션 속성만, depth 1이면 안에 든 이벤트 목록까지
 caldavRouter.all('/calendars/:userId/worklogs/', (req, res) => {
-  const user = (req as any).caldavUser as RegisteredUser;
+  const user = req.caldavUser as RegisteredUser;
   const scopeId = scopeIdForUser(user);
 
   if (req.method === 'MKCALENDAR') {
@@ -6755,7 +6766,7 @@ caldavRouter.all('/calendars/:userId/worklogs/', (req, res) => {
 
 // 이벤트 하나: GET(조회) / PUT(생성·수정) / DELETE(삭제)
 caldavRouter.all('/calendars/:userId/worklogs/:uidIcs', async (req, res) => {
-  const user = (req as any).caldavUser as RegisteredUser;
+  const user = req.caldavUser as RegisteredUser;
   const scopeId = scopeIdForUser(user);
   await loadScopeFromSupabase(scopeId);
   const dbData = db[scopeId];
@@ -6903,7 +6914,7 @@ app.get('/api/worklogs/daily', (req, res) => {
 
 app.post('/api/worklogs/daily', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const log: DailyWorkLog = req.body;
   if (!log.id) log.id = `dl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!log.createdAt) log.createdAt = new Date().toISOString();
@@ -6944,7 +6955,7 @@ app.post('/api/worklogs/daily', async (req, res) => {
 
 app.put('/api/worklogs/daily/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.dailyLogs = dbData.dailyLogs || [];
   const idx = dbData.dailyLogs.findIndex(l => l.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Daily log not found' });
@@ -6981,7 +6992,7 @@ app.put('/api/worklogs/daily/:id', async (req, res) => {
 
 app.delete('/api/worklogs/daily/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.dailyLogs = dbData.dailyLogs || [];
   dbData.dailyLogs = dbData.dailyLogs.filter(l => l.id !== req.params.id);
   
@@ -7011,7 +7022,7 @@ app.get('/api/worklogs/weekly', (req, res) => {
 
 app.post('/api/worklogs/weekly', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const log: WeeklyWorkLog = req.body;
   if (!log.id) log.id = `wl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!log.createdAt) log.createdAt = new Date().toISOString();
@@ -7050,7 +7061,7 @@ app.post('/api/worklogs/weekly', async (req, res) => {
 
 app.put('/api/worklogs/weekly/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.weeklyLogs = dbData.weeklyLogs || [];
   const idx = dbData.weeklyLogs.findIndex(l => l.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Weekly log not found' });
@@ -7086,7 +7097,7 @@ app.put('/api/worklogs/weekly/:id', async (req, res) => {
 
 app.delete('/api/worklogs/weekly/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.weeklyLogs = dbData.weeklyLogs || [];
   dbData.weeklyLogs = dbData.weeklyLogs.filter(l => l.id !== req.params.id);
   
@@ -7548,7 +7559,7 @@ app.put('/api/feedback/:id', async (req, res) => {
 // ------------------------------------------------------------------
 app.post('/api/invites', async (req, res) => {
   try {
-    const scopeId = (req as any).scopeId;
+    const scopeId = req.scopeId;
     const userId = req.headers['x-user-id'] as string;
     const user = users.find(u => u.id === userId);
     const record: InviteRecord = {
@@ -7569,7 +7580,7 @@ app.post('/api/invites', async (req, res) => {
 });
 
 app.get('/api/invites', async (req, res) => {
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const list = await getScopedCollection<InviteRecord>(scopeId, 'invites');
   res.json(list.sort((a, b) => (b.sentAt || '').localeCompare(a.sentAt || '')));
 });
@@ -7645,7 +7656,7 @@ app.get('/api/approvals/advance', (req, res) => {
 
 app.post('/api/approvals/advance', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const doc: AdvancePaymentSettlement = req.body;
   if (!doc.id) doc.id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
@@ -7674,7 +7685,7 @@ app.post('/api/approvals/advance', async (req, res) => {
 
 app.put('/api/approvals/advance/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.advancePayments = dbData.advancePayments || [];
   const idx = dbData.advancePayments.findIndex((d: AdvancePaymentSettlement) => d.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Advance payment settlement not found' });
@@ -7701,7 +7712,7 @@ app.put('/api/approvals/advance/:id', async (req, res) => {
 
 app.delete('/api/approvals/advance/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.advancePayments = dbData.advancePayments || [];
   dbData.advancePayments = dbData.advancePayments.filter((d: AdvancePaymentSettlement) => d.id !== req.params.id);
   await deleteScopedDoc(scopeId, 'advancePayments', req.params.id);
@@ -7804,7 +7815,7 @@ app.get('/api/approvals/leave', (req, res) => {
 
 app.post('/api/approvals/leave', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const doc: LeaveRequest = req.body;
   if (!doc.id) doc.id = `lv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
@@ -7829,7 +7840,7 @@ app.post('/api/approvals/leave', async (req, res) => {
 
 app.put('/api/approvals/leave/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.leaveRequests = dbData.leaveRequests || [];
   const idx = dbData.leaveRequests.findIndex((d: LeaveRequest) => d.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Leave request not found' });
@@ -7863,7 +7874,7 @@ app.put('/api/approvals/leave/:id', async (req, res) => {
 
 app.delete('/api/approvals/leave/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.leaveRequests = dbData.leaveRequests || [];
   dbData.leaveRequests = dbData.leaveRequests.filter((d: LeaveRequest) => d.id !== req.params.id);
   await deleteScopedDoc(scopeId, 'leaveRequests', req.params.id);
@@ -7879,7 +7890,7 @@ app.get('/api/approvals/official', (req, res) => {
 
 app.post('/api/approvals/official', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const doc: OfficialDocument = req.body;
   if (!doc.id) doc.id = `of-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
@@ -7898,7 +7909,7 @@ app.post('/api/approvals/official', async (req, res) => {
 
 app.put('/api/approvals/official/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.officialDocuments = dbData.officialDocuments || [];
   const idx = dbData.officialDocuments.findIndex((d: OfficialDocument) => d.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Official document not found' });
@@ -7918,7 +7929,7 @@ app.put('/api/approvals/official/:id', async (req, res) => {
 
 app.delete('/api/approvals/official/:id', async (req, res) => {
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.officialDocuments = dbData.officialDocuments || [];
   dbData.officialDocuments = dbData.officialDocuments.filter((d: OfficialDocument) => d.id !== req.params.id);
   await deleteScopedDoc(scopeId, 'officialDocuments', req.params.id);
@@ -7979,7 +7990,7 @@ app.post('/api/admin-docs', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const doc: AdminDoc = req.body;
   if (!doc.id) doc.id = `adoc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!doc.createdAt) doc.createdAt = new Date().toISOString();
@@ -8003,7 +8014,7 @@ app.put('/api/admin-docs/:id', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.adminDocs = dbData.adminDocs || [];
   const idx = dbData.adminDocs.findIndex((d: AdminDoc) => d.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Document not found' });
@@ -8027,7 +8038,7 @@ app.delete('/api/admin-docs/:id', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
   const dbData = getScopedData(req);
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   dbData.adminDocs = dbData.adminDocs || [];
   dbData.adminDocs = dbData.adminDocs.filter((d: AdminDoc) => d.id !== req.params.id);
   await deleteScopedDoc(scopeId, 'adminDocs', req.params.id);
@@ -8041,7 +8052,7 @@ app.delete('/api/admin-docs/:id', async (req, res) => {
 // [수정] 조회(GET)는 공문서를 작성하는 일반 직원도 발신처 정보를 자동으로 채워 넣을 수 있어야
 // 하므로 관리자 전용에서 로그인한 모든 사용자로 완화했다. 수정(PUT)은 기존과 동일하게 관리자만 가능.
 app.get('/api/company-settings', async (req, res) => {
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   const list = await getScopedCollection<{ id: string; address?: string; businessType?: string; phone?: string; fax?: string; email?: string; docPrefix?: string }>(scopeId, 'companySettings');
   res.json(list[0] || { id: 'default', address: '', businessType: '', phone: '', fax: '', email: '', docPrefix: 'KS' });
 });
@@ -8049,7 +8060,7 @@ app.get('/api/company-settings', async (req, res) => {
 app.put('/api/company-settings', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
-  const scopeId = (req as any).scopeId;
+  const scopeId = req.scopeId;
   // [수정] 예전엔 요청 본문에 없는 필드를 전부 빈 값으로 덮어써서, 예를 들어 공문서 탭에서
   // 전화/팩스만 저장해도 근로계약서 쪽에서 써둔 주소·사업종류가 날아가는 문제가 있었다.
   // 기존 값을 먼저 불러와 보낸 필드만 덮어쓰는 부분 업데이트(병합) 방식으로 바꾼다.

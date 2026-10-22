@@ -3570,7 +3570,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 <label className="text-[11px] font-semibold text-slate-500">지출 분류</label>
                                 <select
                                   value={expense.category}
-                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { category: e.target.value as any })}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { category: e.target.value as WorkLogExpense['category'] })}
                                   className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
                                   <option value="breakfast">아침식사</option>
@@ -3590,7 +3590,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 <label className="text-[11px] font-semibold text-slate-500">결제 수단</label>
                                 <select
                                   value={expense.payMethod}
-                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { payMethod: e.target.value as any })}
+                                  onChange={(e) => handleUpdateExpenseRow(expense.id, { payMethod: e.target.value as WorkLogExpense['payMethod'] })}
                                   className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
                                   <option value="company_card">법인(회사)카드</option>
