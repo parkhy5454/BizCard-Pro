@@ -91,9 +91,9 @@ const normalizeCostAmount = (v: ProjectCostSheetAmount | number | undefined | nu
   return { manual: Number(v.manual) || 0, imported: v.imported || [] };
 };
 const normalizeCostSheet = (cs: ProjectCostSheet): ProjectCostSheet => {
-  const normalized: any = { ...cs };
+  const normalized: ProjectCostSheet = { ...cs };
   for (const field of COST_SHEET_CATEGORY_FIELDS) {
-    normalized[field] = normalizeCostAmount((cs as any)[field]);
+    normalized[field] = normalizeCostAmount(cs[field]);
   }
   return normalized as ProjectCostSheet;
 };
@@ -413,7 +413,7 @@ export const ProjectsView: React.FC<Props> = ({
 
       const alreadyImported = new Set<string>();
       for (const field of COST_SHEET_CATEGORY_FIELDS) {
-        normalizeCostAmount((costSheetDraft as any)[field]).imported.forEach((it) => alreadyImported.add(it.sourceKey));
+        normalizeCostAmount(costSheetDraft[field]).imported.forEach((it) => alreadyImported.add(it.sourceKey));
       }
 
       const categorySet = new Set<string>(COST_SHEET_CATEGORY_FIELDS as string[]);
@@ -439,7 +439,7 @@ export const ProjectsView: React.FC<Props> = ({
 
       setCostSheetDraft((prev) => {
         if (!prev) return prev;
-        const next: any = { ...prev };
+        const next: ProjectCostSheet = { ...prev };
         for (const field of COST_SHEET_CATEGORY_FIELDS) {
           const matched = fresh.filter((c) => c.category === field);
           if (matched.length === 0) continue;
@@ -989,7 +989,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   // 녹음 타이머 작동
   useEffect(() => {
-    let timer: any;
+    let timer: ReturnType<typeof setInterval> | undefined;
     if (isRecording) {
       timer = setInterval(() => {
         setRecordingSeconds(prev => prev + 1);
@@ -1002,7 +1002,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   // 음성 재생 바 시뮬레이션
   useEffect(() => {
-    let playTimer: any;
+    let playTimer: ReturnType<typeof setInterval> | undefined;
     if (playingVoiceId) {
       playTimer = setInterval(() => {
         setPlaybackProgress(prev => {
@@ -1687,7 +1687,7 @@ export const ProjectsView: React.FC<Props> = ({
         if (!found) return;
         const current = (base[fd.key] || '').trim();
         if (!current) {
-          (toFill as any)[fd.key] = found;
+          toFill[fd.key] = found;
           filledCount++;
         } else if (found !== current) {
           conflicts.push({ key: fd.key, label: fd.label, current, found });
@@ -1699,7 +1699,7 @@ export const ProjectsView: React.FC<Props> = ({
           conflicts.map((c) => `${c.label}: "${c.current}" → "${c.found}"`).join('\n') +
           `\n\n확인을 누르면 검색 결과로 바뀌고, 취소를 누르면 기존 입력값이 그대로 유지됩니다.`;
         if (window.confirm(msg)) {
-          conflicts.forEach((c) => { (toFill as any)[c.key] = c.found; });
+          conflicts.forEach((c) => { toFill[c.key] = c.found; });
           filledCount += conflicts.length;
         }
       }
@@ -2762,7 +2762,7 @@ export const ProjectsView: React.FC<Props> = ({
       const wb = XLSX.read(buf, { type: 'array' });
       const sheet = wb.Sheets[wb.SheetNames[0]];
       // header:1 -> 각 행을 배열로, 셀 병합/서식과 무관하게 값만 뽑아온다.
-      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+      const rows: (string | number | null)[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
 
       // 헤더 행("프로젝트명"이 B열에 있는 행)을 찾아서, 그 다음부터를 데이터로 본다.
       // 행 번호를 고정으로 가정하지 않고 라벨로 찾아서, 파일마다 위쪽 안내문 줄 수가
@@ -2779,7 +2779,8 @@ export const ProjectsView: React.FC<Props> = ({
       let defaultSalesRep = '';
       for (const r of rows.slice(0, headerRowIdx)) {
         const idx = r.findIndex((v) => typeof v === 'string' && v.replace(/\s/g, '') === '작성자');
-        if (idx !== -1 && typeof r[idx + 1] === 'string') { defaultSalesRep = r[idx + 1]; break; }
+        const nextCell = idx === -1 ? undefined : r[idx + 1];
+        if (typeof nextCell === 'string') { defaultSalesRep = nextCell; break; }
       }
 
       // [수정] 아래 열 순서는 PIPELINE_COLUMNS(화면 리스트 출력/인쇄/엑셀 내보내기가 실제로
@@ -5137,7 +5138,7 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">파이프라인 단계</label>
-                    <select value={editingProject.pipelineStage || ''} onChange={(e) => setEditingProject({ ...editingProject, pipelineStage: (e.target.value || undefined) as any })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
+                    <select value={editingProject.pipelineStage || ''} onChange={(e) => setEditingProject({ ...editingProject, pipelineStage: (e.target.value || undefined) as Project['pipelineStage'] })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
                       <option value="">선택 안 함</option>
                       {PIPELINE_STAGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
