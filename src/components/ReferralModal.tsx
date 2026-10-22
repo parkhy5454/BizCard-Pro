@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Gift, Copy, Check, MessageSquare, Users, PartyPopper } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
+import { loadKakaoSdk, getKakaoSdk } from '../kakaoSdk.js';
 interface Props {
   currentUser: UserType;
   onClose: () => void;
@@ -48,35 +49,12 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
     ? `BizCard를 추천해요! 아래 링크로 가입하고 첫 구독 결제를 완료하면 저와 회원님 모두 1개월씩 무료로 이용할 수 있어요.\n🔗 ${info.shareUrl}`
     : '';
 
-  const KAKAO_JS_KEY = 'cb1b045b76bfb5a7d4deaf6985b50a2a';
-  const loadKakaoSdk = (): Promise<void> => {
-    const w = window as any;
-    if (w.Kakao && w.Kakao.isInitialized && w.Kakao.isInitialized()) return Promise.resolve();
-    if (w.__kakaoSdkLoadingPromise) return w.__kakaoSdkLoadingPromise;
-    w.__kakaoSdkLoadingPromise = new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
-      script.crossOrigin = 'anonymous';
-      script.onload = () => {
-        try {
-          if (!w.Kakao.isInitialized()) w.Kakao.init(KAKAO_JS_KEY);
-          resolve();
-        } catch (err) {
-          reject(err);
-        }
-      };
-      script.onerror = () => reject(new Error('카카오 SDK 로드 실패'));
-      document.body.appendChild(script);
-    });
-    return w.__kakaoSdkLoadingPromise;
-  };
 
   const handleKakaoShare = async () => {
     if (!info) return;
     try {
       await loadKakaoSdk();
-      const w = window as any;
-      w.Kakao.Share.sendDefault({
+      getKakaoSdk().Share.sendDefault({
         objectType: 'feed',
         content: {
           title: 'BizCard 추천',

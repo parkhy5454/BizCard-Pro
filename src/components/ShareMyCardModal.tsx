@@ -8,6 +8,7 @@ import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 
 import { getErrorMessage } from '../errorUtils.js';
+import { loadKakaoSdk, getKakaoSdk } from '../kakaoSdk.js';
 interface Props {
   onClose: () => void;
 }
@@ -129,34 +130,11 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const shareMessage = `${profile.company} ${profile.department} ${profile.name} ${profile.title}\n📞 핸드폰: ${profile.phoneMobile}\n📧 이메일: ${profile.email}\n🏢 주소: ${profile.address}\n🔗 명함 보기: ${shareUrl}`;
 
   // 카카오톡 공유: 카카오 JS SDK를 최초 1회만 지연 로딩 후 초기화
-  const KAKAO_JS_KEY = 'cb1b045b76bfb5a7d4deaf6985b50a2a';
-  const loadKakaoSdk = (): Promise<void> => {
-    const w = window as any;
-    if (w.Kakao && w.Kakao.isInitialized && w.Kakao.isInitialized()) return Promise.resolve();
-    if (w.__kakaoSdkLoadingPromise) return w.__kakaoSdkLoadingPromise;
-    w.__kakaoSdkLoadingPromise = new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
-      script.crossOrigin = 'anonymous';
-      script.onload = () => {
-        try {
-          if (!w.Kakao.isInitialized()) w.Kakao.init(KAKAO_JS_KEY);
-          resolve();
-        } catch (err) {
-          reject(err);
-        }
-      };
-      script.onerror = () => reject(new Error('카카오 SDK 로드 실패'));
-      document.body.appendChild(script);
-    });
-    return w.__kakaoSdkLoadingPromise;
-  };
 
   const handleKakaoShare = async () => {
     try {
       await loadKakaoSdk();
-      const w = window as any;
-      w.Kakao.Share.sendDefault({
+      getKakaoSdk().Share.sendDefault({
         objectType: 'feed',
         content: {
           title: `${profile.name} · ${profile.company}`,
