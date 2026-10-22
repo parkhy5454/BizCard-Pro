@@ -271,17 +271,32 @@ export const resizeDataUrl = (dataUrl: string, maxDim = 1400, quality = 0.82): P
 // 이 함수를 맨 처음(화면 표시/테두리 감지/자르기 전부보다 먼저) 한 번 거쳐서, 회전 정보를
 // 실제 픽셀에 "구워 넣은" 새 이미지로 바꿔둔다 — 이후 모든 단계가 동일하게 "보이는 그대로"의
 // 이미지를 기준으로 처리되므로 더 이상 이 불일치가 생기지 않는다.
+// [수정] 휴대폰 사진은 base64 data URL로 만들면 수 MB가 되는데, Chrome은 긴 data URL을
+// fetch/이미지 로딩에서 ERR_INVALID_URL로 거부한다. 그래서 fetch 대신 base64를 직접 디코딩해
+// Blob으로 만들고, 감지/자르기에 필요한 크기(긴 변 1600px 이내)로 줄여서 다시 data URL로 만든다.
+const MAX_NORMALIZED_SIDE = 1600;
+
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const commaIdx = dataUrl.indexOf(',');
+  const header = dataUrl.slice(0, commaIdx);
+  const mime = header.slice(5, header.indexOf(';')) || 'image/jpeg';
+  const binary = atob(dataUrl.slice(commaIdx + 1));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+};
+
 export const normalizeImageOrientation = async (dataUrl: string): Promise<string> => {
   try {
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
+    const blob = dataUrlToBlob(dataUrl);
     // imageOrientation: 'from-image' 옵션이 EXIF 회전 정보를 읽어서 자동으로 바로잡아 디코딩한다.
     const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, MAX_NORMALIZED_SIDE / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close?.();
     return canvas.toDataURL('image/jpeg', 0.92);
   } catch (err) {
