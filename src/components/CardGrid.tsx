@@ -348,7 +348,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         }
 
         return (
-          <div className="relative bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-3xl p-5 shadow-sm animate-fadeIn max-w-3xl mx-auto">
+          <div className="relative bg-white border border-slate-200 rounded-3xl p-5 shadow-sm animate-fadeIn max-w-3xl mx-auto">
             <button
               onClick={dismissIntelForToday}
               className="absolute top-3 right-3 p-1.5 rounded-lg text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 transition-colors"
@@ -362,11 +362,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 <Brain className="w-5 h-5" />
               </div>
               <div className="pr-6">
-                <h4 className="text-sm font-bold text-indigo-700">
-                  🧠 관계 인텔리전스
+                <h4 className="text-sm font-bold text-slate-900">
+                  관계 인텔리전스
                   {topInsights.length > 0 && ` · 지금 챙기면 좋은 거래처 ${topInsights.length}곳`}
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5">진행중인 프로젝트와 마지막 연락 시점, 파이프라인 참여사를 같이 분석했어요.</p>
+                <p className="text-xs text-slate-800 mt-0.5">진행중인 프로젝트와 마지막 연락 시점, 파이프라인 참여사를 같이 분석했어요.</p>
                 {/* [추가] 건별로 해제한 거래처가 있으면, 실수로 뺐을 때 되돌릴 수 있게 안내 겸
                     복구 버튼을 같이 보여준다. */}
                 {intelDismissedContactIds.length > 0 && (
@@ -385,12 +385,12 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               {topInsights.map((insight) => (
                 <div
                   key={insight.contact.id}
-                  className="flex items-center justify-between gap-3 bg-slate-100 border border-slate-200 rounded-2xl p-3 hover:border-indigo-300 transition-colors"
+                  className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-3 hover:border-blue-400 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-slate-800">{insight.contact.name}</span>
-                      <span className="text-xs text-slate-400">{insight.contact.company}</span>
+                      <span className="text-xs text-slate-700">{insight.contact.company}</span>
                       <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${
                         insight.urgencyLabel === '높음'
                           ? 'bg-rose-50 text-rose-600 border-rose-200'
@@ -399,7 +399,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                         긴급도 {insight.urgencyLabel}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1 truncate">
+                    <p className="text-[11px] text-slate-800 mt-1 truncate">
                       {insight.reasonText} · <span className="font-mono">{insight.daysSince}일째 활동 없음</span>
                     </p>
                   </div>
@@ -447,17 +447,17 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 칸에는 회사명이 적혀 있는데, 그 회사의 명함이 아직 하나도 등록돼 있지 않은
                 경우를 같이 안내한다. 명함 등록을 놓친 참여사를 챙길 수 있게 하기 위함. */}
             {missingParticipants.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-indigo-200/60">
-                <p className="text-xs font-bold text-indigo-700 mb-2">
+              <div className="mt-3 pt-3 border-t border-slate-200">
+                <p className="text-xs font-bold text-slate-900 mb-2">
                   📇 아직 명함이 없는 프로젝트 참여사 {missingParticipants.length}곳
                 </p>
                 <div className="space-y-1.5">
                   {missingParticipants.map((mp) => (
                     <div
                       key={`${mp.projectId}-${mp.roleLabel}-${mp.companyName}`}
-                      className="flex items-center justify-between gap-3 bg-white/70 border border-indigo-100 rounded-xl px-3 py-2"
+                      className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2"
                     >
-                      <p className="min-w-0 flex-1 text-[11px] text-slate-600 truncate">
+                      <p className="min-w-0 flex-1 text-[11px] text-slate-800 truncate">
                         <span className="font-bold text-slate-700">{mp.companyName}</span>
                         <span className="text-slate-400"> · {mp.roleLabel} · "{mp.projectName}"</span>
                       </p>
