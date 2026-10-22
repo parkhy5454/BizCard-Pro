@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CreditCard, X, CheckCircle2, AlertTriangle, Users } from 'lucide-react';
 
+import { getErrorMessage, getErrorField } from '../errorUtils.js';
 declare global {
   interface Window {
     TossPayments?: (clientKey: string) => any;
@@ -94,9 +95,9 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
         failUrl: origin
       });
       // 성공하면 브라우저가 successUrl(=여기)로 리다이렉트되면서 페이지가 새로 열린다.
-    } catch (err: any) {
-      if (err?.code !== 'USER_CANCEL') {
-        setError(err?.message || '카드 등록 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      if (getErrorField(err, 'code') !== 'USER_CANCEL') {
+        setError(getErrorMessage(err) || '카드 등록 중 오류가 발생했습니다.');
       }
     }
   };
@@ -110,8 +111,8 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
       if (!res.ok) throw new Error(data.error || '구독 시작에 실패했습니다.');
       setMessage('구독이 시작됐습니다! 이제 모든 기능을 이용하실 수 있어요.');
       await fetchStatus();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setProcessing(false);
     }
@@ -127,8 +128,8 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
       if (!res.ok) throw new Error(data.error || '해지에 실패했습니다.');
       setMessage(data.message || '구독이 해지되었습니다.');
       await fetchStatus();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setProcessing(false);
     }

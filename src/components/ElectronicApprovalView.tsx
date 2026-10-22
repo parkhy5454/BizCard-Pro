@@ -12,6 +12,7 @@ import { formatPhoneNumber } from '../phoneFormat.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 import { SignaturePadModal } from './SignaturePadModal.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   currentUser: User | null;
   // [추가] 서명을 새로 등록/변경했을 때 앱 전체(App.tsx)의 currentUser 상태를 갱신하기 위한
@@ -674,8 +675,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       setBrandingLogoPreview(null);
       setBrandingSealPreview(null);
       setIsBrandingModalOpen(false);
-    } catch (err: any) {
-      setBrandingError(err.message || '저장하지 못했습니다.');
+    } catch (err: unknown) {
+      setBrandingError(getErrorMessage(err) || '저장하지 못했습니다.');
     } finally {
       setSavingBranding(false);
     }
@@ -698,8 +699,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       setBranding({ logoUrl: data.logoUrl, sealUrl: data.sealUrl });
       if (kind === 'logo') setBrandingLogoPreview(null);
       else setBrandingSealPreview(null);
-    } catch (err: any) {
-      setBrandingError(err.message || '삭제하지 못했습니다.');
+    } catch (err: unknown) {
+      setBrandingError(getErrorMessage(err) || '삭제하지 못했습니다.');
     } finally {
       setSavingBranding(false);
     }
@@ -1682,8 +1683,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       const res = await fetch(`/api/approvals/advance/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
       if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       setAdvanceList(prev => prev.filter(d => d.id !== id));
-    } catch (err: any) {
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1694,8 +1695,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       const res = await fetch(`/api/approvals/leave/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
       if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       setLeaveList(prev => prev.filter(d => d.id !== id));
-    } catch (err: any) {
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1706,8 +1707,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       const res = await fetch(`/api/approvals/official/${id}`, { method: 'DELETE', headers: { 'x-user-id': currentUser.id } });
       if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       setOfficialList(prev => prev.filter(d => d.id !== id));
-    } catch (err: any) {
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1745,8 +1746,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       if (kind === 'advance') setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
       else if (kind === 'leave') setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
       else setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
-    } catch (err: any) {
-      alert(`승인 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`승인 처리에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1783,8 +1784,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       if (kind === 'advance') setAdvanceList(prev => prev.map(d => d.id === id ? updated : d));
       else if (kind === 'leave') setLeaveList(prev => prev.map(d => d.id === id ? updated : d));
       else setOfficialList(prev => prev.map(d => d.id === id ? updated : d));
-    } catch (err: any) {
-      alert(`반려 처리에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`반려 처리에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 

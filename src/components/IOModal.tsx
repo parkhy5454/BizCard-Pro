@@ -5,6 +5,7 @@ import { generateStandardCardImage } from '../cardImageGenerator.js';
 import * as XLSX from 'xlsx';
 import { contactHasGroup } from '../groupUtils.js';
 
+import { getErrorMessage, getErrorField } from '../errorUtils.js';
 interface Props {
   contacts: BusinessCard[];
   groups: ContactGroup[];
@@ -167,8 +168,8 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
             body: JSON.stringify({ importedContacts: batch }),
             signal: controller.signal
           });
-        } catch (fetchErr: any) {
-          if (fetchErr?.name === 'AbortError') {
+        } catch (fetchErr: unknown) {
+          if (getErrorField(fetchErr, 'name') === 'AbortError') {
             throw new Error(
               `${i + 1}~${i + batch.length}번째 항목 처리 중 서버 응답이 90초 넘게 없어서 중단했습니다. ` +
               `지금까지(${i}건)는 이미 저장됐을 수 있으니 명함 목록을 확인해보시고, ` +
@@ -213,8 +214,8 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
       }
       setImportStatus(`✅ ${finalList.length - totalSkippedDuplicates}건의 명함 데이터를 성공적으로 복원(가져오기)했습니다.${dupMsg}${autoGenerateImageUsed ? ' 명함 이미지도 자동으로 만들었어요.' : ''}`);
       onImportSuccess(latestFullContactList);
-    } catch (err: any) {
-      alert('파일 가져오기 실패: ' + err.message);
+    } catch (err: unknown) {
+      alert('파일 가져오기 실패: ' + getErrorMessage(err));
     }
   };
 
@@ -275,8 +276,8 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           const parsedList = rowsToContacts(rows);
           if (parsedList.length === 0) throw new Error('파싱 가능한 명함 연락처가 없습니다.');
           await finalizeParsedList(parsedList);
-        } catch (err: any) {
-          alert('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+        } catch (err: unknown) {
+          alert('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + getErrorMessage(err));
         }
       };
       reader.onerror = () => alert('파일을 읽는 중 오류가 발생했습니다.');
@@ -366,8 +367,8 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
         }
 
         await finalizeParsedList(parsedList);
-      } catch (err: any) {
-        alert('파일 처리 중 오류가 발생했습니다: ' + err.message);
+      } catch (err: unknown) {
+        alert('파일 처리 중 오류가 발생했습니다: ' + getErrorMessage(err));
       }
     };
 

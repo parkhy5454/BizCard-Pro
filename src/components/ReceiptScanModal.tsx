@@ -5,6 +5,7 @@ import { getTodayLocalStr } from '../dateUtils.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 // [추가] 해외 출장 경비(AdminDocsView) 화면의 "사용구분"/"지급방법" 값 체계를 그대로 따른다.
 // AdminDocsView.tsx의 OVERSEAS_TRIP_CATEGORY_PRESETS/OVERSEAS_TRIP_PAY_METHOD_PRESETS와 반드시
 // 같은 값 목록이어야 한다 - AdminDocsView가 이 모달을 가져다 쓰는 쪽이라 그 반대 방향으로
@@ -173,8 +174,8 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       }
 
       setScanDone(true);
-    } catch (err: any) {
-      alert(err.message || '스캔 중 오류 발생');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '스캔 중 오류 발생');
     } finally {
       setIsScanning(false);
     }

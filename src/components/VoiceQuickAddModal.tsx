@@ -4,6 +4,7 @@ import { BusinessCard, ContactGroup } from '../types.js';
 import { findDuplicateContact } from './ScanModal.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   groups: ContactGroup[];
   contacts: BusinessCard[];
@@ -117,8 +118,8 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
       setParsed(data);
       const match = findDuplicateContact({ name: data.name, company: data.company }, contacts);
       setDuplicateMatch(match);
-    } catch (err: any) {
-      alert(err.message || '음성 인식 결과를 처리하지 못했습니다. 다시 시도해주세요.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '음성 인식 결과를 처리하지 못했습니다. 다시 시도해주세요.');
     } finally {
       setIsParsing(false);
     }

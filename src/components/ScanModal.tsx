@@ -8,6 +8,7 @@ import { loadOpenCv } from '../cardVision.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
 
+import { getErrorMessage, getErrorField } from '../errorUtils.js';
 interface Props {
   groups: ContactGroup[];
   // [수정] 중복 명함 감지를 위해 기존 등록된 명함 목록을 받는다
@@ -208,9 +209,9 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       }
 
       setScanDone(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (myGeneration === scanGenerationRef.current) {
-        alert(err.message || '스캔 중 오류 발생');
+        alert(getErrorMessage(err) || '스캔 중 오류 발생');
       }
     } finally {
       // 이 요청이 이미 낡은(더 최신 요청이 진행 중인) 상태라면, 로딩 상태를 건드리지 않는다
@@ -422,8 +423,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           phoneFax: parsed.phoneFax || '', email: parsed.email || '', address: parsed.address || '',
           groupId: batchGroupIds[0] || '', groupIds: batchGroupIds, memo: '', createdAt: new Date().toISOString(), callHistory: []
         });
-      } catch (err: any) {
-        setBatchQueue((prev) => prev.map((it) => (it.tempId === item.tempId ? { ...it, status: 'error', errorMessage: err?.message || '인식 실패' } : it)));
+      } catch (err: unknown) {
+        setBatchQueue((prev) => prev.map((it) => (it.tempId === item.tempId ? { ...it, status: 'error', errorMessage: getErrorMessage(err) || '인식 실패' } : it)));
       } finally {
         setBatchScanProgress((prev) => ({ ...prev, done: prev.done + 1 }));
       }
@@ -477,8 +478,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       }
       const dup = findDuplicateContact(parsed, contacts);
       setBatchQueue((prev) => prev.map((it) => (it.tempId === tempId ? { ...it, status: 'done', parsed, duplicateMatch: dup, action: dup ? 'skip' : 'create', frontImage: finalFrontImage } : it)));
-    } catch (err: any) {
-      setBatchQueue((prev) => prev.map((it) => (it.tempId === tempId ? { ...it, status: 'error', errorMessage: err?.message || '인식 실패' } : it)));
+    } catch (err: unknown) {
+      setBatchQueue((prev) => prev.map((it) => (it.tempId === tempId ? { ...it, status: 'error', errorMessage: getErrorMessage(err) || '인식 실패' } : it)));
     }
   };
 

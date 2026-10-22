@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { User } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   currentUser: User;
   onClose: () => void;
@@ -33,8 +34,8 @@ export const WithdrawAccountModal: React.FC<Props> = ({ currentUser, onClose, on
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '탈퇴 처리 중 오류가 발생했습니다.');
       onWithdrawn();
-    } catch (err: any) {
-      setError(err.message || '탈퇴 처리 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '탈퇴 처리 중 오류가 발생했습니다.');
     } finally {
       setSubmitting(false);
     }

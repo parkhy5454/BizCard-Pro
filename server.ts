@@ -3,6 +3,7 @@
 // 끝나도록 하기 위함 (같은 파일 안에서 순서만 바꾸는 건 esbuild의 import 호이스팅 때문에
 // 소용없었다 — 자세한 이유는 instrument.ts 상단 주석 참고).
 import { Sentry, SENTRY_DSN } from './instrument.js';
+import { getErrorMessage, getErrorField } from './src/errorUtils.js';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -69,9 +70,9 @@ async function generateContentWithRetry(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await ai.models.generateContent(params);
-    } catch (err: any) {
+    } catch (err: unknown) {
       lastErr = err;
-      const message = String(err?.message || err || '');
+      const message = getErrorMessage(err);
       // [수정] "RESOURCE_EXHAUSTED"(429, 할당량 완전 소진)를 "UNAVAILABLE"(503, 일시적
       // 서버 과부하)과 같은 걸로 취급해서 재시도하고 있었다. 하지만 할당량 소진은 몇 초
       // 기다린다고 풀리는 게 아니라서, 재시도해봐야 100% 또 실패하고 시간과 호출 횟수만
@@ -80,9 +81,9 @@ async function generateContentWithRetry(
       // 일시적 과부하(503)만 재시도한다. (참고: 할당량은 모델별이 아니라 API 키 단위로
       // 걸리는 경우가 많아서, 폴백 모델로 바꿔도 어차피 똑같이 막힐 가능성이 높다 — 그래서
       // 할당량 소진은 폴백 대상에서도 제외한다.)
-      const isQuotaExhausted = err?.status === 429 || err?.code === 429 || /RESOURCE_EXHAUSTED/i.test(message);
+      const isQuotaExhausted = getErrorField(err, 'status') === 429 || getErrorField(err, 'code') === 429 || /RESOURCE_EXHAUSTED/i.test(message);
       if (isQuotaExhausted) throw err;
-      const isTransient = err?.status === 503 || err?.code === 503 ||
+      const isTransient = getErrorField(err, 'status') === 503 || getErrorField(err, 'code') === 503 ||
         /UNAVAILABLE|high demand|overloaded/i.test(message);
       if (!isTransient) throw err;
       if (attempt === maxRetries) {
@@ -274,12 +275,12 @@ function validateWhitelistInput(value: any, fieldType: 'name' | 'phone' | 'compa
 // 한국어 안내문으로 바꿔주는 공용 함수 — AI를 쓰는 모든 API(명함/영수증 스캔, 테두리
 // 감지, 회의록 정리 등)에서 이 함수로 감싸서 응답한다.
 function toFriendlyAiErrorMessage(err: any): string {
-  const message = String(err?.message || err || '');
-  const isQuotaExhausted = err?.status === 429 || err?.code === 429 || /RESOURCE_EXHAUSTED|exceeded your current quota/i.test(message);
+  const message = getErrorMessage(err);
+  const isQuotaExhausted = getErrorField(err, 'status') === 429 || getErrorField(err, 'code') === 429 || /RESOURCE_EXHAUSTED|exceeded your current quota/i.test(message);
   if (isQuotaExhausted) {
     return 'AI 인식 요청이 일시적으로 많아 잠시 지연되고 있습니다. 1분 정도 후 다시 시도해주세요.';
   }
-  const isTransient = err?.status === 503 || err?.code === 503 || /UNAVAILABLE|high demand|overloaded/i.test(message);
+  const isTransient = getErrorField(err, 'status') === 503 || getErrorField(err, 'code') === 503 || /UNAVAILABLE|high demand|overloaded/i.test(message);
   if (isTransient) {
     return 'AI 서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.';
   }
@@ -1620,12 +1621,12 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
       console.error(`카카오 키워드 검색 API 오류 (상태 ${keywordRes.status}, 주소: "${trimmed}"):`, bodyText.slice(0, 300));
       return { coords: null, error: `카카오 API 오류 (상태 ${keywordRes.status}) - ${bodyText.slice(0, 200)}` };
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('주소 지오코딩 중 오류:', err);
     // 실제 예외 메시지(err.message)는 케이스마다 제각각이라 문자열로 정확히 판별하기
     // 어려우니, 재시도 판별에 안정적으로 쓸 수 있게 항상 같은 문구로 통일해서 돌려준다.
     // 원본 메시지는 서버 로그에 이미 남겨뒀다.
-    return { coords: null, error: `네트워크 오류: ${err.message || '알 수 없음'}` };
+    return { coords: null, error: `네트워크 오류: ${getErrorMessage(err) || '알 수 없음'}` };
   }
 }
 
@@ -3287,9 +3288,9 @@ app.post('/api/billing/register-card', async (req, res) => {
       action: 'billing_card_registered'
     });
     res.json({ success: true, card: result.card });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('카드 등록 실패:', err);
-    res.status(400).json({ error: err.message || '카드 등록에 실패했습니다.' });
+    res.status(400).json({ error: getErrorMessage(err) || '카드 등록에 실패했습니다.' });
   }
 });
 
@@ -3363,9 +3364,9 @@ app.post('/api/billing/subscribe', async (req, res) => {
     }
 
     res.json({ success: true, plan: owner.plan, nextBillingAt: owner.nextBillingAt, amount });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('구독 결제 실패:', err);
-    res.status(400).json({ error: err.message || '결제에 실패했습니다.' });
+    res.status(400).json({ error: getErrorMessage(err) || '결제에 실패했습니다.' });
   }
 });
 
@@ -3492,8 +3493,8 @@ app.post('/api/billing/run-scheduled', async (req, res) => {
   try {
     const result = await runScheduledBilling();
     res.json({ success: true, ...result });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || '스케줄 처리 중 오류가 발생했습니다.' });
+  } catch (err: unknown) {
+    res.status(500).json({ error: getErrorMessage(err) || '스케줄 처리 중 오류가 발생했습니다.' });
   }
 });
 
@@ -3564,9 +3565,9 @@ async function runDailyCompanySummaryBatch(): Promise<{ scopesChecked: number; c
           await setScopedDoc(scope.scopeId, 'contacts', c);
         }
         companiesUpdated++;
-      } catch (err: any) {
-        const msg = String(err?.message || err || '');
-        if (err?.status === 429 || /RESOURCE_EXHAUSTED/i.test(msg)) {
+      } catch (err: unknown) {
+        const msg = getErrorMessage(err);
+        if (getErrorField(err, 'status') === 429 || /RESOURCE_EXHAUSTED/i.test(msg)) {
           console.error(`[회사요약 자동배치] Gemini 할당량이 소진되어 이번 배치를 중단합니다 ("${company}"에서 감지).`);
           quotaExhaustedByGemini = true;
           break;
@@ -3611,8 +3612,8 @@ app.post('/api/admin/run-company-summary-batch', async (req, res) => {
     const result = await runDailyCompanySummaryBatch();
     lastCompanySummaryRunDate = new Date().toISOString().slice(0, 10);
     res.json({ success: true, ...result });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || '배치 처리 중 오류가 발생했습니다.' });
+  } catch (err: unknown) {
+    res.status(500).json({ error: getErrorMessage(err) || '배치 처리 중 오류가 발생했습니다.' });
   }
 });
 
@@ -3850,8 +3851,8 @@ app.post('/api/admin/run-daily-report-batch', async (req, res) => {
     const result = await runDailyReportAndBackupBatch();
     lastDailyReportRunDate = getTodayKstStr();
     res.json({ success: true, ...result });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || '일일 리포트 처리 중 오류가 발생했습니다.' });
+  } catch (err: unknown) {
+    res.status(500).json({ error: getErrorMessage(err) || '일일 리포트 처리 중 오류가 발생했습니다.' });
   }
 });
 
@@ -4066,9 +4067,9 @@ app.get('/api/places/search', async (req, res) => {
       lng: parseFloat(d.x)
     }));
     res.json({ places });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('장소 검색 중 오류:', err);
-    res.status(500).json({ error: err.message || '장소 검색 중 오류가 발생했습니다.', places: [] });
+    res.status(500).json({ error: getErrorMessage(err) || '장소 검색 중 오류가 발생했습니다.', places: [] });
   }
 });
 
@@ -4115,9 +4116,9 @@ app.post('/api/vehicles/estimate-distance', async (req, res) => {
     const estimatedRoadKm = Math.round(straightLineKm * ROAD_DISTANCE_CORRECTION_FACTOR * 10) / 10;
 
     res.json({ success: true, estimatedKm: estimatedRoadKm, straightLineKm: Math.round(straightLineKm * 10) / 10 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('예상 거리 계산 중 오류:', err);
-    res.status(500).json({ error: err.message || '거리 계산 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: getErrorMessage(err) || '거리 계산 중 오류가 발생했습니다.' });
   }
 });
 
@@ -4555,7 +4556,7 @@ app.post('/api/detect-card-corners', async (req, res) => {
     }
 
     res.json(parsedJson);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('AI 테두리 감지 오류:', error);
     // [수정] 이 API가 실패해도 화면에서는 기존 OpenCV 감지 결과를 그대로 쓰면 되므로,
     // 500 에러 대신 corners: null로 조용히 응답해서 화면 쪽 에러 처리를 단순하게 한다.
@@ -4693,11 +4694,11 @@ app.post('/api/scan-card', async (req, res) => {
       };
 
       res.json(parsedJson);
-    } catch (visionError: any) {
+    } catch (visionError: unknown) {
       console.error('Vision API Error:', visionError);
       throw visionError;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Gemini OCR Error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -4749,7 +4750,7 @@ app.post('/api/summarize-meeting', async (req, res) => {
       actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
       mentionedAmounts: Array.isArray(parsed.mentionedAmounts) ? parsed.mentionedAmounts : []
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('회의록 AI 요약 오류:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -4807,7 +4808,7 @@ app.post('/api/parse-voice-contact', async (req, res) => {
       title: parsed.title || '',
       memo: parsed.memo || ''
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('음성 명함 파싱 오류:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5020,7 +5021,7 @@ app.post('/api/scan-receipt', async (req, res) => {
     }
 
     res.json(parsedJson);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Receipt OCR Error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5166,7 +5167,7 @@ app.post('/api/company/intelligence-refresh', async (req, res) => {
     }
     const { summary: companyInfo, fromCache } = await getOrGenerateCompanySummary(company);
     res.json({ companyInfo, fromCache });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Company intelligence refresh error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5180,7 +5181,7 @@ app.post('/api/company/search-summary', async (req, res) => {
     }
     const { summary: companyInfo, fromCache } = await getOrGenerateCompanySummary(company);
     res.json({ companyInfo, fromCache });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Company search summary error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5200,7 +5201,7 @@ app.post('/api/company/intelligence', async (req, res) => {
     // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
     // TODO: company 테이블을 neonStore에 추가하거나, 이 엔드포인트 제거 필요
     return res.json({ items: [] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Company intelligence error:', error);
     res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
   }
@@ -5218,7 +5219,7 @@ app.post('/api/company/intelligence-batch', async (req, res) => {
     // [주의] Neon으로 마이그레이션하면서 company 테이블이 neonStore 스키마에 없음
     // TODO: company 테이블 구현 또는 이 엔드포인트 제거 필요
     return res.json({ items: [] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     res.status(500).json({ error: '기업 정보를 불러오지 못했습니다.' });
   }
 });
@@ -5313,7 +5314,7 @@ app.post('/api/projects/relations-search', async (req, res) => {
     }
     const { fields, sourceUrls } = await searchProjectRelations({ projectName, endCustomer, siteLocation });
     res.json({ fields, sourceUrls });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Project relations search error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5346,7 +5347,7 @@ app.post('/api/ai-intelligence/briefing-analysis', async (req, res) => {
       `인사말이나 formatting 없이, 바로 본론부터 5~7문장 이내로 간결하게 작성해줘.`;
     const analysis = await runGeminiTextAnalysis(prompt);
     res.json({ analysis });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Briefing AI analysis error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5360,7 +5361,7 @@ app.post('/api/ai-intelligence/company-analysis', async (req, res) => {
       `인사말이나 formatting 없이, 바로 본론부터 5~7문장 이내로 간결하게 작성해줘.`;
     const analysis = await runGeminiTextAnalysis(prompt);
     res.json({ analysis });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Company AI analysis error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5375,7 +5376,7 @@ app.post('/api/ai-intelligence/relationship-analysis', async (req, res) => {
       `인사말이나 formatting 없이, 바로 본론부터 5~7문장 이내로 간결하게 작성해줘.`;
     const analysis = await runGeminiTextAnalysis(prompt);
     res.json({ analysis });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Relationship AI analysis error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -5666,7 +5667,7 @@ app.get('/s/:slug', async (req, res) => {
   </div>
 </body>
 </html>`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('공유 페이지 오류:', error);
     res.status(500).send('오류가 발생했습니다.');
   }
@@ -7293,7 +7294,7 @@ app.post('/api/feedback', async (req, res) => {
         console.error('[mailer] 문의 접수 알림 메일 발송 실패:', err);
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Feedback submit error:', err);
     if (!res.headersSent) res.status(500).json({ error: '문의 접수 중 오류가 발생했습니다.' });
   }
@@ -7401,7 +7402,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       individuals,
       featureTotals
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('platform-stats 조회 오류:', err);
     res.status(500).json({ error: '통계 조회 중 오류가 발생했습니다.' });
   }
@@ -7471,7 +7472,7 @@ app.post('/api/admin/migrate-scope', async (req, res) => {
     delete db[toScopeId];
 
     res.json({ success: true, fromScopeId, toScopeId, migratedCounts: summary });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('scope migrate 오류:', err);
     res.status(500).json({ error: '데이터 병합 중 오류가 발생했습니다.' });
   }
@@ -7505,7 +7506,7 @@ app.post('/api/admin/migrate-scoped-items', async (req, res) => {
         ...result
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('scoped_items 마이그레이션 오류:', err);
     res.status(500).json({ error: '마이그레이션 중 오류가 발생했습니다.' });
   }
@@ -7535,7 +7536,7 @@ app.put('/api/feedback/:id', async (req, res) => {
     const updated: FeedbackItem = { ...existing, status };
     await setScopedDoc(GLOBAL_FEEDBACK_SCOPE, 'feedback', updated);
     res.json(updated);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Feedback status update error:', err);
     res.status(500).json({ error: '상태 변경 중 오류가 발생했습니다.' });
   }
@@ -8602,7 +8603,7 @@ ${text}
 
     const polishedText = (response.text || '').trim();
     res.json({ polishedText });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('AI Polish Error:', error);
     res.status(500).json({ error: toFriendlyAiErrorMessage(error) });
   }
@@ -8781,9 +8782,9 @@ app.post('/api/send-tax-package', async (req, res) => {
     });
 
     res.json({ success: true, count: rows.length, totalAmount });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('세무 자료 발송 오류:', err);
-    res.status(500).json({ error: err.message || '세무 자료 발송 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: getErrorMessage(err) || '세무 자료 발송 중 오류가 발생했습니다.' });
   }
 });
 

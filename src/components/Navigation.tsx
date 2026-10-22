@@ -6,6 +6,7 @@ import { RemindersBell } from './RemindersBell.js';
 import { ContactGroup, Project, User as UserType } from '../types.js';
 import { downloadBackup } from '../backupDownload.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   activeTab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile' | 'more';
   setActiveTab: (tab: 'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile' | 'more') => void;
@@ -131,8 +132,8 @@ export const Navigation: React.FC<Props> = ({
     setIsDownloadingBackup(true);
     try {
       await downloadBackup(currentUser.id);
-    } catch (err: any) {
-      alert(`데이터 백업에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`데이터 백업에 실패했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
     } finally {
       setIsDownloadingBackup(false);
     }

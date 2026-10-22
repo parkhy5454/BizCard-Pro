@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, Mail, Phone, Building2, Briefcase, Lock, Save } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   currentUser: UserType;
   // 이름/전화/직책 저장. 서버에 저장되고, 실패하면 예외를 던진다.
@@ -57,8 +58,8 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
       });
       setSaveMessage({ type: 'ok', text: '프로필이 저장되었습니다.' });
       setTimeout(() => setSaveMessage(null), 3000);
-    } catch (error: any) {
-      setSaveMessage({ type: 'err', text: error?.message || '저장에 실패했습니다.' });
+    } catch (error: unknown) {
+      setSaveMessage({ type: 'err', text: getErrorMessage(error) || '저장에 실패했습니다.' });
     } finally {
       setIsSaving(false);
     }
@@ -82,8 +83,8 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
       });
       setNewEmail('');
       setEmailPassword('');
-    } catch (error: any) {
-      setEmailMessage({ type: 'err', text: error?.message || '이메일 변경 요청에 실패했습니다.' });
+    } catch (error: unknown) {
+      setEmailMessage({ type: 'err', text: getErrorMessage(error) || '이메일 변경 요청에 실패했습니다.' });
     } finally {
       setIsRequestingEmail(false);
     }

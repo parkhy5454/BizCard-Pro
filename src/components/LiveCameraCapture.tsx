@@ -5,6 +5,7 @@ import {
   computeBlurScore, computeBrightness, computeGlareRatio, Quad
 } from '../cardVision.js';
 
+import { getErrorMessage, getErrorField } from '../errorUtils.js';
 interface Props {
   title?: string;
   guideAspectRatio?: number; // 문서 가로:세로 비율 (명함 ≈ 1.586, 영수증은 세로로 길게 등)
@@ -200,9 +201,9 @@ export const LiveCameraCapture: React.FC<Props> = ({
         }
         setIsReady(true);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('카메라 접근 실패:', err);
-      const name = err?.name || '';
+      const name = getErrorField(err, 'name') || '';
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
         setError('카메라 권한이 거부되어 있어요. 아이폰의 "설정 → Safari → 카메라"에서 허용으로 바꾼 뒤 다시 시도하시거나, 아래 "갤러리"로 사진을 선택해주세요.');
       } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
@@ -270,7 +271,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
         console.warn('OpenCV.js 로드 실패 - 수동 촬영 모드로 전환합니다:', err);
         if (!cancelled) {
           setCvStatus('failed');
-          setCvErrorMessage(err?.message || String(err));
+          setCvErrorMessage(getErrorMessage(err) || String(err));
         }
       });
     return () => { cancelled = true; };

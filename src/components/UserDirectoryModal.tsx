@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Search, Building2, User, ShieldCheck, Info, Phone, Download } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -42,8 +43,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
         );
         setUsers(syncedData);
       }
-    } catch (err: any) {
-      setError(err.message || '오류 발생');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '오류 발생');
     } finally {
       setLoading(false);
     }
@@ -196,8 +197,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || '역할 변경에 실패했습니다.');
       setUsers(prev => prev.map(u => (u.id === target.id ? { ...u, role: newRole } : u)));
-    } catch (err: any) {
-      setRoleError(err.message || '역할 변경 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setRoleError(getErrorMessage(err) || '역할 변경 중 오류가 발생했습니다.');
     } finally {
       setRoleUpdatingId(null);
     }
@@ -217,8 +218,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || '승인에 실패했습니다.');
       setUsers(prev => prev.map(u => (u.id === target.id ? { ...u, approvalStatus: 'approved' } : u)));
-    } catch (err: any) {
-      setApprovalError(err.message || '승인 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setApprovalError(getErrorMessage(err) || '승인 중 오류가 발생했습니다.');
     } finally {
       setApprovalUpdatingId(null);
     }
@@ -235,8 +236,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || '거절에 실패했습니다.');
       setUsers(prev => prev.filter(u => u.id !== target.id));
-    } catch (err: any) {
-      setApprovalError(err.message || '거절 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setApprovalError(getErrorMessage(err) || '거절 중 오류가 발생했습니다.');
     } finally {
       setApprovalUpdatingId(null);
     }
@@ -259,8 +260,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || '인증 처리에 실패했습니다.');
       setUsers(prev => prev.map(u => (u.id === target.id ? { ...u, emailVerified: true } : u)));
-    } catch (err: any) {
-      setVerifyError(err.message || '인증 처리 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setVerifyError(getErrorMessage(err) || '인증 처리 중 오류가 발생했습니다.');
     } finally {
       setVerifyingId(null);
     }
@@ -290,8 +291,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || '비밀번호 설정에 실패했습니다.');
       window.alert(`${target.name}님의 비밀번호가 변경되었습니다.\n이 비밀번호를 본인에게 전달해서 로그인하도록 안내해주세요.`);
-    } catch (err: any) {
-      setPasswordError(err.message || '비밀번호 설정 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setPasswordError(getErrorMessage(err) || '비밀번호 설정 중 오류가 발생했습니다.');
     } finally {
       setSettingPasswordId(null);
     }
@@ -313,8 +314,8 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || '제거에 실패했습니다.');
       setUsers(prev => prev.filter(u => u.id !== target.id));
-    } catch (err: any) {
-      setRemoveError(err.message || '제거 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setRemoveError(getErrorMessage(err) || '제거 중 오류가 발생했습니다.');
     } finally {
       setRemovingId(null);
     }

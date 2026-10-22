@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { X, RotateCcw, Check, PenTool, Upload, Image as ImageIcon } from 'lucide-react';
 import { User } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 // [수정] 전자결재에서 승인할 때 도장처럼 찍히는 손글씨 서명을 등록/변경하는 화면.
 // 마우스든 손가락(터치)이든 캔버스에 직접 그려서 등록하거나, 스캔/촬영해둔 서명 이미지
 // 파일을 업로드해서 등록할 수도 있다(두 방식 다 최종적으로 이미지 data URL 하나로
@@ -127,8 +128,8 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || '서명 저장에 실패했습니다.');
       onSaved(data.user);
-    } catch (err: any) {
-      setError(err.message || '서명 저장 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '서명 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }

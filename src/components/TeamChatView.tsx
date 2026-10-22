@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MessagesSquare, Send, Users, Hash, UsersRound, Plus, X, Check } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   currentUser: UserType;
 }
@@ -152,8 +153,8 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
       setMessages((prev) => [...prev, data]);
       lastIdRef.current = data.id;
       setInput('');
-    } catch (err: any) {
-      alert(err.message || '전송하지 못했습니다.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '전송하지 못했습니다.');
     } finally {
       setSending(false);
     }
@@ -192,8 +193,8 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
       setGroups((prev) => [...prev, data]);
       setIsCreatingGroup(false);
       setActiveChannel(groupChannelId(data.id));
-    } catch (err: any) {
-      setGroupError(err.message || '그룹을 만들지 못했습니다.');
+    } catch (err: unknown) {
+      setGroupError(getErrorMessage(err) || '그룹을 만들지 못했습니다.');
     } finally {
       setCreatingGroup(false);
     }

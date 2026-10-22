@@ -7,6 +7,7 @@ import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isVal
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   onClose: () => void;
 }
@@ -212,9 +213,9 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       setScanImgBack(saved.backImage || '');
       setIsEditing(false);
       setActiveTab('qr');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('내 명함 프로필 저장 실패:', err);
-      alert(`저장 중 문제가 발생했습니다: ${err.message || err}\n다시 시도해주세요.`);
+      alert(`저장 중 문제가 발생했습니다: ${getErrorMessage(err) || err}\n다시 시도해주세요.`);
     }
   };
 
@@ -298,8 +299,8 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           console.error('뒷면 방향 보정 실패, 보정 전 사진 유지:', err);
         }
       }
-    } catch (err: any) {
-      alert(err.message || '명함 인식 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '명함 인식 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsScanning(false);
     }

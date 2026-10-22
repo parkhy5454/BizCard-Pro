@@ -15,6 +15,7 @@ import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 // [추가] 운행기록부 인쇄/엑셀 내보내기(buildReportTableHtml)는 운전자명·부서·주행목적·
 // 출발지/도착지 주소 등 사용자가 직접 입력한 값을 HTML 문자열로 조립해서 그대로
 // dangerouslySetInnerHTML로 화면에 꽂아 넣는다. 이 값들을 이스케이프하지 않으면, 누군가
@@ -273,8 +274,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if ((data.places || []).length === 0) {
         alert('검색 결과가 없습니다. 주소를 직접 입력해주세요.');
       }
-    } catch (err: any) {
-      alert(`장소 검색에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`장소 검색에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     } finally {
       setIsSearchingPlace(false);
     }
@@ -299,8 +300,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (!res.ok) throw new Error(data.error || '거리 계산에 실패했습니다.');
       const start = Number(newDriving.startMileage) || 0;
       setNewDriving((prev) => ({ ...prev, endMileage: Math.round(start + data.estimatedKm) }));
-    } catch (err: any) {
-      alert(`예상 거리 계산에 실패했습니다.\n${err.message || '도착 거리를 직접 입력해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`예상 거리 계산에 실패했습니다.\n${getErrorMessage(err) || '도착 거리를 직접 입력해주세요.'}`);
     } finally {
       setIsEstimatingDistance(false);
     }
@@ -612,8 +613,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       if (!expRes.ok) throw new Error(`영수증 저장에 실패했습니다 (상태: ${expRes.status}).`);
       const addedExpense = await expRes.json();
       setExpenses((prev) => [addedExpense, ...prev]);
-    } catch (err: any) {
-      alert(`영수증 추가에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`영수증 추가에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     } finally {
       setIsScanningEditReceipt(false);
     }
@@ -626,8 +627,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       const res = await fetch(`/api/vehicles/expenses/${expenseId}`, { method: 'DELETE', headers: getHeaders() });
       if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
-    } catch (err: any) {
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -772,12 +773,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         } else {
           throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}).`);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // [수정] 예전엔 실패해도 화면에만 존재하는 가짜 연락처를 만들어서 계속 진행했다 —
         // 새로고침하면 그 연락처 연결이 사라지는 "가짜 데이터" 문제였다. 이제는 저장 자체를
         // 중단해서 사용자가 무슨 일이 있었는지 알고 다시 시도할 수 있게 한다.
         console.error('Failed to save direct contact:', err);
-        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
         return;
       }
     }
@@ -883,9 +884,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const errorMsg = errorData?.error || `운행기록 저장에 실패했습니다 (상태: ${res.status})`;
         alert(`운행기록 저장 실패\n${errorMsg}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('운행기록 저장 중 예외:', err);
-      alert(`운행기록 저장 중 오류가 발생했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+      alert(`운행기록 저장 중 오류가 발생했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -956,12 +957,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         } else {
           throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}).`);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // [수정] 예전엔 실패해도 화면에만 존재하는 가짜 연락처를 만들어서 계속 진행했다 —
         // 새로고침하면 그 연락처 연결이 사라지는 "가짜 데이터" 문제였다. 이제는 저장 자체를
         // 중단해서 사용자가 무슨 일이 있었는지 알고 다시 시도할 수 있게 한다.
         console.error('Failed to save direct contact:', err);
-        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
         return;
       }
     }
@@ -1031,9 +1032,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const data = await res.json().catch(() => null);
         alert(`지출 내역 삭제에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(`지출 내역 삭제 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`지출 내역 삭제 중 오류가 발생했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1173,9 +1174,9 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         const data = await res.json().catch(() => null);
         alert(`정비 상태 변경에 실패했습니다.\n${data?.error || `상태: ${res.status}`}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(`정비 상태 변경 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`정비 상태 변경 중 오류가 발생했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 

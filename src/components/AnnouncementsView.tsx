@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Megaphone, Pin, Pencil, Trash2, Plus, X, Check, RefreshCw } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   currentUser: UserType;
 }
@@ -97,8 +98,8 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
       if (!res.ok) throw new Error(data.error || '저장하지 못했습니다.');
       setIsEditorOpen(false);
       loadItems();
-    } catch (err: any) {
-      setFormError(err.message || '저장하지 못했습니다.');
+    } catch (err: unknown) {
+      setFormError(getErrorMessage(err) || '저장하지 못했습니다.');
     } finally {
       setSaving(false);
     }
@@ -113,8 +114,8 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
         throw new Error(data.error || '삭제하지 못했습니다.');
       }
       setItems((prev) => prev.filter((it) => it.id !== id));
-    } catch (err: any) {
-      alert(err.message || '삭제하지 못했습니다.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '삭제하지 못했습니다.');
     }
   };
 

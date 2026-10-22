@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Bug, Lightbulb, MessageSquare, RefreshCw, CheckCircle2, Clock, Loader2, BarChart3, Building2, Users, Activity, Inbox as InboxIcon, Download } from 'lucide-react';
 import { FeedbackItem, User } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   currentUser?: User | null;
   onClose: () => void;
@@ -142,8 +143,8 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
       if (!res.ok) throw new Error(data.error || '정정에 실패했습니다.');
       setCompanyMismatches((prev) => (prev || []).filter((m) => m.businessNumber !== businessNumber));
       alert(`${data.updatedCount}명의 회사명을 "${canonicalName}"으로 통일했습니다.`);
-    } catch (err: any) {
-      alert(err.message || '정정 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '정정 중 오류가 발생했습니다.');
     } finally {
       setNormalizingBizNum(null);
     }
@@ -193,8 +194,8 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
       setMergeFrom('');
       setMergeTo('');
       fetchStats(); // 최신 상태로 새로고침
-    } catch (err: any) {
-      setMergeError(err.message || '병합 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setMergeError(getErrorMessage(err) || '병합 중 오류가 발생했습니다.');
     } finally {
       setMergeLoading(false);
     }

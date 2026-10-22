@@ -1,4 +1,5 @@
 import { APP_PUBLIC_URL } from '../appConfig.js';
+import { getErrorField } from '../errorUtils.js';
 import React, { useRef, useState, useEffect } from 'react';
 import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone, MessageSquare, Share2, UserPlus } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project, User } from '../types.js';
@@ -162,8 +163,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
       await navigator.clipboard.writeText(text);
       setShareStatusId(contact.id);
       setTimeout(() => setShareStatusId(null), 2000);
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
+    } catch (err: unknown) {
+      if (getErrorField(err, 'name') !== 'AbortError') {
         console.error('명함 전달 실패:', err);
       }
     }
@@ -202,8 +203,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
       } catch (err) {
         console.error('초대 기록 저장 실패:', err);
       }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
+    } catch (err: unknown) {
+      if (getErrorField(err, 'name') !== 'AbortError') {
         console.error('초대 보내기 실패:', err);
       }
     }

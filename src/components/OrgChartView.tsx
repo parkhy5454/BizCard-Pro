@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Network, RefreshCw, User as UserIcon, Crown, Pencil, X, Check } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   currentUser: UserType;
 }
@@ -97,8 +98,8 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
       if (!res.ok) throw new Error(data.error || '저장하지 못했습니다.');
       setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, department: data.user.department, managerUserId: data.user.managerUserId } : m)));
       cancelEdit();
-    } catch (err: any) {
-      alert(err.message || '저장하지 못했습니다.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '저장하지 못했습니다.');
     } finally {
       setSaving(false);
     }

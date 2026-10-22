@@ -11,6 +11,7 @@ import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.j
 import { ProjectMultiSearchSelect } from './ProjectPicker.js';
 import { CoworkerMultiSearchSelect, Coworker } from './CoworkerPicker.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   contacts: BusinessCard[];
   setContacts: React.Dispatch<React.SetStateAction<BusinessCard[]>>;
@@ -119,9 +120,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       if (!res.ok) throw new Error(`연동 링크 생성에 실패했습니다 (상태: ${res.status}).`);
       const data = await res.json();
       setCalendarFeedInfo({ feedUrl: data.feedUrl, webcalUrl: data.webcalUrl });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to get calendar feed:', err);
-      alert(`연동 링크 생성에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`연동 링크 생성에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     } finally {
       setIsLoadingCalendarFeed(false);
     }
@@ -921,9 +922,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           return w;
         }));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to move calendar entry:', err);
-      alert(`일정을 옮기는 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`일정을 옮기는 중 오류가 발생했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1691,12 +1692,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           const errText = await contactRes.text().catch(() => '');
           throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}). ${errText.slice(0, 100)}`);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // [수정] 예전엔 여기서 실패하면 화면에만 존재하는 "가짜 연락처"를 만들어서 마치
         // 저장된 것처럼 보여줬다 — 새로고침하면 사라지는 유령 데이터였다. 이제는 가짜
         // 데이터를 만들지 않고, 업무일지 저장 자체를 중단해서 사용자가 다시 시도하게 한다.
         console.error('Failed to save direct contact:', err);
-        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n업무일지 저장이 중단되었습니다.`);
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}\n\n업무일지 저장이 중단되었습니다.`);
         return;
       }
     }
@@ -1848,9 +1849,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         }
       }
       setIsWriteModalOpen(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save error:', err);
-      alert(`업무일지 저장 도중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`업무일지 저장 도중 오류가 발생했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
     } finally {
       // [추가] 성공하든 실패하든(위쪽 연락처 저장 실패로 일찍 return 되는 경우 포함) 항상
@@ -1881,9 +1882,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         setWeeklyLogs(prev => prev.filter(l => l.id !== id));
       }
       if (expandedLogId === id) setExpandedLogId(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Delete error:', err);
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 

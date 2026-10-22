@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Eraser, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { User } from '../types.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 // [추가] 명함 주소(주소/보조주소/자택주소)에 스캔·OCR이나 붙여넣기 과정에서 실수로 섞여
 // 들어간 "\" 문자를 찾아서 지워주는 관리자 전용 일회성 정리 도구. 실수로 잘못 지워지는
 // 일이 없도록, 실제로 적용하기 전에 어떤 명함이 어떻게 바뀌는지 먼저 목록으로 보여주고
@@ -43,8 +44,8 @@ export const AddressBackslashCleanupModal: React.FC<Props> = ({ currentUser, onC
       if (!res.ok) throw new Error(`조회에 실패했습니다 (상태: ${res.status}).`);
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      setError(err.message || '조회 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '조회 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -65,8 +66,8 @@ export const AddressBackslashCleanupModal: React.FC<Props> = ({ currentUser, onC
       const data = await res.json();
       setFixedCount(typeof data.fixedCount === 'number' ? data.fixedCount : 0);
       onCleaned(typeof data.fixedCount === 'number' ? data.fixedCount : 0);
-    } catch (err: any) {
-      setError(err.message || '정리 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '정리 중 오류가 발생했습니다.');
     } finally {
       setApplying(false);
     }

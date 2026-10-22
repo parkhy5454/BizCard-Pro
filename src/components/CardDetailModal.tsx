@@ -1,4 +1,5 @@
 import { APP_PUBLIC_URL } from '../appConfig.js';
+import { getErrorMessage, getErrorField } from '../errorUtils.js';
 import React, { useState } from 'react';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home, Smartphone } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
@@ -210,8 +211,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
       if (diffs.length > 0) {
         setRescanDiffs(diffs);
       }
-    } catch (err: any) {
-      setRescanRecognizeError(err.message || '명함 인식에 실패했습니다. 사진은 정상적으로 저장됐습니다.');
+    } catch (err: unknown) {
+      setRescanRecognizeError(getErrorMessage(err) || '명함 인식에 실패했습니다. 사진은 정상적으로 저장됐습니다.');
     } finally {
       setIsRecognizingRescan(false);
     }
@@ -372,8 +373,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
       await navigator.clipboard.writeText(text);
       setShareStatus('copied');
       setTimeout(() => setShareStatus('idle'), 2000);
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
+    } catch (err: unknown) {
+      if (getErrorField(err, 'name') !== 'AbortError') {
         console.error('명함 전달 실패:', err);
       }
     }
@@ -416,8 +417,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
       } catch (err) {
         console.error('초대 기록 저장 실패:', err);
       }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
+    } catch (err: unknown) {
+      if (getErrorField(err, 'name') !== 'AbortError') {
         console.error('초대 보내기 실패:', err);
       }
     }

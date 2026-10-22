@@ -5,6 +5,7 @@ import { User as UserType } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { LegalModal } from './LegalModal.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   onLoginSuccess: (user: UserType) => void;
 }
@@ -81,8 +82,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
       setSuccessMsg(data.message || '입력하신 이메일로 안내를 보내드렸습니다.');
-    } catch (err: any) {
-      setError(err.message || '요청 처리 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '요청 처리 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -118,8 +119,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
       setNewPassword('');
       setNewPasswordConfirm('');
       setSuccessMsg('비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.');
-    } catch (err: any) {
-      setError(err.message || '비밀번호 변경 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '비밀번호 변경 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -224,8 +225,8 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
         setIsLogin(true);
         setPassword('');
       }
-    } catch (err: any) {
-      setError(err.message || '인증 요청 중 에러가 발생했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '인증 요청 중 에러가 발생했습니다.');
     } finally {
       setLoading(false);
     }

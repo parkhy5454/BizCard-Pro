@@ -9,6 +9,7 @@ import { Check, RotateCcw, X } from 'lucide-react';
 // 실패하면(네트워크 문제로 모델을 못 받아온 경우 등) 기존 OpenCV 방식으로 자연스럽게 넘어간다.
 import { scanDocument } from 'scanic';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Point {
   x: number;
   y: number;
@@ -1096,10 +1097,10 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       const naturalCorners = corners.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
       const cropped = await warpToCorners(imgEl, naturalCorners, expectedAspectRatio);
       onConfirm(cropped);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // 이전에는 실패를 콘솔에만 남기고 조용히 원본으로 넘어갔는데, 그러면 왜 보정이 안 됐는지 알 수가 없다.
       // 화면에 실제 에러 메시지를 보여줘서 다음에 실패하면 정확한 원인을 바로 알 수 있게 한다.
-      const message = err?.message || String(err);
+      const message = getErrorMessage(err) || String(err);
       console.error('크롭(테두리 보정) 처리 실패:', err);
       setWarpError(message);
       setIsProcessing(false);

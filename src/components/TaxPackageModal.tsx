@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, FileSpreadsheet, Send, CheckCircle2, AlertTriangle } from 'lucide-react';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   onClose: () => void;
 }
@@ -38,8 +39,8 @@ export const TaxPackageModal: React.FC<Props> = ({ onClose }) => {
       if (!res.ok) throw new Error(data.error || '발송에 실패했습니다.');
       try { localStorage.setItem('bizcard_accountant_email', accountantEmail.trim()); } catch {}
       setResult({ count: data.count, totalAmount: data.totalAmount });
-    } catch (err: any) {
-      setError(err.message || '발송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || '발송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setSending(false);
     }

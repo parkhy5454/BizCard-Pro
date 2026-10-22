@@ -39,6 +39,7 @@ import { AnnouncementsView } from './components/AnnouncementsView.js';
 import { TeamChatView } from './components/TeamChatView.js';
 import { UserProfileView } from './components/UserProfileView.js';
 
+import { getErrorMessage } from './errorUtils.js';
 export default function App() {
   // 회원 세션 상태
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -302,8 +303,8 @@ export default function App() {
 
       const saved = await res.json();
       setContacts(prev => [saved, ...prev]);
-    } catch (err: any) {
-      alert(`명함 저장에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`명함 저장에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -326,8 +327,8 @@ export default function App() {
       const data = await res.json();
       setContacts(prev => prev.map(c => c.id === data.id ? data : c));
       setSelectedContactDetail(data);
-    } catch (err: any) {
-      alert(`명함 수정 저장에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`명함 수정 저장에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -348,8 +349,8 @@ export default function App() {
       if (!res.ok) throw new Error(`상태: ${res.status}`);
       setContacts(prev => prev.filter(c => c.id !== id));
       if (selectedContactDetail?.id === id) setSelectedContactDetail(null);
-    } catch (err: any) {
-      alert(`명함 삭제에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`명함 삭제에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -400,8 +401,8 @@ export default function App() {
       }
       const created = await res.json();
       setGroups(prev => [...prev, created]);
-    } catch (err: any) {
-      alert(`그룹 생성에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`그룹 생성에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -422,8 +423,8 @@ export default function App() {
       }
       const updated = await res.json();
       setGroups(prev => prev.map(g => g.id === id ? updated : g));
-    } catch (err: any) {
-      alert(`그룹 수정에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`그룹 수정에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -446,8 +447,8 @@ export default function App() {
       }
       const updated = await res.json();
       setGroups(prev => prev.map(g => g.id === id ? updated : g));
-    } catch (err: any) {
-      alert(`그룹 공개 설정 변경에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`그룹 공개 설정 변경에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -471,8 +472,8 @@ export default function App() {
         return { ...c, groupId: ids[0] || '', groupIds: ids };
       }));
       if (selectedGroupFilter === id) setSelectedGroupFilter('all');
-    } catch (err: any) {
-      alert(`그룹 삭제에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`그룹 삭제에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 

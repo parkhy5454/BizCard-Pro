@@ -10,6 +10,7 @@ import { formatPhoneNumber } from '../phoneFormat.js';
 import { ContactMultiSearchSelect } from './ContactPicker.js';
 import { AttendeeContactSearchAdd } from './AttendeeContactSearchAdd.js';
 
+import { getErrorMessage, getErrorField } from '../errorUtils.js';
 // [추가] 전체 프로젝트 목록 인쇄는 공유 CSS(index.css)의 named page(@page 커스텀 이름 +
 // page 속성) 방식 대신, 별도의 새 창(window.open)에 이 표만 담긴 완전히 독립된 HTML
 // 문서를 열어서 그 창에서 인쇄한다. named page 방식은 브라우저별로 실제 인쇄(파일 인쇄
@@ -382,8 +383,8 @@ export const ProjectsView: React.FC<Props> = ({
         body: JSON.stringify(updated)
       });
       if (!res.ok) throw new Error(`원가계산서 저장에 실패했습니다 (상태: ${res.status}).`);
-    } catch (err: any) {
-      setCostSheetSaveError(err?.message || '원가계산서 저장에 실패했습니다. 화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니 다시 시도해주세요.');
+    } catch (err: unknown) {
+      setCostSheetSaveError(getErrorMessage(err) || '원가계산서 저장에 실패했습니다. 화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니 다시 시도해주세요.');
     } finally {
       setIsSavingCostSheet(false);
     }
@@ -1111,8 +1112,8 @@ export const ProjectsView: React.FC<Props> = ({
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setMeetingAISuggestion(data);
-    } catch (err: any) {
-      alert(err.message || 'AI 정리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || 'AI 정리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsSummarizing(false);
     }
@@ -1406,12 +1407,12 @@ export const ProjectsView: React.FC<Props> = ({
         } else {
           throw new Error(`직접 입력한 연락처 저장에 실패했습니다 (상태: ${contactRes.status}).`);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // [수정] 예전엔 실패해도 화면에만 존재하는 가짜 연락처를 만들어서 프로젝트를 계속
         // 저장했다 — 새로고침하면 그 연락처 연결이 사라지는 문제였다. 이제는 프로젝트
         // 저장 자체를 중단해서 사용자가 무슨 일이 있었는지 알고 다시 시도할 수 있게 한다.
         console.error('Failed to save direct contact:', err);
-        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}\n\n프로젝트 저장이 중단되었습니다.`);
+        alert(`직접 입력한 연락처 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}\n\n프로젝트 저장이 중단되었습니다.`);
         return;
       }
     }
@@ -1457,12 +1458,12 @@ export const ProjectsView: React.FC<Props> = ({
       if (!res.ok) throw new Error(`프로젝트 저장에 실패했습니다 (상태: ${res.status}).`);
       const created = await res.json();
       setProjects([created, ...projects]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // [수정] 예전엔 저장 실패해도 화면에만 존재하는 가짜 프로젝트를 만들어서 보여줬다 —
       // 새로고침하거나 다른 기기에서 보면 사라지는 유령 데이터였다. 이제는 명확히 알리고
       // 폼 입력값은 그대로 남겨서 다시 시도할 수 있게 한다.
       console.error('Failed to create project:', err);
-      alert(`프로젝트 저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+      alert(`프로젝트 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       return;
     }
 
@@ -1560,9 +1561,9 @@ export const ProjectsView: React.FC<Props> = ({
           ? `${filledCount}건을 채웠습니다. 내용은 직접 수정할 수 있어요.`
           : '검색 결과에서 확인 가능한 참여사를 찾지 못했습니다. 직접 입력해주세요.'
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to search project relations:', err);
-      setNewRelationsSearchNote(err.message || '검색에 실패했습니다.');
+      setNewRelationsSearchNote(getErrorMessage(err) || '검색에 실패했습니다.');
     } finally {
       setIsSearchingNewRelations(false);
     }
@@ -1640,9 +1641,9 @@ export const ProjectsView: React.FC<Props> = ({
       setDirectContactPhoneOffice('');
       setDirectContactPhoneMobile('');
       setDirectContactEmail('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to update project:', err);
-      setEditProjectSaveError(err.message || '저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setEditProjectSaveError(getErrorMessage(err) || '저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsSavingProjectDetails(false);
     }
@@ -1712,9 +1713,9 @@ export const ProjectsView: React.FC<Props> = ({
           ? `${filledCount}건을 채웠습니다. 내용은 직접 수정할 수 있어요.`
           : '검색 결과에서 확인 가능한 참여사를 찾지 못했습니다. 직접 입력해주세요.'
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to search project relations:', err);
-      setEditRelationsSearchNote(err.message || '검색에 실패했습니다.');
+      setEditRelationsSearchNote(getErrorMessage(err) || '검색에 실패했습니다.');
     } finally {
       setIsSearchingEditRelations(false);
     }
@@ -1765,9 +1766,9 @@ export const ProjectsView: React.FC<Props> = ({
       const updated = await res.json();
       setProjects(projects.map((p) => (p.id === projectId ? updated : p)));
       setEditingFollowup(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to update followup:', err);
-      setFollowupSaveError(err.message || '저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setFollowupSaveError(getErrorMessage(err) || '저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsSavingFollowup(false);
     }
@@ -1795,8 +1796,8 @@ export const ProjectsView: React.FC<Props> = ({
         next.delete(id);
         return next;
       });
-    } catch (err: any) {
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1820,8 +1821,8 @@ export const ProjectsView: React.FC<Props> = ({
       const idSet = new Set(ids);
       setProjects(projects.filter((p) => !idSet.has(p.id)));
       setSelectedListIds(new Set());
-    } catch (err: any) {
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 
@@ -1845,10 +1846,10 @@ export const ProjectsView: React.FC<Props> = ({
         body: JSON.stringify({ status: newSt })
       });
       if (!res.ok) throw new Error(`상태: ${res.status}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to update project status:', err);
       setProjects((prev) => prev.map((p) => (p.id === id ? target : p)));
-      alert(`프로젝트 상태 변경에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+      alert(`프로젝트 상태 변경에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -2325,9 +2326,9 @@ export const ProjectsView: React.FC<Props> = ({
           setMeetingType('meeting');
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to add followup:', err);
-      alert(`미팅 기록 저장에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
+      alert(`미팅 기록 저장에 실패했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
     } finally {
       setIsSavingFollowup(false);
     }
@@ -2357,10 +2358,10 @@ export const ProjectsView: React.FC<Props> = ({
         body: JSON.stringify({ status: nextSt })
       });
       if (!res.ok) throw new Error(`상태: ${res.status}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to toggle followup status:', err);
       setProjects((prev) => prev.map((p) => (p.id === projectId ? proj : p)));
-      alert(`미팅기록 상태 변경에 실패했습니다.\n${err.message || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
+      alert(`미팅기록 상태 변경에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
   };
 
@@ -2848,9 +2849,9 @@ export const ProjectsView: React.FC<Props> = ({
       const data = await res.json();
       setProjects(data.projects || projects);
       alert(`✅ ${data.count}건의 프로젝트를 성공적으로 가져왔습니다.`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to import projects excel:', err);
-      alert(`엑셀 가져오기에 실패했습니다.\n${err.message || '파일 형식을 확인하고 다시 시도해주세요.'}`);
+      alert(`엑셀 가져오기에 실패했습니다.\n${getErrorMessage(err) || '파일 형식을 확인하고 다시 시도해주세요.'}`);
     } finally {
       setIsImportingProjects(false);
     }
@@ -4548,8 +4549,8 @@ export const ProjectsView: React.FC<Props> = ({
                                               }
                                               return p;
                                             }));
-                                          } catch (err: any) {
-                                            alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+                                          } catch (err: unknown) {
+                                            alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
                                           }
                                         }
                                       }}

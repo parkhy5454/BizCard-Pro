@@ -7,6 +7,7 @@ import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   section: AdminDocSection;
   currentUser: User | null;
@@ -2483,8 +2484,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: OverseasTripImportCandidate[] = await res.json();
       setOverseasTripCardCandidates(data);
-    } catch (err: any) {
-      alert(`카드사용내역/업무일지를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`카드사용내역/업무일지를 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsOverseasTripCardImportPanelOpen(false);
     } finally {
       setIsLoadingOverseasTripCardCandidates(false);
@@ -2500,8 +2501,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: OverseasTripImportCandidate[] = await res.json();
       setOverseasTripBankCandidates(data);
-    } catch (err: any) {
-      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsOverseasTripBankImportPanelOpen(false);
     } finally {
       setIsLoadingOverseasTripBankCandidates(false);
@@ -2761,8 +2762,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setBankImportNewBank('');
       setBankImportNewAccount('');
       setBankImportNewSubCategory('');
-    } catch (err: any) {
-      alert(`엑셀 가져오기에 실패했습니다.\n${err.message || '파일 형식을 확인해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`엑셀 가져오기에 실패했습니다.\n${getErrorMessage(err) || '파일 형식을 확인해주세요.'}`);
     } finally {
       setIsImportingBankLedger(false);
     }
@@ -2846,8 +2847,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         alert(`${entries.length}건을 새 통장(${accountLabel({ bankName, accountNumber, subCategory })})으로 가져왔습니다.`);
       }
       setPendingBankImport(null);
-    } catch (err: any) {
-      alert(`가져오기 확정에 실패했습니다.\n${err.message || '잠시 후 다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`가져오기 확정에 실패했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
     } finally {
       setIsSavingBankImport(false);
     }
@@ -2951,8 +2952,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: CashFlowImportCandidate[] = await res.json();
       setCashFlowImportCandidates(data);
-    } catch (err: any) {
-      alert(`통장 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`통장 내역을 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setCashFlowImportTarget(null);
     } finally {
       setIsLoadingCashFlowCandidates(false);
@@ -3150,8 +3151,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: AdvanceImportCandidate[] = await res.json();
       setAdvanceImportCandidates(data);
-    } catch (err: any) {
-      alert(`전자결재 가지급금 정산서 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`전자결재 가지급금 정산서 내역을 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsAdvanceImportPanelOpen(false);
     } finally {
       setIsLoadingAdvanceCandidates(false);
@@ -3292,8 +3293,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: VehicleFineImportCandidate[] = await res.json();
       setVehicleFineImportCandidates(data);
-    } catch (err: any) {
-      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsVehicleFineImportPanelOpen(false);
     } finally {
       setIsLoadingVehicleFineCandidates(false);
@@ -3526,8 +3527,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: AnnualLeaveImportCandidate[] = await res.json();
       setAnnualLeaveImportCandidates(data);
-    } catch (err: any) {
-      alert(`전자결재 휴가 신청서를 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`전자결재 휴가 신청서를 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsAnnualLeaveImportPanelOpen(false);
     } finally {
       setIsLoadingAnnualLeaveImportCandidates(false);
@@ -3613,8 +3614,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: TaxImportCandidate[] = await res.json();
       setTaxImportCandidates(data);
-    } catch (err: any) {
-      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsTaxImportPanelOpen(false);
     } finally {
       setIsLoadingTaxCandidates(false);
@@ -3740,8 +3741,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: ManagementImportCandidate[] = await res.json();
       setManagementImportCandidates(data);
-    } catch (err: any) {
-      alert(`통장 출금 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`통장 출금 내역을 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsManagementImportPanelOpen(false);
     } finally {
       setIsLoadingManagementCandidates(false);
@@ -3878,8 +3879,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (!res.ok) throw new Error(`불러오기에 실패했습니다 (상태: ${res.status}).`);
       const data: CardImportCandidate[] = await res.json();
       setCardImportCandidates(data);
-    } catch (err: any) {
-      alert(`법인카드 사용 내역을 불러오지 못했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`법인카드 사용 내역을 불러오지 못했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
       setIsCardImportPanelOpen(false);
     } finally {
       setIsLoadingCandidates(false);
@@ -4028,8 +4029,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       const saved: AdminDoc = await res.json();
       setDocs((prev) => isNew ? [saved, ...prev] : prev.map((d) => d.id === saved.id ? saved : d));
       setEditingDoc(null);
-    } catch (err: any) {
-      alert(`저장에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     } finally {
       setIsSaving(false);
     }
@@ -4045,8 +4046,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       });
       if (!res.ok) throw new Error(`삭제에 실패했습니다 (상태: ${res.status}).`);
       setDocs((prev) => prev.filter((d) => d.id !== id));
-    } catch (err: any) {
-      alert(`삭제에 실패했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`삭제에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     }
   };
 

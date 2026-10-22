@@ -4,6 +4,7 @@ import { BusinessCard, ContactGroup } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   contacts: BusinessCard[];
   groups: ContactGroup[];
@@ -326,8 +327,8 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       if (!res.ok) throw new Error(`목록을 불러오지 못했습니다 (상태: ${res.status}).`);
       const data = await res.json();
       setFailureList(data.failures || []);
-    } catch (err: any) {
-      alert(`실패 목록을 불러오는 중 오류가 발생했습니다.\n${err.message || '다시 시도해주세요.'}`);
+    } catch (err: unknown) {
+      alert(`실패 목록을 불러오는 중 오류가 발생했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     } finally {
       setIsLoadingFailures(false);
     }
@@ -397,9 +398,9 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           onContactsRefresh(refreshedContacts);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!silent) {
-        alert(`좌표 재계산 중 오류가 발생했습니다 (지금까지 성공 ${totalUpdated}건).\n${err.message || '다시 시도해주세요.'}\n\n버튼을 다시 누르면 실패한 것들부터 이어서 계속됩니다.`);
+        alert(`좌표 재계산 중 오류가 발생했습니다 (지금까지 성공 ${totalUpdated}건).\n${getErrorMessage(err) || '다시 시도해주세요.'}\n\n버튼을 다시 누르면 실패한 것들부터 이어서 계속됩니다.`);
       } else {
         console.error('[주변 지도] 자동 좌표 정리 중 오류:', err);
       }

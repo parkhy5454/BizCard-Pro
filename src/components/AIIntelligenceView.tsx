@@ -5,6 +5,7 @@ import { getIntelExcludedGroupIds } from '../contactFilters.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 import { computeRelationshipInsights, computeMissingParticipants, useDismissedContactIds } from '../relationshipIntel.js';
 
+import { getErrorMessage } from '../errorUtils.js';
 interface Props {
   contacts: BusinessCard[];
   groups: ContactGroup[];
@@ -48,8 +49,8 @@ const AiAnalysisPanel: React.FC<{ label: string; endpoint: string; payload: any;
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'AI 분석에 실패했습니다.');
       setAnalysis(data.analysis);
-    } catch (err: any) {
-      setError(err.message || 'AI 분석에 실패했습니다.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'AI 분석에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
