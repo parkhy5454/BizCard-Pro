@@ -6160,7 +6160,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
       {/* 등록/수정 모달 */}
       {editingDoc && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-[100] overflow-y-auto">
           <div onClick={() => setEditingDoc(null)} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 z-10 max-h-[90vh] overflow-y-auto">
@@ -9902,7 +9902,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     않고, 어느 통장(은행+계좌번호)의 내역인지 먼저 고르게 한다. 이미 등록된 통장을 고르면
     거기에 이어붙이고(중복 자동 제외), 새 통장이면 은행명/계좌번호를 입력해 등록한다. */}
     {pendingBankImport && (
-      <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[100] bg-slate-900/70 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
           <div>
             <h3 className="text-base font-bold text-slate-800">
@@ -9981,7 +9981,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     OUTFLOWS 행/경비 항목은 통장 출금 내역에서 골라 그 행의 해당 월 칸에 채워 넣는다
     (관리비내역의 자동 불러오기와 같은 방식). */}
     {cashFlowImportTarget && (
-      <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[100] bg-slate-900/70 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -10058,7 +10058,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     {/* 인쇄 전 미리보기 + 인쇄 실행 바 (화면에는 보이지만 인쇄될 때는 안 보임) */}
     {printingDoc && (
-      <div className="fixed inset-0 z-50 bg-slate-900/70 overflow-y-auto py-8 print:hidden">
+      <div className="fixed inset-0 z-[100] bg-slate-900/70 overflow-y-auto py-8 print:hidden">
         <div className="max-w-3xl mx-auto flex items-center justify-end gap-2 mb-3 px-4">
           <button
             onClick={() => setPrintingDoc(null)}

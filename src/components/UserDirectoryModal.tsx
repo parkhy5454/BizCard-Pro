@@ -321,7 +321,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white border border-slate-200 rounded-t-3xl sm:rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[88vh] sm:max-h-[85vh] pb-[env(safe-area-inset-bottom)] sm:pb-0">
         
         {/* 모달 헤더 */}

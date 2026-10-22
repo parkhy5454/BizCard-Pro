@@ -2417,7 +2417,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           클릭한 그 자리에서 바로 뜨는 팝업(모달)으로 바꿨다. isDayDetailModalOpen이 true일
           때만 렌더링되며, 위 달력 그리드에서 날짜를 클릭하면 열린다. */}
           {isDayDetailModalOpen && (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="fixed inset-0 z-[100] overflow-y-auto">
               {/* 배경 */}
               <div
                 onClick={() => setIsDayDetailModalOpen(false)}
@@ -2514,7 +2514,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
           {/* [추가] 애플 캘린더 연동 링크 안내 모달 */}
           {calendarFeedInfo && (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="fixed inset-0 z-[100] overflow-y-auto">
               <div
                 onClick={() => { setCalendarFeedInfo(null); setCalendarFeedCopied(false); }}
                 className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
@@ -3016,7 +3016,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       {/* 4. 일지 작성 및 수정 Overlay 모달 */}
       <AnimatePresence>
         {isWriteModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 z-[100] overflow-y-auto">
             {/* 배경 블러 */}
             <motion.div
               initial={{ opacity: 0 }}

@@ -446,7 +446,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
@@ -1225,7 +1225,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
       {/* [추가] 재스캔 후 바뀐 항목 비교/선택 반영 모달. AI 인식이 가끔 틀릴 수 있어서
       자동으로 덮어쓰지 않고, 바뀐 항목만 골라서 사람이 확인 후 반영하게 한다. */}
       {rescanDiffs && rescanDiffs.length > 0 && (
-        <div className="fixed inset-0 z-[80] overflow-y-auto">
+        <div className="fixed inset-0 z-[100] overflow-y-auto">
           <div onClick={() => setRescanDiffs(null)} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 z-10 max-h-[85vh] overflow-y-auto">

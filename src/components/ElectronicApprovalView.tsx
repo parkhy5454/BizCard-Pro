@@ -2428,7 +2428,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
       {/* 가지급금 정산서 작성/수정 모달 */}
       {isAdvanceModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
@@ -2601,7 +2601,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
       {/* 업무일지/차량운행일지 비용 가져오기 모달 */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
@@ -2690,7 +2690,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
       {/* 휴가 신청서 작성/수정 모달 */}
       {isLeaveModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
@@ -2915,7 +2915,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
       {/* 공문서 작성/수정 모달 */}
       {isOfficialModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
@@ -3023,7 +3023,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const previewOfficial = officialList.find(d => d.id === previewOfficialId);
         if (!previewOfficial) return null;
         return (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
             <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
                 <div className="flex items-center gap-2">
@@ -3067,7 +3067,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const previewApprovalLine = previewDoc.approvalLine || [];
         const total = previewItems.reduce((s, it) => s + (Number(it.amount) || 0), 0);
         return (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
             <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
@@ -3208,7 +3208,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const previewLeaveApprovalLine = previewLeave.approvalLine || [];
         const catLabel = previewLeave.leaveCategory === 'other' ? (previewLeave.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[previewLeave.leaveCategory];
         return (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
             <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
@@ -3410,7 +3410,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           공문서 상단 로고와 하단 직인(도장) 이미지를 각 회사가 직접 올려서, 더 이상
           카이저솔루션 것이 다른 회사 문서에 찍히지 않도록 한다. */}
       {isBrandingModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsBrandingModalOpen(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsBrandingModalOpen(false)}>
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><ImageIcon className="w-4 h-4 text-indigo-500" /> 공문서 로고/직인 설정</h3>

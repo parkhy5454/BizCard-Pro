@@ -73,7 +73,7 @@ export const AddressBackslashCleanupModal: React.FC<Props> = ({ currentUser, onC
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
         <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2">

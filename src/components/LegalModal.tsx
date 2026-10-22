@@ -15,7 +15,7 @@ export const LegalModal: React.FC<Props> = ({ initialTab = 'terms', onClose }) =
   const [tab, setTab] = useState<'terms' | 'privacy'>(initialTab);
 
   return (
-    <div className="fixed inset-0 z-[95] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="w-full max-w-3xl max-h-[88vh] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">

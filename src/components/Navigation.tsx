@@ -824,7 +824,7 @@ export const Navigation: React.FC<Props> = ({
     {/* [수정] 문의하기는 이제 하단 탭의 "더보기" 드롭다운에 통합됨 */}
 
     {isFeedbackOpen && (
-      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div className="w-full sm:max-w-md bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
           <div className="p-5 border-b border-slate-200 flex items-center justify-between">
             <div className="flex items-center gap-2">

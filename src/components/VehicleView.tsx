@@ -5123,7 +5123,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 8. 기 등록 차량 정보 수정 오버레이 모달 (임차/보험/비콘 완벽 제어) */}
       {/* ========================================== */}
       {editingVehicle && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white border border-slate-200 w-full max-w-4xl rounded-2xl p-6 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">

@@ -525,7 +525,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (
@@ -1016,7 +1016,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
       {/* [수정] 단일 스캔 모드: 저장 직전 중복 명함 확인 팝업 */}
       {duplicateCheck && (
-        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white border border-amber-500/30 rounded-3xl shadow-2xl p-6 space-y-4">
             <div className="flex items-center gap-2 text-amber-400">
               <AlertTriangle className="w-5 h-5" />

@@ -4060,7 +4060,7 @@ export const ProjectsView: React.FC<Props> = ({
                       </button>
 
                       {followupFormOpenForProjectId === proj.id && (
-                        <div className="fixed inset-0 z-50 overflow-y-auto">
+                        <div className="fixed inset-0 z-[100] overflow-y-auto">
                           <div
                             onClick={() => setFollowupFormOpenForProjectId(null)}
                             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
@@ -4700,7 +4700,7 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* 모달: 새 프로젝트 생성 */}
       {isNewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
@@ -5001,7 +5001,7 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* 모달: 프로젝트 정보 수정 (예산 등 등록 내용 수정) */}
       {editingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
@@ -5305,7 +5305,7 @@ export const ProjectsView: React.FC<Props> = ({
         const relatedContactsForEdit = targetProject ? contacts.filter((c) => (targetProject.contactIds || []).includes(c.id)) : [];
         const fu = editingFollowup.followup;
         return (
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn overflow-y-auto">
+          <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn overflow-y-auto">
             {/* [수정] 아이패드 분할 화면처럼 좁은 화면에서 차수/일자/담당 입력칸이 옆으로
                 욱여넣어져 보이던 문제 - 모달 폭을 넓히고(max-w-lg → max-w-2xl), 가로로
                 나란히 놓이는 기준을 훨씬 넓은 화면(lg, 1024px 이상)에서만 적용하도록 올렸다. */}

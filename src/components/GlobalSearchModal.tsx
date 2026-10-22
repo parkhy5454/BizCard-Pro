@@ -130,7 +130,7 @@ export const GlobalSearchModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[70vh]">
         <div className="flex items-center gap-2 p-4 border-b border-slate-200">
           <Search className="w-4.5 h-4.5 text-slate-400 shrink-0" />

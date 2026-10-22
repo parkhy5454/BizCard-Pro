@@ -61,7 +61,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
   if (!profile) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-slate-200 border-t-blue-400 rounded-full animate-spin" />
           <span className="text-xs text-slate-500">내 명함 정보를 불러오는 중...</span>
@@ -306,7 +306,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
       <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col">
         
         {/* 상단 타이틀 바 */}

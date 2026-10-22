@@ -102,7 +102,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white border border-slate-200 rounded-t-3xl sm:rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[88vh] sm:max-h-[85vh] pb-[env(safe-area-inset-bottom)] sm:pb-0">
         <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-slate-100">
           <div className="flex items-center gap-2.5">
