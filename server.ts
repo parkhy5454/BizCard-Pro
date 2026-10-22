@@ -25,7 +25,7 @@ import archiver from 'archiver';
 // console.error 자체를 감싸서 "화면(로그)에 찍히는 동시에 Sentry에도 자동으로 보고"되게 만든다.
 // 이렇게 하면 오늘까지 쌓인 기존 에러 처리 코드가 전부 자동으로 모니터링 대상이 된다.
 const __originalConsoleError = console.error.bind(console);
-console.error = (...args: any[]) => {
+console.error = (...args: unknown[]) => {
   __originalConsoleError(...args);
   if (!SENTRY_DSN) return;
   try {
@@ -66,7 +66,7 @@ async function generateContentWithRetry(
   params: any,
   maxRetries: number = 2
 ): Promise<any> {
-  let lastErr: any;
+  let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await ai.models.generateContent(params);
@@ -189,7 +189,7 @@ function validatePasswordComplexity(password: string): { valid: boolean; error?:
 
 // [추가] SQL 주입 공격 방어
 // 사용자 입력값에서 SQL 메타문자를 감지하고 제거/이스케이프
-function sanitizeSqlInput(input: any): string {
+function sanitizeSqlInput(input: unknown): string {
   if (typeof input !== 'string') {
     return String(input || '').trim();
   }
@@ -216,7 +216,7 @@ function sanitizeSqlInput(input: any): string {
 }
 
 // [추가] 이메일 입력값 검증 및 살균
-function validateAndSanitizeEmail(email: any): { valid: boolean; sanitized?: string; error?: string } {
+function validateAndSanitizeEmail(email: unknown): { valid: boolean; sanitized?: string; error?: string } {
   if (!email || typeof email !== 'string') {
     return { valid: false, error: '이메일이 입력되지 않았습니다.' };
   }
@@ -235,7 +235,7 @@ function validateAndSanitizeEmail(email: any): { valid: boolean; sanitized?: str
 
 // [수정] 사용자 입력 기본 검증
 // Supabase가 SQL 인젝션을 자동으로 방어하므로, 사용 편의성을 위해 검증 완화
-function validateWhitelistInput(value: any, fieldType: 'name' | 'phone' | 'company' | 'slug'): { valid: boolean; error?: string } {
+function validateWhitelistInput(value: unknown, fieldType: 'name' | 'phone' | 'company' | 'slug'): { valid: boolean; error?: string } {
   if (!value || typeof value !== 'string') {
     return { valid: false };
   }
@@ -274,7 +274,7 @@ function validateWhitelistInput(value: any, fieldType: 'name' | 'phone' | 'compa
 // 앱 화면에 저런 게 그대로 뜨는 건 신뢰도도 떨어뜨린다. 원인 종류별로 짧고 이해하기 쉬운
 // 한국어 안내문으로 바꿔주는 공용 함수 — AI를 쓰는 모든 API(명함/영수증 스캔, 테두리
 // 감지, 회의록 정리 등)에서 이 함수로 감싸서 응답한다.
-function toFriendlyAiErrorMessage(err: any): string {
+function toFriendlyAiErrorMessage(err: unknown): string {
   const message = getErrorMessage(err);
   const isQuotaExhausted = getErrorField(err, 'status') === 429 || getErrorField(err, 'code') === 429 || /RESOURCE_EXHAUSTED|exceeded your current quota/i.test(message);
   if (isQuotaExhausted) {
@@ -333,6 +333,18 @@ import {
   migrateScopedItemsToAppUsers
 } from './src/db/neonStore.js';
 
+
+
+// 카카오 로컬 API 응답 중 서버에서 쓰는 부분만 정의한다
+interface KakaoLocalResponse {
+  documents?: Array<{
+    x: string;
+    y: string;
+    place_name?: string;
+    road_address_name?: string;
+    address_name?: string;
+  }>;
+}
 
 // 요청 객체에 미들웨어가 붙이는 값들의 타입 (any 대신 사용)
 declare global {
@@ -1553,7 +1565,7 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
   try {
     const addrRes = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(trimmed)}`, { headers });
     if (addrRes.ok) {
-      const addrData: any = await addrRes.json();
+      const addrData: KakaoLocalResponse = await addrRes.json();
       const doc = addrData?.documents?.[0];
       if (doc) return { coords: { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } };
     } else {
@@ -1574,7 +1586,7 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
 
     const keywordRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(trimmed)}`, { headers });
     if (keywordRes.ok) {
-      const keywordData: any = await keywordRes.json();
+      const keywordData: KakaoLocalResponse = await keywordRes.json();
       const doc = keywordData?.documents?.[0];
       if (doc) return { coords: { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } };
 
@@ -1612,7 +1624,7 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
         try {
           const candRes = await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(candidate)}`, { headers });
           if (candRes.ok) {
-            const candData: any = await candRes.json();
+            const candData: KakaoLocalResponse = await candRes.json();
             const candDoc = candData?.documents?.[0];
             if (candDoc) return { coords: { lat: parseFloat(candDoc.y), lng: parseFloat(candDoc.x) } };
           }
@@ -1784,7 +1796,7 @@ const aiScanRateLimiter = new RateLimiter({ maxAttempts: 100, windowMs: 10 * 60 
 const dataModifyRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60 * 1000 });
 
 // [추가] 데이터 수정 API Rate Limiting 체크 헬퍼
-function checkModifyRateLimit(req: any, res: any): boolean {
+function checkModifyRateLimit(req: express.Request, res: express.Response): boolean {
   const userId = req.headers['x-user-id'] as string;
   const limitCheck = dataModifyRateLimiter.check(userId);
   if (!limitCheck.allowed) {
@@ -1982,7 +1994,7 @@ function dmChannelId(userIdA: string, userIdB: string): string {
 // group: 채널은 채널명(그룹 id)만으로는 누가 멤버인지 알 수 없으므로, 그때그때
 // chatGroups에서 실제 멤버 목록을 찾아 확인한다. 그룹 자체가 없으면(삭제됐거나
 // 잘못된 id) 접근을 막는다.
-function canAccessGroupChannel(requester: any, channel: string, requesterId: string): boolean {
+function canAccessGroupChannel(requester: { chatGroups?: ChatGroup[] }, channel: string, requesterId: string): boolean {
   const groupId = channel.slice('group:'.length);
   const group = (requester.chatGroups || []).find((g: ChatGroup) => g.id === groupId);
   return Boolean(group && group.memberUserIds.includes(requesterId));
@@ -4070,8 +4082,8 @@ app.get('/api/places/search', async (req, res) => {
       const bodyText = await kakaoRes.text().catch(() => '');
       return res.status(kakaoRes.status).json({ error: `카카오 장소 검색 오류: ${bodyText.slice(0, 200)}`, places: [] });
     }
-    const data: any = await kakaoRes.json();
-    const places = (data.documents || []).map((d: any) => ({
+    const data: KakaoLocalResponse = await kakaoRes.json();
+    const places = (data.documents || []).map((d) => ({
       name: d.place_name,
       address: d.road_address_name || d.address_name,
       lat: parseFloat(d.y),
@@ -7301,7 +7313,7 @@ app.post('/api/feedback', async (req, res) => {
         `
       }).then(() => {
         console.log('[mailer] 문의 접수 알림 메일 발송 완료');
-      }).catch((err: any) => {
+      }).catch((err: unknown) => {
         console.error('[mailer] 문의 접수 알림 메일 발송 실패:', err);
       });
     }
@@ -7642,7 +7654,7 @@ async function notifyNextApproverIfChanged(
 // 감지해 409로 거부한다. expectedUpdatedAt을 안 보내는 요청(예: 일반 폼 수정 저장)은
 // 기존과 동일하게 그대로 통과시킨다 - 승인/반려처럼 "다른 사람의 결정과 충돌하면 안 되는"
 // 요청에서만 클라이언트가 이 값을 채워 보낸다.
-function hasApprovalUpdateConflict(before: { updatedAt?: string }, reqBody: any): boolean {
+function hasApprovalUpdateConflict(before: { updatedAt?: string }, reqBody: { expectedUpdatedAt?: unknown }): boolean {
   const expected = reqBody?.expectedUpdatedAt;
   if (!expected) return false;
   return !!before.updatedAt && before.updatedAt !== expected;
