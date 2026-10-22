@@ -66,7 +66,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </div>
 );
 
-const TermsContent: React.FC = () => (
+export const TermsContent: React.FC = () => (
   <div>
     <p className="text-[11px] text-slate-400 mb-5">시행일자: [YYYY년 MM월 DD일]</p>
 
@@ -133,7 +133,7 @@ const TermsContent: React.FC = () => (
   </div>
 );
 
-const PrivacyContent: React.FC = () => (
+export const PrivacyContent: React.FC = () => (
   <div>
     <p className="text-[11px] text-slate-400 mb-5">시행일자: [YYYY년 MM월 DD일]</p>
 
