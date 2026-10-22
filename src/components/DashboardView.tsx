@@ -144,35 +144,35 @@ export const DashboardView: React.FC<Props> = ({
 
       {/* 핵심 지표 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-blue-600 p-5 rounded-2xl flex items-center justify-between shadow-md">
+        <div className="bg-white border border-blue-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-white/80">등록된 명함</span>
-            <p className="text-2xl font-bold text-white">{contacts.length.toLocaleString()}건</p>
-            <p className="text-[11px] text-white/70">이번 달 +{contactsThisMonth}건</p>
+            <span className="text-xs font-semibold text-blue-700">등록된 명함</span>
+            <p className="text-2xl font-bold text-slate-900">{contacts.length.toLocaleString()}건</p>
+            <p className="text-[11px] text-slate-700">이번 달 +{contactsThisMonth}건</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
+          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600">
             <Users className="w-5.5 h-5.5" />
           </div>
         </div>
 
-        <div className="bg-amber-500 p-5 rounded-2xl flex items-center justify-between shadow-md">
+        <div className="bg-white border border-amber-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-white/80">진행 중 프로젝트</span>
-            <p className="text-2xl font-bold text-white">{statusCounts.progress.toLocaleString()}건</p>
-            <p className="text-[11px] text-white/70">기회 {statusCounts.opportunity}건 · 완료 {statusCounts.completed}건</p>
+            <span className="text-xs font-semibold text-amber-700">진행 중 프로젝트</span>
+            <p className="text-2xl font-bold text-slate-900">{statusCounts.progress.toLocaleString()}건</p>
+            <p className="text-[11px] text-slate-700">기회 {statusCounts.opportunity}건 · 완료 {statusCounts.completed}건</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
             <Briefcase className="w-5.5 h-5.5" />
           </div>
         </div>
 
-        <div className="bg-indigo-600 p-5 rounded-2xl flex items-center justify-between shadow-md">
+        <div className="bg-white border border-indigo-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-white/80">등록된 차량</span>
-            <p className="text-2xl font-bold text-white">{loading ? '-' : `${vehicles.length.toLocaleString()}대`}</p>
-            <p className="text-[11px] text-white/70">통합 차량 관리에서 상세 확인</p>
+            <span className="text-xs font-semibold text-indigo-700">등록된 차량</span>
+            <p className="text-2xl font-bold text-slate-900">{loading ? '-' : `${vehicles.length.toLocaleString()}대`}</p>
+            <p className="text-[11px] text-slate-700">통합 차량 관리에서 상세 확인</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600">
             <Car className="w-5.5 h-5.5" />
           </div>
         </div>
@@ -180,25 +180,25 @@ export const DashboardView: React.FC<Props> = ({
         {currentUser.role === 'admin' && pendingCount !== null ? (
           <button
             onClick={onOpenUserDirectory}
-            className="bg-rose-500 p-5 rounded-2xl flex items-center justify-between shadow-md text-left hover:brightness-95 transition-all"
+            className="bg-white border border-rose-200 p-5 rounded-2xl flex items-center justify-between shadow-sm text-left hover:brightness-95 transition-all"
           >
             <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-white/80">승인 대기 인원</span>
-              <p className="text-2xl font-bold text-white">{pendingCount.toLocaleString()}명</p>
-              <p className="text-[11px] text-white/70 flex items-center gap-1">팀 관리에서 승인 <ArrowRight className="w-3 h-3" /></p>
+              <span className="text-xs font-semibold text-rose-700">승인 대기 인원</span>
+              <p className="text-2xl font-bold text-slate-900">{pendingCount.toLocaleString()}명</p>
+              <p className="text-[11px] text-slate-700 flex items-center gap-1">팀 관리에서 승인 <ArrowRight className="w-3 h-3" /></p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600">
               <ShieldCheck className="w-5.5 h-5.5" />
             </div>
           </button>
         ) : (
-          <div className="bg-emerald-500 p-5 rounded-2xl flex items-center justify-between shadow-md">
+          <div className="bg-white border border-emerald-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
             <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-white/80">이번 달 업무일지</span>
-              <p className="text-2xl font-bold text-white">{loading ? '-' : `${workLogsThisMonthCount.toLocaleString()}건`}</p>
-              <p className="text-[11px] text-white/70">일일 + 주간 업무일지 합계</p>
+              <span className="text-xs font-semibold text-emerald-700">이번 달 업무일지</span>
+              <p className="text-2xl font-bold text-slate-900">{loading ? '-' : `${workLogsThisMonthCount.toLocaleString()}건`}</p>
+              <p className="text-[11px] text-slate-700">일일 + 주간 업무일지 합계</p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
               <ClipboardList className="w-5.5 h-5.5" />
             </div>
           </div>
@@ -210,14 +210,14 @@ export const DashboardView: React.FC<Props> = ({
         {myPendingApprovalCount !== null && (
           <button
             onClick={onOpenApprovals}
-            className="bg-teal-600 p-5 rounded-2xl flex items-center justify-between shadow-md text-left hover:brightness-95 transition-all"
+            className="bg-white border border-teal-200 p-5 rounded-2xl flex items-center justify-between shadow-sm text-left hover:brightness-95 transition-all"
           >
             <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-white/80">내 결재 대기</span>
-              <p className="text-2xl font-bold text-white">{myPendingApprovalCount.toLocaleString()}건</p>
-              <p className="text-[11px] text-white/70 flex items-center gap-1">전자결재에서 확인 <ArrowRight className="w-3 h-3" /></p>
+              <span className="text-xs font-semibold text-teal-700">내 결재 대기</span>
+              <p className="text-2xl font-bold text-slate-900">{myPendingApprovalCount.toLocaleString()}건</p>
+              <p className="text-[11px] text-slate-700 flex items-center gap-1">전자결재에서 확인 <ArrowRight className="w-3 h-3" /></p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-white">
+            <div className="w-12 h-12 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600">
               <FileCheck className="w-5.5 h-5.5" />
             </div>
           </button>
