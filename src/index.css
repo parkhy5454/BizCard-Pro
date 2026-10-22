@@ -433,3 +433,19 @@ button:not(:disabled):active, [role="button"]:active {
   outline: 2px solid var(--color-blue-500);
   outline-offset: 2px;
 }
+
+/* 앱처럼 보이게: 버튼·탭·메뉴를 길게 눌러도 글자 선택창이나 길게 누르기 메뉴가 뜨지 않게 한다.
+   입력창과 본문 글은 그대로 선택·복사할 수 있다. */
+button, a, [role="button"], nav, header {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* 입력창에 포커스가 있는 동안(키보드가 올라온 동안)에는 하단 탭을 숨겨 입력 영역을 확보한다 */
+body.kb-open [data-app-tabbar] {
+  display: none !important;
+}

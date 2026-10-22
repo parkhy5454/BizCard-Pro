@@ -67,3 +67,26 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+
+// 입력창(글자 칸)에 포커스가 가면 body에 kb-open 표시를 붙여 하단 탭을 잠시 숨긴다.
+// 아이폰/안드로이드에서 키보드가 올라올 때 탭이 키보드 뒤로 밀려 가려지는 문제를 막는다.
+// 체크박스·버튼 등 글자를 입력하지 않는 요소는 제외한다.
+const isTypingField = (el: EventTarget | null): boolean => {
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable) return true;
+  if (el.tagName === 'TEXTAREA') return true;
+  if (el.tagName === 'INPUT') {
+    const type = (el as HTMLInputElement).type;
+    return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'file', 'color'].includes(type);
+  }
+  return false;
+};
+document.addEventListener('focusin', (e) => {
+  if (isTypingField(e.target)) document.body.classList.add('kb-open');
+});
+document.addEventListener('focusout', () => {
+  // 한 입력창에서 다른 입력창으로 옮겨 갈 때 깜빡이지 않도록 잠깐 기다린 뒤 확인한다
+  window.setTimeout(() => {
+    if (!isTypingField(document.activeElement)) document.body.classList.remove('kb-open');
+  }, 150);
+});
