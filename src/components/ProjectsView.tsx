@@ -2897,7 +2897,7 @@ export const ProjectsView: React.FC<Props> = ({
             );
           }
           return (
-            <div className="relative bg-gradient-to-br from-white via-sky-50 to-blue-100/60 border border-blue-200 rounded-3xl p-5 md:p-6 shadow-lg flex items-start gap-4 animate-fadeIn">
+            <div className="relative bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm flex items-start gap-4 animate-fadeIn">
               <button
                 onClick={dismissFollowupBannerForToday}
                 className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
@@ -2923,7 +2923,7 @@ export const ProjectsView: React.FC<Props> = ({
                         key={p.id}
                         onClick={() => handleJumpToProject(p.id)}
                         title="눌러서 이 프로젝트로 이동"
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-blue-600 text-white border-blue-600 shadow-md animate-pulse' : 'bg-white hover:bg-blue-50 border-2 border-blue-500 shadow-sm text-blue-700'}`}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-blue-600 text-white border border-blue-600 animate-pulse' : 'bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-blue-700'}`}
                       >
                         <span className="font-bold">{p.name}</span>
                         <span className="text-[10px] opacity-80 font-mono">({days}일 경과)</span>
