@@ -4647,6 +4647,60 @@ app.post('/api/scan-card', async (req, res) => {
       }
     }
 
+    // [추가] 명함 인식 1순위: Gemini 멀티모달로 항목별 구조화 추출 (영수증과 같은 방식).
+    // 이름/회사/직함을 "줄 순서"로 추측하던 기존 방식보다 정확하고, 부서·주소·팩스 등도 채운다.
+    // 실패하거나 GEMINI_API_KEY가 없으면 아래 Vision OCR + 정규식 방식으로 넘어간다.
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const cardPrompt =
+          "이 이미지는 명함이다 (앞면, 뒷면이 함께 올 수 있다). 명함에 적힌 정보를 항목별로 추출해줘.\n" +
+          "- 이름, 회사명, 부서, 직함(직위)은 명함에 적힌 그대로 써라. 로고나 장식 문구를 이름으로 잡지 마라.\n" +
+          "- 휴대폰(010)과 사무실 번호를 구분해라. 팩스는 phoneFax에 넣어라. 없으면 빈 문자열.\n" +
+          "- 이메일, 홈페이지(website), 주소(address는 대표 주소, address2는 두 번째 주소)를 찾아라.\n" +
+          "- 뒷면에만 있는 정보도 포함해라.\n" +
+          "- 명함에 없는 정보는 지어내지 말고 빈 문자열로 둬라.\n" +
+          "응답은 순수 JSON만 리턴해라 (마크다운 백틱 금지):\n" +
+          "{\n" +
+          '  "name": "", "company": "", "department": "", "title": "",\n' +
+          '  "phoneMobile": "", "phoneOffice": "", "phoneOffice2": "", "phoneFax": "",\n' +
+          '  "email": "", "website": "", "address": "", "address2": "", "memo": ""\n' +
+          "}";
+        const parts: Array<string | { inlineData: { mimeType: string; data: string } }> = [cardPrompt];
+        for (const img of [frontImage, backImage]) {
+          if (!img) continue;
+          parts.push({
+            inlineData: { mimeType: 'image/jpeg', data: String(img).replace(/^data:image\/\w+;base64,/, '') }
+          });
+        }
+        const geminiRes = await generateContentWithRetry(ai, {
+          model: PRIMARY_GEMINI_MODEL,
+          contents: parts
+        });
+        const raw = (geminiRes.text || '').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const pick = (k: string): string => (typeof parsed[k] === 'string' ? (parsed[k] as string).trim() : '');
+        return res.json({
+          name: pick('name'),
+          company: pick('company'),
+          department: pick('department'),
+          title: pick('title'),
+          phoneMobile: pick('phoneMobile'),
+          phoneOffice: pick('phoneOffice'),
+          phoneOffice2: pick('phoneOffice2'),
+          phoneFax: pick('phoneFax'),
+          email: pick('email'),
+          website: pick('website'),
+          address: pick('address'),
+          address2: pick('address2'),
+          memo: pick('memo'),
+          companyInfo: ''
+        });
+      } catch (geminiErr: unknown) {
+        console.error('Gemini 명함 인식 실패, Vision OCR로 대체:', geminiErr);
+      }
+    }
+
     const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
     if (!apiKey) {
       // API Key가 미설정인 경우 프리뷰/테스트를 위해 모의 데이터 제공
