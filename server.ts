@@ -3281,7 +3281,9 @@ app.post('/api/auth/withdraw', async (req, res) => {
 // 테스트할 수 있다.
 // ------------------------------------------------------------------
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
-const SUBSCRIPTION_PRICE_PER_SEAT_KRW = Number(process.env.SUBSCRIPTION_PRICE_PER_SEAT_KRW) || 5000;
+const SUBSCRIPTION_PRICE_PER_SEAT_KRW = Number(process.env.SUBSCRIPTION_PRICE_PER_SEAT_KRW) || 9900;
+// [추가] 최초 구독 시 무료 체험 기간(일). 계정당 한 번만 적용된다(owner.trialUsed).
+const SUBSCRIPTION_TRIAL_DAYS = 14;
 
 function seatCountForScope(scopeId: string): number {
   // 승인된(=실제로 서비스를 쓸 수 있는) 구성원 수만 과금 대상으로 센다. 개인 계정은 항상 1석.
@@ -3358,21 +3360,29 @@ app.post('/api/billing/subscribe', async (req, res) => {
   const seats = seatCountForScope(scopeId);
   const amount = seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
 
+  // [추가] 계정당 최초 1회만 무료 체험: 체험 기간에는 즉시 결제하지 않고, 체험이 끝나는 날
+  // 정기결제 작업이 자동으로 첫 결제를 한다.
+  const useTrial = !owner.trialUsed;
   try {
-    await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
-      customerKey: owner.tossCustomerKey,
-      amount,
-      orderId: generateOrderId(),
-      orderName: `BizCard 구독 (좌석 ${seats}개)`,
-      customerEmail: owner.email,
-      customerName: owner.name
-    });
+    if (!useTrial) {
+      await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
+        customerKey: owner.tossCustomerKey,
+        amount,
+        orderId: generateOrderId(),
+        orderName: `BizCard 구독 (좌석 ${seats}개)`,
+        customerEmail: owner.email,
+        customerName: owner.name
+      });
+    }
 
     owner.plan = 'pro';
     owner.subscriptionStatus = 'active';
+    owner.trialUsed = true;
     // [추가] 이 사람이 추천인으로서 이미 받아뒀지만 아직 반영 못 한 무료 개월(구독을
     // 시작하기 전이라 반영할 결제일이 없었던 경우)이 있으면, 첫 결제일을 잡을 때 한꺼번에 더해준다.
-    let firstBillingDate = addOneMonth(new Date());
+    let firstBillingDate = useTrial
+      ? new Date(Date.now() + SUBSCRIPTION_TRIAL_DAYS * 24 * 60 * 60 * 1000)
+      : addOneMonth(new Date());
     const pendingCredit = owner.referralCreditMonths || 0;
     for (let i = 0; i < pendingCredit; i++) firstBillingDate = addOneMonth(firstBillingDate);
     owner.nextBillingAt = firstBillingDate.toISOString();
@@ -3411,7 +3421,7 @@ app.post('/api/billing/subscribe', async (req, res) => {
       await markReferralRewarded(owner.id);
     }
 
-    res.json({ success: true, plan: owner.plan, nextBillingAt: owner.nextBillingAt, amount });
+    res.json({ success: true, plan: owner.plan, nextBillingAt: owner.nextBillingAt, amount: useTrial ? 0 : amount, trial: useTrial });
   } catch (err: unknown) {
     console.error('구독 결제 실패:', err);
     res.status(400).json({ error: getErrorMessage(err) || '결제에 실패했습니다.' });

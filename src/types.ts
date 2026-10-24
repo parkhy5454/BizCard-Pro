@@ -837,6 +837,7 @@ export interface User {
   plan?: 'free' | 'pro';
   subscriptionStatus?: 'none' | 'active' | 'past_due' | 'canceled';
   nextBillingAt?: string; // ISO 날짜문자열 — 다음 자동결제 예정일
+  trialUsed?: boolean;    // [추가] 무료 체험(최초 구독 14일)을 이미 사용했는지
   // [추가] 가입 일시. "가입 회원 & 협업 디렉토리"/운영현황에서 회사를 최근 가입순으로
   // 정렬하는 데 사용한다.
   createdAt?: string;
