@@ -3284,6 +3284,17 @@ const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
 const SUBSCRIPTION_PRICE_PER_SEAT_KRW = Number(process.env.SUBSCRIPTION_PRICE_PER_SEAT_KRW) || 9900;
 // [추가] 최초 구독 시 무료 체험 기간(일). 계정당 한 번만 적용된다(owner.trialUsed).
 const SUBSCRIPTION_TRIAL_DAYS = 14;
+// [추가] 기간 약정 할인(선결제): 1년 10%, 3년 20%. 월 구독은 할인 없음. 5년 약정은 제외.
+const SUBSCRIPTION_TERM_DISCOUNTS: Record<number, number> = { 1: 0.1, 3: 0.2 };
+const subscriptionTermAmount = (seats: number, years: number): number => {
+  const discount = SUBSCRIPTION_TERM_DISCOUNTS[years] ?? 0;
+  return Math.round(seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW * 12 * years * (1 - discount));
+};
+const addMonthsN = (date: Date, months: number): Date => {
+  let d = new Date(date);
+  for (let i = 0; i < months; i++) d = addOneMonth(d);
+  return d;
+};
 
 function seatCountForScope(scopeId: string): number {
   // 승인된(=실제로 서비스를 쓸 수 있는) 구성원 수만 과금 대상으로 센다. 개인 계정은 항상 1석.
@@ -3356,13 +3367,19 @@ app.post('/api/billing/subscribe', async (req, res) => {
     return res.status(400).json({ error: '먼저 카드를 등록해주세요.' });
   }
 
+  // [추가] 기간 약정(termYears: 1 또는 3)을 선택하면 선결제 금액과 할인이 적용된다. 0/없음이면 월 구독.
+  const termYears = Number((req.body && req.body.termYears) || 0);
+  if (termYears && !(termYears in SUBSCRIPTION_TERM_DISCOUNTS)) {
+    return res.status(400).json({ error: '지원하지 않는 약정 기간입니다 (1년 또는 3년).' });
+  }
+
   const scopeId = scopeIdForUser(owner);
   const seats = seatCountForScope(scopeId);
-  const amount = seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
+  const amount = termYears ? subscriptionTermAmount(seats, termYears) : seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
 
-  // [추가] 계정당 최초 1회만 무료 체험: 체험 기간에는 즉시 결제하지 않고, 체험이 끝나는 날
-  // 정기결제 작업이 자동으로 첫 결제를 한다.
-  const useTrial = !owner.trialUsed;
+  // [추가] 계정당 최초 1회만 무료 체험(월 구독 전용): 체험 기간에는 즉시 결제하지 않고, 체험이 끝나는 날
+  // 정기결제 작업이 자동으로 첫 결제를 한다. 기간 약정은 체험 없이 바로 결제한다.
+  const useTrial = !termYears && !owner.trialUsed;
   try {
     if (!useTrial) {
       await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
@@ -3380,9 +3397,12 @@ app.post('/api/billing/subscribe', async (req, res) => {
     owner.trialUsed = true;
     // [추가] 이 사람이 추천인으로서 이미 받아뒀지만 아직 반영 못 한 무료 개월(구독을
     // 시작하기 전이라 반영할 결제일이 없었던 경우)이 있으면, 첫 결제일을 잡을 때 한꺼번에 더해준다.
-    let firstBillingDate = useTrial
-      ? new Date(Date.now() + SUBSCRIPTION_TRIAL_DAYS * 24 * 60 * 60 * 1000)
-      : addOneMonth(new Date());
+    let firstBillingDate = termYears
+      ? addMonthsN(new Date(), 12 * termYears)
+      : useTrial
+        ? new Date(Date.now() + SUBSCRIPTION_TRIAL_DAYS * 24 * 60 * 60 * 1000)
+        : addOneMonth(new Date());
+    owner.billingTermYears = termYears || undefined;
     const pendingCredit = owner.referralCreditMonths || 0;
     for (let i = 0; i < pendingCredit; i++) firstBillingDate = addOneMonth(firstBillingDate);
     owner.nextBillingAt = firstBillingDate.toISOString();
@@ -3498,7 +3518,8 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
     if (owner.subscriptionStatus === 'active') {
       if (!owner.tossBillingKey || !owner.tossCustomerKey || !TOSS_SECRET_KEY) continue;
       const seats = seatCountForScope(scopeId);
-      const amount = seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
+      const termYears = owner.billingTermYears || 0;
+      const amount = termYears ? subscriptionTermAmount(seats, termYears) : seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
       try {
         await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
           customerKey: owner.tossCustomerKey,
@@ -3508,9 +3529,9 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
           customerEmail: owner.email,
           customerName: owner.name
         });
-        owner.nextBillingAt = addOneMonth(now).toISOString();
+        owner.nextBillingAt = (termYears ? addMonthsN(now, 12 * termYears) : addOneMonth(now)).toISOString();
         await addUser(owner);
-        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount } });
+        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount, termYears } });
         charged++;
       } catch (err) {
         console.error(`정기결제 실패 (${owner.email}):`, err);

@@ -102,11 +102,16 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
     }
   };
 
-  const handleSubscribe = async () => {
+  // [추가] termYears: 0 = 월 구독(첫 14일 무료 체험 적용), 1 = 1년 약정(10% 할인), 3 = 3년 약정(20% 할인)
+  const handleSubscribe = async (termYears = 0) => {
     setError('');
     setProcessing(true);
     try {
-      const res = await fetch('/api/billing/subscribe', { method: 'POST' });
+      const res = await fetch('/api/billing/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ termYears })
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '구독 시작에 실패했습니다.');
       setMessage('구독이 시작됐습니다! 이제 모든 기능을 이용하실 수 있어요.');
@@ -209,15 +214,38 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                     카드 등록하기
                   </button>
                 )}
-                {status.hasCardRegistered && status.subscriptionStatus !== 'active' && (
-                  <button
-                    onClick={handleSubscribe}
-                    disabled={processing}
-                    className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-colors"
-                  >
-                    {processing ? '처리 중...' : `구독 시작 (월 ${status.estimatedMonthlyAmount.toLocaleString()}원)`}
-                  </button>
-                )}
+                {status.hasCardRegistered && status.subscriptionStatus !== 'active' && (() => {
+                  // [추가] 좌석 수는 월 예상 금액 / 석당 단가로 역산한다.
+                  const seats = Math.max(1, Math.round(status.estimatedMonthlyAmount / status.pricePerSeat));
+                  const oneYear = Math.round(seats * status.pricePerSeat * 12 * 0.9);
+                  const threeYear = Math.round(seats * status.pricePerSeat * 36 * 0.8);
+                  const btnBase = 'w-full py-2.5 rounded-xl disabled:opacity-50 text-xs font-bold transition-colors';
+                  return (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => handleSubscribe(0)}
+                        disabled={processing}
+                        className={`${btnBase} bg-indigo-600 hover:bg-indigo-500 text-white`}
+                      >
+                        {processing ? '처리 중...' : `월 구독 시작 (월 ${status.estimatedMonthlyAmount.toLocaleString()}원, 14일 무료 체험)`}
+                      </button>
+                      <button
+                        onClick={() => handleSubscribe(1)}
+                        disabled={processing}
+                        className={`${btnBase} bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700`}
+                      >
+                        1년 약정 (10% 할인, {oneYear.toLocaleString()}원 선결제)
+                      </button>
+                      <button
+                        onClick={() => handleSubscribe(3)}
+                        disabled={processing}
+                        className={`${btnBase} bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700`}
+                      >
+                        3년 약정 (20% 할인, {threeYear.toLocaleString()}원 선결제)
+                      </button>
+                    </div>
+                  );
+                })()}
                 {status.hasCardRegistered && status.subscriptionStatus === 'active' && (
                   <>
                     <button
