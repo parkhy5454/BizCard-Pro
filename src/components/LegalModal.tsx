@@ -127,6 +127,11 @@ export const TermsContent: React.FC = () => (
       <p>이 약관과 관련하여 발생한 분쟁에 대해서는 대한민국 법을 준거법으로 하며, 회사의 주소지를 관할하는 법원을 관할 법원으로 합니다.</p>
     </Section>
 
+    <Section title="환불 규정 안내">
+      <p>구독 요금의 환불, 무료 체험, 기간 약정 해지 기준은 별도의 환불 규정에서 확인하실 수 있습니다.</p>
+      <p><a href="https://bizcardai.kr/refund.html" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">환불 규정 보기</a></p>
+    </Section>
+
     <Section title="부칙">
       <p>이 약관은 2026.10.23부터 시행합니다.</p>
     </Section>
