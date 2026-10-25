@@ -537,7 +537,7 @@ export const Navigation: React.FC<Props> = ({
     )}
 
     {/* [추가] 명함 탭일 때 상단에 고정되는 액션 버튼 및 그룹 필터 */}
-    {activeTab === 'cards' && (
+    {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
       <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 액션 버튼 섹션 */}
@@ -717,7 +717,8 @@ export const Navigation: React.FC<Props> = ({
           )}
 
           {/* 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (명함은 상단으로 이동, 나머지 탭에서만 노출) */}
-          {['groups', 'io', 'nearby'].includes(activeTab) && (
+          {/* 서브 액션 줄은 상단 바로 이동 (하단에는 표시하지 않음) */}
+          {false && (
           <div className="flex items-center gap-1.5 overflow-x-auto w-full p-1.5 bg-slate-100 border border-slate-200 rounded-xl scrollbar-none">
             <button
               onClick={onOpenScanModal}
@@ -783,7 +784,8 @@ export const Navigation: React.FC<Props> = ({
           )}
 
           {/* 그룹 칩 필터링 (명함은 상단으로 이동) */}
-          {['groups', 'io', 'nearby'].includes(activeTab) && (
+          {/* 그룹 칩은 상단 필터로 이동 (하단에는 표시하지 않음) */}
+          {false && (
             <div className="flex items-center gap-1.5 overflow-x-auto w-full">
               <span className="text-xs text-slate-500 mr-1 hidden lg:inline">그룹:</span>
               <button
