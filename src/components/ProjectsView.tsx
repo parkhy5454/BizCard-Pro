@@ -2918,7 +2918,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <p className="text-xs text-slate-700 leading-relaxed">
                   마지막 미팅 또는 비즈니스 프로젝트 등록 후 <span className="inline-block px-1.5 rounded bg-rose-500 text-white font-bold">5일 이상</span> 경과하여 연락이 뜸해진 건들입니다. 신속하게 안부 연락이나 차기 미팅 조율을 진행해 보세요.
                 </p>
-                <div className="flex flex-wrap gap-2 pt-1.5">
+                <div className="flex flex-col gap-2 pt-1.5">
                   {needyProjs.map(p => {
                     const { days } = getDaysSinceLastActivity(p);
                     return (
@@ -2926,10 +2926,10 @@ export const ProjectsView: React.FC<Props> = ({
                         key={p.id}
                         onClick={() => handleJumpToProject(p.id)}
                         title="눌러서 이 프로젝트로 이동"
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${expandedId === p.id ? 'bg-blue-600 text-white border border-blue-600 animate-pulse' : 'bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900'}`}
+                        className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold transition-all flex items-center justify-between gap-2 text-left ${expandedId === p.id ? 'bg-blue-600 text-white border border-blue-600 animate-pulse' : 'bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900'}`}
                       >
-                        <span className="font-medium">{p.name}</span>
-                        <span className="text-[10px] opacity-80 font-mono">({days}일 경과)</span>
+                        <span className="font-medium min-w-0 truncate">{p.name}</span>
+                        <span className="text-[10px] opacity-80 font-mono shrink-0 whitespace-nowrap">({days}일 경과)</span>
                       </button>
                     );
                   })}
