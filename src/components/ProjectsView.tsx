@@ -2911,11 +2911,11 @@ export const ProjectsView: React.FC<Props> = ({
               <div className="p-2.5 bg-gradient-to-br from-rose-500 to-orange-400 text-white rounded-xl shadow-md shrink-0">
                 <AlertTriangle className="w-5 h-5 animate-bounce" />
               </div>
-              <div className="space-y-1.5 flex-1 pr-6">
+              <div className="space-y-1.5 flex-1 min-w-0 pr-6">
                 <h4 className="h-9 text-sm font-extrabold text-rose-600 flex items-center gap-1.5">
                   <span>팔로우업 필요 프로젝트 {needyProjs.length}개</span>
                 </h4>
-                <div className="flex flex-col gap-2 pt-1.5">
+                <div className="flex flex-col gap-2 pt-1.5 min-w-0 w-full">
                   {needyProjs.map(p => {
                     const { days } = getDaysSinceLastActivity(p);
                     return (
