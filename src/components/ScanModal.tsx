@@ -916,7 +916,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
               <div>
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
                   <h3 className="font-bold text-lg text-slate-900">스캔 정보</h3>
-                  <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-700 p-1 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
+                  <button type="button" onClick={onClose} className="w-8 h-8 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-700 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
                 </div>
 
                 <div className="space-y-4 text-sm pr-1">
