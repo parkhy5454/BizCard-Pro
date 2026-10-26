@@ -1624,7 +1624,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <div className="bg-white border border-amber-200 rounded-2xl p-4 space-y-3 shadow-sm">
                 <div className="flex items-center gap-2 text-amber-700">
                   <AlertTriangle className="w-5 h-5 shrink-0" />
-                  <h3 className="text-sm font-bold">자동차 보험 갱신 알림 (만기 1달 이내)</h3>
+                  <h3 className="text-sm font-bold">알림</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {expiringVehicles.map(v => {
@@ -1871,13 +1871,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 )}
               </div>
 
-              {/* 퀵 팁 */}
-              <div className="pt-4 border-t border-slate-200/50 text-[11px] text-slate-500 leading-relaxed flex items-start gap-1.5 bg-indigo-950/10 p-3 rounded-xl border border-indigo-900/20">
-                <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                <p>
-                  <span className="font-bold text-indigo-600">스마트 데이터팁:</span> 모든 사원들이 동일 회사 소속으로 가입하면 본 차량 대시보드 및 지출 운행기록 전산이 전사 동기화됩니다.
-                </p>
-              </div>
 
             </div>
 
@@ -2208,8 +2201,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           ) : (
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-[11px] text-indigo-400 font-medium pb-1">
-                <span className="animate-pulse">◀ Swipe / Scroll 좌우 스크롤 ▶</span>
-                <span className="text-slate-400">등록된 차량 카드를 좌우로 밀어서 편하게 넘겨볼 수 있습니다 (총 {vehicles.length}대)</span>
+                <span className="animate-pulse">옆으로 밀어서 보기</span>
               </div>
               <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                 {vehicles
