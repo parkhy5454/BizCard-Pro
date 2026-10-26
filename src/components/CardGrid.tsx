@@ -1,7 +1,7 @@
 import { APP_PUBLIC_URL } from '../appConfig.js';
 import { getErrorField } from '../errorUtils.js';
 import React, { useRef, useState, useEffect } from 'react';
-import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone, MessageSquare, Share2, UserPlus } from 'lucide-react';
+import { Phone, Building2, Printer, Mail, MapPin, History, Eye, Trash2, Edit3, ChevronLeft, ChevronRight, Sparkles, Navigation, Search, AlertTriangle, X, Brain, Handshake, ArrowRight, ArrowDownUp, Globe, Eraser, Smartphone, MessageSquare, Share2, UserPlus } from 'lucide-react';
 import { BusinessCard, ContactGroup, Project, User } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
@@ -338,7 +338,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 onClick={reopenIntel}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition-all animate-fadeIn"
               >
-                <Brain className="w-3.5 h-3.5" />
+                <Handshake className="w-3.5 h-3.5" />
                 <span>
                   지금 챙기면 좋은 거래처 {topInsights.length}곳
                   {missingParticipants.length > 0 && ` · 미등록 참여사 ${missingParticipants.length}곳`}
@@ -358,9 +358,9 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-start gap-3 mb-3">
-              <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl border border-indigo-200 shrink-0">
-                <Brain className="w-5 h-5" />
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-lg border border-indigo-200 shrink-0">
+                <Handshake className="w-4 h-4" />
               </div>
               <div className="pr-6">
                 <h4 className="text-sm font-bold text-slate-900">
