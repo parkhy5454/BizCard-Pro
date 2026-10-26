@@ -557,8 +557,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex justify-center p-4">
-      <div className="relative w-full max-w-4xl my-auto bg-white flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
+    <div style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex justify-center px-4 pb-4 pt-1">
+      <div className="relative w-full max-w-4xl mt-1 bg-white flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (
           /* ========================================== */
