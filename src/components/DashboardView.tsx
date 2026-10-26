@@ -146,7 +146,7 @@ export const DashboardView: React.FC<Props> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white border border-blue-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-blue-700">등록된 명함</span>
+            <span className="text-xs font-semibold text-blue-700">등록 명함</span>
             <p className="text-2xl font-bold text-slate-900">{contacts.length.toLocaleString()}건</p>
             <p className="text-[11px] text-slate-700">이번 달 +{contactsThisMonth}건</p>
           </div>
@@ -157,7 +157,7 @@ export const DashboardView: React.FC<Props> = ({
 
         <div className="bg-white border border-amber-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-amber-700">진행 중 프로젝트</span>
+            <span className="text-xs font-semibold text-amber-700">진행 프로젝트</span>
             <p className="text-2xl font-bold text-slate-900">{statusCounts.progress.toLocaleString()}건</p>
             <p className="text-[11px] text-slate-700">기회 {statusCounts.opportunity}건 · 완료 {statusCounts.completed}건</p>
           </div>
@@ -168,7 +168,7 @@ export const DashboardView: React.FC<Props> = ({
 
         <div className="bg-white border border-indigo-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-indigo-700">등록된 차량</span>
+            <span className="text-xs font-semibold text-indigo-700">등록 차량</span>
             <p className="text-2xl font-bold text-slate-900">{loading ? '-' : `${vehicles.length.toLocaleString()}대`}</p>
             <p className="text-[11px] text-slate-700">통합 차량 관리에서 상세 확인</p>
           </div>
@@ -183,7 +183,7 @@ export const DashboardView: React.FC<Props> = ({
             className="bg-white border border-rose-200 p-5 rounded-2xl flex items-center justify-between shadow-sm text-left hover:brightness-95 transition-all"
           >
             <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-rose-700">승인 대기 인원</span>
+              <span className="text-xs font-semibold text-rose-700">승인 대기</span>
               <p className="text-2xl font-bold text-slate-900">{pendingCount.toLocaleString()}명</p>
               <p className="text-[11px] text-slate-700 flex items-center gap-1">팀 관리에서 승인 <ArrowRight className="w-3 h-3" /></p>
             </div>
@@ -229,7 +229,7 @@ export const DashboardView: React.FC<Props> = ({
         {/* 프로젝트 상태 분포 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
           <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-            <Briefcase className="w-4 h-4 text-indigo-400" /> 프로젝트 상태 분포
+            <Briefcase className="w-4 h-4 text-indigo-400" /> 프로젝트 현황
           </h3>
           {projects.length === 0 ? (
             <p className="text-xs text-slate-400 py-6 text-center">등록된 프로젝트가 없습니다.</p>
@@ -284,7 +284,7 @@ export const DashboardView: React.FC<Props> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
-            <h3 className="text-sm font-bold text-slate-700">최근 등록된 명함</h3>
+            <h3 className="text-sm font-bold text-slate-700">최근 등록 명함</h3>
           </div>
           {recentContacts.length === 0 ? (
             <p className="text-xs text-slate-400 py-6 text-center">등록된 명함이 없습니다.</p>
