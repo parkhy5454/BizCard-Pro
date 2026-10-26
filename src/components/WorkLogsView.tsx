@@ -451,7 +451,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const resolvedType: 'daily' | 'weekly' = type || (activeSubTab === 'daily' ? 'daily' : 'weekly');
     setWriteFormType(resolvedType);
     setEditingLogId(null);
-    const todayStr = presetDate || getTodayLocalStr();
+    const todayStr = (typeof presetDate === 'string' && presetDate) ? presetDate : getTodayLocalStr();
 
     // 주간 기본 범위 (이번주 월~금)
     const today = new Date();
@@ -3213,7 +3213,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <div className="space-y-2">
                           {todayEntries.length === 0 && (
                             <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                              + 업무 항목 추가
+                              + 업무 추가
                             </div>
                           )}
                           {todayEntries.map((entry) => (
@@ -3285,7 +3285,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             onClick={addTodayEntry}
                             className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-500 text-xs font-bold transition-all"
                           >
-                            +업무 항목 추가 (시간대별 추가 가능)
+                            + 업무 추가 (시간대별 가능)
                           </button>
                         </div>
                       </div>
@@ -3389,7 +3389,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <div className="space-y-2">
                           {(dayEntries[activeDayTab] || []).length === 0 && (
                             <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                              + 업무 항목 추가
+                              + 업무 추가
                             </div>
                           )}
                           {(dayEntries[activeDayTab] || []).map((entry) => (
@@ -3461,7 +3461,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             onClick={() => addDayEntry(activeDayTab)}
                             className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-500 text-xs font-bold transition-all"
                           >
-                            +업무 항목 추가 (시간대별 추가 가능)
+                            + 업무 추가 (시간대별 가능)
                           </button>
                         </div>
                       </div>
@@ -3541,7 +3541,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                     {formExpenses.length === 0 ? (
                       <div className="text-center py-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50">
-                        <p className="text-xs text-slate-400">+ 비용 항목 추가</p>
+                        <p className="text-xs text-slate-400">+ 비용 추가</p>
                       </div>
                     ) : (
                       <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
