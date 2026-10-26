@@ -138,13 +138,14 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   // 사람이 없는 새로운 지역/건물을 미리 둘러보는 상황일 수 있으니, 기존처럼 카카오맵
   // SDK의 주소 검색(Geocoder) → 장소 키워드 검색(Places) 순서로 그 지점 자체를 찾아서
   // 지도 중심으로 옮겨준다.
-  const handleSearchAddress = () => {
+  const handleSearchAddress = (silent: boolean = false) => {
     const q = addressQuery.trim();
     if (!q) return;
 
     const qLower = q.toLowerCase();
     const localMatches = contacts.filter(
       (c) =>
+        (c.name && c.name.toLowerCase().includes(qLower)) ||
         (c.address && c.address.toLowerCase().includes(qLower)) ||
         (c.company && c.company.toLowerCase().includes(qLower))
     );
@@ -165,7 +166,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
     setKeywordMatchIds(null);
     const kakao = window.kakao;
     if (kakaoLoadState !== 'ready' || !kakao?.maps?.services) {
-      alert('일치하는 명함이 없고, 지도도 아직 준비되지 않아 지역 검색을 할 수 없습니다. 잠시 후 다시 시도해주세요.');
+      if (!silent) alert('일치하는 명함이 없고, 지도도 아직 준비되지 않아 지역 검색을 할 수 없습니다. 잠시 후 다시 시도해주세요.');
       return;
     }
     setIsSearchingAddress(true);
@@ -188,11 +189,19 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           setLocationMode('search');
           setSearchedLabel(q);
         } else {
-          alert('일치하는 명함도 없고, 지역/주소도 찾지 못했습니다. 다른 단어나 더 정확한 주소로 다시 시도해주세요.');
+          if (!silent) alert('일치하는 명함도 없고, 지역/주소도 찾지 못했습니다. 다른 단어나 더 정확한 주소로 다시 시도해주세요.');
         }
       });
     });
   };
+
+  // 입력하고 잠깐 멈추면 바로 검색 결과로 이동한다 (검색 버튼 없이). 입력 중에는 알림창을 띄우지 않는다.
+  useEffect(() => {
+    if (!addressQuery.trim()) return;
+    const timer = window.setTimeout(() => handleSearchAddress(true), 400);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressQuery]);
 
   // 검색했던 지역 기준에서 다시 "지금 내 위치" 기준으로 돌아간다.
   const handleUseMyGPS = () => {
@@ -465,13 +474,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               className="w-full bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
             />
           </div>
-          <button
-            onClick={handleSearchAddress}
-            disabled={isSearchingAddress || !addressQuery.trim()}
-            className="shrink-0 px-3 md:px-4 py-2 md:py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
-          >
-            {isSearchingAddress ? '검색 중...' : '검색'}
-          </button>
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
