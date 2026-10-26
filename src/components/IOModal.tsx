@@ -511,7 +511,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
             <ArrowDownUp className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">가져오기 / 내보내기 (Import & Export)</h2>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">가져오기 / 내보내기 (Import / Export)</h2>
           </div>
         </div>
 
@@ -527,28 +527,28 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
               {/* 내보내기 범위 선택 */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-600">1. 내보내기 대상 범위 선택</label>
+                <label className="text-xs font-semibold text-slate-600">1. 내보내기 선택</label>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => setExportScope('all')}
                     className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'all' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-white text-slate-500 border-slate-200 hover:text-white'}`}
                   >
-                    전체 명함 ({contacts.length})
+                    전체 ({contacts.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportScope('group')}
                     className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'group' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-white text-slate-500 border-slate-200 hover:text-white'}`}
                   >
-                    특정 그룹별
+                    그룹별
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportScope('single')}
                     className={`py-2 rounded-xl font-medium border transition-all ${exportScope === 'single' ? 'bg-blue-600 text-white font-bold border-blue-400 shadow' : 'bg-white text-slate-500 border-slate-200 hover:text-white'}`}
                   >
-                    개인 명함별
+                    개인별
                   </button>
                 </div>
 
@@ -630,7 +630,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
                   className="w-4 h-4 accent-emerald-500"
                 />
                 <span className="text-xs text-slate-600">
-                  사진이 없는 연락처에 <span className="text-emerald-400 font-semibold">정형화된 명함 이미지 자동 생성</span>
+                  <span className="text-emerald-400 font-semibold">사진 없는 연락처 명함 자동 생성</span>
                 </span>
               </label>
             </div>
