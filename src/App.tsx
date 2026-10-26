@@ -860,6 +860,7 @@ export default function App() {
           onClose={() => setIsScanOpen(false)}
           onSave={handleSaveNewCard}
           onUpdate={handleUpdateCard}
+          onOpenVoice={() => { setIsScanOpen(false); setIsVoiceQuickAddOpen(true); }}
         />
       )}
 

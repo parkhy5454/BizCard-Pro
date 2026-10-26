@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
+import { X, Mic, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
@@ -17,6 +17,8 @@ interface Props {
   onSave: (newCard: BusinessCard) => void;
   // [수정] 중복 발견 시 "기존 정보 업데이트"를 선택하면 이 콜백으로 저장한다
   onUpdate?: (updated: BusinessCard) => void;
+  // 명함 등록 화면에서 음성 입력 화면을 바로 여는 콜백
+  onOpenVoice?: () => void;
 }
 
 // [수정] 이름+회사가 같거나 핸드폰 번호가 같으면 "같은 사람"으로 간주해서 중복 후보로 판단한다.
@@ -76,7 +78,7 @@ const getTopBarBottom = (): number => {
   return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
 };
 
-export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate }) => {
+export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate, onOpenVoice }) => {
   // 페이지가 스크롤되면 상단 탭 줄 위치도 바뀌므로, 오버레이 시작 위치를 계속 다시 잰다.
   const [topOffset, setTopOffset] = useState<number>(() => getTopBarBottom());
   const [bottomOffset, setBottomOffset] = useState<number>(() => getTabBarGap());
@@ -793,15 +795,27 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   </div>
                 </div>
 
-                {/* [수정] 명함이 여러 장일 때는 이 버튼으로 연속 촬영 모드로 전환 */}
-                <button
-                  type="button"
-                  onClick={startBatchMode}
-                  className="w-full mb-4 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 hover:text-indigo-800 text-xs font-bold transition-colors"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  명함 연속 스캔
-                </button>
+                <div className="flex gap-2 mb-4">
+                  {/* [수정] 명함이 여러 장일 때는 이 버튼으로 연속 촬영 모드로 전환 */}
+                  <button
+                    type="button"
+                    onClick={startBatchMode}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 hover:text-indigo-800 text-xs font-bold transition-colors"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    명함 연속 스캔
+                  </button>
+                  {onOpenVoice && (
+                    <button
+                      type="button"
+                      onClick={onOpenVoice}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 hover:text-blue-800 text-xs font-bold transition-colors"
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                      음성 입력
+                    </button>
+                  )}
+                </div>
 
                 <div className="flex flex-col gap-3">
                   {/* [수정] 앞면/뒷면을 위아래로 나란히 보여주던 것을, 수정 화면과 통일된

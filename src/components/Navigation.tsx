@@ -581,15 +581,6 @@ export const Navigation: React.FC<Props> = ({
               <span>명함 등록</span>
             </button>
 
-            {/* 음성 입력 */}
-            <button
-              onClick={() => { setPressedCardAction('voice'); onOpenVoiceQuickAdd(); }}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${cardActionClass(isCardActionOn('voice'))}`}
-            >
-              <Mic className="w-4 h-4" />
-              <span>음성 입력</span>
-            </button>
-
             {/* 가져오기·내보내기 */}
             <button
               onClick={() => { setPressedCardAction('io'); setActiveTab('io'); }}
