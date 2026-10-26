@@ -532,8 +532,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
+    <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4">
+      <div className="relative w-full max-w-4xl my-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (
           /* ========================================== */
