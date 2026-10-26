@@ -2889,15 +2889,7 @@ export const ProjectsView: React.FC<Props> = ({
         if (needyProjs.length > 0) {
           // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
           if (isFollowupBannerDismissed) {
-            return (
-              <button
-                onClick={reopenFollowupBanner}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 text-xs font-semibold transition-all animate-fadeIn"
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>팔로우업 필요 {needyProjs.length}건</span>
-              </button>
-            );
+            return null;
           }
           return (
             <div className="relative bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col gap-3 animate-fadeIn">
@@ -2988,6 +2980,21 @@ export const ProjectsView: React.FC<Props> = ({
             </div>
           ) : (
             <div className="max-w-md mx-auto flex items-center gap-2">
+              {(() => {
+                // 팔로우업 배너를 닫은 상태일 때만, 검색줄 맨 앞에 작은 칩으로 남긴다
+                if (!isFollowupBannerDismissed) return null;
+                const needyCount = projects.filter(p => (p.status === 'opportunity' || p.status === 'progress') && getDaysSinceLastActivity(p).days >= 5).length;
+                if (needyCount === 0) return null;
+                return (
+                  <button
+                    onClick={reopenFollowupBanner}
+                    className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 text-xs font-semibold transition-all"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>팔로우업 필요 {needyCount}건</span>
+                  </button>
+                );
+              })()}
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
@@ -3017,7 +3024,7 @@ export const ProjectsView: React.FC<Props> = ({
                     className="pl-8 pr-3 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer shadow-inner"
                     title="프로젝트 정렬 방식"
                   >
-                    <option value="urgency">관리 시급도순</option>
+                    <option value="urgency">관리순서</option>
                     <option value="recent">최근 등록순</option>
                     <option value="dueDate">마감임박순</option>
                     <option value="name">이름순</option>
