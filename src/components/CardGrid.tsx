@@ -702,9 +702,9 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                   </div>
 
                   {/* 연락처 분리 정보 (핸드폰 / 사무실 / 팩스) */}
-                  <div className="space-y-2 pt-2 border-t border-slate-200 text-xs text-slate-600">
+                  <div className="space-y-1 pt-2 border-t border-slate-200 text-sm text-slate-600">
                     {contact.phoneMobile && (
-                      <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-2 py-1.5">
                         <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                         <span className="text-slate-500 w-12 font-medium">핸드폰:</span>
                         <span className="font-mono text-slate-800 font-semibold">{contact.phoneMobile}</span>
@@ -712,7 +712,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     )}
 
                     {contact.phoneOffice && (
-                      <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-2 py-1.5">
                         <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                         <span className="text-slate-500 w-12 font-medium">사무실:</span>
                         <span className="font-mono text-slate-700">{contact.phoneOffice}</span>
@@ -720,7 +720,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     )}
 
                     {contact.phoneFax && (
-                      <div className="flex items-center gap-2 bg-slate-100 px-2 py-1.5 rounded border border-slate-200">
+                      <div className="flex items-center gap-2 py-1.5">
                         <Printer className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         <span className="text-slate-500 w-12 font-medium">팩스:</span>
                         <span className="font-mono text-slate-600">{contact.phoneFax}</span>
@@ -911,7 +911,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 </div>
 
                 {/* 하단 푸터 (등록일 & 통화 히스토리 카운트) */}
-                <div className="px-5 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                <div className="px-5 py-3 bg-white border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                   <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
                     <span>등록일: {new Date(contact.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
                   </div>
