@@ -3798,7 +3798,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <div className="bg-slate-100 border border-slate-200 rounded-3xl p-16 text-center space-y-4">
                   <Briefcase className="w-12 h-12 text-slate-400 mx-auto" />
                   <h3 className="text-lg font-bold text-slate-800">해당하는 프로젝트가 없습니다.</h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">상단의 '새 프로젝트 등록' 버튼을 눌러 중요한 거래처 영업 및 제안 일정을 새롭게 기록해보세요.</p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">상단의 '등록' 버튼을 눌러 중요한 거래처 영업 및 제안 일정을 새롭게 기록해보세요.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4">

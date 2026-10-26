@@ -391,7 +391,7 @@ export const Navigation: React.FC<Props> = ({
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95 shrink-0"
             >
               <Briefcase className="w-4 h-4" />
-              <span>새 프로젝트 등록</span>
+              <span>등록</span>
             </button>
 
             {/* 프로젝트 리스트 탭 (드롭다운 포함) */}
@@ -405,7 +405,7 @@ export const Navigation: React.FC<Props> = ({
                 }`}
               >
                 <ListChecks className="w-4 h-4 text-indigo-400" />
-                <span>프로젝트 리스트</span>
+                <span>리스트</span>
               </button>
               <button
                 onClick={(e) => {
@@ -454,7 +454,7 @@ export const Navigation: React.FC<Props> = ({
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>리스트 출력</span>
+              <span>출력</span>
             </button>
 
             {/* 원가계산서 (관리자만) */}
@@ -468,7 +468,7 @@ export const Navigation: React.FC<Props> = ({
                 }`}
               >
                 <Calculator className="w-4 h-4" />
-                <span>원가계산서</span>
+                <span>원가 계산</span>
               </button>
             )}
 
