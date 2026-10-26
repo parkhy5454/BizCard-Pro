@@ -516,7 +516,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const handleOpenEditLog = (log: DailyWorkLog | WeeklyWorkLog, type: 'daily' | 'weekly') => {
     setWriteFormType(type);
     setEditingLogId(log.id);
-    setFormTitle(log.title);
+    setFormTitle((log.title || '').replace('[object Object] ', ''));
     setFormAuthor(log.author || '');
     setFormDepartment(log.department || '');
     setFormProjectIds(log.projectIds || []);
@@ -2288,7 +2288,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             onChange={(e) => setSelectedProjectFilter(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm appearance-none cursor-pointer placeholder:text-slate-400 transition-all"
           >
-            <option value="all">연관 프로젝트: 전체</option>
+            <option value="all">연관 프로젝트</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -2301,8 +2301,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           contacts={contacts}
           value={selectedContactFilter === 'all' ? '' : selectedContactFilter}
           onChange={(id) => setSelectedContactFilter(id || 'all')}
-          placeholder="연관 거래처 인맥: 전체"
-          noneLabel="연관 거래처 인맥: 전체"
+          placeholder="연관 거래처"
+          noneLabel="연관 거래처"
         />
       </div>
 
@@ -2605,7 +2605,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         <div className="space-y-4">
           {/* 리포트 대상 주간 업무 선택 (차량관리의 '인쇄 대상 차량 선택'과 동일한 패턴) */}
           <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4">
-            <label className="text-xs text-slate-500 font-semibold block mb-1.5">리포트 대상 주간 업무 선택</label>
+            <label className="text-xs text-slate-500 font-semibold block mb-1.5">대상 리포트 선택</label>
             <select
               value={selectedReportLog?.id || ''}
               onChange={(e) => {
@@ -2641,7 +2641,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         {/* 가로 슬라이딩 가이드 팁 */}
         <div className="flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-100 border border-slate-200 py-2.5 px-4 rounded-2xl max-w-sm mx-auto animate-pulse select-none">
           <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-          <span>💡 화면을 좌우로 쓸어넘겨 일일/주간 탭을 전환하세요</span>
+          <span>💡 좌우 쓸어넘겨 일일/주간 탭 전환</span>
         </div>
 
       {loading ? (
@@ -3213,7 +3213,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <div className="space-y-2">
                           {todayEntries.length === 0 && (
                             <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                              아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
+                              + 업무 항목 추가
                             </div>
                           )}
                           {todayEntries.map((entry) => (
@@ -3285,7 +3285,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             onClick={addTodayEntry}
                             className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-500 text-xs font-bold transition-all"
                           >
-                            + 업무 항목 추가 (시간대별로 여러 건 가능)
+                            +업무 항목 추가 (시간대별 추가 가능)
                           </button>
                         </div>
                       </div>
@@ -3389,7 +3389,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         <div className="space-y-2">
                           {(dayEntries[activeDayTab] || []).length === 0 && (
                             <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                              아직 등록된 업무가 없습니다. 아래 "+ 업무 항목 추가"를 눌러 시작해보세요.
+                              + 업무 항목 추가
                             </div>
                           )}
                           {(dayEntries[activeDayTab] || []).map((entry) => (
@@ -3461,7 +3461,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             onClick={() => addDayEntry(activeDayTab)}
                             className="w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-500 text-xs font-bold transition-all"
                           >
-                            + 업무 항목 추가 (시간대별로 여러 건 가능)
+                            +업무 항목 추가 (시간대별 추가 가능)
                           </button>
                         </div>
                       </div>
@@ -3514,8 +3514,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Receipt className="w-4 h-4 text-emerald-400" />
-                        <span className="text-sm font-bold text-slate-700 font-sans">비용 지출 추가 (선택)</span>
-                        <span className="text-[10px] text-slate-400 hidden sm:inline">차량 연결 시 비용 관리로 자동 연동</span>
+                        <span className="text-sm font-bold text-slate-700 font-sans">비용 추가 (선택)</span>
                       </div>
                       <div className="flex gap-1.5">
                         <button
@@ -3527,7 +3526,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-50 border border-indigo-500/20 text-indigo-700 hover:text-indigo-700 font-bold text-xs transition-all active:scale-95 cursor-pointer"
                         >
                           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                          <span>AI 영수증 인식 추가</span>
+                          <span>영수증 추가</span>
                         </button>
                         <button
                           type="button"
@@ -3535,14 +3534,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-50 border border-emerald-500/20 text-emerald-700 hover:text-emerald-700 font-bold text-xs transition-all active:scale-95"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>비용 항목 추가</span>
+                          <span>비용 추가</span>
                         </button>
                       </div>
                     </div>
 
                     {formExpenses.length === 0 ? (
                       <div className="text-center py-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50">
-                        <p className="text-xs text-slate-400">추가된 비용 지출 내역이 없습니다. (위의 '+ 비용 항목 추가' 버튼을 눌러 추가하세요)</p>
+                        <p className="text-xs text-slate-400">+ 비용 항목 추가</p>
                       </div>
                     ) : (
                       <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
@@ -3695,7 +3694,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                         <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>연관 프로젝트 연결</span>
+                        <span>연관 프로젝트</span>
                       </label>
                       <ProjectMultiSearchSelect
                         projects={projects}
@@ -3708,7 +3707,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-blue-400" />
-                        <span>연관 거래처 인맥 연결</span>
+                        <span>연관 거래처</span>
                       </label>
                       <ContactMultiSearchSelect
                         contacts={contacts}
@@ -3723,7 +3722,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   <div className="space-y-1.5 pt-1">
                     <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>동료 초대 (저장하면 새로 초대된 동료에게 알림 메일이 발송됩니다)</span>
+                      <span>동료 초대</span>
                     </label>
                     <CoworkerMultiSearchSelect
                       coworkers={coworkers}
@@ -3741,7 +3740,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         onChange={(e) => setUseDirectContact(e.target.checked)}
                         className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                       />
-                      <span className="text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결 (등록된 거래처가 없을 경우)</span>
+                      <span className="text-slate-600 font-semibold">새 담당자 입력</span>
                     </label>
 
                     {useDirectContact && (
@@ -3852,7 +3851,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       ) : (
                         <>
                           <Check className="w-4 h-4" />
-                          <span>{editingLogId ? '수정 반영' : '일지 저장'}</span>
+                          <span>{editingLogId ? '수정 반영' : '저장'}</span>
                         </>
                       )}
                     </button>
