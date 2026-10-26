@@ -2912,8 +2912,8 @@ export const ProjectsView: React.FC<Props> = ({
                 <AlertTriangle className="w-5 h-5 animate-bounce" />
               </div>
               <div className="space-y-1.5 flex-1 pr-6">
-                <h4 className="text-sm font-extrabold text-blue-700 flex items-center gap-1.5">
-                  <span>신속한 팔로우업이 필요한 활성 프로젝트가 {needyProjs.length}개 있습니다!</span>
+                <h4 className="h-9 text-sm font-extrabold text-rose-600 flex items-center gap-1.5">
+                  <span>팔로우업 필요 프로젝트 {needyProjs.length}개</span>
                 </h4>
                 <div className="flex flex-col gap-2 pt-1.5">
                   {needyProjs.map(p => {
@@ -3601,7 +3601,7 @@ export const ProjectsView: React.FC<Props> = ({
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-slate-700">
-                전체 프로젝트 리스트 ({filteredProjects.length}건)
+                전체 프로젝트 ({filteredProjects.length}건)
                 {selectedListIds.size > 0 && (
                   <span className="ml-2 text-indigo-600 font-semibold">{selectedListIds.size}건 선택됨</span>
                 )}
@@ -4704,14 +4704,14 @@ export const ProjectsView: React.FC<Props> = ({
           <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-indigo-400" /> 신규 영업/제안 프로젝트 등록
+                <Briefcase className="w-5 h-5 text-indigo-400" /> 프로젝트 등록
               </h3>
               <button onClick={() => setIsNewOpen(false)} className="text-slate-400 hover:text-slate-800">✕</button>
             </div>
 
             <form onSubmit={handleCreateProject} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-600 font-semibold mb-1">프로젝트 타이틀 *</label>
+                <label className="block text-slate-600 font-semibold mb-1">프로젝트 명</label>
                 <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 삼성전자 온디바이스 B2B 라이선스 공급 제안" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />
               </div>
 
@@ -4745,7 +4745,7 @@ export const ProjectsView: React.FC<Props> = ({
               그대로 유지된다. */}
               <div className="pt-2 border-t border-slate-200 space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">영업 파이프라인 정보 (선택)</p>
+                  <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">프로젝트 정보 (선택)</p>
                   {/* [추가] 프로젝트 타이틀(+최종고객/현장지역이 입력돼 있으면 같이)을 바탕으로
                   시공사·설계사·감리사·운영사를 구글 검색으로 찾아서 비어있는 칸만 자동으로
                   채워주는 버튼. 채워진 뒤에도 아래 칸에서 언제든 직접 수정할 수 있다. */}
@@ -4891,7 +4891,7 @@ export const ProjectsView: React.FC<Props> = ({
 
               {/* 연관 명함 체크 */}
               <div>
-                <label className="block text-slate-600 font-semibold mb-1">연관된 명함 담당자 선택 (다중선택 가능)</label>
+                <label className="block text-slate-600 font-semibold mb-1">담당자 선택 (다중선택 가능)</label>
                 <ContactMultiSearchSelect
                   contacts={contacts}
                   value={selectedContacts}
@@ -4908,7 +4908,7 @@ export const ProjectsView: React.FC<Props> = ({
                     onChange={(e) => setUseDirectContact(e.target.checked)}
                     className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                   />
-                  <span className="text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결</span>
+                  <span className="text-slate-600 font-semibold">새 담당자 입력으로</span>
                 </label>
 
                 {useDirectContact && (
