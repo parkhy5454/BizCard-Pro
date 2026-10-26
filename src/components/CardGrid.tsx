@@ -340,7 +340,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               >
                 <Brain className="w-3.5 h-3.5" />
                 <span>
-                  관계 인텔리전스 · 챙길 거래처 {topInsights.length}건
+                  지금 챙기면 좋은 거래처 {topInsights.length}곳
                   {missingParticipants.length > 0 && ` · 미등록 참여사 ${missingParticipants.length}곳`}
                 </span>
               </button>
@@ -364,10 +364,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               </div>
               <div className="pr-6">
                 <h4 className="text-sm font-bold text-slate-900">
-                  관계 인텔리전스
-                  {topInsights.length > 0 && ` · 지금 챙기면 좋은 거래처 ${topInsights.length}곳`}
+                  지금 챙기면 좋은 거래처{topInsights.length > 0 && ` ${topInsights.length}곳`}
                 </h4>
-                <p className="text-xs text-slate-800 mt-0.5">진행중인 프로젝트와 마지막 연락 시점, 파이프라인 참여사를 같이 분석했어요.</p>
                 {/* [추가] 건별로 해제한 거래처가 있으면, 실수로 뺐을 때 되돌릴 수 있게 안내 겸
                     복구 버튼을 같이 보여준다. */}
                 {intelDismissedContactIds.length > 0 && (
@@ -434,7 +432,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     <button
                       onClick={(e) => { e.stopPropagation(); dismissIntelContact(insight.contact.id); }}
                       className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
-                      title="이 거래처는 관계 인텔리전스에서 그만 알려주기"
+                      title="이 거래처는 지금 챙기면 좋은 거래처에서 그만 알려주기"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
