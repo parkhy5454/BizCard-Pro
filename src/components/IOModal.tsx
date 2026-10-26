@@ -530,16 +530,6 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
     <div className="max-w-4xl mx-auto py-8 px-4">
       <div className="bg-white p-2 md:p-4 space-y-8">
         
-        {/* 헤더 */}
-        <div className="flex items-center gap-3 border-b border-slate-200 pb-5">
-          <div className="p-3 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-500/20">
-            <ArrowDownUp className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">가져오기 / 내보내기 (Import / Export)</h2>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* 섹션 1: 명함 백업 내보내기 (Export) */}

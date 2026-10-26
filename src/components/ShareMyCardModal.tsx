@@ -303,24 +303,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
     <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-3 bg-white animate-fadeIn">
       <div className="bg-white max-w-lg w-full max-h-full overflow-hidden flex flex-col">
         
-        {/* 상단 타이틀 바 */}
-        <div className="shrink-0 px-4 py-1 bg-white border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-500/30">
-              <Share2 className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">내 명함 공유</h3>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-
         <div className="flex-1 min-h-0 overflow-y-auto">
         {/* 미니 프로필 요약 카드 */}
         <div className="px-4 py-1 bg-white border-b border-slate-200 flex items-center justify-between">
@@ -668,13 +650,6 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
         </div>
 
-        </div>
-
-        {/* 하단 닫기 풋바 */}
-        <div className="shrink-0 px-4 py-1 bg-white border-t border-slate-200 text-center">
-          <button onClick={onClose} className="text-xs font-semibold text-slate-400 hover:text-slate-700 px-6 py-1">
-            닫기
-          </button>
         </div>
 
       </div>
