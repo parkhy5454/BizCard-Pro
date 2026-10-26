@@ -108,6 +108,8 @@ export default function App() {
   // [수정] "리스트 출력" 탭 켜짐/꺼짐 상태 (카드 목록 ↔ 표 형태 리스트 전환)
   const [projectsViewMode, setProjectsViewMode] = useState<'cards' | 'listOutput' | 'pipeline' | 'pnl'>('cards');
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
+  // [추가] 상단 탭(가져오기·내보내기, 주변 레이더 등)을 눌러 화면이 바뀌면 명함 공유/음성 등록 창을 함께 닫는다.
+  useEffect(() => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); }, [activeTab]);
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
   const [isUserDirectoryOpen, setIsUserDirectoryOpen] = useState<boolean>(false);
