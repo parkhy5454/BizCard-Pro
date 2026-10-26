@@ -68,6 +68,19 @@ const getTopBarBottom = (): number => {
 };
 
 export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate }) => {
+  // 페이지가 스크롤되면 상단 탭 줄 위치도 바뀌므로, 오버레이 시작 위치를 계속 다시 잰다.
+  const [topOffset, setTopOffset] = useState<number>(() => getTopBarBottom());
+  useEffect(() => {
+    const update = () => setTopOffset(getTopBarBottom());
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
   const [frontImg, setFrontImg] = useState<string>('');
   const [backImg, setBackImg] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -532,7 +545,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4">
+    <div style={{ top: topOffset }} className="fixed left-0 right-0 bottom-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4">
       <div className="relative w-full max-w-4xl my-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (

@@ -109,9 +109,9 @@ export default function App() {
   const [projectsViewMode, setProjectsViewMode] = useState<'cards' | 'listOutput' | 'pipeline' | 'pnl'>('cards');
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
   // [추가] 상단 탭(가져오기·내보내기, 주변 레이더 등)을 눌러 화면이 바뀌면 명함 공유/음성 등록 창을 함께 닫는다.
-  useEffect(() => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); }, [activeTab]);
+  useEffect(() => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); setIsScanOpen(false); }, [activeTab]);
   useEffect(() => {
-    const close = () => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); };
+    const close = () => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); setIsScanOpen(false); };
     window.addEventListener('bizcard:close-floating', close);
     return () => window.removeEventListener('bizcard:close-floating', close);
   }, []);
