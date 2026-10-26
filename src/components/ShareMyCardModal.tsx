@@ -295,7 +295,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
       <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-full overflow-hidden shadow-2xl flex flex-col">
         
         {/* 상단 타이틀 바 */}
-        <div className="shrink-0 px-4 py-2.5 bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border-b border-slate-200 flex items-center justify-between">
+        <div className="shrink-0 px-4 py-1.5 bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-blue-50 text-blue-700 rounded-xl border border-blue-500/30">
               <Share2 className="w-4 h-4" />
@@ -314,7 +314,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
         <div className="flex-1 min-h-0 overflow-y-auto">
         {/* 미니 프로필 요약 카드 */}
-        <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-900 text-base">{profile.name}</span>
@@ -335,14 +335,14 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         <div className="flex border-b border-slate-200 bg-slate-100">
           <button
             onClick={() => setActiveTab('qr')}
-            className={`flex-1 py-2 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'qr' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`flex-1 py-1.5 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'qr' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             <QrCode className="w-4 h-4" />
             <span>QR 스캔</span>
           </button>
           <button
             onClick={() => setActiveTab('send')}
-            className={`flex-1 py-2 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'send' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`flex-1 py-1.5 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'send' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             <Send className="w-4 h-4" />
             <span>카카오톡 / 문자 / 이메일 / SNS</span>
@@ -356,7 +356,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           {activeTab === 'qr' && (
             <div className="flex flex-col items-center justify-center space-y-4 py-1">
               <div className="p-2.5 sm:p-4 bg-white rounded-3xl shadow-2xl border-4 border-blue-500/30">
-                <img src={qrImageUrl} alt="My QR Code" className="w-28 h-28 sm:w-56 sm:h-56 object-contain" />
+                <img src={qrImageUrl} alt="My QR Code" className="w-40 h-40 sm:w-56 sm:h-56 object-contain" />
               </div>
 
               <div className="w-full pt-2 flex gap-3">
