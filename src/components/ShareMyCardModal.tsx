@@ -295,7 +295,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
               <Share2 className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-900 tracking-tight">내 명함 공유 및 전송</h3>
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight">내 명함 공유</h3>
             </div>
           </div>
           <button
