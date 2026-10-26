@@ -362,7 +362,7 @@ const ApprovalLineEditor: React.FC<{
         onClick={() => onSaveAsDefault(kind, line)}
         className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
       >
-        우리 회사 기본값으로 저장
+        회사 기본값 저장
       </button>
     </div>
     {/* 회사마다 결재 단계 수가 다를 수 있어 4단계 고정 그리드 대신, 자유롭게 추가/삭제 가능한 구조로 되어 있다 */}
@@ -2493,7 +2493,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 </div>
                 {apItems.length === 0 && (
                   <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                    정산 내역이 없습니다. "내역 추가"를 눌러 등록해 주세요.
+                    +내역 추가
                   </div>
                 )}
                 <div className="space-y-2">
@@ -2732,7 +2732,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   다음에 새 휴가 신청서를 작성할 때도 다시 입력할 필요가 없다. */}
               <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-1.5">
                 <label className="text-xs font-bold text-indigo-600 flex items-center gap-1.5">
-                  <Hash className="w-3.5 h-3.5" /> 총 연차 일수 (올해 부여된 전체 연차 — 한 번 입력해두면 자동 저장됩니다)
+                  <Hash className="w-3.5 h-3.5" /> 총 연차 일수
                 </label>
                 <input type="number" min={0} step={0.5} value={lvTotalAnnualDays}
                   onChange={(e) => {
@@ -2875,7 +2875,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600">누적 휴가 표기 (총 연차 일수 기준 자동 계산, 필요시 직접 수정)</label>
+                <label className="text-xs font-bold text-slate-600">누적 휴가 (자동 계산)</label>
                 <input type="text" placeholder="5일/총20일, 잔여 15일" value={lvAnnualNote} onChange={(e) => setLvAnnualNote(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
               </div>
