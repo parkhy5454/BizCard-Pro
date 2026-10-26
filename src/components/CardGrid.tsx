@@ -339,7 +339,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               className="flex-1 min-w-0 flex items-center justify-center gap-1 px-2 py-2.5 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-600 text-[11px] font-semibold leading-tight text-center transition-all"
             >
               <Handshake className="w-3.5 h-3.5 shrink-0" />
-              <span>지금 챙길 거래처 {topInsights.length}곳</span>
+              <span>챙길 거래처({topInsights.length}곳)</span>
             </button>
           );
           return null;
