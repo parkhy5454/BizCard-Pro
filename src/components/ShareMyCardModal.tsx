@@ -331,7 +331,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
             className={`flex-1 py-3 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'qr' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             <QrCode className="w-4 h-4" />
-            <span>QR 코드 스캔</span>
+            <span>QR 스캔</span>
           </button>
           <button
             onClick={() => setActiveTab('send')}
@@ -366,7 +366,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                   className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow"
                 >
                   {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                  <span>{copied ? '복사 완료!' : '명함 텍스트 복사'}</span>
+                  <span>{copied ? '복사 완료!' : '명함 복사'}</span>
                 </button>
               </div>
             </div>
@@ -378,7 +378,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
               
               {/* 1. 기본 앱 전송 */}
               <div className="space-y-3">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">🚀 다이렉트 전송</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">🚀 전송</span>
 
                 {/* 카카오톡 공유 (가장 많이 쓰는 채널이라 상단에 강조 배치) */}
                 <button
@@ -450,7 +450,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
               {/* 미리보기 박스 */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-600">전송될 명함 텍스트 미리보기</span>
+                  <span className="text-xs font-semibold text-slate-600">명함 미리 보기</span>
                   <button onClick={handleCopyText} className="text-[11px] text-blue-400 hover:underline flex items-center gap-1">
                     <Copy className="w-3 h-3" /> 복사하기
                   </button>
