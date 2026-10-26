@@ -102,6 +102,8 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
     }).join('\r\n\r\n');
   };
 
+  // [추가] 상단에서 그룹을 골랐으면 그 그룹 하나만 보여주고, 아니면 전체 그룹을 보여준다.
+  const visibleGroups = initialGroupId ? groups.filter((g) => g.id === initialGroupId) : groups;
   const selectedGroupObj = groups.find((g) => g.id === selectedGid);
   const selectedPersonObj = contacts.find((c) => c.id === selectedCid);
   const scopeNeedsPick = (exportScope === 'group' && !selectedGid) || (exportScope === 'single' && !selectedCid);
@@ -578,11 +580,11 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
                 {/* 그룹 선택 콤보 */}
                 {exportScope === 'group' && (
                   <div className="mt-2 space-y-2">
-                    {groups.length === 0 ? (
+                    {visibleGroups.length === 0 ? (
                       <p className="text-xs text-slate-400">등록된 그룹이 없습니다.</p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
-                        {groups.map((g) => {
+                        {visibleGroups.map((g) => {
                           const count = contacts.filter((c) => contactHasGroup(c, g.id)).length;
                           const on = selectedGid === g.id;
                           return (
