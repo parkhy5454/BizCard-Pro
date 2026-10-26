@@ -2900,7 +2900,7 @@ export const ProjectsView: React.FC<Props> = ({
             );
           }
           return (
-            <div className="relative bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm flex items-start gap-4 animate-fadeIn">
+            <div className="relative bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col gap-3 animate-fadeIn">
               <button
                 onClick={dismissFollowupBannerForToday}
                 className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
@@ -2908,14 +2908,16 @@ export const ProjectsView: React.FC<Props> = ({
               >
                 <X className="w-4 h-4" />
               </button>
-              <div className="p-2.5 bg-gradient-to-br from-rose-500 to-orange-400 text-white rounded-xl shadow-md shrink-0">
-                <AlertTriangle className="w-5 h-5 animate-bounce" />
-              </div>
-              <div className="space-y-1.5 flex-1 min-w-0 pr-6">
-                <h4 className="h-9 text-sm font-extrabold text-rose-600 flex items-center gap-1.5">
+              <div className="flex items-center gap-4 pr-8">
+                <div className="p-2.5 bg-gradient-to-br from-rose-500 to-orange-400 text-white rounded-xl shadow-md shrink-0">
+                  <AlertTriangle className="w-5 h-5 animate-bounce" />
+                </div>
+                <h4 className="text-sm font-extrabold text-rose-600">
                   <span>팔로우업 필요 프로젝트 {needyProjs.length}개</span>
                 </h4>
-                <div className="flex flex-col gap-2 pt-1.5 min-w-0 w-full">
+              </div>
+              <div className="min-w-0 w-full pt-1">
+                <div className="flex flex-col gap-2 min-w-0 w-full">
                   {needyProjs.map(p => {
                     const { days } = getDaysSinceLastActivity(p);
                     return (
