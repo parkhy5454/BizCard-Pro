@@ -511,7 +511,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
             <ArrowDownUp className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">연락처 가져오기 / 내보내기 (Import & Export)</h2>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">가져오기 / 내보내기 (Import & Export)</h2>
           </div>
         </div>
 
@@ -521,7 +521,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">📤 데이터 내보내기 (Export)</span>
+                <span className="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">📤 내보내기 (Export)</span>
                 <Download className="w-4 h-4 text-blue-400" />
               </div>
 
@@ -569,7 +569,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
               {/* 포맷 선택 */}
               <div className="space-y-2 pt-2">
-                <label className="text-xs font-semibold text-slate-600">2. 파일 저장 포맷 규격</label>
+                <label className="text-xs font-semibold text-slate-600">2. 파일 규격</label>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <button
                     type="button"
@@ -602,7 +602,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 mt-6"
             >
               <Download className="w-4 h-4" />
-              <span>선택된 명함 ({targetContacts.length}건) 내보내기 파일 다운로드</span>
+              <span>선택된 명함 ({targetContacts.length}건) 내보내기</span>
             </button>
           </div>
 
@@ -610,13 +610,13 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 uppercase font-mono tracking-wider">📥 외부 명함 파일 불러오기 (Import)</span>
+                <span className="text-xs font-bold text-emerald-400 uppercase font-mono tracking-wider">📥 가져오기 (Import)</span>
                 <Upload className="w-4 h-4 text-emerald-400" />
               </div>
 
               <div className="aspect-[2/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-500/60 bg-slate-100 flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
                 <Upload className="w-8 h-8 text-slate-400 group-hover:text-emerald-400 transition-colors mb-2" />
-                <span className="text-xs font-bold text-slate-700">여기를 클릭하여 파일 선택</span>
+                <span className="text-xs font-bold text-slate-700">파일 선택</span>
                 <span className="text-[11px] text-slate-400 mt-1">지원 확장자: .vcf, .csv, .xls</span>
                 <input type="file" accept=".vcf,.csv,.xls,.xlsx" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
               </div>
@@ -631,7 +631,6 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
                 />
                 <span className="text-xs text-slate-600">
                   사진이 없는 연락처에 <span className="text-emerald-400 font-semibold">정형화된 명함 이미지 자동 생성</span>
-                  <span className="block text-[10px] text-slate-400 mt-0.5">이름·회사·연락처로 깔끔한 명함 이미지를 자동으로 만들어줘요 (AI 생성 아님, 즉시 처리)</span>
                 </span>
               </label>
             </div>
