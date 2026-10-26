@@ -2916,7 +2916,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <span>팔로우업 필요 프로젝트 {needyProjs.length}개</span>
                 </h4>
               </div>
-              <div className="min-w-0 w-full pt-1">
+              <div className="min-w-0 -mx-2.5 md:-mx-3 pt-1">
                 <div className="flex flex-col gap-2 min-w-0 w-full">
                   {needyProjs.map(p => {
                     const { days } = getDaysSinceLastActivity(p);
