@@ -301,7 +301,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
   return (
     <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-3 bg-white animate-fadeIn">
-      <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-full overflow-hidden shadow-2xl flex flex-col">
+      <div className="bg-white max-w-lg w-full max-h-full overflow-hidden flex flex-col">
         
         {/* 상단 타이틀 바 */}
         <div className="shrink-0 px-4 py-1 bg-white border-b border-slate-200 flex items-center justify-between">

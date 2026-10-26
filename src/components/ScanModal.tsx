@@ -558,7 +558,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
   return (
     <div style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex justify-center p-4">
-      <div className="relative w-full max-w-4xl my-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
+      <div className="relative w-full max-w-4xl my-auto bg-white flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (
           /* ========================================== */
@@ -842,7 +842,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                   {scanSide === 'front' ? (
                     <div>
-                      <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-500/60 bg-slate-100 flex flex-col items-center justify-center relative overflow-hidden transition-all group">
+                      <div className="aspect-video w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-500/60 bg-white flex flex-col items-center justify-center relative overflow-hidden transition-all group">
                         {frontImg ? (
                           <>
                             <img src={frontImg} alt="앞면 미리보기" className="w-full h-full object-cover" />
