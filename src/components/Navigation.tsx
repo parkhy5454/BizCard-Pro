@@ -401,7 +401,7 @@ export const Navigation: React.FC<Props> = ({
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 font-semibold whitespace-nowrap text-xs sm:text-sm transition-all active:scale-95 ${
                   projectsViewMode === 'cards'
                     ? 'bg-blue-600/20 text-blue-400'
-                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                    : 'bg-white hover:bg-slate-50 text-slate-600'
                 }`}
               >
                 <ListChecks className="w-4 h-4 text-indigo-400" />
