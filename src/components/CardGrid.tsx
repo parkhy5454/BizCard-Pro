@@ -670,7 +670,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                   {contactGroups.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {contactGroups.map((g) => (
-                        <span key={g.id} className={`self-start px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-sm ${g.color}`}>
+                        <span key={g.id} className={`self-start px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-sm bg-rose-50 text-rose-700 border-rose-200`}>
                           {g.name}
                         </span>
                       ))}
