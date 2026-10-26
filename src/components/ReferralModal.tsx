@@ -89,7 +89,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800">친구 추천</h2>
-              <p className="text-xs text-slate-500">추천한 친구가 첫 결제를 하면 서로 1개월 무료</p>
+              <p className="text-xs text-slate-500">추천한 친구 첫 결제 시 서로 1개월 무료</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all">
@@ -114,11 +114,11 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
                 </div>
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                   <p className="text-lg font-extrabold text-emerald-700">{info.totalRewarded}</p>
-                  <p className="text-[10px] text-emerald-600">보상 지급됨</p>
+                  <p className="text-[10px] text-emerald-600">보상 지급</p>
                 </div>
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
                   <p className="text-lg font-extrabold text-amber-700">{info.pendingCreditMonths}</p>
-                  <p className="text-[10px] text-amber-600">적립된 무료 개월</p>
+                  <p className="text-[10px] text-amber-600">적립</p>
                 </div>
               </div>
 
@@ -140,7 +140,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
                   <div className="p-2 rounded-xl bg-black/10 text-black">
                     <MessageSquare className="w-4.5 h-4.5" />
                   </div>
-                  <span className="text-xs font-bold text-black">카카오톡으로 추천 링크 보내기</span>
+                  <span className="text-xs font-bold text-black">카카오톡 보내기</span>
                 </button>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -149,7 +149,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
                     className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-500/50 flex items-center justify-center gap-2 transition-all"
                   >
                     <MessageSquare className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs font-bold text-slate-700">문자로 보내기</span>
+                    <span className="text-xs font-bold text-slate-700">문자 보내기</span>
                   </a>
                   <button
                     type="button"
@@ -171,7 +171,7 @@ export const ReferralModal: React.FC<Props> = ({ currentUser, onClose }) => {
                         <span className="text-slate-700 font-medium truncate">{r.refereeName || r.refereeEmail}</span>
                         {r.status === 'rewarded' ? (
                           <span className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] shrink-0">
-                            <PartyPopper className="w-3 h-3" /> 보상 지급됨
+                            <PartyPopper className="w-3 h-3" /> 보상 지급
                           </span>
                         ) : (
                           <span className="text-slate-400 text-[10px] shrink-0">결제 대기 중</span>
