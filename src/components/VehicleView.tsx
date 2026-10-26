@@ -4639,7 +4639,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 <div>
                   <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <FileText className="w-4 h-4 text-indigo-400" />
-                    <span>국세청(NTS) 제출용 운행기록부 서식</span>
+                    <span>국세청(NTS) 제출용 운행기록부</span>
                   </h2>
                 </div>
                 
@@ -4654,7 +4654,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5" />
-                      <span>현재 차량 엑셀 다운로드</span>
+                      <span>엑셀 다운로드</span>
                     </button>
                     <button
                       onClick={() => {
@@ -4664,7 +4664,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      <span>선택 차량 인쇄 (PDF 저장)</span>
+                      <span>인쇄 (PDF 저장)</span>
                     </button>
                   </div>
                 )}
@@ -4672,7 +4672,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
               <div className="flex flex-col sm:flex-row items-end gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                 <div className="space-y-1.5 flex-1 w-full">
-                  <label className="text-xs text-slate-500">인쇄 대상 차량 선택</label>
+                  <label className="text-xs text-slate-500">인쇄 대상 차량</label>
                   <select 
                     value={reportVehicleId}
                     onChange={e => {
@@ -4695,7 +4695,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 </div>
 
                 <div className="space-y-1.5 flex-1 w-full">
-                  <label className="text-xs text-slate-500">조회 월 선택 (연월)</label>
+                  <label className="text-xs text-slate-500">조회</label>
                   <input 
                     type="month" 
                     value={reportYearMonth}
@@ -4715,7 +4715,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
               <div className="space-y-4">
                 {/* 안내 메시지 및 좌우 이동 컨트롤 */}
                 <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 print:hidden">
-                  <span>총 {vehicles.length}대 차량의 NTS 운행기록부</span>
+                  <span>총 {vehicles.length}대 차량 운행기록부</span>
                   <div className="flex items-center gap-3">
                     <button 
                       type="button"
@@ -4734,7 +4734,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       ◀
                     </button>
                     <span className="flex items-center gap-1.5 text-indigo-400 font-medium">
-                      <span>차량별 옆으로 쓸어서 넘기기</span>
+                      <span>옆으로 밀어서 보기</span>
                       <span className="animate-pulse">↔</span>
                     </span>
                     <button 
