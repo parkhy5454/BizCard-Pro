@@ -3615,14 +3615,14 @@ export const ProjectsView: React.FC<Props> = ({
                   <span className="ml-2 text-indigo-600 font-semibold">{selectedListIds.size}건 선택됨</span>
                 )}
               </h3>
-              <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto scrollbar-none w-full sm:w-auto">
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
                 {/* [추가] "리스트 출력" 표에서 선택/전체 삭제. 카드형 화면(프로젝트 리스트)과
                 같은 projects 상태를 공유하므로, 여기서 지우면 카드형 화면에서도 함께 사라진다. */}
                 {selectedListIds.size > 0 && (
                   <button
                     type="button"
                     onClick={() => handleBulkDeleteProjects(Array.from(selectedListIds))}
-                    className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-95"
+                    className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-95"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>선택 삭제 ({selectedListIds.size}건)</span>
@@ -3632,7 +3632,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => handleBulkDeleteProjects(filteredProjects.map((p) => p.id))}
-                    className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold transition-all active:scale-95"
+                    className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold transition-all active:scale-95"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>전체 삭제</span>
@@ -3641,7 +3641,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={handleExportProjectsExcel}
-                  className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>엑셀 다운</span>
@@ -3652,7 +3652,7 @@ export const ProjectsView: React.FC<Props> = ({
                   type="button"
                   onClick={() => projectImportInputRef.current?.click()}
                   disabled={isImportingProjects}
-                  className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <ArrowDownUp className="w-3.5 h-3.5" />
                   <span>{isImportingProjects ? '가져오는 중...' : '가져오기'}</span>
@@ -3667,7 +3667,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setIsProjectsPrintPreviewOpen(true)}
-                  className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>저장</span>
@@ -3737,7 +3737,7 @@ export const ProjectsView: React.FC<Props> = ({
                               <button
                                 type="button"
                                 onClick={() => onFocusProject?.(p.id)}
-                                className="font-semibold text-indigo-600 hover:text-indigo-500 hover:underline text-left"
+                                className="font-semibold text-slate-900 hover:text-slate-600 hover:underline text-left"
                                 title="프로젝트 리스트에서 보기"
                               >
                                 {c.getValue(p, idx)}
@@ -3746,7 +3746,7 @@ export const ProjectsView: React.FC<Props> = ({
                           ) : (
                             <td
                               key={c.label}
-                              className={`px-3 py-2.5 ${colIdx === 2 ? 'text-indigo-600 font-semibold' : ''} ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}
+                              className={`px-3 py-2.5 ${colIdx === 2 ? 'text-slate-900 font-semibold' : ''} ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}
                             >
                               {c.getValue(p, idx)}
                             </td>
