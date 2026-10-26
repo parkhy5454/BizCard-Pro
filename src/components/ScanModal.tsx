@@ -822,10 +822,10 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
                             >
                               <Camera className="w-3.5 h-3.5" />
-                              카메라로 촬영
+                              촬영
                             </button>
                             <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
-                              갤러리에서 사진 선택
+                              사진 선택
                               <input type="file" accept="image/*" onChange={(e) => handleImageFile(e, 'front')} className="hidden" />
                             </label>
                           </div>
@@ -855,7 +855,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors"
                             >
                               <Camera className="w-3.5 h-3.5" />
-                              카메라로 촬영
+                              촬영
                             </button>
                             <label className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer underline underline-offset-2">
                               갤러리에서 선택
@@ -939,26 +939,26 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
                     <div className="grid grid-cols-1 gap-2">
                       <div>
-                        <label className="text-[11px] text-emerald-400 block mb-0.5 font-medium">핸드폰 번호 (Mobile)</label>
+                        <label className="text-[11px] text-emerald-400 block mb-0.5 font-medium">핸드폰 (Mobile)</label>
                         <input type="text" inputMode="numeric" placeholder="010-0000-0000" value={form.phoneMobile} onChange={(e) => setForm({ ...form, phoneMobile: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-emerald-500" />
                       </div>
 
                       <div>
                         <label className="text-[11px] text-blue-400 block mb-0.5 font-medium flex items-center justify-between">
-                          <span>사무실 유선전화 1 (Office 1)</span>
+                          <span>사무실 1 (Office 1)</span>
                         </label>
                         <input type="text" inputMode="numeric" placeholder="02-000-0000" value={form.phoneOffice} onChange={(e) => setForm({ ...form, phoneOffice: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-blue-500" />
                       </div>
 
                       <div>
                         <label className="text-[11px] text-cyan-400 block mb-0.5 font-medium flex items-center justify-between">
-                          <span>사무실 유선전화 2 / 직통번호 (Office 2)</span>
+                          <span>사무실 2 / (Office 2)</span>
                         </label>
                         <input type="text" inputMode="numeric" placeholder="지사번호, 직통번호 등이 표기된 경우 분리 인식됩니다." value={form.phoneOffice2 || ''} onChange={(e) => setForm({ ...form, phoneOffice2: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-cyan-500" />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-amber-400 block mb-0.5 font-medium">팩스 번호 (Fax)</label>
+                        <label className="text-[11px] text-amber-400 block mb-0.5 font-medium">팩스 (Fax)</label>
                         <input type="text" inputMode="numeric" placeholder="02-000-0001" value={form.phoneFax} onChange={(e) => setForm({ ...form, phoneFax: formatPhoneNumber(e.target.value) })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-mono focus:outline-none focus:border-amber-500" />
                       </div>
                     </div>
@@ -966,18 +966,18 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-slate-500 block mb-1">이메일 주소</label>
+                      <label className="text-xs text-slate-500 block mb-1">이메일</label>
                       <input type="email" placeholder="email@domain.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-500 block mb-1">회사 주소 1 (본사)</label>
+                      <label className="text-xs text-slate-500 block mb-1">주소 1 (본사)</label>
                       <input type="text" placeholder="서울시 강남구..." value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                   </div>
 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
-                      <span>회사 주소 2 (지사/공장 등)</span>
+                      <span>주소 2 (지사/공장 등)</span>
                     </label>
                     <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
@@ -1006,7 +1006,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   취소
                 </button>
                 <button type="submit" className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30">
-                  명함 최종 등록
+                  등록
                 </button>
               </div>
             </form>
