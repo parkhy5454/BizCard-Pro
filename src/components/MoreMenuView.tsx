@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   ClipboardCheck, FileSignature, Network, MessagesSquare, Sparkles, Building2, TrendingUp, History,
   FileSpreadsheet, Users, Gift, CreditCard, Download, Megaphone, MessageCircleQuestion, Inbox,
-  LogOut, UserX, Settings, ChevronRight, type LucideIcon,
+  LogOut, UserX, Settings, type LucideIcon,
 } from 'lucide-react';
 import { User } from '../types.js';
 import { downloadBackup } from '../backupDownload.js';
@@ -171,7 +171,7 @@ export const MoreMenuView: React.FC<Props> = ({
         return (
           <section key={section.title}>
             <h2 className="px-1 pt-6 pb-2 text-sm font-bold text-indigo-600">{section.title}</h2>
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 grid grid-cols-4 gap-x-2 gap-y-5">
               {visible.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -180,20 +180,19 @@ export const MoreMenuView: React.FC<Props> = ({
                     type="button"
                     onClick={item.onClick}
                     disabled={item.disabled}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors disabled:opacity-60"
+                    className="flex flex-col items-center gap-1.5 min-w-0 rounded-xl py-1 hover:bg-slate-50 active:bg-slate-100 transition-colors disabled:opacity-60"
                   >
-                    <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-md ${TONE[item.tone]}`}>
+                    <span className={`relative w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${TONE[item.tone]}`}>
                       <Icon className="w-5 h-5" strokeWidth={2.25} />
+                      {!!item.badge && item.badge > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
+                          {item.badge > 9 ? '9+' : item.badge}
+                        </span>
+                      )}
                     </span>
-                    <span className={`flex-1 min-w-0 text-[15px] font-semibold ${item.danger ? 'text-rose-600' : 'text-slate-900'}`}>
+                    <span className={`w-full text-center text-xs font-semibold leading-tight break-keep ${item.danger ? 'text-rose-600' : 'text-slate-800'}`}>
                       {item.label}
                     </span>
-                    {!!item.badge && item.badge > 0 && (
-                      <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center">
-                        {item.badge > 9 ? '9+' : item.badge}
-                      </span>
-                    )}
-                    <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
                   </button>
                 );
               })}
