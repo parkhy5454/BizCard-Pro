@@ -2915,9 +2915,6 @@ export const ProjectsView: React.FC<Props> = ({
                 <h4 className="text-sm font-extrabold text-blue-700 flex items-center gap-1.5">
                   <span>신속한 팔로우업이 필요한 활성 프로젝트가 {needyProjs.length}개 있습니다!</span>
                 </h4>
-                <p className="text-xs text-slate-700 leading-relaxed">
-                  마지막 미팅 또는 비즈니스 프로젝트 등록 후 <span className="inline-block px-1.5 rounded bg-rose-500 text-white font-bold">5일 이상</span> 경과하여 연락이 뜸해진 건들입니다. 신속하게 안부 연락이나 차기 미팅 조율을 진행해 보세요.
-                </p>
                 <div className="flex flex-col gap-2 pt-1.5">
                   {needyProjs.map(p => {
                     const { days } = getDaysSinceLastActivity(p);
