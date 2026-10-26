@@ -302,6 +302,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     );
   }
 
+  let dismissedIntelChip: React.ReactNode = null;
   return (
     <div className="space-y-3">
       {/* 🧠 관계 인텔리전스: 명함 + 프로젝트 + 팔로우업 + 통화기록을 엮어서
@@ -332,20 +333,16 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
 
         // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
         if (isIntelDismissed) {
-          return (
-            <div className="max-w-3xl mx-auto flex">
-              <button
-                onClick={reopenIntel}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition-all animate-fadeIn"
-              >
-                <Handshake className="w-3.5 h-3.5" />
-                <span>
-                  지금 챙기면 좋은 거래처 {topInsights.length}곳
-                  {missingParticipants.length > 0 && ` · 미등록 참여사 ${missingParticipants.length}곳`}
-                </span>
-              </button>
-            </div>
+          dismissedIntelChip = (
+            <button
+              onClick={reopenIntel}
+              className="flex-1 min-w-0 flex items-center justify-center gap-1 px-2 py-2.5 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-600 text-[11px] font-semibold leading-tight text-center transition-all"
+            >
+              <Handshake className="w-3.5 h-3.5 shrink-0" />
+              <span>지금 챙기면 좋은 거래처 {topInsights.length}곳</span>
+            </button>
           );
+          return null;
         }
 
         return (
@@ -477,7 +474,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
 
       {/* 명함 검색 영역 */}
       <div className="max-w-lg mx-auto flex items-center gap-2">
-        <div className="relative flex-1">
+        {dismissedIntelChip}
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
@@ -497,12 +495,12 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         </div>
         {/* [추가] 정렬 방식 선택 - 최신순(기본)/이름순 */}
         {setSortOrder && (
-          <div className="relative shrink-0">
+          <div className="relative flex-1 min-w-0">
             <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'recent' | 'name')}
-              className="pl-8 pr-3 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer shadow-inner"
+              className="w-full pl-8 pr-3 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer shadow-inner"
               title="명함 정렬 방식"
             >
               <option value="recent">최신 등록순</option>
