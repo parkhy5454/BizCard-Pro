@@ -616,7 +616,7 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => setSelectedGroup('all')}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                 selectedGroup === 'all'
-                  ? 'bg-blue-600 border border-blue-600 text-white shadow font-bold'
+                  ? 'bg-blue-500 border border-blue-500 text-white shadow font-bold'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -628,7 +628,7 @@ export const Navigation: React.FC<Props> = ({
                 onClick={() => setSelectedGroup(g.id)}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
                   selectedGroup === g.id
-                    ? 'bg-blue-600 border-blue-600 text-white shadow font-bold'
+                    ? 'bg-blue-500 border-blue-500 text-white shadow font-bold'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
