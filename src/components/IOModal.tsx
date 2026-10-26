@@ -586,7 +586,8 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
                       <div className="flex flex-wrap gap-1.5">
                         {visibleGroups.map((g) => {
                           const count = contacts.filter((c) => contactHasGroup(c, g.id)).length;
-                          const on = selectedGid === g.id;
+                          // 상단에서 고른 그룹이면 칩은 흰색(기본) 스타일로 두고, 지정 여부는 1. 내보내기 선택 쪽에서 보여준다.
+                          const on = selectedGid === g.id && !initialGroupId;
                           return (
                             <button
                               key={g.id}
@@ -600,9 +601,9 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
                         })}
                       </div>
                     )}
-                    <p className="text-xs text-slate-500">
-                      {selectedGroupObj ? <>선택된 그룹: <span className="font-bold text-blue-600">{selectedGroupObj.name}</span> ({targetContacts.length}건)</> : '그룹을 하나 선택해 주세요.'}
-                    </p>
+                    {!selectedGroupObj && (
+                      <p className="text-xs text-slate-500">그룹을 하나 선택해 주세요.</p>
+                    )}
                   </div>
                 )}
 
