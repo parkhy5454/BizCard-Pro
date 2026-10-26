@@ -528,7 +528,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-2xl space-y-8">
+      <div className="bg-white p-2 md:p-4 space-y-8">
         
         {/* 헤더 */}
         <div className="flex items-center gap-3 border-b border-slate-200 pb-5">
@@ -543,7 +543,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* 섹션 1: 명함 백업 내보내기 (Export) */}
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5 flex flex-col justify-between">
+          <div className="bg-white space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">📤 내보내기 (Export)</span>
@@ -657,14 +657,14 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
           </div>
 
           {/* 섹션 2: 외부 주소록 가져오기 (Import) */}
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5 flex flex-col justify-between">
+          <div className="bg-white space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-400 uppercase font-mono tracking-wider">📥 가져오기 (Import)</span>
                 <Upload className="w-4 h-4 text-emerald-400" />
               </div>
 
-              <div className="aspect-[2/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-500/60 bg-slate-100 flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
+              <div className="aspect-[2/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-500/60 bg-white flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
                 <Upload className="w-8 h-8 text-slate-400 group-hover:text-emerald-400 transition-colors mb-2" />
                 <span className="text-xs font-bold text-slate-700">파일 선택</span>
                 <span className="text-[11px] text-slate-400 mt-1">지원 확장자: .vcf, .csv, .xls</span>
@@ -672,7 +672,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
               </div>
 
               {/* [수정] 가져온 연락처에 자동으로 명함 이미지를 만들어 붙일지 선택 */}
-              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-100 border border-slate-200 cursor-pointer">
+              <label className="flex items-center gap-2.5 py-1 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoGenerateImage}

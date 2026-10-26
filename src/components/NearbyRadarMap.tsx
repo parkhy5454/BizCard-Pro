@@ -452,7 +452,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       배치해서, "주변 사람 지도" 제목 + "좌표 없는 명함" 버튼 + 거리 선택이 한 줄에 다 들어오게
       했다. 제목은 min-w-0 + truncate로 넘치면 줄임표 처리되고, 버튼/드롭다운은 shrink-0으로
       찌그러지지 않게 고정했다. */}
-      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-2.5 md:p-6 shadow-xl flex flex-row items-center justify-between gap-2 md:gap-4">
+      <div className="bg-white p-2.5 md:p-4 flex flex-row items-center justify-between gap-2 md:gap-4">
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
           {isAutoRegeocoding && (
             <span className="text-[9px] text-slate-400 flex items-center gap-1 md:hidden shrink-0">
@@ -471,7 +471,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               onChange={(e) => setAddressQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
               placeholder="검색"
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
+              className="w-full bg-white border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
             />
           </div>
         </div>
@@ -517,7 +517,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       검색한 지역으로 바뀌고, 실제로 그 지역에 도착해서 GPS로 볼 때와 동일한 화면을
       미리 볼 수 있다. */}
       {locationMode === 'search' && (
-      <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-2.5 md:p-4 shadow-xl space-y-2">
+      <div className="bg-white p-2.5 md:p-4 space-y-2">
         {locationMode === 'search' && (
           <div className="flex items-center justify-between gap-2 bg-indigo-50 border border-indigo-100 rounded-lg md:rounded-xl px-2.5 md:px-3 py-1.5 md:py-2">
             <span className="text-[10px] md:text-xs text-indigo-700 font-semibold flex items-center gap-1 min-w-0 truncate">
@@ -542,7 +542,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden relative aspect-square md:aspect-video">
+        <div className="lg:col-span-2 bg-white overflow-hidden relative aspect-square md:aspect-video">
           {KAKAO_MAP_KEY ? (
             <>
               <div ref={mapContainerRef} className="w-full h-full" />
@@ -579,7 +579,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           )}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xl flex flex-col max-h-[600px]">
+        <div className="bg-white p-3 flex flex-col max-h-[600px]">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
             <span className="text-xs font-bold text-slate-600 uppercase font-mono">가까운 거리순 정렬 명함</span>
             <span className="text-xs font-mono text-emerald-600 font-bold">{filteredAndSortedContacts.length}명</span>
@@ -653,7 +653,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
                 return (
                   <div
                     key={c.id}
-                    className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 hover:border-blue-300 transition-all flex items-center gap-2.5 group"
+                    className="py-3 px-1 bg-white border-b border-slate-100 hover:bg-slate-50 transition-all flex items-center gap-2.5 group"
                   >
                     <button
                       onClick={() => toggleVisitList(c.id)}
@@ -727,7 +727,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       {/* [수정] "좌표 없는 명함 목록"을 예전엔 지도 위쪽에 뒀는데, 지도를 먼저 보고 나서
       필요할 때만 아래로 펼쳐보는 흐름이 더 자연스러워서 지도+목록 아래로 옮겼다. */}
       {failureList && (
-        <div className="bg-white border border-rose-200 rounded-3xl p-5 shadow-xl">
+        <div className="bg-white p-3">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-bold text-rose-600">📍 좌표 없는 명함 ({failureList.length}건)</span>
           </div>
@@ -741,7 +741,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
                   <button
                     key={f.id}
                     onClick={() => fullContact && onSelectContact(fullContact)}
-                    className="w-full text-left flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors"
+                    className="w-full text-left flex items-center gap-3 py-2.5 px-1 bg-white hover:bg-rose-50 border-b border-slate-100 transition-colors"
                   >
                     <div className="min-w-0 shrink-0 w-32">
                       <p className="text-xs font-bold text-slate-800 truncate">{f.name}</p>
