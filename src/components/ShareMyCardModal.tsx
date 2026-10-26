@@ -350,13 +350,13 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* 본문 콘텐츠 영역 */}
-        <div className="p-4 flex-1 overflow-y-auto max-h-[60vh]">
-          
+        <div className="p-3 sm:p-4 flex-1 overflow-y-auto max-h-[60vh]">
+
           {/* 탭 1: QR 코드 스캔 */}
           {activeTab === 'qr' && (
-            <div className="flex flex-col items-center justify-center space-y-6 py-2">
-              <div className="p-4 bg-white rounded-3xl shadow-2xl border-4 border-blue-500/30">
-                <img src={qrImageUrl} alt="My QR Code" className="w-36 h-36 sm:w-56 sm:h-56 object-contain" />
+            <div className="flex flex-col items-center justify-center space-y-4 py-1">
+              <div className="p-2.5 sm:p-4 bg-white rounded-3xl shadow-2xl border-4 border-blue-500/30">
+                <img src={qrImageUrl} alt="My QR Code" className="w-28 h-28 sm:w-56 sm:h-56 object-contain" />
               </div>
 
               <div className="w-full pt-2 flex gap-3">
