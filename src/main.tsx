@@ -84,6 +84,11 @@ const isTypingField = (el: EventTarget | null): boolean => {
 document.addEventListener('focusin', (e) => {
   if (isTypingField(e.target)) document.body.classList.add('kb-open');
 });
+// 입력창이 화면에서 사라질 때(탭 이동 등) 포커스 해제 신호가 안 오는 경우가 있어 탭 바가 계속 숨는 문제가 있었다.
+// 화면을 누를 때마다 실제로 입력 중인 칸이 없으면 kb-open을 확실히 지운다.
+document.addEventListener('pointerdown', () => {
+  if (!isTypingField(document.activeElement)) document.body.classList.remove('kb-open');
+}, true);
 document.addEventListener('focusout', () => {
   // 한 입력창에서 다른 입력창으로 옮겨 갈 때 깜빡이지 않도록 잠깐 기다린 뒤 확인한다
   window.setTimeout(() => {
