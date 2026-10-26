@@ -578,7 +578,7 @@ export const Navigation: React.FC<Props> = ({
               className="flex items-center gap-1.5 flex-1 min-w-0 justify-center px-1 sm:px-3.5 py-1.5 rounded-lg font-semibold leading-tight text-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>명함 등록</span>
+              <span>등록</span>
             </button>
 
             {/* 가져오기·내보내기 */}
