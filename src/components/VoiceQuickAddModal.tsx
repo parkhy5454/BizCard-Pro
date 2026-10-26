@@ -272,13 +272,13 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
               >
                 {isParsing ? <Loader2 className="w-8 h-8 text-white animate-spin" /> : <Mic className="w-8 h-8 text-white" />}
               </button>
-              <p className="text-xs text-slate-500 text-center leading-relaxed">
-                {isParsing
-                  ? 'AI가 이름/회사를 정리하고 있어요...'
-                  : isListening
-                  ? '듣고 있어요! 예: "김철수, 카이저솔루션 부장님" · 다 말했으면 다시 눌러주세요'
-                  : '버튼을 누르고, 방금 만난 분의 이름과 회사를 말해주세요'}
-              </p>
+              {(isParsing || isListening) && (
+                <p className="text-xs text-slate-500 text-center leading-relaxed">
+                  {isParsing
+                    ? 'AI가 이름/회사를 정리하고 있어요...'
+                    : '듣고 있어요! 예: "김철수, 카이저솔루션 부장님" · 다 말했으면 다시 눌러주세요'}
+                </p>
+              )}
               {transcript && (
                 <p className="text-[11px] text-slate-400 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 w-full text-center">
                   "{transcript}"
