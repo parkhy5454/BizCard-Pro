@@ -445,7 +445,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
   const activeContact = activeContactId ? contacts.find((c) => c.id === activeContactId) : null;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-2">
 
       {/* [수정] 모바일에서 제목/버튼/드롭다운이 두 줄로 나뉘어 있었다(제목 줄, 그 아래
       버튼+드롭다운 줄). 폰 화면 폭에 맞춰 글자·아이콘·여백을 더 줄이고 항상 가로 한 줄로
