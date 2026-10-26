@@ -202,12 +202,6 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
         </button>
       </div>
 
-      {isAdmin && (
-        <p className="text-xs text-slate-400">
-          "배치 수정"으로 각 팀원의 부서와 직속 상사를 지정하면, 그 아래에 자동으로 소속되어 표시됩니다.
-        </p>
-      )}
-
       {loading ? (
         <div className="text-center py-12 text-sm text-slate-400">불러오는 중...</div>
       ) : error ? (
