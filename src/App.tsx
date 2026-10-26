@@ -677,6 +677,7 @@ export default function App() {
               <IOModal
                 contacts={contacts}
                 groups={groups}
+                initialGroupId={selectedGroupFilter === 'all' ? '' : selectedGroupFilter}
                 onImportSuccess={(list) => setContacts(list)}
               />
             )}

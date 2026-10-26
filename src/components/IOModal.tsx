@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowDownUp, Download, Upload, FileSpreadsheet, FileText, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
@@ -10,12 +10,21 @@ interface Props {
   contacts: BusinessCard[];
   groups: ContactGroup[];
   onImportSuccess: (imported: BusinessCard[]) => void;
+  // [추가] 상단에서 고른 그룹 id (없으면 빈 문자열). 고르면 내보내기 범위가 그 그룹으로 지정된다.
+  initialGroupId?: string;
 }
 
-export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) => {
+export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, initialGroupId = '' }) => {
   // 내보내기 범위 (전체 / 특정 그룹 / 특정 개인)
   const [exportScope, setExportScope] = useState<'all' | 'group' | 'single'>('all');
-  const [selectedGid, setSelectedGid] = useState<string>('');
+  const [selectedGid, setSelectedGid] = useState<string>(initialGroupId);
+
+  // [추가] 상단 그룹 선택이 바뀌면 "1. 내보내기 선택"을 그룹별로 바꾸고 그 그룹을 지정한다.
+  useEffect(() => {
+    if (!initialGroupId) return;
+    setExportScope('group');
+    setSelectedGid(initialGroupId);
+  }, [initialGroupId]);
   const [selectedCid, setSelectedCid] = useState<string>('');
   
   // 내보내기 파일 포맷
