@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Users, MapPin, FolderTree, ArrowDownUp, PlusCircle, ScanLine, Search, Briefcase, Share2, User, LogOut, UserX, CreditCard, Building2, Car, ClipboardCheck, FileSignature, MessageCircleQuestion, X, Bug, Lightbulb, MessageSquare, Send, CheckCircle2, FileSpreadsheet, Printer, ChevronDown, ListChecks, FileText, Inbox, TrendingUp, Mic, Sparkles, Download, History, LayoutDashboard, Calculator, Gift, Network, Megaphone, MessagesSquare, Radar, Upload, LayoutGrid } from 'lucide-react';
 import { FeedbackInboxModal } from './FeedbackInboxModal.js';
 import { ReferralModal } from './ReferralModal.js';
@@ -140,6 +141,7 @@ export const Navigation: React.FC<Props> = ({
   };
   // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
+  const [projectListMenuPos, setProjectListMenuPos] = useState<{ top: number; left: number } | null>(null);
   // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록 및 글로벌 락
   const lastProjectClickRef = useRef<number>(0);
   const isProcessingProjectRef = useRef(false);
@@ -406,17 +408,22 @@ export const Navigation: React.FC<Props> = ({
                 <span>프로젝트 리스트</span>
               </button>
               <button
-                onClick={() => setIsProjectListMenuOpen((v) => !v)}
+                onClick={(e) => {
+                  if (isProjectListMenuOpen) { setIsProjectListMenuOpen(false); return; }
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setProjectListMenuPos({ top: r.bottom + 6, left: Math.max(8, r.left) });
+                  setIsProjectListMenuOpen(true);
+                }}
                 className="flex items-center px-2 bg-slate-100 hover:bg-slate-200 border-l border-slate-200 transition-colors"
                 title="엑셀/PDF 다운로드"
               >
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isProjectListMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {isProjectListMenuOpen && (
+              {isProjectListMenuOpen && projectListMenuPos && createPortal(
                 <>
-                  <div className="fixed inset-0 z-30" onClick={() => setIsProjectListMenuOpen(false)} />
-                  <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 overflow-hidden">
+                  <div className="fixed inset-0 z-[90]" onClick={() => setIsProjectListMenuOpen(false)} />
+                  <div style={{ top: projectListMenuPos.top, left: projectListMenuPos.left }} className="fixed w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden">
                     <button
                       onClick={() => { onExportProjectsExcel(); setIsProjectListMenuOpen(false); }}
                       className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
@@ -432,7 +439,8 @@ export const Navigation: React.FC<Props> = ({
                       <span>PDF 인쇄 / 다운로드</span>
                     </button>
                   </div>
-                </>
+                </>,
+                document.body
               )}
             </div>
 
