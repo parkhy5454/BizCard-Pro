@@ -285,11 +285,11 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ top: 'var(--app-nav-bottom, 0px)' }} className="fixed left-0 right-0 bottom-0 z-[100] flex items-start justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col">
+    <div style={{ top: 'var(--app-nav-bottom, 0px)' }} className="fixed left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+      <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-full overflow-y-auto shadow-2xl flex flex-col">
         
         {/* 상단 타이틀 바 */}
-        <div className="p-6 bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border-b border-slate-200 flex items-center justify-between">
+        <div className="p-4 bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-blue-50 text-blue-700 rounded-2xl border border-blue-500/30">
               <Share2 className="w-6 h-6" />
@@ -349,7 +349,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           {activeTab === 'qr' && (
             <div className="flex flex-col items-center justify-center space-y-6 py-2">
               <div className="p-4 bg-white rounded-3xl shadow-2xl border-4 border-blue-500/30">
-                <img src={qrImageUrl} alt="My QR Code" className="w-56 h-56 object-contain" />
+                <img src={qrImageUrl} alt="My QR Code" className="w-36 h-36 sm:w-56 sm:h-56 object-contain" />
               </div>
 
               <div className="w-full pt-2 flex gap-3">
