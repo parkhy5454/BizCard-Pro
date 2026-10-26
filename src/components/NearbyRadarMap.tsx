@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Compass, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw, Search, LocateFixed } from 'lucide-react';
+import { MapPin, Building2, Phone, X, Route, CheckSquare, Square, Trash2, RefreshCw, Search, LocateFixed } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { getContactGroupIds } from '../groupUtils.js';
 import { getTodayLocalStr } from '../dateUtils.js';
@@ -445,12 +445,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       찌그러지지 않게 고정했다. */}
       <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-2.5 md:p-6 shadow-xl flex flex-row items-center justify-between gap-2 md:gap-4">
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
-          <div className="p-1.5 md:p-3 bg-rose-50 text-rose-600 rounded-lg md:rounded-2xl border border-rose-200 animate-pulse shrink-0">
-            <Compass className="w-3.5 h-3.5 md:w-6 md:h-6" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-[13px] md:text-base font-bold text-slate-900 tracking-tight truncate">주변 사람</h2>
-          </div>
           {isAutoRegeocoding && (
             <span className="text-[9px] text-slate-400 flex items-center gap-1 md:hidden shrink-0">
               <RefreshCw className="w-2.5 h-2.5 animate-spin" />
