@@ -15,8 +15,8 @@ interface Props {
 export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) => {
   // 내보내기 범위 (전체 / 특정 그룹 / 특정 개인)
   const [exportScope, setExportScope] = useState<'all' | 'group' | 'single'>('all');
-  const [selectedGid, setSelectedGid] = useState<string>(groups[0]?.id || '');
-  const [selectedCid, setSelectedCid] = useState<string>(contacts[0]?.id || '');
+  const [selectedGid, setSelectedGid] = useState<string>('');
+  const [selectedCid, setSelectedCid] = useState<string>('');
   
   // 내보내기 파일 포맷
   const [exportFormat, setExportFormat] = useState<'vcf' | 'csv' | 'excel'>('vcf');
@@ -93,8 +93,22 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
     }).join('\r\n\r\n');
   };
 
+  const selectedGroupObj = groups.find((g) => g.id === selectedGid);
+  const selectedPersonObj = contacts.find((c) => c.id === selectedCid);
+  const scopeNeedsPick = (exportScope === 'group' && !selectedGid) || (exportScope === 'single' && !selectedCid);
+  const exportButtonLabel =
+    exportScope === 'group'
+      ? (selectedGroupObj ? `선택된 그룹 (${selectedGroupObj.name}, ${targetContacts.length}건) 내보내기` : '그룹을 선택하세요')
+      : exportScope === 'single'
+        ? (selectedPersonObj ? `선택된 개인 (${selectedPersonObj.name}, ${targetContacts.length}건) 내보내기` : '개인을 선택하세요')
+        : `선택된 명함 (${targetContacts.length}건) 내보내기`;
+
   // 다운로드 트리거
   const handleDownload = () => {
+    if (scopeNeedsPick) {
+      alert(exportScope === 'group' ? '내보낼 그룹을 선택해 주세요.' : '내보낼 개인을 선택해 주세요.');
+      return;
+    }
     if (targetContacts.length === 0) {
       alert('내보낼 명함 데이터가 없습니다.');
       return;
@@ -554,14 +568,37 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
 
                 {/* 그룹 선택 콤보 */}
                 {exportScope === 'group' && (
-                  <select value={selectedGid} onChange={(e) => setSelectedGid(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium mt-2">
-                    {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                  </select>
+                  <div className="mt-2 space-y-2">
+                    {groups.length === 0 ? (
+                      <p className="text-xs text-slate-400">등록된 그룹이 없습니다.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {groups.map((g) => {
+                          const count = contacts.filter((c) => contactHasGroup(c, g.id)).length;
+                          const on = selectedGid === g.id;
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => setSelectedGid(g.id)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${on ? 'bg-blue-600 text-white border-blue-500 shadow' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                            >
+                              {g.name} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      {selectedGroupObj ? <>선택된 그룹: <span className="font-bold text-blue-600">{selectedGroupObj.name}</span> ({targetContacts.length}건)</> : '그룹을 하나 선택해 주세요.'}
+                    </p>
+                  </div>
                 )}
 
                 {/* 개인 선택 콤보 */}
                 {exportScope === 'single' && (
                   <select value={selectedCid} onChange={(e) => setSelectedCid(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium mt-2">
+                    <option value="">개인을 선택하세요</option>
                     {contacts.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
                   </select>
                 )}
@@ -599,10 +636,11 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess }) 
             <button
               type="button"
               onClick={handleDownload}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 mt-6"
+              disabled={scopeNeedsPick || targetContacts.length === 0}
+              className="disabled:opacity-50 disabled:cursor-not-allowed w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 mt-6"
             >
               <Download className="w-4 h-4" />
-              <span>선택된 명함 ({targetContacts.length}건) 내보내기</span>
+              <span>{exportButtonLabel}</span>
             </button>
           </div>
 
