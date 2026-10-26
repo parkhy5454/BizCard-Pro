@@ -575,36 +575,36 @@ export const Navigation: React.FC<Props> = ({
             {/* 명함 등록 */}
             <button
               onClick={onOpenScanModal}
-              className="flex items-center gap-1.5 flex-1 min-w-0 justify-center px-1 sm:px-3.5 py-1.5 rounded-lg font-semibold leading-tight text-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95"
+              className="flex items-center gap-1 flex-1 min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap text-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[10px] sm:text-xs shadow-md shadow-blue-600/25 transition-all active:scale-95"
             >
-              <PlusCircle className="w-4 h-4" />
+              <PlusCircle className="hidden sm:block w-4 h-4" />
               <span>등록</span>
             </button>
 
             {/* 가져오기·내보내기 */}
             <button
               onClick={() => { setPressedCardAction('io'); setActiveTab('io'); }}
-              className={`flex items-center gap-1.5 flex-1 min-w-0 justify-center px-1 sm:px-3.5 py-1.5 rounded-lg font-medium leading-tight text-center text-xs sm:text-sm transition-all active:scale-95 ${cardActionClass(isCardActionOn('io'))}`}
+              className={`flex items-center gap-1 flex-1 min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-medium whitespace-nowrap text-center text-[10px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('io'))}`}
             >
-              <Upload className="w-4 h-4" />
+              <Upload className="hidden sm:block w-4 h-4" />
               <span>가져오기·내보내기</span>
             </button>
 
             {/* 내 명함 공유 */}
             <button
               onClick={() => { setPressedCardAction('share'); onOpenShareMyCardModal(); }}
-              className={`flex items-center gap-1.5 flex-1 min-w-0 justify-center px-1 sm:px-3.5 py-1.5 rounded-lg font-medium leading-tight text-center text-xs sm:text-sm transition-all active:scale-95 ${cardActionClass(isCardActionOn('share'))}`}
+              className={`flex items-center gap-1 flex-1 min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-medium whitespace-nowrap text-center text-[10px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('share'))}`}
             >
-              <Share2 className="w-4 h-4 text-blue-600" />
+              <Share2 className="hidden sm:block w-4 h-4 text-blue-600" />
               <span>내 명함 공유</span>
             </button>
 
             {/* 주변 레이더 지도 */}
             <button
               onClick={() => { setPressedCardAction('nearby'); setActiveTab('nearby'); }}
-              className={`flex items-center gap-1.5 flex-1 min-w-0 justify-center px-1 sm:px-3.5 py-1.5 rounded-lg font-medium leading-tight text-center text-xs sm:text-sm transition-all active:scale-95 ${cardActionClass(isCardActionOn('nearby'))}`}
+              className={`flex items-center gap-1 flex-1 min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-medium whitespace-nowrap text-center text-[10px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('nearby'))}`}
             >
-              <Radar className="w-4 h-4" />
+              <Radar className="hidden sm:block w-4 h-4" />
               <span>주변 사람</span>
             </button>
           </div>
