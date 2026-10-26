@@ -143,7 +143,7 @@ export const Navigation: React.FC<Props> = ({
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
   // [추가] 명함 탭 상단 액션 버튼(음성 입력/가져오기·내보내기/내 명함 공유/주변 레이더 지도)
   // 중 마지막으로 누른 버튼만 파란색으로 표시한다. 탭이 바뀌면 초기화해서 화면 상태와 맞춘다.
-  const [pressedCardAction, setPressedCardAction] = useState<'voice' | 'io' | 'share' | 'nearby' | null>(null);
+  const [pressedCardAction, setPressedCardAction] = useState<'scan' | 'io' | 'share' | 'nearby' | null>(null);
   // [추가] 명함 탭 상단 줄(탭 영역)의 아래쪽 y좌표를 --app-nav-bottom으로 공유해서, 전체 화면 모달이 상단 탭을 가리지 않게 한다.
   const topBarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -158,7 +158,7 @@ export const Navigation: React.FC<Props> = ({
     return () => { ro.disconnect(); window.removeEventListener('resize', update); root.style.setProperty('--app-nav-bottom', '0px'); };
   }, [activeTab]);
   useEffect(() => { setPressedCardAction(null); }, [activeTab]);
-  const isCardActionOn = (k: 'voice' | 'io' | 'share' | 'nearby') =>
+  const isCardActionOn = (k: 'scan' | 'io' | 'share' | 'nearby') =>
     pressedCardAction !== null ? pressedCardAction === k : (k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
   const cardActionClass = (on: boolean) =>
     on ? 'bg-blue-600 text-white border border-blue-600 shadow-md shadow-blue-600/25'
@@ -574,8 +574,8 @@ export const Navigation: React.FC<Props> = ({
           <div className="flex items-center gap-1 w-full py-2 border-b border-slate-100">
             {/* 명함 등록 */}
             <button
-              onClick={onOpenScanModal}
-              className="flex items-center gap-1 flex-1 min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap text-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[11px] sm:text-xs shadow-md shadow-blue-600/25 transition-all active:scale-95"
+              onClick={() => { setPressedCardAction('scan'); onOpenScanModal(); }}
+              className={`flex items-center gap-1 flex-1 min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap text-center text-[11px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('scan'))}`}
             >
               <PlusCircle className="hidden sm:block w-4 h-4" />
               <span>등록</span>
