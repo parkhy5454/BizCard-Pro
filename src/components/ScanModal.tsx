@@ -61,6 +61,12 @@ const emptyForm = (defaultGroupId: string): Partial<BusinessCard> => ({
   groupIds: defaultGroupId ? [defaultGroupId] : []
 });
 
+// 상단 탭 줄(app-top-action-row) 바로 아래부터 오버레이를 깔아, 탭이 가려지지 않게 한다.
+const getTopBarBottom = (): number => {
+  const el = document.getElementById('app-top-action-row');
+  return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
+};
+
 export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate }) => {
   const [frontImg, setFrontImg] = useState<string>('');
   const [backImg, setBackImg] = useState<string>('');
@@ -526,7 +532,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (
