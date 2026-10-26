@@ -449,7 +449,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
             <Compass className="w-3.5 h-3.5 md:w-6 md:h-6" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[13px] md:text-xl font-bold text-slate-900 tracking-tight truncate">주변 사람 지도</h2>
+            <h2 className="text-[13px] md:text-base font-bold text-slate-900 tracking-tight truncate">주변 사람</h2>
           </div>
           {isAutoRegeocoding && (
             <span className="text-[9px] text-slate-400 flex items-center gap-1 md:hidden shrink-0">
@@ -457,6 +457,27 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               정리 중
             </span>
           )}
+        </div>
+
+        <div className="flex flex-1 min-w-0 items-center gap-1.5">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 md:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" />
+            <input
+              type="text"
+              value={addressQuery}
+              onChange={(e) => setAddressQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
+              placeholder="검색"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
+            />
+          </div>
+          <button
+            onClick={handleSearchAddress}
+            disabled={isSearchingAddress || !addressQuery.trim()}
+            className="shrink-0 px-3 md:px-4 py-2 md:py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+          >
+            {isSearchingAddress ? '검색 중...' : '검색'}
+          </button>
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
@@ -499,28 +520,8 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       잡을 수 있게 하는 검색 바. 검색하면 아래 지도/목록의 기준 좌표가 "지금 내 위치"에서
       검색한 지역으로 바뀌고, 실제로 그 지역에 도착해서 GPS로 볼 때와 동일한 화면을
       미리 볼 수 있다. */}
+      {locationMode === 'search' && (
       <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-2.5 md:p-4 shadow-xl space-y-2">
-        <div className="flex items-center gap-1.5 md:gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 md:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" />
-            <input
-              type="text"
-              value={addressQuery}
-              onChange={(e) => setAddressQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
-              placeholder="주소/회사에 포함된 단어로 검색 (예: 노원구, 석계로, 강남역, 판교테크노밸리)"
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
-            />
-          </div>
-          <button
-            onClick={handleSearchAddress}
-            disabled={isSearchingAddress || !addressQuery.trim()}
-            className="shrink-0 px-3 md:px-4 py-2 md:py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
-          >
-            {isSearchingAddress ? '검색 중...' : '검색'}
-          </button>
-        </div>
-
         {locationMode === 'search' && (
           <div className="flex items-center justify-between gap-2 bg-indigo-50 border border-indigo-100 rounded-lg md:rounded-xl px-2.5 md:px-3 py-1.5 md:py-2">
             <span className="text-[10px] md:text-xs text-indigo-700 font-semibold flex items-center gap-1 min-w-0 truncate">
@@ -541,6 +542,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           </div>
         )}
       </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

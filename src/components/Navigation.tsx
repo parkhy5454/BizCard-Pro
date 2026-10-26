@@ -614,7 +614,7 @@ export const Navigation: React.FC<Props> = ({
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${cardActionClass(isCardActionOn('nearby'))}`}
             >
               <Radar className="w-4 h-4" />
-              <span>주변 레이더 지도</span>
+              <span>주변 사람</span>
             </button>
           </div>
 
@@ -800,7 +800,7 @@ export const Navigation: React.FC<Props> = ({
               }`}
             >
               <MapPin className="w-4 h-4 text-rose-400 animate-bounce" />
-              <span>주변 레이더 지도</span>
+              <span>주변 사람</span>
             </button>
           </div>
           )}
