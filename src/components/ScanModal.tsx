@@ -799,22 +799,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   화면처럼 세로 공간이 좁을 때 스크롤이 줄어든다. */}
                   <div className="order-last flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-500 font-mono">명함 스캔</span>
-                    <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setScanSide('front')}
-                        className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all ${scanSide === 'front' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        앞면{frontImg && <Check className="w-3 h-3" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setScanSide('back')}
-                        className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-all ${scanSide === 'back' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        뒷면{backImg && <Check className="w-3 h-3" />}
-                      </button>
-                    </div>
                   </div>
 
                   {scanSide === 'front' ? (
@@ -916,7 +900,25 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
               <div>
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
                   <h3 className="font-bold text-lg text-slate-900">스캔 정보</h3>
-                  <button type="button" onClick={onClose} className="w-8 h-8 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-700 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 bg-slate-100 rounded-lg p-0.5 border border-slate-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setScanSide('front')}
+                        className={`flex items-center gap-1 px-3 rounded-md font-medium transition-all ${scanSide === 'front' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        앞면{frontImg && <Check className="w-3 h-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setScanSide('back')}
+                        className={`flex items-center gap-1 px-3 rounded-md font-medium transition-all ${scanSide === 'back' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        뒷면{backImg && <Check className="w-3 h-3" />}
+                      </button>
+                    </div>
+                    <button type="button" onClick={onClose} className="w-8 h-8 shrink-0 flex items-center justify-center text-slate-500 hover:text-slate-700 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
+                  </div>
                 </div>
 
                 <div className="space-y-4 text-sm pr-1">
