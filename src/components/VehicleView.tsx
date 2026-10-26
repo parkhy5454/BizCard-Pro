@@ -2445,7 +2445,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           {isDrivingFormOpen && (() => {
             // 이전에 등록된 출발지 및 목적지 고유 목록 추출 (주소 정보 매칭 목적)
             const uniqueStarts = Array.from(new Map<string, DrivingLog>(drivingLogs.filter((l): l is DrivingLog & { startPlace: string } => !!l.startPlace).map(l => [l.startPlace, l])).values());
-            const uniqueEnds = Array.from(new Map<string, DrivingLog>(drivingLogs.filter((l): l is DrivingLog & { endPlace: string } => !!l.endPlace).map(l => [l.endPlace, l])).values());
+            const uniqueEnds: DrivingLog[] = (() => { const seen = new Set<string>(); const out: DrivingLog[] = []; [...drivingLogs].sort((x, y) => new Date(y.date).getTime() - new Date(x.date).getTime()).forEach(l => { if (l.endPlace && !seen.has(l.endPlace)) { seen.add(l.endPlace); out.push(l); } }); return out; })();
 
             return (
               <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
@@ -2602,7 +2602,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">부서명 <span className="text-[10px] text-indigo-500 font-normal">(마지막에 쓴 값 자동 입력됨)</span></label>
+                    <label className="text-xs text-slate-500">부서명</label>
                     <input 
                       type="text" 
                       placeholder="예: 영업본부, 개발팀"
@@ -2632,7 +2632,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">운행 목적 대분류</label>
+                    <label className="text-xs text-slate-500">운행 목적</label>
                     <select
                       value={['출퇴근', '고객사 미팅', '일반 업무', '개인 용도'].includes(newDriving.purpose) ? newDriving.purpose : '직접 입력'}
                       onChange={e => {
@@ -2654,7 +2654,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500 font-semibold text-indigo-400">운행 목적 상세 기술 *</label>
+                    <label className="text-xs text-slate-500 font-semibold text-indigo-400">운행 목적 상세</label>
                     <input 
                       type="text" 
                       placeholder="예: 출퇴근, 강남구 프로젝트 대면 미팅 등" 
@@ -2665,7 +2665,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">출발 전 계기판 (km) *</label>
+                    <label className="text-xs text-slate-500">출발 전 (km)</label>
                     <input 
                       type="number"
                       inputMode="decimal"
@@ -2676,7 +2676,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">도착 후 계기판 (km) *</label>
+                    <label className="text-xs text-slate-500">도착 (km)</label>
                     <input 
                       type="number"
                       inputMode="decimal"
@@ -2688,7 +2688,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                   {/* 출발지 상호명 및 주소 추가 */}
                   <div className="space-y-1.5 relative">
-                    <label className="text-xs text-slate-500">출발지 상호명</label>
+                    <label className="text-xs text-slate-500">출발지</label>
                     <input 
                       type="text" 
                       placeholder="예: 본사, 판교테크노밸리"
@@ -2743,7 +2743,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">출발지 주소 추가</label>
+                    <label className="text-xs text-slate-500">출발지 주소</label>
                     <input 
                       type="text" 
                       placeholder="예: 서울시 강남구 테헤란로 152"
@@ -2756,7 +2756,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   {/* 목적지 상호명 및 주소 추가 */}
                   <div className="space-y-1.5 relative">
                     <label className="text-xs text-slate-500 font-semibold text-indigo-400 flex items-center justify-between">
-                      <span>목적지 상호명 *</span>
+                      <span>목적지</span>
                       {/* [수정] 예전엔 "도착 후 계기판" 옆에 있었는데, 이 버튼이 실제로 참고하는
                       값(출발지/목적지 주소)과 더 가까운 "목적지 상호명" 옆으로 옮겼다. 직선거리
                       기반 근사치라 실제 계기판과 다를 수 있으니, 계산 후에도 그 칸을 바로 직접
@@ -2777,7 +2777,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       onChange={e => setNewDriving({ ...newDriving, endPlace: e.target.value })}
                       className="w-full bg-slate-50 text-xs border border-indigo-900/40 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
                     />
-                    <p className="text-[10px] text-slate-400">자동계산은 직선거리 기반 예상치입니다. 계산 후 "도착 후 계기판" 값을 실제와 다르면 직접 고쳐주세요.</p>
                     {uniqueEnds.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1 max-h-[48px] overflow-y-auto">
                         {uniqueEnds.slice(0, 3).map(u => (
@@ -2854,7 +2853,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">목적지 주소 추가</label>
+                    <label className="text-xs text-slate-500">목적지 주소</label>
                     <input 
                       type="text" 
                       placeholder="예: 경기도 성남시 분당구 삼평동 624"
@@ -2866,7 +2865,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                   {/* 메모란 */}
                   <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
-                    <label className="text-xs text-slate-500">운행 관련 상세 특이사항 및 메모</label>
+                    <label className="text-xs text-slate-500">메모</label>
                     <textarea 
                       rows={2}
                       placeholder="통행 제한 우회, 주차권 분실 등 운행 중 특이사항 기록"
@@ -2879,7 +2878,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   {/* 연관 거래처 담당자 연동 */}
                   <div className="sm:col-span-2 lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자 선택</label>
+                      <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자</label>
                       <ContactSearchSelect
                         contacts={contacts}
                         value={newDriving.contactId || ''}
@@ -2895,17 +2894,17 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           onChange={(e) => setUseDirectContact(e.target.checked)}
                           className="rounded border-slate-200 bg-white text-indigo-500 focus:ring-0 focus:ring-offset-0"
                         />
-                        <span className="text-xs text-slate-600 font-semibold">새로운 담당자 직접 입력하여 연결</span>
+                        <span className="text-xs text-slate-600 font-semibold">새 담당자 입력</span>
                       </label>
                     </div>
                   </div>
 
                   {useDirectContact && (
                     <div className="sm:col-span-2 lg:col-span-4 border border-slate-200 bg-slate-50 rounded-xl p-3.5 space-y-3 animate-fadeIn">
-                      <div className="text-xs font-semibold text-indigo-400 border-b border-slate-200 pb-1.5">새 담당자 상세 정보 입력</div>
+                      <div className="text-xs font-semibold text-indigo-400 border-b border-slate-200 pb-1.5">새 담당자 상세 정보</div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
-                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">담당자 성함 *</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">이름</label>
                           <input
                             type="text"
                             value={directContactName}
@@ -2966,7 +2965,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일 주소</label>
+                          <label className="block text-slate-500 text-[10px] font-semibold mb-1">이메일</label>
                           <input
                             type="email"
                             value={directContactEmail}
@@ -2996,7 +2995,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       type="submit"
                       className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                     >
-                      운행기록 추가 완료
+                      완료
                     </button>
                   </div>
                 </form>
