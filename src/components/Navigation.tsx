@@ -159,7 +159,7 @@ export const Navigation: React.FC<Props> = ({
   }, [activeTab]);
   useEffect(() => { setPressedCardAction(null); }, [activeTab]);
   const isCardActionOn = (k: 'scan' | 'io' | 'share' | 'nearby') =>
-    pressedCardAction !== null ? pressedCardAction === k : (k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
+    pressedCardAction !== null ? pressedCardAction === k : (k === 'scan' ? activeTab === 'cards' : k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
   const cardActionClass = (on: boolean) =>
     on ? 'bg-blue-600 text-white border border-blue-600 shadow-md shadow-blue-600/25'
        : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600';
