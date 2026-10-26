@@ -132,7 +132,6 @@ export const AIIntelligenceView: React.FC<Props> = ({ contacts, groups, projects
         </div>
         <div>
           <h2 className="text-lg font-bold text-slate-800">AI Intelligence</h2>
-          <p className="text-xs text-slate-400">등록된 명함·프로젝트·업무일지를 분석해서 지금 챙겨야 할 것을 알려드립니다</p>
         </div>
       </div>
 
@@ -250,7 +249,7 @@ const BriefingTab: React.FC<{
       {/* [추가] "오늘의 브리핑 해석" - 아래에 이미 즉시 표시된(무료) 데이터를 그대로 AI에게
       넘겨서 우선순위·조언만 부탁하는 버튼. 자동으로 안 도는 순수 사용자 액션. */}
       <AiAnalysisPanel
-        label="AI 오늘의 브리핑 해석"
+        label="오늘의 AI 브리핑"
         endpoint="/api/ai-intelligence/briefing-analysis"
         payload={{
           briefing: {
