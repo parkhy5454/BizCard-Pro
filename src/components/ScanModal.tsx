@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
+import { X, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
@@ -781,7 +781,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                     <ScanLine className="w-5 h-5 text-blue-400 animate-pulse" />
                     <h3 className="font-bold text-base text-slate-900">명함 스캔</h3>
                   </div>
-                  <span className="text-xs bg-blue-50 text-blue-700 border border-blue-500/30 px-2 py-0.5 rounded font-mono">앞·뒤 동시지원</span>
                 </div>
 
                 {/* [수정] 명함이 여러 장일 때는 이 버튼으로 연속 촬영 모드로 전환 */}
@@ -794,11 +793,11 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   명함 연속 스캔
                 </button>
 
-                <div className="space-y-3">
+                <div className="flex flex-col gap-3">
                   {/* [수정] 앞면/뒷면을 위아래로 나란히 보여주던 것을, 수정 화면과 통일된
                   토글 방식으로 바꿨다. 한 번에 한 면만 보여주고 버튼으로 전환한다 — 폰
                   화면처럼 세로 공간이 좁을 때 스크롤이 줄어든다. */}
-                  <div className="flex items-center justify-between">
+                  <div className="order-last flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-500 font-mono">명함 스캔</span>
                     <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200 text-xs">
                       <button
@@ -834,7 +833,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center w-full h-full p-4 gap-2.5">
-                            <Upload className="w-7 h-7 text-slate-400" />
                             <button
                               type="button"
                               onClick={() => setCameraTarget('front')}
@@ -867,7 +865,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                           </>
                         ) : (
                           <div className="flex flex-col items-center justify-center w-full h-full p-4 gap-2.5">
-                            <Upload className="w-7 h-7 text-slate-400" />
                             <button
                               type="button"
                               onClick={() => setCameraTarget('back')}
