@@ -527,7 +527,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <div className="max-w-4xl mx-auto pt-0 pb-8 px-4">
       <div className="bg-white p-2 md:p-4 space-y-8">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

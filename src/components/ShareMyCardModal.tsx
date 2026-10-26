@@ -300,7 +300,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-3 bg-white animate-fadeIn">
+    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] flex items-start justify-center px-3 pb-3 pt-1 bg-white animate-fadeIn">
       <div className="bg-white max-w-lg w-full max-h-full overflow-hidden flex flex-col">
         
         <div className="flex-1 min-h-0 overflow-y-auto">

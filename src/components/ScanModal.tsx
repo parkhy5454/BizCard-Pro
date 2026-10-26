@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mic, ScanLine, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
+import { X, Mic, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
 import { CropAdjustModal, resizeDataUrl, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
@@ -786,14 +786,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           /* ========================================== */
           <div className="flex flex-col md:flex-row md:overflow-hidden">
             {/* 좌측: 앞면/뒷면 명함 스캔 업로딩 존 */}
-            <div className="w-full md:w-1/2 bg-white p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 md:overflow-y-auto">
+            <div className="w-full md:w-1/2 bg-white pt-1 px-6 pb-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 md:overflow-y-auto">
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <ScanLine className="w-5 h-5 text-blue-400 animate-pulse" />
-                    <h3 className="font-bold text-base text-slate-900">명함 스캔</h3>
-                  </div>
-                </div>
 
                 <div className="flex gap-2 mb-4">
                   {/* [수정] 명함이 여러 장일 때는 이 버튼으로 연속 촬영 모드로 전환 */}
