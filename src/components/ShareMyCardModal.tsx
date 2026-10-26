@@ -78,7 +78,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
   if (!profile) {
     return (
-      <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] bg-white flex items-start justify-center p-4 overflow-y-auto">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-slate-200 border-t-blue-400 rounded-full animate-spin" />
           <span className="text-xs text-slate-500">내 명함 정보를 불러오는 중...</span>
@@ -300,7 +300,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-3 bg-white animate-fadeIn">
       <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-full overflow-hidden shadow-2xl flex flex-col">
         
         {/* 상단 타이틀 바 */}
@@ -409,7 +409,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                 <div className="grid grid-cols-2 gap-3">
                   <a
                     href={`sms:?body=${encodeURIComponent(shareMessage)}`}
-                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-500/50 hover:bg-slate-100/60 flex items-center gap-3 transition-all group"
+                    className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500/50 hover:bg-slate-50 flex items-center gap-3 transition-all group"
                   >
                     <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 group-hover:scale-110 transition-transform">
                       <MessageSquare className="w-5 h-5" />
@@ -421,7 +421,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
                   <a
                     href={`mailto:?subject=${encodeURIComponent(`[비즈니스 명함] ${profile.company} ${profile.name}`)}&body=${encodeURIComponent(shareMessage)}`}
-                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-500/50 hover:bg-slate-100/60 flex items-center gap-3 transition-all group"
+                    className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-500/50 hover:bg-slate-50 flex items-center gap-3 transition-all group"
                   >
                     <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 group-hover:scale-110 transition-transform">
                       <Mail className="w-5 h-5" />
@@ -441,7 +441,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                     href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-200 flex items-center gap-3 transition-all"
+                    className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-slate-200 flex items-center gap-3 transition-all"
                   >
                     <Globe className="w-4 h-4 text-sky-400" />
                     <span className="text-xs font-medium text-slate-700">트위터 / X 공유</span>
@@ -451,7 +451,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                     href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-200 flex items-center gap-3 transition-all"
+                    className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-slate-200 flex items-center gap-3 transition-all"
                   >
                     <ExternalLink className="w-4 h-4 text-blue-500" />
                     <span className="text-xs font-medium text-slate-700">링크드인 공유</span>
@@ -617,44 +617,44 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-500 mb-1">성명</label>
-                  <input type="text" value={profile.name} onChange={(e) => setProfile({...profile, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
+                  <input type="text" value={profile.name} onChange={(e) => setProfile({...profile, name: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
                 </div>
                 <div>
                   <label className="block text-slate-500 mb-1">직책</label>
-                  <input type="text" value={profile.title} onChange={(e) => setProfile({...profile, title: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
+                  <input type="text" value={profile.title} onChange={(e) => setProfile({...profile, title: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-500 mb-1">회사명</label>
-                  <input type="text" value={profile.company} onChange={(e) => setProfile({...profile, company: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
+                  <input type="text" value={profile.company} onChange={(e) => setProfile({...profile, company: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
                 </div>
                 <div>
                   <label className="block text-slate-500 mb-1">부서</label>
-                  <input type="text" value={profile.department} onChange={(e) => setProfile({...profile, department: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" />
+                  <input type="text" value={profile.department} onChange={(e) => setProfile({...profile, department: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-500 mb-1">핸드폰</label>
-                  <input type="text" inputMode="numeric" value={profile.phoneMobile} onChange={(e) => setProfile({...profile, phoneMobile: formatPhoneNumber(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
+                  <input type="text" inputMode="numeric" value={profile.phoneMobile} onChange={(e) => setProfile({...profile, phoneMobile: formatPhoneNumber(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
                 </div>
                 <div>
                   <label className="block text-slate-500 mb-1">이메일</label>
-                  <input type="email" value={profile.email} onChange={(e) => setProfile({...profile, email: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
+                  <input type="email" value={profile.email} onChange={(e) => setProfile({...profile, email: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" required />
                 </div>
               </div>
 
               <div>
                 <label className="block text-slate-500 mb-1">회사 주소</label>
-                <input type="text" value={profile.address} onChange={(e) => setProfile({...profile, address: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" />
+                <input type="text" value={profile.address} onChange={(e) => setProfile({...profile, address: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" />
               </div>
 
               <div>
                 <label className="block text-slate-500 mb-1">웹사이트 / 홈페이지</label>
-                <input type="text" value={profile.website || ''} onChange={(e) => setProfile({...profile, website: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" placeholder="https://" />
+                <input type="text" value={profile.website || ''} onChange={(e) => setProfile({...profile, website: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 font-medium focus:border-blue-500 outline-none" placeholder="https://" />
               </div>
 
               <button
@@ -671,7 +671,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* 하단 닫기 풋바 */}
-        <div className="shrink-0 px-4 py-1 bg-slate-50 border-t border-slate-200 text-center">
+        <div className="shrink-0 px-4 py-1 bg-white border-t border-slate-200 text-center">
           <button onClick={onClose} className="text-xs font-semibold text-slate-400 hover:text-slate-700 px-6 py-1">
             닫기
           </button>

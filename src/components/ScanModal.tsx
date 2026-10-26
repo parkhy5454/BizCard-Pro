@@ -557,7 +557,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4">
+    <div style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex justify-center p-4">
       <div className="relative w-full max-w-4xl my-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (
@@ -786,7 +786,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
           /* ========================================== */
           <div className="flex flex-col md:flex-row md:overflow-hidden">
             {/* 좌측: 앞면/뒷면 명함 스캔 업로딩 존 */}
-            <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 md:overflow-y-auto">
+            <div className="w-full md:w-1/2 bg-white p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 md:overflow-y-auto">
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -946,7 +946,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-slate-500 block mb-1 font-medium">성명 *</label>
-                      <input type="text" required placeholder="예: 김도현" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-bold focus:outline-none focus:border-blue-500" />
+                      <input type="text" required placeholder="예: 김도현" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-bold focus:outline-none focus:border-blue-500" />
                     </div>
 
                     <div>
@@ -962,20 +962,20 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="text-xs text-slate-500 block mb-1">회사명</label>
-                      <input type="text" placeholder="예: 네이버" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                      <input type="text" placeholder="예: 네이버" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-500 block mb-1">부서명</label>
-                      <input type="text" placeholder="예: 개발팀" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                      <input type="text" placeholder="예: 개발팀" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-500 block mb-1">직책/직급</label>
-                      <input type="text" placeholder="예: 팀장" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                      <input type="text" placeholder="예: 팀장" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                   </div>
 
                   {/* 요구사항: 연락처 핸드폰/사무실/팩스 나누어 입력 */}
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                  <div className="space-y-2.5">
                     <div className="grid grid-cols-1 gap-2">
                       <div>
                         <label className="text-[11px] text-emerald-400 block mb-0.5 font-medium">핸드폰 (Mobile)</label>
@@ -1006,11 +1006,11 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-slate-500 block mb-1">이메일</label>
-                      <input type="email" placeholder="email@domain.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                      <input type="email" placeholder="email@domain.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-500 block mb-1">주소 1 (본사)</label>
-                      <input type="text" placeholder="서울시 강남구..." value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                      <input type="text" placeholder="서울시 강남구..." value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                     </div>
                   </div>
 
@@ -1018,24 +1018,24 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                     <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
                       <span>주소 2 (지사/공장 등)</span>
                     </label>
-                    <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                    <input type="text" placeholder="지사, 공장, 연구소 주소가 있는 경우 여기에 자동 또는 수동 입력됩니다." value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1">홈페이지</label>
-                    <input type="text" placeholder="예: www.company.com" value={form.website || ''} onChange={(e) => setForm({ ...form, website: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                    <input type="text" placeholder="예: www.company.com" value={form.website || ''} onChange={(e) => setForm({ ...form, website: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
                       <span>집 주소</span>
                     </label>
-                    <input type="text" placeholder="필요한 경우에만 입력 (회사 주소와 별도 관리)" value={form.homeAddress || ''} onChange={(e) => setForm({ ...form, homeAddress: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
+                    <input type="text" placeholder="필요한 경우에만 입력 (회사 주소와 별도 관리)" value={form.homeAddress || ''} onChange={(e) => setForm({ ...form, homeAddress: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
 
                   <div>
                     <label className="text-xs text-slate-500 block mb-1">메모</label>
-                    <textarea rows={2} placeholder="주요 협의 사항이나 메모 작성" value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:border-blue-500" />
+                    <textarea rows={2} placeholder="주요 협의 사항이나 메모 작성" value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:border-blue-500" />
                   </div>
                 </div>
               </div>

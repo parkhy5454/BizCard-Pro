@@ -182,7 +182,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
   };
 
   return (
-    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] bg-white flex items-start justify-center p-4 overflow-y-auto">
       <div className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                   <input
                     value={parsed.name}
                     onChange={(e) => setParsed({ ...parsed, name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 font-bold focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 font-bold focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div>
@@ -230,7 +230,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                   <input
                     value={parsed.company}
                     onChange={(e) => setParsed({ ...parsed, company: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -238,13 +238,13 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                     value={parsed.department}
                     onChange={(e) => setParsed({ ...parsed, department: e.target.value })}
                     placeholder="부서명"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                   />
                   <input
                     value={parsed.title}
                     onChange={(e) => setParsed({ ...parsed, title: e.target.value })}
                     placeholder="직책"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -295,7 +295,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
                 </p>
               )}
               {transcript && (
-                <p className="text-[11px] text-slate-400 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 w-full text-center">
+                <p className="text-[11px] text-slate-400 bg-white border border-slate-200 rounded-xl px-3 py-2 w-full text-center">
                   "{transcript}"
                 </p>
               )}
