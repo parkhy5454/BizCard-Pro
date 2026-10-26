@@ -144,6 +144,19 @@ export const Navigation: React.FC<Props> = ({
   // [추가] 명함 탭 상단 액션 버튼(음성 입력/가져오기·내보내기/내 명함 공유/주변 레이더 지도)
   // 중 마지막으로 누른 버튼만 파란색으로 표시한다. 탭이 바뀌면 초기화해서 화면 상태와 맞춘다.
   const [pressedCardAction, setPressedCardAction] = useState<'voice' | 'io' | 'share' | 'nearby' | null>(null);
+  // [추가] 명함 탭 상단 줄(탭 영역)의 아래쪽 y좌표를 --app-nav-bottom으로 공유해서, 전체 화면 모달이 상단 탭을 가리지 않게 한다.
+  const topBarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = topBarRef.current;
+    if (!el) { root.style.setProperty('--app-nav-bottom', '0px'); return; }
+    const update = () => root.style.setProperty('--app-nav-bottom', `${Math.max(0, el.getBoundingClientRect().bottom)}px`);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    return () => { ro.disconnect(); window.removeEventListener('resize', update); root.style.setProperty('--app-nav-bottom', '0px'); };
+  }, [activeTab]);
   useEffect(() => { setPressedCardAction(null); }, [activeTab]);
   const isCardActionOn = (k: 'voice' | 'io' | 'share' | 'nearby') =>
     pressedCardAction !== null ? pressedCardAction === k : (k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
@@ -555,7 +568,7 @@ export const Navigation: React.FC<Props> = ({
 
     {/* [추가] 명함 탭일 때 상단에 고정되는 액션 버튼 및 그룹 필터 */}
     {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
-      <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      <div ref={topBarRef} className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 액션 버튼 섹션 */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
