@@ -110,6 +110,11 @@ export default function App() {
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
   // [추가] 상단 탭(가져오기·내보내기, 주변 레이더 등)을 눌러 화면이 바뀌면 명함 공유/음성 등록 창을 함께 닫는다.
   useEffect(() => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); }, [activeTab]);
+  useEffect(() => {
+    const close = () => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); };
+    window.addEventListener('bizcard:close-floating', close);
+    return () => window.removeEventListener('bizcard:close-floating', close);
+  }, []);
   const [selectedContactDetail, setSelectedContactDetail] = useState<BusinessCard | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'info' | 'history' | 'edit'>('info');
   const [isUserDirectoryOpen, setIsUserDirectoryOpen] = useState<boolean>(false);

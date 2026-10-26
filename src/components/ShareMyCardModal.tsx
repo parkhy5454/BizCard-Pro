@@ -13,6 +13,12 @@ interface Props {
   onClose: () => void;
 }
 
+// 상단 탭 줄(명함 탭 액션 버튼 줄)의 아래쪽 y좌표. 창을 열 때마다 새로 재서, 상단 탭을 가리지 않게 한다.
+const getTopBarBottom = (): number => {
+  const el = document.getElementById('app-top-action-row');
+  return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
+};
+
 export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -63,7 +69,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
   if (!profile) {
     return (
-      <div style={{ top: 'var(--app-nav-bottom, 0px)' }} className="fixed left-0 right-0 bottom-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-slate-200 border-t-blue-400 rounded-full animate-spin" />
           <span className="text-xs text-slate-500">내 명함 정보를 불러오는 중...</span>
@@ -285,29 +291,30 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ top: 'var(--app-nav-bottom, 0px)' }} className="fixed left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-full overflow-y-auto shadow-2xl flex flex-col">
+    <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+      <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-full overflow-hidden shadow-2xl flex flex-col">
         
         {/* 상단 타이틀 바 */}
-        <div className="p-4 bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border-b border-slate-200 flex items-center justify-between">
+        <div className="shrink-0 px-4 py-2.5 bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-50 text-blue-700 rounded-2xl border border-blue-500/30">
-              <Share2 className="w-6 h-6" />
+            <div className="p-1.5 bg-blue-50 text-blue-700 rounded-xl border border-blue-500/30">
+              <Share2 className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-900 tracking-tight">내 명함 공유</h3>
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">내 명함 공유</h3>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition-colors"
           >
             ✕
           </button>
         </div>
 
+        <div className="flex-1 min-h-0 overflow-y-auto">
         {/* 미니 프로필 요약 카드 */}
-        <div className="p-5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-900 text-base">{profile.name}</span>
@@ -328,14 +335,14 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         <div className="flex border-b border-slate-200 bg-slate-100">
           <button
             onClick={() => setActiveTab('qr')}
-            className={`flex-1 py-3 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'qr' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`flex-1 py-2 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'qr' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             <QrCode className="w-4 h-4" />
             <span>QR 스캔</span>
           </button>
           <button
             onClick={() => setActiveTab('send')}
-            className={`flex-1 py-3 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'send' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`flex-1 py-2 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'send' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             <Send className="w-4 h-4" />
             <span>카카오톡 / 문자 / 이메일 / SNS</span>
@@ -343,7 +350,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* 본문 콘텐츠 영역 */}
-        <div className="p-6 flex-1 overflow-y-auto max-h-[60vh]">
+        <div className="p-4 flex-1 overflow-y-auto max-h-[60vh]">
           
           {/* 탭 1: QR 코드 스캔 */}
           {activeTab === 'qr' && (
@@ -656,8 +663,10 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
         </div>
 
+        </div>
+
         {/* 하단 닫기 풋바 */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 text-center">
+        <div className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 text-center">
           <button onClick={onClose} className="text-xs font-semibold text-slate-400 hover:text-slate-700 px-6 py-2">
             닫기
           </button>

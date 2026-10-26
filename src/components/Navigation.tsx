@@ -568,7 +568,7 @@ export const Navigation: React.FC<Props> = ({
 
     {/* [추가] 명함 탭일 때 상단에 고정되는 액션 버튼 및 그룹 필터 */}
     {['cards', 'groups', 'io', 'nearby'].includes(activeTab) && (
-      <div ref={topBarRef} className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      <div id="app-top-action-row" ref={topBarRef} onClickCapture={() => window.dispatchEvent(new Event('bizcard:close-floating'))} className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 액션 버튼 섹션 */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
