@@ -616,8 +616,8 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => setSelectedGroup('all')}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                 selectedGroup === 'all'
-                  ? 'bg-slate-100 text-slate-900 shadow font-bold'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+                  ? 'bg-blue-600 border border-blue-600 text-white shadow font-bold'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
               전체보기
@@ -628,8 +628,8 @@ export const Navigation: React.FC<Props> = ({
                 onClick={() => setSelectedGroup(g.id)}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
                   selectedGroup === g.id
-                    ? `${g.color} ring-2 ring-white/30 font-bold scale-105`
-                    : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-blue-600 border-blue-600 text-white shadow font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {g.name}
