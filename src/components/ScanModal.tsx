@@ -62,6 +62,15 @@ const emptyForm = (defaultGroupId: string): Partial<BusinessCard> => ({
 });
 
 // 상단 탭 줄(app-top-action-row) 바로 아래부터 오버레이를 깔아, 탭이 가려지지 않게 한다.
+// 하단 고정 탭 줄 바로 위까지만 오버레이를 깔아, 하단 탭이 계속 보이게 한다.
+const getTabBarGap = (): number => {
+  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.height === 0) return 0;
+  return Math.max(0, window.innerHeight - rect.top);
+};
+
 const getTopBarBottom = (): number => {
   const el = document.getElementById('app-top-action-row');
   return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
@@ -70,8 +79,9 @@ const getTopBarBottom = (): number => {
 export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate }) => {
   // 페이지가 스크롤되면 상단 탭 줄 위치도 바뀌므로, 오버레이 시작 위치를 계속 다시 잰다.
   const [topOffset, setTopOffset] = useState<number>(() => getTopBarBottom());
+  const [bottomOffset, setBottomOffset] = useState<number>(() => getTabBarGap());
   useEffect(() => {
-    const update = () => setTopOffset(getTopBarBottom());
+    const update = () => { setTopOffset(getTopBarBottom()); setBottomOffset(getTabBarGap()); };
     update();
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
@@ -545,7 +555,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div style={{ top: topOffset }} className="fixed left-0 right-0 bottom-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4">
+    <div style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex justify-center p-4">
       <div className="relative w-full max-w-4xl my-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (

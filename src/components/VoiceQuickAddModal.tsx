@@ -18,6 +18,15 @@ interface Props {
 // 기록하고, 사진 없이 일단 저장해둔다. 나중에 실제 명함을 스캔하면 기존 중복 감지 로직이
 // 자동으로 "기존 정보 업데이트"를 제안해서 이 항목이 자연스럽게 완성된다.
 // 상단 탭 줄(명함 탭 액션 버튼 줄)의 아래쪽 y좌표. 창을 열 때마다 새로 재서, 상단 탭을 가리지 않게 한다.
+// 하단 고정 탭 줄 바로 위까지만 오버레이를 깔아, 하단 탭이 계속 보이게 한다.
+const getTabBarGap = (): number => {
+  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.height === 0) return 0;
+  return Math.max(0, window.innerHeight - rect.top);
+};
+
 const getTopBarBottom = (): number => {
   const el = document.getElementById('app-top-action-row');
   return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
@@ -173,7 +182,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
   };
 
   return (
-    <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
       <div className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">

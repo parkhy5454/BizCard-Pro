@@ -14,6 +14,15 @@ interface Props {
 }
 
 // 상단 탭 줄(명함 탭 액션 버튼 줄)의 아래쪽 y좌표. 창을 열 때마다 새로 재서, 상단 탭을 가리지 않게 한다.
+// 하단 고정 탭 줄 바로 위까지만 오버레이를 깔아, 하단 탭이 계속 보이게 한다.
+const getTabBarGap = (): number => {
+  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.height === 0) return 0;
+  return Math.max(0, window.innerHeight - rect.top);
+};
+
 const getTopBarBottom = (): number => {
   const el = document.getElementById('app-top-action-row');
   return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
@@ -69,7 +78,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
 
   if (!profile) {
     return (
-      <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-slate-200 border-t-blue-400 rounded-full animate-spin" />
           <span className="text-xs text-slate-500">내 명함 정보를 불러오는 중...</span>
@@ -291,7 +300,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ top: getTopBarBottom() }} className="fixed left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+    <div style={{ top: getTopBarBottom(), bottom: getTabBarGap() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
       <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-full overflow-hidden shadow-2xl flex flex-col">
         
         {/* 상단 타이틀 바 */}
@@ -316,11 +325,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         {/* 미니 프로필 요약 카드 */}
         <div className="px-4 py-1 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 text-sm">{profile.name}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-500/20 font-medium">{profile.title}</span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">{profile.company} · {profile.department}</p>
+            <span className="font-bold text-slate-900 text-sm">{profile.name}</span>
           </div>
           <button
             onClick={() => setActiveTab(activeTab === 'edit' ? 'qr' : 'edit')}
@@ -666,8 +671,8 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* 하단 닫기 풋바 */}
-        <div className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 text-center">
-          <button onClick={onClose} className="text-xs font-semibold text-slate-400 hover:text-slate-700 px-6 py-2">
+        <div className="shrink-0 px-4 py-1 bg-slate-50 border-t border-slate-200 text-center">
+          <button onClick={onClose} className="text-xs font-semibold text-slate-400 hover:text-slate-700 px-6 py-1">
             닫기
           </button>
         </div>
