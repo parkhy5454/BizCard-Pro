@@ -141,6 +141,15 @@ export const Navigation: React.FC<Props> = ({
   };
   // [수정] "프로젝트 리스트" 드롭다운(엑셀/PDF 출력) 열림 상태
   const [isProjectListMenuOpen, setIsProjectListMenuOpen] = useState(false);
+  // [추가] 명함 탭 상단 액션 버튼(음성 입력/가져오기·내보내기/내 명함 공유/주변 레이더 지도)
+  // 중 마지막으로 누른 버튼만 파란색으로 표시한다. 탭이 바뀌면 초기화해서 화면 상태와 맞춘다.
+  const [pressedCardAction, setPressedCardAction] = useState<'voice' | 'io' | 'share' | 'nearby' | null>(null);
+  useEffect(() => { setPressedCardAction(null); }, [activeTab]);
+  const isCardActionOn = (k: 'voice' | 'io' | 'share' | 'nearby') =>
+    pressedCardAction !== null ? pressedCardAction === k : (k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
+  const cardActionClass = (on: boolean) =>
+    on ? 'bg-blue-600 text-white border border-blue-600 shadow-md shadow-blue-600/25'
+       : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600';
   const [projectListMenuPos, setProjectListMenuPos] = useState<{ top: number; left: number } | null>(null);
   // [추가] 더블클릭 방지 - 마지막 클릭 시간 기록 및 글로벌 락
   const lastProjectClickRef = useRef<number>(0);
@@ -561,8 +570,8 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 음성 입력 */}
             <button
-              onClick={onOpenVoiceQuickAdd}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95"
+              onClick={() => { setPressedCardAction('voice'); onOpenVoiceQuickAdd(); }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${cardActionClass(isCardActionOn('voice'))}`}
             >
               <Mic className="w-4 h-4" />
               <span>음성 입력</span>
@@ -570,12 +579,8 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 가져오기·내보내기 */}
             <button
-              onClick={() => setActiveTab('io')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${
-                activeTab === 'io'
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                  : 'bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700'
-              }`}
+              onClick={() => { setPressedCardAction('io'); setActiveTab('io'); }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${cardActionClass(isCardActionOn('io'))}`}
             >
               <Upload className="w-4 h-4" />
               <span>가져오기·내보내기</span>
@@ -583,8 +588,8 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 내 명함 공유 */}
             <button
-              onClick={onOpenShareMyCardModal}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 transition-all active:scale-95"
+              onClick={() => { setPressedCardAction('share'); onOpenShareMyCardModal(); }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${cardActionClass(isCardActionOn('share'))}`}
             >
               <Share2 className="w-4 h-4 text-blue-600" />
               <span>내 명함 공유</span>
@@ -592,12 +597,8 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 주변 레이더 지도 */}
             <button
-              onClick={() => setActiveTab('nearby')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'nearby'
-                  ? 'text-indigo-600 font-bold'
-                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-              }`}
+              onClick={() => { setPressedCardAction('nearby'); setActiveTab('nearby'); }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all active:scale-95 ${cardActionClass(isCardActionOn('nearby'))}`}
             >
               <Radar className="w-4 h-4" />
               <span>주변 레이더 지도</span>
