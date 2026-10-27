@@ -250,6 +250,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [drivingReceipts, setDrivingReceipts] = useState<DrivingReceiptDraft[]>([]);
   // "운행 기록 수정" 화면에서 새로 담은 영수증 임시 목록 (신규 작성과 같은 방식: 저장 버튼을 눌러야 등록됨)
   const [editReceiptDrafts, setEditReceiptDrafts] = useState<DrivingReceiptDraft[]>([]);
+  // 상단 서브 탭 줄(고정)의 실제 높이를 재서, 그 바로 아래에 붙는 운행기록 헤더 줄의 top 값으로 쓴다
+  const subTabNavRef = React.useRef<HTMLDivElement>(null);
+  const [subTabNavHeight, setSubTabNavHeight] = useState<number>(0);
+  React.useEffect(() => {
+    const el = subTabNavRef.current;
+    if (!el) return;
+    const update = () => setSubTabNavHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   // 다른 운행기록을 열거나 닫으면 임시 목록을 비운다
   React.useEffect(() => { setEditReceiptDrafts([]); }, [editingDriving?.id]);
   const [isScanningDrivingReceipt, setIsScanningDrivingReceipt] = useState<boolean>(false);
@@ -1619,7 +1631,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       
       {/* 서브 탭 탐색 내비게이션 바 */}
       {/* 스크롤해도 상단(앱 헤더 바로 아래)에 고정되도록 sticky. 운행일지 작성 폼이 길어도 탭이 사라지지 않는다 */}
-      <div className="sticky top-0 z-30 flex border-b border-slate-200 overflow-x-auto bg-white">
+      <div ref={subTabNavRef} className="sticky top-0 z-30 flex border-b border-slate-200 overflow-x-auto bg-white">
         <div className="flex space-x-1 py-1 shrink-0">
           {[
             { id: 'driving', label: '운행기록', icon: MapPin },
@@ -2432,7 +2444,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       {/* 3. 운행기록 (Driving Logs Tab) */}
       {activeSubTab === 'driving' && (
         <div className="space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-200">
+          {/* 서브 탭 바 바로 아래에 함께 고정 (top 값은 서브 탭 바 높이를 측정해서 씀) */}
+          <div className="sticky z-20 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1 pb-3 border-b border-slate-200" style={{ top: subTabNavHeight }}>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
               <button
                 onClick={() => {
