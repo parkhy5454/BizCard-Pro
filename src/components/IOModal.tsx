@@ -613,21 +613,21 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
                   <button
                     type="button"
                     onClick={() => setExportFormat('vcf')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border font-bold ${exportFormat === 'vcf' ? 'bg-indigo-600/30 border-indigo-500 text-indigo-600' : 'bg-white border-slate-200 text-slate-500'}`}
+                    className={`flex items-center justify-center gap-1.5 py-2 whitespace-nowrap rounded-xl border font-bold ${exportFormat === 'vcf' ? 'bg-indigo-600/30 border-indigo-500 text-indigo-600' : 'bg-white border-slate-200 text-slate-500'}`}
                   >
-                    <FileText className="w-3.5 h-3.5 text-indigo-400" /> VCF (vCard)
+                    <FileText className="w-3.5 h-3.5 text-indigo-400" /> vCard
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportFormat('excel')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border font-bold ${exportFormat === 'excel' ? 'bg-emerald-600/30 border-emerald-500 text-emerald-600' : 'bg-white border-slate-200 text-slate-500'}`}
+                    className={`flex items-center justify-center gap-1.5 py-2 whitespace-nowrap rounded-xl border font-bold ${exportFormat === 'excel' ? 'bg-emerald-600/30 border-emerald-500 text-emerald-600' : 'bg-white border-slate-200 text-slate-500'}`}
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Excel (.xls)
                   </button>
                   <button
                     type="button"
                     onClick={() => setExportFormat('csv')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border font-bold ${exportFormat === 'csv' ? 'bg-blue-600/30 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-500'}`}
+                    className={`flex items-center justify-center gap-1.5 py-2 whitespace-nowrap rounded-xl border font-bold ${exportFormat === 'csv' ? 'bg-blue-600/30 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-500'}`}
                   >
                     <FileText className="w-3.5 h-3.5 text-blue-400" /> CSV 파일
                   </button>
