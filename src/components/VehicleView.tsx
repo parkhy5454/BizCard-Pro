@@ -3175,7 +3175,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           {topRowsContainer && createPortal(
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-col gap-2 min-w-0 w-full">
-            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-200">
+            <div className="flex items-center justify-between gap-2 py-3 border-b border-slate-200">
               <button
                 onClick={() => {
                   if (vehicles.length === 0) {
