@@ -641,9 +641,9 @@ export const Navigation: React.FC<Props> = ({
     )}
 
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-        <div data-app-tabbar className="fixed bottom-0 w-full flex flex-col items-center pt-2 gap-1.5 text-sm bg-white z-50" style={{ bottom: 'calc(-1 * env(safe-area-inset-bottom))', paddingBottom: 'calc(0.125rem + env(safe-area-inset-bottom))' }}>
+        <div data-app-tabbar className="fixed bottom-0 w-full flex flex-col items-center pt-1 gap-1.5 text-sm bg-white z-50" style={{ bottom: 'calc(-1 * env(safe-area-inset-bottom))', paddingBottom: 'calc(0rem + env(safe-area-inset-bottom))' }}>
 
-          <div className="flex items-end w-full pb-1.5 px-3 gap-1">
+          <div className="flex items-end w-full pb-0.5 px-3 gap-1">
           <nav className="grid grid-cols-5 gap-1 flex-1 min-w-0">
             {/* 1. 홈 */}
             <button
