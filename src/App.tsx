@@ -609,7 +609,7 @@ export default function App() {
 
       {activeTab === 'vehicles' && (
         <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md">
-          <div ref={setVehicleTopRowsEl} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3" />
+          <div ref={setVehicleTopRowsEl} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" />
         </div>
       )}
 

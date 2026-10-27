@@ -1632,7 +1632,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 서브 탭 탐색 내비게이션 바 */}
       {topRowsContainer && createPortal(
       <div className="flex border-b border-slate-200 overflow-x-auto">
-        <div className="flex space-x-1 py-1 shrink-0">
+        <div className="flex space-x-1 py-2 shrink-0">
           {[
             { id: 'driving', label: '운행기록', icon: MapPin },
             { id: 'expenses', label: '비용관리', icon: Receipt },
@@ -2446,7 +2446,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {activeSubTab === 'driving' && (
         <div className="space-y-4">
           {topRowsContainer && createPortal(
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-200">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 py-2.5 border-b border-slate-200">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
               <button
                 onClick={() => {
