@@ -462,7 +462,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               onChange={(e) => setAddressQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
               placeholder="검색"
-              className="w-full bg-white border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 h-10 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
+              className="w-full bg-white border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 h-9 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
             />
           </div>
           <span className="shrink-0 text-xs md:text-sm font-bold text-slate-600">검색</span>
@@ -473,7 +473,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
           <button
             onClick={handleShowFailures}
             disabled={isLoadingFailures}
-            className="shrink-0 px-2 md:px-4 h-10 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold flex items-center justify-center gap-1 md:gap-1.5 whitespace-nowrap transition-all active:scale-95 disabled:opacity-50"
+            className="shrink-0 px-2 md:px-4 h-9 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold flex items-center justify-center gap-1 md:gap-1.5 whitespace-nowrap transition-all active:scale-95 disabled:opacity-50"
           >
             <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
             <span>{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함'}</span>
@@ -487,7 +487,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               // 기준 목록으로 돌아간다.
               if (keywordMatchIds) setKeywordMatchIds(null);
             }}
-            className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] md:text-xs rounded-lg md:rounded-xl px-1.5 md:px-3 h-10 focus:outline-none focus:border-indigo-500 font-bold"
+            className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] md:text-xs rounded-lg md:rounded-xl px-1.5 md:px-3 h-9 focus:outline-none focus:border-indigo-500 font-bold"
           >
             <option value={1}>1km 이내</option>
             <option value={2}>2km 이내</option>
