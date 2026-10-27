@@ -1618,7 +1618,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     <div className="flex flex-col gap-3 animate-fade-in" id="vehicle-management-view">
       
       {/* 서브 탭 탐색 내비게이션 바 */}
-      <div className="flex border-b border-slate-200 overflow-x-auto">
+      {/* 스크롤해도 상단(앱 헤더 바로 아래)에 고정되도록 sticky. 운행일지 작성 폼이 길어도 탭이 사라지지 않는다 */}
+      <div className="sticky top-0 z-30 flex border-b border-slate-200 overflow-x-auto bg-white">
         <div className="flex space-x-1 py-1 shrink-0">
           {[
             { id: 'driving', label: '운행기록', icon: MapPin },
