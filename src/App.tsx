@@ -590,6 +590,8 @@ export default function App() {
         // 모드까지는 안 지워진다(이 값들은 컴포넌트 내부 상태가 아니라 여기서 내려주는
         // props라서). "첫 화면"으로 보이려면 이것들도 함께 기본값으로 되돌려야 한다.
         onRequestViewReset={() => {
+          // [수정] 같은 탭을 다시 눌러도 열려 있던 명함 상세/수정 창을 닫는다.
+          setSelectedContactDetail(null);
           setViewResetNonce((n) => n + 1);
           setSearchQuery('');
           setProjectFilterStatus('all');
