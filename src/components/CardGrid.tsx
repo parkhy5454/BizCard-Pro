@@ -730,7 +730,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                       <div className="flex items-center gap-2 py-1.5">
                         <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                         <span className="text-slate-500 w-12 font-medium">핸드폰:</span>
-                        <span className="font-mono text-slate-800 font-semibold">{contact.phoneMobile}</span>
+                        <a href={`tel:${contact.phoneMobile}`} onClick={(e) => e.stopPropagation()} className="font-mono text-slate-800 font-semibold underline decoration-slate-300 underline-offset-2 active:text-emerald-600">{contact.phoneMobile}</a>
                       </div>
                     )}
 
@@ -738,7 +738,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                       <div className="flex items-center gap-2 py-1.5">
                         <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                         <span className="text-slate-500 w-12 font-medium">사무실:</span>
-                        <span className="font-mono text-slate-700">{contact.phoneOffice}</span>
+                        <a href={`tel:${contact.phoneOffice}`} onClick={(e) => e.stopPropagation()} className="font-mono text-slate-700 underline decoration-slate-300 underline-offset-2 active:text-blue-600">{contact.phoneOffice}</a>
                       </div>
                     )}
 
@@ -753,7 +753,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     {contact.email && (
                       <div className="flex items-center gap-2 truncate text-slate-500 pt-1">
                         <Mail className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                        <span className="truncate">{contact.email}</span>
+                        <a href={`mailto:${contact.email}`} onClick={(e) => e.stopPropagation()} className="truncate underline decoration-slate-300 underline-offset-2 active:text-indigo-600">{contact.email}</a>
                       </div>
                     )}
 
