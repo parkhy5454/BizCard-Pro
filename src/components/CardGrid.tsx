@@ -235,14 +235,23 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     swipeStartX.current = e.touches[0].clientX;
   };
 
+  // 명함 스와이프 규칙
+  //  - 앞면에서 오른쪽으로 밀기: 뒷면 보기 (뒷면이 있을 때만)
+  //  - 뒷면에서 오른쪽으로 밀기: 다음 명함
+  //  - 뒷면에서 왼쪽으로 밀기: 앞면으로 돌아가기
+  //  - 앞면에서 왼쪽으로 밀기: 다음 명함
   const handleImageSwipeEnd = (contactId: string, hasBack: boolean) => (e: React.TouchEvent) => {
-    if (!hasBack) return;
     const deltaX = e.changedTouches[0].clientX - swipeStartX.current;
     if (Math.abs(deltaX) < 40) return; // 스와이프로 인정할 최소 이동거리
-    setCardImageSide((prev) => ({
-      ...prev,
-      [contactId]: (prev[contactId] || 'front') === 'front' ? 'back' : 'front'
-    }));
+    const side = cardImageSide[contactId] || 'front';
+    const flipTo = (next: 'front' | 'back') => setCardImageSide((prev) => ({ ...prev, [contactId]: next }));
+    if (deltaX > 0) {
+      if (side === 'front' && hasBack) flipTo('back');
+      else scroll('right');
+    } else {
+      if (side === 'back') flipTo('front');
+      else scroll('right');
+    }
   };
 
   const checkScroll = () => {
