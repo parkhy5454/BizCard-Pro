@@ -124,12 +124,10 @@ html {
 
 /* 평평한 단색 대신 은은한 방사형/선형 그라데이션으로 배경에 깊이감을 준다.
    (App.tsx의 최상위 컨테이너가 bg-slate-950을 쓰므로, 그 위에 살짝 얹히는 정도로 아주 은은하게) */
+/* [수정] 하단 탭 아래(홈 표시줄 영역)에 검은 띠가 보이지 않도록 페이지 바탕을 흰색으로 맞춘다 */
 body {
-  background-color: var(--color-slate-950);
-  background-image:
-    radial-gradient(1200px 600px at 12% -10%, rgba(98, 71, 221, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, rgba(46, 95, 219, 0.08), transparent 55%);
-  background-attachment: fixed;
+  background-color: #ffffff;
+  background-image: none;
 }
 
 /* 스크롤바를 어두운 테마에 맞춰 얇고 은은하게 */
