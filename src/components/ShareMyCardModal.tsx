@@ -305,7 +305,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         
         <div className="flex-1 min-h-0 overflow-y-auto">
         {/* 미니 프로필 요약 카드 */}
-        <div className="px-4 py-1 min-h-[84px] bg-white border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 py-1 min-h-[60px] bg-white border-b border-slate-200 flex items-center justify-between">
           <div>
             <span className="font-bold text-slate-900 text-sm">{profile.name}</span>
           </div>
@@ -319,7 +319,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* 탭 쉘 */}
-        <div className="flex min-h-[66px] border-b border-slate-200 bg-white">
+        <div className="flex min-h-[50px] border-b border-slate-200 bg-white">
           <button
             onClick={() => setActiveTab('qr')}
             className={`flex-1 py-1 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'qr' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
@@ -343,7 +343,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
           {activeTab === 'qr' && (
             <div className="flex flex-col items-center justify-center space-y-4 py-1">
               <div className="p-2.5 sm:p-4 bg-white">
-                <img src={qrImageUrl} alt="My QR Code" className="w-40 h-40 sm:w-56 sm:h-56 object-contain" />
+                <img src={qrImageUrl} alt="My QR Code" className="w-60 h-60 sm:w-64 sm:h-64 object-contain" />
               </div>
 
               <div className="w-full pt-2 flex gap-3">
