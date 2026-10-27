@@ -654,7 +654,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
                 <Upload className="w-4 h-4 text-emerald-400" />
               </div>
 
-              <div className="aspect-[4/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-500/60 bg-white flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
+              <div className="aspect-[6/1] w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-emerald-500/60 bg-white flex flex-col items-center justify-center p-4 text-center group cursor-pointer relative transition-all">
                 <Upload className="w-8 h-8 text-slate-400 group-hover:text-emerald-400 transition-colors mb-2" />
                 <span className="text-xs font-bold text-slate-700">파일 선택</span>
                 <span className="text-[11px] text-slate-400 mt-1">지원 확장자: .vcf, .csv, .xls</span>
