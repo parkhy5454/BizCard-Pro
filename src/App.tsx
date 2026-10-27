@@ -333,7 +333,9 @@ export default function App() {
       }
       const data = await res.json();
       setContacts(prev => prev.map(c => c.id === data.id ? data : c));
-      setSelectedContactDetail(data);
+      // [수정] 저장 응답은 창을 닫은 뒤에 도착할 수 있다. 그때 무조건 열면 저장 후에도 수정 창이 다시 뜨므로,
+      // 지금 같은 명함의 창이 열려 있을 때만 최신 값으로 바꾼다.
+      setSelectedContactDetail(prev => (prev && prev.id === data.id ? data : prev));
     } catch (err: unknown) {
       alert(`명함 수정 저장에 실패했습니다.\n${getErrorMessage(err) || '네트워크 상태를 확인하고 다시 시도해주세요.'}`);
     }
@@ -381,7 +383,7 @@ export default function App() {
       }
       const updated = await res.json();
       setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
-      setSelectedContactDetail(updated);
+      setSelectedContactDetail(prev => (prev && prev.id === updated.id ? updated : prev));
     } catch (err) {
       // [수정] 이 함수는 "통화 기록 직접 저장" 뿐 아니라 전화 버튼을 누를 때마다 조용히
       // 자동 기록하는 데도 쓰인다. 실패했다고 매번 알림창을 띄우면 통화하러 가는 흐름을
