@@ -3597,15 +3597,15 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5">
+                            <span className="text-xs font-mono text-slate-500 flex items-center gap-1.5">
                               <span>{e.date}</span>
                               {isLinkedToWorkLog && (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-500/20 text-[8px] font-extrabold text-emerald-700">
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-500/20 text-[9px] font-extrabold text-emerald-700">
                                   업무일지 연동
                                 </span>
                               )}
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600">
                               {getCategoryKo(e.category, e.categoryCustom)}
                             </span>
                           </div>
@@ -3613,11 +3613,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           <div className="space-y-0.5">
                             <div className="font-semibold text-slate-800">{getVehicleModel(e.vehicleId)}</div>
                             {e.projectName && (
-                              <span className="text-[10px] text-indigo-400 block font-medium">📂 {e.projectName}</span>
+                              <span className="text-xs text-indigo-400 block font-medium">📂 {e.projectName}</span>
                             )}
                           </div>
 
-                          <div className="border-t border-slate-200 my-2 pt-2 space-y-1 text-xs">
+                          <div className="border-t border-slate-200 my-2 pt-2 space-y-1 text-sm">
                             <div className="flex justify-between">
                               <span className="text-slate-400">결제 수단</span>
                               <span className="text-slate-600 font-medium">{payMethodKo}</span>
@@ -3633,7 +3633,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                               </div>
                             ) : null}
                             {e.memo && (
-                              <div className="border-t border-slate-200/60 mt-1.5 pt-1.5 text-slate-500 text-[11px] line-clamp-2" title={e.memo}>
+                              <div className="border-t border-slate-200/60 mt-1.5 pt-1.5 text-slate-500 text-xs line-clamp-2" title={e.memo}>
                                 {e.memo}
                               </div>
                             )}
@@ -3641,12 +3641,12 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-2">
-                          <div className="text-right font-bold text-amber-400 font-mono text-base">
+                          <div className="text-right font-bold text-amber-400 font-mono text-lg">
                             {formatWon(e.amount)} 원
                           </div>
                           <div className="flex items-center gap-1">
                             {isLinkedToWorkLog ? (
-                              <span className="text-[10px] text-emerald-400 font-medium font-sans bg-emerald-500/5 px-2 py-1 rounded-lg border border-emerald-500/10" title="업무일지에서 연동되어 직접 수정할 수 없습니다.">
+                              <span className="text-xs text-emerald-400 font-medium font-sans bg-emerald-500/5 px-2 py-1 rounded-lg border border-emerald-500/10" title="업무일지에서 연동되어 직접 수정할 수 없습니다.">
                                 업무일지 연동됨
                               </span>
                             ) : (
