@@ -26,6 +26,9 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
     setSelectedGid(initialGroupId);
   }, [initialGroupId]);
   const [selectedCid, setSelectedCid] = useState<string>('');
+  // 개인별 내보내기에서 이름으로 찾기: 입력값(personQuery)은 검색 버튼/엔터를 눌렀을 때만 적용(personFilter)
+  const [personQuery, setPersonQuery] = useState<string>('');
+  const [personFilter, setPersonFilter] = useState<string>('');
   
   // 내보내기 파일 포맷
   const [exportFormat, setExportFormat] = useState<'vcf' | 'csv' | 'excel'>('vcf');
@@ -106,6 +109,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
   const visibleGroups = initialGroupId ? groups.filter((g) => g.id === initialGroupId) : groups;
   const selectedGroupObj = groups.find((g) => g.id === selectedGid);
   const selectedPersonObj = contacts.find((c) => c.id === selectedCid);
+  const filteredPeople = contacts.filter((c) => !personFilter || c.name.toLowerCase().includes(personFilter.toLowerCase()));
   const scopeNeedsPick = (exportScope === 'group' && !selectedGid) || (exportScope === 'single' && !selectedCid);
   const exportButtonLabel =
     exportScope === 'group'
@@ -599,10 +603,32 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
 
                 {/* 개인 선택 콤보 */}
                 {exportScope === 'single' && (
-                  <select value={selectedCid} onChange={(e) => setSelectedCid(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium mt-2">
-                    <option value="">개인을 선택하세요</option>
-                    {contacts.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
-                  </select>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={personQuery}
+                        onChange={(e) => setPersonQuery(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setPersonFilter(personQuery.trim()); } }}
+                        placeholder="이름 검색"
+                        className="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPersonFilter(personQuery.trim())}
+                        className="shrink-0 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all active:scale-95"
+                      >
+                        검색
+                      </button>
+                    </div>
+                    <select value={selectedCid} onChange={(e) => setSelectedCid(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium">
+                      <option value="">개인을 선택하세요{personFilter ? ` (검색: ${personFilter})` : ''}</option>
+                      {filteredPeople.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
+                    </select>
+                    {personFilter && filteredPeople.length === 0 && (
+                      <p className="text-xs text-slate-400">'{personFilter}'에 맞는 명함이 없습니다.</p>
+                    )}
+                  </div>
                 )}
               </div>
 
