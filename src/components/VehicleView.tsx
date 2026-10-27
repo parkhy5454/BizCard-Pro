@@ -2998,18 +2998,18 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
             return (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 sm:max-w-[440px] sm:mx-auto sm:w-full">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
                   <span>총 {filteredLogs.length}건의 운행 기록</span>
                   <span className="flex items-center gap-1 text-indigo-400 font-medium">
                     <span>옆으로 밀어서 보기</span>
                     <span className="animate-pulse">↔</span>
                   </span>
                 </div>
-                <div className="flex overflow-x-auto gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] sm:max-w-[440px] sm:mx-auto sm:w-full scroll-smooth snap-x snap-mandatory scrollbar-none">
+                <div className="flex overflow-x-auto md:overflow-visible gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 scroll-smooth snap-x snap-mandatory scrollbar-none">
                   {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
-                      className="flex-none w-[340px] sm:w-[400px] snap-center p-2 space-y-3 flex flex-col justify-between"
+                      className="flex-none w-[340px] sm:w-[400px] md:w-auto snap-center p-2 space-y-3 flex flex-col justify-between"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-200">
