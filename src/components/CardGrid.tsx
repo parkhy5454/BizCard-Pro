@@ -895,11 +895,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                   조회할 수 있게, 항상 박스를 보여주고 "AI 기업 인텔리전스" 검색 버튼을
                   같이 둔다(이름은 상세보기 화면과 통일). */}
                   <div
-                    className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-indigo-100 text-xs text-slate-700"
+                    className="text-xs text-slate-700"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">AI 기업 인텔리전스</h4>
+                    <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-300">
+                      <p className="text-xs text-slate-500 font-medium">AI 기업 인텔리전스</p>
                       {onUpdateContact && contact.company && (
                         <button
                           type="button"
@@ -922,16 +922,17 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                       )}
                     </div>
                     {contact.companyInfo ? (
-                      <p className="line-clamp-2 leading-relaxed">{contact.companyInfo}</p>
+                      <p className="mt-2 line-clamp-2 leading-relaxed">{contact.companyInfo}</p>
                     ) : (
-                      <p className="text-slate-400">아직 요약되지 않았습니다. 검색 버튼을 눌러보세요.</p>
+                      <p className="mt-2 text-slate-400">아직 요약되지 않았습니다. 검색 버튼을 눌러보세요.</p>
                     )}
                   </div>
 
                   {/* [수정] 메모 박스는 항상 보이고, 비어 있으면 "메모 / 요약 추가"로 안내한다.
                       누르면 여기서 바로 입력/수정할 수 있고, 명함 수정 화면의 메모 칸과 같은 값을 쓴다. */}
+                  <p className="text-xs text-slate-500 font-medium pb-1.5 border-b border-slate-300">메모 / 요약</p>
                   <div
-                    className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-600"
+                    className="mt-2 text-xs text-slate-600"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {memoEditingId === contact.id && onUpdateContact ? (

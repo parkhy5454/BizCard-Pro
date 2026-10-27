@@ -850,17 +850,17 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               </div>
 
               {/* 명함 메모 */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-2xl border border-indigo-100">
-                <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">비즈니스 메모 / 요약</h4>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{contact.memo || '작성된 비즈니스 메모가 없습니다.'}</p>
+              <div>
+                <p className="text-xs text-slate-500 font-medium pb-1.5 border-b border-slate-300">메모 / 요약</p>
+                <p className="mt-2 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{contact.memo || '작성된 비즈니스 메모가 없습니다.'}</p>
               </div>
 
               {/* [수정] 예전엔 이 블록이 이름/직책 바로 아래(수정하러 들어가기 전엔 눈에 덜
               띄는 위치)에 있었는데, 메모 바로 위로 옮겨서 상세정보 화면을 열자마자 스크롤
               한 번이면 바로 보이게 했다. 이름도 "AI 기업 인텔리전스"로 바꿨다. */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-2xl border border-indigo-100 text-xs text-slate-700">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">AI 기업 인텔리전스</h4>
+              <div className="text-xs text-slate-700">
+                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-300">
+                  <p className="text-xs text-slate-500 font-medium">AI 기업 인텔리전스</p>
                   {contact.company && (
                     <button
                       type="button"
@@ -883,7 +883,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   )}
                 </div>
                 {contact.companyInfo ? (
-                  <p className="leading-relaxed text-slate-800 text-xs font-medium bg-white p-2.5 rounded-xl border border-indigo-100">
+                  <p className="mt-2 leading-relaxed text-slate-800 text-sm whitespace-pre-wrap">
                     {contact.companyInfo}
                   </p>
                 ) : null}
