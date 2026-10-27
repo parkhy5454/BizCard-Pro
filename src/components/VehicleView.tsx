@@ -5691,8 +5691,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 11. 운행일지 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingDriving && (
-        <div style={getVehicleModalInsets()} className="fixed left-0 right-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+        <div style={getVehicleModalInsets()} className="fixed left-0 right-0 bg-white z-[100] flex items-start justify-center p-0 md:items-center md:p-4 overflow-y-auto">
+          <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-xl h-full md:h-auto max-h-full md:max-h-[90vh] flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
                 <h2 className="text-base font-bold text-slate-800">운행 기록 수정 보완</h2>
@@ -5706,7 +5706,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </button>
             </div>
             
-            <form onSubmit={handleUpdateDriving} className="p-5 overflow-y-auto space-y-4 flex-1">
+            <form onSubmit={handleUpdateDriving} className="p-5 overflow-y-auto min-h-0 space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">운전자명</label>
