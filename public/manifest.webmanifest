@@ -1,6 +1,6 @@
 {
-  "name": "BizCard Pro AI",
-  "short_name": "BizCard Pro",
+  "name": "BizCard",
+  "short_name": "BizCard",
   "description": "스마트 명함 & CRM 네트워크",
   "start_url": "/",
   "scope": "/",
