@@ -250,6 +250,18 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   const [drivingReceipts, setDrivingReceipts] = useState<DrivingReceiptDraft[]>([]);
   // "운행 기록 수정" 화면에서 새로 담은 영수증 임시 목록 (신규 작성과 같은 방식: 저장 버튼을 눌러야 등록됨)
   const [editReceiptDrafts, setEditReceiptDrafts] = useState<DrivingReceiptDraft[]>([]);
+  // 운행기록 수정 팝업이 상단 헤더/서브 탭과 하단 탭을 가리지 않도록, 그 사이 띠 영역만 덮는다
+  const getVehicleModalInsets = (): { top: number; bottom: number } => {
+    const topEl = topRowsContainer?.parentElement ?? (document.querySelector('header') as HTMLElement | null);
+    const top = topEl ? Math.max(0, topEl.getBoundingClientRect().bottom) : 0;
+    const tabEl = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+    let bottom = 0;
+    if (tabEl) {
+      const r = tabEl.getBoundingClientRect();
+      if (r.height > 0) bottom = Math.max(0, window.innerHeight - r.top);
+    }
+    return { top, bottom };
+  };
   // 다른 운행기록을 열거나 닫으면 임시 목록을 비운다
   React.useEffect(() => { setEditReceiptDrafts([]); }, [editingDriving?.id]);
   const [isScanningDrivingReceipt, setIsScanningDrivingReceipt] = useState<boolean>(false);
@@ -5679,7 +5691,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 11. 운행일지 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingDriving && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+        <div style={getVehicleModalInsets()} className="fixed left-0 right-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
