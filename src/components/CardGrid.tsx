@@ -566,7 +566,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         {/* 가로 스크롤 카드 컨테이너 */}
         <div
           ref={scrollRef}
-          className="flex overflow-x-auto gap-6 pb-4 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-none"
+          className="flex overflow-x-auto gap-6 pb-4 pt-1 px-[calc(7.5vw-16px)] sm:px-0 scroll-smooth snap-x snap-mandatory scrollbar-none"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {visibleContacts.map((contact) => {
