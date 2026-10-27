@@ -482,16 +482,8 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
             placeholder="검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-11 pr-16 py-0 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
+            className="w-full h-10 pl-11 pr-4 py-0 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
           />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-500 hover:text-blue-700 transition-colors bg-blue-50 px-2 py-1 rounded-lg cursor-pointer"
-            >
-              지우기
-            </button>
-          )}
         </div>
         {/* [추가] 정렬 방식 선택 - 최신순(기본)/이름순 */}
         {setSortOrder && (
