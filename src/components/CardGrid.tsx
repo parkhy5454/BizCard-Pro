@@ -367,7 +367,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         }
 
         return (
-          <div className="relative bg-white p-5 animate-fadeIn max-w-3xl mx-auto">
+          <div className="relative bg-white px-4 pt-1 pb-3 -mt-2 animate-fadeIn max-w-3xl mx-auto">
             <button
               onClick={dismissIntelForToday}
               className="absolute top-3 right-3 p-1.5 rounded-lg text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 transition-colors"
@@ -376,7 +376,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
               <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-2.5 mb-3">
+            <div className="flex items-center gap-2.5 mb-2">
               <div className="w-8 h-8 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-lg border border-indigo-200 shrink-0">
                 <Handshake className="w-4 h-4" />
               </div>
