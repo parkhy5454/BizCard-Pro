@@ -3171,10 +3171,10 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
 
       {/* 4. 비용관리 (Expenses Tab) */}
       {activeSubTab === 'expenses' && (
-        <div className="space-y-4">
+        <div className="space-y-4 -mt-3">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-col gap-2 min-w-0 w-full">
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-200">
               <button
                 onClick={() => {
                   if (vehicles.length === 0) {
@@ -3227,37 +3227,6 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 </div>
               )}
 
-            </div>
-            <div className="flex items-center gap-2">
-              <select 
-                value={selectedVehicleFilter}
-                onChange={e => setSelectedVehicleFilter(e.target.value)}
-                className="flex-1 min-w-0 bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="all">모든 차량 비용</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.modelName} [{v.plateNumber}]</option>
-                ))}
-              </select>
-
-              <select 
-                value={expenseCategoryFilter}
-                onChange={e => setExpenseCategoryFilter(e.target.value)}
-                className="flex-1 min-w-0 bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="all">모든 비용 분류</option>
-                <option value="fuel">주유비</option>
-                <option value="toll">통행료</option>
-                <option value="parking">주차비</option>
-                <option value="maintenance">정비/수리비</option>
-                <option value="tax_insurance">세금/보험</option>
-                <option value="agency_drive">대리운전비</option>
-                <option value="beverage">음료</option>
-                <option value="meal">식대</option>
-                <option value="supplies">물품 구입</option>
-                <option value="custom">직접 입력 분류</option>
-                <option value="other">기타</option>
-              </select>
             </div>
             </div>
           </div>
@@ -3544,14 +3513,14 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     type="submit"
                     className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                   >
-                    비용 지출 등록 완료
+                    등록 완료
                   </button>
                 </div>
               </form>
             </div>
           )}
 
-          {(() => {
+          {!isExpenseFormOpen && (() => {
             // [수정] 예전엔 서버가 등록해준 순서(=입력한 순서) 그대로 보여줬다. 그래서
             // 8/8 지출을 8/10 지출보다 나중에 입력하면, 실제 지출 날짜는 8/8이 더 과거인데도
             // 화면 맨 앞(가장 눈에 띄는 자리)에 8/8이 뜨는 문제가 있었다. 이제 지출 "날짜"
