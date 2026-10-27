@@ -621,12 +621,31 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
                         검색
                       </button>
                     </div>
-                    <select value={selectedCid} onChange={(e) => setSelectedCid(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium">
-                      <option value="">개인을 선택하세요{personFilter ? ` (검색: ${personFilter})` : ''}</option>
-                      {filteredPeople.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
-                    </select>
+                    {!personFilter && (
+                      <p className="text-xs text-slate-400">이름을 입력하고 검색하면 결과가 나타나요.</p>
+                    )}
                     {personFilter && filteredPeople.length === 0 && (
                       <p className="text-xs text-slate-400">'{personFilter}'에 맞는 명함이 없습니다.</p>
+                    )}
+                    {personFilter && filteredPeople.length > 0 && (
+                      <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
+                        {filteredPeople.slice(0, 30).map((c) => {
+                          const on = c.id === selectedCid;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setSelectedCid(c.id)}
+                              className={`w-full text-left px-3 py-2.5 rounded-xl border text-xs transition-all ${on ? 'bg-blue-600 text-white border-blue-500 font-bold shadow' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                            >
+                              {c.name} <span className={on ? 'text-blue-100' : 'text-slate-400'}>({c.company || '회사 미등록'})</span>
+                            </button>
+                          );
+                        })}
+                        {filteredPeople.length > 30 && (
+                          <p className="text-[11px] text-slate-400 px-1">검색 결과가 많아 30명만 보여요. 이름을 더 입력해 주세요.</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
