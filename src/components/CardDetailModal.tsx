@@ -466,7 +466,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   };
 
   return (
-    <div style={{ top: getModalTopInset(), bottom: getModalBottomInset() }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div style={{ top: getModalTopInset(), bottom: getModalBottomInset() }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-4">
       <div ref={panelRef} className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-full md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
