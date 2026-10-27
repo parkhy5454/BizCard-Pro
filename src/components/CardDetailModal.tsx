@@ -1126,7 +1126,6 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               <div>
                 <label className="text-xs text-slate-500 block mb-1 font-medium text-slate-600 flex items-center gap-1">
                   <span>집 주소</span>
-                  <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded font-mono">개인정보 · 명함 이미지엔 안 나옴</span>
                 </label>
                 <input type="text" placeholder="필요한 경우에만 입력 (회사 주소와 별도 관리)" value={editForm.homeAddress || ''} onChange={e=>setEditForm({...editForm, homeAddress:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
               </div>
