@@ -466,11 +466,11 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   };
 
   return (
-    <div style={{ top: getModalTopInset(), bottom: getModalBottomInset() }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-4">
-      <div ref={panelRef} className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-full md:max-h-[90vh]">
+    <div style={{ top: getModalTopInset(), bottom: getModalBottomInset() }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-0 md:p-4">
+      <div ref={panelRef} className="relative w-full max-w-4xl bg-white border-0 md:border border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden h-full md:h-auto max-h-full md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
-        <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200">
+        <div className="w-full md:w-1/2 bg-slate-50 p-4 md:p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               
@@ -620,7 +620,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
         </div>
 
         {/* 우측: 상세 인포메이션 & 히스토리 타임라인 탭 */}
-        <div className="w-full md:w-1/2 p-6 flex flex-col md:overflow-hidden">
+        <div className="w-full md:w-1/2 p-4 md:p-6 flex flex-col md:overflow-hidden">
           
           {/* 상단 헤더 & 닫기 */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-200">
@@ -1023,7 +1023,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
           {/* 탭 3: 명함 수정 폼 */}
           {activeTab === 'edit' && (
             <form onSubmit={handleSaveEdit} className="flex-1 overflow-y-auto py-3 space-y-4 pr-2 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-500 block mb-1 font-medium">성명 *</label>
                   <input type="text" required value={editForm.name} onChange={e=>setEditForm({...editForm, name:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
@@ -1064,7 +1064,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                 </p>
               )}
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <label className="text-xs text-slate-500 block mb-1 font-medium">회사명</label>
                   <input type="text" value={editForm.company} onChange={e=>setEditForm({...editForm, company:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
@@ -1105,7 +1105,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-500 block mb-1 font-medium">이메일</label>
                   <input type="email" value={editForm.email} onChange={e=>setEditForm({...editForm, email:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500" />
