@@ -533,8 +533,8 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* 섹션 1: 명함 백업 내보내기 (Export) */}
-          <div className="bg-white space-y-5 flex flex-col justify-between">
-            <div className="space-y-4">
+          <div className="bg-white space-y-2 flex flex-col justify-between">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">📤 내보내기 (Export)</span>
                 <Download className="w-4 h-4 text-blue-400" />
@@ -607,7 +607,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
               </div>
 
               {/* 포맷 선택 */}
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-600">2. 파일 규격</label>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <button
@@ -639,7 +639,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
               type="button"
               onClick={handleDownload}
               disabled={scopeNeedsPick || targetContacts.length === 0}
-              className="disabled:opacity-50 disabled:cursor-not-allowed w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-2 mt-6"
+              className="disabled:opacity-50 disabled:cursor-not-allowed w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4" />
               <span>{exportButtonLabel}</span>
