@@ -648,7 +648,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
 
           {/* 섹션 2: 외부 주소록 가져오기 (Import) */}
           <div className="bg-white space-y-5 flex flex-col justify-between">
-            <div className="space-y-4">
+            <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-400 uppercase font-mono tracking-wider">📥 가져오기 (Import)</span>
                 <Upload className="w-4 h-4 text-emerald-400" />
