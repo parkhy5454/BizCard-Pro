@@ -346,7 +346,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         }
 
         return (
-          <div className="relative bg-white border border-slate-200 rounded-3xl p-5 shadow-sm animate-fadeIn max-w-3xl mx-auto">
+          <div className="relative bg-white p-5 animate-fadeIn max-w-3xl mx-auto">
             <button
               onClick={dismissIntelForToday}
               className="absolute top-3 right-3 p-1.5 rounded-lg text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 transition-colors"
