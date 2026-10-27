@@ -1553,7 +1553,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     <div className="flex flex-col gap-3 animate-fade-in" id="vehicle-management-view">
       
       {/* 서브 탭 탐색 내비게이션 바 */}
-      <div className="flex border-b border-slate-200 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex border-b border-slate-200 overflow-x-auto">
         <div className="flex space-x-1 py-1 shrink-0">
           {[
             { id: 'driving', label: '운행기록', icon: MapPin },
@@ -2376,21 +2376,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   }
                   setIsDrivingFormOpen(!isDrivingFormOpen);
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
+                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0 whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>운행 일지 작성</span>
               </button>
 
               {/* 기간 필터 버튼 */}
-              <div className="flex flex-nowrap shrink-0 items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
+              <div className="flex flex-nowrap shrink-0 items-center gap-0.5 bg-white p-1 rounded-xl border border-slate-200">
                 {(['all', 'today', 'week', 'month', 'year'] as const).map(p => {
                   const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '';
                   return (
                     <button
                       key={p}
                       onClick={() => setDrivingPeriod(p)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      className={`px-2 py-1.5 rounded-lg text-[11px] whitespace-nowrap font-semibold transition-all ${
                         drivingPeriod === p 
                           ? 'bg-indigo-600 text-white shadow-sm' 
                           : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
