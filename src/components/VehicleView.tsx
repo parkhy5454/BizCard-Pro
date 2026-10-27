@@ -3560,7 +3560,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return (
                       <div 
                         key={e.id}
-                        className="flex-none w-[290px] sm:w-[350px] snap-start border border-slate-200 bg-white p-4 rounded-2xl space-y-3 flex flex-col justify-between shadow-sm"
+                        className="flex-none w-[290px] sm:w-[350px] snap-start p-2 space-y-3 flex flex-col justify-between"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
@@ -4127,7 +4127,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                         return (
                           <div 
                             key={m.id}
-                            className={`flex-none w-[290px] sm:w-[350px] snap-start border p-4 rounded-2xl space-y-3 flex flex-col justify-between ${
+                            className={`flex-none w-[290px] sm:w-[350px] snap-start p-2 space-y-3 flex flex-col justify-between ${
                               m.status === 'scheduled' 
                                 ? 'bg-amber-50 border-amber-200 shadow-sm' 
                                 : 'bg-white border-slate-200 shadow-sm'
@@ -4273,7 +4273,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     return (
                       <div 
                         key={item.id}
-                        className={`border p-4 rounded-2xl space-y-4 bg-white border-slate-200 flex flex-col justify-between relative overflow-hidden`}
+                        className={`p-2 space-y-4 flex flex-col justify-between relative overflow-hidden`}
                       >
                         {hasWarning && (
                           <div className="absolute right-0 top-0 bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-bl border-l border-b border-amber-500/20 flex items-center gap-1">
@@ -4598,7 +4598,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
         return (
           <div className="space-y-4">
-            <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
+            <div className="space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
@@ -4759,7 +4759,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       <div 
                         key={v.id}
                         id={`nts-report-${v.id}`}
-                        className={`flex-none w-full max-w-5xl snap-center bg-white text-slate-900 p-5 sm:p-6 md:p-8 rounded-2xl shadow-xl border transition-all ${
+                        className={`flex-none w-full max-w-5xl snap-center bg-white text-slate-900 p-5 sm:p-6 md:p-8 rounded-2xl transition-all ${
                           isActive ? 'ring-2 ring-indigo-500 border-indigo-500/30' : 'opacity-70 border-slate-300 hover:opacity-100'
                         } print:border-none print:shadow-none print:p-0 print:block print:w-full print:max-w-none print:opacity-100 ${
                           isActive ? 'print:block' : 'print:hidden'
