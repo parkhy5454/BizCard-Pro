@@ -570,6 +570,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               </a>
             </div>
             
+            <div className="grid grid-cols-2 gap-3">
             {contact.phoneOffice && (
               <a
                 href={`tel:${contact.phoneOffice}`}
@@ -577,7 +578,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                 className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 hover:border-slate-200 text-slate-600 font-medium text-xs transition-colors"
               >
                 <Building2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>사무실 유선 전화 연결</span>
+                <span>유선 전화 연결</span>
               </a>
             )}
 
@@ -614,6 +615,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               <UserPlus className="w-3.5 h-3.5" />
               <span>{inviteStatus === 'copied' ? '추천 메시지가 복사되었습니다!' : '앱 추천'}</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -624,14 +626,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
           <div className="flex items-center justify-between pb-4 border-b border-slate-200">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setActiveTab('info')}
-                className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'info' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40' : 'text-slate-500 hover:text-white'}`}
-              >
-                명함 상세정보
-              </button>
-              
-              <button
-                onClick={() => setActiveTab('history')}
+                onClick={() => setActiveTab(activeTab === 'history' ? 'info' : 'history')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'history' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40' : 'text-slate-500 hover:text-white'}`}
               >
                 <History className="w-4 h-4" />
