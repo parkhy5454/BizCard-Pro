@@ -5885,22 +5885,24 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                 등록/수정 뒤에도 놓치지 않도록 하기 위함이다. */}
                 <div className="sm:col-span-2 space-y-2 pt-2 border-t border-slate-200">
                   <label className="text-xs text-slate-500 block font-semibold text-emerald-500">이 운행에 연결된 영수증</label>
+                  <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setReceiptCameraTarget('driving-edit')}
                     disabled={isScanningEditReceipt}
-                    className="w-full flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-50"
                   >
                     <Camera className="w-4 h-4" />
                     <span>{isScanningEditReceipt ? '영수증 스캔 및 저장 중...' : '영수증 추가로 촬영 (촬영 즉시 저장됨)'}</span>
                   </button>
-                      <button
+                    <button
                         type="button"
                         onClick={() => { receiptGalleryContextRef.current = 'driving-edit'; receiptFallbackFileInputRef.current?.click(); }}
                         className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
                       >
                         갤러리에서 선택
-                      </button>
+                    </button>
+                  </div>
 
                   {(() => {
                     const linkedReceipts = expenses.filter((e) => e.drivingLogId === editingDriving.id);
