@@ -143,8 +143,8 @@ export const DashboardView: React.FC<Props> = ({
       </div>
 
       {/* 핵심 지표 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white border border-blue-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="bg-white border border-blue-200 p-3.5 sm:p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-blue-700">등록 명함</span>
             <p className="text-2xl font-bold text-slate-900">{contacts.length.toLocaleString()}건</p>
@@ -155,7 +155,7 @@ export const DashboardView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="bg-white border border-amber-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-amber-200 p-3.5 sm:p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-amber-700">진행 프로젝트</span>
             <p className="text-2xl font-bold text-slate-900">{statusCounts.progress.toLocaleString()}건</p>
@@ -166,7 +166,7 @@ export const DashboardView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="bg-white border border-indigo-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-indigo-200 p-3.5 sm:p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-indigo-700">등록 차량</span>
             <p className="text-2xl font-bold text-slate-900">{loading ? '-' : `${vehicles.length.toLocaleString()}대`}</p>
@@ -180,7 +180,7 @@ export const DashboardView: React.FC<Props> = ({
         {currentUser.role === 'admin' && pendingCount !== null ? (
           <button
             onClick={onOpenUserDirectory}
-            className="bg-white border border-rose-200 p-5 rounded-2xl flex items-center justify-between shadow-sm text-left hover:brightness-95 transition-all"
+            className="bg-white border border-rose-200 p-3.5 sm:p-5 rounded-2xl flex items-center justify-between shadow-sm text-left hover:brightness-95 transition-all"
           >
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-rose-700">승인 대기</span>
@@ -192,7 +192,7 @@ export const DashboardView: React.FC<Props> = ({
             </div>
           </button>
         ) : (
-          <div className="bg-white border border-emerald-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
+          <div className="bg-white border border-emerald-200 p-3.5 sm:p-5 rounded-2xl flex items-center justify-between shadow-sm">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-emerald-700">이번 달 업무일지</span>
               <p className="text-2xl font-bold text-slate-900">{loading ? '-' : `${workLogsThisMonthCount.toLocaleString()}건`}</p>
@@ -210,7 +210,7 @@ export const DashboardView: React.FC<Props> = ({
         {myPendingApprovalCount !== null && (
           <button
             onClick={onOpenApprovals}
-            className="bg-white border border-teal-200 p-5 rounded-2xl flex items-center justify-between shadow-sm text-left hover:brightness-95 transition-all"
+            className="bg-white border border-teal-200 p-3.5 sm:p-5 rounded-2xl flex items-center justify-between shadow-sm text-left hover:brightness-95 transition-all"
           >
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-teal-700">내 결재 대기</span>
