@@ -3582,7 +3582,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     <span className="animate-pulse">↔</span>
                   </span>
                 </div>
-                <div className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                <div className="flex overflow-x-auto md:overflow-visible gap-4 pb-4 px-[calc(50%-145px)] sm:px-[calc(50%-175px)] md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 scroll-smooth snap-x snap-mandatory scrollbar-none">
                   {filteredExpenses.slice(0, visibleExpenseCount).map(e => {
                     let payMethodKo = '법인(회사)카드';
                     if (e.payMethod === 'personal_card') payMethodKo = '개인카드';
@@ -3593,7 +3593,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     return (
                       <div 
                         key={e.id}
-                        className="flex-none w-[290px] sm:w-[350px] snap-start p-2 space-y-3 flex flex-col justify-between"
+                        className="flex-none w-[290px] sm:w-[350px] md:w-auto snap-center p-2 space-y-3 flex flex-col justify-between"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
