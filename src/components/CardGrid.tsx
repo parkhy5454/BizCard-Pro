@@ -63,6 +63,9 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
   const [isLeftArrowVisible, setIsLeftArrowVisible] = useState(false);
   const [isRightArrowVisible, setIsRightArrowVisible] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  // [추가] 목록 카드에서 메모를 바로 입력/수정할 때 쓰는 상태 (수정 중인 명함 id와 입력 중인 내용)
+  const [memoEditingId, setMemoEditingId] = useState<string | null>(null);
+  const [memoDraft, setMemoDraft] = useState('');
   // [추가] 목록 화면의 여러 카드 중 지금 "AI 기업 인텔리전스"를 조회 중인 카드가 어느
   // 것인지 추적한다(카드마다 독립적으로 로딩 상태를 보여주기 위함).
   const [searchingCompanyId, setSearchingCompanyId] = useState<string | null>(null);
@@ -925,12 +928,57 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     )}
                   </div>
 
-                  {/* 메모 요약 */}
-                  {contact.memo && (
-                    <p className="text-xs text-slate-500 bg-slate-100 p-2.5 rounded-xl border border-slate-200 line-clamp-2 italic">
-                      "{contact.memo}"
-                    </p>
-                  )}
+                  {/* [수정] 메모 박스는 항상 보이고, 비어 있으면 "메모 / 요약 추가"로 안내한다.
+                      누르면 여기서 바로 입력/수정할 수 있고, 명함 수정 화면의 메모 칸과 같은 값을 쓴다. */}
+                  <div
+                    className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-600"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {memoEditingId === contact.id && onUpdateContact ? (
+                      <div className="space-y-2">
+                        <textarea
+                          rows={3}
+                          value={memoDraft}
+                          onChange={(e) => setMemoDraft(e.target.value)}
+                          placeholder="메모 / 요약을 입력하세요"
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:outline-none focus:border-blue-500"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMemoEditingId(null)}
+                            className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold text-xs"
+                          >
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onUpdateContact({ ...contact, memo: memoDraft });
+                              setMemoEditingId(null);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+                          >
+                            저장
+                          </button>
+                        </div>
+                      </div>
+                    ) : onUpdateContact ? (
+                      <button
+                        type="button"
+                        onClick={() => { setMemoDraft(contact.memo || ''); setMemoEditingId(contact.id); }}
+                        className="w-full text-left"
+                      >
+                        {contact.memo ? (
+                          <p className="italic line-clamp-2 whitespace-pre-wrap">"{contact.memo}"</p>
+                        ) : (
+                          <p className="text-slate-400">+ 메모 / 요약 추가</p>
+                        )}
+                      </button>
+                    ) : contact.memo ? (
+                      <p className="italic line-clamp-2 whitespace-pre-wrap">"{contact.memo}"</p>
+                    ) : null}
+                  </div>
                 </div>
 
                 {/* 하단 푸터 (등록일 & 통화 히스토리 카운트) */}
