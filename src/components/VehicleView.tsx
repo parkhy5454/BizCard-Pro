@@ -3682,7 +3682,9 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 5. 정비일지 (Maintenance Tab) */}
       {activeSubTab === 'maintenance' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-start gap-3 border-b border-slate-200 pb-3">
+          {topRowsContainer && createPortal(
+            <>
+          <div className="flex items-center justify-between gap-2 py-3 border-b border-slate-200">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -3696,13 +3698,59 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     setIsMaintFormOpen(!isMaintFormOpen);
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-xs text-white transition-all font-semibold shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{maintSubMode === 'intervals' ? '점검 주기 등록' : '정비내역 등록'}</span>
               </button>
             </div>
+          
+            {maintSubMode === 'history' && (
+              <div className="flex flex-nowrap shrink-0 items-center gap-0.5 bg-white p-1 rounded-xl border border-slate-200">
+                {(['all', 'today', 'week', 'month', 'year'] as const).map(p => {
+                  const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : '올해';
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setMaintPeriod(p)}
+                      className={`px-2 py-1.5 rounded-lg text-[11px] whitespace-nowrap font-semibold transition-all ${
+                        maintPeriod === p
+                          ? 'bg-blue-400 text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+            <div className="flex border-b border-slate-200 pb-px gap-1">
+              <button
+                onClick={() => setMaintSubMode('history')}
+                className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
+                  maintSubMode === 'history'
+                    ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                } rounded-t-xl`}
+              >
+                🛠️ 정비 내역 대장
+              </button>
+              <button
+                onClick={() => setMaintSubMode('intervals')}
+                className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
+                  maintSubMode === 'intervals'
+                    ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                } rounded-t-xl`}
+              >
+                🔄 소모품 점검 주기
+              </button>
+            </div>
+            </>,
+            topRowsContainer
+          )}
 
           {/* 정비기록 신규 등록 폼 */}
           {maintSubMode === 'history' && isMaintFormOpen && (
@@ -4034,73 +4082,9 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
           )}
 
-          {/* 서브 토글 탭 */}
-          <div className="flex border-b border-slate-200 pb-px gap-1">
-            <button
-              onClick={() => setMaintSubMode('history')}
-              className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
-                maintSubMode === 'history'
-                  ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              } rounded-t-xl`}
-            >
-              🛠️ 정비 내역 대장
-            </button>
-            <button
-              onClick={() => setMaintSubMode('intervals')}
-              className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
-                maintSubMode === 'intervals'
-                  ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-              } rounded-t-xl`}
-            >
-              🔄 소모품 점검 주기
-            </button>
-          </div>
-
           {/* 1) 정비 내역 대장 모드 */}
           {maintSubMode === 'history' && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/20 p-3 rounded-2xl border border-slate-200">
-                {/* 기간 필터 버튼 */}
-                <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
-                  {(['all', 'today', 'week', 'month', 'year', 'custom'] as const).map(p => {
-                    const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '직접 선택';
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setMaintPeriod(p)}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          maintPeriod === p 
-                            ? 'bg-indigo-600 text-white shadow-sm' 
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {maintPeriod === 'custom' && (
-                  <div className="flex items-center gap-2 bg-white p-1.5 border border-slate-200 rounded-xl">
-                    <input 
-                      type="date" 
-                      value={maintCustomStart}
-                      onChange={e => setMaintCustomStart(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
-                    />
-                    <span className="text-slate-400 text-xs">~</span>
-                    <input 
-                      type="date" 
-                      value={maintCustomEnd}
-                      onChange={e => setMaintCustomEnd(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-600 focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                )}
-              </div>
-
               {(() => {
                 // [수정] 예전엔 서버가 준 원본 순서(=등록한 순서) 그대로 보여줘서, 방금 완료한
                 // 정비 건이 목록 맨 앞이 아니라 옆으로 밀어야 보이는 자리에 묻히는 문제가 있었다.
@@ -4130,7 +4114,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       <span className="animate-pulse">↔</span>
                     </span>
                   </div>
-                  <div className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                  <div className="flex overflow-x-auto md:overflow-visible gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 scroll-smooth snap-x snap-mandatory scrollbar-none">
                     {filteredMaint
                       .slice(0, visibleMaintCount)
                       .map(m => {
@@ -4142,7 +4126,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         return (
                           <div 
                             key={m.id}
-                            className={`flex-none w-[290px] sm:w-[350px] snap-start p-2 space-y-3 flex flex-col justify-between ${
+                            className={`flex-none w-[340px] sm:w-[400px] md:w-auto snap-center p-2 space-y-3 flex flex-col justify-between ${
                               m.status === 'scheduled' 
                                 ? 'bg-amber-50 border-amber-200 shadow-sm' 
                                 : 'bg-white border-slate-200 shadow-sm'
@@ -4150,52 +4134,52 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           >
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                                 m.status === 'scheduled' 
                                   ? 'bg-amber-50 text-amber-700 border border-amber-500/20' 
                                   : 'bg-indigo-50 text-indigo-700 border border-indigo-500/20'
                               }`}>
                                 {m.status === 'scheduled' ? '정비 예정 (대기중)' : '🔧 정비 완료'}
                               </span>
-                              <span className="text-xs text-slate-400 font-mono">{m.date}</span>
+                              <span className="text-sm text-slate-400 font-mono">{m.date}</span>
                             </div>
 
-                            <h3 className="font-bold text-sm text-slate-800">{m.title}</h3>
+                            <h3 className="font-bold text-base text-slate-800">{m.title}</h3>
                             
-                            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500 pt-1">
+                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 pt-1">
                               <div>
-                                <p className="text-[10px] text-slate-400">대상 차량</p>
+                                <p className="text-xs text-slate-400">대상 차량</p>
                                 <p className="text-slate-600 font-semibold">{getVehicleModel(m.vehicleId)}</p>
                               </div>
                               {m.mileage > 0 && (
                                 <div>
-                                  <p className="text-[10px] text-slate-400">정비 시점 주행거리</p>
+                                  <p className="text-xs text-slate-400">정비 시점 주행거리</p>
                                   <p className="text-slate-600 font-mono">{formatWon(m.mileage)} km</p>
                                 </div>
                               )}
                               {m.shopName && (
                                 <div>
-                                  <p className="text-[10px] text-slate-400">정비소/업체</p>
+                                  <p className="text-xs text-slate-400">정비소/업체</p>
                                   <p className="text-slate-600">
                                     {m.shopName}
                                     {m.shopContact && (
-                                      <span className="text-indigo-400 block text-[10px] mt-0.5">📞 {m.shopContact}</span>
+                                      <span className="text-indigo-400 block text-xs mt-0.5">📞 {m.shopContact}</span>
                                     )}
                                   </p>
                                 </div>
                               )}
                               <div>
-                                <p className="text-[10px] text-slate-400">결제 수단</p>
+                                <p className="text-xs text-slate-400">결제 수단</p>
                                 <p className="text-slate-600 font-medium">{payMethodKo}</p>
                               </div>
                               <div className="col-span-2 mt-1">
-                                <p className="text-[10px] text-slate-400">비용 공임</p>
+                                <p className="text-xs text-slate-400">비용 공임</p>
                                 <p className="text-indigo-400 font-semibold font-mono">{m.cost > 0 ? `${formatWon(m.cost)} 원` : '기록없음/무료'}</p>
                               </div>
                             </div>
 
                             {m.memo && (
-                              <p className="text-[11px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                              <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
                                 메모: {m.memo}
                               </p>
                             )}
@@ -4206,7 +4190,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                               {m.status === 'scheduled' && (
                                 <button 
                                   onClick={() => handleCompleteMaint(m.id)}
-                                  className="px-2.5 py-1 text-[10px] bg-amber-50 hover:bg-amber-500/30 text-amber-700 rounded font-semibold transition-all"
+                                  className="px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-500/30 text-amber-700 rounded font-semibold transition-all"
                                 >
                                   정비 완료로 변경
                                 </button>
@@ -6159,8 +6143,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 13. 정비 기록 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingMaint && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+        <div style={getVehicleModalInsets()} className="fixed left-0 right-0 bg-white z-[100] flex items-start justify-center p-0 md:items-center md:p-4 overflow-y-auto">
+          <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-md h-full md:h-auto max-h-full md:max-h-[90vh] flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
                 <h2 className="text-base font-bold text-slate-800">정비 일지 내역 보완</h2>
@@ -6174,7 +6158,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </button>
             </div>
             
-            <form onSubmit={handleUpdateMaint} className="p-5 space-y-4 overflow-y-auto flex-1">
+            <form onSubmit={handleUpdateMaint} className="p-5 space-y-4 overflow-y-auto min-h-0 flex-1">
               <div className="space-y-4">
                 {editingMaint.receiptImage && (
                   <div className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
@@ -6326,13 +6310,13 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   onClick={() => setEditingMaint(null)}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
-                  수정 취소
+                  취소
                 </button>
                 <button 
                   type="submit"
                   className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
-                  정비 수정 완료
+                  완료
                 </button>
               </div>
             </form>
