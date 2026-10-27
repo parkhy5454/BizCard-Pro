@@ -859,7 +859,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               띄는 위치)에 있었는데, 메모 바로 위로 옮겨서 상세정보 화면을 열자마자 스크롤
               한 번이면 바로 보이게 했다. 이름도 "AI 기업 인텔리전스"로 바꿨다. */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-2xl border border-indigo-100 text-xs text-slate-700">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">AI 기업 인텔리전스</h4>
                   {contact.company && (
                     <button
                       type="button"

@@ -895,11 +895,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                   조회할 수 있게, 항상 박스를 보여주고 "AI 기업 인텔리전스" 검색 버튼을
                   같이 둔다(이름은 상세보기 화면과 통일). */}
                   <div
-                    className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-800"
+                    className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-indigo-100 text-xs text-slate-700"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-bold text-blue-600 text-[10px] uppercase font-mono">🏢 AI 기업 인텔리전스</span>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">AI 기업 인텔리전스</h4>
                       {onUpdateContact && contact.company && (
                         <button
                           type="button"
@@ -924,7 +924,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     {contact.companyInfo ? (
                       <p className="line-clamp-2 leading-relaxed">{contact.companyInfo}</p>
                     ) : (
-                      <p className="text-[10px] text-blue-400/70">아직 요약되지 않았습니다. 검색 버튼을 눌러보세요.</p>
+                      <p className="text-slate-400">아직 요약되지 않았습니다. 검색 버튼을 눌러보세요.</p>
                     )}
                   </div>
 
