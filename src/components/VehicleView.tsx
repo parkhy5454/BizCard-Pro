@@ -3173,7 +3173,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {activeSubTab === 'expenses' && (
         <div className="space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col gap-2 min-w-0 w-full">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
               <button
                 onClick={() => {
                   if (vehicles.length === 0) {
@@ -3189,14 +3190,14 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </button>
 
               {/* 기간 필터 버튼 */}
-              <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
-                {(['all', 'today', 'week', 'month', 'year', 'custom'] as const).map(p => {
-                  const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '직접 선택';
+              <div className="flex flex-nowrap shrink-0 items-center gap-0.5 bg-white p-1 rounded-xl border border-slate-200">
+                {(['all', 'today', 'week', 'month', 'year'] as const).map(p => {
+                  const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : '올해';
                   return (
                     <button
                       key={p}
                       onClick={() => setExpensePeriod(p)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      className={`px-2 py-1.5 rounded-lg text-[11px] whitespace-nowrap font-semibold transition-all ${
                         expensePeriod === p 
                           ? 'bg-indigo-600 text-white shadow-sm' 
                           : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -3226,10 +3227,12 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 </div>
               )}
 
+            </div>
+            <div className="flex items-center gap-2">
               <select 
                 value={selectedVehicleFilter}
                 onChange={e => setSelectedVehicleFilter(e.target.value)}
-                className="bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
+                className="flex-1 min-w-0 bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
               >
                 <option value="all">모든 차량 비용</option>
                 {vehicles.map(v => (
@@ -3240,7 +3243,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               <select 
                 value={expenseCategoryFilter}
                 onChange={e => setExpenseCategoryFilter(e.target.value)}
-                className="bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
+                className="flex-1 min-w-0 bg-white text-xs text-slate-600 rounded-xl border border-slate-200 p-2 focus:outline-none focus:border-indigo-500"
               >
                 <option value="all">모든 비용 분류</option>
                 <option value="fuel">주유비</option>
@@ -3255,6 +3258,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 <option value="custom">직접 입력 분류</option>
                 <option value="other">기타</option>
               </select>
+            </div>
             </div>
           </div>
 
