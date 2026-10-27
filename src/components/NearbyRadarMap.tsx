@@ -487,7 +487,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               // 기준 목록으로 돌아간다.
               if (keywordMatchIds) setKeywordMatchIds(null);
             }}
-            className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] md:text-xs rounded-lg md:rounded-xl px-1.5 md:px-3 py-1.5 md:py-2 focus:outline-none focus:border-indigo-500 font-bold"
+            className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] md:text-xs rounded-lg md:rounded-xl px-1.5 md:px-3 h-10 focus:outline-none focus:border-indigo-500 font-bold"
           >
             <option value={1}>1km 이내</option>
             <option value={2}>2km 이내</option>
