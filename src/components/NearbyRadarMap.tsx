@@ -453,15 +453,6 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
       했다. 제목은 min-w-0 + truncate로 넘치면 줄임표 처리되고, 버튼/드롭다운은 shrink-0으로
       찌그러지지 않게 고정했다. */}
       <div className="bg-white p-2.5 md:p-4 flex flex-row items-center justify-between gap-2 md:gap-4">
-        <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
-          {isAutoRegeocoding && (
-            <span className="text-[9px] text-slate-400 flex items-center gap-1 md:hidden shrink-0">
-              <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-              정리 중
-            </span>
-          )}
-        </div>
-
         <div className="flex flex-1 min-w-0 items-center gap-1.5">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-2.5 md:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" />
@@ -471,24 +462,18 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               onChange={(e) => setAddressQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
               placeholder="검색"
-              className="w-full bg-white border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
+              className="w-full bg-white border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 h-10 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
             />
           </div>
           <span className="shrink-0 text-xs md:text-sm font-bold text-slate-600">검색</span>
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-          {isAutoRegeocoding && (
-            <span className="hidden md:flex text-[11px] text-slate-400 items-center gap-1.5">
-              <RefreshCw className="w-3 h-3 animate-spin" />
-              좌표 정리 중...
-            </span>
-          )}
 
           <button
             onClick={handleShowFailures}
             disabled={isLoadingFailures}
-            className="shrink-0 px-2 md:px-4 py-1.5 md:py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold flex items-center justify-center gap-1 md:gap-1.5 whitespace-nowrap transition-all active:scale-95 disabled:opacity-50"
+            className="shrink-0 px-2 md:px-4 h-10 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold flex items-center justify-center gap-1 md:gap-1.5 whitespace-nowrap transition-all active:scale-95 disabled:opacity-50"
           >
             <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" />
             <span>{isLoadingFailures ? '불러오는 중...' : failureList ? '목록 닫기' : '좌표 없는 명함'}</span>
