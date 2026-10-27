@@ -533,7 +533,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* 섹션 1: 명함 백업 내보내기 (Export) */}
-          <div className="bg-white space-y-2 flex flex-col justify-between">
+          <div className="bg-white space-y-4 flex flex-col justify-between">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-blue-400 uppercase font-mono tracking-wider">📤 내보내기 (Export)</span>
@@ -607,7 +607,7 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
               </div>
 
               {/* 포맷 선택 */}
-              <div className="space-y-2">
+              <div className="space-y-2 pt-3">
                 <label className="text-xs font-semibold text-slate-600">2. 파일 규격</label>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <button
