@@ -2996,11 +2996,11 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <span className="animate-pulse">↔</span>
                   </span>
                 </div>
-                <div className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                <div className="flex overflow-x-auto gap-4 pb-4 px-[calc(50%-145px)] sm:px-[calc(50%-175px)] scroll-smooth snap-x snap-mandatory scrollbar-none">
                   {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
-                      className="flex-none w-[290px] sm:w-[350px] snap-start p-2 space-y-3 flex flex-col justify-between"
+                      className="flex-none w-[290px] sm:w-[350px] snap-center p-2 space-y-3 flex flex-col justify-between"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
