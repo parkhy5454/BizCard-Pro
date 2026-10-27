@@ -22,6 +22,20 @@ interface Props {
   initialTab?: 'info' | 'history' | 'edit';
 }
 
+// [수정] 상세 모달을 열면 상단 탭 줄과 하단 고정 탭 줄이 가려지던 문제 수정.
+// 상단 탭 줄 아래부터 하단 탭 줄 위까지만 오버레이를 깔아, 두 탭이 항상 보이게 한다 (ShareMyCardModal과 같은 방식).
+const getModalTopInset = (): number => {
+  const el = document.getElementById('app-top-action-row');
+  return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
+};
+const getModalBottomInset = (): number => {
+  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.height === 0) return 0;
+  return Math.max(0, window.innerHeight - rect.top);
+};
+
 export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
   // Hooks(useState/useRef/useEffect)는 반드시 조건 없이 매 렌더링마다 동일한 순서로 호출되어야 하므로,
   // "contact가 없으면 그리지 않는다" 처리보다 먼저 선언합니다 (React Hooks 규칙).
@@ -31,6 +45,11 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   const [rescanCropTarget, setRescanCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
   const rescanFileInputRef = React.useRef<HTMLInputElement>(null);
   const cardSwipeStartX = React.useRef<number>(0);
+  // [수정] "수정" 탭으로 바뀔 때 패널을 맨 위로 올려, 상단(명함 미리보기·닫기 버튼)이 가려지지 않게 한다
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (activeTab === 'edit') panelRef.current?.scrollTo({ top: 0 });
+  }, [activeTab]);
   // [수정] "전달하기" 버튼이 잠깐 "복사됨" 등으로 상태를 표시할 수 있도록
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   // [수정] "이 분에게 앱 추천하기" 버튼의 상태 표시용
@@ -447,8 +466,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[90vh]">
+    <div style={{ top: getModalTopInset(), bottom: getModalBottomInset() }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div ref={panelRef} className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-full md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
         <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200">
