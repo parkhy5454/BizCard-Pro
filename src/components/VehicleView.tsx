@@ -5400,12 +5400,13 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       겹쳐 안 눌리는 문제가 있어, env(safe-area-inset-top)만큼 아래로 내려서 배치한다. */}
       {enlargedReceiptUrl && (
         <div
-          className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          style={getVehicleModalInsets()}
+          className="fixed left-0 right-0 bg-white z-[110] flex items-center justify-center p-3"
           onClick={() => setEnlargedReceiptUrl(null)}
         >
           <button
             onClick={() => setEnlargedReceiptUrl(null)}
-            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
+            className="absolute top-2 right-3 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all"
           >
             닫기
           </button>
@@ -5413,7 +5414,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             src={enlargedReceiptUrl}
             alt="영수증 확대보기"
             onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-slate-200"
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-slate-200"
           />
         </div>
       )}
