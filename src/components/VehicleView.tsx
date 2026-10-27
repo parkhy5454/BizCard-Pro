@@ -546,6 +546,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'driving-edit' | 'expense' | 'maint'; rawImage: string } | null>(null);
   const [receiptCameraTarget, setReceiptCameraTarget] = useState<'driving' | 'driving-edit' | 'expense' | 'maint' | null>(null);
   const receiptFallbackFileInputRef = React.useRef<HTMLInputElement>(null);
+  // [추가] 갤러리에서 고른 영수증이 어느 입력 화면(운행/비용/정비/수정)용인지 기억해 둔다
+  const receiptGalleryContextRef = React.useRef<'driving' | 'driving-edit' | 'expense' | 'maint' | null>(null);
 
   // 새 초안 하나를 만들어 목록 맨 뒤에 추가하고, 그 항목을 "지금 스캔 중인 대상"으로 표시한다.
   const handleScanDrivingReceipt = (file: File) => {
@@ -2438,6 +2440,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                               : '영수증 촬영 (여러 장 가능)'}
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => { receiptGalleryContextRef.current = 'driving'; receiptFallbackFileInputRef.current?.click(); }}
+                        className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
+                      >
+                        갤러리에서 선택
+                      </button>
                     </div>
 
                     {/* [수정] 영수증이 여러 개(주차료+식대 등)일 수 있어서, 하나씩 카드 형태로 나열한다.
@@ -3251,6 +3260,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <Camera className="w-4 h-4" />
                     <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 촬영'}</span>
                   </button>
+                      <button
+                        type="button"
+                        onClick={() => { receiptGalleryContextRef.current = 'expense'; receiptFallbackFileInputRef.current?.click(); }}
+                        className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
+                      >
+                        갤러리에서 선택
+                      </button>
                   {newExpense.receiptImage && (
                     <img
                       src={newExpense.receiptImage}
@@ -3716,6 +3732,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <Camera className="w-4 h-4" />
                     <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '영수증/청구서 촬영'}</span>
                   </button>
+                      <button
+                        type="button"
+                        onClick={() => { receiptGalleryContextRef.current = 'maint'; receiptFallbackFileInputRef.current?.click(); }}
+                        className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
+                      >
+                        갤러리에서 선택
+                      </button>
                   {newMaint.receiptImage && (
                     <img
                       src={newMaint.receiptImage}
@@ -5871,6 +5894,13 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <Camera className="w-4 h-4" />
                     <span>{isScanningEditReceipt ? '영수증 스캔 및 저장 중...' : '영수증 추가로 촬영 (촬영 즉시 저장됨)'}</span>
                   </button>
+                      <button
+                        type="button"
+                        onClick={() => { receiptGalleryContextRef.current = 'driving-edit'; receiptFallbackFileInputRef.current?.click(); }}
+                        className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
+                      >
+                        갤러리에서 선택
+                      </button>
 
                   {(() => {
                     const linkedReceipts = expenses.filter((e) => e.drivingLogId === editingDriving.id);
@@ -6513,7 +6543,8 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          const context = receiptCameraTarget;
+          const context = receiptGalleryContextRef.current ?? receiptCameraTarget;
+          receiptGalleryContextRef.current = null;
           if (file && context) {
             const reader = new FileReader();
             reader.onload = (ev) => {
