@@ -3183,10 +3183,10 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   }
                   setIsExpenseFormOpen(!isExpenseFormOpen);
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-xs text-white transition-all font-semibold shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>비용 지출 등록</span>
+                <span>비용 등록</span>
               </button>
 
               {/* 기간 필터 버튼 */}
@@ -3199,7 +3199,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       onClick={() => setExpensePeriod(p)}
                       className={`px-2 py-1.5 rounded-lg text-[11px] whitespace-nowrap font-semibold transition-all ${
                         expensePeriod === p 
-                          ? 'bg-indigo-600 text-white shadow-sm' 
+                          ? 'bg-blue-400 text-white shadow-sm' 
                           : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                       }`}
                     >
@@ -3586,7 +3586,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     <span className="animate-pulse">↔</span>
                   </span>
                 </div>
-                <div className="flex overflow-x-auto md:overflow-visible gap-4 pb-4 px-[calc(50%-145px)] sm:px-[calc(50%-175px)] md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 scroll-smooth snap-x snap-mandatory scrollbar-none">
+                <div className="flex overflow-x-auto md:overflow-visible gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 scroll-smooth snap-x snap-mandatory scrollbar-none">
                   {filteredExpenses.slice(0, visibleExpenseCount).map(e => {
                     let payMethodKo = '법인(회사)카드';
                     if (e.payMethod === 'personal_card') payMethodKo = '개인카드';
@@ -3597,7 +3597,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     return (
                       <div 
                         key={e.id}
-                        className="flex-none w-[290px] sm:w-[350px] md:w-auto snap-center p-2 space-y-3 flex flex-col justify-between"
+                        className="flex-none w-[340px] sm:w-[400px] md:w-auto snap-center p-2 space-y-3 flex flex-col justify-between"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
