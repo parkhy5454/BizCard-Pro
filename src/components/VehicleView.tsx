@@ -2376,7 +2376,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                   }
                   setIsDrivingFormOpen(!isDrivingFormOpen);
                 }}
-                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0 whitespace-nowrap"
+                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-xs text-white transition-all font-semibold shrink-0 whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>운행 일지 작성</span>
@@ -2392,7 +2392,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       onClick={() => setDrivingPeriod(p)}
                       className={`px-2 py-1.5 rounded-lg text-[11px] whitespace-nowrap font-semibold transition-all ${
                         drivingPeriod === p 
-                          ? 'bg-indigo-600 text-white shadow-sm' 
+                          ? 'bg-blue-400 text-white shadow-sm' 
                           : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                       }`}
                     >
