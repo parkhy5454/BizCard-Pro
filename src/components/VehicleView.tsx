@@ -2996,51 +2996,51 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <span className="animate-pulse">↔</span>
                   </span>
                 </div>
-                <div className="flex overflow-x-auto gap-4 pb-4 px-[calc(50%-160px)] sm:px-[calc(50%-190px)] scroll-smooth snap-x snap-mandatory scrollbar-none">
+                <div className="flex overflow-x-auto gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] scroll-smooth snap-x snap-mandatory scrollbar-none">
                   {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
-                      className="flex-none w-[320px] sm:w-[380px] snap-center p-2 space-y-3 flex flex-col justify-between"
+                      className="flex-none w-[340px] sm:w-[400px] snap-center p-2 space-y-3 flex flex-col justify-between"
                     >
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-slate-500">{log.date}</span>
-                          <span className="text-sm font-semibold text-slate-700">{log.driverName}</span>
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                          <span className="text-sm font-mono text-slate-500">{log.date}</span>
+                          <span className="text-base font-semibold text-slate-700">{log.driverName}</span>
                         </div>
 
                         <div className="space-y-1">
                           <div className="font-semibold text-slate-800">{getVehicleModel(log.vehicleId)}</div>
                           <div className="flex flex-wrap gap-1">
                             {log.department && (
-                              <span className="bg-slate-50 text-slate-500 border border-slate-200 text-[10px] px-1.5 py-0.5 rounded font-medium">
+                              <span className="bg-slate-50 text-slate-500 border border-slate-200 text-xs px-1.5 py-0.5 rounded font-medium">
                                 {log.department}
                               </span>
                             )}
                             {log.projectName && (
-                              <span className="bg-indigo-950 text-indigo-600 border border-indigo-900/40 text-[10px] px-1.5 py-0.5 rounded font-medium">
+                              <span className="bg-indigo-950 text-indigo-600 border border-indigo-900/40 text-xs px-1.5 py-0.5 rounded font-medium">
                                 {log.projectName}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        <div className="border-t border-slate-200 my-2 pt-2 space-y-1.5 text-sm">
+                        <div className="border-t border-slate-200 my-2 pt-2 space-y-1.5 text-base">
                           <div className="space-y-0.5">
-                            <span className="text-slate-400 text-xs">운행 경로</span>
+                            <span className="text-slate-400 text-sm">운행 경로</span>
                             <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
                               <span>{log.startPlace || '출발지'}</span>
                               <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
                               <span>{log.endPlace}</span>
                             </div>
                             {(log.startAddress || log.endAddress) && (
-                              <p className="text-xs text-slate-400 font-mono leading-tight pt-0.5">
+                              <p className="text-sm text-slate-400 font-mono leading-tight pt-0.5">
                                 {log.startAddress || '-'} → {log.endAddress || '-'}
                               </p>
                             )}
                             {/* [수정] 명함 상세보기와 동일하게, 목적지 주소가 있으면 바로 내비게이션 앱으로 연결하는 길찾기 버튼 추가 */}
                             {log.endAddress && (
                               <div className="flex flex-wrap items-center gap-1 pt-1">
-                                <span className="text-[10px] text-slate-400 flex items-center gap-0.5 mr-0.5">
+                                <span className="text-xs text-slate-400 flex items-center gap-0.5 mr-0.5">
                                   <Navigation className="w-2.5 h-2.5 text-blue-400" />
                                   길찾기:
                                 </span>
@@ -3053,28 +3053,28 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                                       window.open(`https://search.naver.com/search.naver?query=${enc}+길찾기`, '_blank');
                                     }, 500);
                                   }}
-                                  className="text-[10px] px-1.5 py-0.5 bg-amber-50 hover:bg-amber-500/20 text-amber-700 rounded border border-amber-500/20 font-bold"
+                                  className="text-xs px-1.5 py-0.5 bg-amber-50 hover:bg-amber-500/20 text-amber-700 rounded border border-amber-500/20 font-bold"
                                 >
                                   티맵
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(log.endAddress!)}`, '_blank')}
-                                  className="text-[10px] px-1.5 py-0.5 bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-500 rounded border border-yellow-400/20 font-bold"
+                                  className="text-xs px-1.5 py-0.5 bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-500 rounded border border-yellow-400/20 font-bold"
                                 >
                                   카카오
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(log.endAddress!)}`, '_blank')}
-                                  className="text-[10px] px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-500/20 text-emerald-700 rounded border border-emerald-500/20 font-bold"
+                                  className="text-xs px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-500/20 text-emerald-700 rounded border border-emerald-500/20 font-bold"
                                 >
                                   네이버
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(log.endAddress!)}`, '_blank')}
-                                  className="text-[10px] px-1.5 py-0.5 bg-blue-50 hover:bg-blue-500/20 text-blue-700 rounded border border-blue-500/20 font-bold"
+                                  className="text-xs px-1.5 py-0.5 bg-blue-50 hover:bg-blue-500/20 text-blue-700 rounded border border-blue-500/20 font-bold"
                                 >
                                   구글맵
                                 </button>
@@ -3082,7 +3082,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                             )}
                           </div>
 
-                          <div className="flex justify-between text-sm border-t border-slate-200/60 pt-1.5 font-mono">
+                          <div className="flex justify-between text-base border-t border-slate-200/60 pt-1.5 font-mono">
                             <span className="text-slate-400 font-sans">계기판 기록</span>
                             <span className="text-slate-500">
                               {formatWon(log.startMileage)} → {formatWon(log.endMileage)} km
@@ -3090,10 +3090,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                           </div>
 
                           <div className="border-t border-slate-200/60 pt-1.5">
-                            <span className="text-slate-400 text-xs block mb-0.5">운행 목적 및 메모</span>
-                            <span className="text-slate-600 block font-medium text-sm line-clamp-1">{log.purpose}</span>
+                            <span className="text-slate-400 text-sm block mb-0.5">운행 목적 및 메모</span>
+                            <span className="text-slate-600 block font-medium text-base line-clamp-1">{log.purpose}</span>
                             {log.memo && (
-                              <p className="text-xs text-slate-400 italic truncate mt-0.5" title={log.memo}>
+                              <p className="text-sm text-slate-400 italic truncate mt-0.5" title={log.memo}>
                                 {log.memo}
                               </p>
                             )}
@@ -3102,7 +3102,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                       </div>
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-2">
-                        <div className="font-bold text-indigo-400 font-mono text-sm">
+                        <div className="font-bold text-indigo-400 font-mono text-base">
                           {log.distance} km 주행
                         </div>
                         <div className="flex items-center gap-1">
