@@ -474,6 +474,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               className="w-full bg-white border border-slate-200 rounded-lg md:rounded-xl pl-8 md:pl-9 pr-3 py-2 md:py-2.5 text-xs md:text-sm text-slate-700 outline-none focus:border-indigo-500"
             />
           </div>
+          <span className="shrink-0 text-xs md:text-sm font-bold text-slate-600">검색</span>
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
@@ -562,7 +563,7 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
               )}
             </>
           ) : (
-            <div className="p-6 h-full flex flex-col">
+            <div className="px-2.5 pt-0 pb-6 md:px-4 md:pb-6 h-full flex flex-col">
               <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
                 ⚠️ 실제 지도를 보려면 카카오맵 API 키(VITE_KAKAO_MAP_KEY) 설정이 필요합니다. 지금은 대략적인 방향/거리만 보여주는 가상 레이더로 표시됩니다.
               </p>
