@@ -559,31 +559,29 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
           {/* 차량 운행기록과 같은 방식의 안내: 총 개수 + 옆으로 밀어서 보기 */}
           <div className="flex items-center justify-between px-1 mb-2 text-xs">
             <span className="text-slate-500 font-semibold">총 {contacts.length}명의 명함</span>
-            <span className="text-blue-500 font-semibold">옆으로 밀어서 보기 ↔</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-blue-500 font-semibold">옆으로 밀어서 보기</span>
+              <button
+                type="button"
+                onClick={() => scroll('left')}
+                disabled={!isLeftArrowVisible}
+                aria-label="이전 명함"
+                className="w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-600 flex items-center justify-center hover:bg-indigo-600 hover:border-indigo-500 hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-600 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scroll('right')}
+                disabled={!isRightArrowVisible}
+                aria-label="다음 명함"
+                className="w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-600 flex items-center justify-center hover:bg-indigo-600 hover:border-indigo-500 hover:text-white disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-600 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="relative group/slider w-full">
-        {/* 왼쪽 화살표 */}
-        {isLeftArrowVisible && (
-          <button
-            onClick={() => scroll('left')}
-            className="absolute -left-2 md:-left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-slate-200 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-slate-600 hover:text-white flex items-center justify-center shadow-lg transition-all duration-200"
-            aria-label="이전 명함"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        )}
-
-        {/* 오른쪽 화살표 */}
-        {isRightArrowVisible && (
-          <button
-            onClick={() => scroll('right')}
-            className="absolute -right-2 md:-right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/95 border border-slate-200 hover:bg-indigo-600 hover:border-indigo-500 hover:scale-105 text-slate-600 hover:text-white flex items-center justify-center shadow-lg transition-all duration-200"
-            aria-label="다음 명함"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        )}
-
         {/* 가로 스크롤 카드 컨테이너 */}
         <div
           ref={scrollRef}
