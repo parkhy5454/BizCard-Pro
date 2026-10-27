@@ -621,6 +621,9 @@ export default function App() {
                 onOpenGlobalSearch={() => setIsGlobalSearchOpen(true)}
                 onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
                 onOpenApprovals={() => setActiveTab('approvals')}
+                onOpenCards={() => setActiveTab('cards')}
+                onOpenProjects={() => setActiveTab('projects')}
+                onOpenVehicles={() => setActiveTab('vehicles')}
               />
             )}
 
