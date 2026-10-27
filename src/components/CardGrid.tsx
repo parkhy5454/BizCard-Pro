@@ -540,6 +540,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         </div>
       ) : (
         <>
+          {/* 차량 운행기록과 같은 방식의 안내: 총 개수 + 옆으로 밀어서 보기 */}
+          <div className="flex items-center justify-between px-1 mb-2 text-xs">
+            <span className="text-slate-500 font-semibold">총 {contacts.length}명의 명함</span>
+            <span className="text-blue-500 font-semibold">옆으로 밀어서 보기 ↔</span>
+          </div>
           <div className="relative group/slider w-full">
         {/* 왼쪽 화살표 */}
         {isLeftArrowVisible && (
