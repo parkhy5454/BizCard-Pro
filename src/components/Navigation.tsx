@@ -650,8 +650,8 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('dashboard')}
               className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'dashboard'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
-                  : 'bg-white text-slate-500 hover:bg-slate-100'
+                  ? 'text-blue-600 font-bold [&_svg]:!text-blue-600'
+                  : 'text-slate-500 hover:text-slate-700 [&_svg]:!text-slate-500'
               }`}
             >
               <LayoutDashboard className="w-6 h-6 text-blue-400" />
@@ -663,8 +663,8 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('cards')}
               className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'cards'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
-                  : 'bg-white text-slate-500 hover:bg-slate-100'
+                  ? 'text-blue-600 font-bold [&_svg]:!text-blue-600'
+                  : 'text-slate-500 hover:text-slate-700 [&_svg]:!text-slate-500'
               }`}
             >
               <Users className="w-6 h-6" />
@@ -676,8 +676,8 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('vehicles')}
               className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'vehicles'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
-                  : 'bg-white text-slate-500 hover:bg-slate-100'
+                  ? 'text-blue-600 font-bold [&_svg]:!text-blue-600'
+                  : 'text-slate-500 hover:text-slate-700 [&_svg]:!text-slate-500'
               }`}
             >
               <Car className="w-6 h-6 text-indigo-400" />
@@ -693,8 +693,8 @@ export const Navigation: React.FC<Props> = ({
               }}
               className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'projects'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
-                  : 'bg-white text-slate-500 hover:bg-slate-100'
+                  ? 'text-blue-600 font-bold [&_svg]:!text-blue-600'
+                  : 'text-slate-500 hover:text-slate-700 [&_svg]:!text-slate-500'
               }`}
             >
               <Briefcase className="w-6 h-6 text-indigo-400" />
@@ -706,8 +706,8 @@ export const Navigation: React.FC<Props> = ({
               onClick={() => handleMainTabClick('more')}
               className={`relative flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'more'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
-                  : 'bg-white text-slate-500 hover:bg-slate-100'
+                  ? 'text-blue-600 font-bold [&_svg]:!text-blue-600'
+                  : 'text-slate-500 hover:text-slate-700 [&_svg]:!text-slate-500'
               }`}
             >
               <LayoutGrid className="w-6 h-6 text-violet-500" />
