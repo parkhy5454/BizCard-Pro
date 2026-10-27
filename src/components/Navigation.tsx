@@ -648,39 +648,39 @@ export const Navigation: React.FC<Props> = ({
             {/* 1. 홈 */}
             <button
               onClick={() => handleMainTabClick('dashboard')}
-              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'dashboard'
                   ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
                   : 'bg-white text-slate-500 hover:bg-slate-100'
               }`}
             >
-              <LayoutDashboard className="w-5 h-5 text-blue-400" />
+              <LayoutDashboard className="w-6 h-6 text-blue-400" />
               <span className="text-[11px] leading-none">홈</span>
             </button>
 
             {/* 2. 명함 */}
             <button
               onClick={() => handleMainTabClick('cards')}
-              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'cards'
                   ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
                   : 'bg-white text-slate-500 hover:bg-slate-100'
               }`}
             >
-              <Users className="w-5 h-5" />
+              <Users className="w-6 h-6" />
               <span className="text-[11px] leading-none">명함</span>
             </button>
 
             {/* 3. 차량관리 */}
             <button
               onClick={() => handleMainTabClick('vehicles')}
-              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'vehicles'
                   ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
                   : 'bg-white text-slate-500 hover:bg-slate-100'
               }`}
             >
-              <Car className="w-5 h-5 text-indigo-400" />
+              <Car className="w-6 h-6 text-indigo-400" />
               <span className="text-[11px] leading-none">차량</span>
             </button>
 
@@ -691,26 +691,26 @@ export const Navigation: React.FC<Props> = ({
                 e.preventDefault();
                 handleProjectTabClick();
               }}
-              className={`flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'projects'
                   ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
                   : 'bg-white text-slate-500 hover:bg-slate-100'
               }`}
             >
-              <Briefcase className="w-5 h-5 text-indigo-400" />
+              <Briefcase className="w-6 h-6 text-indigo-400" />
               <span className="text-[11px] leading-none">프로젝트</span>
             </button>
 
             {/* 5. 더보기 - 드롭다운이 아니라 전체 화면 탭으로 연다 (앱의 '내 정보' 탭과 같은 방식) */}
             <button
               onClick={() => handleMainTabClick('more')}
-              className={`relative flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
+              className={`relative flex flex-col items-center justify-center gap-1.5 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap min-w-0 ${
                 activeTab === 'more'
                   ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/25 [&_svg]:!text-white'
                   : 'bg-white text-slate-500 hover:bg-slate-100'
               }`}
             >
-              <LayoutGrid className="w-5 h-5 text-violet-500" />
+              <LayoutGrid className="w-6 h-6 text-violet-500" />
               <span className="text-[11px] leading-none">더보기</span>
               {/* 미읽음 문의가 있으면 점으로 알려준다 (개발자 계정 전용) */}
               {unreadFeedbackCount > 0 && (
