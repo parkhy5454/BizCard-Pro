@@ -49,6 +49,8 @@ export default function App() {
 
   // 메인 내비게이션 탭 상태
   // [추가] 조직도/공지사항/사내 메신저 - 그룹웨어(다우오피스 등) 대비 부족했던 핵심 기능 보강
+  // 차량 탭 상단 고정 줄(서브 탭/운행 일지 줄)이 그려질 자리 (명함 탭 상단 줄과 같은 위치, 스크롤 영역 밖)
+  const [vehicleTopRowsEl, setVehicleTopRowsEl] = useState<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'nearby' | 'groups' | 'io' | 'projects' | 'vehicles' | 'worklogs' | 'approvals' | 'management' | 'accounting' | 'audit_logs' | 'ai_intelligence' | 'org_chart' | 'announcements' | 'team_chat' | 'profile' | 'more'>('cards');
   
   // 데이터 상태
@@ -605,6 +607,12 @@ export default function App() {
         }}
       />
 
+      {activeTab === 'vehicles' && (
+        <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md">
+          <div ref={setVehicleTopRowsEl} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3" />
+        </div>
+      )}
+
       {/* 바디 메인 영역 */}
       <main ref={mainScrollRef} key={activeTab} className={`min-h-0 flex-1 overflow-y-auto overscroll-contain w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${['io', 'nearby'].includes(activeTab) ? 'pt-1' : 'pt-4'} pb-24 animate-tab-in`}>
         
@@ -726,6 +734,7 @@ export default function App() {
                 currentUser={currentUser}
                 contacts={contacts}
                 setContacts={setContacts}
+                topRowsContainer={vehicleTopRowsEl}
               />
             )}
 
