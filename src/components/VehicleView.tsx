@@ -3171,7 +3171,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
 
       {/* 4. 비용관리 (Expenses Tab) */}
       {activeSubTab === 'expenses' && (
-        <div className="space-y-4 -mt-3">
+        <div className="space-y-4">
+          {topRowsContainer && createPortal(
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-col gap-2 min-w-0 w-full">
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-200">
@@ -3230,6 +3231,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
             </div>
           </div>
+          , topRowsContainer)}
 
           {isExpenseFormOpen && (
             <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
@@ -5957,8 +5959,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 12. 비용 지출 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingExpense && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+        <div style={getVehicleModalInsets()} className="fixed left-0 right-0 bg-white z-[100] flex items-start justify-center p-0 md:items-center md:p-4 overflow-y-auto">
+          <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-md h-full md:h-auto max-h-full md:max-h-[90vh] flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
                 <h2 className="text-base font-bold text-slate-800">지출 비용 내역 수정</h2>
@@ -5972,7 +5974,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </button>
             </div>
             
-            <form onSubmit={handleUpdateExpense} className="p-5 space-y-4 overflow-y-auto flex-1">
+            <form onSubmit={handleUpdateExpense} className="p-5 space-y-4 overflow-y-auto min-h-0 flex-1">
               <div className="space-y-4">
                 {/* [수정] 등록할 때 스캔한 영수증 사진이 수정 화면에는 안 보이던 문제 - 여기에 썸네일로 표시 */}
                 {editingExpense.receiptImage && (
@@ -6138,13 +6140,13 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   onClick={() => setEditingExpense(null)}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
-                  수정 취소
+                  취소
                 </button>
                 <button 
                   type="submit"
                   className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
-                  비용 수정사항 반영
+                  완료
                 </button>
               </div>
             </form>
