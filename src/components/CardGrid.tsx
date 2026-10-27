@@ -937,11 +937,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     {memoEditingId === contact.id && onUpdateContact ? (
                       <div className="space-y-2">
                         <textarea
-                          rows={3}
+                          rows={6}
                           value={memoDraft}
                           onChange={(e) => setMemoDraft(e.target.value)}
                           placeholder="메모 / 요약을 입력하세요"
-                          className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:outline-none focus:border-blue-500"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-blue-500 resize-y min-h-[120px]"
                         />
                         <div className="flex justify-end gap-2">
                           <button

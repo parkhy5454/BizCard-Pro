@@ -1135,7 +1135,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
 
               <div>
                 <label className="text-xs text-slate-500 block mb-1 font-medium">메모 / 요약</label>
-                <textarea rows={3} value={editForm.memo} onChange={e=>setEditForm({...editForm, memo:e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:border-blue-500" />
+                <textarea rows={8} value={editForm.memo} onChange={e=>setEditForm({...editForm, memo:e.target.value})} placeholder="메모 / 요약을 입력하세요" className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm text-slate-700 leading-relaxed focus:outline-none focus:border-blue-500 resize-y min-h-[160px]" />
               </div>
 
               <div className="flex gap-3 pt-2">
