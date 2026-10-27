@@ -577,23 +577,18 @@ export const IOModal: React.FC<Props> = ({ contacts, groups, onImportSuccess, in
                     {visibleGroups.length === 0 ? (
                       <p className="text-xs text-slate-400">등록된 그룹이 없습니다.</p>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5">
+                      <select
+                        value={selectedGid}
+                        onChange={(e) => setSelectedGid(e.target.value)}
+                        disabled={!!initialGroupId}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 font-medium disabled:bg-slate-50"
+                      >
+                        <option value="">그룹을 선택하세요</option>
                         {visibleGroups.map((g) => {
                           const count = contacts.filter((c) => contactHasGroup(c, g.id)).length;
-                          // 상단에서 고른 그룹이면 칩은 흰색(기본) 스타일로 두고, 지정 여부는 1. 내보내기 선택 쪽에서 보여준다.
-                          const on = selectedGid === g.id && !initialGroupId;
-                          return (
-                            <button
-                              key={g.id}
-                              type="button"
-                              onClick={() => setSelectedGid(g.id)}
-                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${on ? 'bg-blue-600 text-white border-blue-500 shadow' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                            >
-                              {g.name} ({count})
-                            </button>
-                          );
+                          return <option key={g.id} value={g.id}>{g.name} ({count})</option>;
                         })}
-                      </div>
+                      </select>
                     )}
                     {!selectedGroupObj && (
                       <p className="text-xs text-slate-500">그룹을 하나 선택해 주세요.</p>
