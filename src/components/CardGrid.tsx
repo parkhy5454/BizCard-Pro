@@ -291,12 +291,17 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     }
   }, [contacts]);
 
+  // [수정] 명함 한 장 단위로 이동한다. 예전에는 scrollBy(거리)로 움직여서, 스냅(snap) 위치와
+  // 어긋나거나 스와이프 중에 끊기면 옆 카드로 제대로 넘어가지 않았다. 지금은 "몇 번째 카드인지"를
+  // 계산해서 그 카드 위치로 정확히 이동한다(카드 간격 = 카드 폭 + gap 24px).
   const scroll = (direction: 'left' | 'right') => {
-    if (scrollRef.current) {
-      const cardWidth = scrollRef.current.firstElementChild?.clientWidth || 380;
-      const amount = direction === 'left' ? -(cardWidth + 24) : (cardWidth + 24);
-      scrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
-    }
+    const el = scrollRef.current;
+    if (!el) return;
+    const step = (el.firstElementChild?.clientWidth || 380) + 24;
+    const current = Math.round(el.scrollLeft / step);
+    const lastIndex = Math.max(0, el.children.length - 1);
+    const next = Math.min(lastIndex, Math.max(0, current + (direction === 'right' ? 1 : -1)));
+    el.scrollTo({ left: next * step, behavior: 'smooth' });
   };
 
   if (contacts.length === 0 && !searchQuery) {
