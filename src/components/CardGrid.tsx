@@ -236,10 +236,12 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
   };
 
   // 명함 스와이프 규칙
-  //  - 앞면에서 오른쪽으로 밀기: 뒷면 보기 (뒷면이 있을 때만)
-  //  - 뒷면에서 오른쪽으로 밀기: 다음 명함
-  //  - 뒷면에서 왼쪽으로 밀기: 앞면으로 돌아가기
-  //  - 앞면에서 왼쪽으로 밀기: 다음 명함
+  //  앞뒤면이 있는 명함
+  //  - 오른쪽으로 밀기: 앞면이면 뒷면 보기, 뒷면이면 다음 명함
+  //  - 왼쪽으로 밀기: 뒷면이면 앞면 보기, 앞면이면 이전 명함
+  //  앞면만 있는 명함
+  //  - 오른쪽으로 밀기: 다음 명함
+  //  - 왼쪽으로 밀기: 이전 명함
   const handleImageSwipeEnd = (contactId: string, hasBack: boolean) => (e: React.TouchEvent) => {
     const deltaX = e.changedTouches[0].clientX - swipeStartX.current;
     if (Math.abs(deltaX) < 40) return; // 스와이프로 인정할 최소 이동거리
@@ -250,7 +252,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
       else scroll('right');
     } else {
       if (side === 'back') flipTo('front');
-      else scroll('right');
+      else scroll('left');
     }
   };
 
