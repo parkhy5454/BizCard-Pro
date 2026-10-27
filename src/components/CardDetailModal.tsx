@@ -473,9 +473,6 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
         <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold tracking-wider text-slate-500 uppercase font-mono">
-                명함 원본 스캔 프리뷰
-              </span>
               
               {/* 앞면/뒷면 전환 버튼 */}
               {/* [수정] 예전엔 뒷면 이미지가 이미 있을 때만 이 버튼이 보였다. 그러면 아직
@@ -547,7 +544,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 hover:text-indigo-800 text-xs font-bold transition-colors"
             >
               <Camera className="w-3.5 h-3.5" />
-              {cardSide === 'front' ? '앞면 재스캔' : '뒷면 재스캔'}
+              명함 재스캔
             </button>
           </div>
 
@@ -580,7 +577,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                 className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 hover:border-slate-200 text-slate-600 font-medium text-xs transition-colors"
               >
                 <Building2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>사무실 유선전화 연결 ({contact.phoneOffice})</span>
+                <span>사무실 유선 전화 연결</span>
               </a>
             )}
 
@@ -592,7 +589,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 hover:border-indigo-500/50 text-slate-700 hover:text-slate-700 font-bold text-xs transition-colors"
             >
               <Share2 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>{shareStatus === 'copied' ? '명함 정보가 복사되었습니다!' : '이 명함 외부로 전달하기'}</span>
+              <span>{shareStatus === 'copied' ? '명함 정보가 복사되었습니다!' : '명함 외부 전달'}</span>
             </button>
 
             {/* [추가] 캠카드의 "아이폰에 저장" 버튼과 동일한 기능. vCard(.vcf) 파일을 바로
@@ -605,7 +602,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 hover:border-emerald-500/50 text-slate-700 hover:text-slate-700 font-bold text-xs transition-colors"
             >
               <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
-              <span>휴대폰 연락처에 저장 (vCard)</span>
+              <span>연락처 저장</span>
             </button>
 
             {/* [수정] 명함 스캔 초대(바이럴 루프): 이 명함 주인에게 앱 사용을 추천하는 메시지를 보낸다 */}
@@ -615,7 +612,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 hover:border-indigo-300 text-indigo-700 hover:text-indigo-800 font-bold text-xs transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>{inviteStatus === 'copied' ? '추천 메시지가 복사되었습니다!' : '이 분에게 앱 추천하기'}</span>
+              <span>{inviteStatus === 'copied' ? '추천 메시지가 복사되었습니다!' : '앱 추천'}</span>
             </button>
           </div>
         </div>
@@ -693,35 +690,6 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   <Building2 className="w-4 h-4 text-slate-500" />
                   <span>{contact.company} {contact.department ? `| ${contact.department}` : ''}</span>
                 </p>
-              </div>
-
-              {/* 핸드폰/사무실/팩스 분리 박스 */}
-              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">연락처 상세 분리 입력</h4>
-                
-                <div className="grid grid-cols-1 gap-2.5 text-sm">
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200">
-                    <span className="flex items-center gap-2 text-slate-500 text-xs font-medium"><Phone className="w-4 h-4 text-emerald-400" /> 핸드폰 (Mobile)</span>
-                    <span className="font-mono font-bold text-emerald-600">{contact.phoneMobile || '-'}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200">
-                    <span className="flex items-center gap-2 text-slate-500 text-xs font-medium"><Building2 className="w-4 h-4 text-blue-400" /> 사무실 1 (Office 1)</span>
-                    <span className="font-mono font-semibold text-slate-700">{contact.phoneOffice || '-'}</span>
-                  </div>
-
-                  {contact.phoneOffice2 && (
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200">
-                      <span className="flex items-center gap-2 text-slate-500 text-xs font-medium"><Building2 className="w-4 h-4 text-cyan-400" /> 사무실 2 (Office 2)</span>
-                      <span className="font-mono font-semibold text-slate-700">{contact.phoneOffice2}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200">
-                    <span className="flex items-center gap-2 text-slate-500 text-xs font-medium"><Printer className="w-4 h-4 text-amber-400" /> 팩스 번호 (Fax)</span>
-                    <span className="font-mono text-slate-600">{contact.phoneFax || '-'}</span>
-                  </div>
-                </div>
               </div>
 
               {/* 주소 & 이메일 */}
@@ -918,11 +886,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                   <p className="leading-relaxed text-slate-800 text-xs font-medium bg-white p-2.5 rounded-xl border border-indigo-100">
                     {contact.companyInfo}
                   </p>
-                ) : (
-                  <div className="text-center py-3 text-slate-400 text-[11px] bg-white rounded-xl border border-dashed border-slate-200">
-                    회사 정보가 아직 요약되지 않았습니다. 실시간 검색 버튼을 눌러 업종·주요 사업, 매출액, 직원수를 검색해 보세요.
-                  </div>
-                )}
+                ) : null}
               </div>
 
               {/* 명함 메모 */}
