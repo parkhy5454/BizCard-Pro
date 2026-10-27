@@ -2989,14 +2989,14 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
             return (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 sm:max-w-[560px] sm:mx-auto sm:w-full">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 sm:max-w-[440px] sm:mx-auto sm:w-full">
                   <span>총 {filteredLogs.length}건의 운행 기록</span>
                   <span className="flex items-center gap-1 text-indigo-400 font-medium">
                     <span>옆으로 밀어서 보기</span>
                     <span className="animate-pulse">↔</span>
                   </span>
                 </div>
-                <div className="flex overflow-x-auto gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] sm:max-w-[560px] sm:mx-auto sm:w-full scroll-smooth snap-x snap-mandatory scrollbar-none">
+                <div className="flex overflow-x-auto gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] sm:max-w-[440px] sm:mx-auto sm:w-full scroll-smooth snap-x snap-mandatory scrollbar-none">
                   {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
