@@ -305,7 +305,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         
         <div className="flex-1 min-h-0 overflow-y-auto">
         {/* 미니 프로필 요약 카드 */}
-        <div className="px-4 py-1 bg-white border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 py-1 min-h-[84px] bg-white border-b border-slate-200 flex items-center justify-between">
           <div>
             <span className="font-bold text-slate-900 text-sm">{profile.name}</span>
           </div>
@@ -319,7 +319,7 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {/* 탭 쉘 */}
-        <div className="flex border-b border-slate-200 bg-white">
+        <div className="flex min-h-[66px] border-b border-slate-200 bg-white">
           <button
             onClick={() => setActiveTab('qr')}
             className={`flex-1 py-1 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'qr' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
