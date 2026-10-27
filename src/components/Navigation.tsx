@@ -403,7 +403,7 @@ export const Navigation: React.FC<Props> = ({
 
     {/* [추가] 프로젝트 탭일 때 상단에 고정되는 뷰 모드 탭 (카드/리스트/파이프라인/원가계산서) */}
     {activeTab === 'projects' && (
-      <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      <div className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 뷰 모드 탭 섹션 */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
