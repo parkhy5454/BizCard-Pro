@@ -482,6 +482,16 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
             placeholder="검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => {
+              // [수정] 아이폰에서 검색창을 누르면 키보드가 올라오면서 사파리가 페이지 전체를
+              // 위로 밀어 올려 상단 로고·메뉴가 가려졌다. 키보드가 올라오는 동작이 끝난 뒤
+              // 페이지 스크롤을 맨 위로 되돌린다. 이 검색창에만 적용되어 다른 입력칸에는 영향이 없다.
+              window.setTimeout(() => {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+              }, 300);
+            }}
             className="w-full h-10 pl-11 pr-4 py-0 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
           />
         </div>
