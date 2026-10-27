@@ -2980,7 +2980,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             );
           })()}
 
-          {(() => {
+          {/* 작성 폼이 열려 있으면 기존 운행 기록 목록과 건수 줄은 숨기고 작성 화면만 보여준다 */}
+          {!isDrivingFormOpen && (() => {
             const filteredLogs = drivingLogs.filter(log => {
               const matchVeh = selectedVehicleFilter === 'all' || log.vehicleId === selectedVehicleFilter;
               const matchPer = isDateInPeriod(log.date, drivingPeriod, drivingCustomStart, drivingCustomEnd);
