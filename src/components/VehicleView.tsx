@@ -248,8 +248,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     payMethod: NonNullable<VehicleExpense['payMethod']>;
   }
   const [drivingReceipts, setDrivingReceipts] = useState<DrivingReceiptDraft[]>([]);
-  // 지금 막 스캔해서 OCR 인식 중인 영수증이 어떤 항목인지 추적 (여러 개 중 어느 걸 갱신할지)
-  const [activeDrivingReceiptTempId, setActiveDrivingReceiptTempId] = useState<string | null>(null);
+  // "운행 기록 수정" 화면에서 새로 담은 영수증 임시 목록 (신규 작성과 같은 방식: 저장 버튼을 눌러야 등록됨)
+  const [editReceiptDrafts, setEditReceiptDrafts] = useState<DrivingReceiptDraft[]>([]);
+  // 다른 운행기록을 열거나 닫으면 임시 목록을 비운다
+  React.useEffect(() => { setEditReceiptDrafts([]); }, [editingDriving?.id]);
   const [isScanningDrivingReceipt, setIsScanningDrivingReceipt] = useState<boolean>(false);
   // [추가] "운행 기록 수정" 모달에서 영수증을 추가로 스캔할 때 쓰는 로딩 상태.
   // 수정 화면은 이미 저장된 운행기록에 딸린 영수증이라, 스캔 즉시 바로 저장한다(신규
@@ -549,78 +551,128 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
   // [추가] 갤러리에서 고른 영수증이 어느 입력 화면(운행/비용/정비/수정)용인지 기억해 둔다
   const receiptGalleryContextRef = React.useRef<'driving' | 'driving-edit' | 'expense' | 'maint' | null>(null);
 
-  // 새 초안 하나를 만들어 목록 맨 뒤에 추가하고, 그 항목을 "지금 스캔 중인 대상"으로 표시한다.
-  const handleScanDrivingReceipt = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const rawDataUrl = ev.target?.result as string;
-      const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setDrivingReceipts((prev) => [...prev, {
-        tempId,
-        receiptImage: rawDataUrl,
-        category: 'toll',
-        categoryCustom: '',
-        amount: 0,
-        merchantName: '',
-        memo: '',
-        payMethod: 'company_card'
-      }]);
-      setActiveDrivingReceiptTempId(tempId);
-      setReceiptCropTarget({ context: 'driving', rawImage: rawDataUrl });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // "운행 기록 수정" 모달에서 영수증을 추가로 스캔할 때: 크롭까지 끝난 이미지를 바로 서버에
-  // 저장한다(이 운행기록에 연결해서). 신규 작성 때처럼 "임시 목록"에 모아뒀다가 나중에 한꺼번에
-  // 저장하지 않고, 그 자리에서 바로 등록/화면 반영까지 끝낸다.
-  const handleAddReceiptToEditingDriving = async (dataUrl: string) => {
-    if (!editingDriving) return;
-    setIsScanningEditReceipt(true);
+  // 영수증 크롭까지 끝난 사진을 "임시 목록"에 한 장 담고, AI로 분류/상호/금액을 채운다.
+  // 실제 비용 등록은 운행기록 저장 버튼을 누를 때 한꺼번에 일어난다 (신규/수정 공통).
+  const addReceiptDraftAndScan = async (context: 'driving' | 'driving-edit', dataUrl: string) => {
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const setDrafts = context === 'driving' ? setDrivingReceipts : setEditReceiptDrafts;
+    const setScanning = context === 'driving' ? setIsScanningDrivingReceipt : setIsScanningEditReceipt;
+    setDrafts((prev) => [...prev, {
+      tempId,
+      receiptImage: dataUrl,
+      category: 'toll',
+      categoryCustom: '',
+      amount: 0,
+      merchantName: '',
+      memo: '',
+      payMethod: 'company_card'
+    }]);
+    setScanning(true);
     try {
-      const ocrRes = await fetch('/api/scan-receipt', {
+      const res = await fetch('/api/scan-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl })
+        body: JSON.stringify({ image: dataUrl, context: 'driving' })
       });
-      const ocrData = await ocrRes.json();
-
-      let finalReceiptImage = dataUrl;
-      if (ocrRes.ok && isValidNormalizedCorners(ocrData.corners)) {
-        try {
-          finalReceiptImage = await warpDataUrlWithNormalizedCorners(dataUrl, ocrData.corners);
-        } catch (err) {
-          console.error('AI 좌표 기반 영수증 재크롭 실패, 기존 사진 유지:', err);
+      const data = await res.json();
+      if (res.ok) {
+        // AI가 알려준 영수증 네 꼭짓점으로 사진을 한 번 더 정밀하게 잘라낸다
+        let finalReceiptImage = dataUrl;
+        if (isValidNormalizedCorners(data.corners)) {
+          try {
+            finalReceiptImage = await warpDataUrlWithNormalizedCorners(dataUrl, data.corners);
+          } catch (err) {
+            console.error('AI 좌표 기반 영수증 재크롭 실패, 기존 사진 유지:', err);
+          }
         }
+        setDrafts((prev) => prev.map((r) => {
+          if (r.tempId !== tempId) return r;
+          return {
+            ...r,
+            receiptImage: finalReceiptImage,
+            category: (data.category as VehicleExpense['category']) || r.category,
+            amount: data.amount || r.amount,
+            merchantName: data.merchantName || r.merchantName,
+            memo: data.memo || r.memo,
+            payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || r.payMethod
+          };
+        }));
       }
-
-      const expRes = await fetch('/api/vehicles/expenses', {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          vehicleId: editingDriving.vehicleId,
-          date: editingDriving.date,
-          category: (ocrRes.ok && ocrData.category) || 'toll',
-          categoryCustom: '',
-          amount: (ocrRes.ok && ocrData.amount) || 0,
-          merchantName: (ocrRes.ok && ocrData.merchantName) || '',
-          memo: (ocrRes.ok && ocrData.memo) || '',
-          payMethod: (ocrRes.ok && ocrData.payMethod) || 'company_card',
-          receiptImage: finalReceiptImage,
-          projectName: editingDriving.projectName,
-          contactId: editingDriving.contactId,
-          drivingLogId: editingDriving.id
-        })
-      });
-      if (!expRes.ok) throw new Error(`영수증 저장에 실패했습니다 (상태: ${expRes.status}).`);
-      const addedExpense = await expRes.json();
-      setExpenses((prev) => [addedExpense, ...prev]);
-    } catch (err: unknown) {
-      alert(`영수증 추가에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
+    } catch (err) {
+      console.error('영수증 스캔 실패:', err);
     } finally {
-      setIsScanningEditReceipt(false);
+      setScanning(false);
     }
   };
+
+  // 신규 작성/운행기록 수정 두 화면이 같은 모양의 임시 영수증 카드 목록을 쓰도록 공통으로 뺀 렌더러
+  const renderReceiptDraftCards = (
+    drafts: DrivingReceiptDraft[],
+    setDrafts: React.Dispatch<React.SetStateAction<DrivingReceiptDraft[]>>
+  ) => (
+    <div className="space-y-2">
+      {drafts.map((receipt, idx) => (
+        <div key={receipt.tempId} className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-2">
+          <span className="text-[10px] font-bold text-slate-400 shrink-0 w-4">{idx + 1}</span>
+          <img
+            src={receipt.receiptImage}
+            alt="영수증"
+            onClick={() => setEnlargedReceiptUrl(receipt.receiptImage)}
+            className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 min-w-0">
+            <select
+              value={receipt.category}
+              onChange={(e) => setDrafts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, category: e.target.value as VehicleExpense['category'] } : r))}
+              className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
+            >
+              <option value="toll">통행료</option>
+              <option value="parking">주차비</option>
+              <option value="fuel">주유비</option>
+              <option value="meal">식대</option>
+              <option value="beverage">음료</option>
+              <option value="custom">직접 입력</option>
+            </select>
+            <input
+              type="text"
+              value={receipt.merchantName}
+              onChange={(e) => setDrafts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, merchantName: e.target.value } : r))}
+              placeholder="상호명"
+              className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400"
+            />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={receipt.amount ? formatCurrencyInput(receipt.amount) : ''}
+              onChange={(e) => setDrafts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, amount: parseCurrencyInput(e.target.value) } : r))}
+              placeholder="금액 (원)"
+              className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 font-mono"
+            />
+            <select
+              value={receipt.payMethod}
+              onChange={(e) => setDrafts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, payMethod: e.target.value as NonNullable<VehicleExpense['payMethod']> } : r))}
+              className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
+            >
+              <option value="company_card">법인카드</option>
+              <option value="personal_card">개인카드</option>
+              <option value="cash">현금</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDrafts((prev) => prev.filter((r) => r.tempId !== receipt.tempId))}
+            title="이 영수증 제거"
+            className="text-rose-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+      <p className="text-[10px] text-slate-400 px-1">
+        영수증 {drafts.length}건 · 총 {formatCurrencyInput(drafts.reduce((s, r) => s + (Number(r.amount) || 0), 0))}원 · 운행기록 저장 시 비용관리에 각각 등록됩니다.
+      </p>
+    </div>
+  );
 
   // 운행기록 수정 화면에서 이미 연결된 영수증을 삭제
   const handleDeleteEditingReceipt = async (expenseId: string) => {
@@ -636,32 +688,21 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
   // 크롭이 확정된 영수증 이미지를 AI로 인식해서 해당 화면(운행/운행수정/비용/정비)에 반영
   const runReceiptOcr = async (context: 'driving' | 'driving-edit' | 'expense' | 'maint', dataUrl: string) => {
-    // [추가] "운행 기록 수정" 화면은 신규 작성과 달리 임시 초안 없이 스캔 즉시 바로
-    // 저장하는 별도 흐름이라, 여기서 처리를 넘겨주고 끝낸다.
-    if (context === 'driving-edit') {
-      await handleAddReceiptToEditingDriving(dataUrl);
+    if (context === 'driving' || context === 'driving-edit') {
+      await addReceiptDraftAndScan(context, dataUrl);
       return;
     }
 
-    if (context === 'driving') {
-      // 방금 handleScanDrivingReceipt가 목록에 추가해둔 항목(activeDrivingReceiptTempId)의
-      // 사진만 우선 갱신한다. 나머지 항목들은 건드리지 않는다.
-      setDrivingReceipts((prev) => prev.map((r) => (r.tempId === activeDrivingReceiptTempId ? { ...r, receiptImage: dataUrl } : r)));
-    } else if (context === 'expense') {
+    if (context === 'expense') {
       setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
+      setIsScanningExpenseReceipt(true);
     } else {
       setNewMaint((prev) => ({ ...prev, receiptImage: dataUrl }));
+      setIsScanningMaintReceipt(true);
     }
 
-    if (context === 'driving') setIsScanningDrivingReceipt(true);
-    else if (context === 'expense') setIsScanningExpenseReceipt(true);
-    else setIsScanningMaintReceipt(true);
-
     try {
-      // [수정] 운행기록/일반비용/정비내역 세 화면이 스캔 AI 프롬프트를 그대로 공유하면서도,
-      // 정비소 영수증(세금계산서·정비 명세서 등 일반 소매 영수증과 형태가 다른 문서)만
-      // 상호명/금액 인식이 더 잘 되도록, 어느 화면에서 스캔했는지(context)를 같이 보내서
-      // 서버가 정비내역일 때만 안내문구를 추가로 붙여줄 수 있게 한다.
+      // 정비소 영수증은 일반 소매 영수증과 형태가 달라서, 어느 화면에서 스캔했는지(context)를 같이 보낸다
       const res = await fetch('/api/scan-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -669,7 +710,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
       });
       const data = await res.json();
       if (res.ok) {
-        // [수정] AI가 함께 알려준 "영수증 실물의 네 꼭짓점 좌표"로 사진을 다시 한번 정밀하게 잘라낸다.
+        // AI가 알려준 영수증 실물의 네 꼭짓점 좌표로 사진을 다시 정밀하게 잘라낸다.
         let finalReceiptImage = dataUrl;
         if (isValidNormalizedCorners(data.corners)) {
           try {
@@ -679,20 +720,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
           }
         }
 
-        if (context === 'driving') {
-          setDrivingReceipts((prev) => prev.map((r) => {
-            if (r.tempId !== activeDrivingReceiptTempId) return r;
-            return {
-              ...r,
-              receiptImage: finalReceiptImage,
-              category: (data.category as VehicleExpense['category']) || r.category,
-              amount: data.amount || r.amount,
-              merchantName: data.merchantName || r.merchantName,
-              memo: data.memo || r.memo,
-              payMethod: (data.payMethod as NonNullable<VehicleExpense['payMethod']>) || r.payMethod
-            };
-          }));
-        } else if (context === 'expense') {
+        if (context === 'expense') {
           setNewExpense((prev) => ({
             ...prev,
             category: (data.category as VehicleExpense['category']) || prev.category,
@@ -718,13 +746,10 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
     } catch (err) {
       console.error('영수증 스캔 실패:', err);
     } finally {
-      if (context === 'driving') setIsScanningDrivingReceipt(false);
-      else if (context === 'expense') setIsScanningExpenseReceipt(false);
+      if (context === 'expense') setIsScanningExpenseReceipt(false);
       else setIsScanningMaintReceipt(false);
     }
   };
-
-
 
   const handleAddDriving = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -848,7 +873,6 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
             alert(`운행기록은 저장됐지만, 영수증 ${failedCount}건은 등록에 실패했습니다. "운행 기록 수정"에서 다시 추가해주세요.`);
           }
           setDrivingReceipts([]);
-          setActiveDrivingReceiptTempId(null);
         }
 
         setIsDrivingFormOpen(false);
@@ -1248,6 +1272,45 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
         }));
         if (updated.cascadedLog) {
           alert(`도착 계기판이 수정되어, 이어지는 다음 기록의 출발 계기판(${updated.cascadedLog.startMileage.toLocaleString()}km)도 함께 자동으로 맞췄습니다.`);
+        }
+        // 수정 화면에서 새로 담은 영수증들을 이 운행기록에 연결된 지출로 한꺼번에 등록
+        if (editReceiptDrafts.length > 0) {
+          let failedCount = 0;
+          for (const receipt of editReceiptDrafts) {
+            try {
+              const expRes = await fetch('/api/vehicles/expenses', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                  vehicleId: editingDriving.vehicleId,
+                  date: editingDriving.date,
+                  category: receipt.category,
+                  categoryCustom: receipt.categoryCustom,
+                  amount: Number(receipt.amount) || 0,
+                  memo: receipt.memo,
+                  payMethod: receipt.payMethod,
+                  merchantName: receipt.merchantName,
+                  receiptImage: receipt.receiptImage,
+                  projectName: editingDriving.projectName,
+                  contactId: editingDriving.contactId,
+                  drivingLogId: editingDriving.id
+                })
+              });
+              if (expRes.ok) {
+                const addedExpense = await expRes.json();
+                setExpenses((prev) => [addedExpense, ...prev]);
+              } else {
+                failedCount++;
+              }
+            } catch (err) {
+              console.error('운행 연동 지출 등록 실패:', err);
+              failedCount++;
+            }
+          }
+          if (failedCount > 0) {
+            alert(`운행기록은 저장됐지만, 영수증 ${failedCount}건은 등록에 실패했습니다. "운행 기록 수정"에서 다시 추가해주세요.`);
+          }
+          setEditReceiptDrafts([]);
         }
         setEditingDriving(null);
       }
@@ -2451,70 +2514,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
 
                     {/* [수정] 영수증이 여러 개(주차료+식대 등)일 수 있어서, 하나씩 카드 형태로 나열한다.
                     항목마다 사진/분류/상호명/금액/결제수단을 따로 수정하고 개별 삭제도 할 수 있다. */}
-                    {drivingReceipts.length > 0 && (
-                      <div className="space-y-2">
-                        {drivingReceipts.map((receipt, idx) => (
-                          <div key={receipt.tempId} className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 shrink-0 w-4">{idx + 1}</span>
-                            <img
-                              src={receipt.receiptImage}
-                              alt="영수증"
-                              onClick={() => setEnlargedReceiptUrl(receipt.receiptImage)}
-                              className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                            />
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 min-w-0">
-                              <select
-                                value={receipt.category}
-                                onChange={(e) => setDrivingReceipts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, category: e.target.value as VehicleExpense['category'] } : r))}
-                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
-                              >
-                                <option value="toll">통행료</option>
-                                <option value="parking">주차비</option>
-                                <option value="fuel">주유비</option>
-                                <option value="meal">식대</option>
-                                <option value="beverage">음료</option>
-                                <option value="custom">직접 입력</option>
-                              </select>
-                              <input
-                                type="text"
-                                value={receipt.merchantName}
-                                onChange={(e) => setDrivingReceipts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, merchantName: e.target.value } : r))}
-                                placeholder="상호명"
-                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400"
-                              />
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={receipt.amount ? formatCurrencyInput(receipt.amount) : ''}
-                                onChange={(e) => setDrivingReceipts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, amount: parseCurrencyInput(e.target.value) } : r))}
-                                placeholder="금액 (원)"
-                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 font-mono"
-                              />
-                              <select
-                                value={receipt.payMethod}
-                                onChange={(e) => setDrivingReceipts((prev) => prev.map((r) => r.tempId === receipt.tempId ? { ...r, payMethod: e.target.value as NonNullable<VehicleExpense['payMethod']> } : r))}
-                                className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
-                              >
-                                <option value="company_card">법인카드</option>
-                                <option value="personal_card">개인카드</option>
-                                <option value="cash">현금</option>
-                              </select>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setDrivingReceipts((prev) => prev.filter((r) => r.tempId !== receipt.tempId))}
-                              title="이 영수증 제거"
-                              className="text-rose-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 shrink-0"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                        <p className="text-[10px] text-slate-400 px-1">
-                          영수증 {drivingReceipts.length}건 · 총 {formatCurrencyInput(drivingReceipts.reduce((s, r) => s + (Number(r.amount) || 0), 0))}원 · 운행기록 저장 시 비용관리에 각각 등록됩니다.
-                        </p>
-                      </div>
-                    )}
+                    {drivingReceipts.length > 0 && renderReceiptDraftCards(drivingReceipts, setDrivingReceipts)}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs text-slate-500">대상 차량 *</label>
@@ -5893,7 +5893,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-50"
                   >
                     <Camera className="w-4 h-4" />
-                    <span>{isScanningEditReceipt ? '영수증 스캔 및 저장 중...' : '영수증 추가로 촬영 (촬영 즉시 저장됨)'}</span>
+                    <span>{isScanningEditReceipt ? '영수증 스캔 중...' : editReceiptDrafts.length > 0 ? `영수증 추가로 촬영 (지금 ${editReceiptDrafts.length}건 담김)` : '영수증 촬영 (여러 장 가능)'}</span>
                   </button>
                     <button
                         type="button"
@@ -5904,10 +5904,12 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     </button>
                   </div>
 
+                  {editReceiptDrafts.length > 0 && renderReceiptDraftCards(editReceiptDrafts, setEditReceiptDrafts)}
+
                   {(() => {
                     const linkedReceipts = expenses.filter((e) => e.drivingLogId === editingDriving.id);
                     if (linkedReceipts.length === 0) {
-                      return <p className="text-[11px] text-slate-400 text-center py-2">아직 연결된 영수증이 없습니다.</p>;
+                      return editReceiptDrafts.length > 0 ? null : <p className="text-[11px] text-slate-400 text-center py-2">아직 연결된 영수증이 없습니다.</p>;
                     }
                     return (
                       <div className="space-y-1.5">
