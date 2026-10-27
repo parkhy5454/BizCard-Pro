@@ -133,7 +133,7 @@ export const DashboardView: React.FC<Props> = ({
   );
 
   return (
-    <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
+    <div className="max-w-6xl mx-auto pt-1 pb-6 px-4 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900">홈 대시보드</h2>
