@@ -3914,12 +3914,19 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     <option value="none">해당없음 (무료/보증수리)</option>
                   </select>
                 </div>
-                <div className="flex items-end">
-                  <button 
-                    type="submit"
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-2.5 pt-4 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsMaintFormOpen(false)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                   >
-                    정비기록 추가
+                    취소
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                  >
+                    저장
                   </button>
                 </div>
               </form>
@@ -4085,7 +4092,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           {/* 1) 정비 내역 대장 모드 */}
           {maintSubMode === 'history' && (
             <div className="space-y-4">
-              {(() => {
+              {!isMaintFormOpen && (() => {
                 // [수정] 예전엔 서버가 준 원본 순서(=등록한 순서) 그대로 보여줘서, 방금 완료한
                 // 정비 건이 목록 맨 앞이 아니라 옆으로 밀어야 보이는 자리에 묻히는 문제가 있었다.
                 // 비용 지출 목록(위 filteredExpenses)에 이미 적용된 것과 동일하게, 정비 "날짜"
