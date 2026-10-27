@@ -247,12 +247,14 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     if (Math.abs(deltaX) < 40) return; // 스와이프로 인정할 최소 이동거리
     const side = cardImageSide[contactId] || 'front';
     const flipTo = (next: 'front' | 'back') => setCardImageSide((prev) => ({ ...prev, [contactId]: next }));
+    // 이동 방향을 반대로: 오른쪽으로 밀면 이전 명함, 왼쪽으로 밀면 다음 명함
+    // (앞뒤 전환 규칙은 그대로: 앞면 오른쪽=뒷면, 뒷면 왼쪽=앞면)
     if (deltaX > 0) {
       if (side === 'front' && hasBack) flipTo('back');
-      else scroll('right');
+      else scroll('left');
     } else {
       if (side === 'back') flipTo('front');
-      else scroll('left');
+      else scroll('right');
     }
   };
 
