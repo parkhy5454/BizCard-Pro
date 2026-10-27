@@ -2946,7 +2946,7 @@ export const VehicleView: React.FC<Props> = ({ currentUser, contacts, setContact
                     <div className="text-xs text-slate-400 self-center mr-auto font-mono">
                       {newDriving.endMileage > newDriving.startMileage ? (
                         <span className="text-indigo-400 font-semibold">예상 계산 거리: {newDriving.endMileage - newDriving.startMileage} km</span>
-                      ) : '도착 계기판은 출발 계기판보다 커야 저장이 가능합니다.'}
+                      ) : null}
                     </div>
                     <button 
                       type="button"
