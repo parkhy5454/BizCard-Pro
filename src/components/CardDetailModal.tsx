@@ -1052,17 +1052,13 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
                 className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-semibold transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                지금 입력한 정보로 명함 이미지 다시 만들기
+                명함 다시 만들기
               </button>
               {imageRegeneratedAt ? (
                 <p className="text-[11px] text-emerald-600 font-medium -mt-2.5 px-1 flex items-center gap-1">
                   ✅ 이미지를 새로 만들었어요. 왼쪽 미리보기에서 바로 확인해보세요.
                 </p>
-              ) : (
-                <p className="text-[10px] text-slate-400 -mt-2.5 px-1">
-                  "가져오기"로 등록해서 사진 없이 자동으로 만들어진 명함 이미지에만 사용하세요. 실제로 촬영/스캔한 사진이 있다면 누르지 마세요 (사진이 대체됩니다).
-                </p>
-              )}
+              ) : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
@@ -1081,20 +1077,18 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
 
               {/* 분리된 연락처 */}
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
-                <span className="text-xs font-bold text-slate-500 uppercase font-mono">연락처 분리 입력</span>
-                <div className="grid grid-cols-1 gap-2.5">
+                                <div className="grid grid-cols-1 gap-2.5">
                   <div>
                     <label className="text-xs text-emerald-400 block mb-1">핸드폰 번호 (Mobile)</label>
                     <input type="text" inputMode="numeric" value={editForm.phoneMobile} onChange={e=>setEditForm({...editForm, phoneMobile:formatPhoneNumber(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-mono focus:outline-none focus:border-emerald-500" />
                   </div>
                   <div>
-                    <label className="text-xs text-blue-400 block mb-1">사무실 유선전화 1 (Office 1)</label>
+                    <label className="text-xs text-blue-400 block mb-1">사무실 1 (Office 1)</label>
                     <input type="text" inputMode="numeric" value={editForm.phoneOffice} onChange={e=>setEditForm({...editForm, phoneOffice:formatPhoneNumber(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
                     <label className="text-xs text-cyan-400 block mb-1 flex items-center gap-1.5">
-                      <span>사무실 유선전화 2 / 직통번호 (Office 2)</span>
-                      <span className="text-[9px] bg-cyan-500/10 text-cyan-400 px-1 py-0.2 rounded font-mono font-bold">스캔 분리</span>
+                      <span>사무실 2 (Office 2)</span>
                     </label>
                     <input type="text" inputMode="numeric" value={editForm.phoneOffice2 || ''} onChange={e=>setEditForm({...editForm, phoneOffice2:formatPhoneNumber(e.target.value)})} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-mono focus:outline-none focus:border-cyan-500" />
                   </div>
@@ -1149,7 +1143,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={()=>setActiveTab('info')} className="w-1/3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold">취소</button>
-                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-600/30">수정 완료 저장</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-600/30">저장</button>
               </div>
             </form>
           )}
