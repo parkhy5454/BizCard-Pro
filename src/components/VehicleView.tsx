@@ -3726,10 +3726,10 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </div>
             )}
           </div>
-            <div className="flex border-b border-slate-200 pb-px gap-1">
+            <div className="flex border-b border-slate-200 pb-px pt-2 gap-1">
               <button
                 onClick={() => setMaintSubMode('history')}
-                className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
+                className={`px-4 py-3.5 text-xs font-semibold border-b-2 transition-all ${
                   maintSubMode === 'history'
                     ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -3739,7 +3739,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </button>
               <button
                 onClick={() => setMaintSubMode('intervals')}
-                className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
+                className={`px-4 py-3.5 text-xs font-semibold border-b-2 transition-all ${
                   maintSubMode === 'intervals'
                     ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
