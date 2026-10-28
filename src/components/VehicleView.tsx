@@ -87,6 +87,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     setEditingVehicle(null);
   }, [activeSubTab]);
   const [maintSubMode, setMaintSubMode] = useState<'history' | 'intervals'>('history');
+  // 정비 내역 대장 ↔ 소모품 점검 주기를 바꾸면 열려 있던 정비/점검주기 수정 창은 닫는다
+  React.useEffect(() => {
+    setEditingMaint(null);
+    setEditingInterval(null);
+  }, [maintSubMode]);
 
   // 등록 모달/폼 활성화 여부
   const [isVehicleFormOpen, setIsVehicleFormOpen] = useState(false);
