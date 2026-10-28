@@ -58,8 +58,10 @@ process.on('unhandledRejection', (reason) => {
 // 소진한) 시점에 한해서, 딱 한 번 다른 모델(FALLBACK_MODEL)로 넘겨서 시도해본다. 별도의 모델
 // 풀(pool)이라 원래 모델이 과부하여도 정상 응답할 가능성이 있고, 이미 폴백 모델로 시도한
 // 요청이면(무한 폴백 방지) 더 이상 폴백하지 않는다.
-const PRIMARY_GEMINI_MODEL = 'gemini-3.5-flash';
-const FALLBACK_GEMINI_MODEL = 'gemini-2.5-flash';
+// 모델 이름은 Render 환경변수(GEMINI_PRIMARY_MODEL, GEMINI_FALLBACK_MODEL)로 바꿀 수 있다.
+// 모델이 종료되거나 과부하일 때 코드 재배포 없이 환경변수만 바꿔서 대응하기 위함.
+const PRIMARY_GEMINI_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-3.5-flash';
+const FALLBACK_GEMINI_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
 
 type GenerateParams = Parameters<GoogleGenAI['models']['generateContent']>[0];
 type GenerateResult = Awaited<ReturnType<GoogleGenAI['models']['generateContent']>>;
