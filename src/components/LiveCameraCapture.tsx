@@ -55,6 +55,18 @@ function shrinkQuadInward(quad: Quad, ratio = 0.016): Quad {
 }
 
 // 감지 캔버스 좌표(비디오 원본과 같은 비율로 축소된 좌표) → 화면에 실제 렌더링된(object-cover) 좌표로 변환
+// [추가] 화면 가이드 사각형의 위치(StaticGuideOverlay와 같은 계산). 자동 촬영은 문서가 이 안에 들어와야 한다.
+function guideRectOnDisplay(cw: number, ch: number, aspectRatio: number): { x: number; y: number; w: number; h: number } {
+  const marginRatio = 0.04;
+  let w = cw * (1 - marginRatio * 2);
+  let h = w / aspectRatio;
+  if (h > ch * (1 - marginRatio * 2)) {
+    h = ch * (1 - marginRatio * 2);
+    w = h * aspectRatio;
+  }
+  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+}
+
 function mapToDisplay(quad: Quad, srcW: number, srcH: number, dispW: number, dispH: number): Quad {
   const srcRatio = srcW / srcH;
   const dispRatio = dispW / dispH;
@@ -501,18 +513,28 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
       const dispW = container.clientWidth;
       const dispH = container.clientHeight;
-      setQuadDisplay(mapToDisplay(found.points, detectW, detectH, dispW, dispH));
+      const dispQuad = mapToDisplay(found.points, detectW, detectH, dispW, dispH);
+      // [추가] 문서 네 모서리가 가이드 사각형 안(약간의 여유 포함)에 들어왔는지 확인
+      const guide = guideRectOnDisplay(dispW, dispH, guideAspectRatio);
+      const tolX = guide.w * 0.12;
+      const tolY = guide.h * 0.12;
+      const insideOk = dispQuad.every(([x, y]) =>
+        x >= guide.x - tolX && x <= guide.x + guide.w + tolX &&
+        y >= guide.y - tolY && y <= guide.y + guide.h + tolY
+      );
+      setQuadDisplay(dispQuad);
       setQuality({ sizeOk, focusOk, brightOk, glareOk });
-      setIsStable(stable && allQualityOk);
+      setIsStable(stable && allQualityOk && insideOk);
 
       if (!sizeOk) setStatusMessage(`${docLabel}을(를) 조금 더 가까이 가져와 주세요`);
       else if (!brightOk) setStatusMessage(brightness < 60 ? '조명이 어두워요' : '빛이 너무 강해요');
       else if (!glareOk) setStatusMessage('반사광이 있어요, 각도를 살짝 바꿔주세요');
       else if (!focusOk) setStatusMessage('흔들리지 않게 잠시 고정해주세요');
+      else if (!insideOk) setStatusMessage('가이드 사각형 안에 맞춰 주세요');
       else if (!stable) setStatusMessage('위치를 고정해주세요...');
       else setStatusMessage('고정됨! 자동 촬영합니다');
 
-      if (allQualityOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
+      if (allQualityOk && insideOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
         autoCapturedRef.current = true;
         handleCapture();
       }
@@ -561,8 +583,14 @@ export const LiveCameraCapture: React.FC<Props> = ({
           <>
             <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline muted />
 
-            {isReady && cvStatus === 'ready' && (
+            {/* [수정] 문서가 감지되면 실제 테두리(초록/노랑/빨강)를, 감지 전에는 가이드 사각 테두리를 항상 보여준다. */}
+            {isReady && cvStatus === 'ready' && (quadDisplay ? (
               <DetectionOverlay quad={quadDisplay} color={outlineColor} />
+            ) : (
+              <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
+            ))}
+            {isReady && cvStatus === 'loading' && (
+              <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
             )}
             {isReady && cvStatus === 'failed' && (
               <>
