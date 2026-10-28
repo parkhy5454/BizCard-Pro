@@ -2161,7 +2161,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-500">보험 가입일자</label>
+                      <label className="text-xs text-slate-500">가입일</label>
                       <input 
                         type="date" 
                         value={newVehicle.insuranceStartDate}
@@ -2170,7 +2170,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-500">보험 만기일자</label>
+                      <label className="text-xs text-slate-500">만기일</label>
                       <input 
                         type="date" 
                         value={newVehicle.insuranceEndDate}
@@ -5288,7 +5288,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">월 임차 비용 (원화 금액)</label>
+                    <label className="text-xs text-slate-500">월 임차 비용 (원)</label>
                     <input 
                       type="text" 
                       inputMode="numeric"
@@ -5304,11 +5304,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               {/* 세션 3: 법인 보험 계약 정보 */}
               <div className="space-y-3 pt-2 border-t border-slate-200">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
-                  <span>•</span> 가입 법인 보험 계약 세부사항
+                  <span>•</span> 보험 계약 사항
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">법인 자동차 보험사</label>
+                    <label className="text-xs text-slate-500">보험사</label>
                     <input 
                       type="text" 
                       value={editingVehicle.insuranceCompany || ''}
@@ -5318,7 +5318,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">보험 가입일자</label>
+                    <label className="text-xs text-slate-500">가입일</label>
                     <input 
                       type="date" 
                       value={editingVehicle.insuranceStartDate || ''}
@@ -5327,7 +5327,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">보험 만기일자</label>
+                    <label className="text-xs text-slate-500">만기일</label>
                     <input 
                       type="date" 
                       value={editingVehicle.insuranceEndDate || ''}
@@ -5336,7 +5336,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-500">보험 계약 담당자</label>
+                    <label className="text-xs text-slate-500">계약 담당자</label>
                     <input 
                       type="text" 
                       value={editingVehicle.insuranceAgent || ''}
@@ -5346,7 +5346,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     />
                   </div>
                   <div className="space-y-1.5 sm:col-span-4">
-                    <label className="text-xs text-slate-500">보험 지점 연락처</label>
+                    <label className="text-xs text-slate-500">담당 연락처</label>
                     <input 
                       type="text" 
                       value={editingVehicle.insuranceContact || ''}
@@ -5380,12 +5380,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               {/* 세션 5: 등록증 사본 업데이트 */}
               <div className="space-y-3 pt-2 border-t border-slate-200">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
-                  <span>•</span> 자동차 등록증 첨부 서류 변경
+                  <span>•</span> 자동차 등록증 첨부
                 </h4>
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-left">
                     <p className="text-xs font-bold text-slate-700">기존 첨부문서 대체 / 신규 업로드</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">새 이미지나 PDF를 첨부하면 기 보관 중이던 등록증 원본 사본이 실시간 갱신됩니다.</p>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <input 
@@ -5404,6 +5403,29 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         }
                       }}
                     />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      id="edit-reg-doc-camera"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setEditingVehicle(prev => prev ? { ...prev, registrationDocumentUrl: reader.result as string } : null);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="edit-reg-doc-camera"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
+                    >
+                      사진 찍기
+                    </label>
                     <label 
                       htmlFor="edit-reg-doc-upload"
                       className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
@@ -5437,13 +5459,13 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   onClick={() => setEditingVehicle(null)}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
                 >
-                  수정 취소
+                  취소
                 </button>
                 <button 
                   type="submit"
                   className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                 >
-                  기 등록 정보 보완 저장
+                  저장
                 </button>
               </div>
             </form>
