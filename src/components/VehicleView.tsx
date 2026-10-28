@@ -2239,8 +2239,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   </h4>
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-left">
-                      <p className="text-xs font-bold text-slate-700">자동차 등록증 업로드 (이미지 및 PDF 지원)</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">이미지 및 PDF 파일 모두 업로드 및 전산 증빙 뷰어로 원본 보기가 가능합니다.</p>
+                      <p className="text-xs font-bold text-slate-700">자동차 등록증 업로드</p>
                     </div>
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                       <input 
@@ -2259,6 +2258,29 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           }
                         }}
                       />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        id="reg-doc-camera-tab"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setNewVehicle(prev => ({ ...prev, registrationDocumentUrl: reader.result as string }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="reg-doc-camera-tab"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
+                      >
+                        사진 찍기
+                      </label>
                       <label 
                         htmlFor="reg-doc-upload-tab"
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
@@ -2289,7 +2311,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     type="submit"
                     className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
                   >
-                    신규 차량 자산 등록 완료
+                    완료
                   </button>
                 </div>
               </form>
