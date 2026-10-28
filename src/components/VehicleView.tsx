@@ -2305,7 +2305,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               <div className="flex items-center gap-1.5 text-[11px] text-indigo-400 font-medium pb-1">
                 <span className="animate-pulse">옆으로 밀어서 보기</span>
               </div>
-              <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+              <div className="flex overflow-x-auto md:overflow-visible gap-4 pb-4 px-[calc(50%-170px)] sm:px-[calc(50%-200px)] md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 scroll-smooth snap-x snap-mandatory scrollbar-none">
                 {vehicles
                   .filter(v => {
                     const query = vehicleSearch.toLowerCase();
@@ -2317,13 +2317,13 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     const totalCarExpense = expenses.filter(e => e.vehicleId === v.id).reduce((sum, e) => sum + e.amount, 0);
 
                     return (
-                      <div key={v.id} className="w-[320px] sm:w-[360px] shrink-0 snap-start bg-white border border-slate-200 rounded-2xl p-5 hover:border-slate-200 transition-all flex flex-col justify-between">
+                      <div key={v.id} className="flex-none w-[340px] sm:w-[400px] md:w-auto snap-center bg-white p-2 transition-all flex flex-col justify-between">
                         <div className="space-y-4">
                           {/* Top Header Row with Title, Plate Number and action icons */}
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="text-base font-bold text-slate-800">{v.modelName}</h3>
-                              <p className="text-xs text-slate-500 font-mono mt-0.5">{v.plateNumber}</p>
+                              <h3 className="text-lg font-bold text-slate-800">{v.modelName}</h3>
+                              <p className="text-sm text-slate-500 font-mono mt-0.5">{v.plateNumber}</p>
                             </div>
                             <div className="flex items-center gap-1">
                               <button 
@@ -2344,7 +2344,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           </div>
 
                           {/* Line-based detail list mimicking the first image */}
-                          <div className="space-y-1 text-xs text-slate-500 pt-1">
+                          <div className="space-y-1 text-sm text-slate-500 pt-1">
                             <p className="flex items-center gap-1.5">
                               <span className="text-slate-400">·</span>
                               <span>{v.modelName} ({v.modelYear || '연식 미지정'}) · {v.color || '색상 미지정'}</span>
@@ -2364,13 +2364,13 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                                     const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                                     if (daysLeft < 0) {
                                       return (
-                                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-rose-50 text-rose-700 border border-rose-500/30 rounded font-semibold inline-block">
+                                        <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-rose-50 text-rose-700 border border-rose-500/30 rounded font-semibold inline-block">
                                           만기 도과 (경과: {Math.abs(daysLeft)}일)
                                         </span>
                                       );
                                     } else if (daysLeft <= 30) {
                                       return (
-                                        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-amber-50 text-amber-700 border border-amber-500/30 rounded font-semibold inline-block">
+                                        <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-amber-50 text-amber-700 border border-amber-500/30 rounded font-semibold inline-block">
                                           만기 임박 ({daysLeft}일 남음)
                                         </span>
                                       );
@@ -2399,11 +2399,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
 
                           {/* Divider line before Registration Document */}
                           <div className="border-t border-slate-200 pt-3.5 space-y-1.5">
-                            <span className="text-[11px] font-semibold text-slate-400 block">자동차 등록증</span>
+                            <span className="text-xs font-semibold text-slate-400 block">자동차 등록증</span>
                             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
                               <div className="flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-indigo-400" />
-                                <span className="text-xs text-slate-600 font-medium">
+                                <span className="text-sm text-slate-600 font-medium">
                                   {v.registrationDocumentUrl ? '등록증 업로드됨' : '등록증 미등록'}
                                 </span>
                               </div>
@@ -2450,7 +2450,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         <div className="mt-4 pt-3 border-t border-slate-200/50">
                           <button 
                             onClick={() => setSelectedStatsVehicle(v)}
-                            className="w-full text-left text-xs font-bold text-slate-500 hover:text-indigo-400 transition-all flex items-center justify-between group"
+                            className="w-full text-left text-sm font-bold text-slate-500 hover:text-indigo-400 transition-all flex items-center justify-between group"
                           >
                             <span>상세 통계 보기</span>
                             <span className="group-hover:translate-x-1 transition-transform">&gt;</span>
