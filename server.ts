@@ -60,8 +60,8 @@ process.on('unhandledRejection', (reason) => {
 // 요청이면(무한 폴백 방지) 더 이상 폴백하지 않는다.
 // 모델 이름은 Render 환경변수(GEMINI_PRIMARY_MODEL, GEMINI_FALLBACK_MODEL)로 바꿀 수 있다.
 // 모델이 종료되거나 과부하일 때 코드 재배포 없이 환경변수만 바꿔서 대응하기 위함.
-const PRIMARY_GEMINI_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-3.5-flash';
-const FALLBACK_GEMINI_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
+const PRIMARY_GEMINI_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-3.6-flash';
+const FALLBACK_GEMINI_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.8-flash';
 
 type GenerateParams = Parameters<GoogleGenAI['models']['generateContent']>[0];
 type GenerateResult = Awaited<ReturnType<GoogleGenAI['models']['generateContent']>>;
@@ -4827,7 +4827,10 @@ app.post('/api/scan-card', async (req, res) => {
           companyInfo: ''
         });
       } catch (geminiErr: unknown) {
-        console.error('Gemini 명함 인식 실패, Vision OCR로 대체:', geminiErr);
+        // [수정] OCR로 대체하면 로고·슬로건이 이름/회사명으로 들어가 틀린 값이 저장된다.
+        // 그래서 AI 인식이 실패하면 OCR 결과를 채우지 않고 다시 시도하도록 안내한다.
+        console.error('Gemini 명함 인식 실패:', geminiErr);
+        return res.status(503).json({ error: 'AI 인식이 지연되어 명함을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.' });
       }
     }
 
