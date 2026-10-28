@@ -2010,7 +2010,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Car className="w-4 h-4 text-indigo-400" />
-                  <span>신규 차량 등록 대장 기입</span>
+                  <span>신규 차량 등록</span>
                 </h3>
                 <button onClick={() => setIsVehicleFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
