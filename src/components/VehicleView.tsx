@@ -5383,9 +5383,6 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   <span>•</span> 자동차 등록증 첨부
                 </h4>
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-slate-700">기존 첨부문서 대체 / 신규 업로드</p>
-                  </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <input 
                       type="file" 
@@ -5430,7 +5427,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       htmlFor="edit-reg-doc-upload"
                       className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap"
                     >
-                      새 파일 교체하기
+                      업로드
                     </label>
                     {editingVehicle.registrationDocumentUrl ? (
                       <div className="flex items-center gap-1.5">
