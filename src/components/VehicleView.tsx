@@ -65,6 +65,13 @@ interface Props {
   setContacts: React.Dispatch<React.SetStateAction<import('../types.js').BusinessCard[]>>;
 }
 
+// 휴대폰(또는 홈 화면에 추가한 앱)에서는 window.print()가 동작하지 않는 경우가 많아서 따로 처리한다
+const isMobileDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    || (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches);
+};
+
 export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | null }> = ({ currentUser, contacts, setContacts, topRowsContainer }) => {
   // 메인 상태
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -4606,7 +4613,45 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
         // 포털에 넣고, 인쇄할 때만 화면의 나머지 부분(#root)을 감춰서 이 표만 단독으로
         // 인쇄/PDF 저장되게 한다. 표가 가로로 넓어서 A4 세로가 아니라 가로로 인쇄되도록
         // print-landscape 클래스도 같이 붙인다.
+        // 휴대폰용: 표를 인쇄용 HTML 파일로 만들어 공유 창을 띄운다 (공유가 안 되면 파일로 내려받는다).
+        // 받은 파일을 Safari로 열어 공유 > 인쇄 > PDF 저장으로 PDF를 만들 수 있다.
+        const shareReportAsHtml = async (v: Vehicle) => {
+          const tableHtml = buildReportTableHtml(v);
+          const doc = `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${v.modelName} 운행기록부 ${reportYearMonth}</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  body { font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 11px; color: #111; margin: 12px; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #999; padding: 3px 5px; }
+</style></head><body>${tableHtml}</body></html>`;
+          const fileName = `운행기록부_${v.modelName}_${reportYearMonth}.html`;
+          const file = new File([doc], fileName, { type: 'text/html' });
+          try {
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: fileName });
+              return;
+            }
+          } catch (err) {
+            // 사용자가 공유 창을 닫은 경우는 그냥 끝낸다
+            if (err instanceof Error && err.name === 'AbortError') return;
+          }
+          const url = URL.createObjectURL(file);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+
         const handlePrintReport = (v: Vehicle) => {
+          if (isMobileDevice()) {
+            void shareReportAsHtml(v);
+            return;
+          }
           const tableHtml = buildReportTableHtml(v);
           setPrintingReportHtml(tableHtml);
           setTimeout(() => {
