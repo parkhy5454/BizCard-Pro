@@ -5039,8 +5039,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     const percentage = Math.round((carExpense / totalAllExpense) * 100);
 
                     return (
-                      <div key={v.id} className="space-y-1 text-sm">
-                        <div className="flex justify-between text-xs">
+                      <div key={v.id} className="space-y-1 text-base">
+                        <div className="flex justify-between text-sm">
                           <span className="font-semibold text-slate-600">{v.modelName} ({v.plateNumber})</span>
                           <span className="font-bold font-mono text-indigo-400">{formatWon(carExpense)} 원 ({percentage}%)</span>
                         </div>
@@ -5072,7 +5072,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     if (catAmount === 0) return null;
 
                     return (
-                      <div key={cat} className="flex items-center justify-between text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div key={cat} className="flex items-center justify-between text-base p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                         <span className="font-medium text-slate-600">{getCategoryKo(cat)}</span>
                         <div className="flex items-center gap-3">
                           <span className="font-mono text-slate-500">{percentage}%</span>
@@ -5090,7 +5090,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               <h3 className="text-sm font-bold text-slate-700">📈 보유 차량 전산 자산 효율 비교</h3>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-600 border-collapse">
+                <table className="w-full text-left text-base text-slate-600 border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
                       <th className="p-3">차량</th>
