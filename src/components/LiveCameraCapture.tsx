@@ -334,6 +334,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
     if (!video || !isReady || isProcessingRef.current) return;
     isProcessingRef.current = true;
     setIsProcessing(true);
+    let stage = '준비';
 
     try {
       const vw = video.videoWidth;
@@ -413,13 +414,20 @@ export const LiveCameraCapture: React.FC<Props> = ({
             if (effectiveAspect >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / effectiveAspect); }
             else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * effectiveAspect); }
 
+            stage = '원근 보정';
             const warped = warpToRect(cv, srcMat, quadToUse, outW, outH);
-            const trimmed = trimToBrightCard(cv, warped);
-            const enhanced = enhanceMat(cv, trimmed);
+            // 자르기·밝기 보정이 실패해도 보정된 원본 사각형으로 계속 진행한다
+            let trimmed = warped;
+            stage = '여백 제거';
+            try { trimmed = trimToBrightCard(cv, warped); } catch (e) { console.warn('여백 제거 실패:', e); }
+            let enhanced = trimmed;
+            stage = '선명도 보정';
+            try { enhanced = enhanceMat(cv, trimmed); } catch (e) { console.warn('선명도 보정 실패:', e); }
+            stage = '이미지 변환';
             outDataUrl = matToDataUrl(cv, enhanced, 0.9);
             warped.delete();
             if (trimmed !== warped) trimmed.delete();
-            enhanced.delete();
+            if (enhanced !== trimmed) enhanced.delete();
           } else {
             // 명함을 잡지 못했다: 엉뚱한 영역(책상 포함)을 자르지 않고 다시 찍도록 안내한다
             noCard = true;
@@ -451,7 +459,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
       setIsProcessing(false);
       autoCapturedRef.current = false;
       const reason = err instanceof Error ? err.message : String(err);
-      alert(`사진 처리에 실패했습니다. 명함이 화면에 잘 보이게 다시 촬영해 주세요.\n(${reason})`);
+      alert(`사진 처리에 실패했습니다. 명함이 화면에 잘 보이게 다시 촬영해 주세요.\n[단계: ${stage}] (${reason})`);
     }
   }, [isReady, guideAspectRatio, stopStream, onCapture]);
 
