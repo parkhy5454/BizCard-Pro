@@ -4746,6 +4746,8 @@ app.post('/api/scan-card', async (req, res) => {
     aiScanRateLimiter.registerAttempt(scanUserId);
 
     const { frontImage, backImage } = req.body;
+    // [진단] 명함 인식 요청이 서버에 도착했는지, 이미지 크기가 얼마인지 로그로 확인하기 위함
+    console.log(`[명함인식] 요청 수신 front=${String(frontImage || '').length}자 back=${String(backImage || '').length}자 at=${new Date().toISOString()}`);
     if (!frontImage && !backImage) {
       return res.status(400).json({ error: '명함 이미지가 전송되지 않았습니다.' });
     }
@@ -4805,6 +4807,7 @@ app.post('/api/scan-card', async (req, res) => {
           config: JSON_CONFIG
         });
         const raw = (geminiRes.text || '').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+        console.log(`[명함인식] Gemini 응답 수신 (${raw.length}자)`);
         const parsed = JSON.parse(raw) as Record<string, unknown>;
         const pick = (k: string): string => (typeof parsed[k] === 'string' ? (parsed[k] as string).trim() : '');
         return res.json({
