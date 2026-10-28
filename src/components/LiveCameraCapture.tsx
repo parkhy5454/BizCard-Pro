@@ -285,7 +285,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   }, []);
 
   // 실제 촬영 + 보정 처리 (자동/수동 공통)
-  const handleCapture = useCallback(async () => {
+  const handleCapture = useCallback(async (fromAuto: boolean = false) => {
     const video = videoRef.current;
     if (!video || !isReady || isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -320,7 +320,13 @@ export const LiveCameraCapture: React.FC<Props> = ({
           // 가로/세로 반대로 적용해야, 카드 내용이 찌그러지지 않고 올바르게 나온다.
           let quadRotated = false;
 
-          if (preciseQuad) {
+          if (fromAuto && lastRawQuadRef.current) {
+            // [추가] 자동 촬영은 실시간 화면에서 이미 "가이드 안 + 명함 비율 + 고정"을 확인한 결과이므로,
+            // 그때 감지된 사각형을 그대로 사용한다 (재감지 결과가 어긋나 확인 화면으로 빠지는 것을 막기 위함).
+            const { quad, detectW, detectH, rotated } = lastRawQuadRef.current;
+            quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
+            quadRotated = rotated;
+          } else if (preciseQuad) {
             quadToUse = preciseQuad.points;
             quadRotated = preciseQuad.rotated;
           } else if (lastRawQuadRef.current) {
@@ -523,7 +529,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
       if (allQualityOk && fitOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
         autoCapturedRef.current = true;
-        handleCapture();
+        handleCapture(true);
       }
     } finally {
       srcMat.delete();
