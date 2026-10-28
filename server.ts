@@ -99,7 +99,8 @@ async function generateContentWithRetry(
         }
         throw err;
       }
-      const delayMs = 800 * (attempt + 1); // 800ms, 1600ms ... 점점 늘려가며 재시도
+      // 과부하(503)는 몇 초 뒤에 풀리는 경우가 많아서 간격을 2초, 4초로 넓혀 재시도한다.
+      const delayMs = 2000 * Math.pow(2, attempt);
       console.warn(`[Gemini] 일시적 오류로 ${delayMs}ms 후 재시도 (${attempt + 1}/${maxRetries}):`, message.slice(0, 200));
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
