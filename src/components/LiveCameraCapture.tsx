@@ -338,24 +338,18 @@ export const LiveCameraCapture: React.FC<Props> = ({
             // 대체한다 — "가이드 안에 들어온 부분만 정확히" 잘리는 걸 보장하기 위함이다.
             // [수정] quadRotated인 경우, 실제 카드는 세로로 길게 잡힌 것이므로 가이드 박스도
             // 가로/세로를 바꿔서 비교해야 정상적으로 통과한다.
-            const rawGuideBounds = getGuideBoundsInVideoSpace(video, containerRef.current, guideAspectRatio);
-            const guideBounds = quadRotated
-              ? { x: rawGuideBounds.x, y: rawGuideBounds.y, w: rawGuideBounds.h, h: rawGuideBounds.w }
-              : rawGuideBounds;
+            // [수정] 고정 가이드 박스 대신, 실제 촬영 이미지 안에 명함 네 모서리가 온전히 있는지와
+            // 명함 비율인지로 판단한다. 실시간 화면에서 이미 "가이드 안에 들어옴"을 확인했으므로
+            // 여기서는 그 결과를 그대로 신뢰해서 자동 촬영이 확인 화면 없이 바로 진행되게 한다.
             const qxs = quadToUse.map((p) => p[0]);
             const qys = quadToUse.map((p) => p[1]);
-            const qMinX = Math.min(...qxs), qMaxX = Math.max(...qxs);
-            const qMinY = Math.min(...qys), qMaxY = Math.max(...qys);
-            // 가이드 박스 크기의 12%까지는 여유를 두고(명함이 가이드보다 살짝 크게 잡힌 정상
-            // 상황도 있으므로), 그 이상 벗어나면 신뢰하지 않는다.
-            const tolX = guideBounds.w * 0.12;
-            const tolY = guideBounds.h * 0.12;
-            const withinGuide =
-              qMinX >= guideBounds.x - tolX &&
-              qMaxX <= guideBounds.x + guideBounds.w + tolX &&
-              qMinY >= guideBounds.y - tolY &&
-              qMaxY <= guideBounds.y + guideBounds.h + tolY;
-            if (!withinGuide) {
+            const inVideo = Math.min(...qxs) >= 0 && Math.max(...qxs) <= vw && Math.min(...qys) >= 0 && Math.max(...qys) <= vh;
+            const [q0, q1, q2, q3] = quadToUse;
+            const qW = (dist(q0, q1) + dist(q3, q2)) / 2;
+            const qH = (dist(q0, q3) + dist(q1, q2)) / 2;
+            const qRatio = Math.max(qW, qH) / Math.max(1e-6, Math.min(qW, qH));
+            const shapeOk = documentType === 'card' ? Math.abs(qRatio - guideAspectRatio) / guideAspectRatio < 0.2 : true;
+            if (!(inVideo && shapeOk)) {
               quadToUse = null;
             }
           }
