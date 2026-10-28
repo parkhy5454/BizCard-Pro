@@ -55,18 +55,6 @@ function shrinkQuadInward(quad: Quad, ratio = 0.016): Quad {
 }
 
 // 감지 캔버스 좌표(비디오 원본과 같은 비율로 축소된 좌표) → 화면에 실제 렌더링된(object-cover) 좌표로 변환
-// [추가] 화면 가이드 사각형의 위치(StaticGuideOverlay와 같은 계산). 자동 촬영은 문서가 이 안에 들어와야 한다.
-function guideRectOnDisplay(cw: number, ch: number, aspectRatio: number): { x: number; y: number; w: number; h: number } {
-  const marginRatio = 0.04;
-  let w = cw * (1 - marginRatio * 2);
-  let h = w / aspectRatio;
-  if (h > ch * (1 - marginRatio * 2)) {
-    h = ch * (1 - marginRatio * 2);
-    w = h * aspectRatio;
-  }
-  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
-}
-
 function mapToDisplay(quad: Quad, srcW: number, srcH: number, dispW: number, dispH: number): Quad {
   const srcRatio = srcW / srcH;
   const dispRatio = dispW / dispH;
@@ -146,6 +134,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const [quadDisplay, setQuadDisplay] = useState<Quad | null>(null);
   const [quality, setQuality] = useState<Quality | null>(null);
   const [isStable, setIsStable] = useState(false);
+  const [isFit, setIsFit] = useState(false);
   const [statusMessage, setStatusMessage] = useState(`${docLabel}을(를) 화면 안에 맞춰주세요`);
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
@@ -514,27 +503,31 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const dispW = container.clientWidth;
       const dispH = container.clientHeight;
       const dispQuad = mapToDisplay(found.points, detectW, detectH, dispW, dispH);
-      // [추가] 문서 네 모서리가 가이드 사각형 안(약간의 여유 포함)에 들어왔는지 확인
-      const guide = guideRectOnDisplay(dispW, dispH, guideAspectRatio);
-      const tolX = guide.w * 0.12;
-      const tolY = guide.h * 0.12;
-      const insideOk = dispQuad.every(([x, y]) =>
-        x >= guide.x - tolX && x <= guide.x + guide.w + tolX &&
-        y >= guide.y - tolY && y <= guide.y + guide.h + tolY
-      );
+      // [수정] 고정 가이드 대신, 감지된 문서가 화면 안에 온전히 들어왔는지와 명함 비율인지로 판단한다.
+      const edgeX = dispW * 0.02;
+      const edgeY = dispH * 0.02;
+      const inView = dispQuad.every(([x, y]) => x >= edgeX && x <= dispW - edgeX && y >= edgeY && y <= dispH - edgeY);
+      const [p0, p1, p2, p3] = found.points;
+      const docW = (dist(p0, p1) + dist(p3, p2)) / 2;
+      const docH = (dist(p0, p3) + dist(p1, p2)) / 2;
+      const docRatio = Math.max(docW, docH) / Math.max(1e-6, Math.min(docW, docH));
+      const aspectOk = documentType === 'card' ? Math.abs(docRatio - guideAspectRatio) / guideAspectRatio < 0.15 : true;
+      const fitOk = inView && aspectOk;
       setQuadDisplay(dispQuad);
       setQuality({ sizeOk, focusOk, brightOk, glareOk });
-      setIsStable(stable && allQualityOk && insideOk);
+      setIsFit(fitOk);
+      setIsStable(stable && allQualityOk && fitOk);
 
       if (!sizeOk) setStatusMessage(`${docLabel}을(를) 조금 더 가까이 가져와 주세요`);
       else if (!brightOk) setStatusMessage(brightness < 60 ? '조명이 어두워요' : '빛이 너무 강해요');
       else if (!glareOk) setStatusMessage('반사광이 있어요, 각도를 살짝 바꿔주세요');
       else if (!focusOk) setStatusMessage('흔들리지 않게 잠시 고정해주세요');
-      else if (!insideOk) setStatusMessage('가이드 사각형 안에 맞춰 주세요');
+      else if (!inView) setStatusMessage(`${docLabel} 전체가 화면 안에 들어오게 해주세요`);
+      else if (!aspectOk) setStatusMessage(`${docLabel} 전체가 보이도록 각도와 거리를 맞춰 주세요`);
       else if (!stable) setStatusMessage('위치를 고정해주세요...');
       else setStatusMessage('고정됨! 자동 촬영합니다');
 
-      if (allQualityOk && insideOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
+      if (allQualityOk && fitOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
         autoCapturedRef.current = true;
         handleCapture();
       }
@@ -551,7 +544,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   }, [cvStatus, isReady, error, runDetection]);
 
   const allQualityOk = quality ? Object.values(quality).every(Boolean) : false;
-  const outlineColor = quadDisplay ? (isStable && allQualityOk ? '#22c55e' : allQualityOk ? '#facc15' : '#f87171') : '#f87171';
+  const outlineColor = quadDisplay ? (isStable ? '#22c55e' : allQualityOk && isFit ? '#facc15' : '#f87171') : '#f87171';
 
   return (
     <div className="fixed inset-0 z-[200] bg-black flex flex-col">
