@@ -4824,8 +4824,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       <div 
                         key={v.id}
                         id={`nts-report-${v.id}`}
-                        className={`flex-none w-full max-w-5xl snap-center bg-white text-slate-900 p-5 sm:p-6 md:p-8 rounded-2xl transition-all ${
-                          isActive ? 'ring-2 ring-indigo-500 border-indigo-500/30' : 'opacity-70 border-slate-300 hover:opacity-100'
+                        className={`flex-none w-full max-w-5xl snap-center bg-white text-slate-900 py-1 transition-all ${
+                          isActive ? '' : 'opacity-70 hover:opacity-100'
                         } print:border-none print:shadow-none print:p-0 print:block print:w-full print:max-w-none print:opacity-100 ${
                           isActive ? 'print:block' : 'print:hidden'
                         }`}
