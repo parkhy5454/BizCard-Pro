@@ -200,15 +200,15 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
               <div key={log.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 flex items-start gap-3">
                 <span className={`shrink-0 text-[11px] font-bold px-2 py-1 rounded-lg border ${colorClass}`}>{label}</span>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="text-sm text-slate-700">
+                  <p className="text-sm text-slate-700 break-all">
                     <b className="text-slate-900">{log.actor_email || '알 수 없음'}</b>
                     {log.target_email && log.target_email !== log.actor_email && (
                       <> → <b className="text-slate-900">{log.target_email}</b></>
                     )}
                   </p>
-                  {detailText && <p className="text-xs text-slate-500">{detailText}</p>}
+                  {detailText && <p className="text-xs text-slate-500 break-words">{detailText}</p>}
+                  <p className="text-[11px] text-slate-400 font-mono">{formatDateTime(log.created_at)}</p>
                 </div>
-                <span className="shrink-0 text-[11px] text-slate-400 font-mono whitespace-nowrap">{formatDateTime(log.created_at)}</span>
               </div>
             );
           })}
