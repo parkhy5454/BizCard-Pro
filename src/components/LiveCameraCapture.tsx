@@ -339,10 +339,14 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const vw = video.videoWidth;
       const vh = video.videoHeight;
       const fullCanvas = document.createElement('canvas');
-      fullCanvas.width = vw;
-      fullCanvas.height = vh;
+      const CAPTURE_MAX_SIDE = 2000;
+      const capScale = Math.min(1, CAPTURE_MAX_SIDE / Math.max(vw, vh));
+      const cw = Math.round(vw * capScale);
+      const ch = Math.round(vh * capScale);
+      fullCanvas.width = cw;
+      fullCanvas.height = ch;
       const fctx = fullCanvas.getContext('2d')!;
-      fctx.drawImage(video, 0, 0, vw, vh);
+      fctx.drawImage(video, 0, 0, cw, ch);
 
       const cv = cvRef.current;
       let outDataUrl: string;
@@ -358,7 +362,13 @@ export const LiveCameraCapture: React.FC<Props> = ({
           // 사각형을 한 번 더 정밀하게 재감지해서 훨씬 정확한 경계로 잘라낸다.
           // [추가] guideAspectRatio로 문서 타입 판단: 명함(1.586)은 'card', 다른 비율은 'receipt'
           const documentType = Math.abs(guideAspectRatio - 1.586) < 0.05 ? 'card' : 'receipt';
-          const preciseQuad = detectQuad(cv, srcMat, guideAspectRatio, documentType);
+          // 정밀 재감지가 실패해도(OpenCV 예외) 실시간 감지 결과로 계속 진행한다
+          let preciseQuad: ReturnType<typeof detectQuad> | null = null;
+          try {
+            preciseQuad = detectQuad(cv, srcMat, guideAspectRatio, documentType);
+          } catch (e) {
+            console.warn('정밀 감지 실패, 실시간 결과 사용:', e);
+          }
           let quadToUse: Quad | null = null;
           // [추가] 감지된 사각형이 "폰을 세로로 들고 찍는 등"의 이유로 90도 돌아간 형태로
           // 잡혔는지 여부. 이 값에 따라 아래에서 가이드 박스 검증과 최종 출력 크기를 모두
@@ -370,7 +380,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
             // [추가] 자동 촬영은 실시간 화면에서 이미 "가이드 안 + 명함 비율 + 고정"을 확인한 결과이므로,
             // 그때 감지된 사각형을 그대로 사용한다 (재감지 결과가 어긋나 확인 화면으로 빠지는 것을 막기 위함).
             const { quad, detectW, detectH, rotated } = recentRaw;
-            quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
+            quadToUse = scaleQuad(quad, cw / detectW, ch / detectH);
             quadRotated = rotated;
           } else if (preciseQuad) {
             quadToUse = preciseQuad.points;
@@ -378,7 +388,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
           } else if (lastRawQuadRef.current) {
             // 정밀 재감지가 실패한 경우에만, 실시간 감지 때 찾았던 좌표를 확대해서 대체 사용
             const { quad, detectW, detectH, rotated } = lastRawQuadRef.current;
-            quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
+            quadToUse = scaleQuad(quad, cw / detectW, ch / detectH);
             quadRotated = rotated;
           }
 
