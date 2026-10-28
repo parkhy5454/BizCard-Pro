@@ -77,6 +77,15 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   
   // 서브 탭 상태
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'vehicles' | 'driving' | 'expenses' | 'maintenance' | 'reports' | 'analysis'>('driving');
+  // 탭을 바꾸면 열려 있던 수정 팝업(운행/비용/정비/차량/점검주기)은 모두 닫는다.
+  // 그렇지 않으면 다른 탭 화면 위에 수정 창이 계속 떠 있게 된다.
+  React.useEffect(() => {
+    setEditingDriving(null);
+    setEditingExpense(null);
+    setEditingMaint(null);
+    setEditingInterval(null);
+    setEditingVehicle(null);
+  }, [activeSubTab]);
   const [maintSubMode, setMaintSubMode] = useState<'history' | 'intervals'>('history');
 
   // 등록 모달/폼 활성화 여부
