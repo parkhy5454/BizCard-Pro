@@ -364,7 +364,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
           // 가로/세로 반대로 적용해야, 카드 내용이 찌그러지지 않고 올바르게 나온다.
           let quadRotated = false;
 
-          if (fromAuto && lastRawQuadRef.current) {
+          if (lastRawQuadRef.current) {
             // [추가] 자동 촬영은 실시간 화면에서 이미 "가이드 안 + 명함 비율 + 고정"을 확인한 결과이므로,
             // 그때 감지된 사각형을 그대로 사용한다 (재감지 결과가 어긋나 확인 화면으로 빠지는 것을 막기 위함).
             const { quad, detectW, detectH, rotated } = lastRawQuadRef.current;
@@ -388,21 +388,6 @@ export const LiveCameraCapture: React.FC<Props> = ({
             // 대체한다 — "가이드 안에 들어온 부분만 정확히" 잘리는 걸 보장하기 위함이다.
             // [수정] quadRotated인 경우, 실제 카드는 세로로 길게 잡힌 것이므로 가이드 박스도
             // 가로/세로를 바꿔서 비교해야 정상적으로 통과한다.
-            // [수정] 고정 가이드 박스 대신, 실제 촬영 이미지 안에 명함 네 모서리가 온전히 있는지와
-            // 명함 비율인지로 판단한다. 실시간 화면에서 이미 "가이드 안에 들어옴"을 확인했으므로
-            // 여기서는 그 결과를 그대로 신뢰해서 자동 촬영이 확인 화면 없이 바로 진행되게 한다.
-            const qxs = quadToUse.map((p) => p[0]);
-            const qys = quadToUse.map((p) => p[1]);
-            const inVideo = Math.min(...qxs) >= 0 && Math.max(...qxs) <= vw && Math.min(...qys) >= 0 && Math.max(...qys) <= vh;
-            const [q0, q1, q2, q3] = quadToUse;
-            const qW = (dist(q0, q1) + dist(q3, q2)) / 2;
-            const qH = (dist(q0, q3) + dist(q1, q2)) / 2;
-            const qRatio = Math.max(qW, qH) / Math.max(1e-6, Math.min(qW, qH));
-            const shapeOk = documentType === 'card' ? Math.abs(qRatio - guideAspectRatio) / guideAspectRatio < 0.2 : true;
-            // 자동 촬영은 실시간 화면에서 이미 확인했으므로 이 검사를 건너뛴다 (수동 촬영만 검사)
-            if (!fromAuto && !(inVideo && shapeOk)) {
-              quadToUse = null;
-            }
           }
 
           if (quadToUse) {
