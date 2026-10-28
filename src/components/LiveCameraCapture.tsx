@@ -434,16 +434,14 @@ export const LiveCameraCapture: React.FC<Props> = ({
       setCaptureFlash(true);
       window.setTimeout(() => onCapture(outDataUrl, autoDetected), 120);
     } catch (err) {
+      // 예전에는 여기서 화면 중앙(책상 포함)을 잘라 확인 화면으로 넘겼다. 그 경로가 책상이 섞인
+      // 사진의 원인이었으므로, 이제는 중앙 영역으로 넘기지 않고 다시 촬영하도록 안내한다.
       console.error('촬영/보정 처리 실패:', err);
-      try {
-        const fallback = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
-        stopStream();
-        onCapture(fallback, false);
-      } catch {
-        alert('사진 처리에 실패했습니다. 다시 시도해주세요.');
-        isProcessingRef.current = false;
-        setIsProcessing(false);
-      }
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+      autoCapturedRef.current = false;
+      const reason = err instanceof Error ? err.message : String(err);
+      alert(`사진 처리에 실패했습니다. 명함이 화면에 잘 보이게 다시 촬영해 주세요.\n(${reason})`);
     }
   }, [isReady, guideAspectRatio, stopStream, onCapture]);
 
