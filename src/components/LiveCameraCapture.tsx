@@ -185,7 +185,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const cvRef = useRef<CvModule | null>(null);
   const quadHistoryRef = useRef<{ quad: Quad; t: number }[]>([]);
   const stableSinceRef = useRef<number | null>(null);
-  const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number; rotated: boolean } | null>(null);
+  const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number; rotated: boolean; t: number } | null>(null);
   const autoCapturedRef = useRef(false);
   const isProcessingRef = useRef(false);
   const detectIntervalRef = useRef<number | null>(null);
@@ -347,6 +347,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const cv = cvRef.current;
       let outDataUrl: string;
       let autoDetected = false;
+      let noCard = false;
 
       if (cv) {
         const srcMat = cv.imread(fullCanvas);
@@ -364,10 +365,11 @@ export const LiveCameraCapture: React.FC<Props> = ({
           // 가로/세로 반대로 적용해야, 카드 내용이 찌그러지지 않고 올바르게 나온다.
           let quadRotated = false;
 
-          if (lastRawQuadRef.current) {
+          const recentRaw = lastRawQuadRef.current && performance.now() - lastRawQuadRef.current.t < 1500 ? lastRawQuadRef.current : null;
+          if (recentRaw) {
             // [추가] 자동 촬영은 실시간 화면에서 이미 "가이드 안 + 명함 비율 + 고정"을 확인한 결과이므로,
             // 그때 감지된 사각형을 그대로 사용한다 (재감지 결과가 어긋나 확인 화면으로 빠지는 것을 막기 위함).
-            const { quad, detectW, detectH, rotated } = lastRawQuadRef.current;
+            const { quad, detectW, detectH, rotated } = recentRaw;
             quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
             quadRotated = rotated;
           } else if (preciseQuad) {
@@ -409,8 +411,8 @@ export const LiveCameraCapture: React.FC<Props> = ({
             if (trimmed !== warped) trimmed.delete();
             enhanced.delete();
           } else {
-            // 사각형이 감지되지 않은 경우: 화면 중앙 가이드 영역으로 대체
-            outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
+            // 명함을 잡지 못했다: 엉뚱한 영역(책상 포함)을 자르지 않고 다시 찍도록 안내한다
+            noCard = true;
           }
         } finally {
           srcMat.delete();
@@ -418,6 +420,14 @@ export const LiveCameraCapture: React.FC<Props> = ({
       } else {
         // OpenCV를 못 쓰는 경우: 화면 중앙 가이드 영역으로 대체
         outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
+      }
+
+      if (noCard) {
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+        autoCapturedRef.current = false;
+        alert('명함을 잡지 못했어요. 명함 전체가 화면에 보이게 맞춘 뒤 다시 촬영해 주세요.');
+        return;
       }
 
       stopStream();
@@ -477,7 +487,6 @@ export const LiveCameraCapture: React.FC<Props> = ({
         setIsStable(false);
         quadHistoryRef.current = [];
         stableSinceRef.current = null;
-        lastRawQuadRef.current = null;
         setStatusMessage(`${docLabel}을(를) 화면 안에 맞춰주세요`);
         return;
       }
@@ -505,7 +514,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const brightOk = brightness >= 35 && brightness <= 250;
       const glareOk = glare <= 0.13;
 
-      lastRawQuadRef.current = { quad: found.points, detectW, detectH, rotated: found.rotated };
+      lastRawQuadRef.current = { quad: found.points, detectW, detectH, rotated: found.rotated, t: performance.now() };
 
       const now = performance.now();
       quadHistoryRef.current.push({ quad: found.points, t: now });
