@@ -48,6 +48,50 @@ function scaleQuad(quad: Quad, sx: number, sy: number): Quad {
 
 // [수정] Canny 엣지 감지가 카드 그림자/테두리까지 살짝 포함해서 실제보다 약간 크게 잡히는 경향이 있어,
 // 감지된 사각형을 중심점 방향으로 살짝(기본 1.6%) 안쪽으로 줄여서 여백이 같이 잘리는 문제를 줄인다.
+// [추가] 펼쳐진 명함 이미지에서 밝은 종이 영역(명함)만 남기고, 주변 책상 부분을 잘라낸다.
+// 밝은 픽셀이 충분히 많은 행/열만 골라 바깥 경계를 잡는다. 명함이 너무 작게 잡히면 원본을 그대로 쓴다.
+// 반환값이 입력과 같은 객체이면 자르지 않은 것이고, 다르면 호출한 쪽에서 따로 delete 해야 한다.
+function trimToBrightCard(cv: CvModule, mat: CvMat): CvMat {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const m = mat as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c = cv as any;
+  const w: number = m.cols;
+  const h: number = m.rows;
+  const gray = new c.Mat();
+  try {
+    c.cvtColor(mat, gray, c.COLOR_RGBA2GRAY);
+    const data: Uint8Array = gray.data;
+    const rowBright = new Array<number>(h).fill(0);
+    const colBright = new Array<number>(w).fill(0);
+    for (let y = 0; y < h; y++) {
+      const base = y * w;
+      for (let x = 0; x < w; x++) {
+        if (data[base + x] > 150) { rowBright[y]++; colBright[x]++; }
+      }
+    }
+    const rowOk = (y: number) => rowBright[y] / w > 0.3;
+    const colOk = (x: number) => colBright[x] / h > 0.3;
+    let top = 0; while (top < h && !rowOk(top)) top++;
+    let bottom = h - 1; while (bottom > top && !rowOk(bottom)) bottom--;
+    let left = 0; while (left < w && !colOk(left)) left++;
+    let right = w - 1; while (right > left && !colOk(right)) right--;
+    if (right - left < w * 0.5 || bottom - top < h * 0.5) return mat;
+    const padX = Math.round(w * 0.01);
+    const padY = Math.round(h * 0.01);
+    const x0 = Math.max(0, left - padX);
+    const y0 = Math.max(0, top - padY);
+    const x1 = Math.min(w, right + padX + 1);
+    const y1 = Math.min(h, bottom + padY + 1);
+    const roi = m.roi(new c.Rect(x0, y0, x1 - x0, y1 - y0));
+    const out = roi.clone();
+    roi.delete();
+    return out as CvMat;
+  } finally {
+    gray.delete();
+  }
+}
+
 function shrinkQuadInward(quad: Quad, ratio = 0.016): Quad {
   const cx = (quad[0][0] + quad[1][0] + quad[2][0] + quad[3][0]) / 4;
   const cy = (quad[0][1] + quad[1][1] + quad[2][1] + quad[3][1]) / 4;
@@ -373,9 +417,11 @@ export const LiveCameraCapture: React.FC<Props> = ({
             else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * effectiveAspect); }
 
             const warped = warpToRect(cv, srcMat, quadToUse, outW, outH);
-            const enhanced = enhanceMat(cv, warped);
+            const trimmed = trimToBrightCard(cv, warped);
+            const enhanced = enhanceMat(cv, trimmed);
             outDataUrl = matToDataUrl(cv, enhanced, 0.9);
             warped.delete();
+            if (trimmed !== warped) trimmed.delete();
             enhanced.delete();
           } else {
             // 사각형이 감지되지 않은 경우: 화면 중앙 가이드 영역으로 대체
