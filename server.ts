@@ -105,6 +105,95 @@ async function generateContentWithRetry(
   throw lastErr;
 }
 
+// [추가] 이미지 data URL에서 실제 MIME 타입을 읽는다 (예전엔 모든 이미지를 jpeg로 고정해서 보냈다)
+function imageMimeOf(dataUrl: string): string {
+  const m = /^data:(image\/[a-z0-9.+-]+);base64,/i.exec(dataUrl || '');
+  const t = m ? m[1].toLowerCase() : 'image/jpeg';
+  return ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(t) ? t : 'image/jpeg';
+}
+
+// [추가] Gemini 응답을 JSON으로 강제한다 (프롬프트로 "JSON만 달라"고 부탁하는 것보다 안정적)
+const JSON_CONFIG = { responseMimeType: 'application/json', temperature: 0 };
+
+// [추가] 응답 텍스트에서 JSON 객체를 꺼낸다. 백틱/앞뒤 잡문이 섞여도 최대한 복구하고, 실패하면 null.
+function parseJsonLoose(text: string): Record<string, unknown> | null {
+  const cleaned = (text || '').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+  const candidates = [cleaned];
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start >= 0 && end > start) candidates.push(cleaned.slice(start, end + 1));
+  for (const c of candidates) {
+    try {
+      const v = JSON.parse(c);
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>;
+    } catch {
+      // 다음 후보로
+    }
+  }
+  return null;
+}
+
+// [추가] Google Cloud Vision 문자 인식(DOCUMENT_TEXT_DETECTION)으로 영수증 텍스트만 뽑는다. 실패하면 빈 문자열.
+async function visionOcrText(dataUrl: string): Promise<string> {
+  const key = process.env.GOOGLE_CLOUD_VISION_API_KEY;
+  if (!key || !dataUrl) return '';
+  try {
+    const r = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [{ image: { content: dataUrl.replace(/^data:image\/\w+;base64,/, '') }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }]
+      })
+    });
+    if (!r.ok) return '';
+    const j = (await r.json()) as { responses?: Array<{ fullTextAnnotation?: { text?: string }; textAnnotations?: Array<{ description?: string }> }> };
+    const first = j.responses?.[0];
+    return first?.fullTextAnnotation?.text || first?.textAnnotations?.[0]?.description || '';
+  } catch (err) {
+    console.error('Vision 영수증 문자 인식 실패:', err);
+    return '';
+  }
+}
+
+// [추가] 문자 인식 텍스트에서 금액·날짜·상호를 규칙으로 뽑는다. Gemini를 못 쓸 때의 최소 대체 결과.
+// 금액은 "합계/결제금액" 줄을 우선하고, 없으면 텍스트 안의 가장 큰 금액을 쓴다. 결과는 추정치라 ocrFallback 표시를 붙인다.
+function extractReceiptFromOcrText(text: string, context?: string): Record<string, unknown> | null {
+  const src = (text || '').trim();
+  if (!src) return null;
+  const lines = src.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const moneyOf = (s: string): number => {
+    let best = 0;
+    for (const m of s.matchAll(/(\d{1,3}(?:,\d{3})+|\d{3,})\s*원?/g)) {
+      if (/^0\d/.test(m[1])) continue; // 전화번호·사업자번호 같은 0으로 시작하는 숫자 제외
+      const v = Number(m[1].replace(/,/g, ''));
+      if (v >= 100 && v < 100000000 && v > best) best = v;
+    }
+    return best;
+  };
+  const totalLine = lines.find((l) => /(합\s*계|결제\s*금액|승인\s*금액|판매\s*금액|total|amount)/i.test(l));
+  let amount = (totalLine && moneyOf(totalLine)) || 0;
+  if (!amount) amount = Math.max(0, ...lines.map(moneyOf));
+
+  let date = '';
+  const dm = src.match(/(20\d{2})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
+  if (dm) date = `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}`;
+
+  const merchantName = lines.find((l) =>
+    /[가-힣A-Za-z]/.test(l) && !/\d{2,}/.test(l) && l.length >= 2 && l.length <= 30 &&
+    !/(영수증|receipt|사업자|대표|tel|전화|카드|승인|합계)/i.test(l)
+  ) || '';
+
+  return {
+    amount,
+    date: date || new Date().toISOString().split('T')[0],
+    merchantName,
+    memo: '문자 인식(OCR)으로 자동 채움 - 금액과 날짜를 꼭 확인해 주세요',
+    category: context === 'overseas_trip' ? '기타' : 'other',
+    payMethod: context === 'overseas_trip' ? '신용카드' : 'company_card',
+    ocrFallback: true
+  };
+}
+
 // [추가] Base64 인코딩된 이미지의 실제 크기를 계산하고 5MB 제한을 확인하는 헬퍼 함수
 // Base64 문자열: 원본 크기 ≈ Base64 길이 * 3/4 (패딩 제외하면 더 정확함)
 function validateImageSize(base64String: string, maxSizeMB: number = 5): { valid: boolean; sizeMB?: number; error?: string } {
@@ -4701,12 +4790,13 @@ app.post('/api/scan-card', async (req, res) => {
         for (const img of [frontImage, backImage]) {
           if (!img) continue;
           parts.push({
-            inlineData: { mimeType: 'image/jpeg', data: String(img).replace(/^data:image\/\w+;base64,/, '') }
+            inlineData: { mimeType: imageMimeOf(String(img)), data: String(img).replace(/^data:image\/\w+;base64,/, '') }
           });
         }
         const geminiRes = await generateContentWithRetry(ai, {
           model: PRIMARY_GEMINI_MODEL,
-          contents: parts
+          contents: parts,
+          config: JSON_CONFIG
         });
         const raw = (geminiRes.text || '').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
         const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -4734,7 +4824,11 @@ app.post('/api/scan-card', async (req, res) => {
 
     const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY;
     if (!apiKey) {
-      // API Key가 미설정인 경우 프리뷰/테스트를 위해 모의 데이터 제공
+      // [수정] 운영(production)에서는 가짜 명함("홍길동")을 저장하지 않도록 오류로 알린다.
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ error: '명함 인식 설정(API 키)이 없습니다. 관리자에게 문의해 주세요.' });
+      }
+      // API Key가 미설정인 경우 프리뷰/테스트를 위해 모의 데이터 제공 (개발 환경 전용)
       return res.json({
         name: '홍길동',
         company: '(주)스마트테크',
@@ -4968,7 +5062,13 @@ app.post('/api/scan-receipt', async (req, res) => {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      // API Key가 미설정인 경우 프리뷰/테스트를 위한 모의 파싱 결과 제공
+      // [수정] 키가 없으면 문자 인식(OCR)으로 최소한의 값을 채운다. 샘플 금액은 개발 환경에서만 쓴다.
+      const ocrOnly = extractReceiptFromOcrText(await visionOcrText(image), context);
+      if (ocrOnly) return res.json(ocrOnly);
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ error: '영수증 인식 설정(API 키)이 없습니다. 관리자에게 문의해 주세요.' });
+      }
+      // API Key가 미설정인 경우 프리뷰/테스트를 위한 모의 파싱 결과 제공 (개발 환경 전용)
       // (해외 출장 경비 화면은 카테고리/결제수단 값 체계가 달라서 샘플 데이터도 그에 맞게 분기)
       return res.json(
         context === 'overseas_trip'
@@ -5084,31 +5184,29 @@ app.post('/api/scan-receipt', async (req, res) => {
 
     contents.push({
       inlineData: {
-        mimeType: 'image/jpeg',
+        mimeType: imageMimeOf(image),
         data: base64Data
       }
     });
 
-    const response = await generateContentWithRetry(ai, {
-      model: PRIMARY_GEMINI_MODEL,
-      contents: contents
-    });
-
-    const text = response.text || '';
-    let parsedJson: Record<string, unknown> = {};
+    let parsedJson: Record<string, unknown> | null = null;
     try {
-      const jsonStr = text.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-      parsedJson = JSON.parse(jsonStr);
-    } catch (e) {
-      console.error('JSON 파싱 실패, 텍스트 그대로 분석 시도:', text);
-      parsedJson = {
-        amount: 0,
-        date: new Date().toISOString().split('T')[0],
-        merchantName: '영수증 인식 완료',
-        memo: text.slice(0, 100),
-        category: context === 'overseas_trip' ? '기타' : 'other',
-        payMethod: context === 'overseas_trip' ? '신용카드' : 'company_card'
-      };
+      const response = await generateContentWithRetry(ai, {
+        model: PRIMARY_GEMINI_MODEL,
+        contents: contents,
+        config: JSON_CONFIG
+      });
+      parsedJson = parseJsonLoose(response.text || '');
+      if (!parsedJson) console.error('영수증 JSON 파싱 실패:', (response.text || '').slice(0, 300));
+    } catch (geminiErr: unknown) {
+      console.error('Gemini 영수증 인식 실패, 문자 인식(OCR)으로 대체:', geminiErr);
+    }
+    if (!parsedJson) {
+      // [추가] Gemini가 실패하거나 응답을 읽지 못하면 Vision 문자 인식으로 대체한다.
+      parsedJson = extractReceiptFromOcrText(await visionOcrText(image), context);
+    }
+    if (!parsedJson) {
+      return res.status(502).json({ error: '영수증 인식 결과를 읽지 못했습니다. 영수증 전체가 밝게 보이도록 다시 촬영해 주세요.' });
     }
 
     // [수정] "영수증 스캔 시 법인카드 등록 정보(카드번호)와 대조해서 맞으면 법인카드로
