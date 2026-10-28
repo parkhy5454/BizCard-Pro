@@ -84,19 +84,32 @@ export function loadOpenCv(): Promise<CvModule> {
 
       const script = document.createElement('script');
       script.id = 'opencv-cdn-fallback-script';
-      script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
+      // [수정] 외부 CDN 대신 같은 서버(public/opencv.js)에서 불러온다 (CDN 스크립트가 로드돼도 cv가 안 잡히는 문제 대응)
+      script.src = '/opencv.js';
       script.async = true;
       script.onload = () => {
-        const w3 = window as WindowWithCv;
-        const loaded = w3.cv as CvModule | undefined;
-        if (loaded && loaded.Mat) { resolve(loaded); return; }
-        if (loaded) {
-          (loaded as unknown as { onRuntimeInitialized?: () => void }).onRuntimeInitialized = () => resolve(loaded);
-        } else {
-          reject(new Error('CDN 스크립트는 로드됐지만 cv 객체를 찾지 못했습니다.'));
-        }
+        // [수정] cv가 바로 준비되지 않을 수 있으므로(Promise 형태이거나 초기화 지연) 잠시 기다리며 확인한다
+        const started = Date.now();
+        const waitForCv = () => {
+          const w3 = window as WindowWithCv;
+          const loaded = w3.cv as unknown as (CvModule & { then?: unknown; onRuntimeInitialized?: () => void }) | undefined;
+          if (loaded && loaded.Mat) { resolve(loaded as CvModule); return; }
+          if (loaded && typeof loaded.then === 'function') {
+            (loaded as unknown as PromiseLike<CvModule>).then((ready) => resolve(ready), reject);
+            return;
+          }
+          if (loaded && typeof loaded === 'object') {
+            loaded.onRuntimeInitialized = () => resolve(loaded as CvModule);
+          }
+          if (Date.now() - started > 15000) {
+            reject(new Error(`OpenCV 스크립트 로드 후 cv 객체를 찾지 못했습니다 (typeof cv = ${typeof w3.cv}).`));
+            return;
+          }
+          window.setTimeout(waitForCv, 250);
+        };
+        waitForCv();
       };
-      script.onerror = () => reject(new Error('CDN에서 OpenCV.js 스크립트 로딩 자체에 실패했습니다.'));
+      script.onerror = () => reject(new Error('OpenCV.js 스크립트 파일을 불러오지 못했습니다 (/opencv.js).'));
       document.head.appendChild(script);
     });
   };
