@@ -1724,7 +1724,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               <div className="bg-white border border-amber-200 rounded-2xl p-4 space-y-3 shadow-sm">
                 <div className="flex items-center gap-2 text-amber-700">
                   <AlertTriangle className="w-5 h-5 shrink-0" />
-                  <h3 className="text-sm font-bold">알림</h3>
+                  <h3 className="text-base font-bold">알림</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {expiringVehicles.map(v => {
@@ -1737,20 +1737,20 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     const isExpired = daysLeft < 0;
 
                     return (
-                      <div key={v.id} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs">
+                      <div key={v.id} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center justify-between text-sm">
                         <div className="space-y-1">
                           <p className="font-bold text-slate-900">{v.modelName} ({v.carNumber})</p>
-                          <p className="text-[11px] text-slate-800">
+                          <p className="text-xs text-slate-800">
                             보험사: {v.insuranceCompany || '미지정'} · 만기일: {v.insuranceEndDate}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
                           {isExpired ? (
-                            <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-500/30 rounded text-[11px] font-bold">
+                            <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-500/30 rounded text-xs font-bold">
                               만기 {Math.abs(daysLeft)}일 경과
                             </span>
                           ) : (
-                            <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-500/30 rounded text-[11px] font-bold">
+                            <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-500/30 rounded text-xs font-bold">
                               D-{daysLeft}
                             </span>
                           )}
@@ -1792,24 +1792,24 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               <div className="bg-white border border-amber-200 rounded-2xl p-4 space-y-3 shadow-sm">
                 <div className="flex items-center gap-2 text-amber-700">
                   <Wrench className="w-5 h-5 shrink-0" />
-                  <h3 className="text-sm font-bold">정비/소모품 점검 임박 알림</h3>
+                  <h3 className="text-base font-bold">정비/소모품 점검 임박 알림</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {dueSoonItems.map(({ item, vehicle, kmLeft, daysLeft, isOverdue }) => (
-                    <div key={item.id} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs">
+                    <div key={item.id} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center justify-between text-sm">
                       <div className="space-y-1">
                         <p className="font-bold text-slate-900">{vehicle ? `${vehicle.modelName} (${vehicle.plateNumber})` : '차량 미지정'}</p>
-                        <p className="text-[11px] text-slate-800">
+                        <p className="text-xs text-slate-800">
                           {item.itemType} · 남은 거리: {Math.max(0, kmLeft).toLocaleString()}km · 남은 일수: {Math.max(0, daysLeft)}일
                         </p>
                       </div>
                       <div className="text-right shrink-0">
                         {isOverdue ? (
-                          <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-500/30 rounded text-[11px] font-bold">
+                          <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-500/30 rounded text-xs font-bold">
                             교체 주기 초과
                           </span>
                         ) : (
-                          <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-500/30 rounded text-[11px] font-bold">
+                          <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-500/30 rounded text-xs font-bold">
                             점검 임박
                           </span>
                         )}
@@ -1827,7 +1827,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             {/* 등록된 차량 */}
             <div className="bg-white border border-blue-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-blue-700">등록된 차량</span>
+                <span className="text-sm font-semibold text-blue-700">등록된 차량</span>
                 <p className="text-2xl font-bold text-slate-900">{totalVehiclesCount}대</p>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600">
@@ -1838,7 +1838,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             {/* 총 운행기록 */}
             <div className="bg-white border border-emerald-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-emerald-700">총 운행기록</span>
+                <span className="text-sm font-semibold text-emerald-700">총 운행기록</span>
                 <p className="text-2xl font-bold text-slate-900">{totalDrivingLogsCount}건</p>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
@@ -1849,7 +1849,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             {/* 총 누적거리 */}
             <div className="bg-white border border-amber-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-amber-700">총 누적거리</span>
+                <span className="text-sm font-semibold text-amber-700">총 누적거리</span>
                 <p className="text-2xl font-bold text-slate-900">{formatWon(totalDistance)} km</p>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
@@ -1860,7 +1860,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             {/* 총 지출비용 */}
             <div className="bg-white border border-purple-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-purple-700">총 지출비용</span>
+                <span className="text-sm font-semibold text-purple-700">총 지출비용</span>
                 <p className="text-2xl font-bold text-slate-900">{formatWon(totalExpenseSum)} 원</p>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600">
@@ -1875,20 +1875,20 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             {/* 최근 운행 기록 목록 */}
             <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200/50 pb-3">
-                <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-indigo-400" />
                   <span>최근 운행 기록</span>
                 </h3>
                 <button 
                   onClick={() => setActiveSubTab('driving')}
-                  className="text-[10px] text-indigo-400 hover:underline font-semibold"
+                  className="text-xs text-indigo-400 hover:underline font-semibold"
                 >
                   기록 전체보기 →
                 </button>
               </div>
 
               {recentLogs.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 text-xs">
+                <div className="py-12 text-center text-slate-400 text-sm">
                   최근 기록된 운행 일지가 없습니다.
                 </div>
               ) : (
@@ -1896,19 +1896,19 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   {recentLogs.map((log) => {
                     const matchedCar = vehicles.find(v => v.id === log.vehicleId);
                     return (
-                      <div key={log.id} className="py-3 flex items-center justify-between text-xs gap-4 first:pt-0 last:pb-0">
+                      <div key={log.id} className="py-3 flex items-center justify-between text-sm gap-4 first:pt-0 last:pb-0">
                         <div className="space-y-1">
                           <p className="font-semibold text-slate-800">{matchedCar ? matchedCar.modelName : '차량'}</p>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <div className="flex items-center gap-2 text-xs text-slate-400">
                             <span>{log.date}</span>
                             <span>•</span>
                             <span>{log.driverName} ({log.purpose})</span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="font-bold text-slate-700 text-sm">{log.distance} km</span>
+                          <span className="font-bold text-slate-700 text-base">{log.distance} km</span>
                           {log.startPlace && log.endPlace && (
-                            <p className="text-[10px] text-slate-400">
+                            <p className="text-xs text-slate-400">
                               {log.startPlace} → {log.endPlace}
                             </p>
                           )}
@@ -1924,20 +1924,20 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-200/50 pb-3">
-                  <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                     <Wrench className="w-4 h-4 text-indigo-400" />
                     <span>정비 수리 일정</span>
                   </h3>
                   <button 
                     onClick={() => setActiveSubTab('maintenance')}
-                    className="text-[10px] text-indigo-400 hover:underline font-semibold"
+                    className="text-xs text-indigo-400 hover:underline font-semibold"
                   >
                     일지 쓰기 →
                   </button>
                 </div>
 
                 {maintenances.filter(m => m.status === 'scheduled').length === 0 ? (
-                  <div className="py-6 text-center text-slate-400 text-[11px] flex flex-col items-center gap-2">
+                  <div className="py-6 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                     <p>잡혀있는 예정된 정비가 없습니다.<br />소모품 교환 주기를 추가해 보세요.</p>
                   </div>
@@ -1952,16 +1952,16 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                       .slice(0, 3)
                       .map(m => (
-                        <div key={m.id} className="p-3 bg-slate-100 border border-slate-200 rounded-xl flex items-start gap-2.5 text-xs">
+                        <div key={m.id} className="p-3 bg-slate-100 border border-slate-200 rounded-xl flex items-start gap-2.5 text-sm">
                           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                           <div className="space-y-0.5 flex-1">
                             <p className="font-bold text-slate-700">{m.title}</p>
-                            <p className="text-[10px] text-slate-400">{getVehicleModel(m.vehicleId)} | {m.date}</p>
-                            {m.cost > 0 && <p className="text-[10px] text-amber-600">예상비용: {formatWon(m.cost)}원</p>}
+                            <p className="text-xs text-slate-400">{getVehicleModel(m.vehicleId)} | {m.date}</p>
+                            {m.cost > 0 && <p className="text-xs text-amber-600">예상비용: {formatWon(m.cost)}원</p>}
                           </div>
                           <button 
                             onClick={() => handleCompleteMaint(m.id)}
-                            className="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-500/20 text-[10px] font-semibold"
+                            className="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-500/20 text-xs font-semibold"
                           >
                             완료 처리
                           </button>
@@ -2344,7 +2344,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           </div>
 
                           {/* Line-based detail list mimicking the first image */}
-                          <div className="space-y-1 text-sm text-slate-500 pt-1">
+                          <div className="space-y-1 text-base text-slate-500 pt-1">
                             <p className="flex items-center gap-1.5">
                               <span className="text-slate-400">·</span>
                               <span>{v.modelName} ({v.modelYear || '연식 미지정'}) · {v.color || '색상 미지정'}</span>
@@ -3595,7 +3595,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-mono text-slate-500 flex items-center gap-1.5">
+                            <span className="text-sm font-mono text-slate-500 flex items-center gap-1.5">
                               <span>{e.date}</span>
                               {isLinkedToWorkLog && (
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-500/20 text-[9px] font-extrabold text-emerald-700">
@@ -3611,11 +3611,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           <div className="space-y-0.5">
                             <div className="font-semibold text-slate-800">{getVehicleModel(e.vehicleId)}</div>
                             {e.projectName && (
-                              <span className="text-xs text-indigo-400 block font-medium">📂 {e.projectName}</span>
+                              <span className="text-sm text-indigo-400 block font-medium">📂 {e.projectName}</span>
                             )}
                           </div>
 
-                          <div className="border-t border-slate-200 my-2 pt-2 space-y-1 text-sm">
+                          <div className="border-t border-slate-200 my-2 pt-2 space-y-1 text-base">
                             <div className="flex justify-between">
                               <span className="text-slate-400">결제 수단</span>
                               <span className="text-slate-600 font-medium">{payMethodKo}</span>
@@ -3631,7 +3631,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                               </div>
                             ) : null}
                             {e.memo && (
-                              <div className="border-t border-slate-200/60 mt-1.5 pt-1.5 text-slate-500 text-xs line-clamp-2" title={e.memo}>
+                              <div className="border-t border-slate-200/60 mt-1.5 pt-1.5 text-slate-500 text-sm line-clamp-2" title={e.memo}>
                                 {e.memo}
                               </div>
                             )}
@@ -5027,10 +5027,10 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             
             {/* 1. 차량별 지출 비중 (가로형 막대그래프) */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-slate-700">🚗 차량별 누적 지출 전산 비중 (KRW)</h3>
+              <h3 className="text-sm font-bold text-slate-700">🚗 차량별 누적 지출 전산 비중 (KRW)</h3>
               
               {vehicles.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 text-xs">데이터가 부족합니다.</div>
+                <div className="py-12 text-center text-slate-400 text-sm">데이터가 부족합니다.</div>
               ) : (
                 <div className="space-y-4 pt-2">
                   {vehicles.map(v => {
@@ -5039,8 +5039,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     const percentage = Math.round((carExpense / totalAllExpense) * 100);
 
                     return (
-                      <div key={v.id} className="space-y-1 text-xs">
-                        <div className="flex justify-between text-[11px]">
+                      <div key={v.id} className="space-y-1 text-sm">
+                        <div className="flex justify-between text-xs">
                           <span className="font-semibold text-slate-600">{v.modelName} ({v.plateNumber})</span>
                           <span className="font-bold font-mono text-indigo-400">{formatWon(carExpense)} 원 ({percentage}%)</span>
                         </div>
@@ -5059,10 +5059,10 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
 
             {/* 2. 지출 카테고리별 비중 (도넛형 간이 수치 리포트) */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-slate-700">💳 경비 지출 분류 항목 비율</h3>
+              <h3 className="text-sm font-bold text-slate-700">💳 경비 지출 분류 항목 비율</h3>
 
               {expenses.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 text-xs">비용 정산 내역이 없습니다.</div>
+                <div className="py-12 text-center text-slate-400 text-sm">비용 정산 내역이 없습니다.</div>
               ) : (
                 <div className="space-y-3 pt-2">
                   {(['fuel', 'toll', 'parking', 'maintenance', 'tax_insurance', 'other'] as const).map(cat => {
@@ -5072,7 +5072,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     if (catAmount === 0) return null;
 
                     return (
-                      <div key={cat} className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div key={cat} className="flex items-center justify-between text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                         <span className="font-medium text-slate-600">{getCategoryKo(cat)}</span>
                         <div className="flex items-center gap-3">
                           <span className="font-mono text-slate-500">{percentage}%</span>
@@ -5087,10 +5087,10 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
 
             {/* 3. 차량별 주행 효율 (누적거리당 비용 등 종합 리포트) */}
             <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-slate-700">📈 보유 차량 전산 자산 효율 비교</h3>
+              <h3 className="text-sm font-bold text-slate-700">📈 보유 차량 전산 자산 효율 비교</h3>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                <table className="w-full text-left text-sm text-slate-600 border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
                       <th className="p-3">차량</th>
