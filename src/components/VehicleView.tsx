@@ -4830,31 +4830,12 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           isActive ? 'print:block' : 'print:hidden'
                         }`}
                       >
-                        {/* 최상단 컨트롤바 (출력 및 엑셀) */}
+                        {/* 최상단 차량 이름 (출력/엑셀 버튼은 위쪽 공통 버튼을 사용) */}
                         <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200 print:hidden">
                           <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">
                             {v.modelName} [{v.plateNumber}]
                           </span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleExportExcel(v)}
-                              className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 hover:text-white border border-emerald-200 hover:bg-emerald-600 rounded-lg px-3 py-1.5 bg-emerald-50 transition-all shadow-sm cursor-pointer"
-                            >
-                              <FileSpreadsheet className="w-3.5 h-3.5" />
-                              <span>엑셀 다운로드</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setReportVehicleId(v.id);
-                                handlePrintReport(v);
-                              }}
-                              className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 hover:text-white border border-indigo-200 hover:bg-indigo-600 rounded-lg px-3 py-1.5 bg-indigo-50 transition-all shadow-sm cursor-pointer"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                              <span>PDF 다운로드 / 인쇄</span>
-                            </button>
-                          </div>
-                        </div>
+                                                  </div>
 
                         {/* 법정 양식 타이틀 및 사업자 정보 헤더 통합 테이블 */}
                         <div className="overflow-x-auto print:overflow-visible">
