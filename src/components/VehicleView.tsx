@@ -1982,10 +1982,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 2. 차량등록 (Vehicles Tab) */}
       {activeSubTab === 'vehicles' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
+          {topRowsContainer && createPortal(
+          <div className="flex items-center gap-2 py-3 border-b border-slate-200">
             <button
               onClick={() => setIsVehicleFormOpen(!isVehicleFormOpen)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs text-white transition-all font-semibold shrink-0"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-xs text-white transition-all font-semibold shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>차량 추가</span>
@@ -2001,6 +2002,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               />
             </div>
           </div>
+          , topRowsContainer)}
 
           {/* 1. 차량 신규 등록 폼 */}
           {isVehicleFormOpen && (
