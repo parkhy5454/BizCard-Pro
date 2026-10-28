@@ -355,7 +355,8 @@ export const LiveCameraCapture: React.FC<Props> = ({
             const qH = (dist(q0, q3) + dist(q1, q2)) / 2;
             const qRatio = Math.max(qW, qH) / Math.max(1e-6, Math.min(qW, qH));
             const shapeOk = documentType === 'card' ? Math.abs(qRatio - guideAspectRatio) / guideAspectRatio < 0.2 : true;
-            if (!(inVideo && shapeOk)) {
+            // 자동 촬영은 실시간 화면에서 이미 확인했으므로 이 검사를 건너뛴다 (수동 촬영만 검사)
+            if (!fromAuto && !(inVideo && shapeOk)) {
               quadToUse = null;
             }
           }
