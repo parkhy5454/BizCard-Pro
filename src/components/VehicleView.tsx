@@ -2296,7 +2296,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
           )}
 
-          {vehicles.length === 0 ? (
+          {!isVehicleFormOpen && (vehicles.length === 0 ? (
             <div className="bg-slate-100 border border-slate-200 rounded-2xl py-12 text-center text-slate-500 text-xs">
               등록된 차량이 없습니다. 상단 '차량 추가'를 통해 법인 차량을 먼저 기재해 주세요.
             </div>
@@ -2461,7 +2461,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   })}
               </div>
             </div>
-          )}
+          ))}
         </div>
       )}
 
