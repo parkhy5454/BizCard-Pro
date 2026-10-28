@@ -4176,40 +4176,40 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
 
                             <h3 className="font-bold text-base text-slate-800">{m.title}</h3>
                             
-                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 pt-1">
+                            <div className="grid grid-cols-2 gap-2 text-base text-slate-500 pt-1">
                               <div>
-                                <p className="text-xs text-slate-400">대상 차량</p>
+                                <p className="text-sm text-slate-400">대상 차량</p>
                                 <p className="text-slate-600 font-semibold">{getVehicleModel(m.vehicleId)}</p>
                               </div>
                               {m.mileage > 0 && (
                                 <div>
-                                  <p className="text-xs text-slate-400">정비 시점 주행거리</p>
+                                  <p className="text-sm text-slate-400">정비 시점 주행거리</p>
                                   <p className="text-slate-600 font-mono">{formatWon(m.mileage)} km</p>
                                 </div>
                               )}
                               {m.shopName && (
                                 <div>
-                                  <p className="text-xs text-slate-400">정비소/업체</p>
+                                  <p className="text-sm text-slate-400">정비소/업체</p>
                                   <p className="text-slate-600">
                                     {m.shopName}
                                     {m.shopContact && (
-                                      <span className="text-indigo-400 block text-xs mt-0.5">📞 {m.shopContact}</span>
+                                      <span className="text-indigo-400 block text-sm mt-0.5">📞 {m.shopContact}</span>
                                     )}
                                   </p>
                                 </div>
                               )}
                               <div>
-                                <p className="text-xs text-slate-400">결제 수단</p>
+                                <p className="text-sm text-slate-400">결제 수단</p>
                                 <p className="text-slate-600 font-medium">{payMethodKo}</p>
                               </div>
                               <div className="col-span-2 mt-1">
-                                <p className="text-xs text-slate-400">비용 공임</p>
+                                <p className="text-sm text-slate-400">비용 공임</p>
                                 <p className="text-indigo-400 font-semibold font-mono">{m.cost > 0 ? `${formatWon(m.cost)} 원` : '기록없음/무료'}</p>
                               </div>
                             </div>
 
                             {m.memo && (
-                              <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                              <p className="text-sm text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
                                 메모: {m.memo}
                               </p>
                             )}
