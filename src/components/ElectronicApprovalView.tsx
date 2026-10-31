@@ -3634,7 +3634,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 <X className="w-5 h-5 md:w-4 md:h-4" />
               </button>
             </div>
-            <p className="text-base md:text-base md:text-xs text-slate-500 md:text-slate-400">여기서 올린 이미지는 우리 회사 공문서에만 반영되고, 다른 회사에는 영향이 없습니다.</p>
+            <p className="text-base md:text-base md:text-xs text-slate-500 md:text-slate-400">우리 회사 공문서에만 반영</p>
 
             <div className="space-y-2">
               <label className="text-base md:text-xs font-bold text-slate-600">상단 로고</label>
