@@ -2899,7 +2899,7 @@ export const ProjectsView: React.FC<Props> = ({
   }, [triggerPrintPreview]);
 
   return (
-    <div className="space-y-3 animate-fadeIn max-w-6xl mx-auto">
+    <div className="space-y-3 animate-fadeIn max-w-6xl mx-auto w-full min-w-0 overflow-x-clip">
       
       {/* ⚠️ 팔로우업 알림 배너 */}
       {(() => {
