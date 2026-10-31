@@ -2626,9 +2626,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 </div>
               </div>
 
-              <div className="bg-slate-100 rounded-xl p-3 text-right text-base">
-                <span className="text-slate-400 mr-2">총 합계</span>
-                <span className="font-bold text-slate-800">{formatCurrencyInput(apTotal)}원</span>
+              <div className="bg-slate-100 rounded-xl p-3 text-right text-lg">
+                <span className="text-slate-500 mr-2">총 합계</span>
+                <span className="font-bold text-slate-800 text-xl">{formatCurrencyInput(apTotal)}원</span>
               </div>
             </div>
 
