@@ -2213,9 +2213,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           </div>
 
           {advanceList.length === 0 ? (
-            <div className="py-20 text-center text-slate-400 bg-slate-100 border border-dashed border-slate-200 rounded-2xl">
-              <Wallet className="w-8 h-8 mx-auto mb-2 text-slate-700" />
-              <p className="text-sm">등록된 가지급금 정산서가 없습니다.</p>
+            <div className="py-16 text-center text-slate-400 bg-white border-y border-slate-200 md:border md:rounded-2xl">
+              <Wallet className="w-10 h-10 mx-auto mb-3 text-slate-400" />
+              <p className="text-base">등록된 가지급금 정산서가 없습니다.</p>
             </div>
           ) : (
             <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-3 -mx-1 px-1 [scrollbar-width:thin]">
