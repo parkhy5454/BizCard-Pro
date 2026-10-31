@@ -2427,7 +2427,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
             return (
               <div className="bg-white md:bg-slate-100 md:border md:border-slate-200 rounded-2xl p-0 md:p-3">
-                <div className="grid grid-cols-7 gap-1 mb-2 border-t border-slate-300 pt-2 md:border-0 md:pt-0">
+                {/* 요일 줄 위 실선 (모바일) - 요일 줄과 분리된 별도 선으로 확실히 보이게 */}
+                <div className="h-px bg-slate-300 md:hidden" />
+                <div className="grid grid-cols-7 gap-1 mb-2 pt-2 md:pt-0">
                   {weekdayLabels.map((w, i) => (
                     <div key={w} className={`text-center text-base md:text-[11px] font-bold py-1 ${i === 6 ? 'text-red-600' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
                   ))}
