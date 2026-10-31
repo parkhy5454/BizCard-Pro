@@ -2484,55 +2484,55 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">회사명</label>
+                  <label className="text-sm font-bold text-slate-600">회사명</label>
                   <input type="text" value={apCompanyName} onChange={(e) => setApCompanyName(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">기안일</label>
+                  <label className="text-sm font-bold text-slate-600">기안일</label>
                   <YMDInput value={apDraftDate} onChange={setApDraftDate} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">부서</label>
+                  <label className="text-sm font-bold text-slate-600">부서</label>
                   <input type="text" value={apDepartment} onChange={(e) => setApDepartment(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">작성자</label>
+                  <label className="text-sm font-bold text-slate-600">작성자</label>
                   <input type="text" value={apAuthor} onChange={(e) => setApAuthor(e.target.value)}
                     onBlur={(e) => fillAdvanceDepartmentForAuthor(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">기간 시작</label>
+                  <label className="text-sm font-bold text-slate-600">기간 시작</label>
                   <YMDInput value={apPeriodStart} onChange={setApPeriodStart} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">기간 종료</label>
+                  <label className="text-sm font-bold text-slate-600">기간 종료</label>
                   <YMDInput value={apPeriodEnd} onChange={setApPeriodEnd} />
                 </div>
               </div>
 
               {(apPeriodStart || apPeriodEnd) && (
-                <p className="text-xs text-slate-500 bg-slate-100 rounded-xl px-4 py-2.5 -mt-2">
+                <p className="text-sm text-slate-500 bg-slate-100 rounded-xl px-4 py-2.5 -mt-2">
                   출력 표기: <span className="font-bold text-slate-700">{formatKoreanPeriod(apPeriodStart, apPeriodEnd)}</span>
                 </p>
               )}
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-600 whitespace-nowrap shrink-0">정산 내역</label>
+                  <label className="text-sm font-bold text-slate-600 whitespace-nowrap shrink-0">정산 내역</label>
                   <div className="flex items-center gap-3 whitespace-nowrap">
-                    <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-600 font-bold whitespace-nowrap">
+                    <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-600 font-bold whitespace-nowrap">
                       <Download className="w-3.5 h-3.5 shrink-0" /> 가져오기
                     </button>
-                    <button type="button" onClick={addApItem} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-600 font-bold whitespace-nowrap">
+                    <button type="button" onClick={addApItem} className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-600 font-bold whitespace-nowrap">
                       <Plus className="w-3.5 h-3.5" /> 내역 추가
                     </button>
                   </div>
                 </div>
                 {apItems.length === 0 && (
-                  <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  <div className="text-sm text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                     +내역 추가
                   </div>
                 )}
@@ -2544,7 +2544,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                     .map(item => (
                     <div key={item.id} className="bg-white md:bg-slate-100 border-0 border-b md:border border-slate-200 rounded-none md:rounded-xl px-0 md:px-3 py-3 md:p-3 space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-bold shrink-0">날짜</span>
+                        <span className="text-xs text-slate-400 font-bold shrink-0">날짜</span>
                         <YMDInput value={item.date} onChange={(v) => updateApItem(item.id, { date: v })} />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -2553,17 +2553,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                             onChange={(e) => updateApItem(item.id, { project: e.target.value })}
                             onFocus={() => openItemPicker(item.id)}
                             onBlur={() => { setTimeout(() => { setItemPickerForId(prev => prev === item.id ? null : prev); }, 150); }}
-                            className="w-full px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            className="w-full px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                           {itemPickerForId === item.id && (
                             <div className="absolute z-30 mt-1 w-full sm:w-80 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
                               {itemPickerLoading ? (
-                                <div className="p-3 text-xs text-slate-500">불러오는 중...</div>
+                                <div className="p-3 text-sm text-slate-500">불러오는 중...</div>
                               ) : (() => {
                                 const q = item.project.trim().toLowerCase();
                                 const filtered = itemPickerRows.filter(r =>
                                   !q || r.project.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
                                 if (filtered.length === 0) {
-                                  return <div className="p-3 text-xs text-slate-400">일치하는 개인카드/현금 사용 내역이 없습니다.</div>;
+                                  return <div className="p-3 text-sm text-slate-400">일치하는 개인카드/현금 사용 내역이 없습니다.</div>;
                                 }
                                 return filtered.map(r => (
                                   <button key={r.id} type="button"
@@ -2571,15 +2571,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                                     onClick={() => applyItemPicker(item.id, r)}
                                     className="w-full text-left px-3 py-2 hover:bg-slate-100 border-b border-slate-200 last:border-0 transition-colors">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs font-semibold text-blue-600 truncate">{r.project || '(프로젝트 없음)'}</span>
-                                      <span className="text-[10px] text-slate-400 shrink-0">{r.date}</span>
+                                      <span className="text-sm font-semibold text-blue-600 truncate">{r.project || '(프로젝트 없음)'}</span>
+                                      <span className="text-xs text-slate-400 shrink-0">{r.date}</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-2 mt-0.5">
                                       <span className="text-[11px] text-slate-500 truncate">{r.description}</span>
                                       <div className="flex items-center gap-1.5 shrink-0">
                                         {r.receiptImage && <Camera className="w-3 h-3 text-emerald-400" />}
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{r.payMethodLabel}</span>
-                                        <span className="text-xs font-bold text-slate-700">{formatCurrencyInput(r.amount)}원</span>
+                                        <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{r.payMethodLabel}</span>
+                                        <span className="text-sm font-bold text-slate-700">{formatCurrencyInput(r.amount)}원</span>
                                       </div>
                                     </div>
                                   </button>
@@ -2589,18 +2589,18 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                           )}
                         </div>
                         <input type="text" placeholder="계정과목" value={item.account} onChange={(e) => updateApItem(item.id, { account: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" placeholder="상호" value={item.companyName} onChange={(e) => updateApItem(item.id, { companyName: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_1fr_36px] gap-2 items-center">
                         <input type="text" placeholder="내용" value={item.description} onChange={(e) => updateApItem(item.id, { description: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" inputMode="numeric" placeholder="금액" value={formatCurrencyInput(item.amount)}
                           onChange={(e) => updateApItem(item.id, { amount: parseCurrencyInput(e.target.value) })}
-                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <input type="text" placeholder="비고" value={item.remark} onChange={(e) => updateApItem(item.id, { remark: e.target.value })}
-                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          className="px-2.5 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <button type="button" onClick={() => removeApItem(item.id)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-400 justify-self-center">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2615,7 +2615,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                             onClick={() => setEnlargedReceiptUrl(item.receiptImage!)}
                             className="w-10 h-10 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
                           />
-                          <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
                             <Camera className="w-3 h-3" />
                             영수증 첨부됨 (눌러서 크게 보기)
                           </span>
@@ -2626,15 +2626,15 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 </div>
               </div>
 
-              <div className="bg-slate-100 rounded-xl p-3 text-right text-sm">
+              <div className="bg-slate-100 rounded-xl p-3 text-right text-base">
                 <span className="text-slate-400 mr-2">총 합계</span>
                 <span className="font-bold text-slate-800">{formatCurrencyInput(apTotal)}원</span>
               </div>
             </div>
 
             <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2">
-              <button onClick={() => setIsAdvanceModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
-              <button onClick={saveAdvance} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
+              <button onClick={() => setIsAdvanceModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-base text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
+              <button onClick={saveAdvance} className="px-5 py-2.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
             </div>
           </div>
         </div>
