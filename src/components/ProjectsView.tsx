@@ -651,6 +651,10 @@ export const ProjectsView: React.FC<Props> = ({
   // 화면(카드형/리스트 출력/원가계산서-개별/원가계산서-전체)이 바뀌면, 검색창의 역할이
   // 완전히 달라지므로(자유 필터 ↔ 프로젝트 선택) 이전 화면에서 입력하던 검색어를 그대로
   // 들고 가면 혼란스럽다 - 화면이 바뀔 때마다 검색어를 비우고 드롭다운도 닫는다.
+  // 탭(화면)을 바꾸면 열려 있던 미리보기 창은 닫는다 (닫히지 않으면 다른 탭이 안 보였음)
+  useEffect(() => {
+    setIsProjectsPrintPreviewOpen(false);
+  }, [viewMode, costSheetMode]);
   useEffect(() => {
     setProjectSearchQuery('');
     setIsPnlPickerOpen(false);

@@ -458,7 +458,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       // 카카오 지도 SDK, 카카오톡 공유 SDK, 토스페이먼츠 결제창, OpenCV.js CDN 폴백
-      scriptSrc: ["'self'", 'https://dapi.kakao.com', 'https://t1.kakaocdn.net', 'https://js.tosspayments.com', 'https://docs.opencv.org'],
+      scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'", 'https://dapi.kakao.com', 'https://t1.kakaocdn.net', 'https://js.tosspayments.com', 'https://docs.opencv.org'],
       // Pretendard 폰트(jsdelivr)와, React의 style={{...}} 인라인 스타일 속성 자체를 허용
       styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
       fontSrc: ["'self'", 'https://cdn.jsdelivr.net', 'data:'],
