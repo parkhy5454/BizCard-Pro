@@ -484,6 +484,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
   // 업무일지/차량운행일지 비용 가져오기
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  // [추가] 모바일에서 작성/가져오기 팝업이 떠 있을 때 상단 탭·하단 탭을 누르면 팝업을 닫아서
+  // 다른 화면으로 넘어갈 수 있게 한다 (팝업 바깥 영역을 누른 경우). 팝업 내부 터치는 그대로 둔다.
+  useEffect(() => {
+    if (!isAdvanceModalOpen && !isImportModalOpen) return;
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
+    const onPointerDown = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-approval-modal-overlay]')) return;
+      setIsAdvanceModalOpen(false);
+      setIsImportModalOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [isAdvanceModalOpen, isImportModalOpen]);
   const [importTab, setImportTab] = useState<'worklog' | 'vehicle' | 'maintenance'>('worklog');
   const [importWorklogRows, setImportWorklogRows] = useState<ImportableExpenseRow[]>([]);
   const [importVehicleRows, setImportVehicleRows] = useState<ImportableExpenseRow[]>([]);
@@ -2449,6 +2463,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {/* 가지급금 정산서 작성/수정 모달 */}
       {isAdvanceModalOpen && (
         <div
+          data-approval-modal-overlay
           className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
           // 모바일: 상단 헤더·결재 탭·하단 탭은 그대로 보이게 그 사이 영역에만 흰 바탕으로 띄움 (PC는 기존 어두운 배경 유지)
           style={typeof window !== 'undefined' && window.innerWidth < 768
@@ -2628,6 +2643,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {/* 업무일지/차량운행일지 비용 가져오기 모달 */}
       {isImportModalOpen && (
         <div
+          data-approval-modal-overlay
           className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
           // 모바일: 상단 헤더·결재 탭·하단 탭은 그대로 보이게 그 사이 영역에만 흰 바탕으로 띄움 (PC는 기존 어두운 배경 유지)
           style={typeof window !== 'undefined' && window.innerWidth < 768
@@ -2636,8 +2652,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         >
           <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[85vh] overflow-y-auto overflow-x-hidden">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                <Download className="w-5 h-5 text-indigo-400" />
+              <h2 className="font-bold text-xl sm:text-lg text-slate-800 flex items-center gap-2">
+                <Download className="w-6 h-6 text-indigo-400" />
                 비용 가져오기
               </h2>
               <button onClick={() => setIsImportModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
@@ -2647,16 +2663,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => { setImportTab('worklog'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
-                    <ClipboardList className="w-3.5 h-3.5" /> 업무일지 비용 ({importWorklogRows.length})
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-base font-bold transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
+                    <ClipboardList className="w-4 h-4" /> 업무일지 비용 ({importWorklogRows.length})
                   </button>
                   <button onClick={() => { setImportTab('vehicle'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
-                    <Car className="w-3.5 h-3.5" /> 차량 비용관리 ({importVehicleRows.length})
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-base font-bold transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
+                    <Car className="w-4 h-4" /> 차량 비용관리 ({importVehicleRows.length})
                   </button>
                   <button onClick={() => { setImportTab('maintenance'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${importTab === 'maintenance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
-                    <Wrench className="w-3.5 h-3.5" /> 정비일지 비용 ({importMaintenanceRows.length})
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-base font-bold transition-all ${importTab === 'maintenance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
+                    <Wrench className="w-4 h-4" /> 정비일지 비용 ({importMaintenanceRows.length})
                   </button>
                 </div>
                 {(() => {
@@ -2665,27 +2681,27 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   if (projectNames.length === 0) return null;
                   return (
                     <select value={importProjectFilter} onChange={(e) => setImportProjectFilter(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="all">전체 프로젝트</option>
                       {projectNames.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   );
                 })()}
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">개인카드/현금으로 결제한 항목만 표시됩니다 (법인카드 결제분은 이미 별도 정산되므로 제외).</p>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">개인카드/현금으로 결제한 항목만 표시됩니다 (법인카드 결제분은 이미 별도 정산되므로 제외).</p>
             </div>
 
             <div className="p-6 pt-4 space-y-2">
               {importLoading ? (
                 <div className="py-16 flex flex-col items-center justify-center space-y-3">
                   <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs text-slate-500">비용 내역을 불러오는 중입니다...</p>
+                  <p className="text-base text-slate-500">비용 내역을 불러오는 중입니다...</p>
                 </div>
               ) : (() => {
                 const sourceRows = importTab === 'worklog' ? importWorklogRows : importTab === 'vehicle' ? importVehicleRows : importMaintenanceRows;
                 const rows = sourceRows.filter(r => importProjectFilter === 'all' || r.project === importProjectFilter);
                 return rows.length === 0 ? (
-                  <div className="py-16 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-xs">
+                  <div className="py-16 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-base">
                     가져올 수 있는 비용 내역이 없습니다.
                   </div>
                 ) : (
@@ -2693,14 +2709,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                     <label key={row.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${importSelectedIds.has(row.id) ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-100 border-slate-200 hover:bg-slate-100/40'}`}>
                       <input type="checkbox" checked={importSelectedIds.has(row.id)} onChange={() => toggleImportSelect(row.id)}
                         className="w-4 h-4 rounded border-slate-200 bg-white text-blue-500 focus:ring-0" />
-                      <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs items-center">
+                      <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-5 gap-2 text-base items-center">
                         <span className="text-slate-500">{row.date}</span>
                         <span className="text-blue-600 font-semibold truncate">{row.project || '-'}</span>
                         <span className="text-slate-600 truncate col-span-2 sm:col-span-1">{row.description}</span>
                         <span className="text-slate-800 font-bold text-right sm:text-left">{formatCurrencyInput(row.amount)}원</span>
                         <span className="flex items-center gap-1 justify-self-start sm:justify-self-end">
-                          {row.receiptImage && <Camera className="w-3 h-3 text-emerald-400" title="영수증 첨부됨" />}
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">{row.payMethodLabel}</span>
+                          {row.receiptImage && <Camera className="w-4 h-4 text-emerald-400" title="영수증 첨부됨" />}
+                          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">{row.payMethodLabel}</span>
                         </span>
                       </div>
                     </label>
@@ -2710,10 +2726,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             </div>
 
             <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-2">
-              <span className="text-xs text-slate-500">{importSelectedIds.size}건 선택됨</span>
+              <span className="text-base text-slate-500">{importSelectedIds.size}건 선택됨</span>
               <div className="flex items-center gap-2">
-                <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
-                <button onClick={applyImportedItems} disabled={importSelectedIds.size === 0} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">선택 항목 가져오기</button>
+                <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-3 rounded-xl font-semibold text-base text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
+                <button onClick={applyImportedItems} disabled={importSelectedIds.size === 0} className="px-5 py-3 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">선택 항목 가져오기</button>
               </div>
             </div>
           </div>
