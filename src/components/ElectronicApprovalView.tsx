@@ -356,11 +356,11 @@ const ApprovalLineEditor: React.FC<{
 }> = ({ line, setLine, kind, companyPositions, onSaveAsDefault }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between gap-2">
-      <label className="text-xs font-bold text-slate-600">결재선</label>
+      <label className="text-base font-bold text-slate-600">결재선</label>
       <button
         type="button"
         onClick={() => onSaveAsDefault(kind, line)}
-        className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
+        className="text-sm px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap"
       >
         회사 기본값 저장
       </button>
@@ -371,7 +371,7 @@ const ApprovalLineEditor: React.FC<{
         <div key={idx} className="flex items-center gap-1">
           <input type="text" value={step.role} placeholder={`결재${idx + 1}`} list="company-positions-datalist"
             onChange={(e) => setLine(line.map((s, i) => i === idx ? { ...s, role: e.target.value } : s))}
-            className="w-24 px-2 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className="w-24 px-2 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-base text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
           {line.length > 1 && (
             <button
               type="button"
@@ -387,7 +387,7 @@ const ApprovalLineEditor: React.FC<{
       <button
         type="button"
         onClick={() => setLine([...line, { role: '' }])}
-        className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-500/50 text-xs font-semibold transition-colors"
+        className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-500/50 text-base font-semibold transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
         <span>단계 추가</span>
@@ -2484,31 +2484,31 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-slate-600">회사명</label>
+                  <label className="text-base font-bold text-slate-600">회사명</label>
                   <input type="text" value={apCompanyName} onChange={(e) => setApCompanyName(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-slate-600">기안일</label>
+                  <label className="text-base font-bold text-slate-600">기안일</label>
                   <YMDInput value={apDraftDate} onChange={setApDraftDate} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-slate-600">부서</label>
+                  <label className="text-base font-bold text-slate-600">부서</label>
                   <input type="text" value={apDepartment} onChange={(e) => setApDepartment(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-slate-600">작성자</label>
+                  <label className="text-base font-bold text-slate-600">작성자</label>
                   <input type="text" value={apAuthor} onChange={(e) => setApAuthor(e.target.value)}
                     onBlur={(e) => fillAdvanceDepartmentForAuthor(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-slate-600">기간 시작</label>
+                  <label className="text-base font-bold text-slate-600">기간 시작</label>
                   <YMDInput value={apPeriodStart} onChange={setApPeriodStart} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-slate-600">기간 종료</label>
+                  <label className="text-base font-bold text-slate-600">기간 종료</label>
                   <YMDInput value={apPeriodEnd} onChange={setApPeriodEnd} />
                 </div>
               </div>
@@ -2521,7 +2521,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-slate-600 whitespace-nowrap shrink-0">정산 내역</label>
+                  <label className="text-base font-bold text-slate-600 whitespace-nowrap shrink-0">정산 내역</label>
                   <div className="flex items-center gap-3 whitespace-nowrap">
                     <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-600 font-bold whitespace-nowrap">
                       <Download className="w-3.5 h-3.5 shrink-0" /> 가져오기
@@ -2633,8 +2633,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             </div>
 
             <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2">
-              <button onClick={() => setIsAdvanceModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-base text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
-              <button onClick={saveAdvance} className="px-5 py-2.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
+              <button onClick={() => setIsAdvanceModalOpen(false)} className="px-5 py-3 rounded-xl font-semibold text-lg text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
+              <button onClick={saveAdvance} className="px-6 py-3 rounded-xl font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
             </div>
           </div>
         </div>
