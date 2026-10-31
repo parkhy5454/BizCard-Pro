@@ -2514,7 +2514,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               </div>
 
               {(apPeriodStart || apPeriodEnd) && (
-                <p className="text-sm text-slate-500 bg-slate-100 rounded-xl px-4 py-2.5 -mt-2">
+                <p className="whitespace-nowrap overflow-x-auto scrollbar-none text-xs sm:text-sm text-slate-500 bg-slate-100 rounded-xl px-3 py-2.5 -mt-2">
                   출력 표기: <span className="font-bold text-slate-700">{formatKoreanPeriod(apPeriodStart, apPeriodEnd)}</span>
                 </p>
               )}
@@ -2542,7 +2542,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   {[...apItems]
                     .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
                     .map(item => (
-                    <div key={item.id} className="bg-white md:bg-slate-100 border-0 border-b md:border border-slate-200 rounded-none md:rounded-xl px-0 md:px-3 py-3 md:p-3 space-y-2">
+                    <div key={item.id} className="bg-white md:bg-slate-100 border-0 border-y md:border border-slate-200 rounded-none md:rounded-xl px-0 md:px-3 py-3 md:p-3 space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-slate-400 font-bold shrink-0">날짜</span>
                         <YMDInput value={item.date} onChange={(v) => updateApItem(item.id, { date: v })} />
