@@ -114,27 +114,27 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
 
     return (
       <div key={m.id} className="relative">
-        <div className="flex items-start gap-2.5 py-2">
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+        <div className="flex items-start gap-3 md:gap-2.5 py-3 md:py-2 border-b border-slate-200 md:border-0">
+          <div className="hidden md:flex w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 items-center justify-center shrink-0">
             {m.role === 'admin' ? <Crown className="w-4 h-4 text-amber-500" /> : <UserIcon className="w-4 h-4 text-indigo-500" />}
           </div>
-          <div className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+          <div className="flex-1 min-w-0 md:bg-slate-50 md:border md:border-slate-200 md:rounded-xl px-0 md:px-3.5 py-0 md:py-2.5">
             {!isEditing ? (
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">
-                    {m.name} <span className="text-xs font-medium text-slate-500">{m.position || '직책없음'}</span>
+                  <p className="text-lg md:text-sm font-bold text-slate-800 truncate">
+                    {m.name} <span className="text-base md:text-xs font-medium text-slate-500">{m.position || '직책없음'}</span>
                   </p>
-                  <p className="text-[11px] text-slate-500 truncate">
+                  <p className="text-base md:text-[11px] text-slate-500 truncate">
                     {m.department || '부서 미배정'} · {m.email}{m.phone ? ` · ${m.phone}` : ''}
                   </p>
                 </div>
                 {isAdmin && (
                   <button
                     onClick={() => startEdit(m)}
-                    className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-600 transition-colors"
+                    className="shrink-0 flex items-center gap-1 px-3 py-2 md:px-2 md:py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-sm md:text-[11px] font-bold text-slate-600 transition-colors"
                   >
-                    <Pencil className="w-3 h-3" /> 배치 수정
+                    <Pencil className="w-4 h-4 md:w-3 md:h-3" /> 배치 수정
                   </button>
                 )}
               </div>
@@ -145,12 +145,12 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
                   value={editDept}
                   onChange={(e) => setEditDept(e.target.value)}
                   placeholder="부서명 (예: 영업1팀)"
-                  className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none focus:border-indigo-500"
+                  className="w-full text-base md:text-xs px-3 py-2.5 md:px-2.5 md:py-1.5 rounded-lg border border-slate-300 outline-none focus:border-indigo-500"
                 />
                 <select
                   value={editManagerId}
                   onChange={(e) => setEditManagerId(e.target.value)}
-                  className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                  className="w-full text-base md:text-xs px-3 py-2.5 md:px-2.5 md:py-1.5 rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
                 >
                   <option value="">직속 상사 없음 (최상위)</option>
                   {members.filter((cand) => cand.id !== m.id).map((cand) => (
@@ -161,15 +161,15 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
                   <button
                     onClick={() => saveEdit(m.id)}
                     disabled={saving}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[11px] font-bold transition-colors"
+                    className="flex items-center gap-1 px-3.5 py-2 md:px-2.5 md:py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm md:text-[11px] font-bold transition-colors"
                   >
-                    <Check className="w-3 h-3" /> 저장
+                    <Check className="w-4 h-4 md:w-3 md:h-3" /> 저장
                   </button>
                   <button
                     onClick={cancelEdit}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-600 transition-colors"
+                    className="flex items-center gap-1 px-3.5 py-2 md:px-2.5 md:py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-sm md:text-[11px] font-bold text-slate-600 transition-colors"
                   >
-                    <X className="w-3 h-3" /> 취소
+                    <X className="w-4 h-4 md:w-3 md:h-3" /> 취소
                   </button>
                 </div>
               </div>
@@ -177,7 +177,7 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
           </div>
         </div>
         {children.length > 0 && (
-          <div className="ml-[18px] pl-[18px] border-l-2 border-dashed border-slate-200 space-y-0.5">
+          <div className="ml-[18px] pl-[18px] border-l-2 border-dashed border-slate-200 space-y-0 md:space-y-0.5">
             {children.map((child) => renderNode(child, nextVisited, depth + 1))}
           </div>
         )}
@@ -211,7 +211,7 @@ export const OrgChartView: React.FC<Props> = ({ currentUser }) => {
           표시할 조직 구성원이 없습니다.
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl p-4">
+        <div className="bg-white md:border md:border-slate-200 md:rounded-2xl md:p-4">
           {roots.map((m) => renderNode(m, new Set(), 0))}
         </div>
       )}
