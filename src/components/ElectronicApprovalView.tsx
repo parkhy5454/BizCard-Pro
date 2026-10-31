@@ -2321,7 +2321,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[15px] shadow-md shadow-blue-600/25 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4 shrink-0" />
-            <span className="truncate">{activeApprovalTab === 'advance' ? '가지급금 정산서 작성' : activeApprovalTab === 'leave' ? '휴가 신청서 작성' : '공문서 작성'}</span>
+            <span className="truncate">작성</span>
           </button>
           <button
             type="button"
