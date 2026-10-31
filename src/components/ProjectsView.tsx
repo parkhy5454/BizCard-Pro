@@ -4908,7 +4908,7 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
-                    <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="w-full min-w-0 max-w-full box-border bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                    <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="block appearance-none w-0 min-w-full max-w-full box-border bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">중요도</label>
@@ -5200,7 +5200,7 @@ export const ProjectsView: React.FC<Props> = ({
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">프로젝트 등록일</label>
-                    <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="w-full min-w-0 max-w-full box-border bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
+                    <input type="date" value={editingProject.dueDate} onChange={(e) => setEditingProject({ ...editingProject, dueDate: e.target.value })} className="block appearance-none w-0 min-w-full max-w-full box-border bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" />
                   </div>
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">중요도</label>
