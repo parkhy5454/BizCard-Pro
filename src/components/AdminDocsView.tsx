@@ -316,6 +316,17 @@ function calcStatutoryAnnualLeaveDays(hireDate: string, targetYear: string): num
 // 다르지만(예: 근로계약서엔 "직원명"이 중요하고, 통장 출금 내역엔 "금액"이 중요하다), 화면은
 // 하나의 공용 폼(제목/날짜/관련자/금액/메모/첨부파일)을 그대로 쓰고 라벨과 플레이스홀더만
 // 종류별로 다르게 보여준다.
+// [추가] 모바일에서 작성 팝업을 상단 헤더와 하단 탭바 사이에만 펼친다 (탭이 가려지지 않게).
+const docModalInsets = (): { top: number; bottom: number } | undefined => {
+  if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
+  const header = document.querySelector('header');
+  const tabbar = document.querySelector('[data-app-tabbar]');
+  return {
+    top: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+    bottom: tabbar ? Math.round(window.innerHeight - tabbar.getBoundingClientRect().top) : 0
+  };
+};
+
 const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: string; personLabel: string; showAmount: boolean }[]> = {
   management: [
     { id: 'labor_contract', label: '근로계약서', personLabel: '직원명', showAmount: false },
@@ -5844,18 +5855,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       </div>
 
       {/* 서류 종류 서브 탭 */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-end gap-6 overflow-x-auto scrollbar-none border-b border-slate-200">
         {categories.map((c) => (
           <button
             key={c.id}
             onClick={() => setActiveCategory(c.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
-              activeCategory === c.id
-                ? 'bg-indigo-600 text-white shadow'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+            className={`relative shrink-0 pt-1 pb-3 text-base md:text-sm font-bold whitespace-nowrap transition-colors ${
+              activeCategory === c.id ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             {c.label}
+            {activeCategory === c.id && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
           </button>
         ))}
       </div>
@@ -5869,7 +5879,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={activeConfig.personLabel ? `${activeConfig.label} 검색 (제목, ${activeConfig.personLabel}, 메모)` : `${activeConfig.label} 검색 (제목, 메모)`}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-500"
+            className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
           />
         </div>
         <button
@@ -6087,7 +6097,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       {loading ? (
         <div className="text-center py-12 text-sm text-slate-400">불러오는 중...</div>
       ) : filteredDocs.length === 0 ? (
-        <div className="text-center py-16 text-sm text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+        <div className="text-center py-16 text-base text-slate-500 bg-white rounded-2xl border border-dashed border-slate-300">
           아직 등록된 {activeConfig.label}가 없습니다.
         </div>
       ) : (
@@ -6162,10 +6172,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
       {/* 등록/수정 모달 */}
       {editingDoc && (
-        <div className="fixed inset-0 z-[100] overflow-y-auto">
-          <div onClick={() => setEditingDoc(null)} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 z-10 max-h-[90vh] overflow-y-auto">
+        <div style={docModalInsets()} className="fixed inset-x-0 top-0 bottom-0 md:inset-0 z-[100] overflow-y-auto bg-white md:bg-transparent">
+          <div onClick={() => setEditingDoc(null)} className="hidden md:block fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
+          <div className="flex min-h-full md:min-h-screen items-stretch md:items-center justify-center p-0 md:p-4">
+            <div className="relative w-full md:max-w-lg bg-white md:border md:border-slate-200 rounded-none md:rounded-3xl p-5 md:p-6 shadow-none md:shadow-2xl space-y-4 z-10">
               <button
                 onClick={() => setEditingDoc(null)}
                 className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700"
