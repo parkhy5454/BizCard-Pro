@@ -3699,7 +3699,7 @@ export const ProjectsView: React.FC<Props> = ({
                   className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>저장</span>
+                  <span>미리보기</span>
                 </button>
               </div>
             </div>
@@ -5663,9 +5663,6 @@ export const ProjectsView: React.FC<Props> = ({
                 <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">전체 프로젝트 목록 미리보기 (총 {filteredProjects.length}건)</h2>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button onClick={handleExportProjectsExcel} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
-                  <FileSpreadsheet className="w-3.5 h-3.5" /><span>엑셀 다운로드</span>
-                </button>
                 <button onClick={handlePrintProjectsList} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
                   <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
                 </button>
