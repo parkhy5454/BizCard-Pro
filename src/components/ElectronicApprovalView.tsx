@@ -3127,10 +3127,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                 </div>
                 <div className="grid grid-cols-[1fr_1fr_auto] sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0">
                   <button onClick={() => downloadAdvanceToExcel(previewDoc)} className="flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base sm:text-xs justify-center shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
-                    <FileSpreadsheet className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span>엑셀 다운로드</span>
+                    <FileSpreadsheet className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span>엑셀 다운</span>
                   </button>
                   <button onClick={handlePrintAdvance} className="flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base sm:text-xs justify-center shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
-                    <Printer className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span>인쇄 / PDF 저장</span>
+                    <Printer className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span>PDF 저장</span>
                   </button>
                   <button onClick={() => setPreviewAdvanceId(null)} className="p-3 sm:p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
                     <X className="w-4 h-4" />
