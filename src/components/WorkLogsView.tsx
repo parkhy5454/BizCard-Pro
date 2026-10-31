@@ -2427,9 +2427,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
             return (
               <div className="bg-white md:bg-slate-100 md:border md:border-slate-200 rounded-2xl p-0 md:p-3">
-                <div className="grid grid-cols-7 gap-1 mb-2">
+                <div className="grid grid-cols-7 gap-1 mb-2 border-t border-slate-300 pt-2 md:border-0 md:pt-0">
                   {weekdayLabels.map((w, i) => (
-                    <div key={w} className={`text-center text-base md:text-[11px] font-bold py-1 ${i === 6 ? 'text-rose-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
+                    <div key={w} className={`text-center text-base md:text-[11px] font-bold py-1 ${i === 6 ? 'text-red-600' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
@@ -2463,9 +2463,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           isSelected ? 'bg-emerald-50 md:bg-emerald-600/20 md:border-emerald-500/50' : isToday ? 'bg-indigo-50 md:bg-indigo-950/40 md:border-indigo-500/40' : 'bg-white md:bg-slate-100 md:border-slate-200 md:hover:border-slate-200'
                         }`}
                       >
-                        <div className={`text-base md:text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-rose-500' : isSaturday ? 'text-blue-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
+                        <div className={`text-base md:text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-red-600' : isSaturday ? 'text-blue-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
                         {holidayName && (
-                          <div className="text-[11px] md:text-[8px] leading-tight font-semibold text-rose-500 truncate mb-0.5">{holidayName}</div>
+                          <div className="text-[11px] md:text-[8px] leading-tight font-bold text-red-600 truncate mb-0.5">{holidayName}</div>
                         )}
                         <div className="space-y-0.5">
                           {entries.slice(0, 2).map((en) => (
