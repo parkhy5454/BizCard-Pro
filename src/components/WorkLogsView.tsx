@@ -2458,7 +2458,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           const raw = e.dataTransfer.getData('text/plain');
                           handleDropEntry(raw, dateStr);
                         }}
-                        className={`text-left p-1.5 md:p-1.5 rounded-lg border-0 md:border min-h-[72px] md:min-h-[64px] transition-all ${
+                        className={`text-left p-1.5 md:p-1.5 rounded-lg border-0 border-b border-slate-300 md:border md:border-slate-200 min-h-[72px] md:min-h-[64px] transition-all ${
                           isDragOver ? 'ring-2 ring-emerald-500 md:border-emerald-500/60' :
                           isSelected ? 'bg-emerald-50 md:bg-emerald-600/20 md:border-emerald-500/50' : isToday ? 'bg-indigo-50 md:bg-indigo-950/40 md:border-indigo-500/40' : 'bg-white md:bg-slate-100 md:border-slate-200 md:hover:border-slate-200'
                         }`}
