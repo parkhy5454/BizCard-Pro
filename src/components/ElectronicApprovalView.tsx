@@ -2423,7 +2423,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                       </div>
                     </div>
 
-                    <div className="text-base border-y md:border-0 border-slate-200 bg-transparent md:bg-slate-100 md:rounded-xl py-3 md:p-3 flex items-center justify-between">
+                    <div className="text-sm border-y md:border-0 border-slate-200 bg-transparent md:bg-slate-100 md:rounded-xl py-3 md:p-3 flex items-center justify-between">
                       <span className="text-slate-500">정산 항목 {(doc.items || []).length}건</span>
                       <span className="font-bold text-lg text-slate-800">총 합계 {formatCurrencyInput(total)}원</span>
                     </div>
@@ -2485,11 +2485,11 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-bold text-lg text-slate-800 truncate">{doc.author}님 휴가 신청서</h3>
                         <StatusBadge status={doc.status} />
-                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-500/30">
+                        <span className="px-2 py-0.5 rounded-full text-sm font-bold bg-indigo-50 text-indigo-700 border border-indigo-500/30">
                           {leaveCategoryDisplay(doc)}
                         </span>
                         {doc.totalAnnualDays ? (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-500/30">
+                          <span className="px-2 py-0.5 rounded-full text-sm font-bold bg-amber-50 text-amber-700 border border-amber-500/30">
                             누적 {computeAnnualLeaveLabel(doc, leaveList)}
                           </span>
                         ) : null}
