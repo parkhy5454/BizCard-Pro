@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
 import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry, MyProfile } from '../types.js';
@@ -125,6 +125,17 @@ const getWorkLogModalBottomInset = (): number => {
 };
 
 export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects, currentUser }) => {
+  // 모바일에서 업무일지 탭 묶음을 앱 헤더 바로 아래에 고정하기 위해 헤더 높이를 잰다.
+  const [headerBottom, setHeaderBottom] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const h = document.querySelector('header');
+      setHeaderBottom(h ? Math.round(h.getBoundingClientRect().bottom) : 0);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
   const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly' | 'report'>('daily');
   const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
   const [weeklyLogs, setWeeklyLogs] = useState<WeeklyWorkLog[]>([]);
@@ -2202,7 +2213,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     <div className="space-y-3">
       
       {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
-      <div id="worklog-top-bar" className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 bg-transparent sm:bg-slate-100 p-0 sm:p-4 border-0 sm:border sm:border-slate-200 rounded-none sm:rounded-3xl backdrop-blur-md">
+      <div id="worklog-top-bar" style={{ top: headerBottom }} className="sticky z-40 sm:static flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 bg-white sm:bg-slate-100 pt-2 pb-2 sm:py-0 sm:p-4 border-0 sm:border sm:border-slate-200 rounded-none sm:rounded-3xl backdrop-blur-md">
         {/* [수정] "+ 일일 일지 작성" 버튼을 항상 맨 왼쪽에 고정, 줄어들지 않게 함 (모바일에서는 "작성"으로 줄임) */}
         <div className="flex gap-2 shrink-0 w-full sm:w-auto order-2 sm:order-none">
           <button
