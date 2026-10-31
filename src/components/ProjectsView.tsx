@@ -3667,14 +3667,6 @@ export const ProjectsView: React.FC<Props> = ({
                     <span>전체 삭제</span>
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={handleExportProjectsExcel}
-                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>엑셀 다운</span>
-                </button>
                 {/* [추가] "OO 특약점 프로젝트 파이프라인" 형식의 엑셀을 올리면, 한 건씩 등록할
                 필요 없이 안에 있는 프로젝트를 한 번에 전부 등록한다. */}
                 <button
@@ -3693,6 +3685,14 @@ export const ProjectsView: React.FC<Props> = ({
                   onChange={handleImportProjectsExcel}
                   className="hidden"
                 />
+                <button
+                  type="button"
+                  onClick={handleExportProjectsExcel}
+                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>엑셀 다운</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsProjectsPrintPreviewOpen(true)}
