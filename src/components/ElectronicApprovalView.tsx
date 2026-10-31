@@ -2326,7 +2326,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           <button
             type="button"
             onClick={() => { setPendingApprovalTarget(null); setIsSignaturePadOpen(true); }}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-semibold text-[15px] bg-white border border-slate-200 text-slate-600 whitespace-nowrap shrink-0 active:scale-95 transition-colors"
+            className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-semibold text-[15px] bg-white border border-slate-200 text-slate-600 whitespace-nowrap active:scale-95 transition-colors"
           >
             <PenTool className="w-4 h-4 text-indigo-500 shrink-0" />
             <span>{currentUser?.signatureImage ? '내 서명 변경' : '내 서명 등록'}</span>
