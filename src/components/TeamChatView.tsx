@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MessagesSquare, Send, Users, Hash, UsersRound, Plus, X, Check } from 'lucide-react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { MessagesSquare, Send, Plus, X, Check, Search, Hash, UsersRound, ChevronLeft } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
 import { getErrorMessage } from '../errorUtils.js';
+
 interface Props {
   currentUser: UserType;
 }
@@ -29,6 +30,21 @@ interface ChatGroupItem {
   memberUserIds: string[];
 }
 
+type RoomKind = 'team' | 'group' | 'dm';
+
+interface RoomItem {
+  channel: string;
+  kind: RoomKind;
+  title: string;
+  subtitle: string;
+}
+
+const TEAM_CHANNEL = 'team';
+const LAST_READ_KEY_PREFIX = 'bizcard-chat-lastread:';
+// 같은 사람이 이 시간(5분) 안에 연달아 보낸 메시지는 한 묶음으로 보여준다 (카톡처럼 시간/이름 생략).
+const RUN_GAP_MS = 5 * 60 * 1000;
+const AVATAR_COLORS = ['bg-rose-400', 'bg-amber-500', 'bg-emerald-500', 'bg-sky-500', 'bg-violet-500', 'bg-teal-500', 'bg-orange-400', 'bg-indigo-500'];
+
 function dmChannelId(a: string, b: string): string {
   return `dm:${[a, b].sort().join(':')}`;
 }
@@ -37,35 +53,111 @@ function groupChannelId(groupId: string): string {
   return `group:${groupId}`;
 }
 
-function formatTime(iso: string): string {
+function avatarColor(seed: string): string {
+  let h = 0;
+  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function readLastRead(userId: string): Record<string, string> {
   try {
-    return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const parsed = JSON.parse(localStorage.getItem(LAST_READ_KEY_PREFIX + userId) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
-    return '';
+    return {};
   }
 }
 
-// [추가] 사내 메신저. 별도 웹소켓 서버 없이 4초 간격 폴링으로 새 메시지를 가져오는
-// 방식으로 구현했다 (무료 배포 환경에서도 추가 인프라 없이 바로 동작). "전체" 채널은
-// 회사 전체가 보는 팀 채널, 동료를 선택하면 1:1 대화, "그룹 채팅 만들기"로 2명 이상을
-// 골라 이름을 붙인 소그룹 대화방도 만들 수 있다 (부서/프로젝트 단위 대화용).
+function writeLastRead(userId: string, map: Record<string, string>): void {
+  try {
+    localStorage.setItem(LAST_READ_KEY_PREFIX + userId, JSON.stringify(map));
+  } catch {
+    // 저장 실패(사생활 보호 모드 등)는 무시 - 안 읽음 표시만 정확도가 떨어진다.
+  }
+}
+
+function formatListTime(iso: string): string {
+  const d = new Date(iso);
+  if (d.toDateString() === new Date().toDateString()) {
+    return d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+}
+
+function formatBubbleTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+}
+
+function dayLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+}
+
+function sameDay(a: string, b: string): boolean {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
+function msBetween(a: string, b: string): number {
+  return Math.abs(new Date(b).getTime() - new Date(a).getTime());
+}
+
+// 사내 메신저. 별도 웹소켓 서버 없이 폴링으로 동작한다.
+// - 모바일: 대화 목록 → 대화방(전체 화면) 두 화면으로 나뉘고, 카카오톡처럼 뒤로가기로 목록에 돌아간다.
+// - 데스크톱: 목록과 대화방을 나란히 보여준다.
+// - 목록에는 대화별 마지막 메시지, 시간, 안 읽은 개수를 보여준다 (안 읽음 기준은 이 기기의 localStorage).
+// - "전체 채널"은 회사 전체, 동료는 1:1 대화, "+"로 2명 이상과 그룹 대화를 만든다.
 export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const [coworkers, setCoworkers] = useState<ChatCoworker[]>([]);
   const [groups, setGroups] = useState<ChatGroupItem[]>([]);
-  const [activeChannel, setActiveChannel] = useState<string>('team');
-  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
+  const [messagesByChannel, setMessagesByChannel] = useState<Record<string, ChatMessageItem[]>>({});
+  const [lastRead, setLastRead] = useState<Record<string, string>>(() => readLastRead(currentUser.id));
+  const [activeChannel, setActiveChannel] = useState<string>(TEAM_CHANNEL);
+  const [roomOpen, setRoomOpen] = useState(false);
+  const [loadingRoom, setLoadingRoom] = useState(false);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const lastIdRef = useRef<string | null>(null);
-  const channelRef = useRef(activeChannel);
+  const [search, setSearch] = useState('');
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [topInset, setTopInset] = useState(0);
 
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupMemberIds, setNewGroupMemberIds] = useState<string[]>([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [groupError, setGroupError] = useState('');
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesRef = useRef(messagesByChannel);
+  const activeRef = useRef(activeChannel);
+  const scrolledChannelRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    messagesRef.current = messagesByChannel;
+  }, [messagesByChannel]);
+
+  useEffect(() => {
+    activeRef.current = activeChannel;
+  }, [activeChannel]);
+
+  // 모바일 대화방은 앱 상단 헤더 아래부터 화면 맨 아래(탭바 위까지 덮음)로 펼친다.
+  useLayoutEffect(() => {
+    const measure = () => {
+      setIsMobile(window.innerWidth < 768);
+      const header = document.querySelector('header');
+      setTopInset(header ? Math.round(header.getBoundingClientRect().bottom) : 0);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  const fetchMessages = async (channel: string, sinceId?: string): Promise<ChatMessageItem[]> => {
+    const params = new URLSearchParams({ channel });
+    if (sinceId) params.set('sinceId', sinceId);
+    const res = await fetch(`/api/chat/messages?${params.toString()}`, { headers: { 'x-user-id': currentUser.id } });
+    const data = await res.json();
+    return res.ok && Array.isArray(data) ? (data as ChatMessageItem[]) : [];
+  };
 
   const loadCoworkers = () => {
     fetch('/api/org/coworkers', { headers: { 'x-user-id': currentUser.id } })
@@ -93,54 +185,117 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser.id]);
 
-  const loadInitial = (channel: string) => {
-    setLoading(true);
-    lastIdRef.current = null;
-    fetch(`/api/chat/messages?channel=${encodeURIComponent(channel)}`, { headers: { 'x-user-id': currentUser.id } })
-      .then((res) => res.json())
-      .then((data: ChatMessageItem[]) => {
-        if (Array.isArray(data)) {
-          setMessages(data);
-          if (data.length > 0) lastIdRef.current = data[data.length - 1].id;
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  };
+  const rooms: RoomItem[] = useMemo(() => {
+    const list: RoomItem[] = [{ channel: TEAM_CHANNEL, kind: 'team', title: '전체 채널', subtitle: '회사 전체 대화방' }];
+    groups.forEach((g) => list.push({ channel: groupChannelId(g.id), kind: 'group', title: g.name, subtitle: `${g.memberUserIds.length}명` }));
+    coworkers.forEach((c) => list.push({ channel: dmChannelId(currentUser.id, c.id), kind: 'dm', title: c.name, subtitle: c.position || '' }));
+    return list;
+  }, [coworkers, groups, currentUser.id]);
 
-  useEffect(() => {
-    channelRef.current = activeChannel;
-    loadInitial(activeChannel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChannel]);
+  const roomsKey = rooms.map((r) => r.channel).join('|');
+  const listVisible = !isMobile || !roomOpen;
 
-  // 4초마다 마지막으로 받은 메시지 이후의 새 메시지만 조회해서 이어붙인다.
+  // 목록에 보이는 모든 대화의 최근 메시지를 가져와 미리보기/안 읽음 계산에 쓴다.
+  // 목록이 보일 때만 15초마다 갱신해서 요청 수를 줄인다.
   useEffect(() => {
-    const timer = setInterval(() => {
-      const channel = channelRef.current;
-      const params = new URLSearchParams({ channel });
-      if (lastIdRef.current) params.set('sinceId', lastIdRef.current);
-      fetch(`/api/chat/messages?${params.toString()}`, { headers: { 'x-user-id': currentUser.id } })
-        .then((res) => res.json())
-        .then((data: ChatMessageItem[]) => {
-          if (Array.isArray(data) && data.length > 0 && channelRef.current === channel) {
-            setMessages((prev) => [...prev, ...data]);
-            lastIdRef.current = data[data.length - 1].id;
+    if (!listVisible) return;
+    let cancelled = false;
+    const loadPreviews = async () => {
+      const results = await Promise.all(
+        rooms.map((r) => fetchMessages(r.channel).then((data) => ({ channel: r.channel, data })).catch(() => ({ channel: r.channel, data: [] as ChatMessageItem[] })))
+      );
+      if (cancelled) return;
+      setMessagesByChannel((prev) => {
+        const next = { ...prev };
+        results.forEach(({ channel, data }) => { next[channel] = data; });
+        return next;
+      });
+      setLastRead((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        // 처음 보는 대화는 지금까지 온 메시지를 모두 읽은 것으로 본다 (처음 쓰는 날 안 읽음 폭탄 방지)
+        results.forEach(({ channel, data }) => {
+          if (!next[channel] && data.length > 0) {
+            next[channel] = data[data.length - 1].createdAt;
+            changed = true;
           }
-        })
-        .catch(() => {});
+        });
+        if (!changed) return prev;
+        writeLastRead(currentUser.id, next);
+        return next;
+      });
+    };
+    loadPreviews();
+    const timer = setInterval(loadPreviews, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomsKey, listVisible, currentUser.id]);
+
+  // 열려 있는 대화방은 4초마다 새 메시지만 가져와 이어붙인다.
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      const channel = activeRef.current;
+      const arr = messagesRef.current[channel] || [];
+      const lastId = arr.length ? arr[arr.length - 1].id : undefined;
+      const fresh = await fetchMessages(channel, lastId).catch(() => [] as ChatMessageItem[]);
+      if (fresh.length === 0 || activeRef.current !== channel) return;
+      setMessagesByChannel((prev) => {
+        const cur = prev[channel] || [];
+        const seen = new Set(cur.map((m) => m.id));
+        const added = fresh.filter((m) => !seen.has(m.id));
+        if (added.length === 0) return prev;
+        return { ...prev, [channel]: [...cur, ...added] };
+      });
     }, 4000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser.id]);
 
+  const openRoom = (channel: string) => {
+    setActiveChannel(channel);
+    setRoomOpen(true);
+    setIsCreatingGroup(false);
+    scrolledChannelRef.current = null;
+    setLoadingRoom(true);
+    fetchMessages(channel)
+      .then((data) => setMessagesByChannel((prev) => ({ ...prev, [channel]: data })))
+      .catch(() => {})
+      .finally(() => setLoadingRoom(false));
+  };
+
+  const activeMessages = messagesByChannel[activeChannel];
+  const roomVisible = roomOpen || !isMobile;
+
+  // 대화방을 보고 있으면 마지막 메시지까지 읽은 것으로 표시한다.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+    if (!roomVisible || isCreatingGroup || !activeMessages || activeMessages.length === 0) return;
+    const latest = activeMessages[activeMessages.length - 1].createdAt;
+    setLastRead((prev) => {
+      if (prev[activeChannel] === latest) return prev;
+      const next = { ...prev, [activeChannel]: latest };
+      writeLastRead(currentUser.id, next);
+      return next;
+    });
+  }, [activeChannel, activeMessages, roomVisible, isCreatingGroup, currentUser.id]);
+
+  // 대화방을 처음 열면 맨 아래로, 이후에는 내가 맨 아래 근처에 있거나 내가 보낸 메시지일 때만 따라 내려간다.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const channelChanged = scrolledChannelRef.current !== activeChannel;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    const last = activeMessages && activeMessages.length ? activeMessages[activeMessages.length - 1] : undefined;
+    const lastMine = !!last && last.senderUserId === currentUser.id;
+    if (channelChanged || nearBottom || lastMine) el.scrollTop = el.scrollHeight;
+    scrolledChannelRef.current = activeChannel;
+  }, [activeChannel, activeMessages, roomOpen, isCreatingGroup, currentUser.id]);
 
   const handleSend = async () => {
     const content = input.trim();
-    if (!content) return;
+    if (!content || sending) return;
     setSending(true);
     try {
       const res = await fetch('/api/chat/messages', {
@@ -150,14 +305,23 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '전송하지 못했습니다.');
-      setMessages((prev) => [...prev, data]);
-      lastIdRef.current = data.id;
+      setMessagesByChannel((prev) => {
+        const cur = prev[activeChannel] || [];
+        if (cur.some((m) => m.id === data.id)) return prev;
+        return { ...prev, [activeChannel]: [...cur, data] };
+      });
       setInput('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch (err: unknown) {
       alert(getErrorMessage(err) || '전송하지 못했습니다.');
     } finally {
       setSending(false);
     }
+  };
+
+  const autoGrow = (el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
   };
 
   const toggleNewGroupMember = (id: string) => {
@@ -169,6 +333,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     setNewGroupMemberIds([]);
     setGroupError('');
     setIsCreatingGroup(true);
+    setRoomOpen(true);
   };
 
   const handleCreateGroup = async () => {
@@ -192,7 +357,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
       if (!res.ok) throw new Error(data.error || '그룹을 만들지 못했습니다.');
       setGroups((prev) => [...prev, data]);
       setIsCreatingGroup(false);
-      setActiveChannel(groupChannelId(data.id));
+      openRoom(groupChannelId(data.id));
     } catch (err: unknown) {
       setGroupError(getErrorMessage(err) || '그룹을 만들지 못했습니다.');
     } finally {
@@ -200,80 +365,154 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
-  const activeCoworker = activeChannel.startsWith('dm:')
-    ? coworkers.find((c) => activeChannel === dmChannelId(currentUser.id, c.id))
-    : null;
-  const activeGroup = activeChannel.startsWith('group:')
-    ? groups.find((g) => activeChannel === groupChannelId(g.id))
-    : null;
+  const lastOf = (channel: string): ChatMessageItem | undefined => {
+    const arr = messagesByChannel[channel];
+    return arr && arr.length ? arr[arr.length - 1] : undefined;
+  };
 
-  const headerLabel = activeChannel === 'team' ? '전체 채널' : activeCoworker ? activeCoworker.name : activeGroup ? activeGroup.name : '대화';
+  const unreadOf = (channel: string): number => {
+    const arr = messagesByChannel[channel] || [];
+    const since = lastRead[channel];
+    return arr.filter((m) => m.senderUserId !== currentUser.id && (!since || m.createdAt > since)).length;
+  };
+
+  // 대화가 있는 방은 최근 메시지 순(팀 채널은 항상 맨 위), 아직 대화가 없는 동료는 따로 모아 보여준다.
+  const { chatRooms, contactRooms } = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const matches = (r: RoomItem) => !q || r.title.toLowerCase().includes(q) || r.subtitle.toLowerCase().includes(q);
+    const teamRoom = rooms.find((r) => r.kind === 'team');
+    const others = rooms.filter((r) => r.kind !== 'team' && matches(r));
+    const stamp = (channel: string) => {
+      const arr = messagesByChannel[channel];
+      return arr && arr.length ? arr[arr.length - 1].createdAt : '';
+    };
+    const withChat = others.filter((r) => r.kind === 'group' || stamp(r.channel) !== '');
+    const withoutChat = others.filter((r) => r.kind === 'dm' && stamp(r.channel) === '');
+    withChat.sort((a, b) => stamp(b.channel).localeCompare(stamp(a.channel)));
+    withoutChat.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+    const chat = teamRoom && matches(teamRoom) ? [teamRoom, ...withChat] : withChat;
+    return { chatRooms: chat, contactRooms: withoutChat };
+  }, [rooms, messagesByChannel, search]);
+
+  const activeRoom = rooms.find((r) => r.channel === activeChannel);
+  const headerTitle = activeRoom ? activeRoom.title : '대화';
+  const headerSub = !activeRoom ? '' : activeRoom.kind === 'team' ? '회사 전체 대화방' : activeRoom.kind === 'group' ? `${activeRoom.subtitle} 참여` : activeRoom.subtitle || '1:1 대화';
+  const messages = activeMessages || [];
+
+  const renderAvatar = (room: RoomItem) => {
+    if (room.kind === 'team') {
+      return (
+        <div className="w-12 h-12 rounded-2xl bg-slate-700 text-white flex items-center justify-center shrink-0">
+          <Hash className="w-5 h-5" />
+        </div>
+      );
+    }
+    if (room.kind === 'group') {
+      return (
+        <div className="w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shrink-0">
+          <UsersRound className="w-5 h-5" />
+        </div>
+      );
+    }
+    return (
+      <div className={`w-12 h-12 rounded-2xl ${avatarColor(room.channel)} text-white text-lg font-bold flex items-center justify-center shrink-0`}>
+        {room.title.charAt(0)}
+      </div>
+    );
+  };
+
+  const renderRow = (room: RoomItem) => {
+    const last = lastOf(room.channel);
+    const unread = unreadOf(room.channel);
+    const isActive = !isMobile && activeChannel === room.channel;
+    const preview = last ? last.content.replace(/\s+/g, ' ') : room.kind === 'dm' ? '대화를 시작해 보세요' : '아직 메시지가 없습니다';
+    return (
+      <button
+        key={room.channel}
+        onClick={() => openRoom(room.channel)}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${isActive ? 'bg-indigo-50' : 'active:bg-slate-100 hover:bg-slate-50'}`}
+      >
+        {renderAvatar(room)}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-base font-bold text-slate-900 truncate">{room.title}</span>
+            {room.subtitle && <span className="text-xs text-slate-400 truncate shrink-0 max-w-[45%]">{room.subtitle}</span>}
+          </div>
+          <p className="text-sm text-slate-500 truncate mt-0.5">{preview}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0 self-stretch justify-center">
+          {last && <span className="text-xs text-slate-400">{formatListTime(last.createdAt)}</span>}
+          {unread > 0 && (
+            <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-400 text-slate-900 text-xs font-bold flex items-center justify-center">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="max-w-4xl mx-auto md:py-6 md:px-4">
+      <div className="flex items-center gap-2 px-4 pt-4 pb-3 md:px-0 md:pt-0 md:mb-4">
         <MessagesSquare className="w-5 h-5 text-indigo-500" />
         <h2 className="text-xl font-bold text-slate-900">사내 메신저</h2>
       </div>
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden flex h-[70vh] min-h-[420px]">
-        <div className="w-52 shrink-0 border-r border-slate-200 bg-slate-50 overflow-y-auto">
-          <button
-            onClick={() => setActiveChannel('team')}
-            className={`w-full flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-left transition-colors ${activeChannel === 'team' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
-          >
-            <Hash className="w-3.5 h-3.5" /> 전체 채널
-          </button>
 
-          <div className="px-3.5 py-2 mt-1 flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-              <UsersRound className="w-3 h-3" /> 그룹 채팅
-            </span>
-            <button onClick={openGroupCreator} title="새 그룹 채팅 만들기" className="p-0.5 rounded hover:bg-slate-200 text-slate-500">
-              <Plus className="w-3.5 h-3.5" />
+      <div className="bg-white md:border md:border-slate-200 md:rounded-2xl overflow-hidden flex md:h-[70vh] md:min-h-[420px]">
+        {/* 대화 목록 */}
+        <aside className={`${roomOpen ? 'hidden md:flex' : 'flex'} w-full md:w-72 md:shrink-0 md:border-r border-slate-200 bg-white flex-col min-h-0`}>
+          <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="이름 검색"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-100 text-base md:text-sm outline-none focus:ring-1 focus:ring-indigo-300"
+              />
+            </div>
+            <button onClick={openGroupCreator} title="그룹 채팅 만들기" className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+              <Plus className="w-5 h-5" />
             </button>
           </div>
-          {groups.map((g) => {
-            const channel = groupChannelId(g.id);
-            return (
-              <button
-                key={g.id}
-                onClick={() => setActiveChannel(channel)}
-                className={`w-full flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-left transition-colors ${activeChannel === channel ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
-              >
-                <span className="truncate">{g.name}</span>
-                <span className="text-[10px] font-medium text-slate-400 shrink-0">{g.memberUserIds.length}명</span>
-              </button>
-            );
-          })}
-          {groups.length === 0 && (
-            <p className="px-3.5 py-1.5 text-[11px] text-slate-400">만든 그룹이 없습니다.</p>
-          )}
 
-          <div className="px-3.5 py-2 mt-1 text-[10px] font-bold text-slate-400 flex items-center gap-1">
-            <Users className="w-3 h-3" /> 1:1 대화
+          <div className="flex-1 overflow-y-auto min-h-0 pb-2">
+            {chatRooms.length > 0 && <p className="px-4 pt-2 pb-1 text-xs font-bold text-slate-400">대화</p>}
+            {chatRooms.map(renderRow)}
+
+            {contactRooms.length > 0 && <p className="px-4 pt-4 pb-1 text-xs font-bold text-slate-400">동료 · {contactRooms.length}명</p>}
+            {contactRooms.map(renderRow)}
+
+            {chatRooms.length === 0 && contactRooms.length === 0 && (
+              <p className="text-center text-sm text-slate-400 py-10">{search ? '검색 결과가 없습니다.' : '표시할 대화가 없습니다.'}</p>
+            )}
           </div>
-          {coworkers.map((c) => {
-            const channel = dmChannelId(currentUser.id, c.id);
-            return (
-              <button
-                key={c.id}
-                onClick={() => setActiveChannel(channel)}
-                className={`w-full flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-left transition-colors ${activeChannel === channel ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
-              >
-                <span className="truncate">{c.name}</span>
-                <span className="text-[10px] font-medium text-slate-400 truncate">{c.position}</span>
-              </button>
-            );
-          })}
-          {coworkers.length === 0 && (
-            <p className="px-3.5 py-2 text-[11px] text-slate-400">대화할 동료가 없습니다.</p>
-          )}
-        </div>
+        </aside>
 
-        <div className="flex-1 flex flex-col min-w-0">
+        {/* 대화방 (모바일에서는 전체 화면으로 덮는다) */}
+        <section
+          style={isMobile ? { top: topInset, bottom: 0 } : undefined}
+          className={`${roomOpen ? 'fixed inset-x-0 z-[100] flex' : 'hidden'} md:flex md:static md:inset-auto md:z-auto md:flex-1 md:min-w-0 flex-col bg-[#b2c7d9] md:bg-slate-50`}
+        >
+          <div className="flex items-center gap-1 px-2 md:px-4 py-2.5 md:py-3 bg-white border-b border-slate-200 shrink-0">
+            <button
+              onClick={() => (isCreatingGroup ? setIsCreatingGroup(false) : setRoomOpen(false))}
+              className="md:hidden p-2 rounded-full text-slate-700 active:bg-slate-100 shrink-0"
+              aria-label="뒤로"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <div className="flex-1 min-w-0 px-1">
+              <p className="text-base font-bold text-slate-900 truncate">{isCreatingGroup ? '새 그룹 채팅' : headerTitle}</p>
+              {!isCreatingGroup && headerSub && <p className="text-xs text-slate-500 truncate">{headerSub}</p>}
+            </div>
+          </div>
+
           {isCreatingGroup ? (
-            <div className="flex-1 flex flex-col p-4 overflow-y-auto">
-              <div className="flex items-center justify-between mb-3">
+            <div className="flex-1 min-h-0 flex flex-col p-4 overflow-y-auto bg-white">
+              <div className="hidden md:flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-slate-800">새 그룹 채팅 만들기</h3>
                 <button onClick={() => setIsCreatingGroup(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400">
                   <X className="w-4 h-4" />
@@ -284,85 +523,114 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
                 placeholder="그룹 이름 (예: 강남프로젝트 TF)"
-                className="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 mb-3"
+                className="w-full text-base md:text-sm px-3.5 py-3 rounded-xl bg-slate-100 outline-none focus:ring-1 focus:ring-indigo-300 mb-4"
               />
-              <p className="text-[11px] font-bold text-slate-500 mb-1.5">대화할 동료 선택</p>
-              <div className="flex-1 overflow-y-auto space-y-1 border border-slate-200 rounded-xl p-2 mb-3">
+              <p className="text-xs font-bold text-slate-500 mb-2">대화할 동료 선택</p>
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl mb-4">
                 {coworkers.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs">
+                  <label key={c.id} className="flex items-center gap-3 px-3.5 py-3 cursor-pointer active:bg-slate-50">
                     <input
                       type="checkbox"
                       checked={newGroupMemberIds.includes(c.id)}
                       onChange={() => toggleNewGroupMember(c.id)}
-                      className="rounded"
+                      className="w-5 h-5 rounded accent-indigo-600"
                     />
-                    <span className="font-medium text-slate-700">{c.name}</span>
-                    <span className="text-slate-400">{c.position}</span>
+                    <span className="text-base font-medium text-slate-800">{c.name}</span>
+                    <span className="text-sm text-slate-400">{c.position}</span>
                   </label>
                 ))}
-                {coworkers.length === 0 && <p className="text-[11px] text-slate-400 px-2 py-1.5">초대할 동료가 없습니다.</p>}
+                {coworkers.length === 0 && <p className="text-sm text-slate-400 px-3.5 py-3">초대할 동료가 없습니다.</p>}
               </div>
-              {groupError && <p className="text-xs text-rose-500 mb-2">{groupError}</p>}
+              {groupError && <p className="text-sm text-rose-500 mb-2">{groupError}</p>}
               <button
                 onClick={handleCreateGroup}
                 disabled={creatingGroup}
-                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-base font-bold transition-colors"
               >
-                <Check className="w-3.5 h-3.5" /> {creatingGroup ? '만드는 중...' : '그룹 만들기'}
+                <Check className="w-4 h-4" /> {creatingGroup ? '만드는 중...' : '그룹 만들기'}
               </button>
             </div>
           ) : (
             <>
-              <div className="px-4 py-2.5 border-b border-slate-200 text-xs font-bold text-slate-700 shrink-0">
-                {headerLabel}
-              </div>
-              <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
-                {loading ? (
-                  <p className="text-center text-xs text-slate-400 py-8">불러오는 중...</p>
+              <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 md:px-5 py-3 md:py-4">
+                {loadingRoom && messages.length === 0 ? (
+                  <p className="text-center text-sm text-slate-500 py-10">불러오는 중...</p>
                 ) : messages.length === 0 ? (
-                  <p className="text-center text-xs text-slate-400 py-8">아직 메시지가 없습니다. 첫 메시지를 보내보세요.</p>
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-sm text-slate-600 bg-white/80 rounded-xl px-4 py-2.5 text-center">아직 메시지가 없습니다.<br />첫 메시지를 보내보세요.</p>
+                  </div>
                 ) : (
-                  messages.map((m) => {
+                  messages.map((m, i) => {
+                    const prev = messages[i - 1];
+                    const next = messages[i + 1];
                     const isMine = m.senderUserId === currentUser.id;
+                    const showDate = !prev || !sameDay(prev.createdAt, m.createdAt);
+                    const startsRun = showDate || prev.senderUserId !== m.senderUserId || msBetween(prev.createdAt, m.createdAt) > RUN_GAP_MS;
+                    const endsRun = !next || !sameDay(m.createdAt, next.createdAt) || next.senderUserId !== m.senderUserId || msBetween(m.createdAt, next.createdAt) > RUN_GAP_MS;
                     return (
-                      <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[75%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
-                          {!isMine && <span className="text-[10px] text-slate-400 mb-0.5 px-1">{m.senderName}</span>}
-                          <div className={`px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words ${isMine ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-slate-100 text-slate-700 rounded-bl-sm'}`}>
-                            {m.content}
+                      <React.Fragment key={m.id}>
+                        {showDate && (
+                          <div className="flex justify-center my-3">
+                            <span className="text-[11px] text-white md:text-slate-500 bg-black/20 md:bg-slate-200 px-3 py-1 rounded-full">{dayLabel(m.createdAt)}</span>
                           </div>
-                          <span className="text-[10px] text-slate-300 mt-0.5 px-1">{formatTime(m.createdAt)}</span>
+                        )}
+                        <div className={`flex gap-2 ${isMine ? 'justify-end' : 'justify-start'} ${startsRun ? 'mt-3' : 'mt-0.5'}`}>
+                          {!isMine && (
+                            <div className="w-10 shrink-0">
+                              {startsRun && (
+                                <div className={`w-10 h-10 rounded-2xl ${avatarColor(m.senderUserId)} text-white text-sm font-bold flex items-center justify-center`}>
+                                  {m.senderName.charAt(0)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className={`flex flex-col min-w-0 max-w-[75%] md:max-w-[65%] ${isMine ? 'items-end' : 'items-start'}`}>
+                            {!isMine && startsRun && <span className="text-xs text-slate-700 mb-1 ml-0.5">{m.senderName}</span>}
+                            <div className={`flex items-end gap-1.5 ${isMine ? 'flex-row-reverse' : ''}`}>
+                              <div className={`px-3 py-2 rounded-2xl text-[15px] leading-relaxed whitespace-pre-wrap break-words shadow-sm ${isMine ? 'bg-[#fee500] text-slate-900 rounded-tr-sm' : 'bg-white text-slate-900 rounded-tl-sm'}`}>
+                                {m.content}
+                              </div>
+                              {endsRun && <span className="text-[10px] text-slate-600 md:text-slate-400 shrink-0 mb-0.5">{formatBubbleTime(m.createdAt)}</span>}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      </React.Fragment>
                     );
                   })
                 )}
               </div>
-              <div className="flex items-center gap-2 p-3 border-t border-slate-200 shrink-0">
-                <input
-                  type="text"
+
+              <div className="flex items-end gap-2 px-2.5 md:px-4 py-2 md:py-3 bg-white border-t border-slate-200 shrink-0 pb-[max(env(safe-area-inset-bottom),0.5rem)] md:pb-3">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    autoGrow(e.target);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    // PC에서는 Enter 전송, Shift+Enter 줄바꿈. 모바일은 Enter가 줄바꿈이고 전송 버튼으로 보낸다.
+                    if (!isMobile && e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                       e.preventDefault();
                       handleSend();
                     }
                   }}
                   placeholder="메시지를 입력하세요"
-                  className="flex-1 text-sm px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500"
+                  className="flex-1 resize-none text-base md:text-sm px-3.5 py-2.5 rounded-2xl bg-slate-100 outline-none focus:ring-1 focus:ring-indigo-300 leading-snug max-h-32"
                 />
                 <button
                   onClick={handleSend}
                   disabled={sending || !input.trim()}
-                  className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white transition-colors shrink-0"
+                  aria-label="보내기"
+                  className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${input.trim() ? 'bg-[#fee500] text-slate-900' : 'bg-slate-200 text-slate-400'}`}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-5 h-5" />
                 </button>
               </div>
             </>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );
