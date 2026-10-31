@@ -5188,7 +5188,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <textarea value={editingProject.remarks || ''} onChange={(e) => setEditingProject({ ...editingProject, remarks: e.target.value })} placeholder="예: 재견적 예정" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500 resize-none" />
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">진행 단계</label>
                     <select value={editingProject.status} onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as NonNullable<typeof editingProject>['status'] })} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500">
