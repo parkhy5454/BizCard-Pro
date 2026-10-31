@@ -3770,13 +3770,13 @@ export const ProjectsView: React.FC<Props> = ({
                 </div>
 
                 {/* 영업자별 현황 */}
-                <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
+                <div className="bg-slate-100 border-0 md:border md:border-slate-200 rounded-none md:rounded-2xl p-3 md:p-5 space-y-3">
                   <h3 className="text-lg font-bold text-slate-700">영업자별 현황</h3>
                   {repRows.length === 0 ? (
                     <p className="text-base text-slate-400 py-4 text-center">등록된 프로젝트가 없습니다.</p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-base">
+                      <table className="w-full text-base whitespace-nowrap">
                         <thead>
                           <tr className="text-slate-400 border-b border-slate-200">
                             <th className="text-left font-bold py-2">영업자</th>
