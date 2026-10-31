@@ -45,6 +45,164 @@ const centerTableCellsForPdf = (doc: Document): void => {
   });
 };
 
+// ── 표를 캔버스에 직접 그려서 PDF로 만든다 (HTML 표 변환 시 글자가 칸 아래로 쏠리는 문제 회피) ──
+type PdfCell = { text: string; colSpan?: number; rowSpan?: number; align?: 'left' | 'center' | 'right'; bold?: boolean; bg?: string; color?: string };
+
+const wrapTextForCanvas = (ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] => {
+  const out: string[] = [];
+  String(text ?? '').split('\n').forEach((para) => {
+    let line = '';
+    for (const ch of para) {
+      const test = line + ch;
+      if (line && ctx.measureText(test).width > maxW) { out.push(line); line = ch; } else { line = test; }
+    }
+    out.push(line);
+  });
+  return out.length ? out : [''];
+};
+
+const drawGridTableCanvas = (title: string, subtitle: string, colWidths: number[], rows: PdfCell[][]): HTMLCanvasElement => {
+  const S = 2;
+  const PAD = 6;
+  const BASE_H = 30;
+  const LH = 18;
+  const FONT = 13;
+  const TITLE_H = 70;
+  const totalW = colWidths.reduce((a, b) => a + b, 0);
+  const fontOf = (bold?: boolean, px = FONT) => `${bold ? '700 ' : ''}${px}px 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif`;
+
+  // 1) 칸 배치 (colSpan / rowSpan 처리)
+  const occupied: boolean[][] = [];
+  const placed: { r: number; c: number; cell: PdfCell; cols: number; rs: number }[] = [];
+  rows.forEach((row, r) => {
+    occupied[r] = occupied[r] || [];
+    let c = 0;
+    row.forEach((cell) => {
+      while (occupied[r][c]) c++;
+      const cols = Math.max(1, cell.colSpan ?? 1);
+      const rs = Math.max(1, cell.rowSpan ?? 1);
+      for (let rr = r; rr < r + rs; rr++) {
+        occupied[rr] = occupied[rr] || [];
+        for (let cc = c; cc < c + cols; cc++) occupied[rr][cc] = true;
+      }
+      placed.push({ r, c, cell, cols, rs });
+      c += cols;
+    });
+  });
+
+  // 2) 글자 줄바꿈과 행 높이 계산
+  const measure = document.createElement('canvas').getContext('2d');
+  if (!measure) throw new Error('캔버스를 만들 수 없습니다.');
+  const rowH: number[] = rows.map(() => BASE_H);
+  const wrapped = placed.map((p) => {
+    const w = colWidths.slice(p.c, p.c + p.cols).reduce((a, b) => a + b, 0);
+    measure.font = fontOf(p.cell.bold);
+    const lines = wrapTextForCanvas(measure, p.cell.text, w - PAD * 2);
+    const need = lines.length * LH + 10;
+    if (p.rs === 1) {
+      rowH[p.r] = Math.max(rowH[p.r], need);
+    } else {
+      const have = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
+      if (have < need) rowH[p.r + p.rs - 1] += need - have;
+    }
+    return { lines, w };
+  });
+
+  // 3) 캔버스 크기 및 그리기
+  const rowTop: number[] = [];
+  rowH.reduce((acc, h, i) => { rowTop[i] = acc; return acc + h; }, 0);
+  const tableH = rowH.reduce((a, b) => a + b, 0);
+  const colX: number[] = [];
+  colWidths.reduce((acc, w, i) => { colX[i] = acc; return acc + w; }, 0);
+  const canvas = document.createElement('canvas');
+  canvas.width = totalW * S;
+  canvas.height = (TITLE_H + tableH + 20) * S;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, totalW, TITLE_H + tableH + 20);
+
+  ctx.fillStyle = '#000000';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.font = fontOf(true, 22);
+  ctx.fillText(title, totalW / 2, 28);
+  ctx.font = fontOf(false, 12);
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText(subtitle, totalW / 2, 52);
+
+  placed.forEach((p, i) => {
+    const x = colX[p.c];
+    const y = TITLE_H + rowTop[p.r];
+    const w = wrapped[i].w;
+    const h = rowH.slice(p.r, p.r + p.rs).reduce((a, b) => a + b, 0);
+    ctx.fillStyle = p.cell.bg || '#ffffff';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+    const lines = wrapped[i].lines;
+    const align = p.cell.align || 'left';
+    ctx.font = fontOf(p.cell.bold);
+    ctx.fillStyle = p.cell.color || '#000000';
+    ctx.textAlign = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left';
+    const tx = align === 'center' ? x + w / 2 : align === 'right' ? x + w - PAD : x + PAD;
+    const blockH = lines.length * LH;
+    const startY = y + (h - blockH) / 2 + LH / 2;
+    lines.forEach((line, li) => ctx.fillText(line, tx, startY + li * LH));
+  });
+  return canvas;
+};
+
+const sharePdfFromCanvas = async (canvas: HTMLCanvasElement, fileName: string, orientation: 'portrait' | 'landscape'): Promise<void> => {
+  try {
+    const { jsPDF } = await import('jspdf');
+    const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+    const pageW = orientation === 'landscape' ? 297 : 210;
+    const pageH = orientation === 'landscape' ? 210 : 297;
+    const margin = 10;
+    const imgW = pageW - margin * 2;
+    const pxPerMm = canvas.width / imgW;
+    const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+    let y = 0;
+    let first = true;
+    while (y < canvas.height) {
+      const h = Math.min(sliceH, canvas.height - y);
+      const part = document.createElement('canvas');
+      part.width = canvas.width;
+      part.height = h;
+      const ctx = part.getContext('2d');
+      if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, part.width, part.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+      if (!first) pdf.addPage();
+      first = false;
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
+      y += h;
+    }
+    const blob = pdf.output('blob');
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fileName.replace(/\.pdf$/, '') });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  } catch (err) {
+    if ((err as { name?: string } | null)?.name === 'AbortError') return;
+    alert(`PDF를 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
+  }
+};
+
 // 인쇄 대신 PDF 파일을 만들어 공유 창(아이폰) 또는 다운로드로 보낸다.
 // 아이폰 사파리/홈 화면 앱은 window.print()와 새 창 인쇄가 동작하지 않기 때문.
 // 앱 스타일과 분리된 iframe에 HTML을 그린 뒤 찍어서 PDF로 만든다(앱의 oklch 색 오류 회피).
@@ -744,68 +902,37 @@ export const ProjectsView: React.FC<Props> = ({
     if (!project || !costSheetDraft) return;
     const { headerInfo, groups, finalRows } = getCostSheetExportData(project, costSheetDraft);
     const fmt = (n: number) => `${formatCurrencyInput(String(Math.round(n)))}원`;
-
-    const headerRowsHtml = headerInfo.map(([label, value]) => `
-      <tr><td class="label">${escapeHtml(label)}</td><td colspan="4">${escapeHtml(value)}</td></tr>`).join('');
-
-    const groupsHtml = groups.map((g) => g.rows.map((row, idx) => `
-      <tr>
-        ${idx === 0 ? `<td class="cat" rowspan="${g.rows.length}">${escapeHtml(g.category)}</td>` : ''}
-        <td class="${row.isSubtotal ? 'sub' : 'itemlabel'}">${escapeHtml(row.label)}</td>
-        <td class="${row.isSubtotal ? 'sub amt' : 'amt'}">${escapeHtml(fmt(row.value))}</td>
-        <td class="basis">${escapeHtml(row.basis || '')}</td>
-        <td>${escapeHtml(row.note || '')}</td>
-      </tr>`).join('')).join('');
-
-    const finalRowsHtml = finalRows.map((row) => `
-      <tr class="final">
-        <td colspan="2" class="sub">${escapeHtml(row.label)}</td>
-        <td colspan="3" class="amt">${escapeHtml(row.valueText || fmt(row.value || 0))}</td>
-      </tr>`).join('');
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>프로젝트 원가 계산서 - ${escapeHtml(project.name)}</title>
-<style>
-  @page { size: A4 portrait; margin: 15mm 18mm; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #000; }
-  .title { text-align: center; margin-bottom: 16px; }
-  .title h1 { display: inline-block; border-bottom: 4px double #000; padding-bottom: 4px; margin: 0; font-size: 20px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-  th, td { border: 1px solid #000; padding: 5px 6px; vertical-align: middle; }
-  td.label { background: #f3f4f6; font-weight: 700; width: 110px; }
-  td.itemlabel { background: #f9fafb; }
-  td.cat { text-align: center; font-weight: 700; background: #fef3c7; width: 70px; }
-  td.sub { text-align: center; font-weight: 700; background: #ffedd5; }
-  td.amt { text-align: right; font-family: monospace; }
-  td.basis { text-align: center; color: #6b7280; }
-  th.colhead { background: #fde68a; font-weight: 700; text-align: center; }
-  tr.final td { background: #fde68a; font-weight: 700; text-align: right; }
-  tr.final td.sub { text-align: center; }
-</style>
-</head>
-<body>
-  <div class="title"><h1>프로젝트 원가 계산서</h1></div>
-  <table>
-    <tbody>
-      ${headerRowsHtml}
-      <tr>
-        <th class="colhead" colspan="2">구 분</th>
-        <th class="colhead">금액(원)</th>
-        <th class="colhead">산출근거</th>
-        <th class="colhead">비고</th>
-      </tr>
-      ${groupsHtml}
-      ${finalRowsHtml}
-    </tbody>
-  </table>
-</body>
-</html>`;
-
-    void exportHtmlAsPdf(html, `원가계산서_${project.name.replace(/[\\/:*?"<>|]/g, '_')}.pdf`, 'portrait', 800);
+    const rows: PdfCell[][] = [];
+    headerInfo.forEach(([label, value]) => {
+      rows.push([{ text: label, colSpan: 2, bold: true, bg: '#f3f4f6' }, { text: value, colSpan: 3 }]);
+    });
+    rows.push([
+      { text: '구 분', colSpan: 2, bold: true, bg: '#fde68a', align: 'center' },
+      { text: '금액(원)', bold: true, bg: '#fde68a', align: 'center' },
+      { text: '산출근거', bold: true, bg: '#fde68a', align: 'center' },
+      { text: '비고', bold: true, bg: '#fde68a', align: 'center' },
+    ]);
+    groups.forEach((g) => {
+      g.rows.forEach((row, idx) => {
+        const cells: PdfCell[] = [];
+        if (idx === 0) cells.push({ text: g.category, rowSpan: g.rows.length, bold: true, align: 'center', bg: '#fef3c7' });
+        cells.push({ text: row.label, bold: !!row.isSubtotal, align: row.isSubtotal ? 'center' : 'left', bg: row.isSubtotal ? '#ffedd5' : '#f9fafb' });
+        cells.push({ text: fmt(row.value), align: 'right', bold: !!row.isSubtotal, bg: row.isSubtotal ? '#ffedd5' : undefined });
+        cells.push({ text: row.basis || '', align: 'center', color: '#6b7280' });
+        cells.push({ text: row.note || '' });
+        rows.push(cells);
+      });
+    });
+    finalRows.forEach((row) => {
+      rows.push([
+        { text: row.label, colSpan: 2, bold: true, bg: '#fde68a', align: 'center' },
+        { text: row.valueText || fmt(row.value || 0), colSpan: 3, bold: true, bg: '#fde68a', align: 'right' },
+      ]);
+    });
+    const today = new Date().toLocaleDateString('ko-KR');
+    const canvas = drawGridTableCanvas('프로젝트 원가 계산서', `출력일: ${today}`, [70, 140, 160, 180, 250], rows);
+    const fileName = `원가계산서_${project.name.replace(/[\\/:*?"<>|]/g, '_')}.pdf`;
+    void sharePdfFromCanvas(canvas, fileName, 'portrait');
   };
 
   // [추가] 원가계산서(전체) 엑셀 출력 - 화면의 "프로젝트별 원가 계산서" 요약표와 동일한
