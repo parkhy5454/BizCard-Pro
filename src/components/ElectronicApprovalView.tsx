@@ -2331,6 +2331,16 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <PenTool className="w-4 h-4 text-indigo-500 shrink-0" />
             <span>{currentUser?.signatureImage ? '내 서명 변경' : '내 서명 등록'}</span>
           </button>
+          {activeApprovalTab === 'official' && currentUser?.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => setIsBrandingModalOpen(true)}
+              className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-semibold text-[15px] bg-slate-100 text-slate-600 whitespace-nowrap shrink-0 active:scale-95 transition-colors"
+            >
+              <ImageIcon className="w-4 h-4 shrink-0" />
+              <span>로고/직인</span>
+            </button>
+          )}
         </div>
         {/* 모바일: 작성·서명 줄 아래 화면 끝까지 이어지는 실선 */}
         <div aria-hidden className="md:hidden h-px bg-slate-300 -mx-3 mt-2" />
@@ -2523,7 +2533,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex justify-start items-center gap-2">
+          <div className="hidden md:flex justify-start items-center gap-2">
             <button onClick={openNewOfficial} className="hidden md:flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm shadow-md shadow-blue-600/25 transition-all active:scale-95">
               <Plus className="w-4 h-4" /><span>공문서 작성</span>
             </button>
