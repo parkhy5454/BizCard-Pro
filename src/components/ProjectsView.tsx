@@ -24,25 +24,24 @@ import { getSpeechRecognitionCtor, type SpeechRecognitionLike, type SpeechResult
 // 이 함수로 이스케이프한 뒤에 넣는다.
 // [추가] 팝업을 상단 고정 탭(#app-top-action-row)과 하단 탭([data-app-tabbar]) 사이의 띠 영역에만 깔아서,
 // 두 탭이 팝업을 열었을 때도 계속 보이게 한다 (CardDetailModal과 같은 방식).
-// PDF 변환기(html2canvas)는 표 칸의 세로 가운데 맞춤(vertical-align)을 무시해서 글자가 칸 아래로 붙는다.
-// 그래서 칸 안의 내용을 세로 가운데 정렬되는 상자로 한 번 감싸서 가운데에 오게 한다.
+// PDF 변환기(html2canvas)는 칸의 세로 가운데 맞춤(vertical-align)을 무시해서 글자가 칸 아래로 쏠린다.
+// 한 줄짜리 칸은 줄 높이를 칸 안쪽 높이만큼 주면 글자가 세로 가운데에 놓이므로 그 방식을 쓴다.
+// 여러 줄인 칸은 그대로 둔다.
 const centerTableCellsForPdf = (doc: Document): void => {
   const win = doc.defaultView;
   if (!win) return;
   doc.querySelectorAll('td, th').forEach((node) => {
     const cell = node as HTMLElement;
     const cs = win.getComputedStyle(cell);
-    const wrap = doc.createElement('div');
-    wrap.style.display = 'flex';
-    wrap.style.flexDirection = 'column';
-    wrap.style.justifyContent = 'center';
-    wrap.style.minHeight = '100%';
-    wrap.style.padding = cs.padding;
-    wrap.style.textAlign = cs.textAlign;
-    while (cell.firstChild) wrap.appendChild(cell.firstChild);
-    cell.style.padding = '0';
-    cell.style.verticalAlign = 'middle';
-    cell.appendChild(wrap);
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    const padBottom = parseFloat(cs.paddingBottom) || 0;
+    const fontPx = parseFloat(cs.fontSize) || 12;
+    const oneLine = fontPx * 1.6;
+    const contentH = cell.scrollHeight - padTop - padBottom;
+    const innerH = cell.getBoundingClientRect().height - padTop - padBottom;
+    if (contentH <= oneLine && innerH > 0) {
+      cell.style.lineHeight = `${innerH}px`;
+    }
   });
 };
 
