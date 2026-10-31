@@ -3008,7 +3008,7 @@ export const ProjectsView: React.FC<Props> = ({
               )}
             </div>
           ) : (
-            <div className="max-w-md mx-auto w-full min-w-0 flex flex-wrap items-center gap-2">
+            <div className="max-w-md mx-auto w-full min-w-0 flex flex-nowrap items-center gap-1.5">
               {(() => {
                 // 팔로우업 배너를 닫은 상태일 때만, 검색줄 맨 앞에 작은 칩으로 남긴다
                 if (!isFollowupBannerDismissed) return null;
@@ -3017,21 +3017,21 @@ export const ProjectsView: React.FC<Props> = ({
                 return (
                   <button
                     onClick={reopenFollowupBanner}
-                    className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 text-xs font-semibold transition-all"
+                    className="shrink-0 whitespace-nowrap flex items-center gap-1 px-2.5 py-2 rounded-2xl bg-rose-50 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 text-[11px] font-semibold transition-all"
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span>팔로우업 필요 {needyCount}건</span>
                   </button>
                 );
               })()}
-              <div className="relative flex-1 min-w-[10rem] max-w-full">
+              <div className="relative flex-1 min-w-0 max-w-full">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="text"
-                  placeholder="프로젝트명, 시행사, 시공사로 검색..."
+                  placeholder="검색..."
                   value={projectSearchQuery}
                   onChange={(e) => setProjectSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-16 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
+                  className="w-full min-w-0 pl-9 pr-3 py-2 rounded-2xl bg-white border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 transition-all placeholder:text-slate-400 shadow-inner"
                 />
                 {projectSearchQuery && (
                   <button
@@ -3050,7 +3050,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <select
                     value={projectSortOrder}
                     onChange={(e) => setProjectSortOrder(e.target.value as 'urgency' | 'recent' | 'dueDate' | 'name')}
-                    className="pl-8 pr-3 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer shadow-inner"
+                    className="pl-7 pr-2 py-2 rounded-2xl bg-white border border-slate-200 text-[11px] font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer shadow-inner"
                     title="프로젝트 정렬 방식"
                   >
                     <option value="urgency">관리순서</option>
