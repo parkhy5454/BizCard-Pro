@@ -3732,29 +3732,29 @@ export const ProjectsView: React.FC<Props> = ({
                 {/* 핵심 지표 카드 */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&>*]:min-w-0">
                   <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                    <span className="text-[11px] text-slate-400 font-medium">전체 파이프라인 가치 (기회+진행)</span>
+                    <span className="text-sm text-slate-400 font-medium">전체 파이프라인 가치 (기회+진행)</span>
                     <p className="text-xl font-extrabold text-indigo-600">{formatBudgetDisplay(String(pipelineValue))}</p>
                   </div>
                   <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                    <span className="text-[11px] text-slate-400 font-medium">이번 달 마감 예정</span>
+                    <span className="text-sm text-slate-400 font-medium">이번 달 마감 예정</span>
                     <p className="text-xl font-extrabold text-amber-600">{dueThisMonth.length}건</p>
                   </div>
                   <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-1">
-                    <span className="text-[11px] text-slate-400 font-medium">성사율 (완료 ÷ 완료+실패)</span>
+                    <span className="text-sm text-slate-400 font-medium">성사율 (완료 ÷ 완료+실패)</span>
                     <p className="text-xl font-extrabold text-emerald-600">{winRate === null ? '집계 전' : `${winRate}%`}</p>
                   </div>
                 </div>
 
                 {/* 영업 단계별 현황 */}
                 <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-700">영업 단계별 현황</h3>
+                  <h3 className="text-lg font-bold text-slate-700">영업 단계별 현황</h3>
                   <div className="space-y-2.5">
                     {funnelStages.map((stage) => {
                       const list = byStatus[stage.key];
                       const widthPct = Math.max(6, Math.round((list.length / maxCount) * 100));
                       return (
                         <div key={stage.key} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center justify-between text-base">
                             <span className={`font-bold ${stage.color}`}>{stage.label}</span>
                             <span className="text-slate-500 font-mono">
                               {list.length}건 · {formatBudgetDisplay(String(valueOf(list)))}
@@ -3771,12 +3771,12 @@ export const ProjectsView: React.FC<Props> = ({
 
                 {/* 영업자별 현황 */}
                 <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-700">영업자별 현황</h3>
+                  <h3 className="text-lg font-bold text-slate-700">영업자별 현황</h3>
                   {repRows.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-4 text-center">등록된 프로젝트가 없습니다.</p>
+                    <p className="text-base text-slate-400 py-4 text-center">등록된 프로젝트가 없습니다.</p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-base">
                         <thead>
                           <tr className="text-slate-400 border-b border-slate-200">
                             <th className="text-left font-bold py-2">영업자</th>
@@ -3805,7 +3805,7 @@ export const ProjectsView: React.FC<Props> = ({
         ) : viewMode === 'listOutput' ? (
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-slate-700">
+              <h3 className="text-lg font-bold text-slate-700">
                 전체 프로젝트 ({filteredProjects.length}건)
                 {selectedListIds.size > 0 && (
                   <span className="ml-2 text-indigo-600 font-semibold">{selectedListIds.size}건 선택됨</span>
@@ -3818,7 +3818,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => handleBulkDeleteProjects(Array.from(selectedListIds))}
-                    className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all active:scale-95"
+                    className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-base font-bold shadow-md shadow-rose-600/20 transition-all active:scale-95"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>선택 삭제 ({selectedListIds.size}건)</span>
@@ -3828,7 +3828,7 @@ export const ProjectsView: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => handleBulkDeleteProjects(filteredProjects.map((p) => p.id))}
-                    className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold transition-all active:scale-95"
+                    className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-base font-bold transition-all active:scale-95"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>전체 삭제</span>
@@ -3840,7 +3840,7 @@ export const ProjectsView: React.FC<Props> = ({
                   type="button"
                   onClick={() => projectImportInputRef.current?.click()}
                   disabled={isImportingProjects}
-                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-base font-bold shadow-md shadow-amber-600/20 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <ArrowDownUp className="w-3.5 h-3.5" />
                   <span>{isImportingProjects ? '가져오는 중...' : '가져오기'}</span>
@@ -3855,7 +3855,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={handleExportProjectsExcel}
-                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>엑셀 다운</span>
@@ -3863,7 +3863,7 @@ export const ProjectsView: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => { void handlePrintProjectsList(); }}
-                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+                  className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-base font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>PDF 저장</span>
@@ -3874,11 +3874,11 @@ export const ProjectsView: React.FC<Props> = ({
             {filteredProjects.length === 0 ? (
               <div className="bg-slate-100 border border-slate-200 rounded-3xl p-16 text-center space-y-4">
                 <Briefcase className="w-12 h-12 text-slate-400 mx-auto" />
-                <h3 className="text-lg font-bold text-slate-800">해당하는 프로젝트가 없습니다.</h3>
+                <h3 className="text-xl font-bold text-slate-800">해당하는 프로젝트가 없습니다.</h3>
               </div>
             ) : (
               <div className="overflow-x-auto border-y border-slate-200 md:rounded-2xl md:border">
-                <table className="w-full text-base text-slate-600 whitespace-nowrap">
+                <table className="w-full text-xl text-slate-600 whitespace-nowrap">
                   <thead className="bg-white text-slate-500">
                     <tr>
                       {/* [추가] 전체 선택 체크박스. PIPELINE_COLUMNS는 화면표/인쇄/엑셀이 공유하는
@@ -3933,7 +3933,7 @@ export const ProjectsView: React.FC<Props> = ({
                               <button
                                 type="button"
                                 onClick={() => onFocusProject?.(p.id)}
-                                className="font-semibold text-slate-900 hover:text-slate-600 hover:underline text-left text-base"
+                                className="font-semibold text-slate-900 hover:text-slate-600 hover:underline text-left text-xl"
                                 title="프로젝트 리스트에서 보기"
                               >
                                 {c.getValue(p, idx)}
@@ -3979,7 +3979,7 @@ export const ProjectsView: React.FC<Props> = ({
             )}
           </div>
         ) : loading ? (
-          <div className="py-24 text-center text-slate-400 text-sm">프로젝트 히스토리 불러오는 중...</div>
+          <div className="py-24 text-center text-slate-400 text-lg">프로젝트 히스토리 불러오는 중...</div>
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
