@@ -4114,9 +4114,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
 
                   {/* Section 1: 지난주 요일별 상세 실시 사항 */}
                   <div className="mb-6">
-                    <h3 className="text-left font-extrabold text-[12px] text-black mb-2 flex items-center gap-1.5">
+                    <h3 className="text-left font-extrabold text-[12px] text-black mb-2 whitespace-nowrap">
                       <span>1. 지난주 요일별 상세 실시 사항</span>
-                      <span className="no-print text-[10px] text-indigo-600 font-normal">(마우스 클릭 후 텍스트 편집 가능)</span>
                     </h3>
                     <table className="w-full border-collapse border-[1.5px] border-black text-xs text-black">
                       <thead>
