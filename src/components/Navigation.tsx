@@ -508,7 +508,9 @@ export const Navigation: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* 2. 프로젝트 상태 필터 칩 섹션 */}
+          {/* 2. 프로젝트 상태 필터 칩 섹션 - 상태 필터는 "카드"와 "리스트 출력" 목록에만 적용되므로
+              파이프라인/원가 계산에서는 칩을 숨긴다(눌러도 아무 변화가 없어 작동 안 하는 것처럼 보이던 문제 방지) */}
+          {(projectsViewMode === 'cards' || projectsViewMode === 'listOutput') && (
           <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
             <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">상태필터:</span>
             <button
@@ -562,6 +564,7 @@ export const Navigation: React.FC<Props> = ({
               ❌ 실패 ({projects.filter(p => p.status === 'failed').length})
             </button>
           </div>
+          )}
         </div>
       </div>
     )}
