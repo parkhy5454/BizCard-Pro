@@ -5648,13 +5648,13 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* [수정] 전체 프로젝트 목록 PDF 인쇄/미리보기 모달 */}
       {isProjectsPrintPreviewOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
+        <div style={{ top: getProjectModalTopInset(), bottom: 0, paddingBottom: getProjectModalBottomInset() + 16 }} className="fixed left-0 right-0 z-[45] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
           {/* [수정] 이 모달의 max-width가 세로(A4 portrait, 210mm) 문서 기준(215mm)으로 남아있어서,
           가로(297mm)로 바뀐 미리보기 내용이 이 좁은 폭 안에 억지로 눌려 들어가 컬럼 헤더가
           여러 줄로 꺾이는 등 실제로는 넓게 나와야 할 표가 좁고 찌그러진 모습으로 보였다.
           가로 문서 폭(297mm)이 다 들어가도록 max-width를 늘리고, 그래도 화면(브라우저 창)이
           더 좁은 경우에는 내용이 눌리지 않고 가로 스크롤로 보이도록 처리한다. */}
-          <div className="w-full max-w-[320mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="w-full max-w-[320mm] h-full mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-indigo-50 border border-blue-200 text-indigo-700">
