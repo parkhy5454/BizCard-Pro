@@ -2274,8 +2274,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       <div id="approval-top-bar" className="contents md:flex md:flex-row md:items-center md:justify-between md:gap-2 md:border-b md:border-slate-200 md:pb-3">
         {/* 모바일: 아래 고정 탭이 차지할 자리만큼 빈 공간 */}
         <div className="md:hidden" style={{ height: approvalTabsHeight }} />
-        <div id="approval-fixed-tabs" ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 border-b border-slate-200 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
-        <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-x-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
+        <div id="approval-fixed-tabs" ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
+        <div className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
           <button
             onClick={() => setActiveApprovalTab('advance')}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
@@ -2286,7 +2286,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span>가지급금 정산서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{advanceList.length}</span>
           </button>
-          <span aria-hidden className="md:hidden w-px h-6 bg-slate-300" />
           <button
             onClick={() => setActiveApprovalTab('leave')}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
@@ -2297,7 +2296,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span>휴가 신청서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{leaveList.length}</span>
           </button>
-          <span aria-hidden className="md:hidden w-px h-6 bg-slate-300" />
           <button
             onClick={() => setActiveApprovalTab('official')}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
@@ -2309,8 +2307,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{officialList.length}</span>
           </button>
         </div>
+        {/* 모바일: 탭 줄과 작성·서명 줄 사이에 짧은 실선 */}
+        <div aria-hidden className="md:hidden mx-auto w-1/3 h-px bg-slate-300 my-2" />
         {/* 모바일: 작성 버튼과 내 서명 버튼을 같은 줄에 두고, 탭과 함께 상단에 고정 */}
-        <div className="md:hidden flex items-center gap-2 mt-2">
+        <div className="md:hidden flex items-center gap-2">
           <button
             type="button"
             onClick={() => {
