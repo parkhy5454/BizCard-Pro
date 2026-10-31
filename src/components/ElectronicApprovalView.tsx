@@ -505,6 +505,38 @@ const exportAdvanceHtmlAsPdf = async (docHtml: string, fileName: string): Promis
   }
 };
 
+// [추가] 화면에 보이는 미리보기 종이(요소)를 그대로 PDF로 만든다
+const exportElementAsPdf = async (el: HTMLElement, fileName: string): Promise<void> => {
+  const { default: html2canvas } = await import('html2canvas');
+  const { jsPDF } = await import('jspdf');
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageH = 297;
+  const pageW = 210;
+  const margin = 10;
+  const imgW = pageW - margin * 2;
+  const pxPerMm = canvas.width / imgW;
+  const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+  let y = 0;
+  let first = true;
+  while (y < canvas.height) {
+    const h = Math.min(sliceH, canvas.height - y);
+    const part = document.createElement('canvas');
+    part.width = canvas.width;
+    part.height = h;
+    const ctx = part.getContext('2d');
+    if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, part.width, part.height);
+    ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+    if (!first) pdf.addPage();
+    first = false;
+    pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
+    y += h;
+  }
+  await saveBlobFileShareOrDownload(pdf.output('blob'), fileName);
+};
+
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateCurrentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave' | 'official'>('advance');
 
@@ -569,21 +601,6 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
   // 업무일지/차량운행일지 비용 가져오기
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  // [추가] 모바일에서 작성/가져오기 팝업이 떠 있을 때 상단 탭·하단 탭을 누르면 팝업을 닫아서
-  // 다른 화면으로 넘어갈 수 있게 한다 (팝업 바깥 영역을 누른 경우). 팝업 내부 터치는 그대로 둔다.
-  useEffect(() => {
-    if (!isAdvanceModalOpen && !isImportModalOpen && !isLeaveModalOpen) return;
-    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
-    const onPointerDown = (e: Event) => {
-      const target = e.target as HTMLElement | null;
-      if (target && target.closest('[data-approval-modal-overlay]')) return;
-      setIsAdvanceModalOpen(false);
-      setIsImportModalOpen(false);
-      setIsLeaveModalOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown, true);
-    return () => document.removeEventListener('pointerdown', onPointerDown, true);
-  }, [isAdvanceModalOpen, isImportModalOpen, isLeaveModalOpen]);
   const [importTab, setImportTab] = useState<'worklog' | 'vehicle' | 'maintenance'>('worklog');
   const [importWorklogRows, setImportWorklogRows] = useState<ImportableExpenseRow[]>([]);
   const [importVehicleRows, setImportVehicleRows] = useState<ImportableExpenseRow[]>([]);
@@ -603,6 +620,27 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const [previewLeaveId, setPreviewLeaveId] = useState<string | null>(null);
   // 공문서 화면 출력(미리보기)
   const [previewOfficialId, setPreviewOfficialId] = useState<string | null>(null);
+  // [추가] 모바일에서 작성/가져오기/휴가/공문 팝업이나 출력 미리보기가 떠 있을 때 상단 탭·하단 탭을 누르면
+  // 팝업을 닫아서 다른 화면으로 넘어갈 수 있게 한다 (팝업 바깥 영역을 누른 경우). 팝업 내부 터치는 그대로 둔다.
+  useEffect(() => {
+    const anyOpen = isAdvanceModalOpen || isImportModalOpen || isLeaveModalOpen || isOfficialModalOpen
+      || !!previewAdvanceId || !!previewLeaveId || !!previewOfficialId;
+    if (!anyOpen) return;
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
+    const onPointerDown = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-approval-modal-overlay]')) return;
+      setIsAdvanceModalOpen(false);
+      setIsImportModalOpen(false);
+      setIsLeaveModalOpen(false);
+      setIsOfficialModalOpen(false);
+      setPreviewAdvanceId(null);
+      setPreviewLeaveId(null);
+      setPreviewOfficialId(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [isAdvanceModalOpen, isImportModalOpen, isLeaveModalOpen, isOfficialModalOpen, previewAdvanceId, previewLeaveId, previewOfficialId]);
 
   // [추가] 공문서 폼 상태. 공유해주신 실제 공문 양식(수신자/참조/제목 + 번호 매겨진 본문 +
   // 결재란 + 시행번호/접수 + 발신처 정보)을 그대로 재현한다.
@@ -1928,15 +1966,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   // 계산되어 있는 미리보기 쪽 스페이서 높이를 그대로 읽어서 인쇄 포털 쪽 스페이서에
   // 복사해 넣은 뒤에 인쇄를 시작한다 - 문서 내용이 완전히 동일하므로 같은 높이값이
   // 그대로 적용되어야 정확하다.
-  const handlePrintOfficial = () => {
-    const previewSpacer = document.querySelector<HTMLElement>('#officialPreviewWrap .official-print-tail-spacer');
-    const portalSpacer = document.querySelector<HTMLElement>('#print-root .official-print-tail-spacer');
-    if (previewSpacer && portalSpacer) {
-      portalSpacer.style.height = previewSpacer.style.height || '0px';
-    }
-    document.body.classList.add('print-portal-mode');
-    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
-    window.print();
+  // PDF 저장: 미리보기에 보이는 공문서 종이를 그대로 PDF 파일로 만들어 공유 창 또는 다운로드로 보낸다
+  const exportOfficialPdf = () => {
+    const el = document.getElementById('officialPreviewWrap');
+    if (!el) return;
+    const fileName = `공문서_${todayStr()}.pdf`;
+    void exportElementAsPdf(el, fileName).catch(reportAdvanceExportFailure);
   };
 
   // [추가] 공문서 출력용 렌더러. 요청하신 여백(사방 20mm)을 그대로 반영하고,
@@ -2485,26 +2520,26 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           </div>
 
           {officialList.length === 0 ? (
-            <div className="py-20 text-center text-slate-400 bg-slate-100 border border-dashed border-slate-200 rounded-2xl">
-              <FileText className="w-8 h-8 mx-auto mb-2 text-slate-700" />
-              <p className="text-sm">등록된 공문서가 없습니다.</p>
+            <div className="py-16 text-center text-slate-400 bg-white border-y border-slate-200 md:border md:rounded-2xl">
+              <FileText className="w-10 h-10 mx-auto mb-3 text-slate-400" />
+              <p className="text-base">등록된 공문서가 없습니다.</p>
             </div>
           ) : (
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-3 -mx-1 px-1 [scrollbar-width:thin]">
+            <div className="flex flex-col gap-0 md:flex-row md:gap-3 md:overflow-x-auto md:snap-x md:snap-mandatory md:pb-3 [scrollbar-width:thin]">
               {[...officialList].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, visibleOfficialCount).map(doc => (
-                <div key={doc.id} className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
+                <div key={doc.id} className="bg-white md:bg-slate-100 border-0 border-b md:border md:border-slate-200 rounded-none md:rounded-2xl px-0 md:px-4 py-4 space-y-3 md:snap-center md:shrink-0 md:w-[420px]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-slate-800 truncate">{doc.subject}</h3>
+                        <h3 className="font-bold text-lg text-slate-800 truncate">{doc.subject}</h3>
                         <StatusBadge status={doc.status} />
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                        <span className="flex items-center gap-1"><Hash className="w-3 h-3" />{doc.executionNumber}</span>
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{doc.issueDate}</span>
-                        <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" />{doc.author}</span>
+                      <div className="flex items-center gap-x-3 gap-y-1.5 text-sm text-slate-500 flex-wrap">
+                        <span className="flex items-center gap-1"><Hash className="w-4 h-4" />{doc.executionNumber}</span>
+                        <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{doc.issueDate}</span>
+                        <span className="flex items-center gap-1"><UserIcon className="w-4 h-4" />{doc.author}</span>
                       </div>
-                      <p className="text-xs text-slate-400 truncate">수신: {doc.recipient}{doc.reference ? ` · 참조: ${doc.reference}` : ''}</p>
+                      <p className="text-sm text-slate-500 truncate">수신: {doc.recipient}{doc.reference ? ` · 참조: ${doc.reference}` : ''}</p>
                       <ApprovalLineMini line={doc.approvalLine || []} />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -2521,17 +2556,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   </div>
 
                   {doc.status === 'pending' && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <button onClick={() => handleApproveClick('official', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold border border-emerald-600/30 transition-colors">
-                        <Check className="w-3.5 h-3.5" /> 다음 결재 승인
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button onClick={() => handleApproveClick('official', doc.id)} className="flex items-center justify-center gap-1 px-4 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-base font-bold border border-emerald-600/30 transition-colors">
+                        <Check className="w-4 h-4" /> 다음 결재 승인
                       </button>
-                      <button onClick={() => rejectDoc('official', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-xs font-bold border border-rose-600/30 transition-colors">
-                        <X className="w-3.5 h-3.5" /> 반려
+                      <button onClick={() => rejectDoc('official', doc.id)} className="flex items-center justify-center gap-1 px-4 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-base font-bold border border-rose-600/30 transition-colors">
+                        <X className="w-4 h-4" /> 반려
                       </button>
                     </div>
                   )}
                   {doc.status === 'rejected' && doc.approverMemo && (
-                    <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">반려 사유: {doc.approverMemo}</p>
+                    <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">반려 사유: {doc.approverMemo}</p>
                   )}
                 </div>
               ))}
@@ -3059,10 +3094,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
       {/* 공문서 작성/수정 모달 */}
       {isOfficialModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div
+          data-approval-modal-overlay
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
+          style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}
+        >
+          <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+              <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-400" />
                 {editingOfficialId ? '공문서 수정' : '공문서 작성'}
               </h2>
@@ -3074,66 +3113,66 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">발신 회사명</label>
+                  <label className="text-sm font-bold text-slate-600">발신 회사명</label>
                   <input type="text" value={ofCompanyName} onChange={(e) => setOfCompanyName(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">작성자(기안자)</label>
+                  <label className="text-sm font-bold text-slate-600">작성자(기안자)</label>
                   <input type="text" value={ofAuthor} onChange={(e) => setOfAuthor(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">수신자</label>
+                  <label className="text-sm font-bold text-slate-600">수신자</label>
                   <input type="text" value={ofRecipient} onChange={(e) => setOfRecipient(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">참조 (선택)</label>
+                  <label className="text-sm font-bold text-slate-600">참조 (선택)</label>
                   <input type="text" value={ofReference} onChange={(e) => setOfReference(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600">제목</label>
+                <label className="text-sm font-bold text-slate-600">제목</label>
                 <input type="text" value={ofSubject} onChange={(e) => setOfSubject(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600">본문 (한 줄에 문단 하나씩 입력하면 출력 시 자동으로 1. 2. 3. 번호가 매겨집니다)</label>
+                <label className="text-sm font-bold text-slate-600">본문 (한 줄에 문단 하나씩 입력하면 출력 시 자동으로 1. 2. 3. 번호가 매겨집니다)</label>
                 <textarea value={ofBodyText} onChange={(e) => setOfBodyText(e.target.value)} rows={6}
                   placeholder={'예)\n귀 원의 무궁한 발전을 기원합니다.\n2026년 혁신제품 선정과 관련사항입니다.'}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm resize-y" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base resize-y" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">시행일자</label>
+                  <label className="text-sm font-bold text-slate-600">시행일자</label>
                   <YMDInput value={ofIssueDate} onChange={(v) => { setOfIssueDate(v); setOfExecutionNumber(makeExecutionNumber(officialList.filter(d => d.id !== editingOfficialId).map(d => d.executionNumber || ''), companySettings.docPrefix, v)); }} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">시행번호</label>
+                  <label className="text-sm font-bold text-slate-600">시행번호</label>
                   <input type="text" value={ofExecutionNumber} onChange={(e) => setOfExecutionNumber(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base font-mono" />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600">접수번호 (선택, 보통 공란으로 둡니다)</label>
+                <label className="text-sm font-bold text-slate-600">접수번호 (선택, 보통 공란으로 둡니다)</label>
                 <input type="text" value={ofReceiptNumber} onChange={(e) => setOfReceiptNumber(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base font-mono" />
               </div>
 
               <div className="space-y-2 pt-2 border-t border-slate-200">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-600">발신처 정보 (문서 하단에 표시)</label>
+                  <label className="text-sm font-bold text-slate-600">발신처 정보 (문서 하단에 표시)</label>
                   {currentUser?.role === 'admin' && (
-                    <button type="button" onClick={() => saveCompanyContactSettings()} className="text-[10px] px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap">
+                    <button type="button" onClick={() => saveCompanyContactSettings()} className="text-xs px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-500/30 font-semibold transition-colors whitespace-nowrap">
                       회사 기본값으로 저장
                     </button>
                   )}
@@ -3142,21 +3181,21 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                     네 필드 모두 입력을 마치고 포커스가 빠져나가면(onBlur) 관리자에 한해 자동으로
                     회사 기본값에 저장되도록 함 - 버튼을 따로 누르지 않아도 다음 문서부터 반영된다. */}
                 <input type="text" value={ofCompanyAddress} onChange={(e) => setOfCompanyAddress(e.target.value)} onBlur={() => saveCompanyContactSettings(true)} placeholder="주소"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input type="text" inputMode="numeric" value={ofCompanyPhone} onChange={(e) => setOfCompanyPhone(formatPhoneNumber(e.target.value))} onBlur={() => saveCompanyContactSettings(true)} placeholder="02-1234-5678"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                   <input type="text" inputMode="numeric" value={ofCompanyFax} onChange={(e) => setOfCompanyFax(formatPhoneNumber(e.target.value))} onBlur={() => saveCompanyContactSettings(true)} placeholder="0504-123-4567"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                   <input type="text" value={ofCompanyEmail} onChange={(e) => setOfCompanyEmail(e.target.value)} onBlur={() => saveCompanyContactSettings(true)} placeholder="e-mail"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm" />
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-base" />
                 </div>
               </div>
             </div>
 
             <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2">
-              <button onClick={() => setIsOfficialModalOpen(false)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
-              <button onClick={saveOfficial} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
+              <button onClick={() => setIsOfficialModalOpen(false)} className="px-5 py-3 rounded-xl font-semibold text-lg text-slate-500 hover:bg-slate-100 transition-colors">취소</button>
+              <button onClick={saveOfficial} className="px-6 py-3 rounded-xl font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/25 transition-all active:scale-95">저장</button>
             </div>
           </div>
         </div>
@@ -3167,20 +3206,24 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const previewOfficial = officialList.find(d => d.id === previewOfficialId);
         if (!previewOfficial) return null;
         return (
-          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center overflow-y-auto p-4">
-            <div className="w-full max-w-[215mm] h-[92vh] mx-auto bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+          <div
+          data-approval-modal-overlay
+          className="fixed inset-0 z-[100] bg-white md:bg-black/70 md:backdrop-blur-sm flex items-center justify-center overflow-y-auto p-0 md:p-4"
+          style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}
+        >
+            <div className="w-full max-w-[215mm] h-full md:h-[92vh] mx-auto bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col overflow-hidden">
               <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-500/20 text-indigo-700">
                     <Eye className="w-5 h-5" />
                   </div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">공문서 출력 미리보기</h2>
+                  <h2 className="text-lg font-bold text-slate-800 tracking-tight">공문서 출력 미리보기</h2>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={handlePrintOfficial} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
-                    <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
+                <div className="grid grid-cols-[1fr_auto] sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button onClick={exportOfficialPdf} className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-3 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base sm:text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
+                    <Printer className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span>PDF 저장</span>
                   </button>
-                  <button onClick={() => setPreviewOfficialId(null)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
+                  <button onClick={() => setPreviewOfficialId(null)} className="p-3 sm:p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
