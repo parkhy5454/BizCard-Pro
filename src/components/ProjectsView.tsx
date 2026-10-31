@@ -3259,18 +3259,18 @@ export const ProjectsView: React.FC<Props> = ({
                   ) : !draft ? (
                     <p className="text-sm text-slate-400 text-center py-10">불러오는 중...</p>
                   ) : (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                    <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-2xl p-3 md:p-5 space-y-4 min-w-0 overflow-x-hidden">
                       <div className="flex items-center justify-between flex-wrap gap-2">
-                        <h3 className="text-base font-bold text-slate-800 underline underline-offset-4">프로젝트 원가 계산서</h3>
+                        <h3 className="text-xl font-bold text-slate-800 underline underline-offset-4">프로젝트 원가 계산서</h3>
                         <div className="flex items-center gap-2">
-                          {costSheetSaveError && <span className="text-xs text-rose-500">{costSheetSaveError}</span>}
+                          {costSheetSaveError && <span className="text-base text-rose-500">{costSheetSaveError}</span>}
                           {/* [추가] 통장 출금내역·카드사용내역에서 이 프로젝트+원가 항목으로
                           태그해둔 거래를 직접원가/간접원가/일반관리비 칸에 자동으로 채워준다. */}
                           <button
                             type="button"
                             onClick={handleImportCostSheetFromLedger}
                             disabled={isImportingCostSheet}
-                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-indigo-200 hover:bg-indigo-50 disabled:opacity-50 text-indigo-600 text-xs font-bold transition-all active:scale-95"
+                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-indigo-200 hover:bg-indigo-50 disabled:opacity-50 text-indigo-600 text-base font-bold transition-all active:scale-95"
                           >
                             <ArrowDownUp className="w-3.5 h-3.5" />
                             <span>{isImportingCostSheet ? '불러오는 중...' : '자동 불러오기'}</span>
@@ -3280,7 +3280,7 @@ export const ProjectsView: React.FC<Props> = ({
                           <button
                             type="button"
                             onClick={handleExportCostSheetExcel}
-                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
                           >
                             <FileSpreadsheet className="w-3.5 h-3.5" />
                             <span>엑셀 출력</span>
@@ -3288,7 +3288,7 @@ export const ProjectsView: React.FC<Props> = ({
                           <button
                             type="button"
                             onClick={handlePrintCostSheet}
-                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow-md shadow-slate-700/20 transition-all active:scale-95"
+                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-base font-bold shadow-md shadow-slate-700/20 transition-all active:scale-95"
                           >
                             <Printer className="w-3.5 h-3.5" />
                             <span>인쇄 / PDF 저장</span>
@@ -3296,7 +3296,7 @@ export const ProjectsView: React.FC<Props> = ({
                           <button
                             onClick={handleSaveCostSheet}
                             disabled={isSavingCostSheet}
-                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-base font-bold transition-colors"
                           >
                             {isSavingCostSheet ? '저장 중...' : '저장'}
                           </button>
@@ -3310,7 +3310,7 @@ export const ProjectsView: React.FC<Props> = ({
                           세부 항목명부터 시작하는 4칸이다 - 그래서 모든 행이 합쳐서 5칸을
                           채우도록 꼭 맞춰야 표가 어긋나지 않는다. */}
                       <div className="overflow-x-auto">
-                        <table className="w-full text-xs border-collapse min-w-[680px]">
+                        <table className="w-full text-base border-collapse min-w-[680px]">
                           <tbody>
                             <tr><td className={`${tdLabel} w-28`}>프로젝트 명</td><td className={`${td} bg-white`} colSpan={4}>{selectedProject.name}</td></tr>
                             <tr><td className={tdLabel}>발 주 처</td><td className={`${td} bg-white`} colSpan={4}>{headerField('orderer')}</td></tr>
