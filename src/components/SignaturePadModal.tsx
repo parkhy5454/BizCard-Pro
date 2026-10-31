@@ -190,9 +190,6 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
 
           {mode === 'draw' ? (
             <>
-              <p className="text-base md:text-xs text-slate-500">
-                아래 네모 칸에 마우스나 손가락(터치)으로 서명을 그려주세요. 한 번 등록하면 다음 결재부터는 다시 그릴 필요 없이 자동으로 사용됩니다.
-              </p>
               <div className="relative border-2 border-dashed border-slate-300 rounded-xl overflow-hidden bg-white">
                 <canvas
                   ref={canvasRef}
@@ -213,9 +210,6 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
             </>
           ) : (
             <>
-              <p className="text-base md:text-xs text-slate-500">
-                서명을 스캔하거나 촬영한 이미지 파일(흰 배경에 서명만 있는 사진이 가장 깔끔하게 나옵니다)을 올려주세요. JPG, PNG 등 5MB 이하 이미지 파일을 지원합니다.
-              </p>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
               {uploadedImage ? (
                 <div className="relative border-2 border-dashed border-slate-300 rounded-xl overflow-hidden bg-white">
@@ -239,6 +233,7 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
                   <span className="text-base md:text-xs font-bold">탭하여 서명 이미지 선택</span>
                 </button>
               )}
+              <p className="text-base md:text-xs text-slate-500">JPG, PNG 등 5MB 이하 이미지 파일을 지원합니다.</p>
             </>
           )}
 
