@@ -2396,7 +2396,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           연동할 수 있는 버튼. 구독 링크는 사람마다(정확히는 계정마다) 발급되는 고유
           토큰이 담겨 있어서, 그 링크만 있으면 로그인 없이도 애플 캘린더 앱이 주기적으로
           최신 내용을 불러갈 수 있다. */}
-          <div className="flex justify-end">
+          <div className="flex justify-end border-t border-slate-300 pt-3 mb-3 md:border-0 md:pt-0 md:mb-0">
             <button
               type="button"
               onClick={handleOpenCalendarFeed}
