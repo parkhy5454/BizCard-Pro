@@ -463,6 +463,7 @@ const exportAdvanceHtmlAsPdf = async (docHtml: string, fileName: string): Promis
     idoc.write(docHtml);
     idoc.close();
     await new Promise((resolve) => setTimeout(resolve, 150));
+    centerCellsInRoot(idoc.body);
     const body = idoc.body;
     iframe.style.height = `${body.scrollHeight + 40}px`;
     const { default: html2canvas } = await import('html2canvas');
@@ -505,11 +506,45 @@ const exportAdvanceHtmlAsPdf = async (docHtml: string, fileName: string): Promis
   }
 };
 
+// [추가] PDF 캡처(html2canvas)는 vertical-align을 무시해서 글자가 칸 아래로 쏠린다.
+// 한 줄짜리 칸은 줄 높이를 칸 안쪽 높이에 맞춰 가운데로 오게 한다 (root 안의 칸만 건드림).
+const centerCellsInRoot = (root: HTMLElement): void => {
+  const win = root.ownerDocument.defaultView;
+  if (!win) return;
+  root.querySelectorAll('td, th').forEach((node) => {
+    const cell = node as HTMLElement;
+    const cs = win.getComputedStyle(cell);
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    const padBottom = parseFloat(cs.paddingBottom) || 0;
+    const fontPx = parseFloat(cs.fontSize) || 12;
+    const oneLine = fontPx * 1.6;
+    const contentH = cell.scrollHeight - padTop - padBottom;
+    const innerH = cell.getBoundingClientRect().height - padTop - padBottom;
+    if (contentH <= oneLine && innerH > 0) {
+      cell.style.lineHeight = `${innerH}px`;
+    }
+  });
+};
+
 // [추가] 화면에 보이는 미리보기 종이(요소)를 그대로 PDF로 만든다
 const exportElementAsPdf = async (el: HTMLElement, fileName: string): Promise<void> => {
   const { default: html2canvas } = await import('html2canvas');
   const { jsPDF } = await import('jspdf');
-  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+  const holder = document.createElement('div');
+  holder.style.position = 'fixed';
+  holder.style.left = '-20000px';
+  holder.style.top = '0';
+  holder.style.background = '#ffffff';
+  const clone = el.cloneNode(true) as HTMLElement;
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+  let canvas: HTMLCanvasElement;
+  try {
+    centerCellsInRoot(clone);
+    canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
+  } finally {
+    holder.remove();
+  }
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageH = 297;
   const pageW = 210;
@@ -1275,7 +1310,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const buildAdvanceHtml = (doc: AdvancePaymentSettlement): { fullHtml: string; excelContent: string } => {
     const esc = (str: unknown): string => (str === null || str === undefined ? '' : String(str))
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
-    const cellBorder = 'border: 0.5pt solid #000000;';
+    const cellBorder = 'border: 0.5pt solid #000000; vertical-align: middle;';
     const grayBg = 'background-color: #f3f4f6;';
     const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
     const items = doc.items || [];
@@ -1515,7 +1550,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const buildLeaveHtml = (doc: LeaveRequest): { fullHtml: string; excelContent: string } => {
     const esc = (str: unknown): string => (str === null || str === undefined ? '' : String(str))
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
-    const cellBorder = 'border: 0.5pt solid #000000;';
+    const cellBorder = 'border: 0.5pt solid #000000; vertical-align: middle;';
     const grayBg = 'background-color: #f3f4f6;';
     const baseFont = "font-family: 'Malgun Gothic', Arial; font-size: 10pt;";
     const approvalLine = doc.approvalLine || [];
