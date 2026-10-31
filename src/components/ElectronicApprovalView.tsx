@@ -407,7 +407,7 @@ const getApprovalModalTopInset = (): number => {
   let bottom = 0;
   const header = document.querySelector('header') as HTMLElement | null;
   if (header) bottom = Math.max(bottom, header.getBoundingClientRect().bottom);
-  ['app-top-action-row', 'app-projects-top-bar', 'approval-top-bar'].forEach((id) => {
+  ['app-top-action-row', 'app-projects-top-bar', 'approval-top-bar', 'approval-fixed-tabs'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
   });
@@ -2274,7 +2274,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       <div id="approval-top-bar" className="contents md:flex md:flex-row md:items-center md:justify-between md:gap-2 md:border-b md:border-slate-200 md:pb-3">
         {/* 모바일: 아래 고정 탭이 차지할 자리만큼 빈 공간 */}
         <div className="md:hidden" style={{ height: approvalTabsHeight }} />
-        <div ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 border-b border-slate-200 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
+        <div id="approval-fixed-tabs" ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 border-b border-slate-200 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
         <div className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
           <button
             onClick={() => setActiveApprovalTab('advance')}
