@@ -3710,13 +3710,13 @@ export const ProjectsView: React.FC<Props> = ({
                 <h3 className="text-lg font-bold text-slate-800">해당하는 프로젝트가 없습니다.</h3>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                <table className="w-full text-xs text-slate-600 whitespace-nowrap">
+              <div className="overflow-x-auto border-y border-slate-200 md:rounded-2xl md:border">
+                <table className="w-full text-base text-slate-600 whitespace-nowrap">
                   <thead className="bg-white text-slate-500">
                     <tr>
                       {/* [추가] 전체 선택 체크박스. PIPELINE_COLUMNS는 화면표/인쇄/엑셀이 공유하는
                       배열이라 그대로 두고, 선택/삭제용 칸은 그 바깥(맨 앞/맨 뒤)에 따로 둔다. */}
-                      <th className="px-3 py-2.5 font-bold border-b border-slate-200 w-8">
+                      <th className="px-3 py-3.5 font-bold border-b border-slate-200 w-8">
                         <input
                           type="checkbox"
                           checked={filteredProjects.length > 0 && selectedListIds.size === filteredProjects.length}
@@ -3730,19 +3730,19 @@ export const ProjectsView: React.FC<Props> = ({
                               setSelectedListIds(new Set(filteredProjects.map((p) => p.id)));
                             }
                           }}
-                          className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer"
+                          className="w-5 h-5 accent-indigo-600 cursor-pointer"
                         />
                       </th>
                       {PIPELINE_COLUMNS.map(c => (
-                        <th key={c.label} className={`px-3 py-2.5 font-bold border-b border-slate-200 ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}>{c.label}</th>
+                        <th key={c.label} className={`px-3 py-3.5 font-bold border-b border-slate-200 ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}>{c.label}</th>
                       ))}
-                      <th className="px-3 py-2.5 font-bold border-b border-slate-200 w-8" />
+                      <th className="px-3 py-3.5 font-bold border-b border-slate-200 w-8" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {filteredProjects.map((p, idx) => (
                       <tr key={p.id} className={`hover:bg-slate-100 transition-colors ${selectedListIds.has(p.id) ? 'bg-indigo-50/60' : ''}`}>
-                        <td className="px-3 py-2.5">
+                        <td className="px-3 py-3.5">
                           <input
                             type="checkbox"
                             checked={selectedListIds.has(p.id)}
@@ -3754,7 +3754,7 @@ export const ProjectsView: React.FC<Props> = ({
                                 return next;
                               });
                             }}
-                            className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer"
+                            className="w-5 h-5 accent-indigo-600 cursor-pointer"
                           />
                         </td>
                         {PIPELINE_COLUMNS.map((c, colIdx) => (
@@ -3762,11 +3762,11 @@ export const ProjectsView: React.FC<Props> = ({
                             // [추가] 프로젝트명을 누르면 "프로젝트 리스트"(카드형 화면)의 해당
                             // 프로젝트로 이동해 펼쳐서 보여준다(전역 검색에서 프로젝트를 눌렀을
                             // 때와 동일한 동작).
-                            <td key={c.label} className="px-3 py-2.5 text-left">
+                            <td key={c.label} className="px-3 py-3.5 text-left">
                               <button
                                 type="button"
                                 onClick={() => onFocusProject?.(p.id)}
-                                className="font-semibold text-slate-900 hover:text-slate-600 hover:underline text-left"
+                                className="font-semibold text-slate-900 hover:text-slate-600 hover:underline text-left text-base"
                                 title="프로젝트 리스트에서 보기"
                               >
                                 {c.getValue(p, idx)}
@@ -3775,7 +3775,7 @@ export const ProjectsView: React.FC<Props> = ({
                           ) : (
                             <td
                               key={c.label}
-                              className={`px-3 py-2.5 ${colIdx === 2 ? 'text-slate-900 font-semibold' : ''} ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}
+                              className={`px-3 py-3.5 ${colIdx === 2 ? 'text-slate-900 font-semibold' : ''} ${c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'}`}
                             >
                               {c.getValue(p, idx)}
                             </td>
@@ -3783,7 +3783,7 @@ export const ProjectsView: React.FC<Props> = ({
                         ))}
                         {/* [추가] 개별 삭제 버튼. 기존 카드형 화면의 handleDeleteProject를 그대로
                         재사용해 삭제 로직/확인창/에러 처리를 중복 없이 공유한다. */}
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-3 py-3.5 text-center">
                           <button
                             type="button"
                             onClick={(e) => handleDeleteProject(p.id, e)}
@@ -3799,10 +3799,10 @@ export const ProjectsView: React.FC<Props> = ({
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold text-slate-700">
                       <td />
-                      <td colSpan={PIPELINE_BUDGET_COL_IDX} className="px-3 py-2.5 text-center">합계</td>
-                      <td className="px-3 py-2.5 text-right">{formatKRW(pipelineTotals.budgetSum)}</td>
+                      <td colSpan={PIPELINE_BUDGET_COL_IDX} className="px-3 py-3.5 text-center">합계</td>
+                      <td className="px-3 py-3.5 text-right">{formatKRW(pipelineTotals.budgetSum)}</td>
                       <td colSpan={PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1} />
-                      <td className="px-3 py-2.5 text-right">{formatKRW(pipelineTotals.weightedSum)}</td>
+                      <td className="px-3 py-3.5 text-right">{formatKRW(pipelineTotals.weightedSum)}</td>
                       <td colSpan={PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1} />
                       <td />
                     </tr>
