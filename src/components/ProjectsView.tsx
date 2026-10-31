@@ -25,9 +25,17 @@ import { getSpeechRecognitionCtor, type SpeechRecognitionLike, type SpeechResult
 // [추가] 팝업을 상단 고정 탭(#app-top-action-row)과 하단 탭([data-app-tabbar]) 사이의 띠 영역에만 깔아서,
 // 두 탭이 팝업을 열었을 때도 계속 보이게 한다 (CardDetailModal과 같은 방식).
 const getProjectModalTopInset = (): number => {
-  // 명함 탭에서는 #app-top-action-row, 프로젝트 등 다른 탭에서는 상단 고정 header를 기준으로 한다
-  const el = (document.getElementById('app-top-action-row') ?? document.querySelector('header')) as HTMLElement | null;
-  return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
+  // 헤더, 명함 탭 상단 바, 프로젝트 탭 상단(등록/리스트 버튼 + 상태 필터 칩) 중 가장 아래쪽 끝을 기준으로 해서
+  // 팝업이 그 아래부터 깔리도록 한다 (보이는 상단 탭이 모두 가려지지 않게)
+  const ids = ['app-top-action-row', 'app-projects-top-bar'];
+  let bottom = 0;
+  const header = document.querySelector('header') as HTMLElement | null;
+  if (header) bottom = Math.max(bottom, header.getBoundingClientRect().bottom);
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
+  });
+  return Math.max(0, bottom);
 };
 const getProjectModalBottomInset = (): number => {
   const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
