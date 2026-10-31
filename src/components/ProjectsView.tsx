@@ -203,6 +203,30 @@ const sharePdfFromCanvas = async (canvas: HTMLCanvasElement, fileName: string, o
   }
 };
 
+// 엑셀 파일 저장: 아이폰은 가짜 다운로드 링크가 무시되는 경우가 많아서, 공유 창을 먼저 쓰고
+// 그 외에는 일반 다운로드를 쓴다.
+const saveWorkbookFile = async (wb: { xlsx: { writeBuffer: () => Promise<unknown> } }, fileName: string): Promise<void> => {
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const file = new File([blob], fileName, { type: blob.type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fileName.replace(/\.xlsx$/, '') });
+      return;
+    }
+  } catch (err) {
+    if ((err as { name?: string } | null)?.name === 'AbortError') return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 // 인쇄 대신 PDF 파일을 만들어 공유 창(아이폰) 또는 다운로드로 보낸다.
 // 아이폰 사파리/홈 화면 앱은 window.print()와 새 창 인쇄가 동작하지 않기 때문.
 // 앱 스타일과 분리된 iframe에 HTML을 그린 뒤 찍어서 PDF로 만든다(앱의 oklch 색 오류 회피).
@@ -882,16 +906,7 @@ export const ProjectsView: React.FC<Props> = ({
     ws.getColumn(4).width = 20;
     ws.getColumn(5).width = 20;
 
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `원가계산서_${project.name}_${getTodayLocalStr()}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveWorkbookFile(wb, `원가계산서_${project.name}_${getTodayLocalStr()}.xlsx`);
   };
 
   // [추가] 원가계산서(개별) 인쇄/PDF 저장 - "프로젝트 파이프라인" 인쇄와 동일하게, 이 표
@@ -1033,16 +1048,7 @@ export const ProjectsView: React.FC<Props> = ({
     });
     ws.views = [{ state: 'frozen', ySplit: headerRowIdx }];
 
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `전체_프로젝트_원가계산서_${getTodayLocalStr()}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveWorkbookFile(wb, `전체_프로젝트_원가계산서_${getTodayLocalStr()}.xlsx`);
   };
 
   // [추가] 원가계산서(전체) 인쇄/PDF 저장 - 위 엑셀과 같은 요약표를 새 창에 띄워 인쇄한다.
@@ -2844,16 +2850,7 @@ export const ProjectsView: React.FC<Props> = ({
     // 제목/헤더 행이 스크롤해도 항상 보이도록 고정
     ws.views = [{ state: 'frozen', ySplit: headerRowIdx }];
 
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `전체_프로젝트_목록_${getTodayLocalStr()}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveWorkbookFile(wb, `전체_프로젝트_목록_${getTodayLocalStr()}.xlsx`);
   };
 
   // [수정] 화면 미리보기는 실제 인쇄와 별개로, 모달 안에서 넓게(가로로 꽉 차게) 보여주기만
