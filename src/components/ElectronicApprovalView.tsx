@@ -2277,7 +2277,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         <div id="approval-fixed-tabs" ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
         <div className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
           <button
-            onClick={() => setActiveApprovalTab('advance')}
+            onClick={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false); setActiveApprovalTab('advance'); }}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
               activeApprovalTab === 'advance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
             }`}
@@ -2287,7 +2287,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{advanceList.length}</span>
           </button>
           <button
-            onClick={() => setActiveApprovalTab('leave')}
+            onClick={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false); setActiveApprovalTab('leave'); }}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
               activeApprovalTab === 'leave' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
             }`}
@@ -2297,7 +2297,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{leaveList.length}</span>
           </button>
           <button
-            onClick={() => setActiveApprovalTab('official')}
+            onClick={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false); setActiveApprovalTab('official'); }}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
               activeApprovalTab === 'official' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
             }`}
