@@ -2679,11 +2679,63 @@ export const ProjectsView: React.FC<Props> = ({
   // 이 표 하나만 담긴 완전히 독립된 새 창을 열어서 그 창 안에서 인쇄한다. 이 창의 스타일시트에는
   // "@page { size: A4 landscape; margin: 20mm 25mm; }" 단 하나의 페이지 규칙만 있으므로, 다른
   // 문서의 세로 인쇄 설정과 절대 충돌하지 않고 항상 A4 가로로 인쇄된다.
-  // 인쇄는 새 창을 열지 않고 지금 보고 있는 미리보기 화면을 그대로 인쇄한다.
-  // (아이폰 사파리에서 새 창을 열면 닫기·돌아가기가 안 되는 문제가 있어서)
-  // 실제 인쇄 모양은 미리보기 창 안의 @media print 규칙이 맞춘다.
-  const handlePrintProjectsList = () => {
-    window.print();
+  // 아이폰(사파리·홈 화면 앱)은 웹페이지의 window.print()가 동작하지 않으므로,
+  // 미리보기 화면을 이미지로 찍어 A4 가로 PDF를 만든 뒤 공유 창(또는 다운로드)으로 보낸다.
+  // 이미지로 찍기 때문에 한글 글꼴이 깨지지 않는다.
+  const handlePrintProjectsList = async () => {
+    const el = document.getElementById('projects-print-area');
+    if (!el) return;
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const { jsPDF } = await import('jspdf');
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
+      });
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageH = 210;
+      const margin = 10;
+      const imgW = 297 - margin * 2;
+      const pxPerMm = canvas.width / imgW;
+      const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+      let y = 0;
+      let first = true;
+      while (y < canvas.height) {
+        const h = Math.min(sliceH, canvas.height - y);
+        const part = document.createElement('canvas');
+        part.width = canvas.width;
+        part.height = h;
+        const ctx = part.getContext('2d');
+        if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, part.width, part.height);
+        ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+        if (!first) pdf.addPage();
+        first = false;
+        pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
+        y += h;
+      }
+      const blob = pdf.output('blob');
+      const fileName = '프로젝트_파이프라인.pdf';
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: '프로젝트 파이프라인' });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (err) {
+      if ((err as { name?: string } | null)?.name === 'AbortError') return;
+      alert(`PDF를 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
+    }
   };
 
   // [추가] "OO 특약점 프로젝트 파이프라인" 엑셀 일괄 가져오기 상태/입력 참조
