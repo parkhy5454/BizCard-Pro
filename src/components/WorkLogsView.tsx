@@ -104,6 +104,25 @@ const KOREAN_HOLIDAYS: Record<string, string> = {
 };
 const getKoreanHoliday = (dateStr: string): string | null => KOREAN_HOLIDAYS[dateStr] || null;
 
+// [추가] 모바일에서 일지 작성 팝업이 상단 헤더/하단 탭을 가리지 않도록, 보이는 상단·하단 영역 사이에만 깔리게 하는 계산
+const getWorkLogModalTopInset = (): number => {
+  let bottom = 0;
+  const header = document.querySelector('header') as HTMLElement | null;
+  if (header) bottom = Math.max(bottom, header.getBoundingClientRect().bottom);
+  ['app-top-action-row', 'app-projects-top-bar'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
+  });
+  return Math.max(0, bottom);
+};
+const getWorkLogModalBottomInset = (): number => {
+  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.height === 0) return 0;
+  return Math.max(0, window.innerHeight - rect.top);
+};
+
 export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects, currentUser }) => {
   const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly' | 'report'>('daily');
   const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
@@ -3039,23 +3058,29 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       {/* 4. 일지 작성 및 수정 Overlay 모달 */}
       <AnimatePresence>
         {isWriteModalOpen && (
-          <div className="fixed inset-0 z-[100] overflow-y-auto">
-            {/* 배경 블러 */}
+          <div
+            className="fixed inset-0 z-[100] overflow-y-auto overflow-x-hidden"
+            // 모바일: 상단 헤더·하단 탭은 그대로 보이도록 그 사이 영역에만 팝업을 깐다 (PC는 기존처럼 화면 전체 + 배경 블러)
+            style={typeof window !== 'undefined' && window.innerWidth < 768
+              ? { top: getWorkLogModalTopInset(), bottom: getWorkLogModalBottomInset() }
+              : undefined}
+          >
+            {/* 배경 블러 (PC에서만 표시) */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsWriteModalOpen(false)}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="fixed inset-0 hidden md:block bg-slate-900/60 backdrop-blur-sm"
             />
 
             {/* 모달 윈도우 */}
-            <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="flex min-h-full md:min-h-screen items-start md:items-center justify-center p-0 md:p-4">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-3xl bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 z-10"
+                className="relative w-full max-w-3xl min-w-0 bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl p-4 sm:p-8 shadow-2xl space-y-6 z-10"
               >
                 {/* 닫기 단추 */}
                 <button
@@ -3095,7 +3120,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                             setFormDate(e.target.value);
                             if (!editingLogId) setFormTitle(`${e.target.value} 일일 업무일지`);
                           }}
-                          className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono"
+                          className="block appearance-none w-0 min-w-full max-w-full box-border px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 text-sm font-mono"
                         />
                       </div>
                     ) : (
