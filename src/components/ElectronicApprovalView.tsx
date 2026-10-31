@@ -2275,7 +2275,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         {/* 모바일: 아래 고정 탭이 차지할 자리만큼 빈 공간 */}
         <div className="md:hidden" style={{ height: approvalTabsHeight }} />
         <div id="approval-fixed-tabs" ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 border-b border-slate-200 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
-        <div className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
+        <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-x-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
           <button
             onClick={() => setActiveApprovalTab('advance')}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
@@ -2286,6 +2286,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span>가지급금 정산서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{advanceList.length}</span>
           </button>
+          <span aria-hidden className="md:hidden w-px h-6 bg-slate-300" />
           <button
             onClick={() => setActiveApprovalTab('leave')}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
@@ -2296,6 +2297,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span>휴가 신청서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{leaveList.length}</span>
           </button>
+          <span aria-hidden className="md:hidden w-px h-6 bg-slate-300" />
           <button
             onClick={() => setActiveApprovalTab('official')}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
