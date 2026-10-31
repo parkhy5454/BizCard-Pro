@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
@@ -771,6 +771,25 @@ const exportElementAsPdf = async (el: HTMLElement, fileName: string): Promise<vo
 
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateCurrentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave' | 'official'>('advance');
+  // 모바일: 가지급금/휴가/공문서 탭 묶음을 앱 헤더 바로 아래에 고정 (높이와 헤더 위치는 실측)
+  const [approvalHeaderBottom, setApprovalHeaderBottom] = useState(0);
+  const approvalTabsRef = useRef<HTMLDivElement>(null);
+  const [approvalTabsHeight, setApprovalTabsHeight] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const h = document.querySelector('header');
+      setApprovalHeaderBottom(h ? Math.round(h.getBoundingClientRect().bottom) : 0);
+      if (approvalTabsRef.current) setApprovalTabsHeight(Math.round(approvalTabsRef.current.getBoundingClientRect().height));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' && approvalTabsRef.current ? new ResizeObserver(measure) : null;
+    if (ro && approvalTabsRef.current) ro.observe(approvalTabsRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      ro?.disconnect();
+    };
+  }, []);
 
   // [추가] 발신처 정보(주소/전화/전송/이메일) 필드는 칸을 옮길 때마다(onBlur) 자동으로
   // 저장을 시도한다. 빠르게 탭으로 여러 칸을 옮겨다니면 저장 요청이 겹쳐서 나가는데,
@@ -2528,7 +2547,10 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       하고(overflow-x-auto + whitespace-nowrap + shrink-0 - WorkLogsView.tsx 등 다른 화면의
       탭바와 동일한 패턴), "내 서명 등록" 버튼은 shrink-0으로 항상 제 너비를 유지해서 눌리지
       않게 한다. */}
-      <div id="approval-top-bar" className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-2 border-b border-slate-200 pb-3">
+      <div id="approval-top-bar" className="contents md:flex md:flex-row md:items-center md:justify-between md:gap-2 md:border-b md:border-slate-200 md:pb-3">
+        {/* 모바일: 아래 고정 탭이 차지할 자리만큼 빈 공간 */}
+        <div className="md:hidden" style={{ height: approvalTabsHeight }} />
+        <div ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 border-b border-slate-200 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
         <div className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
           <button
             onClick={() => setActiveApprovalTab('advance')}
@@ -2560,6 +2582,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <span>공문서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{officialList.length}</span>
           </button>
+        </div>
         </div>
         <button
           onClick={() => { setPendingApprovalTarget(null); setIsSignaturePadOpen(true); }}
