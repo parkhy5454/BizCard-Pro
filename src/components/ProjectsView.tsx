@@ -2683,16 +2683,68 @@ export const ProjectsView: React.FC<Props> = ({
   // 미리보기 화면을 이미지로 찍어 A4 가로 PDF를 만든 뒤 공유 창(또는 다운로드)으로 보낸다.
   // 이미지로 찍기 때문에 한글 글꼴이 깨지지 않는다.
   const handlePrintProjectsList = async () => {
-    const el = document.getElementById('projects-print-area');
-    if (!el) return;
+    // 앱 화면의 Tailwind 색(oklch)은 html2canvas가 읽지 못하므로,
+    // 앱 스타일과 분리된 빈 화면(iframe)에 표를 따로 그린 뒤 그 화면을 찍는다.
+    const headers = PIPELINE_COLUMNS.map(c => c.label);
+    const rowsHtml = filteredProjects.length === 0
+      ? `<tr><td colspan="${PIPELINE_COLUMNS.length}" style="text-align:center;color:#6b7280;padding:24px 8px;">표시할 프로젝트가 없습니다.</td></tr>`
+      : filteredProjects.map((p, idx) => `
+        <tr>${PIPELINE_COLUMNS.map(c => `<td style="text-align:${c.align};">${escapeHtml(c.getValue(p, idx))}</td>`).join('')}</tr>`).join('');
+    const totalsHtml = filteredProjects.length === 0 ? '' : `
+      <tr style="background:#f3f4f6;font-weight:700;">
+        <td colspan="${PIPELINE_BUDGET_COL_IDX}" style="text-align:center;">합계</td>
+        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.budgetSum))}</td>
+        <td colspan="${PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1}"></td>
+        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.weightedSum))}</td>
+        <td colspan="${PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1}"></td>
+      </tr>`;
+    const docHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      html, body { margin: 0; padding: 0; background: #ffffff; color: #000000; }
+      body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; padding: 24px; width: 1400px; }
+      .title { text-align: center; margin-bottom: 18px; }
+      .title h1 { display: inline-block; border-bottom: 4px double #000000; padding-bottom: 4px; margin: 0; font-size: 26px; }
+      .title p { font-size: 13px; color: #6b7280; margin: 6px 0 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { border: 1px solid #000000; padding: 5px 6px; vertical-align: middle; color: #000000; }
+      th { background: #f3f4f6; font-weight: 700; text-align: center; }
+    </style></head><body>
+      <div class="title">
+        <h1>프로젝트 파이프라인 (Project Pipeline)</h1>
+        <p>출력일: ${escapeHtml(new Date().toLocaleDateString('ko-KR'))}</p>
+      </div>
+      <table>
+        <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${rowsHtml}${totalsHtml}</tbody>
+      </table>
+    </body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-20000px';
+    iframe.style.top = '0';
+    iframe.style.width = '1450px';
+    iframe.style.height = '800px';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
     try {
+      const idoc = iframe.contentDocument;
+      if (!idoc) throw new Error('PDF 화면을 준비하지 못했습니다.');
+      idoc.open();
+      idoc.write(docHtml);
+      idoc.close();
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const body = idoc.body;
+      iframe.style.height = `${body.scrollHeight + 40}px`;
+
       const { default: html2canvas } = await import('html2canvas');
       const { jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(el, {
+      const canvas = await html2canvas(body, {
         scale: 2,
         backgroundColor: '#ffffff',
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
+        width: body.scrollWidth,
+        height: body.scrollHeight,
+        windowWidth: body.scrollWidth,
+        windowHeight: body.scrollHeight,
       });
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const pageH = 210;
@@ -2735,6 +2787,8 @@ export const ProjectsView: React.FC<Props> = ({
     } catch (err) {
       if ((err as { name?: string } | null)?.name === 'AbortError') return;
       alert(`PDF를 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
+    } finally {
+      iframe.remove();
     }
   };
 
