@@ -2506,12 +2506,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-600">정산 내역</label>
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-600 font-bold">
-                      <Download className="w-3.5 h-3.5" /> 업무일지/차량운행일지에서 가져오기
+                  <label className="text-xs font-bold text-slate-600 whitespace-nowrap shrink-0">정산 내역</label>
+                  <div className="flex items-center gap-3 whitespace-nowrap">
+                    <button type="button" onClick={openImportModal} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-600 font-bold whitespace-nowrap">
+                      <Download className="w-3.5 h-3.5 shrink-0" /> 가져오기
                     </button>
-                    <button type="button" onClick={addApItem} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-600 font-bold">
+                    <button type="button" onClick={addApItem} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-600 font-bold whitespace-nowrap">
                       <Plus className="w-3.5 h-3.5" /> 내역 추가
                     </button>
                   </div>
