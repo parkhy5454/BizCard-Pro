@@ -3642,13 +3642,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {isBrandingModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-white md:bg-slate-900/60 md:backdrop-blur-sm" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getBrandingModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined} onClick={() => setIsBrandingModalOpen(false)}>
           <div className="bg-white md:border md:border-slate-200 rounded-none md:rounded-2xl w-full md:max-w-md p-4 md:p-5 space-y-5 md:space-y-4 h-full md:h-auto overflow-y-auto shadow-none md:shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg md:text-base font-bold text-slate-800 flex items-center gap-2"><ImageIcon className="w-5 h-5 md:w-4 md:h-4 text-indigo-500" /> 공문서 로고/직인 설정</h3>
-              <button onClick={() => setIsBrandingModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+            <div className="flex items-center justify-between gap-3 -mx-4 md:mx-0 px-4 md:px-0 pb-4 border-b border-slate-200 md:border-0 bg-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-10 h-10 md:w-8 md:h-8 rounded-lg bg-indigo-50 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                  <ImageIcon className="w-5 h-5 md:w-4 md:h-4 text-indigo-500" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg md:text-sm font-bold text-slate-800">공문서 로고/직인 설정</h3>
+                  <p className="text-base md:text-[11px] text-slate-500 md:text-slate-400">우리 회사 공문서에만 반영</p>
+                </div>
+              </div>
+                            <button onClick={() => setIsBrandingModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 shrink-0">
                 <X className="w-5 h-5 md:w-4 md:h-4" />
               </button>
             </div>
-            <p className="text-base md:text-base md:text-xs text-slate-500 md:text-slate-400">우리 회사 공문서에만 반영</p>
 
             <div className="space-y-2">
               <label className="text-base md:text-xs font-bold text-slate-600">상단 로고</label>
