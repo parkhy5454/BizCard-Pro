@@ -1321,8 +1321,14 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // 상단 메뉴의 '새 프로젝트 등록' 버튼에서 신호가 오면 등록 모달을 엽니다.
+  // 탭을 다시 누르면 ProjectsView가 새로 마운트되는데, 그때 이전 신호 값이 남아 있어 등록 모달이 또 열리던 문제가 있었다.
+  // 그래서 마지막으로 처리한 신호 값을 기억해 두고, 값이 새로 바뀐 경우에만 모달을 연다.
+  const handledNewProjectTriggerRef = useRef<number>(triggerNewProject ?? 0);
   useEffect(() => {
-    if (triggerNewProject) setIsNewOpen(true);
+    if (triggerNewProject && triggerNewProject !== handledNewProjectTriggerRef.current) {
+      handledNewProjectTriggerRef.current = triggerNewProject;
+      setIsNewOpen(true);
+    }
   }, [triggerNewProject]);
   const [newName, setNewName] = useState<string>('');
   // [수정] 영업자(담당자) - 기본값은 지금 로그인한 사람(등록자) 이름, 직접 수정 가능
