@@ -2634,7 +2634,7 @@ export const ProjectsView: React.FC<Props> = ({
   // 하면 되므로 액자처럼 감싸던 검은 테두리는 없애고, 표 자체가 모달 폭(297mm까지)을 그대로
   // 채우도록 한다.
   const renderPrintableProjectsList = () => (
-    <div className="shrink-0 text-black text-base font-sans leading-snug" style={{ width: '100%', maxWidth: '297mm', margin: '0 auto', padding: '10mm 0' }}>
+    <div id="projects-print-area" className="shrink-0 text-black text-base font-sans leading-snug" style={{ width: '100%', maxWidth: '297mm', margin: '0 auto', padding: '10mm 0' }}>
       <div className="text-center mb-6">
         <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-2xl sm:text-3xl font-extrabold text-black">프로젝트 파이프라인 (Project Pipeline)</span>
         <p className="text-sm text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
@@ -2679,74 +2679,11 @@ export const ProjectsView: React.FC<Props> = ({
   // 이 표 하나만 담긴 완전히 독립된 새 창을 열어서 그 창 안에서 인쇄한다. 이 창의 스타일시트에는
   // "@page { size: A4 landscape; margin: 20mm 25mm; }" 단 하나의 페이지 규칙만 있으므로, 다른
   // 문서의 세로 인쇄 설정과 절대 충돌하지 않고 항상 A4 가로로 인쇄된다.
+  // 인쇄는 새 창을 열지 않고 지금 보고 있는 미리보기 화면을 그대로 인쇄한다.
+  // (아이폰 사파리에서 새 창을 열면 닫기·돌아가기가 안 되는 문제가 있어서)
+  // 실제 인쇄 모양은 미리보기 창 안의 @media print 규칙이 맞춘다.
   const handlePrintProjectsList = () => {
-    const headers = PIPELINE_COLUMNS.map(c => c.label);
-    const rowsHtml = filteredProjects.length === 0
-      ? `<tr><td colspan="${PIPELINE_COLUMNS.length}" style="text-align:center;color:#9ca3af;padding:24px 8px;">표시할 프로젝트가 없습니다.</td></tr>`
-      : filteredProjects.map((p, idx) => `
-        <tr>${PIPELINE_COLUMNS.map(c => `<td style="text-align:${c.align};">${escapeHtml(c.getValue(p, idx))}</td>`).join('')}</tr>`).join('');
-    const totalsHtml = filteredProjects.length === 0 ? '' : `
-      <tr style="background:#f3f4f6;font-weight:700;">
-        <td colspan="${PIPELINE_BUDGET_COL_IDX}" style="text-align:center;">합계</td>
-        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.budgetSum))}</td>
-        <td colspan="${PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1}"></td>
-        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.weightedSum))}</td>
-        <td colspan="${PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1}"></td>
-      </tr>`;
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>프로젝트 파이프라인</title>
-<style>
-  @page { size: A4 landscape; margin: 20mm 25mm; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #000; }
-  .title { text-align: center; margin-bottom: 16px; }
-  .title h1 { display: inline-block; border-bottom: 4px double #000; padding-bottom: 4px; margin: 0; font-size: 20px; }
-  .title p { font-size: 10px; color: #666; margin: 4px 0 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: auto; }
-  th, td { border: 1px solid #000; padding: 4px 5px; }
-  th { background: #f3f4f6; font-weight: 700; }
-  .toolbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 8px; justify-content: flex-end; padding: 10px 12px; margin: -20px -25px 16px; background: #fff; border-bottom: 1px solid #e5e7eb; }
-  .toolbar button { font-size: 15px; font-weight: 700; padding: 10px 16px; border-radius: 10px; border: 1px solid #d1d5db; background: #f3f4f6; color: #111827; cursor: pointer; }
-  .toolbar button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
-  @media print { .toolbar { display: none; } }
-</style>
-</head>
-<body>
-  <div class="toolbar">
-    <button type="button" onclick="closePrintWin()">닫기</button>
-    <button type="button" class="primary" onclick="window.print()">인쇄 / PDF 저장</button>
-  </div>
-  <div class="title">
-    <h1>프로젝트 파이프라인 (Project Pipeline)</h1>
-    <p>출력일: ${escapeHtml(new Date().toLocaleDateString('ko-KR'))}</p>
-  </div>
-  <table>
-    <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
-    <tbody>${rowsHtml}${totalsHtml}</tbody>
-  </table>
-  <script>
-    function closePrintWin() {
-      try { window.close(); } catch (e) {}
-      setTimeout(function () {
-        if (!window.closed) { window.location.href = ${JSON.stringify(window.location.origin + '/')}; }
-      }, 400);
-    }
-    window.onload = function () { window.focus(); window.print(); };
-  </script>
-</body>
-</html>`;
-
-    const printWin = window.open('', '_blank');
-    if (!printWin) {
-      alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.');
-      return;
-    }
-    printWin.document.write(html);
-    printWin.document.close();
+    window.print();
   };
 
   // [추가] "OO 특약점 프로젝트 파이프라인" 엑셀 일괄 가져오기 상태/입력 참조
@@ -2910,8 +2847,12 @@ export const ProjectsView: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggerExcelExport]);
 
+  const handledPrintPreviewTriggerRef = useRef<number>(triggerPrintPreview ?? 0);
   useEffect(() => {
-    if (triggerPrintPreview) setIsProjectsPrintPreviewOpen(true);
+    if (triggerPrintPreview && triggerPrintPreview !== handledPrintPreviewTriggerRef.current) {
+      handledPrintPreviewTriggerRef.current = triggerPrintPreview;
+      setIsProjectsPrintPreviewOpen(true);
+    }
   }, [triggerPrintPreview]);
 
   return (
@@ -5664,7 +5605,20 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* [수정] 전체 프로젝트 목록 PDF 인쇄/미리보기 모달 */}
       {isProjectsPrintPreviewOpen && (
-        <div style={{ top: getProjectModalTopInset(), bottom: 0, paddingBottom: getProjectModalBottomInset() + 16 }} className="fixed left-0 right-0 z-[45] bg-white flex items-center justify-center overflow-y-auto p-0 md:p-4">
+        <div style={{ top: getProjectModalTopInset(), bottom: 0, paddingBottom: getProjectModalBottomInset() + 16 }} className="projects-print-overlay fixed left-0 right-0 z-[45] bg-white flex items-center justify-center overflow-y-auto p-0 md:p-4">
+          <style>{`
+            @page { size: A4 landscape; margin: 12mm; }
+            @media print {
+              body * { visibility: hidden !important; }
+              #projects-print-area, #projects-print-area * { visibility: visible !important; }
+              .projects-print-overlay { position: static !important; inset: auto !important; background: none !important; padding: 0 !important; display: block !important; overflow: visible !important; }
+              .projects-print-overlay > div { max-width: none !important; width: 100% !important; height: auto !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; display: block !important; }
+              #projects-print-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; max-width: none !important; padding: 0 !important; font-size: 9px !important; }
+              #projects-print-area table, #projects-print-area th, #projects-print-area td { font-size: 9px !important; }
+              #projects-print-area th, #projects-print-area td { padding: 4px 5px !important; }
+              #projects-print-area h1, #projects-print-area span.inline-block { font-size: 16px !important; }
+            }
+          `}</style>
           {/* [수정] 이 모달의 max-width가 세로(A4 portrait, 210mm) 문서 기준(215mm)으로 남아있어서,
           가로(297mm)로 바뀐 미리보기 내용이 이 좁은 폭 안에 억지로 눌려 들어가 컬럼 헤더가
           여러 줄로 꺾이는 등 실제로는 넓게 나와야 할 표가 좁고 찌그러진 모습으로 보였다.
