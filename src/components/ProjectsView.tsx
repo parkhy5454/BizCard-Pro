@@ -2717,7 +2717,7 @@ export const ProjectsView: React.FC<Props> = ({
 </head>
 <body>
   <div class="toolbar">
-    <button type="button" onclick="window.close()">닫기</button>
+    <button type="button" onclick="closePrintWin()">닫기</button>
     <button type="button" class="primary" onclick="window.print()">인쇄 / PDF 저장</button>
   </div>
   <div class="title">
@@ -2728,7 +2728,15 @@ export const ProjectsView: React.FC<Props> = ({
     <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
     <tbody>${rowsHtml}${totalsHtml}</tbody>
   </table>
-  <script>window.onload = function () { window.focus(); window.print(); };</script>
+  <script>
+    function closePrintWin() {
+      try { window.close(); } catch (e) {}
+      setTimeout(function () {
+        if (!window.closed) { window.location.href = ${JSON.stringify(window.location.origin + '/')}; }
+      }, 400);
+    }
+    window.onload = function () { window.focus(); window.print(); };
+  </script>
 </body>
 </html>`;
 
