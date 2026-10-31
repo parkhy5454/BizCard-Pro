@@ -3008,7 +3008,7 @@ export const ProjectsView: React.FC<Props> = ({
               )}
             </div>
           ) : (
-            <div className="max-w-md mx-auto flex items-center gap-2">
+            <div className="max-w-md mx-auto w-full min-w-0 flex flex-wrap items-center gap-2">
               {(() => {
                 // 팔로우업 배너를 닫은 상태일 때만, 검색줄 맨 앞에 작은 칩으로 남긴다
                 if (!isFollowupBannerDismissed) return null;
@@ -3024,7 +3024,7 @@ export const ProjectsView: React.FC<Props> = ({
                   </button>
                 );
               })()}
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-w-[10rem] max-w-full">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="text"
