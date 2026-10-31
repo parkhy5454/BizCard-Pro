@@ -110,7 +110,7 @@ const getWorkLogModalTopInset = (): number => {
   const header = document.querySelector('header') as HTMLElement | null;
   if (header) bottom = Math.max(bottom, header.getBoundingClientRect().bottom);
   // 업무일지 상단 바(작성 + 일일/주간/월간/출력)가 팝업에 가려지지 않도록 포함
-  ['app-top-action-row', 'app-projects-top-bar', 'worklog-top-bar'].forEach((id) => {
+  ['app-top-action-row', 'app-projects-top-bar', 'worklog-fixed-tabs'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
   });
@@ -2241,7 +2241,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </div>
 
         {/* [수정] 모바일 화면 너비가 좁아도 탭 글자가 줄바꿈되지 않도록, 넘치면 가로 스크롤되게 함 */}
-        <div ref={tabsRef} style={{ top: headerBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 sm:static sm:bg-transparent sm:px-0 sm:pt-0 sm:flex-1 sm:min-w-0">
+        <div id="worklog-fixed-tabs" ref={tabsRef} style={{ top: headerBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 sm:static sm:bg-transparent sm:px-0 sm:pt-0 sm:flex-1 sm:min-w-0">
         <div className="flex items-stretch sm:items-center gap-0 sm:gap-2 bg-transparent sm:bg-slate-50 p-0 sm:p-1 rounded-none sm:rounded-2xl border-b border-slate-200 sm:border sm:border-b sm:border-slate-200 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex-1 min-w-0 w-full sm:w-auto">
           <button
             onClick={() => {
