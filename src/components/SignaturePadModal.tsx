@@ -171,18 +171,18 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
 
         <div className="p-4 space-y-4 md:space-y-3 flex-1 min-h-0">
           {/* [추가] 직접 그리기 / 파일 업로드 전환 탭 */}
-          <div className="flex items-center gap-1.5 p-1 bg-white md:bg-slate-100 border border-slate-200 md:border-0 rounded-xl">
+          <div className="flex items-center gap-4 md:gap-1.5 p-0 md:p-1 bg-transparent md:bg-slate-100 rounded-xl">
             <button
               type="button"
               onClick={() => { setMode('draw'); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-1.5 rounded-lg text-base md:text-xs font-bold transition-colors ${mode === 'draw' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-1.5 rounded-lg text-base md:text-xs font-bold transition-colors ${mode === 'draw' ? 'text-blue-600 md:bg-white md:text-indigo-600 md:shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <PenTool className="w-3.5 h-3.5" /> 직접 그리기
             </button>
             <button
               type="button"
               onClick={() => { setMode('upload'); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-1.5 rounded-lg text-base md:text-xs font-bold transition-colors ${mode === 'upload' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-1.5 rounded-lg text-base md:text-xs font-bold transition-colors ${mode === 'upload' ? 'text-blue-600 md:bg-white md:text-indigo-600 md:shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Upload className="w-3.5 h-3.5" /> 파일 업로드
             </button>
