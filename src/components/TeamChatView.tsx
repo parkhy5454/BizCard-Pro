@@ -14,6 +14,7 @@ interface ChatCoworker {
   position?: string;
   approvalStatus?: 'approved' | 'pending';
   profileImage?: string;
+  department?: string;
 }
 
 interface ChatMessageItem {
@@ -155,6 +156,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const postedReadRef = useRef<Record<string, string>>({});
   const typingSentRef = useRef(0);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [groupEditName, setGroupEditName] = useState<string | null>(null);
   const [groupAddIds, setGroupAddIds] = useState<string[] | null>(null);
   const [groupBusy, setGroupBusy] = useState(false);
@@ -476,6 +478,16 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
       setCreatingGroup(false);
     }
   };
+
+  // 이름 검색 드롭다운: 같은 회사 승인된 동료 중 이름/직책/부서가 맞는 사람 (대화가 없어도 바로 대화 시작 가능)
+  const searchHits = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [] as ChatCoworker[];
+    return coworkers
+      .filter((c) => [c.name, c.position, c.department].some((v) => (v || '').toLowerCase().includes(q)))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+      .slice(0, 8);
+  }, [search, coworkers]);
 
   const activeGroup = activeChannel.startsWith('group:') ? groups.find((g) => groupChannelId(g.id) === activeChannel) : undefined;
 
@@ -804,9 +816,39 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
                 placeholder="이름 검색"
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-100 text-base md:text-sm outline-none focus:ring-1 focus:ring-indigo-300"
               />
+              {searchFocused && search.trim() && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-xl shadow-lg border border-slate-200 max-h-72 overflow-y-auto">
+                  {searchHits.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-slate-400">일치하는 동료가 없습니다.</p>
+                  ) : (
+                    searchHits.map((c) => (
+                      <button
+                        key={c.id}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          openRoom(dmChannelId(currentUser.id, c.id));
+                          setSearch('');
+                          setSearchFocused(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left active:bg-slate-100 hover:bg-slate-50"
+                      >
+                        {renderPerson(c.id, c.name, 'w-9 h-9', 'text-sm')}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-base font-bold text-slate-900 truncate">
+                            {c.name} <span className="text-xs font-normal text-slate-500">{c.position}</span>
+                          </p>
+                          {c.department && <p className="text-xs text-slate-400 truncate">{c.department}</p>}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             <button onClick={openGroupCreator} title="그룹 채팅 만들기" className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 shrink-0">
               <Plus className="w-5 h-5" />
