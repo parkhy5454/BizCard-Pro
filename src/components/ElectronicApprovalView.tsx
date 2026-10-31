@@ -3254,7 +3254,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const previewApprovalLine = previewDoc.approvalLine || [];
         const total = previewItems.reduce((s, it) => s + (Number(it.amount) || 0), 0);
         return (
-          <div className="fixed inset-0 z-[100] bg-white md:bg-black/70 md:backdrop-blur-sm flex items-center justify-center overflow-y-auto p-0 md:p-4" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}>
+          <div data-approval-modal-overlay className="fixed inset-0 z-[100] bg-white md:bg-black/70 md:backdrop-blur-sm flex items-center justify-center overflow-y-auto p-0 md:p-4" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}>
             <div className="w-full max-w-[215mm] h-full md:h-[92vh] mx-auto bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
@@ -3395,7 +3395,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const previewLeaveApprovalLine = previewLeave.approvalLine || [];
         const catLabel = previewLeave.leaveCategory === 'other' ? (previewLeave.leaveCategoryCustom || '기타') : LEAVE_CATEGORY_LABEL[previewLeave.leaveCategory];
         return (
-          <div className="fixed inset-0 z-[100] bg-white md:bg-black/70 md:backdrop-blur-sm flex items-center justify-center overflow-y-auto p-0 md:p-4" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}>
+          <div data-approval-modal-overlay className="fixed inset-0 z-[100] bg-white md:bg-black/70 md:backdrop-blur-sm flex items-center justify-center overflow-y-auto p-0 md:p-4" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}>
             <div className="w-full max-w-[215mm] h-full md:h-[92vh] mx-auto bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col overflow-hidden">
               {/* 비인쇄 상단 바 */}
               <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
