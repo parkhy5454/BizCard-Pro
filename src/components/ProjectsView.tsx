@@ -2709,9 +2709,17 @@ export const ProjectsView: React.FC<Props> = ({
   table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: auto; }
   th, td { border: 1px solid #000; padding: 4px 5px; }
   th { background: #f3f4f6; font-weight: 700; }
+  .toolbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 8px; justify-content: flex-end; padding: 10px 12px; margin: -20px -25px 16px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+  .toolbar button { font-size: 15px; font-weight: 700; padding: 10px 16px; border-radius: 10px; border: 1px solid #d1d5db; background: #f3f4f6; color: #111827; cursor: pointer; }
+  .toolbar button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+  @media print { .toolbar { display: none; } }
 </style>
 </head>
 <body>
+  <div class="toolbar">
+    <button type="button" onclick="window.close()">닫기</button>
+    <button type="button" class="primary" onclick="window.print()">인쇄 / PDF 저장</button>
+  </div>
   <div class="title">
     <h1>프로젝트 파이프라인 (Project Pipeline)</h1>
     <p>출력일: ${escapeHtml(new Date().toLocaleDateString('ko-KR'))}</p>
