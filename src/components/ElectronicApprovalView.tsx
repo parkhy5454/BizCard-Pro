@@ -2308,7 +2308,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           </button>
         </div>
         {/* 모바일: 탭 줄과 작성·서명 줄 사이에 짧은 실선 */}
-        <div aria-hidden className="md:hidden mx-auto w-1/2 h-px bg-slate-300 my-2" />
+        <div aria-hidden className="md:hidden mx-auto w-[90%] h-px bg-slate-300 my-2" />
         {/* 모바일: 작성 버튼과 내 서명 버튼을 같은 줄에 두고, 탭과 함께 상단에 고정 */}
         <div className="md:hidden flex items-center gap-2">
           <button
