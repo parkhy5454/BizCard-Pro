@@ -2627,8 +2627,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
       {/* 업무일지/차량운행일지 비용 가져오기 모달 */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
+          // 모바일: 상단 헤더·결재 탭·하단 탭은 그대로 보이게 그 사이 영역에만 흰 바탕으로 띄움 (PC는 기존 어두운 배경 유지)
+          style={typeof window !== 'undefined' && window.innerWidth < 768
+            ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() }
+            : undefined}
+        >
+          <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[85vh] overflow-y-auto overflow-x-hidden">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                 <Download className="w-5 h-5 text-indigo-400" />
