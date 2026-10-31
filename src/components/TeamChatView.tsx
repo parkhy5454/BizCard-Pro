@@ -13,6 +13,7 @@ interface ChatCoworker {
   name: string;
   position?: string;
   approvalStatus?: 'approved' | 'pending';
+  profileImage?: string;
 }
 
 interface ChatMessageItem {
@@ -37,6 +38,7 @@ interface RoomItem {
   kind: RoomKind;
   title: string;
   subtitle: string;
+  peerId?: string;
 }
 
 const TEAM_CHANNEL = 'team';
@@ -74,6 +76,31 @@ function writeLastRead(userId: string, map: Record<string, string>): void {
   } catch {
     // 저장 실패(사생활 보호 모드 등)는 무시 - 안 읽음 표시만 정확도가 떨어진다.
   }
+}
+
+// 프로필 사진: 가운데를 정사각형으로 잘라 256px JPEG로 줄인다 (서버 저장 용량을 작게 유지).
+function resizeToProfileDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('사진을 읽지 못했습니다.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('사진 형식을 확인해주세요.'));
+      img.onload = () => {
+        const size = 256;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('사진을 처리할 수 없습니다.'));
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function formatListTime(iso: string): string {
@@ -118,6 +145,10 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const [search, setSearch] = useState('');
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [topInset, setTopInset] = useState(0);
+
+  const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -164,6 +195,8 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
       .then((res) => res.json())
       .then((data: ChatCoworker[]) => {
         if (Array.isArray(data)) {
+          // 동료 목록에는 본인도 포함되어 있어서, 본인 사진도 여기서 함께 받아온다.
+          setPhotos(Object.fromEntries(data.filter((u) => u.profileImage).map((u) => [u.id, u.profileImage as string])));
           setCoworkers(data.filter((u) => u.id !== currentUser.id && u.approvalStatus !== 'pending'));
         }
       })
@@ -188,7 +221,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const rooms: RoomItem[] = useMemo(() => {
     const list: RoomItem[] = [{ channel: TEAM_CHANNEL, kind: 'team', title: '전체 채널', subtitle: '회사 전체 대화방' }];
     groups.forEach((g) => list.push({ channel: groupChannelId(g.id), kind: 'group', title: g.name, subtitle: `${g.memberUserIds.length}명` }));
-    coworkers.forEach((c) => list.push({ channel: dmChannelId(currentUser.id, c.id), kind: 'dm', title: c.name, subtitle: c.position || '' }));
+    coworkers.forEach((c) => list.push({ channel: dmChannelId(currentUser.id, c.id), kind: 'dm', title: c.name, subtitle: c.position || '', peerId: c.id }));
     return list;
   }, [coworkers, groups, currentUser.id]);
 
@@ -319,6 +352,28 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const dataUrl = await resizeToProfileDataUrl(file);
+      const res = await fetch('/api/auth/profile-image', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify({ profileImage: dataUrl })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '프로필 사진을 저장하지 못했습니다.');
+      setPhotos((prev) => ({ ...prev, [currentUser.id]: data.profileImage || dataUrl }));
+    } catch (err: unknown) {
+      alert(getErrorMessage(err) || '프로필 사진을 저장하지 못했습니다.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const autoGrow = (el: HTMLTextAreaElement) => {
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
@@ -399,6 +454,15 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const headerSub = !activeRoom ? '' : activeRoom.kind === 'team' ? '회사 전체 대화방' : activeRoom.kind === 'group' ? `${activeRoom.subtitle} 참여` : activeRoom.subtitle || '1:1 대화';
   const messages = activeMessages || [];
 
+  const renderPerson = (userId: string, name: string, sizeClass: string, textClass: string) =>
+    photos[userId] ? (
+      <img src={photos[userId]} alt="" className={`${sizeClass} rounded-2xl object-cover shrink-0`} />
+    ) : (
+      <div className={`${sizeClass} rounded-2xl ${avatarColor(userId)} text-white ${textClass} font-bold flex items-center justify-center shrink-0`}>
+        {name.charAt(0)}
+      </div>
+    );
+
   const renderAvatar = (room: RoomItem) => {
     if (room.kind === 'team') {
       return (
@@ -414,11 +478,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
         </div>
       );
     }
-    return (
-      <div className={`w-12 h-12 rounded-2xl ${avatarColor(room.channel)} text-white text-lg font-bold flex items-center justify-center shrink-0`}>
-        {room.title.charAt(0)}
-      </div>
-    );
+    return renderPerson(room.peerId || room.channel, room.title, 'w-12 h-12', 'text-lg');
   };
 
   const renderRow = (room: RoomItem) => {
@@ -463,6 +523,15 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
         {/* 대화 목록 */}
         <aside className={`${roomOpen ? 'hidden md:flex' : 'flex'} w-full md:w-72 md:shrink-0 md:border-r border-slate-200 bg-white flex-col min-h-0`}>
           <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              title="내 프로필 사진 바꾸기"
+              className="shrink-0 rounded-2xl active:opacity-70 disabled:opacity-50"
+            >
+              {renderPerson(currentUser.id, currentUser.name, 'w-10 h-10', 'text-sm')}
+            </button>
+            <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -577,11 +646,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
                         <div className={`flex gap-2 ${isMine ? 'justify-end' : 'justify-start'} ${startsRun ? 'mt-3' : 'mt-0.5'}`}>
                           {!isMine && (
                             <div className="w-10 shrink-0">
-                              {startsRun && (
-                                <div className={`w-10 h-10 rounded-2xl ${avatarColor(m.senderUserId)} text-white text-sm font-bold flex items-center justify-center`}>
-                                  {m.senderName.charAt(0)}
-                                </div>
-                              )}
+                              {startsRun && renderPerson(m.senderUserId, m.senderName, 'w-10 h-10', 'text-sm')}
                             </div>
                           )}
                           <div className={`flex flex-col min-w-0 max-w-[75%] md:max-w-[65%] ${isMine ? 'items-end' : 'items-start'}`}>

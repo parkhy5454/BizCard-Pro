@@ -2703,6 +2703,28 @@ app.get('/api/auth/me', (req, res) => {
   });
 });
 
+// [추가] 사내 메신저에 보이는 프로필 사진 등록/변경. 본인 것만 바꿀 수 있고,
+// 동료 목록(/api/org/coworkers)에 함께 내려줘서 메신저 대화 상대의 얼굴이 보이게 한다.
+app.put('/api/auth/profile-image', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { profileImage } = req.body;
+  if (typeof profileImage !== 'string' || !profileImage.startsWith('data:image/')) {
+    return res.status(400).json({ error: '프로필 사진 형식이 올바르지 않습니다.' });
+  }
+
+  const previousProfileImage = user.profileImage;
+  user.profileImage = await persistImageField(scopeIdForUser(user), profileImage, `profile-${user.id}`, 'cards');
+  const savedUser = await addUser(user);
+  if (!savedUser) {
+    user.profileImage = previousProfileImage;
+    return res.status(500).json({ error: '프로필 사진을 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  res.json({ success: true, profileImage: user.profileImage });
+});
+
 // [추가] 전자결재 승인 시 도장처럼 찍히는 손글씨 서명 등록/변경. 본인 것만 바꿀 수 있고
 // (다른 사람 서명을 대신 등록할 수 없게), 회사 동료 목록(/api/auth/users)에는 이 필드를
 // 절대 내려주지 않는다 - 서명 URL이 넓게 퍼지면 다른 사람이 그 이미지를 내려받아 문서에
@@ -2933,7 +2955,8 @@ app.get('/api/org/coworkers', (req, res) => {
     role: u.role,
     approvalStatus: u.approvalStatus,
     department: u.department,
-    managerUserId: u.managerUserId
+    managerUserId: u.managerUserId,
+    profileImage: u.profileImage
   });
 
   let visible: RegisteredUser[];

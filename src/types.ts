@@ -846,6 +846,8 @@ export interface User {
   // 등록해두면 이후 결재마다 재사용된다. base64로 들어오면 서버가 Supabase Storage에
   // 올리고 여기엔 그 주소(URL)만 저장한다 (다른 사진 필드들과 동일한 방식).
   signatureImage?: string;
+  // [추가] 사내 메신저에 보이는 프로필 사진. 서명과 달리 동료에게 공개되는 사진이라 동료 목록에도 내려준다.
+  profileImage?: string;
   // [추가] 친구 추천 프로그램. referralCode는 이 사람의 고유 추천 코드(공유용 링크에
   // 쓰인다), referredByUserId는 이 사람이 "누구의 추천으로" 가입했는지(가입 시점에
   // 한 번 정해지면 이후 안 바뀜), referralRewardGranted는 이 사람(피추천인)의 첫 구독
