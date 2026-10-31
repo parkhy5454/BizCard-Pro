@@ -420,6 +420,91 @@ const getApprovalModalBottomInset = (): number => {
   return Math.max(0, window.innerHeight - rect.top);
 };
 
+// [추가] 가지급금 파일 저장 공통 처리: 아이폰은 공유 창(파일에 저장/iCloud/PC 전송)으로, 그 외에는 다운로드
+const reportAdvanceExportFailure = (err: unknown) => {
+  console.error('가지급금 파일 저장 실패:', err);
+  alert(`파일을 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
+};
+
+const saveBlobFileShareOrDownload = async (blob: Blob, fileName: string): Promise<void> => {
+  const file = new File([blob], fileName, { type: blob.type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fileName.replace(/\.[^.]+$/, '') });
+      return;
+    }
+  } catch (err) {
+    if ((err as { name?: string } | null)?.name === 'AbortError') return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// [추가] 가지급금 정산서 HTML을 PDF로 만든다 (window.print가 아이폰에서 동작하지 않아서 직접 PDF 생성)
+const exportAdvanceHtmlAsPdf = async (docHtml: string, fileName: string): Promise<void> => {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-20000px';
+  iframe.style.top = '0';
+  iframe.style.width = '794px';
+  iframe.style.height = '1200px';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+  try {
+    const idoc = iframe.contentDocument;
+    if (!idoc) throw new Error('PDF 화면을 준비하지 못했습니다.');
+    idoc.open();
+    idoc.write(docHtml);
+    idoc.close();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const body = idoc.body;
+    iframe.style.height = `${body.scrollHeight + 40}px`;
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+    const canvas = await html2canvas(body, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      width: body.scrollWidth,
+      height: body.scrollHeight,
+      windowWidth: body.scrollWidth,
+      windowHeight: body.scrollHeight,
+    });
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageH = 297;
+    const pageW = 210;
+    const margin = 10;
+    const imgW = pageW - margin * 2;
+    const pxPerMm = canvas.width / imgW;
+    const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+    let y = 0;
+    let first = true;
+    while (y < canvas.height) {
+      const h = Math.min(sliceH, canvas.height - y);
+      const part = document.createElement('canvas');
+      part.width = canvas.width;
+      part.height = h;
+      const ctx = part.getContext('2d');
+      if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, part.width, part.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+      if (!first) pdf.addPage();
+      first = false;
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
+      y += h;
+    }
+    await saveBlobFileShareOrDownload(pdf.output('blob'), fileName);
+  } finally {
+    iframe.remove();
+  }
+};
+
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateCurrentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave' | 'official'>('advance');
 
@@ -1148,7 +1233,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   };
 
   // 화면에 보이는 가지급금 정산서 양식 그대로 엑셀(.xls)로 다운로드
-  const downloadAdvanceToExcel = (doc: AdvancePaymentSettlement) => {
+  const buildAdvanceHtml = (doc: AdvancePaymentSettlement): { fullHtml: string; excelContent: string } => {
     const esc = (str: unknown): string => (str === null || str === undefined ? '' : String(str))
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
     const cellBorder = 'border: 0.5pt solid #000000;';
@@ -1257,24 +1342,27 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       </head><body>${fullHtml}</body></html>
     `;
 
-    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `가지급금정산서_${doc.periodStart || todayStr()}.xls`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    return { fullHtml, excelContent };
+  };
+
+  // 엑셀(.xls) 저장: 아이폰은 공유 창으로 "파일에 저장"(iCloud/PC 전송) 가능
+  const downloadAdvanceToExcel = (doc: AdvancePaymentSettlement) => {
+    const { excelContent } = buildAdvanceHtml(doc);
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel' });
+    const fileName = `가지급금정산서_${doc.periodStart || todayStr()}.xls`;
+    void saveBlobFileShareOrDownload(blob, fileName).catch(reportAdvanceExportFailure);
+  };
+
+  // PDF 저장: 같은 양식을 PDF 파일로 만들어 공유 창 또는 다운로드로 보낸다
+  const exportAdvancePdf = (doc: AdvancePaymentSettlement) => {
+    const { fullHtml } = buildAdvanceHtml(doc);
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;background:#ffffff;color:#000000;font-family:'Apple SD Gothic Neo','Malgun Gothic',Arial,sans-serif;}</style></head><body>${fullHtml}</body></html>`;
+    const fileName = `가지급금정산서_${doc.periodStart || todayStr()}.pdf`;
+    void exportAdvanceHtmlAsPdf(html, fileName).catch(reportAdvanceExportFailure);
   };
 
   // [수정] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에 print-portal-mode를
   // 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
-  const handlePrintAdvance = () => {
-    document.body.classList.add('print-portal-mode');
-    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
-    window.print();
-  };
 
   // 인쇄 전용 정적 렌더러: #print-root 포털에 렌더링되어 화면 미리보기와 별개로 단독 인쇄됨
   const renderPrintableAdvance = (doc: AdvancePaymentSettlement | undefined) => {
@@ -3129,7 +3217,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   <button onClick={() => downloadAdvanceToExcel(previewDoc)} className="flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base sm:text-xs justify-center shadow-lg shadow-emerald-500/15 active:scale-95 transition-all">
                     <FileSpreadsheet className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span>엑셀 다운</span>
                   </button>
-                  <button onClick={handlePrintAdvance} className="flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base sm:text-xs justify-center shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
+                  <button onClick={() => exportAdvancePdf(previewDoc)} className="flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base sm:text-xs justify-center shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
                     <Printer className="w-4 h-4 sm:w-3.5 sm:h-3.5" /><span>PDF 저장</span>
                   </button>
                   <button onClick={() => setPreviewAdvanceId(null)} className="p-3 sm:p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
