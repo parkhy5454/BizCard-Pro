@@ -4735,13 +4735,13 @@ export const ProjectsView: React.FC<Props> = ({
         <div style={{ top: getProjectModalTopInset(), bottom: getProjectModalBottomInset() }} className="fixed left-0 right-0 z-[100] flex items-start justify-center p-0 md:items-center md:p-4 bg-white overflow-y-auto animate-fadeIn">
           <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl max-w-lg w-full p-5 md:p-8 shadow-none md:shadow-2xl space-y-6 max-h-full overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <h3 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-indigo-400" /> 프로젝트 등록
               </h3>
               <button onClick={() => setIsNewOpen(false)} className="text-slate-400 hover:text-slate-800">✕</button>
             </div>
 
-            <form onSubmit={handleCreateProject} className="space-y-4 text-sm">
+            <form onSubmit={handleCreateProject} className="space-y-4 text-lg">
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">프로젝트 명</label>
                 <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 삼성전자 온디바이스 B2B 라이선스 공급 제안" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />
@@ -4777,7 +4777,7 @@ export const ProjectsView: React.FC<Props> = ({
               그대로 유지된다. */}
               <div className="pt-2 border-t border-slate-200 space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wide">프로젝트 정보 (선택)</p>
+                  <p className="text-slate-400 text-base font-bold uppercase tracking-wide">프로젝트 정보 (선택)</p>
                   {/* [추가] 프로젝트 타이틀(+최종고객/현장지역이 입력돼 있으면 같이)을 바탕으로
                   시공사·설계사·감리사·운영사를 구글 검색으로 찾아서 비어있는 칸만 자동으로
                   채워주는 버튼. 채워진 뒤에도 아래 칸에서 언제든 직접 수정할 수 있다. */}
@@ -4785,7 +4785,7 @@ export const ProjectsView: React.FC<Props> = ({
                     type="button"
                     onClick={handleSearchNewProjectRelations}
                     disabled={!newName.trim() || isSearchingNewRelations}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-base font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     title={!newName.trim() ? '프로젝트 타이틀을 먼저 입력해주세요' : undefined}
                   >
                     {isSearchingNewRelations ? (
@@ -4796,7 +4796,7 @@ export const ProjectsView: React.FC<Props> = ({
                     <span>{isSearchingNewRelations ? '검색 중...' : 'AI로 참여사 찾기'}</span>
                   </button>
                 </div>
-                {newRelationsSearchNote && <p className="text-xs text-indigo-500">{newRelationsSearchNote}</p>}
+                {newRelationsSearchNote && <p className="text-base text-indigo-500">{newRelationsSearchNote}</p>}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -4952,7 +4952,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={directContactName}
                         onChange={(e) => setDirectContactName(e.target.value)}
                         placeholder="예: 홍길동"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-lg"
                         required={useDirectContact}
                       />
                     </div>
@@ -4963,7 +4963,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={directContactCompany}
                         onChange={(e) => setDirectContactCompany(e.target.value)}
                         placeholder="예: 현대건설"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-lg"
                       />
                     </div>
                     <div>
@@ -4973,7 +4973,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={directContactDept}
                         onChange={(e) => setDirectContactDept(e.target.value)}
                         placeholder="예: 구매팀"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-lg"
                       />
                     </div>
                     <div>
@@ -4983,7 +4983,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={directContactTitle}
                         onChange={(e) => setDirectContactTitle(e.target.value)}
                         placeholder="예: 과장"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-lg"
                       />
                     </div>
                     <div>
@@ -4994,7 +4994,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={directContactPhoneOffice}
                         onChange={(e) => setDirectContactPhoneOffice(formatPhoneNumber(e.target.value))}
                         placeholder="예: 02-1234-5678"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-lg"
                       />
                     </div>
                     <div>
@@ -5005,7 +5005,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={directContactPhoneMobile}
                         onChange={(e) => setDirectContactPhoneMobile(formatPhoneNumber(e.target.value))}
                         placeholder="예: 010-1234-5678"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-lg"
                       />
                     </div>
                     <div className="col-span-2">
@@ -5015,7 +5015,7 @@ export const ProjectsView: React.FC<Props> = ({
                         value={directContactEmail}
                         onChange={(e) => setDirectContactEmail(e.target.value)}
                         placeholder="예: buyer@company.com"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 outline-none focus:border-indigo-500 text-lg"
                       />
                     </div>
                   </div>
