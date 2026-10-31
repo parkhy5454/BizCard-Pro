@@ -401,6 +401,25 @@ const ApprovalLineEditor: React.FC<{
   </div>
 );
 
+// [추가] 모바일에서 작성 팝업이 상단 헤더·결재 탭 줄, 하단 탭을 가리지 않도록 보이는 영역 사이에만 띄우는 계산
+const getApprovalModalTopInset = (): number => {
+  let bottom = 0;
+  const header = document.querySelector('header') as HTMLElement | null;
+  if (header) bottom = Math.max(bottom, header.getBoundingClientRect().bottom);
+  ['app-top-action-row', 'app-projects-top-bar', 'approval-top-bar'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
+  });
+  return Math.max(0, bottom);
+};
+const getApprovalModalBottomInset = (): number => {
+  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.height === 0) return 0;
+  return Math.max(0, window.innerHeight - rect.top);
+};
+
 export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateCurrentUser }) => {
   const [activeApprovalTab, setActiveApprovalTab] = useState<'advance' | 'leave' | 'official'>('advance');
 
@@ -2124,7 +2143,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       하고(overflow-x-auto + whitespace-nowrap + shrink-0 - WorkLogsView.tsx 등 다른 화면의
       탭바와 동일한 패턴), "내 서명 등록" 버튼은 shrink-0으로 항상 제 너비를 유지해서 눌리지
       않게 한다. */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
+      <div id="approval-top-bar" className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 flex-1 min-w-0">
           <button
             onClick={() => setActiveApprovalTab('advance')}
@@ -2429,8 +2448,14 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
 
       {/* 가지급금 정산서 작성/수정 모달 */}
       {isAdvanceModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
+          // 모바일: 상단 헤더·결재 탭·하단 탭은 그대로 보이게 그 사이 영역에만 흰 바탕으로 띄움 (PC는 기존 어두운 배경 유지)
+          style={typeof window !== 'undefined' && window.innerWidth < 768
+            ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() }
+            : undefined}
+        >
+          <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-blue-400" />
