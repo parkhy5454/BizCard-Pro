@@ -149,6 +149,10 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [readUpTo, setReadUpTo] = useState<Record<string, string>>({});
+  const [typingUsers, setTypingUsers] = useState<{ userId: string; name: string }[]>([]);
+  const postedReadRef = useRef<Record<string, string>>({});
+  const typingSentRef = useRef(0);
 
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -302,10 +306,42 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const activeMessages = messagesByChannel[activeChannel];
   const roomVisible = roomOpen || !isMobile;
 
+  // 읽음 숫자와 입력 중 상태는 보고 있는 대화방만 3초마다 확인한다.
+  useEffect(() => {
+    setReadUpTo({});
+    setTypingUsers([]);
+    if (!roomVisible) return;
+    let cancelled = false;
+    const poll = () => {
+      fetch(`/api/chat/state?channel=${encodeURIComponent(activeChannel)}`, { headers: { 'x-user-id': currentUser.id } })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (cancelled || !data) return;
+          setReadUpTo(data.reads || {});
+          setTypingUsers(Array.isArray(data.typing) ? data.typing : []);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const timer = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activeChannel, roomVisible, currentUser.id]);
+
   // 대화방을 보고 있으면 마지막 메시지까지 읽은 것으로 표시한다.
   useEffect(() => {
     if (!roomVisible || isCreatingGroup || !activeMessages || activeMessages.length === 0) return;
     const latest = activeMessages[activeMessages.length - 1].createdAt;
+    if (postedReadRef.current[activeChannel] !== latest) {
+      postedReadRef.current[activeChannel] = latest;
+      fetch('/api/chat/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify({ channel: activeChannel, upTo: latest })
+      }).catch(() => {});
+    }
     setLastRead((prev) => {
       if (prev[activeChannel] === latest) return prev;
       const next = { ...prev, [activeChannel]: latest };
@@ -344,6 +380,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
         return { ...prev, [activeChannel]: [...cur, data] };
       });
       setInput('');
+      notifyTyping(false);
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch (err: unknown) {
       alert(getErrorMessage(err) || '전송하지 못했습니다.');
@@ -372,6 +409,19 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     } finally {
       setUploadingPhoto(false);
     }
+  };
+
+  // 입력 중 표시: 글을 치는 동안 2.5초마다 한 번씩 알리고, 입력이 비면 바로 끈다.
+  const notifyTyping = (typing: boolean) => {
+    const now = Date.now();
+    if (typing && now - typingSentRef.current < 2500) return;
+    if (!typing && typingSentRef.current === 0) return;
+    typingSentRef.current = typing ? now : 0;
+    fetch('/api/chat/typing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify({ channel: activeChannel, typing })
+    }).catch(() => {});
   };
 
   const autoGrow = (el: HTMLTextAreaElement) => {
@@ -448,6 +498,22 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     const chat = teamRoom && matches(teamRoom) ? [teamRoom, ...withChat] : withChat;
     return { chatRooms: chat, contactRooms: withoutChat };
   }, [rooms, messagesByChannel, search]);
+
+  // 읽음 숫자 대상: 1:1은 상대 1명, 그룹은 나를 뺀 멤버. 전체 채널은 인원을 알 수 없어 숫자를 띄우지 않는다.
+  const readTargets = useMemo(() => {
+    const room = rooms.find((r) => r.channel === activeChannel);
+    if (!room) return null;
+    if (room.kind === 'dm') return room.peerId ? [room.peerId] : null;
+    if (room.kind === 'group') {
+      const g = groups.find((item) => groupChannelId(item.id) === activeChannel);
+      return g ? g.memberUserIds.filter((id) => id !== currentUser.id) : null;
+    }
+    return null;
+  }, [rooms, groups, activeChannel, currentUser.id]);
+
+  // 이 메시지를 아직 안 읽은 사람 수 (읽은 시각이 메시지 시각 이상이면 읽은 것)
+  const unreadFor = (m: ChatMessageItem): number =>
+    readTargets ? readTargets.filter((uid) => !(readUpTo[uid] && readUpTo[uid] >= m.createdAt)).length : 0;
 
   const activeRoom = rooms.find((r) => r.channel === activeChannel);
   const headerTitle = activeRoom ? activeRoom.title : '대화';
@@ -634,6 +700,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
                     const next = messages[i + 1];
                     const isMine = m.senderUserId === currentUser.id;
                     const showDate = !prev || !sameDay(prev.createdAt, m.createdAt);
+                    const unread = isMine ? unreadFor(m) : 0;
                     const startsRun = showDate || prev.senderUserId !== m.senderUserId || msBetween(prev.createdAt, m.createdAt) > RUN_GAP_MS;
                     const endsRun = !next || !sameDay(m.createdAt, next.createdAt) || next.senderUserId !== m.senderUserId || msBetween(m.createdAt, next.createdAt) > RUN_GAP_MS;
                     return (
@@ -655,7 +722,12 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
                               <div className={`px-3 py-2 rounded-2xl text-[15px] leading-relaxed whitespace-pre-wrap break-words shadow-sm ${isMine ? 'bg-[#fee500] text-slate-900 rounded-tr-sm' : 'bg-white text-slate-900 rounded-tl-sm'}`}>
                                 {m.content}
                               </div>
-                              {endsRun && <span className="text-[10px] text-slate-600 md:text-slate-400 shrink-0 mb-0.5">{formatBubbleTime(m.createdAt)}</span>}
+                              {(unread > 0 || endsRun) && (
+                                <div className={`flex flex-col shrink-0 mb-0.5 ${isMine ? 'items-end' : 'items-start'}`}>
+                                  {unread > 0 && <span className="text-[11px] font-bold text-amber-700 leading-none">{unread}</span>}
+                                  {endsRun && <span className="text-[10px] text-slate-600 md:text-slate-400 leading-tight">{formatBubbleTime(m.createdAt)}</span>}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -665,6 +737,9 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
                 )}
               </div>
 
+              {typingUsers.length > 0 && (
+                <p className="px-4 py-1 text-xs text-slate-600 bg-white/80 shrink-0">{typingUsers.map((u) => u.name).join(', ')} 입력 중...</p>
+              )}
               <div className="flex items-end gap-2 px-2.5 md:px-4 py-2 md:py-3 bg-white border-t border-slate-200 shrink-0 pb-[max(env(safe-area-inset-bottom),0.5rem)] md:pb-3">
                 <textarea
                   ref={textareaRef}
@@ -673,6 +748,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
                   onChange={(e) => {
                     setInput(e.target.value);
                     autoGrow(e.target);
+                    notifyTyping(e.target.value.trim().length > 0);
                   }}
                   onKeyDown={(e) => {
                     // PC에서는 Enter 전송, Shift+Enter 줄바꿈. 모바일은 Enter가 줄바꿈이고 전송 버튼으로 보낸다.

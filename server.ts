@@ -1247,6 +1247,7 @@ const db: { [scopeId: string]: {
   announcements: Announcement[];
   chatMessages: ChatMessage[];
   chatGroups: ChatGroup[];
+  chatReads: ChatRead[];
 } } = {};
 
 // 스코프(회사/개인 데이터 묶음) 한 개의 데이터 타입
@@ -1344,6 +1345,7 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
   // 캐싱해도 화면(최근 대화 스크롤)에는 충분하다.
   const chatMessages = await withTimeout(getScopedCollection<ChatMessage>(scopeId, 'chatMessages'), 'chatMessages');
   const chatGroups = await withTimeout(getScopedCollection<ChatGroup>(scopeId, 'chatGroups'), 'chatGroups');
+  const chatReads = await withTimeout(getScopedCollection<ChatRead>(scopeId, 'chatReads'), 'chatReads');
   const profileList = await withTimeout(getScopedCollection<MyProfile>(scopeId, 'myProfile'), 'myProfile');
 
   // ✅ 첫 번째 프로필 사용 (하드코딩된 이메일 제거)
@@ -1367,7 +1369,8 @@ async function loadScopeFromSupabaseInner(scopeId: string) {
     adminDocs,
     announcements,
     chatMessages,
-    chatGroups
+    chatGroups,
+    chatReads
   };
 
   if (hadTimeout) {
@@ -1425,7 +1428,8 @@ function getScopedData(req: express.Request): ScopedData {
     adminDocs: [],
     announcements: [],
     chatMessages: [],
-    chatGroups: []
+    chatGroups: [],
+    chatReads: []
   };
 }
 
@@ -2097,6 +2101,99 @@ app.post('/api/chat/messages', async (req, res) => {
     return res.status(500).json({ error: '메시지를 전송하지 못했습니다. 잠시 후 다시 시도해주세요.' });
   }
   res.status(201).json(message);
+});
+
+// [추가] 읽음 표시 / 입력 중 표시. 읽음 기록은 DB(chatReads)에 남기고, 입력 중 상태는
+// 몇 초 만에 사라지는 정보라 서버 메모리에만 둔다 (재시작되면 사라져도 괜찮다).
+interface ChatRead {
+  id: string;
+  channel: string;
+  userId: string;
+  readUpTo: string;
+}
+const chatTyping = new Map<string, Map<string, { name: string; at: number }>>();
+const CHAT_TYPING_TTL_MS = 5000;
+
+function canUseChatChannel(dbData: ReturnType<typeof getScopedData>, channel: string, userId: string): boolean {
+  if (channel.startsWith('dm:')) return channel.slice(3).split(':').includes(userId);
+  if (channel.startsWith('group:')) return canAccessGroupChannel(dbData, channel, userId);
+  return channel === 'team';
+}
+
+// 대화방에 누가 어디까지 읽었는지(reads)와 지금 입력 중인 사람(typing)을 한 번에 준다.
+app.get('/api/chat/state', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const channel = String(req.query.channel || 'team');
+  const dbData = getScopedData(req);
+  if (!canUseChatChannel(dbData, channel, requester.id)) {
+    return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
+  }
+
+  const reads: Record<string, string> = {};
+  (dbData.chatReads || []).filter(r => r.channel === channel).forEach(r => { reads[r.userId] = r.readUpTo; });
+
+  const now = Date.now();
+  const typingMap = chatTyping.get(channel) || new Map<string, { name: string; at: number }>();
+  const typing = [...typingMap.entries()]
+    .filter(([uid, v]) => uid !== requester.id && now - v.at < CHAT_TYPING_TTL_MS)
+    .map(([uid, v]) => ({ userId: uid, name: v.name }));
+
+  res.json({ reads, typing });
+});
+
+// 대화방을 보고 있으면 "upTo 시각까지의 메시지를 읽었다"고 기록한다. 시각은 뒤로 되돌리지 않는다.
+app.post('/api/chat/read', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const channel = String(req.body.channel || '');
+  const upTo = typeof req.body.upTo === 'string' ? req.body.upTo : '';
+  if (!channel || !upTo || Number.isNaN(Date.parse(upTo))) {
+    return res.status(400).json({ error: '읽음 정보가 올바르지 않습니다.' });
+  }
+  const scopeId = req.scopeId;
+  const dbData = getScopedData(req);
+  if (!canUseChatChannel(dbData, channel, requester.id)) {
+    return res.status(403).json({ error: '이 대화를 조회할 권한이 없습니다.' });
+  }
+
+  dbData.chatReads = dbData.chatReads || [];
+  const id = `${channel}|${requester.id}`;
+  const existing = dbData.chatReads.find(r => r.id === id);
+  const readUpTo = existing && existing.readUpTo > upTo ? existing.readUpTo : upTo;
+  if (existing && existing.readUpTo === readUpTo) return res.json({ ok: true, readUpTo });
+
+  const doc: ChatRead = { id, channel, userId: requester.id, readUpTo };
+  dbData.chatReads = [...dbData.chatReads.filter(r => r.id !== id), doc];
+  await setScopedDoc(scopeId, 'chatReads', doc);
+  res.json({ ok: true, readUpTo });
+});
+
+// 입력 중 상태 알림. typing=false면 바로 끈다.
+app.post('/api/chat/typing', (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const channel = String(req.body.channel || '');
+  const typing = req.body.typing !== false;
+  const dbData = getScopedData(req);
+  if (!channel || !canUseChatChannel(dbData, channel, requester.id)) {
+    return res.status(403).json({ error: '이 대화에 권한이 없습니다.' });
+  }
+
+  let map = chatTyping.get(channel);
+  if (!map) {
+    map = new Map();
+    chatTyping.set(channel, map);
+  }
+  if (typing) map.set(requester.id, { name: requester.name, at: Date.now() });
+  else map.delete(requester.id);
+  res.json({ ok: true });
 });
 
 // [추가] 소그룹(부서/프로젝트 단위 등, 2명 이상 지정) 채팅방. 팀 전체 채널과 1:1 대화만
