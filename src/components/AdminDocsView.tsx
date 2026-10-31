@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye } from 'lucide-react';
@@ -321,8 +321,11 @@ const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
   const header = document.querySelector('header');
   const tabbar = document.querySelector('[data-app-tabbar]');
+  const fixedTop = document.getElementById('admin-fixed-top');
+  const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+  const fixedBottom = fixedTop ? fixedTop.getBoundingClientRect().bottom : 0;
   return {
-    top: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+    top: Math.round(Math.max(headerBottom, fixedBottom)),
     bottom: tabbar ? Math.round(window.innerHeight - tabbar.getBoundingClientRect().top) : 0
   };
 };
@@ -882,6 +885,25 @@ function calcDeductions(
 export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects }) => {
   const categories = CATEGORY_CONFIG[section];
   const [activeCategory, setActiveCategory] = useState<AdminDocCategory>(categories[0].id);
+  // [추가] 모바일: 서류 종류 탭과 검색 줄을 상단 헤더 아래에 고정 (전자결재와 같은 방식)
+  const adminTopRef = useRef<HTMLDivElement>(null);
+  const [adminTopHeight, setAdminTopHeight] = useState(0);
+  const [adminHeaderBottom, setAdminHeaderBottom] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const h = document.querySelector('header');
+      setAdminHeaderBottom(h ? Math.round(h.getBoundingClientRect().bottom) : 0);
+      if (adminTopRef.current) setAdminTopHeight(Math.round(adminTopRef.current.getBoundingClientRect().height));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' && adminTopRef.current ? new ResizeObserver(measure) : null;
+    if (ro && adminTopRef.current) ro.observe(adminTopRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      ro?.disconnect();
+    };
+  }, []);
   const [docs, setDocs] = useState<AdminDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -5854,8 +5876,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-500/30 px-2.5 py-1 rounded-full font-semibold">관리자 전용</span>
       </div>
 
+      {/* 모바일: 서류 종류 탭과 검색 줄을 상단에 고정 (PC는 그대로) */}
+      <div className="md:hidden" style={{ height: adminTopHeight }} />
+      <div ref={adminTopRef} id="admin-fixed-top" style={{ top: adminHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 space-y-2 md:static md:bg-transparent md:p-0 md:space-y-5">
       {/* 서류 종류 서브 탭 */}
-      <div className="flex items-end gap-6 overflow-x-auto scrollbar-none border-b border-slate-200">
+      <div className="flex items-end gap-6 overflow-x-auto scrollbar-none md:border-b md:border-slate-200">
         {categories.map((c) => (
           <button
             key={c.id}
@@ -5870,6 +5895,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         ))}
       </div>
 
+      <div aria-hidden className="md:hidden mx-auto w-[90%] h-px bg-slate-300" />
       {/* 검색 + 추가 버튼 */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -5913,6 +5939,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <Plus className="w-4 h-4" />
           <span>{activeConfig.label} 추가</span>
         </button>
+      </div>
+      <div aria-hidden className="md:hidden h-px bg-slate-300 -mx-3" />
       </div>
 
       {/* [추가] 통장 출금/입금 내역만 엑셀 가져오기/내보내기 제공. 은행 사이트에서 받은
@@ -9914,7 +9942,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     않고, 어느 통장(은행+계좌번호)의 내역인지 먼저 고르게 한다. 이미 등록된 통장을 고르면
     거기에 이어붙이고(중복 자동 제외), 새 통장이면 은행명/계좌번호를 입력해 등록한다. */}
     {pendingBankImport && (
-      <div className="fixed inset-0 z-[100] bg-slate-900/70 flex items-center justify-center p-4">
+      <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
           <div>
             <h3 className="text-base font-bold text-slate-800">
@@ -9993,7 +10021,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     OUTFLOWS 행/경비 항목은 통장 출금 내역에서 골라 그 행의 해당 월 칸에 채워 넣는다
     (관리비내역의 자동 불러오기와 같은 방식). */}
     {cashFlowImportTarget && (
-      <div className="fixed inset-0 z-[100] bg-slate-900/70 flex items-center justify-center p-4">
+      <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div>
