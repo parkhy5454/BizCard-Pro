@@ -2743,11 +2743,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   {/* 카드 헤더 클릭 시 아코디언 */}
                   <div
                     onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                    className="p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-850/30 select-none"
+                    className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-4 cursor-pointer hover:bg-slate-850/30 select-none"
                   >
-                    <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex-1 min-w-0 w-full space-y-2">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className={`px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 font-mono ${
+                        <span className={`px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 font-mono whitespace-nowrap shrink-0 ${
                           activeSubTab === 'daily'
                             ? 'bg-blue-50 text-blue-700 border border-blue-500/20'
                             : 'bg-indigo-50 text-indigo-700 border border-indigo-500/20'
@@ -2771,7 +2771,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                         ))}
 
                         {(log.author || log.department) && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-slate-100/80 text-slate-600 border border-slate-200 flex items-center gap-1.5">
+                          <span className="px-2.5 py-0.5 rounded-full bg-slate-100/80 text-slate-600 border border-slate-200 flex items-center gap-1.5 whitespace-nowrap">
                             <User className="w-3 h-3 text-emerald-400" />
                             {log.author && <span className="font-bold">{log.author}</span>}
                             {log.department && <span className="text-slate-500 text-[11px]">({log.department})</span>}
@@ -2784,7 +2784,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                       </h3>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-auto">
                       {activeSubTab === 'weekly' && (
                         <button
                           onClick={(e) => {
