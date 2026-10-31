@@ -413,6 +413,17 @@ const getApprovalModalTopInset = (): number => {
   });
   return Math.max(0, bottom);
 };
+// [추가] 로고/직인 설정 팝업은 작성·내 서명 줄까지 가리고 탭 줄 바로 아래부터 펼쳐 내용이 한눈에 보이게 한다
+const getBrandingModalTopInset = (): number => {
+  let bottom = 0;
+  const header = document.querySelector('header') as HTMLElement | null;
+  if (header) bottom = Math.max(bottom, header.getBoundingClientRect().bottom);
+  ['app-top-action-row', 'app-projects-top-bar', 'approval-top-bar', 'approval-tab-row'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
+  });
+  return Math.max(0, bottom);
+};
 const getApprovalModalBottomInset = (): number => {
   const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
   if (!el) return 0;
@@ -2275,7 +2286,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         {/* 모바일: 아래 고정 탭이 차지할 자리만큼 빈 공간 */}
         <div className="md:hidden" style={{ height: approvalTabsHeight }} />
         <div id="approval-fixed-tabs" ref={approvalTabsRef} style={{ top: approvalHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 md:static md:bg-transparent md:border-0 md:px-0 md:pt-0 md:pb-0 md:flex-1 md:min-w-0">
-        <div className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
+        <div id="approval-tab-row" className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
           <button
             onClick={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false); setActiveApprovalTab('advance'); }}
             className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
@@ -3626,7 +3637,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           공문서 상단 로고와 하단 직인(도장) 이미지를 각 회사가 직접 올려서, 더 이상
           카이저솔루션 것이 다른 회사 문서에 찍히지 않도록 한다. */}
       {isBrandingModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-white md:bg-slate-900/60 md:backdrop-blur-sm" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined} onClick={() => setIsBrandingModalOpen(false)}>
+        <div className="fixed inset-0 z-[100] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-white md:bg-slate-900/60 md:backdrop-blur-sm" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getBrandingModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined} onClick={() => setIsBrandingModalOpen(false)}>
           <div className="bg-white md:border md:border-slate-200 rounded-none md:rounded-2xl w-full md:max-w-md p-4 md:p-5 space-y-5 md:space-y-4 h-full md:h-auto overflow-y-auto shadow-none md:shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg md:text-base font-bold text-slate-800 flex items-center gap-2"><ImageIcon className="w-5 h-5 md:w-4 md:h-4 text-indigo-500" /> 공문서 로고/직인 설정</h3>
