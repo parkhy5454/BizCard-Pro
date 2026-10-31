@@ -2659,20 +2659,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               <button onClick={() => setIsImportModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
             </div>
 
-            <div className="px-6 pt-4">
+            <div className="px-4 sm:px-6 pt-4">
               <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3 flex-wrap min-w-0">
-                <div className="flex items-center gap-1.5 whitespace-nowrap overflow-x-auto scrollbar-none min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap overflow-x-auto scrollbar-none min-w-0">
                   <button onClick={() => { setImportTab('worklog'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-base font-bold shrink-0 whitespace-nowrap transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
-                    <ClipboardList className="w-4 h-4" /> 업무일지 ({importWorklogRows.length})
+                    className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-base font-bold shrink-0 whitespace-nowrap transition-all ${importTab === 'worklog' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
+                    <ClipboardList className="w-4 h-4 hidden sm:inline" /> 업무일지 ({importWorklogRows.length})
                   </button>
                   <button onClick={() => { setImportTab('vehicle'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-base font-bold shrink-0 whitespace-nowrap transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
-                    <Car className="w-4 h-4" /> 차량 ({importVehicleRows.length})
+                    className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-base font-bold shrink-0 whitespace-nowrap transition-all ${importTab === 'vehicle' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
+                    <Car className="w-4 h-4 hidden sm:inline" /> 차량 ({importVehicleRows.length})
                   </button>
                   <button onClick={() => { setImportTab('maintenance'); setImportProjectFilter('all'); }}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-base font-bold shrink-0 whitespace-nowrap transition-all ${importTab === 'maintenance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
-                    <Wrench className="w-4 h-4" /> 정비 ({importMaintenanceRows.length})
+                    className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-base font-bold shrink-0 whitespace-nowrap transition-all ${importTab === 'maintenance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:bg-slate-100/60 border border-transparent'}`}>
+                    <Wrench className="w-4 h-4 hidden sm:inline" /> 정비 ({importMaintenanceRows.length})
                   </button>
                 </div>
                 {(() => {
