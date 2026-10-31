@@ -109,7 +109,8 @@ const getWorkLogModalTopInset = (): number => {
   let bottom = 0;
   const header = document.querySelector('header') as HTMLElement | null;
   if (header) bottom = Math.max(bottom, header.getBoundingClientRect().bottom);
-  ['app-top-action-row', 'app-projects-top-bar'].forEach((id) => {
+  // 업무일지 상단 바(작성 + 일일/주간/월간/출력)가 팝업에 가려지지 않도록 포함
+  ['app-top-action-row', 'app-projects-top-bar', 'worklog-top-bar'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
   });
@@ -2201,7 +2202,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     <div className="space-y-3">
       
       {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
-      <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100 p-2.5 sm:p-4 border border-slate-200 rounded-3xl backdrop-blur-md">
+      <div id="worklog-top-bar" className="flex items-center gap-1.5 sm:gap-2 bg-slate-100 p-2.5 sm:p-4 border border-slate-200 rounded-3xl backdrop-blur-md">
         {/* [수정] "+ 일일 일지 작성" 버튼을 항상 맨 왼쪽에 고정, 줄어들지 않게 함 (모바일에서는 "작성"으로 줄임) */}
         <div className="flex gap-2 shrink-0">
           <button
