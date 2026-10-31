@@ -154,7 +154,7 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
   return (
     <div className="fixed inset-0 z-[100] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-white md:bg-slate-900/60 md:backdrop-blur-sm" style={mobileModalInsets()}>
       <div className="bg-white md:border md:border-slate-200 rounded-none md:rounded-2xl w-full md:max-w-md h-full md:h-auto flex flex-col overflow-y-auto md:overflow-hidden shadow-none md:shadow-2xl">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50 shrink-0">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white md:bg-slate-50 shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 md:w-8 md:h-8 rounded-lg bg-indigo-50 border border-indigo-500/20 flex items-center justify-center">
               <PenTool className="w-5 h-5 md:w-4 md:h-4 text-indigo-500" />
@@ -171,7 +171,7 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
 
         <div className="p-4 space-y-4 md:space-y-3 flex-1 min-h-0">
           {/* [추가] 직접 그리기 / 파일 업로드 전환 탭 */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <div className="flex items-center gap-1.5 p-1 bg-white md:bg-slate-100 border border-slate-200 md:border-0 rounded-xl">
             <button
               type="button"
               onClick={() => { setMode('draw'); setError(''); }}

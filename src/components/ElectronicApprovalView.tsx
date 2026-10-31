@@ -3639,7 +3639,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             <div className="space-y-2">
               <label className="text-base md:text-xs font-bold text-slate-600">상단 로고</label>
               <div className="flex items-center gap-3">
-                <div className="w-24 h-24 md:w-20 md:h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
+                <div className="w-24 h-24 md:w-20 md:h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-white md:bg-slate-50 shrink-0">
                   {(brandingLogoPreview || branding.logoUrl) ? (
                     <img src={brandingLogoPreview || branding.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
                   ) : (
