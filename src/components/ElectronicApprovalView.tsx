@@ -2218,7 +2218,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               <p className="text-base">등록된 가지급금 정산서가 없습니다.</p>
             </div>
           ) : (
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-3 -mx-1 px-1 [scrollbar-width:thin]">
+            <div className="flex flex-col gap-0 md:flex-row md:gap-3 md:overflow-x-auto md:snap-x md:snap-mandatory md:pb-3 [scrollbar-width:thin]">
               {[...advanceList].sort((a, b) => {
                 const byDate = (b.periodStart || '').localeCompare(a.periodStart || '');
                 if (byDate !== 0) return byDate;
@@ -2226,17 +2226,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               }).slice(0, visibleAdvanceCount).map(doc => {
                 const total = (doc.items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
                 return (
-                  <div key={doc.id} className="bg-slate-100 border border-slate-200 rounded-2xl p-4 space-y-2.5 snap-center shrink-0 w-[88vw] sm:w-[420px]">
+                  <div key={doc.id} className="bg-white md:bg-slate-100 border-0 border-b md:border md:border-slate-200 rounded-none md:rounded-2xl px-0 md:px-4 py-4 space-y-3 md:snap-center md:shrink-0 md:w-[420px]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-slate-800 truncate">{doc.companyName} 가지급금 정산서</h3>
+                          <h3 className="font-bold text-lg text-slate-800 truncate">{doc.companyName} 가지급금 정산서</h3>
                           <StatusBadge status={doc.status} />
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                          <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" />{doc.author}</span>
-                          <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{doc.department}</span>
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</span>
+                        <div className="flex items-center gap-x-3 gap-y-1.5 text-sm text-slate-500 flex-wrap">
+                          <span className="flex items-center gap-1"><UserIcon className="w-4 h-4" />{doc.author}</span>
+                          <span className="flex items-center gap-1"><Briefcase className="w-4 h-4" />{doc.department}</span>
+                          <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{formatKoreanPeriod(doc.periodStart, doc.periodEnd)}</span>
                         </div>
                         <ApprovalLineMini line={doc.approvalLine || []} />
                       </div>
@@ -2253,23 +2253,23 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                       </div>
                     </div>
 
-                    <div className="text-xs bg-slate-100 rounded-xl p-3 flex items-center justify-between">
-                      <span className="text-slate-400">정산 항목 {(doc.items || []).length}건</span>
-                      <span className="font-bold text-slate-700">총 합계 {formatCurrencyInput(total)}원</span>
+                    <div className="text-base border-y md:border-0 border-slate-200 bg-transparent md:bg-slate-100 md:rounded-xl py-3 md:p-3 flex items-center justify-between">
+                      <span className="text-slate-500">정산 항목 {(doc.items || []).length}건</span>
+                      <span className="font-bold text-lg text-slate-800">총 합계 {formatCurrencyInput(total)}원</span>
                     </div>
 
                     {doc.status === 'pending' && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <button onClick={() => handleApproveClick('advance', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold border border-emerald-600/30 transition-colors">
-                          <Check className="w-3.5 h-3.5" /> 다음 결재 승인
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button onClick={() => handleApproveClick('advance', doc.id)} className="flex items-center justify-center gap-1 px-4 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-base font-bold border border-emerald-600/30 transition-colors">
+                          <Check className="w-4 h-4" /> 다음 결재 승인
                         </button>
-                        <button onClick={() => rejectDoc('advance', doc.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-xs font-bold border border-rose-600/30 transition-colors">
-                          <X className="w-3.5 h-3.5" /> 반려
+                        <button onClick={() => rejectDoc('advance', doc.id)} className="flex items-center justify-center gap-1 px-4 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-base font-bold border border-rose-600/30 transition-colors">
+                          <X className="w-4 h-4" /> 반려
                         </button>
                       </div>
                     )}
                     {doc.status === 'rejected' && doc.approverMemo && (
-                      <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">반려 사유: {doc.approverMemo}</p>
+                      <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">반려 사유: {doc.approverMemo}</p>
                     )}
                   </div>
                 );
