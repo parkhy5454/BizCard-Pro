@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { MessagesSquare, Send, Plus, X, Check, Search, Hash, UsersRound, ChevronLeft } from 'lucide-react';
+import { MessagesSquare, Send, Plus, X, Check, Search, Hash, UsersRound, ChevronLeft, Users, UserPlus, UserMinus, LogOut, Pencil } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
 import { getErrorMessage } from '../errorUtils.js';
@@ -29,6 +29,7 @@ interface ChatGroupItem {
   id: string;
   name: string;
   memberUserIds: string[];
+  createdByUserId?: string;
 }
 
 type RoomKind = 'team' | 'group' | 'dm';
@@ -153,6 +154,11 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
   const [typingUsers, setTypingUsers] = useState<{ userId: string; name: string }[]>([]);
   const postedReadRef = useRef<Record<string, string>>({});
   const typingSentRef = useRef(0);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [groupEditName, setGroupEditName] = useState<string | null>(null);
+  const [groupAddIds, setGroupAddIds] = useState<string[] | null>(null);
+  const [groupBusy, setGroupBusy] = useState(false);
+  const [groupInfoError, setGroupInfoError] = useState('');
 
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -295,6 +301,7 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     setActiveChannel(channel);
     setRoomOpen(true);
     setIsCreatingGroup(false);
+    setShowGroupInfo(false);
     scrolledChannelRef.current = null;
     setLoadingRoom(true);
     fetchMessages(channel)
@@ -470,6 +477,81 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     }
   };
 
+  const activeGroup = activeChannel.startsWith('group:') ? groups.find((g) => groupChannelId(g.id) === activeChannel) : undefined;
+
+  const nameOf = (userId: string): string => {
+    if (userId === currentUser.id) return currentUser.name;
+    return coworkers.find((c) => c.id === userId)?.name || '알 수 없는 사용자';
+  };
+
+  // 그룹 관리 요청을 보내고, 성공하면 갱신된 그룹을 돌려받는다.
+  const runGroupAction = async (body: Record<string, unknown>): Promise<ChatGroupItem | null> => {
+    if (!activeGroup) return null;
+    setGroupBusy(true);
+    setGroupInfoError('');
+    try {
+      const res = await fetch(`/api/chat/groups/${encodeURIComponent(activeGroup.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '저장하지 못했습니다.');
+      return data as ChatGroupItem;
+    } catch (err: unknown) {
+      setGroupInfoError(getErrorMessage(err) || '저장하지 못했습니다.');
+      return null;
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const applyGroup = (updated: ChatGroupItem) => {
+    setGroups((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+  };
+
+  const saveGroupName = async () => {
+    const name = (groupEditName || '').trim();
+    if (!name) {
+      setGroupInfoError('그룹 이름을 입력해주세요.');
+      return;
+    }
+    const updated = await runGroupAction({ action: 'rename', name });
+    if (updated) {
+      applyGroup(updated);
+      setGroupEditName(null);
+    }
+  };
+
+  const saveGroupAdd = async () => {
+    if (!groupAddIds || groupAddIds.length === 0) {
+      setGroupInfoError('추가할 동료를 선택해주세요.');
+      return;
+    }
+    const updated = await runGroupAction({ action: 'add', userIds: groupAddIds });
+    if (updated) {
+      applyGroup(updated);
+      setGroupAddIds(null);
+    }
+  };
+
+  const removeGroupMember = async (userId: string) => {
+    if (!window.confirm(`${nameOf(userId)}님을 그룹에서 내보낼까요?`)) return;
+    const updated = await runGroupAction({ action: 'remove', userId });
+    if (updated) applyGroup(updated);
+  };
+
+  const leaveGroup = async () => {
+    if (!window.confirm('이 그룹 대화방을 나갈까요? 나가면 대화 목록에서 사라집니다.')) return;
+    const updated = await runGroupAction({ action: 'leave' });
+    if (updated) {
+      setGroups((prev) => prev.filter((g) => g.id !== updated.id));
+      setShowGroupInfo(false);
+      setRoomOpen(false);
+      setActiveChannel(TEAM_CHANNEL);
+    }
+  };
+
   const lastOf = (channel: string): ChatMessageItem | undefined => {
     const arr = messagesByChannel[channel];
     return arr && arr.length ? arr[arr.length - 1] : undefined;
@@ -578,6 +660,124 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
     );
   };
 
+  // 그룹 정보 패널: 이름 변경, 멤버 보기/추가/내보내기, 나가기
+  const renderGroupInfo = (group: ChatGroupItem) => {
+    const isOwner = group.createdByUserId === currentUser.id;
+    const addable = coworkers.filter((c) => !group.memberUserIds.includes(c.id));
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto bg-white p-4 space-y-5">
+        <div>
+          <p className="text-xs font-bold text-slate-500 mb-2">그룹 이름</p>
+          {groupEditName === null ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-3">
+              <span className="text-base font-bold text-slate-900 truncate">{group.name}</span>
+              <button
+                onClick={() => {
+                  setGroupInfoError('');
+                  setGroupEditName(group.name);
+                }}
+                className="shrink-0 flex items-center gap-1 text-sm font-bold text-indigo-600 px-2 py-1"
+              >
+                <Pencil className="w-4 h-4" /> 변경
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                type="text"
+                value={groupEditName}
+                maxLength={30}
+                onChange={(e) => setGroupEditName(e.target.value)}
+                className="flex-1 min-w-0 text-base px-3.5 py-2.5 rounded-xl bg-slate-100 outline-none focus:ring-1 focus:ring-indigo-300"
+              />
+              <button onClick={saveGroupName} disabled={groupBusy} className="shrink-0 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold disabled:opacity-50">
+                저장
+              </button>
+              <button onClick={() => setGroupEditName(null)} className="shrink-0 px-3 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold">
+                취소
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-slate-500">멤버 {group.memberUserIds.length}명</p>
+            {groupAddIds === null && addable.length > 0 && (
+              <button
+                onClick={() => {
+                  setGroupInfoError('');
+                  setGroupAddIds([]);
+                }}
+                className="flex items-center gap-1 text-sm font-bold text-indigo-600"
+              >
+                <UserPlus className="w-4 h-4" /> 멤버 추가
+              </button>
+            )}
+          </div>
+
+          {groupAddIds !== null && (
+            <div className="mb-3 rounded-xl border border-slate-200 divide-y divide-slate-100">
+              {addable.map((c) => (
+                <label key={c.id} className="flex items-center gap-3 px-3.5 py-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={groupAddIds.includes(c.id)}
+                    onChange={() =>
+                      setGroupAddIds((prev) => {
+                        const cur = prev || [];
+                        return cur.includes(c.id) ? cur.filter((id) => id !== c.id) : [...cur, c.id];
+                      })
+                    }
+                    className="w-5 h-5 accent-indigo-600"
+                  />
+                  <span className="text-base text-slate-800">{c.name}</span>
+                  <span className="text-sm text-slate-400">{c.position}</span>
+                </label>
+              ))}
+              <div className="flex gap-2 p-3">
+                <button onClick={saveGroupAdd} disabled={groupBusy} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold disabled:opacity-50">
+                  추가하기
+                </button>
+                <button onClick={() => setGroupAddIds(null)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold">
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
+
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            {group.memberUserIds.map((uid) => (
+              <li key={uid} className="flex items-center gap-3 px-3.5 py-3">
+                {renderPerson(uid, nameOf(uid), 'w-9 h-9', 'text-sm')}
+                <p className="flex-1 min-w-0 text-base font-medium text-slate-900 truncate">
+                  {nameOf(uid)}
+                  {uid === currentUser.id && <span className="text-xs text-slate-400 ml-1.5">나</span>}
+                </p>
+                {isOwner && uid !== currentUser.id && (
+                  <button onClick={() => removeGroupMember(uid)} disabled={groupBusy} aria-label="내보내기" className="p-2 rounded-lg text-rose-500 active:bg-rose-50 disabled:opacity-50">
+                    <UserMinus className="w-4 h-4" />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {groupInfoError && <p className="text-sm text-rose-500">{groupInfoError}</p>}
+
+        <button
+          onClick={leaveGroup}
+          disabled={groupBusy}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-rose-200 text-rose-600 text-base font-bold active:bg-rose-50 disabled:opacity-50"
+        >
+          <LogOut className="w-4 h-4" /> 그룹 나가기
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-4xl mx-auto md:py-6 md:px-4">
       <div className="flex items-center gap-2 px-4 pt-4 pb-3 md:px-0 md:pt-0 md:mb-4">
@@ -633,19 +833,39 @@ export const TeamChatView: React.FC<Props> = ({ currentUser }) => {
         >
           <div className="flex items-center gap-1 px-2 md:px-4 py-2.5 md:py-3 bg-white border-b border-slate-200 shrink-0">
             <button
-              onClick={() => (isCreatingGroup ? setIsCreatingGroup(false) : setRoomOpen(false))}
+              onClick={() => {
+                if (isCreatingGroup) setIsCreatingGroup(false);
+                else if (showGroupInfo) setShowGroupInfo(false);
+                else setRoomOpen(false);
+              }}
               className="md:hidden p-2 rounded-full text-slate-700 active:bg-slate-100 shrink-0"
               aria-label="뒤로"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <div className="flex-1 min-w-0 px-1">
-              <p className="text-base font-bold text-slate-900 truncate">{isCreatingGroup ? '새 그룹 채팅' : headerTitle}</p>
-              {!isCreatingGroup && headerSub && <p className="text-xs text-slate-500 truncate">{headerSub}</p>}
+              <p className="text-base font-bold text-slate-900 truncate">{isCreatingGroup ? '새 그룹 채팅' : showGroupInfo ? '그룹 정보' : headerTitle}</p>
+              {!isCreatingGroup && !showGroupInfo && headerSub && <p className="text-xs text-slate-500 truncate">{headerSub}</p>}
             </div>
+            {activeGroup && !isCreatingGroup && (
+              <button
+                onClick={() => {
+                  setShowGroupInfo((v) => !v);
+                  setGroupEditName(null);
+                  setGroupAddIds(null);
+                  setGroupInfoError('');
+                }}
+                aria-label="그룹 정보"
+                className="p-2 rounded-full text-slate-700 active:bg-slate-100 shrink-0"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
-          {isCreatingGroup ? (
+          {showGroupInfo && activeGroup ? (
+            renderGroupInfo(activeGroup)
+          ) : isCreatingGroup ? (
             <div className="flex-1 min-h-0 flex flex-col p-4 overflow-y-auto bg-white">
               <div className="hidden md:flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-slate-800">새 그룹 채팅 만들기</h3>

@@ -2256,6 +2256,65 @@ app.post('/api/chat/groups', async (req, res) => {
   res.status(201).json(group);
 });
 
+// [추가] 그룹방 관리. 이름 변경 / 멤버 추가 / 나가기는 멤버라면 누구나 할 수 있고,
+// 멤버 내보내기는 그룹을 만든 사람만 할 수 있다. 저장이 실패하면 이전 상태로 되돌린다.
+app.patch('/api/chat/groups/:id', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === userId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const dbData = getScopedData(req);
+  const scopeId = req.scopeId;
+  const groups: ChatGroup[] = dbData.chatGroups || [];
+  const index = groups.findIndex(g => g.id === req.params.id);
+  const group = index === -1 ? undefined : groups[index];
+  if (!group || !group.memberUserIds.includes(requester.id)) {
+    return res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
+  }
+
+  const previous: ChatGroup = { ...group, memberUserIds: [...group.memberUserIds] };
+  const next: ChatGroup = { ...group, memberUserIds: [...group.memberUserIds] };
+  const action = String(req.body.action || '');
+
+  if (action === 'rename') {
+    const name = String(req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '그룹 이름을 입력해주세요.' });
+    if (name.length > 30) return res.status(400).json({ error: '그룹 이름은 30자 이하로 입력해주세요.' });
+    next.name = name;
+  } else if (action === 'add') {
+    const ids: string[] = Array.isArray(req.body.userIds) ? req.body.userIds.map(String) : [];
+    const fresh = Array.from(new Set(ids)).filter(id => !next.memberUserIds.includes(id));
+    if (fresh.length === 0) return res.status(400).json({ error: '추가할 동료를 선택해주세요.' });
+    const invalid = fresh.find(id => {
+      const u = users.find(cand => cand.id === id);
+      return !u || scopeIdForUser(u) !== scopeId;
+    });
+    if (invalid) return res.status(400).json({ error: '같은 회사 소속 동료만 초대할 수 있습니다.' });
+    next.memberUserIds = [...next.memberUserIds, ...fresh];
+  } else if (action === 'remove') {
+    if (group.createdByUserId !== requester.id) {
+      return res.status(403).json({ error: '그룹을 만든 사람만 멤버를 내보낼 수 있습니다.' });
+    }
+    const targetId = String(req.body.userId || '');
+    if (!targetId || targetId === requester.id || !next.memberUserIds.includes(targetId)) {
+      return res.status(400).json({ error: '내보낼 멤버를 확인해주세요.' });
+    }
+    next.memberUserIds = next.memberUserIds.filter(id => id !== targetId);
+  } else if (action === 'leave') {
+    next.memberUserIds = next.memberUserIds.filter(id => id !== requester.id);
+  } else {
+    return res.status(400).json({ error: '알 수 없는 요청입니다.' });
+  }
+
+  groups[index] = next;
+  const saved = await setScopedDoc(scopeId, 'chatGroups', next);
+  if (!saved) {
+    groups[index] = previous;
+    return res.status(500).json({ error: '그룹 정보를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+  }
+  res.json(next);
+});
+
 // 🔐 Auth APIs
 
 /**
