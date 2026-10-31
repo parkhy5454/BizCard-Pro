@@ -3626,20 +3626,20 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           공문서 상단 로고와 하단 직인(도장) 이미지를 각 회사가 직접 올려서, 더 이상
           카이저솔루션 것이 다른 회사 문서에 찍히지 않도록 한다. */}
       {isBrandingModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsBrandingModalOpen(false)}>
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-white md:bg-slate-900/60 md:backdrop-blur-sm" style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined} onClick={() => setIsBrandingModalOpen(false)}>
+          <div className="bg-white md:border md:border-slate-200 rounded-none md:rounded-2xl w-full md:max-w-md p-4 md:p-5 space-y-5 md:space-y-4 h-full md:h-auto overflow-y-auto shadow-none md:shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2"><ImageIcon className="w-4 h-4 text-indigo-500" /> 공문서 로고/직인 설정</h3>
+              <h3 className="text-lg md:text-base font-bold text-slate-800 flex items-center gap-2"><ImageIcon className="w-5 h-5 md:w-4 md:h-4 text-indigo-500" /> 공문서 로고/직인 설정</h3>
               <button onClick={() => setIsBrandingModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5 md:w-4 md:h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-400">여기서 올린 이미지는 우리 회사 공문서에만 반영되고, 다른 회사에는 영향이 없습니다.</p>
+            <p className="text-base md:text-base md:text-xs text-slate-500 md:text-slate-400">여기서 올린 이미지는 우리 회사 공문서에만 반영되고, 다른 회사에는 영향이 없습니다.</p>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-600">상단 로고</label>
+              <label className="text-base md:text-xs font-bold text-slate-600">상단 로고</label>
               <div className="flex items-center gap-3">
-                <div className="w-20 h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
+                <div className="w-24 h-24 md:w-20 md:h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
                   {(brandingLogoPreview || branding.logoUrl) ? (
                     <img src={brandingLogoPreview || branding.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
                   ) : (
@@ -3647,12 +3647,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold text-center cursor-pointer">
+                  <label className="px-3 py-2.5 md:py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-base md:text-xs font-bold text-center cursor-pointer">
                     이미지 선택
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBrandingFileSelect('logo', e.target.files?.[0])} />
                   </label>
                   {branding.logoUrl && (
-                    <button onClick={() => handleRemoveBrandingImage('logo')} className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 text-xs font-bold flex items-center justify-center gap-1">
+                    <button onClick={() => handleRemoveBrandingImage('logo')} className="px-3 py-2.5 md:py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 text-base md:text-xs font-bold flex items-center justify-center gap-1">
                       <Trash className="w-3 h-3" /> 삭제
                     </button>
                   )}
@@ -3661,9 +3661,9 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-600">하단 직인(도장)</label>
+              <label className="text-base md:text-xs font-bold text-slate-600">하단 직인(도장)</label>
               <div className="flex items-center gap-3">
-                <div className="w-20 h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
+                <div className="w-24 h-24 md:w-20 md:h-20 rounded-xl border border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 shrink-0">
                   {(brandingSealPreview || branding.sealUrl) ? (
                     <img src={brandingSealPreview || branding.sealUrl} alt="" className="max-w-full max-h-full object-contain" />
                   ) : (
@@ -3671,12 +3671,12 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold text-center cursor-pointer">
+                  <label className="px-3 py-2.5 md:py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-base md:text-xs font-bold text-center cursor-pointer">
                     이미지 선택
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBrandingFileSelect('seal', e.target.files?.[0])} />
                   </label>
                   {branding.sealUrl && (
-                    <button onClick={() => handleRemoveBrandingImage('seal')} className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 text-xs font-bold flex items-center justify-center gap-1">
+                    <button onClick={() => handleRemoveBrandingImage('seal')} className="px-3 py-2.5 md:py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 text-base md:text-xs font-bold flex items-center justify-center gap-1">
                       <Trash className="w-3 h-3" /> 삭제
                     </button>
                   )}
@@ -3684,19 +3684,19 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               </div>
             </div>
 
-            {brandingError && <p className="text-xs text-rose-500">{brandingError}</p>}
+            {brandingError && <p className="text-base md:text-xs text-rose-500">{brandingError}</p>}
 
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={handleSaveBranding}
                 disabled={savingBranding}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 md:py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-base md:text-xs font-bold transition-colors"
               >
                 <Check className="w-3.5 h-3.5" /> {savingBranding ? '저장 중...' : '저장'}
               </button>
               <button
                 onClick={() => { setIsBrandingModalOpen(false); setBrandingLogoPreview(null); setBrandingSealPreview(null); setBrandingError(''); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 md:py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-base md:text-xs font-bold transition-colors"
               >
                 취소
               </button>

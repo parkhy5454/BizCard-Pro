@@ -18,6 +18,22 @@ interface Props {
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5MB
 
+// [추가] 모바일에서는 팝업이 상단 헤더·결재 탭과 하단 탭을 가리지 않도록 보이는 영역 사이에만 펼친다
+const mobileModalInsets = (): React.CSSProperties | undefined => {
+  if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
+  let top = 0;
+  const header = document.querySelector('header') as HTMLElement | null;
+  if (header) top = Math.max(top, header.getBoundingClientRect().bottom);
+  ['app-top-action-row', 'app-projects-top-bar', 'approval-top-bar', 'approval-fixed-tabs'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) top = Math.max(top, el.getBoundingClientRect().bottom);
+  });
+  let bottom = 0;
+  const tabbar = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (tabbar && tabbar.getBoundingClientRect().height > 0) bottom = Math.max(0, window.innerHeight - tabbar.getBoundingClientRect().top);
+  return { top, bottom };
+};
+
 export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSaved }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -136,16 +152,16 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+    <div className="fixed inset-0 z-[100] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-white md:bg-slate-900/60 md:backdrop-blur-sm" style={mobileModalInsets()}>
+      <div className="bg-white md:border md:border-slate-200 rounded-none md:rounded-2xl w-full md:max-w-md h-full md:h-auto flex flex-col overflow-y-auto md:overflow-hidden shadow-none md:shadow-2xl">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-500/20 flex items-center justify-center">
-              <PenTool className="w-4 h-4 text-indigo-500" />
+            <div className="w-10 h-10 md:w-8 md:h-8 rounded-lg bg-indigo-50 border border-indigo-500/20 flex items-center justify-center">
+              <PenTool className="w-5 h-5 md:w-4 md:h-4 text-indigo-500" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-800">내 서명 등록</h2>
-              <p className="text-[11px] text-slate-400">전자결재 승인 시 도장처럼 찍힙니다</p>
+              <h2 className="text-lg md:text-sm font-bold text-slate-800">내 서명 등록</h2>
+              <p className="text-base md:text-[11px] text-slate-500 md:text-slate-400">전자결재 승인 시 도장처럼 찍힙니다</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
@@ -153,20 +169,20 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-4 md:space-y-3 flex-1 min-h-0">
           {/* [추가] 직접 그리기 / 파일 업로드 전환 탭 */}
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
             <button
               type="button"
               onClick={() => { setMode('draw'); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${mode === 'draw' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-1.5 rounded-lg text-base md:text-xs font-bold transition-colors ${mode === 'draw' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <PenTool className="w-3.5 h-3.5" /> 직접 그리기
             </button>
             <button
               type="button"
               onClick={() => { setMode('upload'); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${mode === 'upload' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-1.5 rounded-lg text-base md:text-xs font-bold transition-colors ${mode === 'upload' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Upload className="w-3.5 h-3.5" /> 파일 업로드
             </button>
@@ -174,7 +190,7 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
 
           {mode === 'draw' ? (
             <>
-              <p className="text-xs text-slate-500">
+              <p className="text-base md:text-xs text-slate-500">
                 아래 네모 칸에 마우스나 손가락(터치)으로 서명을 그려주세요. 한 번 등록하면 다음 결재부터는 다시 그릴 필요 없이 자동으로 사용됩니다.
               </p>
               <div className="relative border-2 border-dashed border-slate-300 rounded-xl overflow-hidden bg-white">
@@ -189,7 +205,7 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
                   onPointerLeave={handlePointerUp}
                 />
                 {isEmpty && (
-                  <p className="absolute inset-0 flex items-center justify-center text-xs text-slate-300 pointer-events-none">
+                  <p className="absolute inset-0 flex items-center justify-center text-base md:text-xs text-slate-300 pointer-events-none">
                     여기에 서명해주세요
                   </p>
                 )}
@@ -197,7 +213,7 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
             </>
           ) : (
             <>
-              <p className="text-xs text-slate-500">
+              <p className="text-base md:text-xs text-slate-500">
                 서명을 스캔하거나 촬영한 이미지 파일(흰 배경에 서명만 있는 사진이 가장 깔끔하게 나옵니다)을 올려주세요. JPG, PNG 등 5MB 이하 이미지 파일을 지원합니다.
               </p>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
@@ -220,20 +236,20 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
                   className="w-full h-[180px] flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-xl bg-white hover:bg-slate-50 hover:border-indigo-400 text-slate-400 hover:text-indigo-500 transition-colors"
                 >
                   <ImageIcon className="w-7 h-7" />
-                  <span className="text-xs font-bold">탭하여 서명 이미지 선택</span>
+                  <span className="text-base md:text-xs font-bold">탭하여 서명 이미지 선택</span>
                 </button>
               )}
             </>
           )}
 
-          {error && <p className="text-xs text-rose-500 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-base md:text-xs text-rose-500 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{error}</p>}
 
           <div className="flex items-center gap-2">
             {mode === 'draw' && (
               <button
                 onClick={clearCanvas}
                 disabled={isEmpty}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-1.5 px-3.5 py-3 md:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-base md:text-xs font-bold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> 다시 그리기
               </button>
@@ -241,7 +257,7 @@ export const SignaturePadModal: React.FC<Props> = ({ currentUser, onClose, onSav
             <button
               onClick={handleSave}
               disabled={(mode === 'draw' ? isEmpty : !uploadedImage) || isSaving}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3.5 py-3 md:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-base md:text-xs font-bold shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Check className="w-3.5 h-3.5" /> {isSaving ? '저장 중...' : '서명 저장'}
             </button>
