@@ -2317,6 +2317,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           <button
             type="button"
             onClick={() => {
+              setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false);
               if (activeApprovalTab === 'advance') openNewAdvance();
               else if (activeApprovalTab === 'leave') openNewLeave();
               else openNewOfficial();
@@ -2328,7 +2329,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           </button>
           <button
             type="button"
-            onClick={() => { setPendingApprovalTarget(null); setIsSignaturePadOpen(true); }}
+            onClick={() => { setIsAdvanceModalOpen(false); setIsLeaveModalOpen(false); setIsOfficialModalOpen(false); setIsBrandingModalOpen(false); setPendingApprovalTarget(null); setIsSignaturePadOpen(true); }}
             className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-semibold text-[15px] bg-white border border-slate-200 text-slate-600 whitespace-nowrap active:scale-95 transition-colors"
           >
             <PenTool className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -2337,7 +2338,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
           {activeApprovalTab === 'official' && currentUser?.role === 'admin' && (
             <button
               type="button"
-              onClick={() => setIsBrandingModalOpen(true)}
+              onClick={() => { setIsAdvanceModalOpen(false); setIsLeaveModalOpen(false); setIsOfficialModalOpen(false); setIsSignaturePadOpen(false); setIsBrandingModalOpen(true); }}
               className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl font-semibold text-[15px] bg-slate-100 text-slate-600 whitespace-nowrap shrink-0 active:scale-95 transition-colors"
             >
               <ImageIcon className="w-4 h-4 shrink-0" />
@@ -2350,7 +2351,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         </div>
         {/* PC: 기존처럼 상단 오른쪽에 내 서명 버튼 */}
         <button
-          onClick={() => { setPendingApprovalTarget(null); setIsSignaturePadOpen(true); }}
+          onClick={() => { setIsAdvanceModalOpen(false); setIsLeaveModalOpen(false); setIsOfficialModalOpen(false); setIsBrandingModalOpen(false); setPendingApprovalTarget(null); setIsSignaturePadOpen(true); }}
           className="hidden md:flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold text-xs w-auto bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 whitespace-nowrap shrink-0 transition-colors"
         >
           <PenTool className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
@@ -2543,7 +2544,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             {/* [추가] 관리자만 우리 회사 로고/직인을 올리거나 바꿀 수 있다. */}
             {currentUser?.role === 'admin' && (
               <button
-                onClick={() => setIsBrandingModalOpen(true)}
+                onClick={() => { setIsAdvanceModalOpen(false); setIsLeaveModalOpen(false); setIsOfficialModalOpen(false); setIsSignaturePadOpen(false); setIsBrandingModalOpen(true); }}
                 className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm transition-all"
               >
                 <ImageIcon className="w-4 h-4" /><span>로고/직인 설정</span>
