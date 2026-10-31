@@ -651,10 +651,6 @@ export const ProjectsView: React.FC<Props> = ({
   // 화면(카드형/리스트 출력/원가계산서-개별/원가계산서-전체)이 바뀌면, 검색창의 역할이
   // 완전히 달라지므로(자유 필터 ↔ 프로젝트 선택) 이전 화면에서 입력하던 검색어를 그대로
   // 들고 가면 혼란스럽다 - 화면이 바뀔 때마다 검색어를 비우고 드롭다운도 닫는다.
-  // 탭(화면)을 바꾸면 열려 있던 미리보기 창은 닫는다 (닫히지 않으면 다른 탭이 안 보였음)
-  useEffect(() => {
-    setIsProjectsPrintPreviewOpen(false);
-  }, [viewMode, costSheetMode]);
   useEffect(() => {
     setProjectSearchQuery('');
     setIsPnlPickerOpen(false);
@@ -1528,7 +1524,6 @@ export const ProjectsView: React.FC<Props> = ({
     setVisibleProjectCount(50);
   }, [filterStatus, projectSearchQuery, projectSortOrder]);
   // [수정] 등록된 전체 프로젝트를 엑셀/PDF로 다운로드하기 위한 상태
-  const [isProjectsPrintPreviewOpen, setIsProjectsPrintPreviewOpen] = useState<boolean>(false);
   // [추가] "리스트 출력" 표에서 개별/전체 선택 삭제를 위한 선택된 프로젝트 id 목록.
   // 필터가 바뀌어 화면에서 사라진 프로젝트의 선택은 굳이 자동으로 풀지 않아도 되지만
   // (다시 필터를 풀면 여전히 선택돼 있는 게 자연스럽다), 실제로 삭제된 항목은
@@ -2869,166 +2864,42 @@ export const ProjectsView: React.FC<Props> = ({
     })().catch(reportExportFailure);
   };
 
-  // [수정] 화면 미리보기는 실제 인쇄와 별개로, 모달 안에서 넓게(가로로 꽉 차게) 보여주기만
-  // 하면 되므로 액자처럼 감싸던 검은 테두리는 없애고, 표 자체가 모달 폭(297mm까지)을 그대로
-  // 채우도록 한다.
-  const renderPrintableProjectsList = () => (
-    <div id="projects-print-area" className="shrink-0 text-black text-base font-sans leading-snug" style={{ width: '100%', maxWidth: '297mm', margin: '0 auto', padding: '10mm 0' }}>
-      <div className="text-center mb-6">
-        <span className="inline-block border-b-4 border-double border-black pb-1 px-4 text-2xl sm:text-3xl font-extrabold text-black">프로젝트 파이프라인 (Project Pipeline)</span>
-        <p className="text-sm text-gray-500 mt-1">출력일: {new Date().toLocaleDateString('ko-KR')}</p>
-      </div>
-
-        <table className="w-full border-collapse border-[1.5px] border-black text-base">
-          <thead>
-            <tr className="bg-gray-100">
-              {PIPELINE_COLUMNS.map(c => (
-                <th key={c.label} className="border border-black px-2 py-2.5 font-bold">{c.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredProjects.map((p, idx) => (
-              <tr key={p.id}>
-                {PIPELINE_COLUMNS.map(c => (
-                  <td key={c.label} className={`border border-black px-2 py-2.5 text-${c.align}`}>{c.getValue(p, idx)}</td>
-                ))}
-              </tr>
-            ))}
-            {filteredProjects.length === 0 && (
-              <tr><td colSpan={PIPELINE_COLUMNS.length} className="border border-black px-2 py-6 text-center text-gray-400">표시할 프로젝트가 없습니다.</td></tr>
-            )}
-            {filteredProjects.length > 0 && (
-              <tr className="bg-gray-100 font-bold">
-                <td colSpan={PIPELINE_BUDGET_COL_IDX} className="border border-black px-2 py-2.5 text-center">합계</td>
-                <td className="border border-black px-2 py-2.5 text-right">{formatKRW(pipelineTotals.budgetSum)}</td>
-                <td colSpan={PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1} className="border border-black px-2 py-2.5" />
-                <td className="border border-black px-2 py-2.5 text-right">{formatKRW(pipelineTotals.weightedSum)}</td>
-                <td colSpan={PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1} className="border border-black px-2 py-2.5" />
-              </tr>
-            )}
-          </tbody>
-        </table>
-    </div>
-  );
-
-  // [수정] index.css 공용 스타일시트에 있는 named page(@page 커스텀 이름 + page 속성) 방식은
-  // 실제 브라우저의 인쇄 미리보기에서 안정적으로 적용되지 않아("A4 가로"로 지정했는데도
-  // 실제 인쇄 결과는 세로로 좁게 나오는 문제가 있었다), VehicleView.tsx의 문서 인쇄와 동일하게
-  // 이 표 하나만 담긴 완전히 독립된 새 창을 열어서 그 창 안에서 인쇄한다. 이 창의 스타일시트에는
-  // "@page { size: A4 landscape; margin: 20mm 25mm; }" 단 하나의 페이지 규칙만 있으므로, 다른
-  // 문서의 세로 인쇄 설정과 절대 충돌하지 않고 항상 A4 가로로 인쇄된다.
-  // 아이폰(사파리·홈 화면 앱)은 웹페이지의 window.print()가 동작하지 않으므로,
-  // 미리보기 화면을 이미지로 찍어 A4 가로 PDF를 만든 뒤 공유 창(또는 다운로드)으로 보낸다.
-  // 이미지로 찍기 때문에 한글 글꼴이 깨지지 않는다.
+  // 출력 화면의 "PDF 저장" - 미리보기 없이 바로 PDF를 만들어 공유 창(또는 다운로드)으로 보낸다.
   const handlePrintProjectsList = async () => {
-    // 앱 화면의 Tailwind 색(oklch)은 html2canvas가 읽지 못하므로,
-    // 앱 스타일과 분리된 빈 화면(iframe)에 표를 따로 그린 뒤 그 화면을 찍는다.
-    const headers = PIPELINE_COLUMNS.map(c => c.label);
-    const rowsHtml = filteredProjects.length === 0
-      ? `<tr><td colspan="${PIPELINE_COLUMNS.length}" style="text-align:center;color:#6b7280;padding:24px 8px;">표시할 프로젝트가 없습니다.</td></tr>`
-      : filteredProjects.map((p, idx) => `
-        <tr>${PIPELINE_COLUMNS.map(c => `<td style="text-align:${c.align};">${escapeHtml(c.getValue(p, idx))}</td>`).join('')}</tr>`).join('');
-    const totalsHtml = filteredProjects.length === 0 ? '' : `
-      <tr style="background:#f3f4f6;font-weight:700;">
-        <td colspan="${PIPELINE_BUDGET_COL_IDX}" style="text-align:center;">합계</td>
-        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.budgetSum))}</td>
-        <td colspan="${PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1}"></td>
-        <td style="text-align:right;">${escapeHtml(formatKRW(pipelineTotals.weightedSum))}</td>
-        <td colspan="${PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1}"></td>
-      </tr>`;
-    const docHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      html, body { margin: 0; padding: 0; background: #ffffff; color: #000000; }
-      body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; padding: 24px; width: 1400px; }
-      .title { text-align: center; margin-bottom: 18px; }
-      .title h1 { display: inline-block; border-bottom: 4px double #000000; padding-bottom: 4px; margin: 0; font-size: 26px; }
-      .title p { font-size: 13px; color: #6b7280; margin: 6px 0 0; }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th, td { border: 1px solid #000000; padding: 5px 6px; vertical-align: middle; color: #000000; }
-      th { background: #f3f4f6; font-weight: 700; text-align: center; }
-    </style></head><body>
-      <div class="title">
-        <h1>프로젝트 파이프라인 (Project Pipeline)</h1>
-        <p>출력일: ${escapeHtml(new Date().toLocaleDateString('ko-KR'))}</p>
-      </div>
-      <table>
-        <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
-        <tbody>${rowsHtml}${totalsHtml}</tbody>
-      </table>
-    </body></html>`;
-
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-20000px';
-    iframe.style.top = '0';
-    iframe.style.width = '1450px';
-    iframe.style.height = '800px';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
     try {
-      const idoc = iframe.contentDocument;
-      if (!idoc) throw new Error('PDF 화면을 준비하지 못했습니다.');
-      idoc.open();
-      idoc.write(docHtml);
-      idoc.close();
-      await new Promise(resolve => setTimeout(resolve, 150));
-      centerTableCellsForPdf(idoc);
-      const body = idoc.body;
-      iframe.style.height = `${body.scrollHeight + 40}px`;
-
-      const { default: html2canvas } = await import('html2canvas');
-      const { jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(body, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        width: body.scrollWidth,
-        height: body.scrollHeight,
-        windowWidth: body.scrollWidth,
-        windowHeight: body.scrollHeight,
+      const headers = PIPELINE_COLUMNS.map((c) => c.label);
+      const bodyRows: PdfCell[][] = filteredProjects.length === 0
+        ? [[{ text: '표시할 프로젝트가 없습니다.', colSpan: PIPELINE_COLUMNS.length, align: 'center', color: '#6b7280' }]]
+        : filteredProjects.map((p, idx) => PIPELINE_COLUMNS.map((c) => ({
+            text: String(c.getValue(p, idx) ?? ''),
+            align: c.align === 'right' ? 'right' : c.align === 'center' ? 'center' : 'left',
+          })));
+      const rows: PdfCell[][] = [headers.map((h) => ({ text: h, bold: true, bg: '#f3f4f6', align: 'center' as const })), ...bodyRows];
+      if (filteredProjects.length > 0) {
+        rows.push([
+          { text: '합계', colSpan: PIPELINE_BUDGET_COL_IDX, bold: true, align: 'center', bg: '#f3f4f6' },
+          { text: formatKRW(pipelineTotals.budgetSum), bold: true, align: 'right', bg: '#f3f4f6' },
+          { text: '', colSpan: PIPELINE_WEIGHTED_COL_IDX - PIPELINE_BUDGET_COL_IDX - 1, bg: '#f3f4f6' },
+          { text: formatKRW(pipelineTotals.weightedSum), bold: true, align: 'right', bg: '#f3f4f6' },
+          { text: '', colSpan: PIPELINE_COLUMNS.length - PIPELINE_WEIGHTED_COL_IDX - 1, bg: '#f3f4f6' },
+        ]);
+      }
+      // 열 너비: 내용 길이에 비례해서 나누고, 전체 폭을 1600px에 맞춘다
+      const weights = PIPELINE_COLUMNS.map((c, ci) => {
+        let maxLen = Math.max(6, c.label.length * 2);
+        bodyRows.forEach((r) => {
+          const cell = r[ci];
+          if (cell && !cell.colSpan) maxLen = Math.max(maxLen, Math.min(cell.text.length, 28));
+        });
+        return maxLen;
       });
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageH = 210;
-      const margin = 10;
-      const imgW = 297 - margin * 2;
-      const pxPerMm = canvas.width / imgW;
-      const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
-      let y = 0;
-      let first = true;
-      while (y < canvas.height) {
-        const h = Math.min(sliceH, canvas.height - y);
-        const part = document.createElement('canvas');
-        part.width = canvas.width;
-        part.height = h;
-        const ctx = part.getContext('2d');
-        if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, part.width, part.height);
-        ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
-        if (!first) pdf.addPage();
-        first = false;
-        pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
-        y += h;
-      }
-      const blob = pdf.output('blob');
-      const fileName = '프로젝트_파이프라인.pdf';
-      const file = new File([blob], fileName, { type: 'application/pdf' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: '프로젝트 파이프라인' });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
+      const sum = weights.reduce((a, b) => a + b, 0);
+      const widths = weights.map((w) => Math.max(60, Math.round((1600 * w) / sum)));
+      const today = new Date().toLocaleDateString('ko-KR');
+      const canvas = drawGridTableCanvas('프로젝트 파이프라인 (Project Pipeline)', `출력일: ${today}`, widths, rows);
+      await sharePdfFromCanvas(canvas, '프로젝트_파이프라인.pdf', 'landscape');
     } catch (err) {
-      if ((err as { name?: string } | null)?.name === 'AbortError') return;
       alert(`PDF를 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
-    } finally {
-      iframe.remove();
     }
   };
 
@@ -3197,7 +3068,7 @@ export const ProjectsView: React.FC<Props> = ({
   useEffect(() => {
     if (triggerPrintPreview && triggerPrintPreview !== handledPrintPreviewTriggerRef.current) {
       handledPrintPreviewTriggerRef.current = triggerPrintPreview;
-      setIsProjectsPrintPreviewOpen(true);
+      void handlePrintProjectsList();
     }
   }, [triggerPrintPreview]);
 
@@ -3991,11 +3862,11 @@ export const ProjectsView: React.FC<Props> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsProjectsPrintPreviewOpen(true)}
+                  onClick={() => { void handlePrintProjectsList(); }}
                   className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>미리보기</span>
+                  <span>PDF 저장</span>
                 </button>
               </div>
             </div>
@@ -5942,51 +5813,6 @@ export const ProjectsView: React.FC<Props> = ({
         }}
       />
 
-      {/* [수정] 전체 프로젝트 목록 PDF 인쇄/미리보기 모달 */}
-      {isProjectsPrintPreviewOpen && (
-        <div style={{ top: getProjectModalTopInset(), bottom: 0, paddingBottom: getProjectModalBottomInset() + 16 }} className="projects-print-overlay fixed left-0 right-0 z-[45] bg-white flex items-center justify-center overflow-y-auto p-0 md:p-4">
-          <style>{`
-            @page { size: A4 landscape; margin: 12mm; }
-            @media print {
-              body * { visibility: hidden !important; }
-              #projects-print-area, #projects-print-area * { visibility: visible !important; }
-              .projects-print-overlay { position: static !important; inset: auto !important; background: none !important; padding: 0 !important; display: block !important; overflow: visible !important; }
-              .projects-print-overlay > div { max-width: none !important; width: 100% !important; height: auto !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; display: block !important; }
-              #projects-print-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; max-width: none !important; padding: 0 !important; font-size: 9px !important; }
-              #projects-print-area table, #projects-print-area th, #projects-print-area td { font-size: 9px !important; }
-              #projects-print-area th, #projects-print-area td { padding: 4px 5px !important; }
-              #projects-print-area h1, #projects-print-area span.inline-block { font-size: 16px !important; }
-            }
-          `}</style>
-          {/* [수정] 이 모달의 max-width가 세로(A4 portrait, 210mm) 문서 기준(215mm)으로 남아있어서,
-          가로(297mm)로 바뀐 미리보기 내용이 이 좁은 폭 안에 억지로 눌려 들어가 컬럼 헤더가
-          여러 줄로 꺾이는 등 실제로는 넓게 나와야 할 표가 좁고 찌그러진 모습으로 보였다.
-          가로 문서 폭(297mm)이 다 들어가도록 max-width를 늘리고, 그래도 화면(브라우저 창)이
-          더 좁은 경우에는 내용이 눌리지 않고 가로 스크롤로 보이도록 처리한다. */}
-          <div className="w-full max-w-[320mm] h-full mx-auto bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col overflow-hidden">
-            <div className="no-print p-4 sm:p-5 border-b border-slate-200 bg-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-50 border border-blue-200 text-indigo-700">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">전체 프로젝트 목록 미리보기 (총 {filteredProjects.length}건)</h2>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button onClick={handlePrintProjectsList} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all">
-                  <Printer className="w-3.5 h-3.5" /><span>인쇄 / PDF 저장</span>
-                </button>
-                <button onClick={() => setIsProjectsPrintPreviewOpen(false)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 bg-white p-3 sm:p-8 overflow-auto flex justify-center">
-              {renderPrintableProjectsList()}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
