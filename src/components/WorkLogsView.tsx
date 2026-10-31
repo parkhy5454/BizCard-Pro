@@ -6,6 +6,19 @@ import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
+import { saveBlobFileShareOrDownload, buildSheetGrid, writeSheetGridXlsx, renderSheetGridToCanvas, canvasToPdfShare } from '../sheetExport.js';
+
+// 엑셀(xlsx) 파일을 아이폰은 공유 창, 그 외에는 다운로드로 저장한다 (XLSX.writeFile은 아이폰에서 저장이 안 됨)
+const saveWorkbookFile = async (wb: XLSX.WorkBook, fileName: string): Promise<void> => {
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+  await saveBlobFileShareOrDownload(
+    new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    fileName
+  );
+};
+const reportSaveFailure = (err: unknown) => {
+  alert(`파일을 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
+};
 import { ReceiptScanModal } from './ReceiptScanModal.js';
 import { ContactMultiSearchSelect, ContactSearchSelect } from './ContactPicker.js';
 import { ProjectMultiSearchSelect } from './ProjectPicker.js';
@@ -1236,12 +1249,35 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       return row;
     }));
   };
-  const handlePrintReport = () => {
-    // [수정] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
-    // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
-    document.body.classList.add('print-portal-mode');
-    window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
-    window.print();
+  // 출력 탭 "저장": 보고서 화면을 PDF로 만들어 공유 창(파일에 저장/iCloud/PC)으로 저장한다
+  const handlePrintReport = async () => {
+    const root = document.getElementById('print-root');
+    if (!root || !root.innerHTML.trim()) {
+      alert('저장할 보고서를 찾을 수 없습니다.');
+      return;
+    }
+    const sanitizedTitle = (selectedReportLog?.title || '업무보고서').replace(/[\/\\?%*:|"<>]/g, '_');
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const holder = document.createElement('div');
+      holder.style.position = 'fixed';
+      holder.style.left = '-20000px';
+      holder.style.top = '0';
+      holder.style.background = '#ffffff';
+      const clone = root.cloneNode(true) as HTMLElement;
+      clone.removeAttribute('id');
+      holder.appendChild(clone);
+      document.body.appendChild(holder);
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
+      } finally {
+        holder.remove();
+      }
+      await canvasToPdfShare(canvas, `${sanitizedTitle}.pdf`);
+    } catch (err) {
+      reportSaveFailure(err);
+    }
   };
 
   // 인쇄 전용 정적(읽기 전용) 리포트 렌더러 - 화면의 편집 가능한 버전과 별개로,
@@ -1539,40 +1575,12 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       ${buildFeedbackTableHtml()}
     `;
 
-    const excelContent = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-      <meta charset="utf-8">
-      <!--[if gte mso 9]>
-      <xml>
-      <x:ExcelWorkbook>
-      <x:ExcelWorksheets>
-      <x:ExcelWorksheet>
-      <x:Name>주간업무보고</x:Name>
-      <x:WorksheetOptions>
-      <x:DisplayGridlines/>
-      </x:WorksheetOptions>
-      </x:ExcelWorksheet>
-      </x:ExcelWorksheets>
-      </x:ExcelWorkbook>
-      </xml>
-      <![endif]-->
-      </head>
-      <body>
-      ${fullHtml}
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
     const sanitizedTitle = (reportTitle || '주간업무보고').replace(/[\/\\?%*:|"<>]/g, '_');
-    link.setAttribute('download', `${sanitizedTitle}.xls`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void (async () => {
+      const grid = buildSheetGrid(fullHtml);
+      const blob = await writeSheetGridXlsx(grid, '주간업무보고');
+      await saveBlobFileShareOrDownload(blob, `${sanitizedTitle}.xlsx`);
+    })().catch(reportSaveFailure);
   };
 
   // 비용 항목 추가/수정/삭제 헬퍼 함수
@@ -2113,7 +2121,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
       ? `일일업무일지_${getTodayLocalStr()}.xlsx`
       : `주간업무일지_${getTodayLocalStr()}.xlsx`;
       
-    XLSX.writeFile(wb, fileName);
+    void saveWorkbookFile(wb, fileName).catch(reportSaveFailure);
   };
 
   // 엑셀 다운로드 (개별 보고서 형태)
@@ -2216,7 +2224,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     const sanitizedTitle = (log.title || '업무보고서').replace(/[\/\\?%*:|"<>]/g, '_');
     const fileDate = (log as { date?: string }).date || (log as { endDate?: string }).endDate || '보고서';
     const fileName = `${sanitizedTitle}_${fileDate}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    void saveWorkbookFile(wb, fileName).catch(reportSaveFailure);
   };
 
   return (
@@ -2418,10 +2426,10 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
 
             return (
-              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3">
-                <div className="grid grid-cols-7 gap-1 mb-1">
+              <div className="bg-white md:bg-slate-100 md:border md:border-slate-200 rounded-2xl p-0 md:p-3">
+                <div className="grid grid-cols-7 gap-1 mb-2">
                   {weekdayLabels.map((w, i) => (
-                    <div key={w} className={`text-center text-[11px] font-bold py-1 ${i === 6 ? 'text-rose-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
+                    <div key={w} className={`text-center text-base md:text-[11px] font-bold py-1 ${i === 6 ? 'text-rose-400' : i === 5 ? 'text-blue-400' : 'text-slate-500'}`}>{w}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
@@ -2450,14 +2458,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                           const raw = e.dataTransfer.getData('text/plain');
                           handleDropEntry(raw, dateStr);
                         }}
-                        className={`text-left p-1.5 rounded-lg border min-h-[64px] transition-all ${
-                          isDragOver ? 'ring-2 ring-emerald-500 border-emerald-500/60' :
-                          isSelected ? 'bg-emerald-600/20 border-emerald-500/50' : isToday ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-slate-100 border-slate-200 hover:border-slate-200'
+                        className={`text-left p-1.5 md:p-1.5 rounded-lg border-0 md:border min-h-[72px] md:min-h-[64px] transition-all ${
+                          isDragOver ? 'ring-2 ring-emerald-500 md:border-emerald-500/60' :
+                          isSelected ? 'bg-emerald-50 md:bg-emerald-600/20 md:border-emerald-500/50' : isToday ? 'bg-indigo-50 md:bg-indigo-950/40 md:border-indigo-500/40' : 'bg-white md:bg-slate-100 md:border-slate-200 md:hover:border-slate-200'
                         }`}
                       >
-                        <div className={`text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-rose-500' : isSaturday ? 'text-blue-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
+                        <div className={`text-base md:text-[11px] font-bold mb-0.5 ${(isSunday || holidayName) ? 'text-rose-500' : isSaturday ? 'text-blue-500' : isToday ? 'text-indigo-600' : 'text-slate-500'}`}>{dayNum}</div>
                         {holidayName && (
-                          <div className="text-[8px] leading-tight font-semibold text-rose-500 truncate mb-0.5">{holidayName}</div>
+                          <div className="text-[11px] md:text-[8px] leading-tight font-semibold text-rose-500 truncate mb-0.5">{holidayName}</div>
                         )}
                         <div className="space-y-0.5">
                           {entries.slice(0, 2).map((en) => (
@@ -2471,14 +2479,14 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                                 e.dataTransfer.effectAllowed = 'move';
                                 e.dataTransfer.setData('text/plain', dragPayload);
                               }}
-                              className="text-[9px] leading-tight truncate text-emerald-600 bg-emerald-950/30 rounded px-1 py-0.5 cursor-grab active:cursor-grabbing"
+                              className="text-xs md:text-[9px] leading-tight truncate text-emerald-700 md:text-emerald-600 bg-emerald-50 md:bg-emerald-950/30 rounded px-1 py-0.5 cursor-grab active:cursor-grabbing"
                               title="드래그해서 다른 날짜로 옮길 수 있습니다"
                             >
                               {en.time ? `${en.time} ` : ''}{en.author}
                             </div>
                           ))}
                           {entries.length > 2 && (
-                            <div className="text-[9px] text-slate-400">+{entries.length - 2}건 더</div>
+                            <div className="text-xs md:text-[9px] text-slate-400">+{entries.length - 2}건 더</div>
                           )}
                         </div>
                       </button>
@@ -3959,7 +3967,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5" />
-                    <span>인쇄 / PDF 저장</span>
+                    <span>저장</span>
                   </button>
                   <button
                     onClick={() => setSelectedReportLog(null)}
@@ -4407,7 +4415,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                   className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/15 active:scale-95 transition-all cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>지금 인쇄 / PDF 저장</span>
+                  <span>저장</span>
                 </button>
               </div>
             </motion.div>
