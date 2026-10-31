@@ -1321,7 +1321,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
     // 열 개수의 별도 테이블로 나누면, 엑셀이 이걸 합칠 때 서로 다른 열 폭 요구가 충돌해서 결재표가
     // 항목표만큼 오른쪽까지 안 뻗어나가는 문제가 생긴다. 그래서 전체를 하나의 테이블 + 하나의 열
     // 구성(colgroup)으로 통일하고, colspan/rowspan으로 필요한 자리를 만든다.
-    const COLS = [10, 22, 20, 10, 12, 12, 14]; // 7개 열, 합계 100% (Date/Project/Description/Expenses/Account/Company/Remark와 동일한 열)
+    const COLS = [14, 18, 18, 12, 12, 12, 14]; // 7개 열, 합계 100% (Date/Project/Description/Expenses/Account/Company/Remark와 동일한 열) - Date는 한 줄(YYYY-MM-DD)로 들어가도록 넓힘
     const colgroup = `<colgroup>${COLS.map(w => `<col style="width:${w}%;" />`).join('')}</colgroup>`;
 
     const roleCell = (role: string) => `<th style="${cellBorder} ${grayBg} text-align:center;">${esc(role)}</th>`;
