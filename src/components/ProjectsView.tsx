@@ -203,6 +203,12 @@ const sharePdfFromCanvas = async (canvas: HTMLCanvasElement, fileName: string, o
   }
 };
 
+// 엑셀 만들기/저장 중 오류가 나면 조용히 사라지지 않고 안내를 띄운다.
+const reportExportFailure = (err: unknown) => {
+  console.error('엑셀 출력 실패:', err);
+  alert(`엑셀 파일을 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
+};
+
 // 엑셀 파일 저장: 아이폰은 가짜 다운로드 링크가 무시되는 경우가 많아서, 공유 창을 먼저 쓰고
 // 그 외에는 일반 다운로드를 쓴다.
 const saveWorkbookFile = async (wb: { xlsx: { writeBuffer: () => Promise<unknown> } }, fileName: string): Promise<void> => {
@@ -780,7 +786,8 @@ export const ProjectsView: React.FC<Props> = ({
 
   // [추가] 원가계산서(개별) 엑셀 출력 - 위 getCostSheetExportData가 만들어준 데이터를
   // 그대로 셀에 채워 넣는다. 화면 표와 동일하게 대분류(구분) 칸은 세로로 병합한다.
-  const handleExportCostSheetExcel = async () => {
+  const handleExportCostSheetExcel = () => {
+    void (async () => {
     const project = projects.find((p) => p.id === pnlSelectedProjectId);
     if (!project || !costSheetDraft) return;
     const { headerInfo, groups, finalRows } = getCostSheetExportData(project, costSheetDraft);
@@ -907,6 +914,7 @@ export const ProjectsView: React.FC<Props> = ({
     ws.getColumn(5).width = 20;
 
     await saveWorkbookFile(wb, `원가계산서_${project.name}_${getTodayLocalStr()}.xlsx`);
+    })().catch(reportExportFailure);
   };
 
   // [추가] 원가계산서(개별) 인쇄/PDF 저장 - "프로젝트 파이프라인" 인쇄와 동일하게, 이 표
@@ -952,7 +960,8 @@ export const ProjectsView: React.FC<Props> = ({
 
   // [추가] 원가계산서(전체) 엑셀 출력 - 화면의 "프로젝트별 원가 계산서" 요약표와 동일한
   // 컬럼 구성(No./프로젝트명/발주처/…/경상이익율/비고)에 합계 행까지 그대로 반영한다.
-  const handleExportAllCostSheetsExcel = async () => {
+  const handleExportAllCostSheetsExcel = () => {
+    void (async () => {
     // [수정] 화면에 지금 보이는 표(검색어로 좁혀진 결과)와 항상 같은 내용이 나오도록,
     // 상단 검색창(전체 모드일 때는 필터로 동작)의 검색어를 여기서도 그대로 적용한다.
     const allRows = [...projects].filter((p) => matchesProjectSearch(p, projectSearchQuery)).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
@@ -1049,6 +1058,7 @@ export const ProjectsView: React.FC<Props> = ({
     ws.views = [{ state: 'frozen', ySplit: headerRowIdx }];
 
     await saveWorkbookFile(wb, `전체_프로젝트_원가계산서_${getTodayLocalStr()}.xlsx`);
+    })().catch(reportExportFailure);
   };
 
   // [추가] 원가계산서(전체) 인쇄/PDF 저장 - 위 엑셀과 같은 요약표를 새 창에 띄워 인쇄한다.
@@ -2742,7 +2752,8 @@ export const ProjectsView: React.FC<Props> = ({
   // 글자색/배경색 등 셀 서식을 전혀 쓰지 못한다(직접 실험해서 확인함 - .s에 스타일을 넣어도
   // 결과 파일에는 반영되지 않음, 유료 Pro 버전에서만 지원). 그래서 이 내보내기만 셀 서식
   // 쓰기를 지원하는 exceljs 라이브러리로 바꾼다.
-  const handleExportProjectsExcel = async () => {
+  const handleExportProjectsExcel = () => {
+    void (async () => {
     const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('전체_프로젝트', {
@@ -2851,6 +2862,7 @@ export const ProjectsView: React.FC<Props> = ({
     ws.views = [{ state: 'frozen', ySplit: headerRowIdx }];
 
     await saveWorkbookFile(wb, `전체_프로젝트_목록_${getTodayLocalStr()}.xlsx`);
+    })().catch(reportExportFailure);
   };
 
   // [수정] 화면 미리보기는 실제 인쇄와 별개로, 모달 안에서 넓게(가로로 꽉 차게) 보여주기만
