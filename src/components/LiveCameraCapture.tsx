@@ -48,50 +48,6 @@ function scaleQuad(quad: Quad, sx: number, sy: number): Quad {
 
 // [수정] Canny 엣지 감지가 카드 그림자/테두리까지 살짝 포함해서 실제보다 약간 크게 잡히는 경향이 있어,
 // 감지된 사각형을 중심점 방향으로 살짝(기본 1.6%) 안쪽으로 줄여서 여백이 같이 잘리는 문제를 줄인다.
-// [추가] 펼쳐진 명함 이미지에서 밝은 종이 영역(명함)만 남기고, 주변 책상 부분을 잘라낸다.
-// 밝은 픽셀이 충분히 많은 행/열만 골라 바깥 경계를 잡는다. 명함이 너무 작게 잡히면 원본을 그대로 쓴다.
-// 반환값이 입력과 같은 객체이면 자르지 않은 것이고, 다르면 호출한 쪽에서 따로 delete 해야 한다.
-function trimToBrightCard(cv: CvModule, mat: CvMat): CvMat {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const m = mat as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const c = cv as any;
-  const w: number = m.cols;
-  const h: number = m.rows;
-  const gray = new c.Mat();
-  try {
-    c.cvtColor(mat, gray, c.COLOR_RGBA2GRAY);
-    const data: Uint8Array = gray.data;
-    const rowBright = new Array<number>(h).fill(0);
-    const colBright = new Array<number>(w).fill(0);
-    for (let y = 0; y < h; y++) {
-      const base = y * w;
-      for (let x = 0; x < w; x++) {
-        if (data[base + x] > 150) { rowBright[y]++; colBright[x]++; }
-      }
-    }
-    const rowOk = (y: number) => rowBright[y] / w > 0.3;
-    const colOk = (x: number) => colBright[x] / h > 0.3;
-    let top = 0; while (top < h && !rowOk(top)) top++;
-    let bottom = h - 1; while (bottom > top && !rowOk(bottom)) bottom--;
-    let left = 0; while (left < w && !colOk(left)) left++;
-    let right = w - 1; while (right > left && !colOk(right)) right--;
-    if (right - left < w * 0.5 || bottom - top < h * 0.5) return mat;
-    const padX = Math.round(w * 0.01);
-    const padY = Math.round(h * 0.01);
-    const x0 = Math.max(0, left - padX);
-    const y0 = Math.max(0, top - padY);
-    const x1 = Math.min(w, right + padX + 1);
-    const y1 = Math.min(h, bottom + padY + 1);
-    const roi = m.roi(new c.Rect(x0, y0, x1 - x0, y1 - y0));
-    const out = roi.clone();
-    roi.delete();
-    return out as CvMat;
-  } finally {
-    gray.delete();
-  }
-}
-
 function shrinkQuadInward(quad: Quad, ratio = 0.016): Quad {
   const cx = (quad[0][0] + quad[1][0] + quad[2][0] + quad[3][0]) / 4;
   const cy = (quad[0][1] + quad[1][1] + quad[2][1] + quad[3][1]) / 4;
@@ -178,14 +134,13 @@ export const LiveCameraCapture: React.FC<Props> = ({
   const [quadDisplay, setQuadDisplay] = useState<Quad | null>(null);
   const [quality, setQuality] = useState<Quality | null>(null);
   const [isStable, setIsStable] = useState(false);
-  const [isFit, setIsFit] = useState(false);
   const [statusMessage, setStatusMessage] = useState(`${docLabel}을(를) 화면 안에 맞춰주세요`);
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
   const cvRef = useRef<CvModule | null>(null);
   const quadHistoryRef = useRef<{ quad: Quad; t: number }[]>([]);
   const stableSinceRef = useRef<number | null>(null);
-  const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number; rotated: boolean; t: number } | null>(null);
+  const lastRawQuadRef = useRef<{ quad: Quad; detectW: number; detectH: number; rotated: boolean } | null>(null);
   const autoCapturedRef = useRef(false);
   const isProcessingRef = useRef(false);
   const detectIntervalRef = useRef<number | null>(null);
@@ -329,30 +284,24 @@ export const LiveCameraCapture: React.FC<Props> = ({
   }, []);
 
   // 실제 촬영 + 보정 처리 (자동/수동 공통)
-  const handleCapture = useCallback(async (fromAuto: boolean = false) => {
+  const handleCapture = useCallback(async () => {
     const video = videoRef.current;
     if (!video || !isReady || isProcessingRef.current) return;
     isProcessingRef.current = true;
     setIsProcessing(true);
-    let stage = '준비';
 
     try {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
       const fullCanvas = document.createElement('canvas');
-      const CAPTURE_MAX_SIDE = 2000;
-      const capScale = Math.min(1, CAPTURE_MAX_SIDE / Math.max(vw, vh));
-      const cw = Math.round(vw * capScale);
-      const ch = Math.round(vh * capScale);
-      fullCanvas.width = cw;
-      fullCanvas.height = ch;
+      fullCanvas.width = vw;
+      fullCanvas.height = vh;
       const fctx = fullCanvas.getContext('2d')!;
-      fctx.drawImage(video, 0, 0, cw, ch);
+      fctx.drawImage(video, 0, 0, vw, vh);
 
       const cv = cvRef.current;
       let outDataUrl: string;
       let autoDetected = false;
-      let noCard = false;
 
       if (cv) {
         const srcMat = cv.imread(fullCanvas);
@@ -363,33 +312,20 @@ export const LiveCameraCapture: React.FC<Props> = ({
           // 사각형을 한 번 더 정밀하게 재감지해서 훨씬 정확한 경계로 잘라낸다.
           // [추가] guideAspectRatio로 문서 타입 판단: 명함(1.586)은 'card', 다른 비율은 'receipt'
           const documentType = Math.abs(guideAspectRatio - 1.586) < 0.05 ? 'card' : 'receipt';
-          // 정밀 재감지가 실패해도(OpenCV 예외) 실시간 감지 결과로 계속 진행한다
-          let preciseQuad: ReturnType<typeof detectQuad> | null = null;
-          try {
-            preciseQuad = detectQuad(cv, srcMat, guideAspectRatio, documentType);
-          } catch (e) {
-            console.warn('정밀 감지 실패, 실시간 결과 사용:', e);
-          }
+          const preciseQuad = detectQuad(cv, srcMat, guideAspectRatio, documentType);
           let quadToUse: Quad | null = null;
           // [추가] 감지된 사각형이 "폰을 세로로 들고 찍는 등"의 이유로 90도 돌아간 형태로
           // 잡혔는지 여부. 이 값에 따라 아래에서 가이드 박스 검증과 최종 출력 크기를 모두
           // 가로/세로 반대로 적용해야, 카드 내용이 찌그러지지 않고 올바르게 나온다.
           let quadRotated = false;
 
-          const recentRaw = lastRawQuadRef.current && performance.now() - lastRawQuadRef.current.t < 1500 ? lastRawQuadRef.current : null;
-          if (recentRaw) {
-            // [추가] 자동 촬영은 실시간 화면에서 이미 "가이드 안 + 명함 비율 + 고정"을 확인한 결과이므로,
-            // 그때 감지된 사각형을 그대로 사용한다 (재감지 결과가 어긋나 확인 화면으로 빠지는 것을 막기 위함).
-            const { quad, detectW, detectH, rotated } = recentRaw;
-            quadToUse = scaleQuad(quad, cw / detectW, ch / detectH);
-            quadRotated = rotated;
-          } else if (preciseQuad) {
+          if (preciseQuad) {
             quadToUse = preciseQuad.points;
             quadRotated = preciseQuad.rotated;
           } else if (lastRawQuadRef.current) {
             // 정밀 재감지가 실패한 경우에만, 실시간 감지 때 찾았던 좌표를 확대해서 대체 사용
             const { quad, detectW, detectH, rotated } = lastRawQuadRef.current;
-            quadToUse = scaleQuad(quad, cw / detectW, ch / detectH);
+            quadToUse = scaleQuad(quad, vw / detectW, vh / detectH);
             quadRotated = rotated;
           }
 
@@ -401,6 +337,26 @@ export const LiveCameraCapture: React.FC<Props> = ({
             // 대체한다 — "가이드 안에 들어온 부분만 정확히" 잘리는 걸 보장하기 위함이다.
             // [수정] quadRotated인 경우, 실제 카드는 세로로 길게 잡힌 것이므로 가이드 박스도
             // 가로/세로를 바꿔서 비교해야 정상적으로 통과한다.
+            const rawGuideBounds = getGuideBoundsInVideoSpace(video, containerRef.current, guideAspectRatio);
+            const guideBounds = quadRotated
+              ? { x: rawGuideBounds.x, y: rawGuideBounds.y, w: rawGuideBounds.h, h: rawGuideBounds.w }
+              : rawGuideBounds;
+            const qxs = quadToUse.map((p) => p[0]);
+            const qys = quadToUse.map((p) => p[1]);
+            const qMinX = Math.min(...qxs), qMaxX = Math.max(...qxs);
+            const qMinY = Math.min(...qys), qMaxY = Math.max(...qys);
+            // 가이드 박스 크기의 12%까지는 여유를 두고(명함이 가이드보다 살짝 크게 잡힌 정상
+            // 상황도 있으므로), 그 이상 벗어나면 신뢰하지 않는다.
+            const tolX = guideBounds.w * 0.12;
+            const tolY = guideBounds.h * 0.12;
+            const withinGuide =
+              qMinX >= guideBounds.x - tolX &&
+              qMaxX <= guideBounds.x + guideBounds.w + tolX &&
+              qMinY >= guideBounds.y - tolY &&
+              qMaxY <= guideBounds.y + guideBounds.h + tolY;
+            if (!withinGuide) {
+              quadToUse = null;
+            }
           }
 
           if (quadToUse) {
@@ -414,23 +370,14 @@ export const LiveCameraCapture: React.FC<Props> = ({
             if (effectiveAspect >= 1) { outW = OUTPUT_LONG_SIDE; outH = Math.round(OUTPUT_LONG_SIDE / effectiveAspect); }
             else { outH = OUTPUT_LONG_SIDE; outW = Math.round(OUTPUT_LONG_SIDE * effectiveAspect); }
 
-            stage = '원근 보정';
             const warped = warpToRect(cv, srcMat, quadToUse, outW, outH);
-            // 자르기·밝기 보정이 실패해도 보정된 원본 사각형으로 계속 진행한다
-            let trimmed = warped;
-            stage = '여백 제거';
-            try { trimmed = trimToBrightCard(cv, warped); } catch (e) { console.warn('여백 제거 실패:', e); }
-            let enhanced = trimmed;
-            stage = '선명도 보정';
-            try { enhanced = enhanceMat(cv, trimmed); } catch (e) { console.warn('선명도 보정 실패:', e); }
-            stage = '이미지 변환';
+            const enhanced = enhanceMat(cv, warped);
             outDataUrl = matToDataUrl(cv, enhanced, 0.9);
             warped.delete();
-            if (trimmed !== warped) trimmed.delete();
-            if (enhanced !== trimmed) enhanced.delete();
+            enhanced.delete();
           } else {
-            // 명함을 잡지 못했다: 엉뚱한 영역(책상 포함)을 자르지 않고 다시 찍도록 안내한다
-            noCard = true;
+            // 사각형이 감지되지 않은 경우: 화면 중앙 가이드 영역으로 대체
+            outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
           }
         } finally {
           srcMat.delete();
@@ -440,26 +387,20 @@ export const LiveCameraCapture: React.FC<Props> = ({
         outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
       }
 
-      if (noCard) {
-        isProcessingRef.current = false;
-        setIsProcessing(false);
-        autoCapturedRef.current = false;
-        alert('명함을 잡지 못했어요. 명함 전체가 화면에 보이게 맞춘 뒤 다시 촬영해 주세요.');
-        return;
-      }
-
       stopStream();
       setCaptureFlash(true);
       window.setTimeout(() => onCapture(outDataUrl, autoDetected), 120);
     } catch (err) {
-      // 예전에는 여기서 화면 중앙(책상 포함)을 잘라 확인 화면으로 넘겼다. 그 경로가 책상이 섞인
-      // 사진의 원인이었으므로, 이제는 중앙 영역으로 넘기지 않고 다시 촬영하도록 안내한다.
       console.error('촬영/보정 처리 실패:', err);
-      isProcessingRef.current = false;
-      setIsProcessing(false);
-      autoCapturedRef.current = false;
-      const reason = err instanceof Error ? err.message : String(err);
-      alert(`사진 처리에 실패했습니다. 명함이 화면에 잘 보이게 다시 촬영해 주세요.\n[단계: ${stage}] (${reason})`);
+      try {
+        const fallback = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
+        stopStream();
+        onCapture(fallback, false);
+      } catch {
+        alert('사진 처리에 실패했습니다. 다시 시도해주세요.');
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+      }
     }
   }, [isReady, guideAspectRatio, stopStream, onCapture]);
 
@@ -503,6 +444,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
         setIsStable(false);
         quadHistoryRef.current = [];
         stableSinceRef.current = null;
+        lastRawQuadRef.current = null;
         setStatusMessage(`${docLabel}을(를) 화면 안에 맞춰주세요`);
         return;
       }
@@ -530,7 +472,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
       const brightOk = brightness >= 35 && brightness <= 250;
       const glareOk = glare <= 0.13;
 
-      lastRawQuadRef.current = { quad: found.points, detectW, detectH, rotated: found.rotated, t: performance.now() };
+      lastRawQuadRef.current = { quad: found.points, detectW, detectH, rotated: found.rotated };
 
       const now = performance.now();
       quadHistoryRef.current.push({ quad: found.points, t: now });
@@ -559,34 +501,20 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
       const dispW = container.clientWidth;
       const dispH = container.clientHeight;
-      const dispQuad = mapToDisplay(found.points, detectW, detectH, dispW, dispH);
-      // [수정] 고정 가이드 대신, 감지된 문서가 화면 안에 온전히 들어왔는지와 명함 비율인지로 판단한다.
-      const edgeX = dispW * 0.02;
-      const edgeY = dispH * 0.02;
-      const inView = dispQuad.every(([x, y]) => x >= edgeX && x <= dispW - edgeX && y >= edgeY && y <= dispH - edgeY);
-      const [p0, p1, p2, p3] = found.points;
-      const docW = (dist(p0, p1) + dist(p3, p2)) / 2;
-      const docH = (dist(p0, p3) + dist(p1, p2)) / 2;
-      const docRatio = Math.max(docW, docH) / Math.max(1e-6, Math.min(docW, docH));
-      const aspectOk = documentType === 'card' ? Math.abs(docRatio - guideAspectRatio) / guideAspectRatio < 0.15 : true;
-      const fitOk = inView && aspectOk;
-      setQuadDisplay(dispQuad);
+      setQuadDisplay(mapToDisplay(found.points, detectW, detectH, dispW, dispH));
       setQuality({ sizeOk, focusOk, brightOk, glareOk });
-      setIsFit(fitOk);
-      setIsStable(stable && allQualityOk && fitOk);
+      setIsStable(stable && allQualityOk);
 
       if (!sizeOk) setStatusMessage(`${docLabel}을(를) 조금 더 가까이 가져와 주세요`);
       else if (!brightOk) setStatusMessage(brightness < 60 ? '조명이 어두워요' : '빛이 너무 강해요');
       else if (!glareOk) setStatusMessage('반사광이 있어요, 각도를 살짝 바꿔주세요');
       else if (!focusOk) setStatusMessage('흔들리지 않게 잠시 고정해주세요');
-      else if (!inView) setStatusMessage(`${docLabel} 전체가 화면 안에 들어오게 해주세요`);
-      else if (!aspectOk) setStatusMessage(`${docLabel} 전체가 보이도록 각도와 거리를 맞춰 주세요`);
       else if (!stable) setStatusMessage('위치를 고정해주세요...');
       else setStatusMessage('고정됨! 자동 촬영합니다');
 
-      if (allQualityOk && fitOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
+      if (allQualityOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
         autoCapturedRef.current = true;
-        handleCapture(true);
+        handleCapture();
       }
     } finally {
       srcMat.delete();
@@ -601,7 +529,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   }, [cvStatus, isReady, error, runDetection]);
 
   const allQualityOk = quality ? Object.values(quality).every(Boolean) : false;
-  const outlineColor = quadDisplay ? (isStable ? '#22c55e' : allQualityOk && isFit ? '#facc15' : '#f87171') : '#f87171';
+  const outlineColor = quadDisplay ? (isStable && allQualityOk ? '#22c55e' : allQualityOk ? '#facc15' : '#f87171') : '#f87171';
 
   return (
     <div className="fixed inset-0 z-[200] bg-black flex flex-col">
@@ -633,14 +561,8 @@ export const LiveCameraCapture: React.FC<Props> = ({
           <>
             <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline muted />
 
-            {/* [수정] 문서가 감지되면 실제 테두리(초록/노랑/빨강)를, 감지 전에는 가이드 사각 테두리를 항상 보여준다. */}
-            {isReady && cvStatus === 'ready' && (quadDisplay ? (
+            {isReady && cvStatus === 'ready' && (
               <DetectionOverlay quad={quadDisplay} color={outlineColor} />
-            ) : (
-              <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
-            ))}
-            {isReady && cvStatus === 'loading' && (
-              <StaticGuideOverlay containerRef={containerRef} aspectRatio={guideAspectRatio} />
             )}
             {isReady && cvStatus === 'failed' && (
               <>

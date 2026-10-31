@@ -3,7 +3,7 @@ import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Land
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr } from '../dateUtils.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
-import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners, resizeDataUrl } from './CropAdjustModal.js';
+import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
 
 import { getErrorMessage } from '../errorUtils.js';
 // [추가] 해외 출장 경비(AdminDocsView) 화면의 "사용구분"/"지급방법" 값 체계를 그대로 따른다.
@@ -93,20 +93,13 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
     setScanDone(false);
 
     try {
-      // [추가] 휴대폰 원본 사진은 용량이 커서 전송이 느리고 5MB 제한에 걸리기 쉬우므로, 글자가 읽힐 만큼만 줄여서 보낸다.
-      let payloadImage = targetImage;
-      try {
-        payloadImage = await resizeDataUrl(targetImage, 1600, 0.85);
-      } catch (resizeErr) {
-        console.error('영수증 축소 실패, 원본으로 전송:', resizeErr);
-      }
       const res = await fetch('/api/scan-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // [추가] 해외 출장 경비 화면은 서버의 분류 체계(영문 코드)가 아니라 이 화면이 실제로
         // 쓰는 한글 사용구분/지급방법 값(항공료/숙박비/.../신용카드/현금)으로 바로 분류받기
         // 위해 context를 같이 넘긴다 (server.ts의 /api/scan-receipt 참고).
-        body: JSON.stringify({ image: payloadImage, context: expenseType === 'overseas_trip' ? 'overseas_trip' : undefined })
+        body: JSON.stringify({ image: targetImage, context: expenseType === 'overseas_trip' ? 'overseas_trip' : undefined })
       });
       const data = await res.json();
 
@@ -159,13 +152,6 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
         if (!['company_card', 'personal_card', 'cash'].includes(data.payMethod)) {
           mappedPayMethod = 'company_card';
         }
-      }
-
-      // [추가] 금액을 못 읽었거나 문자 인식 대체 결과이면 사용자가 꼭 확인하도록 알려준다 (저장은 금액 입력 후에만 가능).
-      if (data.ocrFallback) {
-        alert('AI 인식이 어려워 문자 인식 결과로 채웠습니다. 금액과 날짜를 꼭 확인해 주세요.');
-      } else if (!Number(data.amount)) {
-        alert('금액을 읽지 못했습니다. 금액을 직접 입력해 주세요.');
       }
 
       setForm({

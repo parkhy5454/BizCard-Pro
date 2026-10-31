@@ -27,10 +27,6 @@ export const GroupMultiSelect: React.FC<Props> = ({ groups, value, onChange, cla
 
   const toggle = (id: string) => {
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
-    // 그룹을 고르면 드롭다운을 닫고 검색어를 비운다 (검색창에 포커스가 남아 있어도 목록이 계속 뜨지 않도록)
-    setOpen(false);
-    setQuery('');
-    (document.activeElement as HTMLElement | null)?.blur?.();
   };
 
   if (groups.length === 0) {

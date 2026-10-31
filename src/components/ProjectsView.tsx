@@ -22,6 +22,20 @@ import { getSpeechRecognitionCtor, type SpeechRecognitionLike, type SpeechResult
 // 이 문서 문자열에 프로젝트명/담당자/시행사 등 사용자가 직접 입력한 값을 그대로 꽂아
 // 넣으므로, VehicleView.tsx의 운행기록부 인쇄와 동일한 이유로 XSS 방지를 위해 반드시
 // 이 함수로 이스케이프한 뒤에 넣는다.
+// [추가] 팝업을 상단 고정 탭(#app-top-action-row)과 하단 탭([data-app-tabbar]) 사이의 띠 영역에만 깔아서,
+// 두 탭이 팝업을 열었을 때도 계속 보이게 한다 (CardDetailModal과 같은 방식).
+const getProjectModalTopInset = (): number => {
+  const el = document.getElementById('app-top-action-row');
+  return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
+};
+const getProjectModalBottomInset = (): number => {
+  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (!el) return 0;
+  const rect = el.getBoundingClientRect();
+  if (rect.height === 0) return 0;
+  return Math.max(0, window.innerHeight - rect.top);
+};
+
 const escapeHtml = (value: unknown): string => {
   const str = value === null || value === undefined ? '' : String(value);
   return str
@@ -4709,8 +4723,8 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* 모달: 새 프로젝트 생성 */}
       {isNewOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+        <div style={{ top: getProjectModalTopInset(), bottom: getProjectModalBottomInset() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-full overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-indigo-400" /> 프로젝트 등록
@@ -5010,8 +5024,8 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* 모달: 프로젝트 정보 수정 (예산 등 등록 내용 수정) */}
       {editingProject && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+        <div style={{ top: getProjectModalTopInset(), bottom: getProjectModalBottomInset() }} className="fixed left-0 right-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-full overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-400" /> 프로젝트 정보 수정
