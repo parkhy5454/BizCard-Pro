@@ -2289,33 +2289,36 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         <div id="approval-tab-row" className="grid grid-cols-3 gap-1.5 md:flex md:items-center md:gap-2 md:overflow-x-auto scrollbar-none md:-mx-1 md:px-1 md:flex-1 min-w-0">
           <button
             onClick={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false); setActiveApprovalTab('advance'); }}
-            className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
-              activeApprovalTab === 'advance' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
+            className={`relative flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-none md:rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
+              activeApprovalTab === 'advance' ? 'text-blue-600 md:bg-blue-600/20 md:text-blue-400 md:border md:border-blue-500/30' : 'text-slate-500 hover:text-slate-700 md:hover:bg-slate-100/60 md:border md:border-transparent'
             }`}
           >
             <Wallet className="hidden md:block w-4 h-4 shrink-0" />
             <span>가지급금 정산서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{advanceList.length}</span>
+          {activeApprovalTab === 'advance' && <span aria-hidden className="md:hidden absolute left-3 right-3 -bottom-px h-[3px] rounded-full bg-blue-600" />}
           </button>
           <button
             onClick={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false); setActiveApprovalTab('leave'); }}
-            className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
-              activeApprovalTab === 'leave' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
+            className={`relative flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-none md:rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
+              activeApprovalTab === 'leave' ? 'text-blue-600 md:bg-blue-600/20 md:text-blue-400 md:border md:border-blue-500/30' : 'text-slate-500 hover:text-slate-700 md:hover:bg-slate-100/60 md:border md:border-transparent'
             }`}
           >
             <Plane className="hidden md:block w-4 h-4 shrink-0" />
             <span>휴가 신청서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{leaveList.length}</span>
+          {activeApprovalTab === 'leave' && <span aria-hidden className="md:hidden absolute left-3 right-3 -bottom-px h-[3px] rounded-full bg-blue-600" />}
           </button>
           <button
             onClick={() => { setIsSignaturePadOpen(false); setPendingApprovalTarget(null); setIsBrandingModalOpen(false); setActiveApprovalTab('official'); }}
-            className={`flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
-              activeApprovalTab === 'official' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 border border-transparent'
+            className={`relative flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-2 py-2.5 md:px-4 md:py-2 rounded-none md:rounded-xl font-bold text-[15px] md:text-sm whitespace-nowrap min-w-0 md:shrink-0 transition-all ${
+              activeApprovalTab === 'official' ? 'text-blue-600 md:bg-blue-600/20 md:text-blue-400 md:border md:border-blue-500/30' : 'text-slate-500 hover:text-slate-700 md:hover:bg-slate-100/60 md:border md:border-transparent'
             }`}
           >
             <FileText className="hidden md:block w-4 h-4 shrink-0" />
             <span>공문서</span>
             <span className="px-1.5 py-0.5 rounded-full text-xs md:text-[11px] bg-slate-100 text-slate-600 font-mono leading-none">{officialList.length}</span>
+          {activeApprovalTab === 'official' && <span aria-hidden className="md:hidden absolute left-3 right-3 -bottom-px h-[3px] rounded-full bg-blue-600" />}
           </button>
         </div>
         {/* 모바일: 탭 줄과 작성·서명 줄 사이에 짧은 실선 */}
