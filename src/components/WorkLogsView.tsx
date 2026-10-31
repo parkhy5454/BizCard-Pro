@@ -2227,7 +2227,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         {/* 모바일: 아래 고정 탭이 차지할 자리만큼 빈 공간 */}
         <div className="sm:hidden" style={{ height: tabsHeight }} />
         {/* [수정] "+ 일일 일지 작성" 버튼을 항상 맨 왼쪽에 고정, 줄어들지 않게 함 (모바일에서는 "작성"으로 줄임) */}
-        {activeSubTab !== 'report' && (
+        {(activeSubTab === 'daily' || activeSubTab === 'weekly') && (
           <div className="flex gap-2 shrink-0 w-full sm:w-auto">
           <button
             onClick={handleOpenNewLog}
