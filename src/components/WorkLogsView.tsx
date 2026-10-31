@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
 import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry, MyProfile } from '../types.js';
@@ -127,14 +127,22 @@ const getWorkLogModalBottomInset = (): number => {
 export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects, currentUser }) => {
   // 모바일에서 업무일지 탭 묶음을 앱 헤더 바로 아래에 고정하기 위해 헤더 높이를 잰다.
   const [headerBottom, setHeaderBottom] = useState(0);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [tabsHeight, setTabsHeight] = useState(0);
   useLayoutEffect(() => {
     const measure = () => {
       const h = document.querySelector('header');
       setHeaderBottom(h ? Math.round(h.getBoundingClientRect().bottom) : 0);
+      if (tabsRef.current) setTabsHeight(Math.round(tabsRef.current.getBoundingClientRect().height));
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' && tabsRef.current ? new ResizeObserver(measure) : null;
+    if (ro && tabsRef.current) ro.observe(tabsRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      ro?.disconnect();
+    };
   }, []);
   const [activeSubTab, setActiveSubTab] = useState<'daily' | 'weekly' | 'monthly' | 'report'>('daily');
   const [dailyLogs, setDailyLogs] = useState<DailyWorkLog[]>([]);
@@ -2213,9 +2221,11 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
     <div className="space-y-3">
       
       {/* 1. 상단 바: 탭 전환 및 신규 작성 */}
-      <div id="worklog-top-bar" style={{ top: headerBottom }} className="sticky z-40 sm:static flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 bg-white sm:bg-slate-100 pt-2 pb-2 sm:py-0 sm:p-4 border-0 sm:border sm:border-slate-200 rounded-none sm:rounded-3xl backdrop-blur-md">
+      <div id="worklog-top-bar" className="contents sm:flex sm:flex-row sm:items-center sm:gap-2 sm:bg-slate-100 sm:p-4 sm:border sm:border-slate-200 sm:rounded-3xl backdrop-blur-md">
+        {/* 모바일: 아래 고정 탭이 차지할 자리만큼 빈 공간 */}
+        <div className="sm:hidden" style={{ height: tabsHeight }} />
         {/* [수정] "+ 일일 일지 작성" 버튼을 항상 맨 왼쪽에 고정, 줄어들지 않게 함 (모바일에서는 "작성"으로 줄임) */}
-        <div className="flex gap-2 shrink-0 w-full sm:w-auto order-2 sm:order-none">
+        <div className="flex gap-2 shrink-0 w-full sm:w-auto">
           <button
             onClick={handleOpenNewLog}
             className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-3 sm:py-2.5 rounded-2xl font-bold text-base sm:text-sm text-white shadow-lg transition-all active:scale-95 whitespace-nowrap ${
@@ -2231,7 +2241,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         </div>
 
         {/* [수정] 모바일 화면 너비가 좁아도 탭 글자가 줄바꿈되지 않도록, 넘치면 가로 스크롤되게 함 */}
-        <div className="flex items-stretch sm:items-center gap-0 sm:gap-2 bg-transparent sm:bg-slate-50 p-0 sm:p-1 rounded-none sm:rounded-2xl border-b border-slate-200 sm:border sm:border-b sm:border-slate-200 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex-1 min-w-0 w-full sm:w-auto order-1 sm:order-none">
+        <div ref={tabsRef} style={{ top: headerBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 sm:static sm:bg-transparent sm:px-0 sm:pt-0 sm:flex-1 sm:min-w-0">
+        <div className="flex items-stretch sm:items-center gap-0 sm:gap-2 bg-transparent sm:bg-slate-50 p-0 sm:p-1 rounded-none sm:rounded-2xl border-b border-slate-200 sm:border sm:border-b sm:border-slate-200 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex-1 min-w-0 w-full sm:w-auto">
           <button
             onClick={() => {
               setActiveSubTab('daily');
@@ -2299,6 +2310,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             <span>출력</span>
             {activeSubTab === 'report' && <span className="sm:hidden absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
           </button>
+        </div>
         </div>
       </div>
 
