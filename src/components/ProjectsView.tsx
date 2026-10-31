@@ -24,6 +24,28 @@ import { getSpeechRecognitionCtor, type SpeechRecognitionLike, type SpeechResult
 // 이 함수로 이스케이프한 뒤에 넣는다.
 // [추가] 팝업을 상단 고정 탭(#app-top-action-row)과 하단 탭([data-app-tabbar]) 사이의 띠 영역에만 깔아서,
 // 두 탭이 팝업을 열었을 때도 계속 보이게 한다 (CardDetailModal과 같은 방식).
+// PDF 변환기(html2canvas)는 표 칸의 세로 가운데 맞춤(vertical-align)을 무시해서 글자가 칸 아래로 붙는다.
+// 그래서 칸 안의 내용을 세로 가운데 정렬되는 상자로 한 번 감싸서 가운데에 오게 한다.
+const centerTableCellsForPdf = (doc: Document): void => {
+  const win = doc.defaultView;
+  if (!win) return;
+  doc.querySelectorAll('td, th').forEach((node) => {
+    const cell = node as HTMLElement;
+    const cs = win.getComputedStyle(cell);
+    const wrap = doc.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.justifyContent = 'center';
+    wrap.style.minHeight = '100%';
+    wrap.style.padding = cs.padding;
+    wrap.style.textAlign = cs.textAlign;
+    while (cell.firstChild) wrap.appendChild(cell.firstChild);
+    cell.style.padding = '0';
+    cell.style.verticalAlign = 'middle';
+    cell.appendChild(wrap);
+  });
+};
+
 // 인쇄 대신 PDF 파일을 만들어 공유 창(아이폰) 또는 다운로드로 보낸다.
 // 아이폰 사파리/홈 화면 앱은 window.print()와 새 창 인쇄가 동작하지 않기 때문.
 // 앱 스타일과 분리된 iframe에 HTML을 그린 뒤 찍어서 PDF로 만든다(앱의 oklch 색 오류 회피).
@@ -43,6 +65,7 @@ const exportHtmlAsPdf = async (docHtml: string, fileName: string, orientation: '
     idoc.write(docHtml);
     idoc.close();
     await new Promise((resolve) => setTimeout(resolve, 150));
+    centerTableCellsForPdf(idoc);
     const body = idoc.body;
     iframe.style.height = `${body.scrollHeight + 40}px`;
     const { default: html2canvas } = await import('html2canvas');
@@ -2810,6 +2833,7 @@ export const ProjectsView: React.FC<Props> = ({
       idoc.write(docHtml);
       idoc.close();
       await new Promise(resolve => setTimeout(resolve, 150));
+      centerTableCellsForPdf(idoc);
       const body = idoc.body;
       iframe.style.height = `${body.scrollHeight + 40}px`;
 
