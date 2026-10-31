@@ -455,10 +455,22 @@ export const ProjectsView: React.FC<Props> = ({
     // 있어서, 화면에서 편집 가능한 manual+imported 구조로 정규화(normalizeCostSheet)해서
     // 담는다 - 기존 숫자값은 manual로 그대로 옮겨지고, 자동 불러온 내역은 없는 것으로
     // 시작한다(예전엔 그 개념 자체가 없었으므로).
-    setCostSheetDraft(p.costSheet ? normalizeCostSheet(p.costSheet) : costSheetFromProject(p));
+    const loadedDraft = p.costSheet ? normalizeCostSheet(p.costSheet) : costSheetFromProject(p);
+    lastSavedJsonRef.current = JSON.stringify(loadedDraft);
+    setCostSheetDraft(loadedDraft);
     setCostSheetSaveError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pnlSelectedProjectId]);
+
+  // 원가계산서는 입력하면 자동으로 저장한다(입력 멈춘 뒤 1.2초). 별도 저장 버튼은 두지 않는다.
+  const lastSavedJsonRef = useRef<string>('');
+  useEffect(() => {
+    if (!pnlSelectedProjectId || !costSheetDraft) return;
+    if (JSON.stringify(costSheetDraft) === lastSavedJsonRef.current) return;
+    const timer = setTimeout(() => { handleSaveCostSheet(); }, 1200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [costSheetDraft]);
 
   const updateCostSheetField = <K extends keyof ProjectCostSheet>(field: K, value: ProjectCostSheet[K]) => {
     setCostSheetDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -471,6 +483,7 @@ export const ProjectsView: React.FC<Props> = ({
     const updated: Project = { ...project, costSheet: costSheetDraft };
     setIsSavingCostSheet(true);
     setCostSheetSaveError('');
+    lastSavedJsonRef.current = JSON.stringify(costSheetDraft);
     // 다른 프로젝트 수정(handleUpdateProjectDetails)과 같은 패턴 - 화면은 먼저 반영하고,
     // 서버 저장이 실패하면 에러를 보여준다.
     setProjects(projects.map((p) => (p.id === updated.id ? updated : p)));
@@ -485,6 +498,7 @@ export const ProjectsView: React.FC<Props> = ({
       });
       if (!res.ok) throw new Error(`원가계산서 저장에 실패했습니다 (상태: ${res.status}).`);
     } catch (err: unknown) {
+      lastSavedJsonRef.current = '';
       setCostSheetSaveError(getErrorMessage(err) || '원가계산서 저장에 실패했습니다. 화면에는 반영됐지만 서버에는 저장 안 됐을 수 있으니 다시 시도해주세요.');
     } finally {
       setIsSavingCostSheet(false);
@@ -3325,7 +3339,7 @@ export const ProjectsView: React.FC<Props> = ({
                     <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-2xl p-3 md:p-5 space-y-4 min-w-0 overflow-x-hidden">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <h3 className="text-xl font-bold text-slate-800 underline underline-offset-4">프로젝트 원가 계산서</h3>
-                        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center">
+                        <div className="flex flex-nowrap items-center gap-1.5 w-full sm:w-auto">
                           {costSheetSaveError && <span className="text-base text-rose-500">{costSheetSaveError}</span>}
                           {/* [추가] 통장 출금내역·카드사용내역에서 이 프로젝트+원가 항목으로
                           태그해둔 거래를 직접원가/간접원가/일반관리비 칸에 자동으로 채워준다. */}
@@ -3333,35 +3347,28 @@ export const ProjectsView: React.FC<Props> = ({
                             type="button"
                             onClick={handleImportCostSheetFromLedger}
                             disabled={isImportingCostSheet}
-                            className="flex items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2.5 rounded-xl bg-white border border-indigo-200 hover:bg-indigo-50 disabled:opacity-50 text-indigo-600 text-base font-bold transition-all active:scale-95"
+                            className="flex-1 min-w-0 flex items-center justify-center gap-1 whitespace-nowrap px-2 py-2.5 rounded-xl bg-white border border-indigo-200 hover:bg-indigo-50 disabled:opacity-50 text-indigo-600 text-sm font-bold transition-all active:scale-95"
                           >
                             <ArrowDownUp className="w-3.5 h-3.5" />
-                            <span>{isImportingCostSheet ? '불러오는 중...' : '자동 불러오기'}</span>
+                            <span>{isImportingCostSheet ? '불러오는 중...' : '불러오기'}</span>
                           </button>
                           {/* [추가] 원가계산서(개별)도 프로젝트 파이프라인과 동일하게 엑셀 출력/
                           인쇄(PDF 저장)를 지원한다. */}
                           <button
                             type="button"
                             onClick={handleExportCostSheetExcel}
-                            className="flex items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                            className="flex-1 min-w-0 flex items-center justify-center gap-1 whitespace-nowrap px-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
                           >
                             <FileSpreadsheet className="w-3.5 h-3.5" />
-                            <span>엑셀 출력</span>
+                            <span>엑셀 다운</span>
                           </button>
                           <button
                             type="button"
                             onClick={handlePrintCostSheet}
-                            className="flex items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-base font-bold shadow-md shadow-slate-700/20 transition-all active:scale-95"
+                            className="flex-1 min-w-0 flex items-center justify-center gap-1 whitespace-nowrap px-2 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-base font-bold shadow-md shadow-slate-700/20 transition-all active:scale-95"
                           >
                             <Printer className="w-3.5 h-3.5" />
-                            <span>인쇄 / PDF 저장</span>
-                          </button>
-                          <button
-                            onClick={handleSaveCostSheet}
-                            disabled={isSavingCostSheet}
-                            className="justify-center whitespace-nowrap px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-base font-bold transition-colors"
-                          >
-                            {isSavingCostSheet ? '저장 중...' : '저장'}
+                            <span>PDF 저장</span>
                           </button>
                         </div>
                       </div>
