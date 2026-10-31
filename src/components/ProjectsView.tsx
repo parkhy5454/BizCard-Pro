@@ -24,6 +24,83 @@ import { getSpeechRecognitionCtor, type SpeechRecognitionLike, type SpeechResult
 // 이 함수로 이스케이프한 뒤에 넣는다.
 // [추가] 팝업을 상단 고정 탭(#app-top-action-row)과 하단 탭([data-app-tabbar]) 사이의 띠 영역에만 깔아서,
 // 두 탭이 팝업을 열었을 때도 계속 보이게 한다 (CardDetailModal과 같은 방식).
+// 인쇄 대신 PDF 파일을 만들어 공유 창(아이폰) 또는 다운로드로 보낸다.
+// 아이폰 사파리/홈 화면 앱은 window.print()와 새 창 인쇄가 동작하지 않기 때문.
+// 앱 스타일과 분리된 iframe에 HTML을 그린 뒤 찍어서 PDF로 만든다(앱의 oklch 색 오류 회피).
+const exportHtmlAsPdf = async (docHtml: string, fileName: string, orientation: 'portrait' | 'landscape', widthPx: number): Promise<void> => {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-20000px';
+  iframe.style.top = '0';
+  iframe.style.width = `${widthPx}px`;
+  iframe.style.height = '800px';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+  try {
+    const idoc = iframe.contentDocument;
+    if (!idoc) throw new Error('PDF 화면을 준비하지 못했습니다.');
+    idoc.open();
+    idoc.write(docHtml);
+    idoc.close();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const body = idoc.body;
+    iframe.style.height = `${body.scrollHeight + 40}px`;
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+    const canvas = await html2canvas(body, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      width: body.scrollWidth,
+      height: body.scrollHeight,
+      windowWidth: body.scrollWidth,
+      windowHeight: body.scrollHeight,
+    });
+    const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+    const pageW = orientation === 'landscape' ? 297 : 210;
+    const pageH = orientation === 'landscape' ? 210 : 297;
+    const margin = 10;
+    const imgW = pageW - margin * 2;
+    const pxPerMm = canvas.width / imgW;
+    const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+    let y = 0;
+    let first = true;
+    while (y < canvas.height) {
+      const h = Math.min(sliceH, canvas.height - y);
+      const part = document.createElement('canvas');
+      part.width = canvas.width;
+      part.height = h;
+      const ctx = part.getContext('2d');
+      if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, part.width, part.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+      if (!first) pdf.addPage();
+      first = false;
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
+      y += h;
+    }
+    const blob = pdf.output('blob');
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fileName.replace(/\.pdf$/, '') });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  } catch (err) {
+    if ((err as { name?: string } | null)?.name === 'AbortError') return;
+    alert(`PDF를 만들지 못했습니다.\n${getErrorMessage(err) || '잠시 후 다시 시도해주세요.'}`);
+  } finally {
+    iframe.remove();
+  }
+};
+
 const getProjectModalTopInset = (): number => {
   // 헤더, 명함 탭 상단 바, 프로젝트 탭 상단(등록/리스트 버튼 + 상태 필터 칩) 중 가장 아래쪽 끝을 기준으로 해서
   // 팝업이 그 아래부터 깔리도록 한다 (보이는 상단 탭이 모두 가려지지 않게)
@@ -689,17 +766,10 @@ export const ProjectsView: React.FC<Props> = ({
       ${finalRowsHtml}
     </tbody>
   </table>
-  <script>window.onload = function () { window.focus(); window.print(); };</script>
 </body>
 </html>`;
 
-    const printWin = window.open('', '_blank');
-    if (!printWin) {
-      alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.');
-      return;
-    }
-    printWin.document.write(html);
-    printWin.document.close();
+    void exportHtmlAsPdf(html, `원가계산서_${project.name.replace(/[\\/:*?"<>|]/g, '_')}.pdf`, 'portrait', 800);
   };
 
   // [추가] 원가계산서(전체) 엑셀 출력 - 화면의 "프로젝트별 원가 계산서" 요약표와 동일한
@@ -881,17 +951,10 @@ export const ProjectsView: React.FC<Props> = ({
     <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
     <tbody>${rowsHtml}${totalsHtml}</tbody>
   </table>
-  <script>window.onload = function () { window.focus(); window.print(); };</script>
 </body>
 </html>`;
 
-    const printWin = window.open('', '_blank');
-    if (!printWin) {
-      alert('팝업이 차단되어 인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.');
-      return;
-    }
-    printWin.document.write(html);
-    printWin.document.close();
+    void exportHtmlAsPdf(html, '프로젝트별_원가계산서.pdf', 'landscape', 1100);
   };
 
   // 같은 회사(사업자번호)로 가입한 다른 계정들을 "우리 회사 직원" 목록으로 불러옴
