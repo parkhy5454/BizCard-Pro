@@ -2504,8 +2504,9 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           때만 렌더링되며, 위 달력 그리드에서 날짜를 클릭하면 열린다. */}
           {isDayDetailModalOpen && (
             <div
-              className="fixed inset-0 z-[100] overflow-y-auto"
+              className="fixed inset-0 z-[100] overflow-y-auto bg-white md:bg-transparent"
               // 모바일: 상단 헤더·하단 탭이 보이도록 그 사이 영역에만 펼친다 (PC는 기존처럼 화면 전체 + 배경 블러)
+              // 모바일은 배경을 흰색으로 덮어 뒤의 달력(이전달/다음달, 애플 캘린더 버튼)이 비쳐 잘려 보이지 않게 한다
               style={typeof window !== 'undefined' && window.innerWidth < 768
                 ? { top: getWorkLogModalTopInset(), bottom: getWorkLogModalBottomInset() }
                 : undefined}
