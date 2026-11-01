@@ -894,8 +894,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setAdminHeaderBottom(h ? Math.round(h.getBoundingClientRect().bottom) : 0);
     };
     measure();
+    // 헤더가 화면에 완전히 그려진 뒤(또는 크기가 바뀐 뒤) 다시 재서 위치가 어긋나지 않게 한다
+    const raf = requestAnimationFrame(measure);
+    const timer = window.setTimeout(measure, 400);
+    const header = document.querySelector('header');
+    const ro = header && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (ro && header) ro.observe(header);
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    window.addEventListener('scroll', measure, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure);
+    };
   }, []);
   const [docs, setDocs] = useState<AdminDoc[]>([]);
   const [loading, setLoading] = useState(true);
