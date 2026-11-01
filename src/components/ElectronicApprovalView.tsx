@@ -14,7 +14,7 @@ import { getTodayLocalStr } from '../dateUtils.js';
 import { SignaturePadModal } from './SignaturePadModal.js';
 
 import { getErrorMessage } from '../errorUtils.js';
-import { saveBlobFileShareOrDownload, buildSheetGrid, writeSheetGridXlsx, renderSheetGridToCanvas, canvasToPdfShare, makePageCutter } from '../sheetExport.js';
+import { saveBlobFileShareOrDownload, buildSheetGrid, writeSheetGridXlsx, renderSheetGridToCanvas, canvasToPdfShare, makePageCutter, drawTableEdgeLines } from '../sheetExport.js';
 interface Props {
   currentUser: User | null;
   // [추가] 서명을 새로 등록/변경했을 때 앱 전체(App.tsx)의 currentUser 상태를 갱신하기 위한
@@ -489,11 +489,7 @@ const exportElementAsPdf = async (el: HTMLElement, fileName: string): Promise<vo
     if (!first) pdf.addPage();
     first = false;
     pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
-    // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
-    pdf.setDrawColor(0);
-    pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
-    if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
-    if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
+    drawTableEdgeLines(pdf, canvas, { y, h, pxPerMm, leftMm: margin, partTopMm: margin, pageTopMm: margin, pageBottomMm: pageH - margin, hasNext: y + h < canvas.height, hasPrev: y > 0 });
     y += h;
   }
   await saveBlobFileShareOrDownload(pdf.output('blob'), fileName);

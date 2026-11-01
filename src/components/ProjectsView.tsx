@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { makePageCutter } from '../sheetExport.js';
+import { makePageCutter, drawTableEdgeLines } from '../sheetExport.js';
 import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -183,11 +183,7 @@ const sharePdfFromCanvas = async (canvas: HTMLCanvasElement, fileName: string, o
       if (!first) pdf.addPage();
       first = false;
       pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
-      // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
-      if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
-      if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
+      drawTableEdgeLines(pdf, canvas, { y, h, pxPerMm, leftMm: margin, partTopMm: margin, pageTopMm: margin, pageBottomMm: pageH - margin, hasNext: y + h < canvas.height, hasPrev: y > 0 });
       y += h;
     }
     const blob = pdf.output('blob');
@@ -294,11 +290,7 @@ const exportHtmlAsPdf = async (docHtml: string, fileName: string, orientation: '
       if (!first) pdf.addPage();
       first = false;
       pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
-      // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
-      if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
-      if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
+      drawTableEdgeLines(pdf, canvas, { y, h, pxPerMm, leftMm: margin, partTopMm: margin, pageTopMm: margin, pageBottomMm: pageH - margin, hasNext: y + h < canvas.height, hasPrev: y > 0 });
       y += h;
     }
     const blob = pdf.output('blob');

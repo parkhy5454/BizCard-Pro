@@ -287,44 +287,116 @@ export const renderSheetGridToCanvas = async (grid: SheetGrid): Promise<HTMLCanv
   return canvas;
 };
 
-// [추가] PDF 페이지 나누기: 글자 줄이 반으로 잘리지 않도록, 그림에서 글자가 없는 빈 줄 가운데를 자르는 위치로 고른다.
-// 반환값은 "지금 위치(y)에서 이 페이지에 담을 높이(px)". 빈 줄이 없으면 한 장 높이에서 그대로 자른다.
-export const makePageCutter = (canvas: HTMLCanvasElement, pageHmm: number, marginMm: number, pageWmm: number): ((y: number, total: number) => number) => {
-  const pxPerMm = canvas.width / (pageWmm - marginMm * 2);
-  const maxH = Math.max(1, Math.floor((pageHmm - marginMm * 2) * pxPerMm));
-  const blankMids: number[] = [];
+// [추가] PDF 페이지 나누기 기준: 글자 줄 사이의 빈 줄, 그리고 표의 가로선 바로 아래 위치를 후보로 모은다.
+// 이 위치에서 자르면 행(칸)이 둘로 잘리지 않는다. 반환값은 캔버스 세로 위치(px) 목록.
+export const pageCutCandidatesPx = (canvas: HTMLCanvasElement): number[] => {
   const ctx = canvas.getContext('2d');
-  if (ctx) {
-    const { width, height } = canvas;
-    const CHUNK = 256;
-    let runStart = -1;
-    for (let y0 = 0; y0 < height; y0 += CHUNK) {
-      const hh = Math.min(CHUNK, height - y0);
-      const data = ctx.getImageData(0, y0, width, hh).data;
-      for (let r = 0; r < hh; r++) {
-        const y = y0 + r;
-        const row = r * width * 4;
-        let blank = true;
-        for (let x = 0; x < width; x += 2) {
-          if (data[row + x * 4] < 230) { blank = false; break; }
-        }
-        if (blank) {
-          if (runStart < 0) runStart = y;
-        } else if (runStart >= 0) {
-          blankMids.push(Math.round((runStart + y) / 2));
-          runStart = -1;
-        }
+  if (!ctx) return [];
+  const { width, height } = canvas;
+  const half = Math.max(1, Math.ceil(width / 2));
+  const cands: number[] = [];
+  let blankStart = -1;
+  let heavyStart = -1;
+  const CHUNK = 256;
+  for (let y0 = 0; y0 < height; y0 += CHUNK) {
+    const hh = Math.min(CHUNK, height - y0);
+    const data = ctx.getImageData(0, y0, width, hh).data;
+    for (let r = 0; r < hh; r++) {
+      const y = y0 + r;
+      const row = r * width * 4;
+      let dark = 0;
+      for (let x = 0; x < width; x += 2) if (data[row + x * 4] < 230) dark++;
+      const blank = dark === 0;
+      const heavy = dark / half > 0.3; // 표의 가로선처럼 가로로 길게 그어진 줄
+      if (blank) {
+        if (blankStart < 0) blankStart = y;
+      } else if (blankStart >= 0) {
+        cands.push(Math.round((blankStart + y) / 2));
+        blankStart = -1;
+      }
+      if (heavy) {
+        if (heavyStart < 0) heavyStart = y;
+      } else if (heavyStart >= 0) {
+        cands.push(y); // 가로선 바로 아래에서 자른다 (선은 윗 페이지에 남는다)
+        heavyStart = -1;
       }
     }
   }
+  return cands.sort((a, b) => a - b);
+};
+
+// 페이지 높이만큼 자르되, 위 후보 중 페이지 끝에 가장 가까운 곳에서 자른다.
+// 반환값은 "지금 위치(y)에서 이 페이지에 담을 높이(px)".
+export const makePageCutter = (canvas: HTMLCanvasElement, pageHmm: number, marginMm: number, pageWmm: number): ((y: number, total: number) => number) => {
+  const pxPerMm = canvas.width / (pageWmm - marginMm * 2);
+  const maxH = Math.max(1, Math.floor((pageHmm - marginMm * 2) * pxPerMm));
+  const cuts = pageCutCandidatesPx(canvas);
   return (y: number, total: number): number => {
     if (total - y <= maxH) return total - y;
     let cut = -1;
-    for (const m of blankMids) {
+    for (const m of cuts) {
       if (m - y > maxH * 0.5 && m - y <= maxH && m > cut) cut = m;
     }
     return (cut > y ? cut : y + maxH) - y;
   };
+};
+
+// [추가] 표가 페이지를 넘어갈 때: 다음 페이지 맨 위에 표 윗줄을 표 너비만큼 같은 굵기로 긋고,
+// 표의 세로선도 그 줄까지 이어 준다. 표 밖으로 나가는 선은 긋지 않는다.
+export const drawTableEdgeLines = (
+  pdf: { line: (x1: number, y1: number, x2: number, y2: number) => unknown; setDrawColor: (c: number) => unknown; setLineWidth: (w: number) => unknown },
+  canvas: HTMLCanvasElement,
+  opt: { y: number; h: number; pxPerMm: number; leftMm: number; partTopMm: number; pageTopMm: number; pageBottomMm: number; hasNext: boolean; hasPrev: boolean }
+): void => {
+  const ctx = canvas.getContext('2d');
+  if (!ctx || !opt.hasPrev) return;
+  pdf.setDrawColor(0);
+  pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
+  const { width } = canvas;
+  const DARK = 200;
+  const SCAN = 400;
+  const WIN = 24;
+  const endY = opt.y + opt.h;
+  let firstInk = -1;
+  const to = Math.min(endY, opt.y + SCAN);
+  for (let yy = opt.y; yy < to && firstInk < 0; yy++) {
+    const d = ctx.getImageData(0, yy, width, 1).data;
+    for (let x = 0; x < width; x++) {
+      if (d[x * 4] < DARK) { firstInk = yy; break; }
+    }
+  }
+  if (firstInk < 0) return;
+  // 1) 표 윗줄: 이 줄에 그어진 가로 범위만큼
+  const rowData = ctx.getImageData(0, firstInk, width, 1).data;
+  let xl = -1;
+  let xr = -1;
+  for (let x = 0; x < width; x++) {
+    if (rowData[x * 4] < DARK) { if (xl < 0) xl = x; xr = x; }
+  }
+  if (xl >= 0) {
+    pdf.line(opt.leftMm + xl / opt.pxPerMm, opt.pageTopMm, opt.leftMm + xr / opt.pxPerMm, opt.pageTopMm);
+  }
+  // 2) 세로선: 첫 줄에서 세로선이 시작하는 곳까지 위로 이어 긋는다
+  const winH = Math.min(WIN, endY - firstInk);
+  if (winH > 0 && firstInk - opt.y > 0) {
+    const d = ctx.getImageData(0, firstInk, width, winH).data;
+    const xs: number[] = [];
+    for (let x = 0; x < width; x++) {
+      let all = true;
+      for (let r = 0; r < winH; r++) {
+        if (d[(r * width + x) * 4] >= DARK) { all = false; break; }
+      }
+      if (all) xs.push(x);
+    }
+    const yEnd = opt.partTopMm + (firstInk - opt.y) / opt.pxPerMm;
+    let prev = -10;
+    xs.forEach((x) => {
+      if (x - prev <= 2) return;
+      prev = x;
+      const xm = opt.leftMm + x / opt.pxPerMm;
+      pdf.line(xm, opt.pageTopMm, xm, yEnd);
+    });
+  }
 };
 
 export const canvasToPdfShare = async (canvas: HTMLCanvasElement, fileName: string): Promise<void> => {
@@ -351,11 +423,7 @@ export const canvasToPdfShare = async (canvas: HTMLCanvasElement, fileName: stri
     if (!first) pdf.addPage();
     first = false;
     pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
-    // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
-    pdf.setDrawColor(0);
-    pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
-    if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
-    if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
+    drawTableEdgeLines(pdf, canvas, { y, h, pxPerMm, leftMm: margin, partTopMm: margin, pageTopMm: margin, pageBottomMm: pageH - margin, hasNext: y + h < canvas.height, hasPrev: y > 0 });
     y += h;
   }
   await saveBlobFileShareOrDownload(pdf.output('blob'), fileName);

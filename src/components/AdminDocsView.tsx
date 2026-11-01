@@ -7,7 +7,7 @@ import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
 import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
-import { saveBlobFileShareOrDownload, captureSaveFile, shareOrDownloadNow } from '../sheetExport.js';
+import { saveBlobFileShareOrDownload, captureSaveFile, shareOrDownloadNow, pageCutCandidatesPx, drawTableEdgeLines } from '../sheetExport.js';
 
 import { getErrorMessage } from '../errorUtils.js';
 import * as ExcelJS from 'exceljs';
@@ -370,32 +370,9 @@ const centerExcelVertically = (wb: ExcelJS.Workbook): void => {
   });
 };
 
-// [추가] 캡처한 그림에서 글자가 없는 빈 줄(여백)의 가운데 위치(mm)를 모은다.
-// DOM 위치가 아니라 실제 그려진 그림을 보고 고르므로, 여기서 자르면 글자 줄이 쪼개지지 않는다.
-const blankGapCutsMm = (canvas: HTMLCanvasElement, canvasPxPerMm: number): number[] => {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return [];
-  const { width, height } = canvas;
-  const data = ctx.getImageData(0, 0, width, height).data;
-  const cuts: number[] = [];
-  let runStart = -1;
-  for (let y = 0; y <= height; y++) {
-    let blank = y < height;
-    if (blank) {
-      const row = y * width * 4;
-      for (let x = 0; x < width; x += 2) {
-        if (data[row + x * 4] < 230) { blank = false; break; } // 빨간 채널로 판단 (노란 강조·회색 칸 배경은 빈 줄로 본다)
-      }
-    }
-    if (blank) {
-      if (runStart < 0) runStart = y;
-    } else if (runStart >= 0) {
-      cuts.push((runStart + y) / 2 / canvasPxPerMm);
-      runStart = -1;
-    }
-  }
-  return cuts;
-};
+// [추가] 캡처한 그림의 페이지 나누기 후보(빈 줄 가운데, 표 가로선 아래). 저장과 미리보기가 같은 기준을 쓴다.
+const blankGapCutsMm = (canvas: HTMLCanvasElement, canvasPxPerMm: number): number[] =>
+  pageCutCandidatesPx(canvas).map((px) => px / canvasPxPerMm);
 
 // 페이지 자르기: 기본은 한 장 높이만큼 자르되, 페이지 끝 가까이에 있는 빈 줄에서 자른다
 const splitPagesMm = (naturalMm: number, pageMm: number, safeCutsMm: number[] = []): PageSlice[] => {
@@ -6258,11 +6235,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
       if (i > 0) pdf.addPage();
       pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', sideMarginMm, sl.topMm, imgW, srcH * mmPerCanvasPx);
-      // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
-      if (i < slices.length - 1) pdf.line(sideMarginMm, pageH - PAGE_MARGIN_MM, paperWmm - sideMarginMm, pageH - PAGE_MARGIN_MM);
-      if (i > 0) pdf.line(sideMarginMm, PAGE_MARGIN_MM, paperWmm - sideMarginMm, PAGE_MARGIN_MM);
+      drawTableEdgeLines(pdf, canvas, { y: srcY, h: srcH, pxPerMm: canvasPxPerMm, leftMm: sideMarginMm, partTopMm: sl.topMm, pageTopMm: sl.topMm, pageBottomMm: pageH - PAGE_MARGIN_MM, hasNext: i < slices.length - 1, hasPrev: i > 0 });
     });
     const baseName = (printingDoc.title || '문서').replace(/[\\/:*?"<>|]/g, '_');
     await saveBlobFileShareOrDownload(pdf.output('blob'), `${baseName}.pdf`);
