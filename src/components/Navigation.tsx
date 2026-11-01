@@ -670,7 +670,8 @@ export const Navigation: React.FC<Props> = ({
     )}
 
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-        <div data-app-tabbar className="fixed bottom-0 w-full flex flex-col items-center pt-1 gap-1.5 text-sm bg-white z-50" style={{ bottom: 'calc(-1 * env(safe-area-inset-bottom))', paddingBottom: 'calc(0rem + env(safe-area-inset-bottom))', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
+        {/* [수정] 하단 탭은 고정(fixed)이 아니라 앱 화면 아래쪽에 붙는 일반 요소로 둔다. 로그인 직후 아이폰이 고정 요소를 다시 그리지 않아 탭이 안 보이던 문제를 피하기 위함. 앱 껍데기가 세로 flex라 항상 맨 아래에 놓인다. */}
+        <div data-app-tabbar className="relative shrink-0 order-last w-full flex flex-col items-center pt-1 gap-1.5 text-sm bg-white z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
           <div className="flex items-end w-full pb-0.5 px-3 gap-1">
           <nav className="grid grid-cols-5 gap-1 flex-1 min-w-0">
