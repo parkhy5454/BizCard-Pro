@@ -10921,23 +10921,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               엑셀 다운
             </button>
           )}
-          {/* [추가] 인쇄: 기존 인쇄 흐름(#print-root 포털 내용만 인쇄). 목록의 9개 서류는 엑셀 다운·저장만 쓰므로 숨김 */}
-          {!PRINT_HIDDEN_CATEGORIES.includes(printingDoc.category) && (
-            <button
-              onClick={() => {
-                // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
-                // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
-                // 인쇄가 끝나면(취소해도) 바로 원래대로 되돌린다.
-                document.body.classList.add('print-portal-mode');
-                window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
-                window.print();
-              }}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-white border border-indigo-300 text-indigo-700 text-sm font-bold"
-            >
-              <Printer className="w-4 h-4" />
-              인쇄
-            </button>
-          )}
           {/* [추가] 저장: PDF 파일을 클라우드/PC로 저장 (아이폰은 공유 창의 파일 앱·iCloud 등) */}
           <button
             onClick={() => saveFromPreview('pdf', () => savePrintPreviewAsPdf(), true)}
