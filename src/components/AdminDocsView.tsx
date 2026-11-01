@@ -320,8 +320,8 @@ function calcStatutoryAnnualLeaveDays(hireDate: string, targetYear: string): num
 // [추가] 모바일에서 작성 팝업을 상단 헤더와 하단 탭바 사이에만 펼친다 (탭이 가려지지 않게).
 // [추가] 경영지원 서류 목록 9개: 인쇄 버튼 없이 "엑셀 다운 · 저장"만 보인다.
 const PRINT_HIDDEN_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'employment_cert', 'annual_leave_status', 'power_of_attorney', 'office_supplies', 'sales_contract', 'corp_card', 'cash_flow'];
-// [추가] 전용 엑셀 함수가 없어서 미리보기 화면을 그대로 엑셀로 저장하는 서류
-const GENERIC_EXCEL_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'employment_cert', 'power_of_attorney', 'office_supplies', 'sales_contract'];
+// [추가] 표가 있는 서류(전용 엑셀 함수 없음)를 미리보기 화면 그대로 엑셀로 저장. 재직증명서·위임장은 문서형이라 제외
+const GENERIC_EXCEL_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'sales_contract'];
 
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
