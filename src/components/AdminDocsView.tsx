@@ -10765,12 +10765,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         <div className="flex flex-col items-center gap-3 mx-auto" style={{ width: previewFit.paperWpx * previewFit.scale }}>
           {previewFit.slices.map((sl, i) => (
             <div key={`page-${i}`} className="w-full">
-              <div className="relative bg-white shadow-2xl overflow-hidden" style={{ width: previewFit.paperWpx * previewFit.scale, height: previewFit.pageHpx * previewFit.scale }}>
+              <div className="relative bg-slate-200 shadow-2xl overflow-hidden" style={{ width: previewFit.paperWpx * previewFit.scale, height: previewFit.pageHpx * previewFit.scale }}>
                 <div
                   className="absolute left-0 top-0 overflow-hidden"
                   style={{ width: previewFit.paperWpx, height: previewFit.pageHpx, transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined, transformOrigin: 'top left' }}
                 >
-                  <div className="absolute left-0 overflow-hidden" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
+                  <div className="absolute left-0 overflow-hidden bg-white" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
                     <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx }}>
                       {renderActivePrintable()}
                     </div>
