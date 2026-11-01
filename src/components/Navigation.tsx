@@ -158,6 +158,14 @@ export const Navigation: React.FC<Props> = ({
     return () => { ro.disconnect(); window.removeEventListener('resize', update); root.style.setProperty('--app-nav-bottom', '0px'); };
   }, [activeTab]);
   useEffect(() => { setPressedCardAction(null); }, [activeTab]);
+  // [추가] 로그인 직후 아이폰 사파리는 하단 고정 탭을 화면을 한 번 건드리기 전까지 그리지 않는 경우가 있다.
+  // 탭 바가 처음 붙은 직후에 화면 크기 이벤트를 보내서 한 번 다시 그리게 한다.
+  useEffect(() => {
+    const nudge = () => window.dispatchEvent(new Event('resize'));
+    const t1 = window.setTimeout(nudge, 0);
+    const t2 = window.setTimeout(nudge, 400);
+    return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+  }, []);
   const isCardActionOn = (k: 'scan' | 'io' | 'share' | 'nearby') =>
     pressedCardAction !== null ? pressedCardAction === k : (k === 'scan' ? activeTab === 'cards' : k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
   const cardActionClass = (on: boolean) =>
@@ -644,7 +652,7 @@ export const Navigation: React.FC<Props> = ({
     )}
 
         {/* [수정] 하단 고정 탭 - 상위 5개만 표시: 홈 / 명함 / 차량관리 / 프로젝트 / 더보기 */}
-        <div data-app-tabbar className="fixed bottom-0 w-full flex flex-col items-center pt-1 gap-1.5 text-sm bg-white z-50" style={{ bottom: 'calc(-1 * env(safe-area-inset-bottom))', paddingBottom: 'calc(0rem + env(safe-area-inset-bottom))' }}>
+        <div data-app-tabbar className="fixed bottom-0 w-full flex flex-col items-center pt-1 gap-1.5 text-sm bg-white z-50" style={{ bottom: 'calc(-1 * env(safe-area-inset-bottom))', paddingBottom: 'calc(0rem + env(safe-area-inset-bottom))', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
 
           <div className="flex items-end w-full pb-0.5 px-3 gap-1">
           <nav className="grid grid-cols-5 gap-1 flex-1 min-w-0">
