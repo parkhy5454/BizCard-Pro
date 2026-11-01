@@ -447,3 +447,17 @@ input, textarea, [contenteditable="true"] {
 body.kb-open [data-app-tabbar] {
   display: none !important;
 }
+
+/* [추가] iOS Safari 날짜 입력칸이 자기 칸 너비를 넘어 화면을 밀어내던 문제 수정 */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
