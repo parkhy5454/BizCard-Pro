@@ -446,9 +446,8 @@ export const Navigation: React.FC<Props> = ({
             {/* 새 프로젝트 등록 버튼 */}
             <button
               onClick={onOpenNewProject}
-              className="relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 text-slate-500 hover:text-slate-700"
+              className="relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 text-slate-500 hover:text-slate-700"
             >
-              <Briefcase className="w-4 h-4" />
               <span>등록</span>
             </button>
 
@@ -456,9 +455,8 @@ export const Navigation: React.FC<Props> = ({
             <div className="relative flex items-center shrink-0">
               <button
                 onClick={onShowProjectsCardView}
-                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                <ListChecks className="w-4 h-4 text-indigo-400" />
                 <span>리스트</span>
                 {projectsViewMode === 'cards' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
               </button>
@@ -502,9 +500,8 @@ export const Navigation: React.FC<Props> = ({
             {/* 리스트 출력 탭 */}
             <button
               onClick={onShowProjectsListOutput}
-              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              <FileText className="w-4 h-4" />
               <span>출력</span>
               {projectsViewMode === 'listOutput' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
@@ -513,9 +510,8 @@ export const Navigation: React.FC<Props> = ({
             {currentUser?.role === 'admin' && (
               <button
                 onClick={onShowProjectsPnl}
-                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                <Calculator className="w-4 h-4" />
                 <span>원가 계산</span>
               {projectsViewMode === 'pnl' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
               </button>
@@ -524,9 +520,8 @@ export const Navigation: React.FC<Props> = ({
             {/* 파이프라인 탭 */}
             <button
               onClick={onShowProjectsPipeline}
-              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              <TrendingUp className="w-4 h-4" />
               <span>파이프라인</span>
               {projectsViewMode === 'pipeline' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
