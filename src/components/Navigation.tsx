@@ -442,28 +442,25 @@ export const Navigation: React.FC<Props> = ({
       <div id="app-projects-top-bar" className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 뷰 모드 탭 섹션 */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none border-b border-slate-100">
+          <div className="flex items-center gap-1 overflow-x-auto w-full py-2 scrollbar-none border-b border-slate-100">
             {/* 새 프로젝트 등록 버튼 */}
             <button
               onClick={onOpenNewProject}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs sm:text-sm shadow-md shadow-indigo-600/25 transition-all active:scale-95 shrink-0"
+              className="relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 text-slate-500 hover:text-slate-700"
             >
               <Briefcase className="w-4 h-4" />
               <span>등록</span>
             </button>
 
             {/* 프로젝트 리스트 탭 (드롭다운 포함) */}
-            <div className="relative flex items-stretch rounded-lg overflow-hidden border border-slate-200 shrink-0">
+            <div className="relative flex items-center shrink-0">
               <button
                 onClick={onShowProjectsCardView}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 font-semibold whitespace-nowrap text-xs sm:text-sm transition-all active:scale-95 ${
-                  projectsViewMode === 'cards'
-                    ? 'bg-blue-600/20 text-blue-400'
-                    : 'bg-white hover:bg-slate-50 text-slate-600'
-                }`}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <ListChecks className="w-4 h-4 text-indigo-400" />
                 <span>리스트</span>
+                {projectsViewMode === 'cards' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
               </button>
               <button
                 onClick={(e) => {
@@ -472,7 +469,7 @@ export const Navigation: React.FC<Props> = ({
                   setProjectListMenuPos({ top: r.bottom + 6, left: Math.max(8, r.left) });
                   setIsProjectListMenuOpen(true);
                 }}
-                className="flex items-center px-2 bg-slate-100 hover:bg-slate-200 border-l border-slate-200 transition-colors"
+                className="flex items-center px-1 text-slate-500 hover:text-slate-700"
                 title="엑셀/PDF 다운로드"
               >
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isProjectListMenuOpen ? 'rotate-180' : ''}`} />
@@ -505,42 +502,33 @@ export const Navigation: React.FC<Props> = ({
             {/* 리스트 출력 탭 */}
             <button
               onClick={onShowProjectsListOutput}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 shrink-0 ${
-                projectsViewMode === 'listOutput'
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-              }`}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <FileText className="w-4 h-4" />
               <span>출력</span>
+              {projectsViewMode === 'listOutput' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
 
             {/* 원가계산서 (관리자만) */}
             {currentUser?.role === 'admin' && (
               <button
                 onClick={onShowProjectsPnl}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 shrink-0 ${
-                  projectsViewMode === 'pnl'
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-                }`}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <Calculator className="w-4 h-4" />
                 <span>원가 계산</span>
+              {projectsViewMode === 'pnl' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
               </button>
             )}
 
             {/* 파이프라인 탭 */}
             <button
               onClick={onShowProjectsPipeline}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold whitespace-nowrap text-xs sm:text-sm shadow-md transition-all active:scale-95 shrink-0 ${
-                projectsViewMode === 'pipeline'
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
-                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-              }`}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <TrendingUp className="w-4 h-4" />
               <span>파이프라인</span>
+              {projectsViewMode === 'pipeline' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
           </div>
 
