@@ -354,7 +354,7 @@ export const drawTableEdgeLines = (
   opt: { y: number; h: number; pxPerMm: number; leftMm: number; partTopMm: number; pageTopMm: number; pageBottomMm: number; hasNext: boolean; hasPrev: boolean }
 ): void => {
   const ctx = canvas.getContext('2d');
-  if (!ctx || !opt.hasPrev) return;
+  if (!ctx) return;
   const { width } = canvas;
   const DARK = 200;
   const SCAN = 400;
@@ -395,15 +395,22 @@ export const drawTableEdgeLines = (
   pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
   const xl = lines[0];
   const xr = lines[lines.length - 1];
-  // 윗줄: 표의 맨 왼쪽 세로선부터 맨 오른쪽 세로선까지
-  pdf.line(opt.leftMm + xl / opt.pxPerMm, opt.pageTopMm, opt.leftMm + xr / opt.pxPerMm, opt.pageTopMm);
-  // 세로선: 표 윗줄까지 이어 긋는다
-  if (firstInk - opt.y > 0) {
-    const yEnd = opt.partTopMm + (firstInk - opt.y) / opt.pxPerMm;
-    lines.forEach((x) => {
-      const xm = opt.leftMm + x / opt.pxPerMm;
-      pdf.line(xm, opt.pageTopMm, xm, yEnd);
-    });
+  if (opt.hasPrev) {
+    // 윗줄: 표의 맨 왼쪽 세로선부터 맨 오른쪽 세로선까지
+    pdf.line(opt.leftMm + xl / opt.pxPerMm, opt.pageTopMm, opt.leftMm + xr / opt.pxPerMm, opt.pageTopMm);
+    // 세로선: 표 윗줄까지 이어 긋는다
+    if (firstInk - opt.y > 0) {
+      const yEnd = opt.partTopMm + (firstInk - opt.y) / opt.pxPerMm;
+      lines.forEach((x) => {
+        const xm = opt.leftMm + x / opt.pxPerMm;
+        pdf.line(xm, opt.pageTopMm, xm, yEnd);
+      });
+    }
+  }
+  if (opt.hasNext) {
+    // 아랫줄: 이 페이지 맨 아래에서 표의 맨 왼쪽 세로선부터 맨 오른쪽 세로선까지 (세로선이 여기서 끊기지 않게)
+    const yb = opt.partTopMm + opt.h / opt.pxPerMm;
+    pdf.line(opt.leftMm + xl / opt.pxPerMm, yb, opt.leftMm + xr / opt.pxPerMm, yb);
   }
 };
 

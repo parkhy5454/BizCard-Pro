@@ -10935,6 +10935,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   {i > 0 && previewFit.edges?.[i] && (
                     <div className="absolute border-t border-slate-900" style={{ top: PAGE_MARGIN_MM * MM_TO_PX, left: previewFit.edges[i]!.leftMm * MM_TO_PX, width: (previewFit.edges[i]!.rightMm - previewFit.edges[i]!.leftMm) * MM_TO_PX }} />
                   )}
+                  {/* 이 페이지 맨 아래 실선: 다음 페이지 표의 세로선 범위만큼 (저장 PDF와 같은 규칙) */}
+                  {i < previewFit.slices.length - 1 && previewFit.edges?.[i + 1] && (
+                    <div className="absolute border-t border-slate-900" style={{ top: (sl.topMm + sl.usableMm) * MM_TO_PX, left: previewFit.edges[i + 1]!.leftMm * MM_TO_PX, width: (previewFit.edges[i + 1]!.rightMm - previewFit.edges[i + 1]!.leftMm) * MM_TO_PX }} />
+                  )}
                   <div className="absolute left-0 overflow-hidden bg-white" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
                     <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx, transform: previewFit.contentScale < 1 ? `scale(${previewFit.contentScale})` : undefined, transformOrigin: 'top left' }}>
                       {renderActivePrintable()}
