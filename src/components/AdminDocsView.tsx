@@ -8550,20 +8550,20 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
                       <label className="text-sm md:text-[11px] font-bold text-slate-600">해외 출장 경비 사용내역</label>
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-nowrap">
                         <button
                           type="button"
                           onClick={handleOpenOverseasTripCardImportPanel}
-                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="whitespace-nowrap text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
-                          <RefreshCw className="w-3 h-3" /> 카드 사용내역에서 가져오기
+                          <RefreshCw className="w-3 h-3" /> 카드 내역 가져오기
                         </button>
                         <button
                           type="button"
                           onClick={handleOpenOverseasTripBankImportPanel}
-                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="whitespace-nowrap text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
-                          <RefreshCw className="w-3 h-3" /> 통장 출금내역에서 가져오기
+                          <RefreshCw className="w-3 h-3" /> 통장 내역 가져오기
                         </button>
                         {/* [추가] 해외출장 중 영수증을 바로 스캔해서 항목을 추가할 수 있게.
                         스캔 완료 시 결과로 새 항목이 만들어지도록 scanningOverseasTripEntryId를
