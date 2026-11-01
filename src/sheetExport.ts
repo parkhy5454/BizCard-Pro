@@ -405,6 +405,39 @@ export const drawTableEdgeLines = (
   }
 };
 
+// [추가] 미리보기용: 자른 자리(cutY, 캔버스 px) 아래 첫 표의 왼쪽~오른쪽 세로선 범위(mm, 캔버스 왼쪽 기준)를 구한다.
+// drawTableEdgeLines와 같은 방식으로 세로선을 찾는다.
+export const tableTopSpanMm = (canvas: HTMLCanvasElement, cutY: number, pxPerMm: number): { leftMm: number; rightMm: number } | null => {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const { width, height } = canvas;
+  const DARK = 200;
+  const LINE_T = 210;
+  const WIN = 24;
+  let firstInk = -1;
+  for (let yy = Math.max(0, cutY); yy < Math.min(height, cutY + 400) && firstInk < 0; yy++) {
+    const d = ctx.getImageData(0, yy, width, 1).data;
+    for (let x = 0; x < width; x++) {
+      if (d[x * 4] < DARK) { firstInk = yy; break; }
+    }
+  }
+  if (firstInk < 0) return null;
+  const winH = Math.min(WIN, height - firstInk);
+  if (winH <= 0) return null;
+  const d = ctx.getImageData(0, firstInk, width, winH).data;
+  const need = Math.ceil(winH * 0.9);
+  const lines: number[] = [];
+  for (let x = 0; x < width; x++) {
+    let dark = 0;
+    for (let r = 0; r < winH; r++) {
+      if (d[(r * width + x) * 4] < LINE_T) dark++;
+    }
+    if (dark >= need && (lines.length === 0 || x - lines[lines.length - 1] > 2)) lines.push(x);
+  }
+  if (lines.length < 2) return null;
+  return { leftMm: lines[0] / pxPerMm, rightMm: lines[lines.length - 1] / pxPerMm };
+};
+
 export const canvasToPdfShare = async (canvas: HTMLCanvasElement, fileName: string): Promise<void> => {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
