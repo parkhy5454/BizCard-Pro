@@ -1067,7 +1067,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDoc, setEditingDoc] = useState<Partial<AdminDoc> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  // [추가] 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성). 공용 훅을 쓴다.
+  // [추가] 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어 작성). 공용 훅을 쓴다.
   const draft = useDraftAutosave<Partial<AdminDoc>>({
     value: editingDoc,
     setValue: setEditingDoc,
@@ -6759,7 +6759,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <p className="text-sm font-bold text-amber-800">임시 저장 내용 있음</p>
                   <p className="text-xs text-amber-700">({new Date(draft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                   <div className="flex gap-2">
-                    <button type="button" onClick={draft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                    <button type="button" onClick={draft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어 작성</button>
                     <button type="button" onClick={draft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
                   </div>
                 </div>

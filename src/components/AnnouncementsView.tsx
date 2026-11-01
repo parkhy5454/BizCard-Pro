@@ -41,7 +41,7 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // [추가] 공지 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성)
+  // [추가] 공지 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어 작성)
   const announcementSnapshot = useMemo(() => (!isEditorOpen ? null : {
     editingId, formTitle, formContent, formPinned
   }), [isEditorOpen, editingId, formTitle, formContent, formPinned]);

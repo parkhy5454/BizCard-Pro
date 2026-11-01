@@ -418,7 +418,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const [coworkers, setCoworkers] = useState<Coworker[]>([]);
   const [formInvitedUserIds, setFormInvitedUserIds] = useState<string[]>([]);
 
-  // [추가] 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성).
+  // [추가] 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어 작성).
   // 작성 창이 열려 있을 때만 입력값 묶음을 공용 훅에 넘긴다.
   type WorkLogFormSnapshot = {
     writeFormType: 'daily' | 'weekly'; editingLogId: string | null;
@@ -3190,7 +3190,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                     <p className="text-sm font-bold text-amber-800">임시 저장 내용 있음</p>
                     <p className="text-xs text-amber-700">({new Date(workLogDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                     <div className="flex gap-2">
-                      <button type="button" onClick={workLogDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                      <button type="button" onClick={workLogDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어 작성</button>
                       <button type="button" onClick={workLogDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
                     </div>
                   </div>

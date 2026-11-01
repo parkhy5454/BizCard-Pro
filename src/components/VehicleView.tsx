@@ -415,7 +415,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   const [reportVehicleId, setReportVehicleId] = useState<string>('');
   const [reportYearMonth, setReportYearMonth] = useState<string>(getTodayLocalStr().slice(0, 7)); // YYYY-MM
 
-  // [추가] 작성/수정 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성).
+  // [추가] 작성/수정 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어 작성).
   // 각 창이 열려 있을 때만 입력값을 공용 훅에 넘긴다.
   const vehicleDraft = useDraftAutosave<typeof newVehicle>({
     value: isVehicleFormOpen ? newVehicle : null,
