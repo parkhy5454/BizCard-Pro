@@ -10108,8 +10108,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     {/* 인쇄 전 미리보기 + 인쇄 실행 바 (화면에는 보이지만 인쇄될 때는 안 보임) */}
     {printingDoc && (
-      <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-slate-900/70 overflow-y-auto py-8 print:hidden">
-        <div className="max-w-3xl mx-auto flex items-center justify-end gap-2 mb-3 px-4">
+      <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 overflow-y-auto py-3 md:py-8 print:hidden">
+        <div className="max-w-3xl mx-auto flex items-center justify-center md:justify-end gap-2 mb-3 px-4">
           <button
             onClick={() => setPrintingDoc(null)}
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
