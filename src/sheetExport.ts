@@ -341,8 +341,8 @@ export const makePageCutter = (canvas: HTMLCanvasElement, pageHmm: number, margi
   };
 };
 
-// [추가] 표가 페이지를 넘어갈 때: 다음 페이지 맨 위에 표 윗줄을 표 너비만큼 같은 굵기로 긋고,
-// 표의 세로선도 그 줄까지 이어 준다. 표 밖으로 나가는 선은 긋지 않는다.
+// [추가] 표가 페이지를 넘어갈 때: 다음 페이지 맨 위에, 표의 세로선 맨 왼쪽부터 맨 오른쪽까지 같은 굵기의 윗줄을 긋고,
+// 세로선은 그 줄까지 이어 준다. 표 밖으로 나가는 선은 긋지 않는다 (표 너비는 세로선으로만 정한다).
 export const drawTableEdgeLines = (
   pdf: { line: (x1: number, y1: number, x2: number, y2: number) => unknown; setDrawColor: (c: number) => unknown; setLineWidth: (w: number) => unknown },
   canvas: HTMLCanvasElement,
@@ -350,8 +350,6 @@ export const drawTableEdgeLines = (
 ): void => {
   const ctx = canvas.getContext('2d');
   if (!ctx || !opt.hasPrev) return;
-  pdf.setDrawColor(0);
-  pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
   const { width } = canvas;
   const DARK = 200;
   const SCAN = 400;
@@ -366,33 +364,33 @@ export const drawTableEdgeLines = (
     }
   }
   if (firstInk < 0) return;
-  // 1) 표 윗줄: 이 줄에 그어진 가로 범위만큼
-  const rowData = ctx.getImageData(0, firstInk, width, 1).data;
-  let xl = -1;
-  let xr = -1;
-  for (let x = 0; x < width; x++) {
-    if (rowData[x * 4] < DARK) { if (xl < 0) xl = x; xr = x; }
-  }
-  if (xl >= 0) {
-    pdf.line(opt.leftMm + xl / opt.pxPerMm, opt.pageTopMm, opt.leftMm + xr / opt.pxPerMm, opt.pageTopMm);
-  }
-  // 2) 세로선: 첫 줄에서 세로선이 시작하는 곳까지 위로 이어 긋는다
   const winH = Math.min(WIN, endY - firstInk);
-  if (winH > 0 && firstInk - opt.y > 0) {
-    const d = ctx.getImageData(0, firstInk, width, winH).data;
-    const xs: number[] = [];
-    for (let x = 0; x < width; x++) {
-      let all = true;
-      for (let r = 0; r < winH; r++) {
-        if (d[(r * width + x) * 4] >= DARK) { all = false; break; }
-      }
-      if (all) xs.push(x);
+  if (winH <= 0) return;
+  // 세로선 찾기: 여러 줄 동안 계속 진한 세로줄만 표의 세로선으로 본다
+  const d = ctx.getImageData(0, firstInk, width, winH).data;
+  const xs: number[] = [];
+  for (let x = 0; x < width; x++) {
+    let all = true;
+    for (let r = 0; r < winH; r++) {
+      if (d[(r * width + x) * 4] >= DARK) { all = false; break; }
     }
+    if (all) xs.push(x);
+  }
+  const lines: number[] = [];
+  for (const x of xs) {
+    if (lines.length === 0 || x - lines[lines.length - 1] > 2) lines.push(x);
+  }
+  if (lines.length < 2) return;
+  pdf.setDrawColor(0);
+  pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
+  const xl = lines[0];
+  const xr = lines[lines.length - 1];
+  // 윗줄: 표의 맨 왼쪽 세로선부터 맨 오른쪽 세로선까지
+  pdf.line(opt.leftMm + xl / opt.pxPerMm, opt.pageTopMm, opt.leftMm + xr / opt.pxPerMm, opt.pageTopMm);
+  // 세로선: 표 윗줄까지 이어 긋는다
+  if (firstInk - opt.y > 0) {
     const yEnd = opt.partTopMm + (firstInk - opt.y) / opt.pxPerMm;
-    let prev = -10;
-    xs.forEach((x) => {
-      if (x - prev <= 2) return;
-      prev = x;
+    lines.forEach((x) => {
       const xm = opt.leftMm + x / opt.pxPerMm;
       pdf.line(xm, opt.pageTopMm, xm, yEnd);
     });
