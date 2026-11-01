@@ -410,8 +410,36 @@ export const drawTableEdgeLines = (
   if (opt.hasNext) {
     // 아랫줄: 이 페이지 맨 아래에서 표의 맨 왼쪽 세로선부터 맨 오른쪽 세로선까지 (세로선이 여기서 끊기지 않게)
     const yb = opt.partTopMm + opt.h / opt.pxPerMm;
-    pdf.line(opt.leftMm + xl / opt.pxPerMm, yb, opt.leftMm + xr / opt.pxPerMm, yb);
+    bottomOpenSegmentsPx(canvas, opt.y + opt.h, xl, xr).forEach((g) => {
+      pdf.line(opt.leftMm + g.x1 / opt.pxPerMm, yb, opt.leftMm + g.x2 / opt.pxPerMm, yb);
+    });
   }
+};
+
+// [추가] 페이지 아랫줄을 그을 구간: 표의 원래 아래 테두리가 이미 있는 곳(캔버스 px, boundaryPx 바로 위)은 빼고,
+// 테두리가 없는 곳(병합 칸 등)만 남긴다. 겹쳐 그으면 그 부분만 두꺼워 보이기 때문이다.
+export const bottomOpenSegmentsPx = (canvas: HTMLCanvasElement, boundaryPx: number, xlPx: number, xrPx: number): { x1: number; x2: number }[] => {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return [];
+  const { width, height } = canvas;
+  const yEnd = Math.min(height, Math.round(boundaryPx));
+  const rows = Math.min(6, yEnd);
+  if (rows <= 0) return [];
+  const d = ctx.getImageData(0, yEnd - rows, width, rows).data;
+  const segs: { x1: number; x2: number }[] = [];
+  let start = -1;
+  const xs = Math.max(0, Math.round(xlPx));
+  const xe = Math.min(width - 1, Math.round(xrPx));
+  for (let x = xs; x <= xe; x++) {
+    let dark = false;
+    for (let r = 0; r < rows; r++) {
+      if (d[(r * width + x) * 4] < 200) { dark = true; break; }
+    }
+    if (!dark && start < 0) start = x;
+    if (dark && start >= 0) { segs.push({ x1: start, x2: x - 1 }); start = -1; }
+  }
+  if (start >= 0) segs.push({ x1: start, x2: xe });
+  return segs.filter((g) => g.x2 - g.x1 >= 1);
 };
 
 // [추가] 미리보기용: 자른 자리(cutY, 캔버스 px) 아래 첫 표의 왼쪽~오른쪽 세로선 범위(mm, 캔버스 왼쪽 기준)를 구한다.

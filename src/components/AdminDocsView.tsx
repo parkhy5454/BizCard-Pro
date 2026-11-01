@@ -7,7 +7,7 @@ import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
 import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
-import { saveBlobFileShareOrDownload, captureSaveFile, shareOrDownloadNow, pageCutCandidatesPx, drawTableEdgeLines, tableTopSpanMm } from '../sheetExport.js';
+import { saveBlobFileShareOrDownload, captureSaveFile, shareOrDownloadNow, pageCutCandidatesPx, drawTableEdgeLines, tableTopSpanMm, bottomOpenSegmentsPx } from '../sheetExport.js';
 
 import { getErrorMessage } from '../errorUtils.js';
 import * as ExcelJS from 'exceljs';
@@ -337,7 +337,7 @@ const MM_TO_PX = 96 / 25.4;
 type PageSlice = { offsetMm: number; usableMm: number; topMm: number };
 // [추가] 미리보기용 측정: 종이를 그림으로 한 번 찍어서 전체 높이(mm)와 빈 줄 위치를 구한다.
 // PDF 저장과 같은 방법으로 자르므로 미리보기 페이지 구분선과 저장 파일이 항상 같은 자리에서 나뉜다.
-const measurePaperCutsMm = async (paper: HTMLElement, paperWmm: number): Promise<{ naturalMm: number; cuts: number[]; edgeAt: (mmY: number) => { leftMm: number; rightMm: number } | null }> => {
+const measurePaperCutsMm = async (paper: HTMLElement, paperWmm: number): Promise<{ naturalMm: number; cuts: number[]; edgeAt: (mmY: number) => { leftMm: number; rightMm: number } | null; openBottomAt: (mmY: number, leftMm: number, rightMm: number) => { leftMm: number; rightMm: number }[] }> => {
   const holder = document.createElement('div');
   holder.style.position = 'fixed';
   holder.style.left = '-20000px';
@@ -357,6 +357,7 @@ const measurePaperCutsMm = async (paper: HTMLElement, paperWmm: number): Promise
       naturalMm: canvas.height / canvasPxPerMm,
       cuts: blankGapCutsMm(canvas, canvasPxPerMm),
       edgeAt: (mmY: number) => tableTopSpanMm(canvas, mmY * canvasPxPerMm, canvasPxPerMm),
+      openBottomAt: (mmY: number, leftMm: number, rightMm: number) => bottomOpenSegmentsPx(canvas, mmY * canvasPxPerMm, leftMm * canvasPxPerMm, rightMm * canvasPxPerMm).map((g) => ({ leftMm: g.x1 / canvasPxPerMm, rightMm: g.x2 / canvasPxPerMm })),
     };
   } finally {
     holder.remove();
@@ -2636,7 +2637,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const prepTokenRef = useRef(0);
   const [prepDone, setPrepDone] = useState(false);
   // [추가] 미리보기 맞춤: 휴대폰에서는 종이 폭을 화면 폭에 맞춰 줄이고, A4 한 장 높이마다 페이지 구분선을 넣는다
-  const [previewFit, setPreviewFit] = useState<{ scale: number; contentScale: number; paperWpx: number; pageHpx: number; slices: PageSlice[]; edges?: ({ leftMm: number; rightMm: number } | null)[] }>({ scale: 1, contentScale: 1, paperWpx: 794, pageHpx: 1123, slices: [{ offsetMm: 0, usableMm: 272, topMm: 0 }] });
+  const [previewFit, setPreviewFit] = useState<{ scale: number; contentScale: number; paperWpx: number; pageHpx: number; slices: PageSlice[]; edges?: ({ leftMm: number; rightMm: number } | null)[]; bottoms?: { leftMm: number; rightMm: number }[][] }>({ scale: 1, contentScale: 1, paperWpx: 794, pageHpx: 1123, slices: [{ offsetMm: 0, usableMm: 272, topMm: 0 }] });
   useLayoutEffect(() => {
     if (!printingDoc) return;
     const el = previewPaperRef.current;
@@ -2660,12 +2661,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       setPreviewFit({ scale, contentScale, paperWpx, pageHpx, slices: splitPagesMm(naturalMm, pageMm, []) });
       const mySeq = ++measureSeq;
       measurePaperCutsMm(el, paperWmm)
-        .then(({ naturalMm: n, cuts, edgeAt }) => {
+        .then(({ naturalMm: n, cuts, edgeAt, openBottomAt }) => {
           if (mySeq !== measureSeq) return;
           const slices = splitPagesMm(n, pageMm, cuts);
           // 2페이지부터 상단에 긋는 실선은 표의 왼쪽~오른쪽 세로선 범위만큼만 (저장 PDF와 같은 규칙)
           const edges = slices.map((sl, i) => (i > 0 ? edgeAt(sl.offsetMm) : null));
-          setPreviewFit((prev) => ({ ...prev, slices, edges }));
+          // 페이지 아랫줄: 다음 페이지 표의 세로선 범위 중 표 테두리가 없는 구간만 긋는다
+          const bottoms = slices.map((_, i) => {
+            const next = i < slices.length - 1 ? edges[i + 1] : null;
+            return next ? openBottomAt(slices[i + 1].offsetMm, next.leftMm, next.rightMm) : [];
+          });
+          setPreviewFit((prev) => ({ ...prev, slices, edges, bottoms }));
         })
         .catch(() => { /* 측정 실패 시 높이 기준 나눔을 그대로 둔다 */ });
     };
@@ -10936,9 +10942,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     <div className="absolute z-10 border-t border-slate-900" style={{ top: PAGE_MARGIN_MM * MM_TO_PX, left: previewFit.edges[i]!.leftMm * MM_TO_PX, width: (previewFit.edges[i]!.rightMm - previewFit.edges[i]!.leftMm) * MM_TO_PX }} />
                   )}
                   {/* 이 페이지 맨 아래 실선: 다음 페이지 표의 세로선 범위만큼 (저장 PDF와 같은 규칙) */}
-                  {i < previewFit.slices.length - 1 && previewFit.edges?.[i + 1] && (
-                    <div className="absolute border-t border-slate-900" style={{ top: (sl.topMm + sl.usableMm) * MM_TO_PX, left: previewFit.edges[i + 1]!.leftMm * MM_TO_PX, width: (previewFit.edges[i + 1]!.rightMm - previewFit.edges[i + 1]!.leftMm) * MM_TO_PX }} />
-                  )}
+                  {previewFit.bottoms?.[i]?.map((seg, k) => (
+                    <div key={`bottom-${k}`} className="absolute z-10 border-t border-slate-900" style={{ top: (sl.topMm + sl.usableMm) * MM_TO_PX, left: seg.leftMm * MM_TO_PX, width: (seg.rightMm - seg.leftMm) * MM_TO_PX }} />
+                  ))}
                   <div className="absolute left-0 overflow-hidden bg-white" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
                     <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx, transform: previewFit.contentScale < 1 ? `scale(${previewFit.contentScale})` : undefined, transformOrigin: 'top left' }}>
                       {renderActivePrintable()}
