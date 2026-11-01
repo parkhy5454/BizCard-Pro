@@ -10254,8 +10254,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               엑셀 다운
             </button>
           )}
-          {/* [추가] 인쇄: 기존 인쇄 흐름(#print-root 포털 내용만 인쇄). 연차 현황은 엑셀 다운·저장만 쓰므로 숨김 */}
-          {printingDoc.category !== 'annual_leave_status' && (
+          {/* [추가] 인쇄: 기존 인쇄 흐름(#print-root 포털 내용만 인쇄). 연차 현황·법인카드는 엑셀 다운·저장만 쓰므로 숨김 */}
+          {!['annual_leave_status', 'corp_card'].includes(printingDoc.category) && (
             <button
               onClick={() => {
                 // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
