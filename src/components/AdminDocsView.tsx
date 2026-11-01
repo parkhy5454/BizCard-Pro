@@ -335,15 +335,47 @@ const PREVIEW_EXCEL_CATEGORIES: string[] = ['payslip', 'severance', 'monthly_cas
 const PAGE_MARGIN_MM = 25;
 const MM_TO_PX = 96 / 25.4;
 type PageSlice = { offsetMm: number; usableMm: number; topMm: number };
-const splitPagesMm = (naturalMm: number, pageMm: number): PageSlice[] => {
+// [추가] 페이지를 자를 때 글자 줄이 반으로 쪼개지지 않도록, 문단·줄·표 행의 경계 위치(mm)를 모은다.
+// 경계 중에서 어떤 칸(문단/행)의 가운데를 가로지르지 않는 위치만 쓴다.
+const BLOCK_CHILD_TAGS = ['P', 'TR', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'TABLE', 'UL', 'OL', 'TBODY', 'THEAD'];
+const paperBreakCandidatesMm = (paper: HTMLElement): number[] => {
+  const rect = paper.getBoundingClientRect();
+  const scale = paper.offsetHeight ? rect.height / paper.offsetHeight : 1; // 미리보기 축소(scale) 보정
+  const toMm = (px: number) => px / scale / MM_TO_PX;
+  const leaves: { top: number; bottom: number }[] = [];
+  paper.querySelectorAll<HTMLElement>('p, tr, li, h1, h2, h3, h4, h5, h6, div').forEach((el) => {
+    // 안에 다시 문단·행이 들어 있는 상자(div)는 건너뛰고, 실제 글자 줄을 담은 가장 안쪽 요소만 본다
+    if (el.tagName === 'DIV' && Array.from(el.children).some((c) => BLOCK_CHILD_TAGS.includes(c.tagName))) return;
+    const r = el.getBoundingClientRect();
+    if (r.height <= 0) return;
+    leaves.push({ top: toMm(r.top - rect.top), bottom: toMm(r.bottom - rect.top) });
+  });
+  const raw: number[] = [];
+  leaves.forEach((l) => { raw.push(l.top, l.bottom); });
+  const safe = raw.filter((c) => c > 0.5 && !leaves.some((l) => l.top < c - 0.3 && l.bottom > c + 0.3));
+  return Array.from(new Set(safe.map((c) => Math.round(c * 10) / 10))).sort((a, b) => a - b);
+};
+
+// 페이지 자르기: 기본은 한 장 높이만큼 자르되, 페이지 끝 가까이에 있는 줄 경계에서 자른다
+const splitPagesMm = (naturalMm: number, pageMm: number, safeCutsMm: number[] = []): PageSlice[] => {
   const slices: PageSlice[] = [];
   let consumed = 0;
   for (;;) {
     const topMm = slices.length === 0 ? 0 : PAGE_MARGIN_MM;
-    const usableMm = pageMm - topMm - PAGE_MARGIN_MM;
-    slices.push({ offsetMm: consumed, usableMm, topMm });
-    consumed += usableMm;
-    if (consumed >= naturalMm - 0.5) break;
+    const maxUsable = pageMm - topMm - PAGE_MARGIN_MM;
+    const limit = consumed + maxUsable;
+    if (limit >= naturalMm - 0.5) {
+      slices.push({ offsetMm: consumed, usableMm: maxUsable, topMm });
+      break;
+    }
+    // 페이지 절반 이후에 있는 경계 중 가장 아래쪽을 고른다 (너무 짧게 잘리지 않도록)
+    let cut = -1;
+    for (const c of safeCutsMm) {
+      if (c > consumed + maxUsable * 0.5 && c <= limit && c > cut) cut = c;
+    }
+    if (cut < 0) cut = limit;
+    slices.push({ offsetMm: consumed, usableMm: cut - consumed, topMm });
+    consumed = cut;
   }
   return slices;
 };
@@ -2597,7 +2629,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       const vw = window.innerWidth;
       const scale = vw < 768 ? Math.min(1, (vw - 32) / paperWpx) : 1;
       const contentScale = onePageFitScale(printingDoc.category, naturalMm, pageMm);
-      const slices = contentScale < 1 ? [{ offsetMm: 0, usableMm: pageMm - PAGE_MARGIN_MM, topMm: 0 }] : splitPagesMm(naturalMm, pageMm);
+      const slices = contentScale < 1 ? [{ offsetMm: 0, usableMm: pageMm - PAGE_MARGIN_MM, topMm: 0 }] : splitPagesMm(naturalMm, pageMm, paperBreakCandidatesMm(el));
       setPreviewFit({ scale, contentScale, paperWpx, pageHpx, slices });
     };
     update();
@@ -6118,6 +6150,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     clone.style.left = '0px';
     holder.appendChild(clone);
     document.body.appendChild(holder);
+    const safeCuts = paperBreakCandidatesMm(clone); // [추가] 줄 경계는 칸 정렬 보정 전에 잰다
     let canvas: HTMLCanvasElement;
     try {
       centerTableCellsInRoot(clone);
@@ -6138,7 +6171,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       // 한 장에 맞춰 줄인 서류는 전체를 한 페이지에 넣는다
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (paperWmm - paperWmm * fitF) / 2, 0, paperWmm * fitF, naturalMm * fitF);
     }
-    const slices = fitF < 1 ? [] : splitPagesMm(naturalMm, pageH);
+    const slices = fitF < 1 ? [] : splitPagesMm(naturalMm, pageH, safeCuts);
     slices.forEach((sl, i) => {
       const srcY = Math.round(sl.offsetMm * canvasPxPerMm);
       const srcH = Math.min(canvas.height - srcY, Math.round(sl.usableMm * canvasPxPerMm));
