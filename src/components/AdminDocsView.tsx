@@ -347,6 +347,14 @@ const splitPagesMm = (naturalMm: number, pageMm: number): PageSlice[] => {
   return slices;
 };
 
+// [추가] 한 페이지에 들어가야 하는 서류(연봉협약서·위임장): 넘치면 한 장에 맞게 줄인다
+const ONE_PAGE_FIT_CATEGORIES: string[] = ['salary_agreement', 'power_of_attorney'];
+const onePageFitScale = (category: string, naturalMm: number, pageMm: number): number => {
+  if (!ONE_PAGE_FIT_CATEGORIES.includes(category)) return 1;
+  const usable = pageMm - PAGE_MARGIN_MM;
+  return naturalMm > usable ? usable / naturalMm : 1;
+};
+
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
   const header = document.querySelector('header');
@@ -2534,8 +2542,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 휴대폰: 미리보기를 열면 PDF와 엑셀 파일을 미리 만들어 둔다. 저장 버튼은 이 파일을 바로 공유 창으로 넘긴다.
   const preparedRef = useRef<{ pdf?: { blob: Blob; fileName: string }; excel?: { blob: Blob; fileName: string } }>({});
   const prepTokenRef = useRef(0);
+  const [prepDone, setPrepDone] = useState(false);
   // [추가] 미리보기 맞춤: 휴대폰에서는 종이 폭을 화면 폭에 맞춰 줄이고, A4 한 장 높이마다 페이지 구분선을 넣는다
-  const [previewFit, setPreviewFit] = useState<{ scale: number; paperWpx: number; pageHpx: number; slices: PageSlice[] }>({ scale: 1, paperWpx: 794, pageHpx: 1123, slices: [{ offsetMm: 0, usableMm: 272, topMm: 0 }] });
+  const [previewFit, setPreviewFit] = useState<{ scale: number; contentScale: number; paperWpx: number; pageHpx: number; slices: PageSlice[] }>({ scale: 1, contentScale: 1, paperWpx: 794, pageHpx: 1123, slices: [{ offsetMm: 0, usableMm: 272, topMm: 0 }] });
   useLayoutEffect(() => {
     if (!printingDoc) return;
     const el = previewPaperRef.current;
@@ -2549,7 +2558,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       const naturalMm = el.offsetHeight / MM_TO_PX;
       const vw = window.innerWidth;
       const scale = vw < 768 ? Math.min(1, (vw - 32) / paperWpx) : 1;
-      setPreviewFit({ scale, paperWpx, pageHpx, slices: splitPagesMm(naturalMm, pageMm) });
+      const contentScale = onePageFitScale(printingDoc.category, naturalMm, pageMm);
+      const slices = contentScale < 1 ? [{ offsetMm: 0, usableMm: pageMm - PAGE_MARGIN_MM, topMm: 0 }] : splitPagesMm(naturalMm, pageMm);
+      setPreviewFit({ scale, contentScale, paperWpx, pageHpx, slices });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -2562,6 +2573,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || typeof navigator === 'undefined' || !navigator.share) return;
     const token = ++prepTokenRef.current;
     preparedRef.current = {};
+    setPrepDone(false);
     const excelRun = excelHandlerFor(printingDoc.category);
     (async () => {
       await new Promise((r) => setTimeout(r, 400)); // 종이가 화면에 그려진 뒤에 캡처한다
@@ -2576,6 +2588,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         }
       } catch {
         // 준비에 실패하면 저장 버튼을 누를 때 다시 만든다
+      } finally {
+        if (prepTokenRef.current === token) setPrepDone(true);
       }
     })();
     return () => { prepTokenRef.current++; };
@@ -6077,7 +6091,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const imgW = paperWmm - sideMarginMm * 2;
     const canvasPxPerMm = canvas.width / paperWmm;
     const mmPerCanvasPx = imgW / canvas.width;
-    const slices = splitPagesMm(canvas.height / canvasPxPerMm, pageH);
+    const naturalMm = canvas.height / canvasPxPerMm;
+    const fitF = onePageFitScale(printingDoc.category, naturalMm, pageH);
+    if (fitF < 1) {
+      // 한 장에 맞춰 줄인 서류는 전체를 한 페이지에 넣는다
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (paperWmm - paperWmm * fitF) / 2, 0, paperWmm * fitF, naturalMm * fitF);
+    }
+    const slices = fitF < 1 ? [] : splitPagesMm(naturalMm, pageH);
     slices.forEach((sl, i) => {
       const srcY = Math.round(sl.offsetMm * canvasPxPerMm);
       const srcH = Math.min(canvas.height - srcY, Math.round(sl.usableMm * canvasPxPerMm));
@@ -6242,6 +6262,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (printingDoc.category === 'tax') return renderPrintableTax();
     return null;
   };
+
+  // [추가] 휴대폰은 파일을 미리 만든 뒤에만 저장 버튼을 누를 수 있다(준비 중에는 비활성)
+  const savePending = typeof navigator !== 'undefined' && !!navigator.share && !prepDone;
 
   return (
     <>
@@ -10642,7 +10665,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'corp_card' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportCorpCardExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10651,7 +10675,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'vehicle_fine' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportVehicleFineExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10660,7 +10685,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'incentive' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportIncentiveExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10669,7 +10695,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'overseas_trip' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportOverseasTripExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10678,7 +10705,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'office_supplies' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportOfficeSuppliesExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10687,7 +10715,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {PREVIEW_EXCEL_CATEGORIES.includes(printingDoc.category) && (
             <button
               onClick={() => saveFromPreview('excel', handleExportPreviewExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10696,7 +10725,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'annual_leave_status' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportAnnualLeaveStatusExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10705,7 +10735,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'cash_flow' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportCashFlowExcel)}
-              className="flex flex-1 md:flex-none justify-center items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex flex-1 md:flex-none justify-center items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10714,7 +10745,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'management_fee' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportManagementFeeExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10723,7 +10755,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'advance_payment' && (
             <button
               onClick={() => saveFromPreview('excel', handleExportAdvancePaymentExcel)}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              disabled={savePending}
+              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10749,7 +10782,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {/* [추가] 저장: PDF 파일을 클라우드/PC로 저장 (아이폰은 공유 창의 파일 앱·iCloud 등) */}
           <button
             onClick={() => saveFromPreview('pdf', () => savePrintPreviewAsPdf(), true)}
-            className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md ${printingDoc.category === 'cash_flow' ? 'flex-1 md:flex-none justify-center' : ''}`}
+            disabled={savePending}
+            className={`disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md ${printingDoc.category === 'cash_flow' ? 'flex-1 md:flex-none justify-center' : ''}`}
           >
             <Printer className="w-4 h-4" />
             저장
@@ -10765,13 +10799,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         <div className="flex flex-col items-center gap-3 mx-auto" style={{ width: previewFit.paperWpx * previewFit.scale }}>
           {previewFit.slices.map((sl, i) => (
             <div key={`page-${i}`} className="w-full">
-              <div className="relative bg-slate-200 shadow-2xl overflow-hidden" style={{ width: previewFit.paperWpx * previewFit.scale, height: previewFit.pageHpx * previewFit.scale }}>
+              <div className="relative bg-white shadow-2xl overflow-hidden" style={{ width: previewFit.paperWpx * previewFit.scale, height: previewFit.pageHpx * previewFit.scale }}>
                 <div
                   className="absolute left-0 top-0 overflow-hidden"
                   style={{ width: previewFit.paperWpx, height: previewFit.pageHpx, transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined, transformOrigin: 'top left' }}
                 >
                   <div className="absolute left-0 overflow-hidden bg-white" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
-                    <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx }}>
+                    <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx, transform: previewFit.contentScale < 1 ? `scale(${previewFit.contentScale})` : undefined, transformOrigin: 'top left' }}>
                       {renderActivePrintable()}
                     </div>
                   </div>
