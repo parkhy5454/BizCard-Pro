@@ -373,6 +373,11 @@ const centerTableCellsInRoot = (root: HTMLElement): void => {
     wrap.style.height = `${inner}px`;
     const body = document.createElement('div');
     body.style.width = '100%';
+    // html2canvas는 글자를 실제보다 조금 아래에 그린다(글자 크기에 비례). 저장된 PDF 화면으로 가늠한 값이라
+    // 글자 크기의 약 0.6배만큼 위로 올려서 칸 가운데에 맞춘다.
+    const fontPx = parseFloat(cs.fontSize) || 12;
+    body.style.position = 'relative';
+    body.style.top = `${(-fontPx * 0.6).toFixed(2)}px`;
     while (cell.firstChild) body.appendChild(cell.firstChild);
     wrap.appendChild(body);
     cell.appendChild(wrap);
