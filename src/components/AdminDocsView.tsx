@@ -1738,6 +1738,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     holder.style.top = '0';
     holder.style.background = '#ffffff';
     const clone = el.cloneNode(true) as HTMLElement;
+    clone.style.transform = 'none'; // [추가] 휴대폰 미리보기 축소(scale)가 저장 파일에 들어가지 않게 원래 크기로 되돌린다
     holder.appendChild(clone);
     document.body.appendChild(holder);
     let canvas: HTMLCanvasElement;
@@ -2510,6 +2511,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 휴대폰 저장: 파일을 먼저 만든 뒤 "저장·공유 열기"를 눌러야 공유 창이 열린다
   const [pendingSave, setPendingSave] = useState<{ blob: Blob; fileName: string; closeAfter: boolean } | null>(null);
   useEffect(() => { if (!printingDoc) setPendingSave(null); }, [printingDoc]);
+  // [추가] 미리보기 맞춤: 휴대폰에서는 종이 폭을 화면 폭에 맞춰 줄이고, A4 한 장 높이마다 페이지 구분선을 넣는다
+  const [previewFit, setPreviewFit] = useState({ scale: 1, height: 0, pages: 1, pageH: 1123, paperW: 794 });
+  useLayoutEffect(() => {
+    if (!printingDoc) return;
+    const el = previewPaperRef.current;
+    if (!el) return;
+    const landscape = ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category);
+    const paperW = landscape ? 1123 : 794;
+    const pageH = landscape ? 794 : 1123;
+    const update = () => {
+      const natural = el.offsetHeight;
+      const vw = window.innerWidth;
+      const scale = vw < 768 ? Math.min(1, (vw - 32) / paperW) : 1;
+      const pages = Math.max(1, Math.ceil(natural / pageH));
+      setPreviewFit({ scale, height: natural, pages, pageH, paperW });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    return () => { ro.disconnect(); window.removeEventListener('resize', update); };
+  }, [printingDoc]);
   // [추가] 서류 종류 탭을 바꾸면 열려 있던 인쇄 미리보기는 닫는다 (팝업이 다른 탭을 가리지 않게)
   useEffect(() => { setPrintingDoc(null); }, [activeCategory]);
 
@@ -5957,6 +5980,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     holder.style.top = '0';
     holder.style.background = '#ffffff';
     const clone = el.cloneNode(true) as HTMLElement;
+    clone.style.transform = 'none'; // [추가] 휴대폰 미리보기 축소(scale)가 저장 파일에 들어가지 않게 원래 크기로 되돌린다
     holder.appendChild(clone);
     document.body.appendChild(holder);
     let canvas: HTMLCanvasElement;
@@ -10659,15 +10683,30 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         바깥 박스와 무관하게 항상 올바르게 나왔던 것이라, 가로로 그리는 카테고리를 전부
         여기에도 반영해서 미리보기와 실제 인쇄가 항상 같은 폭으로 보이게 맞춘다. */}
         <div
-          ref={previewPaperRef}
-          className="bg-white shadow-2xl mx-auto"
-          style={{
-            width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category)
-              ? '297mm'
-              : '210mm',
-          }}
+          className="relative mx-auto"
+          style={{ width: previewFit.paperW * previewFit.scale, height: previewFit.height * previewFit.scale }}
         >
-          {renderActivePrintable()}
+          <div
+            ref={previewPaperRef}
+            className="bg-white shadow-2xl relative"
+            style={{
+              width: `${previewFit.paperW}px`,
+              transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined,
+              transformOrigin: 'top left',
+            }}
+          >
+            {renderActivePrintable()}
+          </div>
+          {/* [추가] A4 한 장이 끝나는 곳마다 구분선을 넣어서 페이지가 넘어가는 것을 보여준다 */}
+          {Array.from({ length: previewFit.pages - 1 }, (_, k) => (
+            <div
+              key={`page-break-${k}`}
+              className="absolute left-0 right-0 flex items-center justify-center bg-slate-200 text-[11px] font-bold text-slate-500 pointer-events-none"
+              style={{ top: (k + 1) * previewFit.pageH * previewFit.scale - 8, height: 16 }}
+            >
+              {k + 2} / {previewFit.pages} 페이지
+            </div>
+          ))}
         </div>
       </div>
     )}
