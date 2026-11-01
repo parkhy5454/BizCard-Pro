@@ -160,11 +160,29 @@ export const Navigation: React.FC<Props> = ({
   useEffect(() => { setPressedCardAction(null); }, [activeTab]);
   // [추가] 로그인 직후 아이폰 사파리는 하단 고정 탭을 화면을 한 번 건드리기 전까지 그리지 않는 경우가 있다.
   // 탭 바가 처음 붙은 직후에 화면 크기 이벤트를 보내서 한 번 다시 그리게 한다.
+  // [추가] 아이폰 사파리는 로그인 직후 고정 탭을 다시 그리지 않을 때가 있어서, 탭이 붙은 뒤
+  // 여러 번(0~1.5초) 강제로 다시 그리게 한다: 크기 이벤트 + 탭 요소를 잠깐 옮겼다 되돌리기 + 1px 스크롤.
   useEffect(() => {
-    const nudge = () => window.dispatchEvent(new Event('resize'));
-    const t1 = window.setTimeout(nudge, 0);
-    const t2 = window.setTimeout(nudge, 400);
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+    const repaint = () => {
+      const bar = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+      if (bar) {
+        void bar.offsetHeight;
+        bar.style.transform = 'translateZ(1px)';
+        requestAnimationFrame(() => { bar.style.transform = 'translateZ(0)'; });
+      }
+      window.dispatchEvent(new Event('resize'));
+      window.scrollTo(0, window.scrollY + 1);
+      window.scrollTo(0, Math.max(0, window.scrollY - 1));
+    };
+    const timers = [0, 150, 400, 1000, 1500].map((ms) => window.setTimeout(repaint, ms));
+    const onShow = () => repaint();
+    window.addEventListener('pageshow', onShow);
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      window.removeEventListener('pageshow', onShow);
+      document.removeEventListener('visibilitychange', onShow);
+    };
   }, []);
   const isCardActionOn = (k: 'scan' | 'io' | 'share' | 'nearby') =>
     pressedCardAction !== null ? pressedCardAction === k : (k === 'scan' ? activeTab === 'cards' : k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
