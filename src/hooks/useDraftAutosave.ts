@@ -6,11 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 // - 화면이 열릴 때 현재 내용을 기준으로 기억하고, 서버에 임시 저장본이 있으면 prompt로 알려준다.
 // - 사용자가 내용을 바꾸면 입력이 잠시 멈춘 뒤(1.2초) 서버에 자동 저장한다.
 // - 저장이 끝나면 discardOpen()을 호출해 임시 저장본을 지운다.
-// - 첨부파일(base64)은 서버가 파일로 올리고 URL만 남기므로, 드래프트가 커지지 않는다.
+// - 사진(base64)은 서버가 파일로 올리고 URL만 남기므로, 드래프트가 커지지 않는다.
 
 const DEBOUNCE_MS = 1200;
-
-export interface DraftAttachment { id: string; name: string; dataUrl: string; size?: number }
 
 export interface DraftPrompt<T> { key: string; data: T; savedAt: string }
 
@@ -22,13 +20,44 @@ export interface UseDraftAutosaveOptions<T> {
   userId: string | null | undefined;
 }
 
+// 값 안의 문자열을 모두 바꾼다 (base64 사진 -> 업로드된 URL)
+function mapStrings(value: unknown, fn: (s: string) => string, depth = 0): unknown {
+  if (depth > 20) return value;
+  if (typeof value === 'string') return fn(value);
+  if (Array.isArray(value)) return value.map((v) => mapStrings(v, fn, depth + 1));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = mapStrings(v, fn, depth + 1);
+    return out;
+  }
+  return value;
+}
+
+// 보낸 값과 서버가 돌려준 값을 같은 자리끼리 짝지어서, base64 -> URL 대응표를 만든다
+function collectUploaded(sent: unknown, saved: unknown, into: Map<string, string>, depth = 0) {
+  if (depth > 20) return;
+  if (typeof sent === 'string') {
+    if (sent.startsWith('data:') && typeof saved === 'string' && !saved.startsWith('data:')) into.set(sent, saved);
+    return;
+  }
+  if (Array.isArray(sent) && Array.isArray(saved)) {
+    sent.forEach((v, i) => collectUploaded(v, saved[i], into, depth + 1));
+    return;
+  }
+  if (sent && typeof sent === 'object' && saved && typeof saved === 'object') {
+    for (const k of Object.keys(sent as Record<string, unknown>)) {
+      collectUploaded((sent as Record<string, unknown>)[k], (saved as Record<string, unknown>)[k], into, depth + 1);
+    }
+  }
+}
+
 export function useDraftAutosave<T extends object>(opts: UseDraftAutosaveOptions<T>) {
   const { value, setValue, keyOf, userId } = opts;
 
   const openRef = useRef<{ key: string; snapshot: string } | null>(null);
   const timerRef = useRef<number | null>(null);
-  // 첨부파일 id -> 서버에 올라간 URL. 같은 첨부를 입력마다 다시 올리지 않으려고 기억해둔다.
-  const uploadedUrlRef = useRef<Map<string, string>>(new Map());
+  // base64 사진 -> 서버에 올라간 URL. 같은 사진을 자동 저장 때마다 다시 보내지 않으려고 기억해둔다.
+  const uploadedRef = useRef<Map<string, string>>(new Map());
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
   const [prompt, setPrompt] = useState<DraftPrompt<T> | null>(null);
@@ -46,13 +75,9 @@ export function useDraftAutosave<T extends object>(opts: UseDraftAutosaveOptions
   };
 
   const save = (key: string, doc: T) => {
-    const withUrls = doc as T & { attachments?: DraftAttachment[] };
-    const attachments = withUrls.attachments?.map((a) => {
-      const url = uploadedUrlRef.current.get(a.id);
-      return url ? { ...a, dataUrl: url } : a;
-    });
-    const data = attachments ? { ...withUrls, attachments } : withUrls;
     const category = (doc as { category?: unknown }).category;
+    const map = uploadedRef.current;
+    const data = mapStrings(doc, (s) => map.get(s) ?? s);
     fetch(urlFor(key), {
       method: 'PUT',
       headers: headers(),
@@ -60,12 +85,7 @@ export function useDraftAutosave<T extends object>(opts: UseDraftAutosaveOptions
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((saved) => {
-        const list = saved?.data?.attachments;
-        if (Array.isArray(list)) {
-          for (const a of list as DraftAttachment[]) {
-            if (a?.id && a.dataUrl && !a.dataUrl.startsWith('data:')) uploadedUrlRef.current.set(a.id, a.dataUrl);
-          }
-        }
+        if (saved && saved.data) collectUploaded(data, saved.data, map);
       })
       .catch(() => {});
   };

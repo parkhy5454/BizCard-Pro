@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { createPortal } from 'react-dom';
 import { Calendar, Plus, Search, FileText, ChevronDown, ChevronUp, Trash2, Edit2, Link2, Sparkles, User, Briefcase, FileCheck, CheckCircle, ArrowRightLeft, AlertCircle, X, Check, FileSpreadsheet, Receipt, Trash, Printer, Eye, CalendarPlus, Copy } from 'lucide-react';
 import { DailyWorkLog, WeeklyWorkLog, Project, BusinessCard, Vehicle, WorkLogExpense, WorkLogDayEntry, MyProfile } from '../types.js';
@@ -416,6 +417,46 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   // [추가] 일정에 초대할 수 있는 같은 회사 동료 목록 (초대하면 서버가 알림 메일을 보낸다)
   const [coworkers, setCoworkers] = useState<Coworker[]>([]);
   const [formInvitedUserIds, setFormInvitedUserIds] = useState<string[]>([]);
+
+  // [추가] 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성).
+  // 작성 창이 열려 있을 때만 입력값 묶음을 공용 훅에 넘긴다.
+  type WorkLogFormSnapshot = {
+    writeFormType: 'daily' | 'weekly'; editingLogId: string | null;
+    formDate: string; formStartDate: string; formEndDate: string; formTitle: string; formAuthor: string; formDepartment: string;
+    formTasksTomorrow: string; formIssues: string; formAchievementsThisWeek: string; formExpenses: WorkLogExpense[];
+    dayEntries: Record<DayKey, WorkLogDayEntry[]>; formPlansNextWeek: string; formFeedbacks: string;
+    formProjectIds: string[]; formContactIds: string[]; formInvitedUserIds: string[];
+    useDirectContact: boolean; directContactName: string; directContactCompany: string; directContactDept: string;
+    directContactTitle: string; directContactPhoneOffice: string; directContactPhoneMobile: string; directContactEmail: string;
+  };
+  const workLogSnapshot = useMemo<WorkLogFormSnapshot | null>(() => (!isWriteModalOpen ? null : {
+    writeFormType, editingLogId, formDate, formStartDate, formEndDate, formTitle, formAuthor, formDepartment,
+    formTasksTomorrow, formIssues, formAchievementsThisWeek, formExpenses, dayEntries, formPlansNextWeek, formFeedbacks,
+    formProjectIds, formContactIds, formInvitedUserIds, useDirectContact, directContactName, directContactCompany,
+    directContactDept, directContactTitle, directContactPhoneOffice, directContactPhoneMobile, directContactEmail
+  }), [isWriteModalOpen, writeFormType, editingLogId, formDate, formStartDate, formEndDate, formTitle, formAuthor,
+    formDepartment, formTasksTomorrow, formIssues, formAchievementsThisWeek, formExpenses, dayEntries, formPlansNextWeek,
+    formFeedbacks, formProjectIds, formContactIds, formInvitedUserIds, useDirectContact, directContactName,
+    directContactCompany, directContactDept, directContactTitle, directContactPhoneOffice, directContactPhoneMobile,
+    directContactEmail]);
+  const applyWorkLogSnapshot = (s: WorkLogFormSnapshot) => {
+    setWriteFormType(s.writeFormType); setEditingLogId(s.editingLogId);
+    setFormDate(s.formDate); setFormStartDate(s.formStartDate); setFormEndDate(s.formEndDate);
+    setFormTitle(s.formTitle); setFormAuthor(s.formAuthor); setFormDepartment(s.formDepartment);
+    setFormTasksTomorrow(s.formTasksTomorrow); setFormIssues(s.formIssues); setFormAchievementsThisWeek(s.formAchievementsThisWeek);
+    setFormExpenses(s.formExpenses); setDayEntries(s.dayEntries); setFormPlansNextWeek(s.formPlansNextWeek); setFormFeedbacks(s.formFeedbacks);
+    setFormProjectIds(s.formProjectIds); setFormContactIds(s.formContactIds); setFormInvitedUserIds(s.formInvitedUserIds);
+    setUseDirectContact(s.useDirectContact); setDirectContactName(s.directContactName); setDirectContactCompany(s.directContactCompany);
+    setDirectContactDept(s.directContactDept); setDirectContactTitle(s.directContactTitle);
+    setDirectContactPhoneOffice(s.directContactPhoneOffice); setDirectContactPhoneMobile(s.directContactPhoneMobile);
+    setDirectContactEmail(s.directContactEmail);
+  };
+  const workLogDraft = useDraftAutosave<WorkLogFormSnapshot>({
+    value: workLogSnapshot,
+    setValue: (updater) => { const next = updater(workLogSnapshot); if (next) applyWorkLogSnapshot(next); },
+    keyOf: (s) => `work-log:${s.writeFormType}:${s.editingLogId || 'new'}`,
+    userId: currentUser?.id,
+  });
 
   useEffect(() => {
     fetchWorkLogs();
@@ -1914,6 +1955,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
           setWeeklyLogs(prev => [res, ...prev]);
         }
       }
+      // [추가] 저장이 끝났으니 임시 저장본은 지운다
+      workLogDraft.discardOpen();
       setIsWriteModalOpen(false);
     } catch (err: unknown) {
       console.error('Save error:', err);
@@ -3140,6 +3183,18 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
                 >
                   <X className="w-4 h-4" />
                 </button>
+
+                {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
+                {workLogDraft.prompt && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                    <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
+                    <p className="text-xs text-amber-700">{new Date(workLogDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={workLogDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                      <button type="button" onClick={workLogDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 제목 */}
                 <div className="space-y-1">

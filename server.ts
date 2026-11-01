@@ -8351,6 +8351,34 @@ app.delete('/api/admin-docs/:id', async (req, res) => {
 // 앱의 여러 작성 화면이 같은 API를 쓰도록 서류 종류와 무관한 범용 구조로 만들었다.
 const DRAFT_COLLECTION = 'drafts';
 type DraftRecord = { id: string; userId: string; key: string; category: string; data: unknown; savedAt: string };
+const draftUploadCache = new Map<string, string>(); // 이미지 해시 -> 올라간 URL
+async function persistDraftDataUrls(scopeId: string, value: unknown, depth = 0): Promise<unknown> {
+  if (depth > 20) return value;
+  if (typeof value === 'string') {
+    if (!value.startsWith('data:') || value.length < 1000) return value;
+    const hash = crypto.createHash('sha256').update(value).digest('hex');
+    const cached = draftUploadCache.get(`${scopeId}|${hash}`);
+    if (cached) return cached;
+    try {
+      const url = await uploadDataUrlFile(scopeId, value, `draft-${hash.slice(0, 32)}`, 'attachments', 'draft');
+      if (url) { draftUploadCache.set(`${scopeId}|${hash}`, url); return url; }
+    } catch (err) {
+      console.error('드래프트 이미지 업로드 실패, 원본을 그대로 둡니다:', err);
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map((v) => persistDraftDataUrls(scopeId, v, depth + 1)));
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = await persistDraftDataUrls(scopeId, v, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
 function draftRequester(req: express.Request, res: express.Response): RegisteredUser | null {
   const userId = req.headers['x-user-id'] as string;
   const requester = userId ? users.find(u => u.id === userId) : undefined;
@@ -8370,11 +8398,9 @@ app.put('/api/drafts/:key', async (req, res) => {
   const requester = draftRequester(req, res);
   if (!requester) return;
   const { category, data } = req.body || {};
-  // 첨부파일(base64)은 저장소 파일로 올리고 URL만 드래프트에 남긴다 (드래프트 한 건이 커지지 않도록)
-  const safeKey = String(req.params.key).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
-  const storedData = data && typeof data === 'object' && Array.isArray((data as { attachments?: unknown }).attachments)
-    ? { ...data, attachments: await persistAttachmentsInArray(req.scopeId, (data as { attachments: { id: string; name: string; dataUrl: string; size?: number }[] }).attachments, `draft-${requester.id}-${safeKey}`) }
-    : (data ?? null);
+  // 드래프트 안의 base64 이미지(첨부파일, 영수증 사진 등)는 저장소 파일로 올리고 URL만 남긴다.
+  // 같은 이미지는 해시로 기억해서 자동 저장 때마다 다시 올리지 않는다.
+  const storedData = await persistDraftDataUrls(req.scopeId, data ?? null);
   if (JSON.stringify(storedData).length > 2_000_000) {
     return res.status(413).json({ error: '임시 저장 내용이 너무 큽니다.' });
   }
