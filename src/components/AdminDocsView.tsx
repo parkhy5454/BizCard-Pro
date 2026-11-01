@@ -5863,7 +5863,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   return (
     <>
-    <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
+    <div className="max-w-5xl mx-auto pt-2 pb-6 md:py-6 px-4 space-y-3 md:space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-slate-900">{SECTION_LABEL[section]}</h2>
         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-500/30 px-2.5 py-1 rounded-full font-semibold">관리자 전용</span>
