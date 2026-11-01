@@ -111,7 +111,8 @@ export async function uploadDataUrlImage(
   // 임시 구현: 데이터 URL을 그대로 반환
   // 실제로는 S3, Cloudinary, 또는 다른 스토리지 서비스 사용 필요
   console.warn('[neonStore] uploadDataUrlImage: 실제 파일 저장소 미구현 - 데이터 URL 반환');
-  return dataUrl.substring(0, 1000); // 임시: 앞 1000자만 반환
+  // 임시 구현: 데이터 URL 전체를 그대로 저장한다. (기존에는 앞 1000자만 잘라 저장해서 사진이 깨졌음)
+  return dataUrl;
 }
 
 export async function uploadDataUrlFile(
@@ -122,7 +123,8 @@ export async function uploadDataUrlFile(
   originalFileName?: string
 ): Promise<string | null> {
   console.warn('[neonStore] uploadDataUrlFile: 실제 파일 저장소 미구현 - 데이터 URL 반환');
-  return dataUrl.substring(0, 1000); // 임시: 앞 1000자만 반환
+  // 임시 구현: 데이터 URL 전체를 그대로 저장한다. (기존에는 앞 1000자만 잘라 저장해서 사진이 깨졌음)
+  return dataUrl;
 }
 
 // 스코프 초기화
