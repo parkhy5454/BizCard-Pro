@@ -8557,8 +8557,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <label className="text-sm md:text-[11px] font-bold text-slate-600">연차 현황 (연도별)</label>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div>
+                      <div className="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+                        <div className="w-full md:w-auto">
                           <label className="block text-[10px] text-slate-400 mb-0.5">대상 연도</label>
                           <input
                             type="text"
@@ -8566,17 +8566,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             value={editingDoc.annualLeaveStatus?.year || ''}
                             onChange={(e) => setEditingDoc((prev) => prev ? { ...prev, annualLeaveStatus: { ...(prev.annualLeaveStatus || { year: '', people: [] }), year: e.target.value.replace(/\D/g, '').slice(0, 4) } } : prev)}
                             placeholder="2026"
-                            className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
+                            className="w-full md:w-20 bg-white border border-slate-200 rounded-lg px-2 py-2.5 md:py-1.5 text-base md:text-xs text-center text-slate-700 outline-none focus:border-indigo-500"
                           />
                         </div>
                         <button
                           type="button"
                           onClick={handleOpenAnnualLeaveImportPanel}
-                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="w-full md:w-auto text-sm md:text-[11px] text-emerald-700 font-bold flex items-center justify-center gap-0.5 px-2 py-2.5 md:py-1.5 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 전자결재에서 불러오기
                         </button>
-                        <button type="button" onClick={addAnnualLeavePerson} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addAnnualLeavePerson} className="w-full md:w-auto text-sm md:text-[11px] text-indigo-600 font-bold flex items-center justify-center gap-0.5 px-2 py-2.5 md:py-0 rounded-lg bg-indigo-50 md:bg-transparent border border-indigo-200 md:border-0">
                           <Plus className="w-3 h-3" /> 직원 추가
                         </button>
                       </div>
