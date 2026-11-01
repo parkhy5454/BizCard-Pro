@@ -470,7 +470,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 경우를 같이 안내한다. 명함 등록을 놓친 참여사를 챙길 수 있게 하기 위함. */}
             {missingParticipants.length > 0 && (
               <div className="mt-3 pt-3 border-t border-slate-200">
-                <p className="text-sm md:text-xs font-bold text-slate-900 mb-2">
+                <p className="text-base md:text-xs font-bold text-slate-900 mb-2">
                   📇 아직 명함이 없는 프로젝트 참여사 {missingParticipants.length}곳
                 </p>
                 <div className="space-y-0 md:space-y-1.5">
@@ -479,13 +479,13 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                       key={`${mp.projectId}-${mp.roleLabel}-${mp.companyName}`}
                       className="flex items-center justify-between gap-3 bg-white border-b border-slate-200 md:border rounded-none md:rounded-xl py-3 md:py-2 px-0 md:px-3"
                     >
-                      <p className="min-w-0 flex-1 text-sm md:text-[11px] text-slate-800 truncate">
+                      <p className="min-w-0 flex-1 text-base md:text-[11px] text-slate-800 truncate">
                         <span className="font-bold text-slate-700">{mp.companyName}</span>
                         <span className="text-slate-400"> · {mp.roleLabel} · "{mp.projectName}"</span>
                       </p>
                       <button
                         onClick={() => (onOpenProject ? onOpenProject(mp.projectId) : onNavigateToProjects?.())}
-                        className="shrink-0 px-2.5 py-1.5 md:py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs md:text-[11px] font-bold transition-colors"
+                        className="shrink-0 px-3 py-2 md:py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-sm md:text-[11px] font-bold transition-colors"
                       >
                         프로젝트 보기
                       </button>
