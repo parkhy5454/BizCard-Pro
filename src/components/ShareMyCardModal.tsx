@@ -510,10 +510,10 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                   </div>
 
                   {activeSide === 'front' ? (
-                    <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
+                    <div className="relative aspect-[1.586/1] w-full overflow-hidden">
                       {scanImg ? (
                         <>
-                          <img src={scanImg} alt="앞면 미리보기" className="w-full h-full object-cover" />
+                          <img src={scanImg} alt="앞면 미리보기" className="w-full h-full object-contain" />
                           <button
                             type="button"
                             onClick={() => setScanImg('')}
@@ -521,17 +521,9 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                           >
                             <X className="w-3.5 h-3.5 text-white" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setCameraTarget('front')}
-                            className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
-                          >
-                            <Camera className="w-3.5 h-3.5" />
-                            앞면 재촬영
-                          </button>
                         </>
                       ) : (
-                        <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2">
+                        <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2 rounded-xl border border-dashed border-slate-300 bg-white">
                           <button
                             type="button"
                             onClick={() => setCameraTarget('front')}
@@ -548,10 +540,10 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                       )}
                     </div>
                   ) : (
-                    <div className="relative aspect-[1.586/1] w-full rounded-xl overflow-hidden bg-white border border-slate-200">
+                    <div className="relative aspect-[1.586/1] w-full overflow-hidden">
                       {scanImgBack ? (
                         <>
-                          <img src={scanImgBack} alt="뒷면 미리보기" className="w-full h-full object-cover" />
+                          <img src={scanImgBack} alt="뒷면 미리보기" className="w-full h-full object-contain" />
                           <button
                             type="button"
                             onClick={() => setScanImgBack('')}
@@ -559,17 +551,9 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                           >
                             <X className="w-3.5 h-3.5 text-white" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setCameraTarget('back')}
-                            className="absolute bottom-0 inset-x-0 py-1.5 bg-slate-50/75 backdrop-blur-sm flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-900/85 hover:text-white transition-colors"
-                          >
-                            <Camera className="w-3.5 h-3.5" />
-                            뒷면 재촬영
-                          </button>
                         </>
                       ) : (
-                        <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2">
+                        <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full text-slate-400 p-2 rounded-xl border border-dashed border-slate-300 bg-white">
                           <button
                             type="button"
                             onClick={() => setCameraTarget('back')}
@@ -585,6 +569,16 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
                         </div>
                       )}
                     </div>
+                  )}
+                  {(activeSide === 'front' ? scanImg : scanImgBack) && (
+                    <button
+                      type="button"
+                      onClick={() => setCameraTarget(activeSide)}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-bold text-slate-600 hover:text-indigo-600 transition-colors"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      {activeSide === 'front' ? '앞면' : '뒷면'} 재촬영
+                    </button>
                   )}
                 </div>
 
