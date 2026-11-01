@@ -403,17 +403,17 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
             </div>
 
             {topInsights.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-0 md:space-y-2">
               {topInsights.map((insight) => (
                 <div
                   key={insight.contact.id}
-                  className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-3 hover:border-blue-400 transition-colors"
+                  className="flex items-center justify-between gap-3 bg-white border-b border-slate-200 md:border rounded-none md:rounded-2xl py-3.5 md:p-3 hover:border-blue-400 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-slate-800">{insight.contact.name}</span>
-                      <span className="text-xs text-slate-700">{insight.contact.company}</span>
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                      <span className="text-base md:text-sm font-bold text-slate-800">{insight.contact.name}</span>
+                      <span className="text-sm md:text-xs text-slate-700">{insight.contact.company}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-xs md:text-[10px] font-bold border ${
                         insight.urgencyLabel === '높음'
                           ? 'bg-rose-50 text-rose-600 border-rose-200'
                           : 'bg-amber-50 text-amber-600 border-amber-200'
@@ -421,7 +421,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                         긴급도 {insight.urgencyLabel}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-800 mt-1 truncate">
+                    <p className="text-sm md:text-[11px] text-slate-800 mt-1 truncate">
                       {insight.reasonText} · <span className="font-mono">{insight.daysSince}일째 활동 없음</span>
                     </p>
                   </div>
@@ -444,7 +444,7 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                     )}
                     <button
                       onClick={() => onSelectContact(insight.contact)}
-                      className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[11px] font-bold transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs md:text-[11px] font-bold transition-colors"
                     >
                       <span>상세보기</span>
                       <ArrowRight className="w-3 h-3" />
@@ -470,22 +470,22 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
                 경우를 같이 안내한다. 명함 등록을 놓친 참여사를 챙길 수 있게 하기 위함. */}
             {missingParticipants.length > 0 && (
               <div className="mt-3 pt-3 border-t border-slate-200">
-                <p className="text-xs font-bold text-slate-900 mb-2">
+                <p className="text-sm md:text-xs font-bold text-slate-900 mb-2">
                   📇 아직 명함이 없는 프로젝트 참여사 {missingParticipants.length}곳
                 </p>
-                <div className="space-y-1.5">
+                <div className="space-y-0 md:space-y-1.5">
                   {missingParticipants.map((mp) => (
                     <div
                       key={`${mp.projectId}-${mp.roleLabel}-${mp.companyName}`}
-                      className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2"
+                      className="flex items-center justify-between gap-3 bg-white border-b border-slate-200 md:border rounded-none md:rounded-xl py-3 md:py-2 px-0 md:px-3"
                     >
-                      <p className="min-w-0 flex-1 text-[11px] text-slate-800 truncate">
+                      <p className="min-w-0 flex-1 text-sm md:text-[11px] text-slate-800 truncate">
                         <span className="font-bold text-slate-700">{mp.companyName}</span>
                         <span className="text-slate-400"> · {mp.roleLabel} · "{mp.projectName}"</span>
                       </p>
                       <button
                         onClick={() => (onOpenProject ? onOpenProject(mp.projectId) : onNavigateToProjects?.())}
-                        className="shrink-0 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[11px] font-bold transition-colors"
+                        className="shrink-0 px-2.5 py-1.5 md:py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs md:text-[11px] font-bold transition-colors"
                       >
                         프로젝트 보기
                       </button>
