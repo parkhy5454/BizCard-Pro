@@ -5280,13 +5280,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     // 구성된 짧은 A4 1장짜리 양식)을 그대로 재현한다. 근로계약서(labor_contract)의 9개
     // 조항짜리 긴 양식과는 구조가 아예 달라서 별도로 분기한다.
     if (isSalaryAgreement) {
-      const cellStyle2: React.CSSProperties = { border: '0.5px solid #999', padding: '6px 8px', fontSize: '11px', verticalAlign: 'middle' };
+      const cellStyle2: React.CSSProperties = { border: '0.5px solid #999', padding: '8px 10px', fontSize: '14px', verticalAlign: 'middle' };
       const labelCellStyle2: React.CSSProperties = { ...cellStyle2, background: '#f5f5f5', fontWeight: 700, textAlign: 'center' };
-      const sectionHeaderStyle: React.CSSProperties = { background: '#e8e8e8', fontWeight: 700, padding: '6px 10px', border: '0.5px solid #999', fontSize: '12px' };
+      const sectionHeaderStyle: React.CSSProperties = { background: '#e8e8e8', fontWeight: 700, padding: '8px 12px', border: '0.5px solid #999', fontSize: '15px' };
 
       return (
-        <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '11px', lineHeight: 1.6 }}>
-          <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, marginBottom: '20px' }}>연봉 계약서</h1>
+        <div className="print-document-margins" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '20mm 20mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '14px', lineHeight: 1.6 }}>
+          <h1 style={{ textAlign: 'center', fontSize: '28px', fontWeight: 700, marginBottom: '24px' }}>연봉 계약서</h1>
 
           <p style={{ margin: '0 0 16px' }}>
             <b>{companyName}</b>과 근로자 {lc.employeeName}은 연봉 제 규정에 따라 아래와 같이 연봉 계약을 체결하고, 본 계약에 정함이 없는 사항은 당사 취업규칙 및 제규정에 따른다.
