@@ -10933,7 +10933,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 >
                   {/* 다음 페이지 상단 실선: 표의 왼쪽~오른쪽 세로선 범위만큼만 긋는다 (저장 PDF와 같은 규칙) */}
                   {i > 0 && previewFit.edges?.[i] && (
-                    <div className="absolute border-t border-slate-900" style={{ top: PAGE_MARGIN_MM * MM_TO_PX, left: previewFit.edges[i]!.leftMm * MM_TO_PX, width: (previewFit.edges[i]!.rightMm - previewFit.edges[i]!.leftMm) * MM_TO_PX }} />
+                    <div className="absolute z-10 border-t border-slate-900" style={{ top: PAGE_MARGIN_MM * MM_TO_PX, left: previewFit.edges[i]!.leftMm * MM_TO_PX, width: (previewFit.edges[i]!.rightMm - previewFit.edges[i]!.leftMm) * MM_TO_PX }} />
                   )}
                   {/* 이 페이지 맨 아래 실선: 다음 페이지 표의 세로선 범위만큼 (저장 PDF와 같은 규칙) */}
                   {i < previewFit.slices.length - 1 && previewFit.edges?.[i + 1] && (
