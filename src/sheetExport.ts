@@ -368,13 +368,16 @@ export const drawTableEdgeLines = (
   if (winH <= 0) return;
   // 세로선 찾기: 여러 줄 동안 계속 진한 세로줄만 표의 세로선으로 본다
   const d = ctx.getImageData(0, firstInk, width, winH).data;
+  // 연한 테두리(안티앨리어싱)가 일부 줄에서 빠져도 잡히도록, 90% 이상의 줄이 어두우면 세로선으로 본다
+  const LINE_T = 210;
+  const need = Math.ceil(winH * 0.9);
   const xs: number[] = [];
   for (let x = 0; x < width; x++) {
-    let all = true;
+    let dark = 0;
     for (let r = 0; r < winH; r++) {
-      if (d[(r * width + x) * 4] >= DARK) { all = false; break; }
+      if (d[(r * width + x) * 4] < LINE_T) dark++;
     }
-    if (all) xs.push(x);
+    if (dark >= need) xs.push(x);
   }
   const lines: number[] = [];
   for (const x of xs) {
