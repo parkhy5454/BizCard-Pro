@@ -10924,13 +10924,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   className="absolute left-0 top-0 overflow-hidden"
                   style={{ width: previewFit.paperWpx, height: previewFit.pageHpx, transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined, transformOrigin: 'top left' }}
                 >
-                  {/* [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 그린다 (저장 파일과 같은 위치) */}
-                  {i < previewFit.slices.length - 1 && (
-                    <div className="absolute left-0 border-t border-slate-900" style={{ top: previewFit.pageHpx - PAGE_MARGIN_MM * MM_TO_PX, width: previewFit.paperWpx }} />
-                  )}
-                  {i > 0 && (
-                    <div className="absolute left-0 border-t border-slate-900" style={{ top: PAGE_MARGIN_MM * MM_TO_PX, width: previewFit.paperWpx }} />
-                  )}
                   <div className="absolute left-0 overflow-hidden bg-white" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
                     <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx, transform: previewFit.contentScale < 1 ? `scale(${previewFit.contentScale})` : undefined, transformOrigin: 'top left' }}>
                       {renderActivePrintable()}
