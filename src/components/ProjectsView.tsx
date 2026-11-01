@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project, BusinessCard, ProjectFollowUp, ProjectFollowUpAttachment, MeetingExpenseItem, ProjectCostSheet, ProjectCostSheetAmount, ProjectCostCategory, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER } from '../types.js';
@@ -1639,8 +1640,76 @@ export const ProjectsView: React.FC<Props> = ({
   const [directContactPhoneMobile, setDirectContactPhoneMobile] = useState<string>('');
   const [directContactEmail, setDirectContactEmail] = useState<string>('');
 
+  // [추가] 신규 프로젝트 등록 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성).
+  // 등록 창이 열려 있을 때만 입력값 묶음을 넘긴다.
+  const newProjectSnapshot = useMemo(() => (!isNewOpen ? null : {
+    newName, newSalesRep, newContractor, newArchitect, newElectricalDesigner, newInteriorDesigner, newMechanicalDesigner,
+    newSupervisor, newOperator, newStatus, newPriority, newDueDate, newBudget, newDescription, newEndCustomer,
+    newSiteLocation, newProductGroup, newMainItemsSpec, newExpectedTiming, newWinProbability, newPipelineStage,
+    newCompetitor, newSupportNeeded, newRemarks, selectedContacts, useDirectContact, directContactName,
+    directContactCompany, directContactDept, directContactTitle, directContactPhoneOffice, directContactPhoneMobile,
+    directContactEmail
+  }), [isNewOpen, newName, newSalesRep, newContractor, newArchitect, newElectricalDesigner, newInteriorDesigner,
+    newMechanicalDesigner, newSupervisor, newOperator, newStatus, newPriority, newDueDate, newBudget, newDescription,
+    newEndCustomer, newSiteLocation, newProductGroup, newMainItemsSpec, newExpectedTiming, newWinProbability,
+    newPipelineStage, newCompetitor, newSupportNeeded, newRemarks, selectedContacts, useDirectContact, directContactName,
+    directContactCompany, directContactDept, directContactTitle, directContactPhoneOffice, directContactPhoneMobile,
+    directContactEmail]);
+  const newProjectDraft = useDraftAutosave<NonNullable<typeof newProjectSnapshot>>({
+    value: newProjectSnapshot,
+    setValue: (updater) => {
+      const s = updater(newProjectSnapshot);
+      if (!s) return;
+      setNewName(s.newName); setNewSalesRep(s.newSalesRep); setNewContractor(s.newContractor); setNewArchitect(s.newArchitect);
+      setNewElectricalDesigner(s.newElectricalDesigner); setNewInteriorDesigner(s.newInteriorDesigner);
+      setNewMechanicalDesigner(s.newMechanicalDesigner); setNewSupervisor(s.newSupervisor); setNewOperator(s.newOperator);
+      setNewStatus(s.newStatus); setNewPriority(s.newPriority); setNewDueDate(s.newDueDate); setNewBudget(s.newBudget);
+      setNewDescription(s.newDescription); setNewEndCustomer(s.newEndCustomer); setNewSiteLocation(s.newSiteLocation);
+      setNewProductGroup(s.newProductGroup); setNewMainItemsSpec(s.newMainItemsSpec); setNewExpectedTiming(s.newExpectedTiming);
+      setNewWinProbability(s.newWinProbability); setNewPipelineStage(s.newPipelineStage); setNewCompetitor(s.newCompetitor);
+      setNewSupportNeeded(s.newSupportNeeded); setNewRemarks(s.newRemarks); setSelectedContacts(s.selectedContacts);
+      setUseDirectContact(s.useDirectContact); setDirectContactName(s.directContactName); setDirectContactCompany(s.directContactCompany);
+      setDirectContactDept(s.directContactDept); setDirectContactTitle(s.directContactTitle);
+      setDirectContactPhoneOffice(s.directContactPhoneOffice); setDirectContactPhoneMobile(s.directContactPhoneMobile);
+      setDirectContactEmail(s.directContactEmail);
+    },
+    keyOf: () => 'project-new',
+    userId: currentUser?.id,
+  });
+
+  // [추가] 미팅 기록 작성 중 임시 저장 (서버 보관). 기록을 쓰는 중인 프로젝트 카드에서만 값을 넘긴다.
+  const followupSnapshot = useMemo(() => (!followupFormOpenForProjectId ? null : {
+    projectId: followupFormOpenForProjectId, meetingDegree, meetingType, meetingAttendee, meetingStaffName,
+    attendeeNameInput, attendeeOfficeInput, attendeeMobileInput, meetingDate, meetingContent, meetingAttachments,
+    meetingExpenses, voiceAttached, attachedVoiceDuration, attachedVoiceUrl
+  }), [followupFormOpenForProjectId, meetingDegree, meetingType, meetingAttendee, meetingStaffName, attendeeNameInput,
+    attendeeOfficeInput, attendeeMobileInput, meetingDate, meetingContent, meetingAttachments, meetingExpenses,
+    voiceAttached, attachedVoiceDuration, attachedVoiceUrl]);
+  const followupDraft = useDraftAutosave<NonNullable<typeof followupSnapshot>>({
+    value: followupSnapshot,
+    setValue: (updater) => {
+      const s = updater(followupSnapshot);
+      if (!s) return;
+      setMeetingDegree(s.meetingDegree); setMeetingType(s.meetingType); setMeetingAttendee(s.meetingAttendee);
+      setMeetingStaffName(s.meetingStaffName); setAttendeeNameInput(s.attendeeNameInput); setAttendeeOfficeInput(s.attendeeOfficeInput);
+      setAttendeeMobileInput(s.attendeeMobileInput); setMeetingDate(s.meetingDate); setMeetingContent(s.meetingContent);
+      setMeetingAttachments(s.meetingAttachments); setMeetingExpenses(s.meetingExpenses); setVoiceAttached(s.voiceAttached);
+      setAttachedVoiceDuration(s.attachedVoiceDuration); setAttachedVoiceUrl(s.attachedVoiceUrl);
+    },
+    keyOf: (s) => `project-followup:${s.projectId}`,
+    userId: currentUser?.id,
+  });
+
   // 새 팔로우업 노트 입력 폼 상태
   const [followupInput, setFollowupInput] = useState<{ [key: string]: string }>({});
+
+  // [추가] 프로젝트 수정 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 수정)
+  const projectEditDraft = useDraftAutosave<Project>({
+    value: editingProject,
+    setValue: (updater) => { const next = updater(editingProject); if (next) setEditingProject(next); },
+    keyOf: (doc) => `project-edit:${doc.id}`,
+    userId: currentUser?.id,
+  });
 
   // 프로젝트 생성 핸들러
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -1738,6 +1807,8 @@ export const ProjectsView: React.FC<Props> = ({
       return;
     }
 
+    // [추가] 저장이 끝났으니 임시 저장본은 지운다
+    newProjectDraft.discardOpen();
     // 초기화
     setNewName('');
     setNewDescription('');
@@ -1903,6 +1974,8 @@ export const ProjectsView: React.FC<Props> = ({
       if (!res.ok) throw new Error(`저장에 실패했습니다 (상태: ${res.status}). 잠시 후 다시 시도해주세요.`);
       const saved = await res.json();
       setProjects(projects.map((p) => (p.id === saved.id ? saved : p)));
+      // [추가] 저장이 끝났으니 임시 저장본은 지운다
+      projectEditDraft.discardOpen();
       setEditingProject(null);
       setUseDirectContact(false);
       setDirectContactName('');
@@ -2579,6 +2652,8 @@ export const ProjectsView: React.FC<Props> = ({
 
       const updated = await res.json();
       setProjects(projects.map((p) => (p.id === projectId ? updated : p)));
+      // [추가] 저장 성공: 임시 저장본을 지우고, 비워질 입력칸을 새 기준선으로 삼는다
+      followupDraft.markSaved();
 
       // [수정] 저장에 성공했을 때만 입력폼을 비우고 차수를 전진시킨다. 실패 시 이 블록까지
       // 오지 않으므로(위에서 throw), 사용자가 입력했던 내용이 그대로 남아 다시 저장을 시도할 수 있다.
@@ -4285,6 +4360,17 @@ export const ProjectsView: React.FC<Props> = ({
                               </div>
 
                       <form onSubmit={(e) => handleAddFollowup(proj.id, e)} className="space-y-3.5">
+                        {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
+                        {followupDraft.prompt && followupDraft.prompt.data.projectId === proj.id && (
+                          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                            <p className="text-sm font-bold text-amber-800">임시 저장된 미팅 기록이 있습니다</p>
+                            <p className="text-xs text-amber-700">{new Date(followupDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                            <div className="flex gap-2">
+                              <button type="button" onClick={followupDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                              <button type="button" onClick={followupDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                            </div>
+                          </div>
+                        )}
                         <div className="flex flex-col lg:flex-row gap-3">
                           {/* 미팅/팔로우업 차수 (제한 없음, 이미 기록된 차수는 건너뛰고 다음 차수를 자동 선택) */}
                           <div className="w-full lg:w-1/4">
@@ -4915,6 +5001,17 @@ export const ProjectsView: React.FC<Props> = ({
             </div>
 
             <form onSubmit={handleCreateProject} className="space-y-4 text-lg">
+              {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
+              {newProjectDraft.prompt && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
+                  <p className="text-xs text-amber-700">{new Date(newProjectDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={newProjectDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                    <button type="button" onClick={newProjectDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">프로젝트 명</label>
                 <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 삼성전자 온디바이스 B2B 라이선스 공급 제안" className="w-full min-w-0 max-w-full box-border bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />
@@ -5216,6 +5313,17 @@ export const ProjectsView: React.FC<Props> = ({
             </div>
 
             <form onSubmit={handleUpdateProjectDetails} className="space-y-4 text-xs">
+              {/* [추가] 임시 저장된 수정 내용이 있으면 이어서 쓸지 묻는다 */}
+              {projectEditDraft.prompt && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">임시 저장된 수정 내용이 있습니다</p>
+                  <p className="text-xs text-amber-700">{new Date(projectEditDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 수정한 내용도 보입니다)</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={projectEditDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 수정</button>
+                    <button type="button" onClick={projectEditDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">프로젝트 타이틀 *</label>
                 <input type="text" value={editingProject.name} onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })} className="w-full min-w-0 max-w-full box-border bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 font-medium outline-none focus:border-indigo-500" required />

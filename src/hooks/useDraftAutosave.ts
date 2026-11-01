@@ -56,6 +56,9 @@ export function useDraftAutosave<T extends object>(opts: UseDraftAutosaveOptions
 
   const openRef = useRef<{ key: string; snapshot: string } | null>(null);
   const timerRef = useRef<number | null>(null);
+  // 저장 후에도 화면이 열린 채 입력칸만 비워지는 경우(연속 입력형)에, 비워진 상태가 다시 임시 저장되지 않도록
+  // 다음 내용 변화를 새 기준선으로 삼는 표시
+  const rebaseRef = useRef(false);
   // base64 사진 -> 서버에 올라간 URL. 같은 사진을 자동 저장 때마다 다시 보내지 않으려고 기억해둔다.
   const uploadedRef = useRef<Map<string, string>>(new Map());
   const userIdRef = useRef(userId);
@@ -111,6 +114,13 @@ export function useDraftAutosave<T extends object>(opts: UseDraftAutosaveOptions
   useEffect(() => {
     const open = openRef.current;
     if (!value || !open) return;
+    if (rebaseRef.current) {
+      rebaseRef.current = false;
+      open.snapshot = JSON.stringify(value);
+      cancelTimer();
+      setPrompt(null);
+      return;
+    }
     if (JSON.stringify(value) === open.snapshot) return;
     setPrompt(null);
     cancelTimer();
@@ -142,5 +152,11 @@ export function useDraftAutosave<T extends object>(opts: UseDraftAutosaveOptions
     if (open) discard(open.key);
   };
 
-  return { prompt, restore, dismiss, discardOpen };
+  // 저장 후 화면이 열린 채 입력칸이 비워지는 경우: 임시 저장본을 지우고, 비워진 다음 상태를 새 기준선으로 삼는다
+  const markSaved = () => {
+    discardOpen();
+    rebaseRef.current = true;
+  };
+
+  return { prompt, restore, dismiss, discardOpen, markSaved };
 }
