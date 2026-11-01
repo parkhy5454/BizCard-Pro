@@ -10240,7 +10240,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           {printingDoc.category === 'vehicle_fine' && (
@@ -10249,7 +10249,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           {printingDoc.category === 'incentive' && (
@@ -10258,7 +10258,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           {printingDoc.category === 'overseas_trip' && (
@@ -10267,7 +10267,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           {printingDoc.category === 'annual_leave_status' && (
@@ -10276,7 +10276,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           {printingDoc.category === 'cash_flow' && (
@@ -10285,7 +10285,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           {printingDoc.category === 'management_fee' && (
@@ -10294,7 +10294,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           {printingDoc.category === 'advance_payment' && (
@@ -10303,7 +10303,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
-              엑셀 출력
+              엑셀 다운
             </button>
           )}
           <button
@@ -10315,7 +10315,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   // 저장이 끝나면 미리보기 팝업을 닫아서 다른 탭을 바로 쓸 수 있게 한다
                   setPrintingDoc(null);
                 } catch (err) {
-                  alert(`PDF 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
+                  alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
                 }
                 return;
               }
@@ -10329,7 +10329,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
           >
             <Printer className="w-4 h-4" />
-            인쇄 / PDF 저장
+            저장
           </button>
         </div>
         {/* [수정] 미리보기 화면(이 바깥 흰색 A4 박스)의 폭이 그동안 세로(210mm)로 고정돼
