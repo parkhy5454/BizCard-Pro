@@ -8928,25 +8928,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         )}
                         {(editingDoc.cashFlowAnnual?.inflows || []).map((r) => (
                           <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <input
                                 type="text"
                                 value={r.name}
                                 onChange={(e) => updateCashFlowInflowField(r.id, { name: e.target.value })}
                                 placeholder="프로젝트명 (예: 양평 YP주택, 기타 매출 등)"
-                                className="flex-none w-full md:w-auto md:flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-base md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-[2] min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
                                 value={r.recipient || ''}
                                 onChange={(e) => updateCashFlowInflowField(r.id, { recipient: e.target.value })}
                                 placeholder="프로젝트 수주자"
-                                className="flex-1 min-w-[120px] md:min-w-[80px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-base md:text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm md:text-xs text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleOpenCashFlowImportPanel({ kind: 'inflow', rowId: r.id, rowLabel: r.name || '(프로젝트명 미입력)' })}
-                                className="shrink-0 text-sm md:text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                                className="shrink-0 text-xs md:text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
                               >
                                 <RefreshCw className="w-3 h-3" /> 자동 불러오기
                               </button>
