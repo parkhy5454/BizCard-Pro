@@ -10185,7 +10185,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'corp_card' && (
             <button
               onClick={handleExportCorpCardExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10194,7 +10194,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'vehicle_fine' && (
             <button
               onClick={handleExportVehicleFineExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10203,7 +10203,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'incentive' && (
             <button
               onClick={handleExportIncentiveExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10212,7 +10212,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'overseas_trip' && (
             <button
               onClick={handleExportOverseasTripExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10221,7 +10221,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'annual_leave_status' && (
             <button
               onClick={handleExportAnnualLeaveStatusExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10230,7 +10230,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'cash_flow' && (
             <button
               onClick={handleExportCashFlowExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10239,7 +10239,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'management_fee' && (
             <button
               onClick={handleExportManagementFeeExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10248,7 +10248,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'advance_payment' && (
             <button
               onClick={handleExportAdvancePaymentExcel}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10264,7 +10264,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
               window.print();
             }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-indigo-300 text-indigo-700 text-sm font-bold"
+            className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-white border border-indigo-300 text-indigo-700 text-sm font-bold"
           >
             <Printer className="w-4 h-4" />
             인쇄
@@ -10280,7 +10280,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
               }
             }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
+            className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
           >
             <Printer className="w-4 h-4" />
             저장
