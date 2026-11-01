@@ -6,7 +6,7 @@ import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project,
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
-import { saveBlobFileShareOrDownload, captureSaveFile } from '../sheetExport.js';
+import { saveBlobFileShareOrDownload, captureSaveFile, shareOrDownloadNow } from '../sheetExport.js';
 
 import { getErrorMessage } from '../errorUtils.js';
 import * as ExcelJS from 'exceljs';
@@ -2511,6 +2511,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 휴대폰 저장: 파일을 먼저 만든 뒤 "저장·공유 열기"를 눌러야 공유 창이 열린다
   const [pendingSave, setPendingSave] = useState<{ blob: Blob; fileName: string; closeAfter: boolean } | null>(null);
   useEffect(() => { if (!printingDoc) setPendingSave(null); }, [printingDoc]);
+  // [추가] 휴대폰: 미리보기를 열면 PDF와 엑셀 파일을 미리 만들어 둔다. 저장 버튼은 이 파일을 바로 공유 창으로 넘긴다.
+  const preparedRef = useRef<{ pdf?: { blob: Blob; fileName: string }; excel?: { blob: Blob; fileName: string } }>({});
+  const prepTokenRef = useRef(0);
   // [추가] 미리보기 맞춤: 휴대폰에서는 종이 폭을 화면 폭에 맞춰 줄이고, A4 한 장 높이마다 페이지 구분선을 넣는다
   const [previewFit, setPreviewFit] = useState({ scale: 1, height: 0, pages: 1, pageH: 1123, paperW: 794 });
   useLayoutEffect(() => {
@@ -2532,6 +2535,30 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     ro.observe(el);
     window.addEventListener('resize', update);
     return () => { ro.disconnect(); window.removeEventListener('resize', update); };
+  }, [printingDoc]);
+  // [추가] 휴대폰에서만 파일을 미리 만든다(PC는 바로 저장되므로 필요 없음)
+  useEffect(() => {
+    if (!printingDoc || typeof navigator === 'undefined' || !navigator.share) return;
+    const token = ++prepTokenRef.current;
+    preparedRef.current = {};
+    const excelRun = excelHandlerFor(printingDoc.category);
+    (async () => {
+      await new Promise((r) => setTimeout(r, 400)); // 종이가 화면에 그려진 뒤에 캡처한다
+      try {
+        const pdf = await captureSaveFile(() => savePrintPreviewAsPdf());
+        if (prepTokenRef.current !== token) return;
+        if (pdf) preparedRef.current.pdf = pdf;
+        if (excelRun) {
+          const xl = await captureSaveFile(excelRun);
+          if (prepTokenRef.current !== token) return;
+          if (xl) preparedRef.current.excel = xl;
+        }
+      } catch {
+        // 준비에 실패하면 저장 버튼을 누를 때 다시 만든다
+      }
+    })();
+    return () => { prepTokenRef.current++; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printingDoc]);
   // [추가] 서류 종류 탭을 바꾸면 열려 있던 인쇄 미리보기는 닫는다 (팝업이 다른 탭을 가리지 않게)
   useEffect(() => { setPrintingDoc(null); }, [activeCategory]);
@@ -5953,6 +5980,35 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 모바일 인쇄/PDF 저장: window.print()가 모바일 브라우저(특히 홈 화면 웹앱)에서
   // 동작하지 않아서, 미리보기 종이(A4 박스)를 그대로 캡처해 PDF 파일로 저장한다.
   const previewPaperRef = useRef<HTMLDivElement>(null);
+  // [추가] 현재 서류의 엑셀 저장 함수(엑셀 버튼이 없는 서류는 null)
+  const excelHandlerFor = (cat: AdminDocCategory): (() => Promise<void>) | null => {
+    if (PREVIEW_EXCEL_CATEGORIES.includes(cat)) return handleExportPreviewExcel;
+    switch (cat) {
+      case 'corp_card': return handleExportCorpCardExcel;
+      case 'vehicle_fine': return handleExportVehicleFineExcel;
+      case 'incentive': return handleExportIncentiveExcel;
+      case 'overseas_trip': return handleExportOverseasTripExcel;
+      case 'office_supplies': return handleExportOfficeSuppliesExcel;
+      case 'annual_leave_status': return handleExportAnnualLeaveStatusExcel;
+      case 'cash_flow': return handleExportCashFlowExcel;
+      case 'management_fee': return handleExportManagementFeeExcel;
+      case 'advance_payment': return handleExportAdvancePaymentExcel;
+      default: return null;
+    }
+  };
+
+  // [추가] 저장 버튼: 미리 만들어 둔 파일이 있으면 바로 공유 창을 연다(추가 버튼 없음). 없으면 기존 방식으로 만든다.
+  const saveFromPreview = (kind: 'pdf' | 'excel', run: () => Promise<void>, closeAfter = false) => {
+    const ready = preparedRef.current[kind];
+    if (ready && typeof navigator !== 'undefined' && navigator.share) {
+      shareOrDownloadNow(ready.blob, ready.fileName)
+        .then(() => { if (closeAfter) setPrintingDoc(null); })
+        .catch((err) => alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`));
+      return;
+    }
+    void queueSave(run, closeAfter);
+  };
+
   // [추가] 저장 버튼 공통 처리. 휴대폰(공유 창 지원)은 파일을 먼저 만들어 두고 "저장·공유 열기"를 한 번 더 누르게 한다.
   const queueSave = async (run: () => Promise<void>, closeAfter = false) => {
     try {
@@ -10500,7 +10556,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 const p = pendingSave;
                 setPendingSave(null);
                 try {
-                  await saveBlobFileShareOrDownload(p.blob, p.fileName);
+                  await shareOrDownloadNow(p.blob, p.fileName);
                   if (p.closeAfter) setPrintingDoc(null);
                 } catch (err) {
                   alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
@@ -10562,7 +10618,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           화면 표 그대로(노란 헤더/합계 행 색상 포함) 엑셀로도 받을 수 있게 버튼을 추가한다. */}
           {printingDoc.category === 'corp_card' && (
             <button
-              onClick={() => queueSave(handleExportCorpCardExcel)}
+              onClick={() => saveFromPreview('excel', handleExportCorpCardExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10571,7 +10627,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'vehicle_fine' && (
             <button
-              onClick={() => queueSave(handleExportVehicleFineExcel)}
+              onClick={() => saveFromPreview('excel', handleExportVehicleFineExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10580,7 +10636,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'incentive' && (
             <button
-              onClick={() => queueSave(handleExportIncentiveExcel)}
+              onClick={() => saveFromPreview('excel', handleExportIncentiveExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10589,7 +10645,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'overseas_trip' && (
             <button
-              onClick={() => queueSave(handleExportOverseasTripExcel)}
+              onClick={() => saveFromPreview('excel', handleExportOverseasTripExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10598,7 +10654,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'office_supplies' && (
             <button
-              onClick={() => queueSave(handleExportOfficeSuppliesExcel)}
+              onClick={() => saveFromPreview('excel', handleExportOfficeSuppliesExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10607,7 +10663,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {PREVIEW_EXCEL_CATEGORIES.includes(printingDoc.category) && (
             <button
-              onClick={() => queueSave(handleExportPreviewExcel)}
+              onClick={() => saveFromPreview('excel', handleExportPreviewExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10616,7 +10672,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'annual_leave_status' && (
             <button
-              onClick={() => queueSave(handleExportAnnualLeaveStatusExcel)}
+              onClick={() => saveFromPreview('excel', handleExportAnnualLeaveStatusExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10625,7 +10681,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'cash_flow' && (
             <button
-              onClick={() => queueSave(handleExportCashFlowExcel)}
+              onClick={() => saveFromPreview('excel', handleExportCashFlowExcel)}
               className="flex flex-1 md:flex-none justify-center items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10634,7 +10690,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'management_fee' && (
             <button
-              onClick={() => queueSave(handleExportManagementFeeExcel)}
+              onClick={() => saveFromPreview('excel', handleExportManagementFeeExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10643,7 +10699,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {printingDoc.category === 'advance_payment' && (
             <button
-              onClick={() => queueSave(handleExportAdvancePaymentExcel)}
+              onClick={() => saveFromPreview('excel', handleExportAdvancePaymentExcel)}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
@@ -10669,7 +10725,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           )}
           {/* [추가] 저장: PDF 파일을 클라우드/PC로 저장 (아이폰은 공유 창의 파일 앱·iCloud 등) */}
           <button
-            onClick={() => queueSave(() => savePrintPreviewAsPdf(), true)}
+            onClick={() => saveFromPreview('pdf', () => savePrintPreviewAsPdf(), true)}
             className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md ${printingDoc.category === 'cash_flow' ? 'flex-1 md:flex-none justify-center' : ''}`}
           >
             <Printer className="w-4 h-4" />

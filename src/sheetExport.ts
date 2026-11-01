@@ -4,20 +4,27 @@
 // 파일을 바로 저장하지 않고 붙잡아 두는 모드(captureSaveFile 안에서만 켜진다)
 let saveSink: ((blob: Blob, fileName: string) => void) | null = null;
 
-// 휴대폰은 공유 창을 사용자가 누른 직후에만 열 수 있어서, 파일을 먼저 만든 뒤 다시 누르게 할 때 쓴다.
-export const captureSaveFile = async (run: () => Promise<void>): Promise<{ blob: Blob; fileName: string } | null> => {
-  let captured: { blob: Blob; fileName: string } | null = null;
-  saveSink = (blob, fileName) => { captured = { blob, fileName }; };
-  try {
-    await run();
-  } finally {
-    saveSink = null;
-  }
-  return captured;
+// 파일 만들기 작업이 겹치지 않도록 한 번에 하나씩 차례로 실행한다
+let captureQueue: Promise<unknown> = Promise.resolve();
+
+// 파일을 만들되 저장은 하지 않고 돌려준다(휴대폰에서 미리 만들어 두고, 나중에 바로 저장할 때 쓴다)
+export const captureSaveFile = (run: () => Promise<void>): Promise<{ blob: Blob; fileName: string } | null> => {
+  const job = captureQueue.then(async () => {
+    let captured: { blob: Blob; fileName: string } | null = null;
+    saveSink = (blob, fileName) => { captured = { blob, fileName }; };
+    try {
+      await run();
+    } finally {
+      saveSink = null;
+    }
+    return captured;
+  }) as Promise<{ blob: Blob; fileName: string } | null>;
+  captureQueue = job.catch(() => undefined);
+  return job;
 };
 
-export const saveBlobFileShareOrDownload = async (blob: Blob, fileName: string): Promise<void> => {
-  if (saveSink) { saveSink(blob, fileName); return; }
+// 공유 창(또는 다운로드)을 바로 연다. 사용자가 누른 직후 호출해야 휴대폰에서 공유 창이 열린다.
+export const shareOrDownloadNow = async (blob: Blob, fileName: string): Promise<void> => {
   const file = new File([blob], fileName, { type: blob.type });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -59,6 +66,12 @@ const wrapLinesForCanvas = (ctx: CanvasRenderingContext2D, text: string, maxW: n
     out.push(line);
   });
   return out.length ? out : [''];
+};
+
+// 일반 저장 함수. 캡처 모드가 켜져 있으면 파일을 붙잡아 두고, 아니면 바로 공유 창/다운로드를 연다.
+export const saveBlobFileShareOrDownload = async (blob: Blob, fileName: string): Promise<void> => {
+  if (saveSink) { saveSink(blob, fileName); return; }
+  await shareOrDownloadNow(blob, fileName);
 };
 
 export const buildSheetGrid = (html: string): SheetGrid => {
