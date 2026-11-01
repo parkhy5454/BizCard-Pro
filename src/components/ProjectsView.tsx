@@ -1575,6 +1575,12 @@ export const ProjectsView: React.FC<Props> = ({
       setIsNewOpen(true);
     }
   }, [triggerNewProject]);
+  // 상단 탭에서 다른 프로젝트 탭을 누르면 등록 창을 닫는다
+  useEffect(() => {
+    const close = () => setIsNewOpen(false);
+    window.addEventListener('bizcard:close-projects-new', close);
+    return () => window.removeEventListener('bizcard:close-projects-new', close);
+  }, []);
   const [newName, setNewName] = useState<string>('');
   // [수정] 영업자(담당자) - 기본값은 지금 로그인한 사람(등록자) 이름, 직접 수정 가능
   const [newSalesRep, setNewSalesRep] = useState<string>(currentUser?.name || '');

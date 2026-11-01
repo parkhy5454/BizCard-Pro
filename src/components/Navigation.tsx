@@ -457,7 +457,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 프로젝트 리스트 탭 (드롭다운 포함) */}
             <div className="relative flex items-center shrink-0">
               <button
-                onClick={() => { setProjectRegPressed(false); onShowProjectsCardView(); }}
+                onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsCardView(); }}
                 className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <span>리스트</span>
@@ -502,7 +502,7 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 리스트 출력 탭 */}
             <button
-              onClick={() => { setProjectRegPressed(false); onShowProjectsListOutput(); }}
+              onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsListOutput(); }}
               className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <span>출력</span>
@@ -512,7 +512,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 원가계산서 (관리자만) */}
             {currentUser?.role === 'admin' && (
               <button
-                onClick={() => { setProjectRegPressed(false); onShowProjectsPnl(); }}
+                onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsPnl(); }}
                 className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <span>원가 계산</span>
@@ -522,7 +522,7 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 파이프라인 탭 */}
             <button
-              onClick={() => { setProjectRegPressed(false); onShowProjectsPipeline(); }}
+              onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsPipeline(); }}
               className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <span>파이프라인</span>
