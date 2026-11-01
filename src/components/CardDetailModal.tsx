@@ -1,6 +1,7 @@
 import { APP_PUBLIC_URL } from '../appConfig.js';
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
 import React, { useState } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home, Smartphone } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
@@ -119,6 +120,18 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
       setRescanRecognizeError(null);
     }
   }, [contact?.id, initialTab]);
+
+  // [추가] 명함 수정 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 수정).
+  // 수정 탭이 열려 있을 때만 수정 폼 값을 넘긴다.
+  const cardDraft = useDraftAutosave<BusinessCard>({
+    value: contact && activeTab === 'edit' ? editForm : null,
+    setValue: (updater) => {
+      const next = updater(contact && activeTab === 'edit' ? editForm : null);
+      if (next) setEditForm(next);
+    },
+    keyOf: (doc) => `card-edit:${doc.id}`,
+    userId: currentUser?.id,
+  });
 
   if (!contact) return null;
 
@@ -303,6 +316,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
       ? { ...editForm, frontImage: generateStandardCardImage(editForm) || editForm.frontImage }
       : editForm;
     onUpdateContact(finalForm);
+    // [추가] 저장이 끝났으니 임시 저장본은 지운다
+    cardDraft.discardOpen();
     // [수정] 저장하면 명함 메인(목록)으로 돌아가서 바뀐 명함이 바로 보이도록 창을 닫는다.
     onClose();
   };
@@ -1022,6 +1037,17 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
           {/* 탭 3: 명함 수정 폼 */}
           {activeTab === 'edit' && (
             <form onSubmit={handleSaveEdit} className="flex-1 overflow-y-auto py-3 space-y-4 pr-2 text-sm">
+              {/* [추가] 임시 저장된 수정 내용이 있으면 이어서 쓸지 묻는다 */}
+              {cardDraft.prompt && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">임시 저장된 수정 내용이 있습니다</p>
+                  <p className="text-xs text-amber-700">{new Date(cardDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 수정한 내용도 보입니다)</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={cardDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 수정</button>
+                    <button type="button" onClick={cardDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-500 block mb-1 font-medium">성명 *</label>
