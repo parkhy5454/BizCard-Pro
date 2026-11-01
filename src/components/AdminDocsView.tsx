@@ -325,6 +325,9 @@ const PRINT_HIDDEN_CATEGORIES: string[] = ['labor_contract', 'salary_agreement',
 const officeSuppliesTotal = (items?: { quantity?: number; unitPrice?: number }[]): number =>
   (items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
 
+// [추가] 회계관리 표 중 전용 엑셀 함수가 없는 서류: 미리보기 화면을 그대로 엑셀로 저장한다
+const PREVIEW_EXCEL_CATEGORIES: string[] = ['payslip', 'severance', 'monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'tax'];
+
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
   const header = document.querySelector('header');
@@ -1725,6 +1728,37 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '사무실 비품 관리'}.xlsx`);
+  };
+
+  // [추가] 미리보기 화면을 PDF 저장과 같은 방식으로 캡처해서 엑셀 한 칸에 넣는다(양식이 그대로 유지됨)
+  const handleExportPreviewExcel = async () => {
+    const el = previewPaperRef.current;
+    if (!printingDoc || !el) return;
+    const baseName = (printingDoc.title || '서류').replace(/[\\/?*\[\]:]/g, ' ').trim() || '서류';
+    const { default: html2canvas } = await import('html2canvas');
+    const holder = document.createElement('div');
+    holder.style.position = 'fixed';
+    holder.style.left = '-20000px';
+    holder.style.top = '0';
+    holder.style.background = '#ffffff';
+    const clone = el.cloneNode(true) as HTMLElement;
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
+    let canvas: HTMLCanvasElement;
+    try {
+      centerCellsInRoot(clone);
+      canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
+    } finally {
+      holder.remove();
+    }
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(baseName.slice(0, 31));
+    const imgId = wb.addImage({ base64: canvas.toDataURL('image/png').split(',')[1], extension: 'png' });
+    ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: canvas.width / 2, height: canvas.height / 2 } });
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    await saveBlobFileShareOrDownload(blob, `${baseName}.xlsx`);
   };
 
   const handleExportAnnualLeaveStatusExcel = async () => {
@@ -5952,6 +5986,60 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     await saveBlobFileShareOrDownload(pdf.output('blob'), `${baseName}.pdf`);
   };
 
+  // [추가] 각종 세금 인쇄용 화면: 내역 / 결재일자 / 금액 / 비고 표 + 합계
+  const renderPrintableTax = () => {
+    if (!printingDoc) return null;
+    const entries = printingDoc.taxPayment?.entries || [];
+    const total = entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const fmt = (n: number) => n.toLocaleString('ko-KR');
+    const cell: React.CSSProperties = { border: '1px solid #000', padding: '6px 8px', fontSize: '12px', verticalAlign: 'middle' };
+    const head: React.CSSProperties = { ...cell, background: '#f1f5f9', fontWeight: 700, textAlign: 'center' };
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', margin: '0 auto', padding: '20mm 15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '12px', lineHeight: 1.5 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, letterSpacing: '6px', marginBottom: '8mm' }}>{printingDoc.title || '각종 세금 내역'}</h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '42%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '16%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={head}>No</th>
+              <th style={head}>내역</th>
+              <th style={head}>결재일자</th>
+              <th style={head}>금액(원)</th>
+              <th style={head}>비고</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.length === 0 && (
+              <tr><td colSpan={5} style={{ ...cell, textAlign: 'center' }}>등록된 내역이 없습니다.</td></tr>
+            )}
+            {entries.map((e, i) => (
+              <tr key={e.id}>
+                <td style={{ ...cell, textAlign: 'center' }}>{i + 1}</td>
+                <td style={cell}>{e.description}</td>
+                <td style={{ ...cell, textAlign: 'center' }}>{e.paidDate || ''}</td>
+                <td style={{ ...cell, textAlign: 'right' }}>{fmt(Number(e.amount) || 0)}</td>
+                <td style={cell}>{e.note || ''}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={3} style={{ ...head, textAlign: 'right' }}>합계</td>
+              <td style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{fmt(total)}</td>
+              <td style={cell}></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
+  };
+
   // [추가] 사무실 비품 관리 인쇄용 화면: 비품 목록 표 + 합계 + 담당자/기준일
   const renderPrintableOfficeSupplies = () => {
     if (!printingDoc) return null;
@@ -6040,6 +6128,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (printingDoc.category === 'sales_contract') return renderPrintableSalesContract();
     if (printingDoc.category === 'severance') return renderPrintableSeverance();
     if (printingDoc.category === 'office_supplies') return renderPrintableOfficeSupplies();
+    if (printingDoc.category === 'tax') return renderPrintableTax();
     return null;
   };
 
@@ -6344,7 +6433,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance) || d.category === 'office_supplies') && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance) || d.category === 'office_supplies' || d.category === 'tax') && (
                     <button
                       onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -10461,6 +10550,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => {
                 handleExportOfficeSuppliesExcel().catch((err) => alert(`엑셀 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`));
+              }}
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 다운
+            </button>
+          )}
+          {PREVIEW_EXCEL_CATEGORIES.includes(printingDoc.category) && (
+            <button
+              onClick={() => {
+                handleExportPreviewExcel().catch((err) => alert(`엑셀 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`));
               }}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
