@@ -6,6 +6,7 @@ import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project,
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
+import { saveBlobFileShareOrDownload } from '../sheetExport.js';
 
 import { getErrorMessage } from '../errorUtils.js';
 import type { Worksheet, Fill } from 'exceljs';
@@ -5855,6 +5856,44 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 인쇄 중인 문서 종류에 맞는 렌더 함수를 골라서 실행. 새 서류 종류가 인쇄를
   // 지원하게 되면 여기에 한 줄만 추가하면 된다.
+  // [추가] 모바일 인쇄/PDF 저장: window.print()가 모바일 브라우저(특히 홈 화면 웹앱)에서
+  // 동작하지 않아서, 미리보기 종이(A4 박스)를 그대로 캡처해 PDF 파일로 저장한다.
+  const previewPaperRef = useRef<HTMLDivElement>(null);
+  const savePrintPreviewAsPdf = async () => {
+    const el = previewPaperRef.current;
+    if (!el || !printingDoc) return;
+    const isLandscape = ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category);
+    const { default: html2canvas } = await import('html2canvas');
+    const { jsPDF } = await import('jspdf');
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+    const pdf = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = isLandscape ? 297 : 210;
+    const pageH = isLandscape ? 210 : 297;
+    const margin = 10;
+    const imgW = pageW - margin * 2;
+    const pxPerMm = canvas.width / imgW;
+    const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+    let y = 0;
+    let first = true;
+    while (y < canvas.height) {
+      const h = Math.min(sliceH, canvas.height - y);
+      const part = document.createElement('canvas');
+      part.width = canvas.width;
+      part.height = h;
+      const ctx = part.getContext('2d');
+      if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, part.width, part.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+      if (!first) pdf.addPage();
+      first = false;
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
+      y += h;
+    }
+    const baseName = (printingDoc.title || '문서').replace(/[\\/:*?"<>|]/g, '_');
+    await saveBlobFileShareOrDownload(pdf.output('blob'), `${baseName}.pdf`);
+  };
+
   const renderActivePrintable = () => {
     if (!printingDoc) return null;
     if (printingDoc.category === 'payslip') return renderPrintablePayslip();
@@ -10231,7 +10270,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             </button>
           )}
           <button
-            onClick={() => {
+            onClick={async () => {
+              // [추가] 모바일은 PDF 파일로 바로 저장 (window.print가 모바일에서 안 되는 경우가 있음)
+              if (window.innerWidth < 768) {
+                try {
+                  await savePrintPreviewAsPdf();
+                } catch (err) {
+                  alert(`PDF 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
+                }
+                return;
+              }
               // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
               // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
               // 인쇄가 끝나면(취소해도) 바로 원래대로 되돌린다.
@@ -10252,6 +10300,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         바깥 박스와 무관하게 항상 올바르게 나왔던 것이라, 가로로 그리는 카테고리를 전부
         여기에도 반영해서 미리보기와 실제 인쇄가 항상 같은 폭으로 보이게 맞춘다. */}
         <div
+          ref={previewPaperRef}
           className="bg-white shadow-2xl mx-auto"
           style={{
             width: ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category)
