@@ -320,8 +320,6 @@ function calcStatutoryAnnualLeaveDays(hireDate: string, targetYear: string): num
 // [추가] 모바일에서 작성 팝업을 상단 헤더와 하단 탭바 사이에만 펼친다 (탭이 가려지지 않게).
 // [추가] 경영지원 서류 목록 9개: 인쇄 버튼 없이 "엑셀 다운 · 저장"만 보인다.
 const PRINT_HIDDEN_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'employment_cert', 'annual_leave_status', 'power_of_attorney', 'office_supplies', 'sales_contract', 'corp_card', 'cash_flow'];
-// [추가] 표가 있는 서류(전용 엑셀 함수 없음)를 미리보기 화면 그대로 엑셀로 저장. 재직증명서·위임장은 문서형이라 제외
-const GENERIC_EXCEL_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'sales_contract'];
 
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
@@ -1689,40 +1687,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 합계 행)에 걸쳐 세로로 병합하고, 연차 사용/휴일(초과)근무/대체휴가 세 목록은 각각
   // 독립적인 목록이라 행 번호가 같아도 서로 다른 내용일 수 있다(짧은 목록은 그만큼
   // 빈칸으로 둔다) - annualLeavePersonRowCount와 같은 규칙.
-  // [추가] 인쇄 미리보기 화면을 그대로 엑셀(.xlsx)로 저장한다.
-  // 전용 엑셀 함수가 없는 서류(근로계약서·연봉협약서·재직증명서·위임장·사무실 비품·영업 계약)에 쓴다.
-  const handleExportPreviewExcel = async () => {
-    const el = previewPaperRef.current;
-    if (!printingDoc || !el) return;
-    const baseName = (printingDoc.title || '서류').replace(/[\\/?*\[\]:]/g, ' ').trim() || '서류';
-    // 미리보기 화면을 PDF 저장과 같은 방식으로 이미지로 캡처해서 엑셀 한 칸에 넣는다.
-    // (표·테두리·글자 위치가 화면/PDF와 똑같이 나오도록 셀 단위 변환은 쓰지 않는다)
-    const { default: html2canvas } = await import('html2canvas');
-    const holder = document.createElement('div');
-    holder.style.position = 'fixed';
-    holder.style.left = '-20000px';
-    holder.style.top = '0';
-    holder.style.background = '#ffffff';
-    const clone = el.cloneNode(true) as HTMLElement;
-    holder.appendChild(clone);
-    document.body.appendChild(holder);
-    let canvas: HTMLCanvasElement;
-    try {
-      centerCellsInRoot(clone);
-      canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
-    } finally {
-      holder.remove();
-    }
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet(baseName.slice(0, 31));
-    const imgId = wb.addImage({ base64: canvas.toDataURL('image/png').split(',')[1], extension: 'png' });
-    ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: canvas.width / 2, height: canvas.height / 2 } });
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    await saveBlobFileShareOrDownload(blob, `${baseName}.xlsx`);
-  };
-
   const handleExportAnnualLeaveStatusExcel = async () => {
     if (!printingDoc || !printingDoc.annualLeaveStatus) return;
     const al = printingDoc.annualLeaveStatus;
@@ -10251,17 +10215,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'overseas_trip' && (
             <button
               onClick={handleExportOverseasTripExcel}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
-            >
-              <Download className="w-4 h-4" />
-              엑셀 다운
-            </button>
-          )}
-          {GENERIC_EXCEL_CATEGORIES.includes(printingDoc.category) && (
-            <button
-              onClick={() => {
-                handleExportPreviewExcel().catch((err) => alert(`엑셀 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`));
-              }}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
