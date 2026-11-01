@@ -6147,10 +6147,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     <h3 className="text-base md:text-sm font-bold text-slate-800 truncate">{d.title}</h3>
                     <span className="text-sm md:text-[11px] text-slate-400 font-mono shrink-0">{d.date}</span>
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-base md:text-xs text-slate-500">
-                    {d.personName && <span>{activeConfig.personLabel}: <b className="text-slate-700">{d.personName}</b></span>}
+                  <div className="flex items-center gap-3 mt-1 text-base md:text-xs text-slate-500 whitespace-nowrap">
+                    {d.personName && <span className="whitespace-nowrap">{activeConfig.personLabel}: <b className="text-slate-700">{d.personName}</b></span>}
                     {activeConfig.showAmount && d.amount && (
-                      <span className="text-emerald-600 font-mono font-bold">
+                      <span className="text-emerald-600 font-mono font-bold whitespace-nowrap">
                         {/^\d+$/.test(d.amount) ? `${formatCurrencyInput(d.amount)}원` : d.amount}
                       </span>
                     )}
