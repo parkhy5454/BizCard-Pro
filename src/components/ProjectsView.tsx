@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { makePageCutter } from '../sheetExport.js';
 import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { Briefcase, Plus, Calendar, DollarSign, Users, CheckCircle2, Circle, Clock, ChevronDown, ChevronUp, Trash2, Tag, Edit2, Mic, Volume2, Play, Pause, User, Music, Activity, Headphones, AlertTriangle, Sparkles, Paperclip, Download, FileText, Search, Receipt, Camera, X, Printer, FileSpreadsheet, ArrowDownUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -166,11 +167,11 @@ const sharePdfFromCanvas = async (canvas: HTMLCanvasElement, fileName: string, o
     const margin = 10;
     const imgW = pageW - margin * 2;
     const pxPerMm = canvas.width / imgW;
-    const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+    const cutH = makePageCutter(canvas, pageH, margin, pageW);
     let y = 0;
     let first = true;
     while (y < canvas.height) {
-      const h = Math.min(sliceH, canvas.height - y);
+      const h = cutH(y, canvas.height);
       const part = document.createElement('canvas');
       part.width = canvas.width;
       part.height = h;
@@ -184,7 +185,7 @@ const sharePdfFromCanvas = async (canvas: HTMLCanvasElement, fileName: string, o
       pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
       // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
       pdf.setDrawColor(0);
-      pdf.setLineWidth(0.3);
+      pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
       if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
       if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
       y += h;
@@ -277,11 +278,11 @@ const exportHtmlAsPdf = async (docHtml: string, fileName: string, orientation: '
     const margin = 10;
     const imgW = pageW - margin * 2;
     const pxPerMm = canvas.width / imgW;
-    const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+    const cutH = makePageCutter(canvas, pageH, margin, pageW);
     let y = 0;
     let first = true;
     while (y < canvas.height) {
-      const h = Math.min(sliceH, canvas.height - y);
+      const h = cutH(y, canvas.height);
       const part = document.createElement('canvas');
       part.width = canvas.width;
       part.height = h;
@@ -295,7 +296,7 @@ const exportHtmlAsPdf = async (docHtml: string, fileName: string, orientation: '
       pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
       // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
       pdf.setDrawColor(0);
-      pdf.setLineWidth(0.3);
+      pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
       if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
       if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
       y += h;

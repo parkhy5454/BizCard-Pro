@@ -287,6 +287,46 @@ export const renderSheetGridToCanvas = async (grid: SheetGrid): Promise<HTMLCanv
   return canvas;
 };
 
+// [추가] PDF 페이지 나누기: 글자 줄이 반으로 잘리지 않도록, 그림에서 글자가 없는 빈 줄 가운데를 자르는 위치로 고른다.
+// 반환값은 "지금 위치(y)에서 이 페이지에 담을 높이(px)". 빈 줄이 없으면 한 장 높이에서 그대로 자른다.
+export const makePageCutter = (canvas: HTMLCanvasElement, pageHmm: number, marginMm: number, pageWmm: number): ((y: number, total: number) => number) => {
+  const pxPerMm = canvas.width / (pageWmm - marginMm * 2);
+  const maxH = Math.max(1, Math.floor((pageHmm - marginMm * 2) * pxPerMm));
+  const blankMids: number[] = [];
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const { width, height } = canvas;
+    const CHUNK = 256;
+    let runStart = -1;
+    for (let y0 = 0; y0 < height; y0 += CHUNK) {
+      const hh = Math.min(CHUNK, height - y0);
+      const data = ctx.getImageData(0, y0, width, hh).data;
+      for (let r = 0; r < hh; r++) {
+        const y = y0 + r;
+        const row = r * width * 4;
+        let blank = true;
+        for (let x = 0; x < width; x += 2) {
+          if (data[row + x * 4] < 230) { blank = false; break; }
+        }
+        if (blank) {
+          if (runStart < 0) runStart = y;
+        } else if (runStart >= 0) {
+          blankMids.push(Math.round((runStart + y) / 2));
+          runStart = -1;
+        }
+      }
+    }
+  }
+  return (y: number, total: number): number => {
+    if (total - y <= maxH) return total - y;
+    let cut = -1;
+    for (const m of blankMids) {
+      if (m - y > maxH * 0.5 && m - y <= maxH && m > cut) cut = m;
+    }
+    return (cut > y ? cut : y + maxH) - y;
+  };
+};
+
 export const canvasToPdfShare = async (canvas: HTMLCanvasElement, fileName: string): Promise<void> => {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -295,11 +335,11 @@ export const canvasToPdfShare = async (canvas: HTMLCanvasElement, fileName: stri
   const margin = 10;
   const imgW = pageW - margin * 2;
   const pxPerMm = canvas.width / imgW;
-  const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
+  const cutH = makePageCutter(canvas, pageH, margin, pageW);
   let y = 0;
   let first = true;
   while (y < canvas.height) {
-    const h = Math.min(sliceH, canvas.height - y);
+    const h = cutH(y, canvas.height);
     const part = document.createElement('canvas');
     part.width = canvas.width;
     part.height = h;
@@ -313,7 +353,7 @@ export const canvasToPdfShare = async (canvas: HTMLCanvasElement, fileName: stri
     pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
     // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
     pdf.setDrawColor(0);
-    pdf.setLineWidth(0.3);
+    pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
     if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
     if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
     y += h;

@@ -6260,7 +6260,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', sideMarginMm, sl.topMm, imgW, srcH * mmPerCanvasPx);
       // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
       pdf.setDrawColor(0);
-      pdf.setLineWidth(0.3);
+      pdf.setLineWidth(0.26); // 표 테두리(1px)와 같은 굵기
       if (i < slices.length - 1) pdf.line(sideMarginMm, pageH - PAGE_MARGIN_MM, paperWmm - sideMarginMm, pageH - PAGE_MARGIN_MM);
       if (i > 0) pdf.line(sideMarginMm, PAGE_MARGIN_MM, paperWmm - sideMarginMm, PAGE_MARGIN_MM);
     });
