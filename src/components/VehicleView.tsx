@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { createPortal } from 'react-dom';
 import { 
   Car, Calendar, MapPin, Receipt, Wrench, FileText, BarChart3, 
@@ -413,6 +415,59 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   const [reportVehicleId, setReportVehicleId] = useState<string>('');
   const [reportYearMonth, setReportYearMonth] = useState<string>(getTodayLocalStr().slice(0, 7)); // YYYY-MM
 
+  // [추가] 작성/수정 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성).
+  // 각 창이 열려 있을 때만 입력값을 공용 훅에 넘긴다.
+  const vehicleDraft = useDraftAutosave<typeof newVehicle>({
+    value: isVehicleFormOpen ? newVehicle : null,
+    setValue: (u) => { const n = u(isVehicleFormOpen ? newVehicle : null); if (n) setNewVehicle(n); },
+    keyOf: () => 'vehicle-new', userId: currentUser?.id,
+  });
+  const drivingDraft = useDraftAutosave<typeof newDriving>({
+    value: isDrivingFormOpen ? newDriving : null,
+    setValue: (u) => { const n = u(isDrivingFormOpen ? newDriving : null); if (n) setNewDriving(n); },
+    keyOf: () => 'vehicle-driving-new', userId: currentUser?.id,
+  });
+  const expenseDraft = useDraftAutosave<typeof newExpense>({
+    value: isExpenseFormOpen ? newExpense : null,
+    setValue: (u) => { const n = u(isExpenseFormOpen ? newExpense : null); if (n) setNewExpense(n); },
+    keyOf: () => 'vehicle-expense-new', userId: currentUser?.id,
+  });
+  const maintDraft = useDraftAutosave<typeof newMaint>({
+    value: isMaintFormOpen ? newMaint : null,
+    setValue: (u) => { const n = u(isMaintFormOpen ? newMaint : null); if (n) setNewMaint(n); },
+    keyOf: () => 'vehicle-maint-new', userId: currentUser?.id,
+  });
+  const intervalDraft = useDraftAutosave<typeof newInterval>({
+    value: isIntervalFormOpen ? newInterval : null,
+    setValue: (u) => { const n = u(isIntervalFormOpen ? newInterval : null); if (n) setNewInterval(n); },
+    keyOf: () => 'vehicle-interval-new', userId: currentUser?.id,
+  });
+  const vehicleEditDraft = useDraftAutosave<Vehicle>({
+    value: editingVehicle,
+    setValue: (u) => { const n = u(editingVehicle); if (n) setEditingVehicle(n); },
+    keyOf: (d) => `vehicle-edit:${d.id}`, userId: currentUser?.id,
+  });
+  const drivingEditDraft = useDraftAutosave<DrivingLog>({
+    value: editingDriving,
+    setValue: (u) => { const n = u(editingDriving); if (n) setEditingDriving(n); },
+    keyOf: (d) => `vehicle-driving-edit:${d.id}`, userId: currentUser?.id,
+  });
+  const expenseEditDraft = useDraftAutosave<VehicleExpense>({
+    value: editingExpense,
+    setValue: (u) => { const n = u(editingExpense); if (n) setEditingExpense(n); },
+    keyOf: (d) => `vehicle-expense-edit:${d.id}`, userId: currentUser?.id,
+  });
+  const maintEditDraft = useDraftAutosave<VehicleMaintenance>({
+    value: editingMaint,
+    setValue: (u) => { const n = u(editingMaint); if (n) setEditingMaint(n); },
+    keyOf: (d) => `vehicle-maint-edit:${d.id}`, userId: currentUser?.id,
+  });
+  const intervalEditDraft = useDraftAutosave<MaintenanceInterval>({
+    value: editingInterval,
+    setValue: (u) => { const n = u(editingInterval); if (n) setEditingInterval(n); },
+    keyOf: (d) => `vehicle-interval-edit:${d.id}`, userId: currentUser?.id,
+  });
+
   // 헤더 설정
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -475,6 +530,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       if (res.ok) {
         const added = await res.json();
         setVehicles([added, ...vehicles]);
+        vehicleDraft.discardOpen();
         setIsVehicleFormOpen(false);
         setNewVehicle({
           modelName: '',
@@ -527,6 +583,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       if (res.ok) {
         const updated = await res.json();
         setVehicles(vehicles.map(v => v.id === updated.id ? updated : v));
+        vehicleEditDraft.discardOpen();
         setEditingVehicle(null);
       } else {
         // [추가] 위 등록과 동일한 이유로, 저장 실패 시 조용히 넘어가지 않고 알려준다.
@@ -908,6 +965,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           setDrivingReceipts([]);
         }
 
+        drivingDraft.discardOpen();
         setIsDrivingFormOpen(false);
         setNewDriving({
           vehicleId: '',
@@ -1039,6 +1097,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       if (res.ok) {
         const added = await res.json();
         setExpenses([added, ...expenses]);
+        expenseDraft.discardOpen();
         setIsExpenseFormOpen(false);
         setNewExpense({
           vehicleId: '',
@@ -1191,6 +1250,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
         setMaintenances([added, ...maintenances]);
         // [추가] 정비 비용이 있으면 차량 비용 지출 목록에도 자동으로 같이 등록해준다.
         await syncLinkedExpenseForMaint(added);
+        maintDraft.discardOpen();
         setIsMaintFormOpen(false);
         setIsMaintTitleCustom(false);
         setNewMaint({
@@ -1345,6 +1405,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           }
           setEditReceiptDrafts([]);
         }
+        drivingEditDraft.discardOpen();
         setEditingDriving(null);
       }
     } catch (err) {
@@ -1372,6 +1433,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       if (res.ok) {
         const updated = await res.json();
         setExpenses(expenses.map(exp => exp.id === updated.id ? updated : exp));
+        expenseEditDraft.discardOpen();
         setEditingExpense(null);
       } else {
         // [추가] 저장 실패를 조용히 넘기지 않고 알려준다.
@@ -1407,6 +1469,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
         setMaintenances(maintenances.map(m => m.id === updated.id ? updated : m));
         // [추가] 정비 기록을 수정하면(비용/차량/날짜 등 변경) 연동된 지출 항목도 같이 맞춰준다.
         await syncLinkedExpenseForMaint(updated);
+        maintEditDraft.discardOpen();
         setEditingMaint(null);
       } else {
         // [추가] 정비 영수증 스캔본 등 수정 저장 실패를 조용히 넘기지 않고 알려준다.
@@ -1446,6 +1509,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       if (res.ok) {
         const added = await res.json();
         setMaintenanceIntervals([added, ...maintenanceIntervals]);
+        intervalDraft.discardOpen();
         setIsIntervalFormOpen(false);
         setIsIntervalItemCustom(false);
         setNewInterval({
@@ -1484,6 +1548,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       if (res.ok) {
         const updated = await res.json();
         setMaintenanceIntervals(maintenanceIntervals.map(item => item.id === updated.id ? updated : item));
+        intervalEditDraft.discardOpen();
         setEditingInterval(null);
       }
     } catch (err) {
@@ -2016,6 +2081,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </div>
               
               <form onSubmit={handleAddVehicle} className="space-y-6">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={vehicleDraft.prompt} onRestore={vehicleDraft.restore} onDismiss={vehicleDraft.dismiss} />
                 {/* 세션 1: 차량 기본 정보 */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
@@ -2547,6 +2614,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   <button onClick={() => setIsDrivingFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
                 </div>
                 <form onSubmit={handleAddDriving} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={drivingDraft.prompt} onRestore={drivingDraft.restore} onDismiss={drivingDraft.dismiss} />
                   <div className="col-span-1 sm:col-span-2 lg:col-span-4 space-y-2">
                     <div className="flex items-center gap-3">
                       <button
@@ -3288,6 +3357,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 <button onClick={() => setIsExpenseFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddExpense} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={expenseDraft.prompt} onRestore={expenseDraft.restore} onDismiss={expenseDraft.dismiss} />
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
                   <button
                     type="button"
@@ -3808,6 +3879,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 <button onClick={() => setIsMaintFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddMaint} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={maintDraft.prompt} onRestore={maintDraft.restore} onDismiss={maintDraft.dismiss} />
                 <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-3">
                   <button
                     type="button"
@@ -3989,6 +4062,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 <button onClick={() => setIsIntervalFormOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">닫기</button>
               </div>
               <form onSubmit={handleAddInterval} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={intervalDraft.prompt} onRestore={intervalDraft.restore} onDismiss={intervalDraft.dismiss} />
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-semibold text-indigo-400">차량 선택 *</label>
                   <select 
@@ -5174,6 +5249,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
 
             <form onSubmit={handleUpdateVehicle} className="space-y-6">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={vehicleEditDraft.prompt} onRestore={vehicleEditDraft.restore} onDismiss={vehicleEditDraft.dismiss} />
               {/* 세션 1: 기본 제원 정보 */}
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold text-indigo-400 flex items-center gap-1">
@@ -5757,6 +5834,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
             
             <form onSubmit={handleUpdateDriving} className="p-5 overflow-y-auto min-h-0 space-y-4 flex-1">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={drivingEditDraft.prompt} onRestore={drivingEditDraft.restore} onDismiss={drivingEditDraft.dismiss} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">운전자명</label>
@@ -6050,6 +6129,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
             
             <form onSubmit={handleUpdateExpense} className="p-5 space-y-4 overflow-y-auto min-h-0 flex-1">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={expenseEditDraft.prompt} onRestore={expenseEditDraft.restore} onDismiss={expenseEditDraft.dismiss} />
               <div className="space-y-4">
                 {/* [수정] 등록할 때 스캔한 영수증 사진이 수정 화면에는 안 보이던 문제 - 여기에 썸네일로 표시 */}
                 {editingExpense.receiptImage && (
@@ -6249,6 +6330,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
             
             <form onSubmit={handleUpdateMaint} className="p-5 space-y-4 overflow-y-auto min-h-0 flex-1">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={maintEditDraft.prompt} onRestore={maintEditDraft.restore} onDismiss={maintEditDraft.dismiss} />
               <div className="space-y-4">
                 {editingMaint.receiptImage && (
                   <div className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
@@ -6434,6 +6517,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             </div>
             
             <form onSubmit={handleUpdateInterval} className="p-5 space-y-4 overflow-y-auto flex-1">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={intervalEditDraft.prompt} onRestore={intervalEditDraft.restore} onDismiss={intervalEditDraft.dismiss} />
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500 font-semibold text-indigo-400">차량 선택 *</label>
