@@ -329,7 +329,7 @@ const officeSuppliesTotal = (items?: { quantity?: number; unitPrice?: number }[]
   (items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
 
 // [추가] 회계관리 표 중 전용 엑셀 함수가 없는 서류: 미리보기 화면을 그대로 엑셀로 저장한다
-const PREVIEW_EXCEL_CATEGORIES: string[] = ['payslip', 'severance', 'monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'tax'];
+const PREVIEW_EXCEL_CATEGORIES: string[] = ['payslip', 'severance', 'monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'tax', 'card_usage'];
 
 // [추가] 미리보기·PDF 공통 페이지 나눔: 1페이지는 아래 여백 25mm, 2페이지부터는 위·아래 여백 25mm
 const PAGE_MARGIN_MM = 25;
