@@ -889,6 +889,7 @@ export default function App() {
           groups={groups}
           contacts={contacts}
           onClose={() => setIsVoiceQuickAddOpen(false)}
+          currentUserId={currentUser?.id}
           onSave={handleSaveNewCard}
           onUpdate={handleUpdateCard}
         />

@@ -10875,6 +10875,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     {isOverseasTripReceiptModalOpen && (
       <ReceiptScanModal
         expenseType="overseas_trip"
+        currentUserId={currentUser?.id}
         onClose={() => {
           setIsOverseasTripReceiptModalOpen(false);
           setScanningOverseasTripEntryId(null);

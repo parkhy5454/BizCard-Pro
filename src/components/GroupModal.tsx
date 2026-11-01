@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { FolderTree, Plus, Trash2, Edit2, Check, X, ShieldAlert, Lock, Unlock } from 'lucide-react';
 import { ContactGroup, BusinessCard, User } from '../types.js';
 import { contactHasGroup } from '../groupUtils.js';
@@ -29,11 +31,20 @@ export const GroupModal: React.FC<Props> = ({ groups, contacts, currentUser, onC
   const [editingGid, setEditingGid] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+  // [추가] 새 그룹 입력 중 임시 저장 (서버 보관 - 다른 기기에서도 이어서 입력)
+  const groupDraftSnapshot = useMemo(() => ({ newGroupName, newGroupColor }), [newGroupName, newGroupColor]);
+  const groupDraft = useDraftAutosave<typeof groupDraftSnapshot>({
+    value: groupDraftSnapshot,
+    setValue: (u) => { const n = u(groupDraftSnapshot); if (n) { setNewGroupName(n.newGroupName); setNewGroupColor(n.newGroupColor); } },
+    keyOf: () => 'group-new',
+    userId: currentUser?.id,
+  });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
     onCreateGroup({ name: newGroupName.trim(), color: newGroupColor });
+    groupDraft.markSaved();
     setNewGroupName('');
   };
 
@@ -68,6 +79,8 @@ export const GroupModal: React.FC<Props> = ({ groups, contacts, currentUser, onC
 
         {/* 새 그룹 생성 폼 */}
         <form onSubmit={handleCreate} className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+          {/* [추가] 임시 저장된 입력 내용이 있으면 이어서 쓸지 묻는다 */}
+          <DraftPromptBanner prompt={groupDraft.prompt} onRestore={groupDraft.restore} onDismiss={groupDraft.dismiss} />
           <span className="text-xs font-bold text-blue-400 uppercase tracking-wider block font-mono">➕ 신규 명함 그룹 생성</span>
           
           <div className="flex flex-col md:flex-row gap-3">

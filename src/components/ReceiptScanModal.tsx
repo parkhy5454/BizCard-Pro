@@ -1,4 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { X, Upload, ScanLine, CheckCircle2, Sparkles, DollarSign, Calendar, Landmark, Tag, FileText, Camera } from 'lucide-react';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr } from '../dateUtils.js';
@@ -15,6 +17,7 @@ const OVERSEAS_TRIP_PAY_METHOD_OPTIONS = ['신용카드', '현금'];
 
 interface Props {
   expenseType: 'vehicle' | 'worklog' | 'overseas_trip';
+  currentUserId?: string | null; // 임시 저장 확인용 로그인 사용자 id
   onClose: () => void;
   onScanComplete: (data: {
     amount: number;
@@ -27,7 +30,7 @@ interface Props {
   }) => void;
 }
 
-export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScanComplete }) => {
+export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScanComplete, currentUserId }) => {
   const [receiptImg, setReceiptImg] = useState<string>('');
   // [수정] 영수증 미리보기를 눌렀을 때 전체화면으로 크게 볼 수 있는 팝업(라이트박스)용 상태
   const [isReceiptEnlarged, setIsReceiptEnlarged] = useState<boolean>(false);
@@ -46,6 +49,14 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
     memo: '',
     category: '',
     payMethod: ''
+  });
+  // [추가] 영수증 입력 중 임시 저장 (서버 보관 - 다른 기기에서도 이어서 입력)
+  const receiptDraftSnapshot = useMemo(() => ({ form, receiptImg }), [form, receiptImg]);
+  const receiptDraft = useDraftAutosave<typeof receiptDraftSnapshot>({
+    value: receiptDraftSnapshot,
+    setValue: (u) => { const n = u(receiptDraftSnapshot); if (n) { setForm(n.form); setReceiptImg(n.receiptImg); } },
+    keyOf: () => `receipt-scan:${expenseType}`,
+    userId: currentUserId,
   });
 
   const handleFile = (file: File) => {
@@ -197,6 +208,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       payMethod: form.payMethod,
       receiptImage: receiptImg
     });
+    receiptDraft.discardOpen();
     onClose();
   };
 
@@ -325,6 +337,8 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
 
         {/* 우측: 인식 결과 확인 및 편집 폼 */}
         <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between md:overflow-y-auto">
+          {/* [추가] 임시 저장된 입력 내용이 있으면 이어서 쓸지 묻는다 */}
+          <DraftPromptBanner prompt={receiptDraft.prompt} onRestore={receiptDraft.restore} onDismiss={receiptDraft.dismiss} />
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
               <h3 className="font-bold text-lg text-slate-900">지출 내역 자동 완성</h3>

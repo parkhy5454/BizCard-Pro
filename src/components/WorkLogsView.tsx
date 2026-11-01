@@ -4491,6 +4491,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
         {isReceiptModalOpen && (
           <ReceiptScanModal
             expenseType="worklog"
+            currentUserId={currentUser?.id}
             onClose={() => {
               setIsReceiptModalOpen(false);
               setScanningExpenseRowId(null);

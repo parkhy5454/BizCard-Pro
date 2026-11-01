@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { User, Mail, Phone, Building2, Briefcase, Lock, Save } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
@@ -33,6 +35,14 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
     phone: currentUser.phone || '',
     position: currentUser.position || '',
   });
+  // [추가] 프로필 편집 중 임시 저장 (서버 보관 - 다른 기기에서도 이어서 수정)
+  const profileDraftSnapshot = useMemo(() => ({ ...formData }), [formData]);
+  const profileDraft = useDraftAutosave<typeof profileDraftSnapshot>({
+    value: profileDraftSnapshot,
+    setValue: (u) => { const n = u(profileDraftSnapshot); if (n) setFormData({ name: n.name, phone: n.phone, position: n.position }); },
+    keyOf: () => 'user-profile',
+    userId: currentUser.id,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -56,6 +66,7 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
         phone: formData.phone.trim() || undefined,
         ...(isCompany ? { position: formData.position.trim() || undefined } : {}),
       });
+      profileDraft.discardOpen();
       setSaveMessage({ type: 'ok', text: '프로필이 저장되었습니다.' });
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error: unknown) {
@@ -95,6 +106,8 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
   return (
     <div className="max-w-2xl mx-auto py-8">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* [추가] 임시 저장된 수정 내용이 있으면 이어서 쓸지 묻는다 */}
+        <div className="p-4"><DraftPromptBanner prompt={profileDraft.prompt} onRestore={profileDraft.restore} onDismiss={profileDraft.dismiss} /></div>
 
         {/* 헤더 */}
         <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-6 border-b border-slate-200">

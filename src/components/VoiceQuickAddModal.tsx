@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { X, Mic, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { findDuplicateContact } from './ScanModal.js';
@@ -12,6 +14,7 @@ interface Props {
   onClose: () => void;
   onSave: (newCard: BusinessCard) => void;
   onUpdate?: (updated: BusinessCard) => void;
+  currentUserId?: string | null; // 임시 저장 확인용 로그인 사용자 id
 }
 
 // [수정] 음성 명함 등록: 전시회처럼 손이 바쁠 때 "방금 만난 사람 이름 불러줘"로 빠르게
@@ -32,7 +35,7 @@ const getTopBarBottom = (): number => {
   return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
 };
 
-export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate }) => {
+export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate, currentUserId }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isParsing, setIsParsing] = useState(false);
@@ -43,6 +46,14 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
   const transcriptRef = useRef<string>(''); // [수정] state는 비동기라 타이밍이 어긋날 수 있어, ref로 항상 최신값을 같이 들고 있는다
   const [speechSupported, setSpeechSupported] = useState(true);
   const [voiceError, setVoiceError] = useState('');
+  // [추가] 음성 등록 내용 임시 저장 (서버 보관 - 다른 기기에서도 이어서 확인)
+  const voiceDraftSnapshot = useMemo(() => ({ transcript, parsed }), [transcript, parsed]);
+  const voiceDraft = useDraftAutosave<typeof voiceDraftSnapshot>({
+    value: saved ? null : voiceDraftSnapshot,
+    setValue: (u) => { const n = u(voiceDraftSnapshot); if (n) { setTranscript(n.transcript); setParsed(n.parsed); } },
+    keyOf: () => 'voice-quick-add',
+    userId: currentUserId,
+  });
 
   useEffect(() => {
     const SpeechRecognition = getSpeechRecognitionCtor();
@@ -175,6 +186,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
         createdAt: new Date().toISOString(),
         callHistory: []
       };
+      voiceDraft.discardOpen();
       onSave(newCard);
     }
     setSaved(true);
@@ -195,6 +207,7 @@ export const VoiceQuickAddModal: React.FC<Props> = ({ groups, contacts, onClose,
             <X className="w-4 h-4" />
           </button>
         </div>
+        <div className="px-5 pt-4"><DraftPromptBanner prompt={voiceDraft.prompt} onRestore={voiceDraft.restore} onDismiss={voiceDraft.dismiss} /></div>
 
         <div className="p-6 space-y-4">
           {!speechSupported ? (
