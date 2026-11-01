@@ -547,7 +547,7 @@ export default function App() {
   });
 
   return (
-    <div className="app-shell h-[100dvh] overflow-hidden bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
+    <div className="app-shell fixed inset-0 print:static print:h-auto overflow-hidden bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
       
       {/* 상단 통합 헤더 & 내비게이션 */}
       {/* [수정] 명함 상세/수정 창이 열린 상태에서 하단·상단 탭을 누르면 창도 함께 닫는다.
