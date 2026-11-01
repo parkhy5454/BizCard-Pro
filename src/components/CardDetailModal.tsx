@@ -1,6 +1,6 @@
 import { APP_PUBLIC_URL } from '../appConfig.js';
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home, Smartphone } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
@@ -40,8 +40,14 @@ const getModalBottomInset = (): number => {
 export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
   // [수정] 입력칸을 누르면 페이지가 스크롤되며 상단 탭 위치가 바뀌는데, 렌더마다 다시 재면 창이 같이 밀린다.
   // 그래서 위치는 창이 열릴 때 한 번만 재서 고정한다.
-  const [modalTopInset] = useState<number>(() => getModalTopInset());
-  const [modalBottomInset] = useState<number>(() => getModalBottomInset());
+  const [modalTopInset, setModalTopInset] = useState<number>(0);
+  const [modalBottomInset, setModalBottomInset] = useState<number>(0);
+  // 이 컴포넌트는 닫혀 있을 때도 마운트되어 있으므로, 앱 시작 시점이 아니라 "창이 열릴 때" 위치를 잰다.
+  useLayoutEffect(() => {
+    if (!contact) return;
+    setModalTopInset(getModalTopInset());
+    setModalBottomInset(getModalBottomInset());
+  }, [contact?.id]);
   // Hooks(useState/useRef/useEffect)는 반드시 조건 없이 매 렌더링마다 동일한 순서로 호출되어야 하므로,
   // "contact가 없으면 그리지 않는다" 처리보다 먼저 선언합니다 (React Hooks 규칙).
   const [activeTab, setActiveTab] = useState<'info' | 'history' | 'edit'>(initialTab);
