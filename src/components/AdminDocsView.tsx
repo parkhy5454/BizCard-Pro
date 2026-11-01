@@ -9230,7 +9230,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             onChange={(e) => updateLaborContractField({ companyBusinessType: e.target.value })}
                             onBlur={(e) => persistCompanySettings({ businessType: e.target.value })}
                             placeholder="사업 종류 (예: 제조업)"
-                            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            className="min-w-0 max-w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <input
                             type="text"
@@ -9238,7 +9238,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             onChange={(e) => updateLaborContractField({ companyAddress: e.target.value })}
                             onBlur={(e) => persistCompanySettings({ address: e.target.value })}
                             placeholder="사업체 주소"
-                            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            className="min-w-0 max-w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
                         </div>
                       </div>
@@ -9250,14 +9250,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         value={editingDoc.laborContract?.employeeName || ''}
                         onChange={(e) => updateLaborContractField({ employeeName: e.target.value })}
                         placeholder="근로자 성명"
-                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        className="min-w-0 max-w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                       <input
                         type="date"
                         value={editingDoc.laborContract?.employeeBirthDate || ''}
                         onChange={(e) => updateLaborContractField({ employeeBirthDate: e.target.value })}
                         placeholder="생년월일"
-                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        className="min-w-0 max-w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
 
@@ -9271,7 +9271,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             type="date"
                             value={editingDoc.laborContract?.hireDate || ''}
                             onChange={(e) => updateLaborContractField({ hireDate: e.target.value })}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                           />
                         </div>
                         <input
@@ -9279,14 +9279,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           value={editingDoc.laborContract?.department || ''}
                           onChange={(e) => updateLaborContractField({ department: e.target.value })}
                           placeholder="소속"
-                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
+                          className="min-w-0 max-w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
                         />
                         <input
                           type="text"
                           value={editingDoc.laborContract?.position || ''}
                           onChange={(e) => updateLaborContractField({ position: e.target.value })}
                           placeholder="현재직급"
-                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
+                          className="min-w-0 max-w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 self-end"
                         />
                       </div>
                     )}
@@ -9298,7 +9298,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           value={editingDoc.laborContract?.employeeAddress || ''}
                           onChange={(e) => updateLaborContractField({ employeeAddress: e.target.value })}
                           placeholder="근로자 주소"
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
 
                         <div>
@@ -9338,7 +9338,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               value={it.label}
                               onChange={(e) => updateSalaryItem(it.id, { label: e.target.value })}
                               placeholder="예: 기본급"
-                              className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              className="min-w-0 max-w-full flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                             />
                             <input
                               type="text"
@@ -9346,7 +9346,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               value={it.amount ? formatCurrencyInput(it.amount) : ''}
                               onChange={(e) => updateSalaryItem(it.id, { amount: parseCurrencyInput(e.target.value) })}
                               placeholder="0"
-                              className="w-28 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                              className="min-w-0 max-w-full w-24 shrink-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
                             />
                             <button type="button" onClick={() => removeSalaryItem(it.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
                               <X className="w-3.5 h-3.5" />
@@ -9367,7 +9367,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.laborContract?.contractStartDate || ''}
                           onChange={(e) => updateLaborContractField({ contractStartDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -9376,7 +9376,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.laborContract?.contractEndDate || ''}
                           onChange={(e) => updateLaborContractField({ contractEndDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                     </div>
@@ -9387,7 +9387,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         type="text"
                         value={editingDoc.laborContract?.workLocation || ''}
                         onChange={(e) => updateLaborContractField({ workLocation: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
                     {activeCategory === 'labor_contract' && (
@@ -9397,7 +9397,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="text"
                           value={editingDoc.laborContract?.jobDuties || ''}
                           onChange={(e) => updateLaborContractField({ jobDuties: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                     )}
@@ -9407,7 +9407,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         type="date"
                         value={editingDoc.laborContract?.contractDate || ''}
                         onChange={(e) => updateLaborContractField({ contractDate: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
