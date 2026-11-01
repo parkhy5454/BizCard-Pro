@@ -11,6 +11,7 @@ import { generateStandardCardImage } from '../cardImageGenerator.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
 
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
+import { useBodyScrollLock } from '../useBodyScrollLock.js';
 interface Props {
   groups: ContactGroup[];
   // [수정] 중복 명함 감지를 위해 기존 등록된 명함 목록을 받는다
@@ -85,6 +86,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   // 페이지가 스크롤되면 상단 탭 줄 위치도 바뀌므로, 오버레이 시작 위치를 계속 다시 잰다.
   const [topOffset, setTopOffset] = useState<number>(() => getTopBarBottom());
   const [bottomOffset, setBottomOffset] = useState<number>(() => getTabBarGap());
+  // 창이 열려 있는 동안 페이지 스크롤을 잠가서 입력 시 탭이 밀리지 않게 한다.
+  useBodyScrollLock(true);
   // [수정] 입력칸을 누르면 iPhone이 페이지를 스크롤하면서 상단 탭 위치가 바뀌고, 그때마다 창이 따라 움직였다.
   // 그래서 위치는 창이 열릴 때 한 번만 재고 그 값을 유지한다(스크롤·키보드에 반응하지 않음).
   useEffect(() => { setTopOffset(getTopBarBottom()); setBottomOffset(getTabBarGap()); }, []);

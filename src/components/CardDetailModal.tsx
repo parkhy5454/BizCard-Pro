@@ -12,6 +12,7 @@ import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
 import { generateContactVCardText, downloadContactVCard } from '../vcardUtils.js';
+import { useBodyScrollLock } from '../useBodyScrollLock.js';
 
 interface Props {
   contact: BusinessCard | null;
@@ -42,6 +43,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   // 그래서 위치는 창이 열릴 때 한 번만 재서 고정한다.
   const [modalTopInset, setModalTopInset] = useState<number>(0);
   const [modalBottomInset, setModalBottomInset] = useState<number>(0);
+  // 창이 열려 있는 동안 페이지 스크롤을 잠가서, 입력칸을 눌러도 상단·하단 탭이 같이 밀리지 않게 한다.
+  useBodyScrollLock(!!contact);
   // 이 컴포넌트는 닫혀 있을 때도 마운트되어 있으므로, 앱 시작 시점이 아니라 "창이 열릴 때" 위치를 잰다.
   useLayoutEffect(() => {
     if (!contact) return;
