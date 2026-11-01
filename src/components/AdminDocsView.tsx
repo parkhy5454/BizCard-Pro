@@ -5878,8 +5878,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     <>
     <div className="max-w-5xl mx-auto pt-0 pb-6 md:py-6 px-4 space-y-5">
       {/* 모바일: 제목·서류 종류 탭·검색 줄을 헤더 바로 아래에 sticky로 고정 (PC는 그대로) */}
-      <div id="admin-fixed-top" style={{ top: adminHeaderBottom }} className="sticky z-40 -mx-4 bg-white px-4 pt-0 pb-0 space-y-1 md:static md:mx-0 md:bg-transparent md:p-0 md:space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-1 md:gap-3">
+      <div id="admin-fixed-top" style={{ top: adminHeaderBottom }} className="sticky z-40 -mx-4 bg-white px-4 pt-0 pb-0 md:static md:mx-0 md:bg-transparent md:p-0 md:space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-1 pb-1 md:gap-3 md:pb-0">
         <h2 className="text-lg md:text-xl font-bold text-slate-900">{SECTION_LABEL[section]}</h2>
         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-500/30 px-2.5 py-1 rounded-full font-semibold">관리자 전용</span>
       </div>
@@ -5890,7 +5890,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <button
             key={c.id}
             onClick={() => setActiveCategory(c.id)}
-            className={`relative shrink-0 pt-0 pb-2 md:pt-1 md:pb-3 text-base md:text-sm font-bold whitespace-nowrap transition-colors ${
+            className={`relative shrink-0 pt-0 pb-1.5 md:pt-1 md:pb-3 text-base md:text-sm font-bold whitespace-nowrap transition-colors ${
               activeCategory === c.id ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -5902,7 +5902,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
       <div aria-hidden className="md:hidden mx-auto w-[90%] h-px bg-slate-300" />
       {/* 검색 + 추가 버튼 */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 py-1.5 md:py-0">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
