@@ -2620,8 +2620,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     return () => { prepTokenRef.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printingDoc]);
-  // [추가] 서류 종류 탭을 바꾸면 열려 있던 인쇄 미리보기는 닫는다 (팝업이 다른 탭을 가리지 않게)
-  useEffect(() => { setPrintingDoc(null); }, [activeCategory]);
+  // [추가] 서류 종류 탭을 바꾸면 열려 있던 인쇄 미리보기와 작성/수정 화면은 닫는다.
+  // (모바일에서는 상단 탭이 작성 화면 위에 그대로 보여서, 닫지 않으면 이전 탭의 작성 화면이 남는다)
+  useEffect(() => { setPrintingDoc(null); setEditingDoc(null); }, [activeCategory]);
 
   // [추가] 법인카드 관리 - "전체 카드 한 페이지로 보기"에서 고를 대상 연월
   const [corpCardMergeMonth, setCorpCardMergeMonth] = useState('');
