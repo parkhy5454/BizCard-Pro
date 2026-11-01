@@ -10666,7 +10666,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportCorpCardExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10676,7 +10676,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportVehicleFineExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10686,7 +10686,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportIncentiveExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10696,7 +10696,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportOverseasTripExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10706,7 +10706,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportOfficeSuppliesExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10716,7 +10716,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportPreviewExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10726,7 +10726,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportAnnualLeaveStatusExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10736,7 +10736,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportCashFlowExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex flex-1 md:flex-none justify-center items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex flex-1 md:flex-none justify-center items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10746,7 +10746,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportManagementFeeExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10756,7 +10756,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <button
               onClick={() => saveFromPreview('excel', handleExportAdvancePaymentExcel)}
               disabled={savePending}
-              className=\"disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="disabled:opacity-50 flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
