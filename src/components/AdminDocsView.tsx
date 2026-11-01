@@ -335,25 +335,39 @@ const PREVIEW_EXCEL_CATEGORIES: string[] = ['payslip', 'severance', 'monthly_cas
 const PAGE_MARGIN_MM = 25;
 const MM_TO_PX = 96 / 25.4;
 type PageSlice = { offsetMm: number; usableMm: number; topMm: number };
-// [추가] 페이지를 자를 때 글자 줄이 반으로 쪼개지지 않도록, 문단·줄·표 행의 경계 위치(mm)를 모은다.
-// 경계 중에서 어떤 칸(문단/행)의 가운데를 가로지르지 않는 위치만 쓴다.
-const BLOCK_CHILD_TAGS = ['P', 'TR', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'TABLE', 'UL', 'OL', 'TBODY', 'THEAD'];
-const paperBreakCandidatesMm = (paper: HTMLElement): number[] => {
-  const rect = paper.getBoundingClientRect();
-  const scale = paper.offsetHeight ? rect.height / paper.offsetHeight : 1; // 미리보기 축소(scale) 보정
-  const toMm = (px: number) => px / scale / MM_TO_PX;
-  const leaves: { top: number; bottom: number }[] = [];
-  paper.querySelectorAll<HTMLElement>('p, tr, li, h1, h2, h3, h4, h5, h6, div').forEach((el) => {
-    // 안에 다시 문단·행이 들어 있는 상자(div)는 건너뛰고, 실제 글자 줄을 담은 가장 안쪽 요소만 본다
-    if (el.tagName === 'DIV' && Array.from(el.children).some((c) => BLOCK_CHILD_TAGS.includes(c.tagName))) return;
-    const r = el.getBoundingClientRect();
-    if (r.height <= 0) return;
-    leaves.push({ top: toMm(r.top - rect.top), bottom: toMm(r.bottom - rect.top) });
+// [추가] 미리보기용 측정: 종이를 그림으로 한 번 찍어서 전체 높이(mm)와 빈 줄 위치를 구한다.
+// PDF 저장과 같은 방법으로 자르므로 미리보기 페이지 구분선과 저장 파일이 항상 같은 자리에서 나뉜다.
+const measurePaperCutsMm = async (paper: HTMLElement, paperWmm: number): Promise<{ naturalMm: number; cuts: number[] }> => {
+  const holder = document.createElement('div');
+  holder.style.position = 'fixed';
+  holder.style.left = '-20000px';
+  holder.style.top = '0';
+  holder.style.background = '#ffffff';
+  const clone = paper.cloneNode(true) as HTMLElement;
+  clone.style.transform = 'none';
+  clone.style.position = 'relative';
+  clone.style.top = '0px';
+  clone.style.left = '0px';
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+  try {
+    const canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
+    const canvasPxPerMm = canvas.width / paperWmm;
+    return { naturalMm: canvas.height / canvasPxPerMm, cuts: blankGapCutsMm(canvas, canvasPxPerMm) };
+  } finally {
+    holder.remove();
+  }
+};
+
+// [추가] 엑셀 저장 시 모든 칸을 세로 가운데 맞춤으로 바꾼다 (기본값은 칸 아래쪽이라 글자가 아래로 쏠린다)
+const centerExcelVertically = (wb: ExcelJS.Workbook): void => {
+  wb.worksheets.forEach((ws) => {
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        cell.alignment = { ...cell.alignment, vertical: 'middle' };
+      });
+    });
   });
-  const raw: number[] = [];
-  leaves.forEach((l) => { raw.push(l.top, l.bottom); });
-  const safe = raw.filter((c) => c > 0.5 && !leaves.some((l) => l.top < c - 0.3 && l.bottom > c + 0.3));
-  return Array.from(new Set(safe.map((c) => Math.round(c * 10) / 10))).sort((a, b) => a - b);
 };
 
 // [추가] 캡처한 그림에서 글자가 없는 빈 줄(여백)의 가운데 위치(mm)를 모은다.
@@ -1394,7 +1408,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 8), colIdx === 9 ? 45 : 20);
     });
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `카드별_월_사용_내역_${cc.yearMonth || ''}.xlsx`);
   };
@@ -1510,7 +1524,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 4 ? 55 : 20);
     });
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '차량_과태료_내역'}.xlsx`);
   };
@@ -1622,7 +1636,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 3 ? 40 : 20);
     });
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '인센티브_및_명절_상여금'}.xlsx`);
   };
@@ -1808,7 +1822,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), colIdx === 3 ? 40 : 18);
     });
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '해외_출장_경비_사용내역'}.xlsx`);
   };
@@ -1844,7 +1858,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     totalRow.font = { bold: true };
     ws.getColumn('price').numFmt = '#,##0';
     ws.getColumn('amount').numFmt = '#,##0';
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '사무실 비품 관리'}.xlsx`);
   };
@@ -1877,7 +1891,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const ws = wb.addWorksheet(baseName.slice(0, 31));
     const imgId = wb.addImage({ base64: canvas.toDataURL('image/png').split(',')[1], extension: 'png' });
     ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: canvas.width / 2, height: canvas.height / 2 } });
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${baseName}.xlsx`);
   };
@@ -2030,7 +2044,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     ws.getColumn(12).width = 12;
     ws.getColumn(13).width = 22;
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || al.year + '년_연차_현황'}.xlsx`);
   };
@@ -2268,7 +2282,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     else if (cashFlowPrintTab === 'summary') addSummarySheet();
     else { addInflowsSheet(); addOutflowsSheet(); addExpensesSheet(); addSummarySheet(); }
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${cf.year}년도_현금흐름_${cashFlowPrintTab === 'all' ? '전체' : cashFlowPrintTab}.xlsx`);
   };
@@ -2447,7 +2461,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), 20);
     });
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '가지급내역'}.xlsx`);
   };
@@ -2550,7 +2564,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ws.getColumn(colIdx + 1).width = Math.min(Math.max(maxLen + 3, 10), 20);
     });
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = await (centerExcelVertically(wb), wb.xlsx.writeBuffer());
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '관리비내역'}.xlsx`);
   };
@@ -2651,13 +2665,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const pageMm = landscape ? 210 : 297;
     const paperWpx = paperWmm * MM_TO_PX;
     const pageHpx = pageMm * MM_TO_PX;
+    let measureSeq = 0;
     const update = () => {
       const naturalMm = el.offsetHeight / MM_TO_PX;
       const vw = window.innerWidth;
       const scale = vw < 768 ? Math.min(1, (vw - 32) / paperWpx) : 1;
       const contentScale = onePageFitScale(printingDoc.category, naturalMm, pageMm);
-      const slices = contentScale < 1 ? [{ offsetMm: 0, usableMm: pageMm - PAGE_MARGIN_MM, topMm: 0 }] : splitPagesMm(naturalMm, pageMm, paperBreakCandidatesMm(el));
-      setPreviewFit({ scale, contentScale, paperWpx, pageHpx, slices });
+      if (contentScale < 1) {
+        setPreviewFit({ scale, contentScale, paperWpx, pageHpx, slices: [{ offsetMm: 0, usableMm: pageMm - PAGE_MARGIN_MM, topMm: 0 }] });
+        return;
+      }
+      // 처음에는 높이만으로 나누어 보여주고, 그림을 찍어 빈 줄을 찾은 뒤 저장과 같은 자리에서 다시 나눈다
+      setPreviewFit({ scale, contentScale, paperWpx, pageHpx, slices: splitPagesMm(naturalMm, pageMm, []) });
+      const mySeq = ++measureSeq;
+      measurePaperCutsMm(el, paperWmm)
+        .then(({ naturalMm: n, cuts }) => {
+          if (mySeq !== measureSeq) return;
+          setPreviewFit((prev) => ({ ...prev, slices: splitPagesMm(n, pageMm, cuts) }));
+        })
+        .catch(() => { /* 측정 실패 시 높이 기준 나눔을 그대로 둔다 */ });
     };
     update();
     const ro = new ResizeObserver(update);
