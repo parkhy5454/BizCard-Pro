@@ -6258,6 +6258,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
       if (i > 0) pdf.addPage();
       pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', sideMarginMm, sl.topMm, imgW, srcH * mmPerCanvasPx);
+      // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
+      pdf.setDrawColor(0);
+      pdf.setLineWidth(0.3);
+      if (i < slices.length - 1) pdf.line(sideMarginMm, pageH - PAGE_MARGIN_MM, paperWmm - sideMarginMm, pageH - PAGE_MARGIN_MM);
+      if (i > 0) pdf.line(sideMarginMm, PAGE_MARGIN_MM, paperWmm - sideMarginMm, PAGE_MARGIN_MM);
     });
     const baseName = (printingDoc.title || '문서').replace(/[\\/:*?"<>|]/g, '_');
     await saveBlobFileShareOrDownload(pdf.output('blob'), `${baseName}.pdf`);
@@ -10946,6 +10951,13 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   className="absolute left-0 top-0 overflow-hidden"
                   style={{ width: previewFit.paperWpx, height: previewFit.pageHpx, transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined, transformOrigin: 'top left' }}
                 >
+                  {/* [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 그린다 (저장 파일과 같은 위치) */}
+                  {i < previewFit.slices.length - 1 && (
+                    <div className="absolute left-0 border-t border-slate-900" style={{ top: previewFit.pageHpx - PAGE_MARGIN_MM * MM_TO_PX, width: previewFit.paperWpx }} />
+                  )}
+                  {i > 0 && (
+                    <div className="absolute left-0 border-t border-slate-900" style={{ top: PAGE_MARGIN_MM * MM_TO_PX, width: previewFit.paperWpx }} />
+                  )}
                   <div className="absolute left-0 overflow-hidden bg-white" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
                     <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx, transform: previewFit.contentScale < 1 ? `scale(${previewFit.contentScale})` : undefined, transformOrigin: 'top left' }}>
                       {renderActivePrintable()}
