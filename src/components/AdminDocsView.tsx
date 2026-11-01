@@ -6145,9 +6145,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-base md:text-sm font-bold text-slate-800 truncate">{d.title}</h3>
-                    <span className="text-xs md:text-[11px] text-slate-400 font-mono shrink-0">{d.date}</span>
+                    <span className="text-sm md:text-[11px] text-slate-400 font-mono shrink-0">{d.date}</span>
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-sm md:text-xs text-slate-500">
+                  <div className="flex items-center gap-3 mt-1 text-base md:text-xs text-slate-500">
                     {d.personName && <span>{activeConfig.personLabel}: <b className="text-slate-700">{d.personName}</b></span>}
                     {activeConfig.showAmount && d.amount && (
                       <span className="text-emerald-600 font-mono font-bold">
@@ -6155,7 +6155,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </span>
                     )}
                   </div>
-                  {d.memo && <p className="text-xs text-slate-500 mt-1.5 whitespace-pre-line">{d.memo}</p>}
+                  {d.memo && <p className="text-sm md:text-xs text-slate-500 mt-1.5 whitespace-pre-line">{d.memo}</p>}
                   {d.attachments && d.attachments.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {d.attachments.map((a) => (
@@ -6165,7 +6165,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           download={a.name}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 hover:bg-slate-100"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs md:text-[11px] text-slate-600 hover:bg-slate-100"
                         >
                           <Paperclip className="w-3 h-3" />
                           <span className="max-w-[140px] truncate">{a.name}</span>
@@ -6174,7 +6174,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       ))}
                     </div>
                   )}
-                  <p className="text-[10px] text-slate-300 mt-2">{d.createdByUserName ? `${d.createdByUserName} 등록` : ''}</p>
+                  <p className="text-xs md:text-[10px] text-slate-300 mt-2">{d.createdByUserName ? `${d.createdByUserName} 등록` : ''}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
