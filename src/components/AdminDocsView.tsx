@@ -6,7 +6,7 @@ import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project,
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
-import { saveBlobFileShareOrDownload } from '../sheetExport.js';
+import { saveBlobFileShareOrDownload, buildSheetGrid, writeSheetGridXlsx } from '../sheetExport.js';
 
 import { getErrorMessage } from '../errorUtils.js';
 import type { Worksheet, Fill } from 'exceljs';
@@ -318,6 +318,11 @@ function calcStatutoryAnnualLeaveDays(hireDate: string, targetYear: string): num
 // 하나의 공용 폼(제목/날짜/관련자/금액/메모/첨부파일)을 그대로 쓰고 라벨과 플레이스홀더만
 // 종류별로 다르게 보여준다.
 // [추가] 모바일에서 작성 팝업을 상단 헤더와 하단 탭바 사이에만 펼친다 (탭이 가려지지 않게).
+// [추가] 경영지원 서류 목록 9개: 인쇄 버튼 없이 "엑셀 다운 · 저장"만 보인다.
+const PRINT_HIDDEN_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'employment_cert', 'annual_leave_status', 'power_of_attorney', 'office_supplies', 'sales_contract', 'corp_card', 'cash_flow'];
+// [추가] 전용 엑셀 함수가 없어서 미리보기 화면을 그대로 엑셀로 저장하는 서류
+const GENERIC_EXCEL_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'employment_cert', 'power_of_attorney', 'office_supplies', 'sales_contract'];
+
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
   const header = document.querySelector('header');
@@ -1684,6 +1689,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 합계 행)에 걸쳐 세로로 병합하고, 연차 사용/휴일(초과)근무/대체휴가 세 목록은 각각
   // 독립적인 목록이라 행 번호가 같아도 서로 다른 내용일 수 있다(짧은 목록은 그만큼
   // 빈칸으로 둔다) - annualLeavePersonRowCount와 같은 규칙.
+  // [추가] 인쇄 미리보기 화면을 그대로 엑셀(.xlsx)로 저장한다.
+  // 전용 엑셀 함수가 없는 서류(근로계약서·연봉협약서·재직증명서·위임장·사무실 비품·영업 계약)에 쓴다.
+  const handleExportPreviewExcel = async () => {
+    const html = previewPaperRef.current?.innerHTML;
+    if (!printingDoc || !html) return;
+    const baseName = (printingDoc.title || '서류').replace(/[\\/?*\[\]:]/g, ' ').trim() || '서류';
+    const grid = buildSheetGrid(html);
+    const blob = await writeSheetGridXlsx(grid, baseName.slice(0, 31));
+    await saveBlobFileShareOrDownload(blob, `${baseName}.xlsx`);
+  };
+
   const handleExportAnnualLeaveStatusExcel = async () => {
     if (!printingDoc || !printingDoc.annualLeaveStatus) return;
     const al = printingDoc.annualLeaveStatus;
@@ -10218,6 +10234,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               엑셀 다운
             </button>
           )}
+          {GENERIC_EXCEL_CATEGORIES.includes(printingDoc.category) && (
+            <button
+              onClick={() => {
+                handleExportPreviewExcel().catch((err) => alert(`엑셀 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`));
+              }}
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 다운
+            </button>
+          )}
           {printingDoc.category === 'annual_leave_status' && (
             <button
               onClick={handleExportAnnualLeaveStatusExcel}
@@ -10254,8 +10281,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               엑셀 다운
             </button>
           )}
-          {/* [추가] 인쇄: 기존 인쇄 흐름(#print-root 포털 내용만 인쇄). 연차 현황·법인카드는 엑셀 다운·저장만 쓰므로 숨김 */}
-          {!['annual_leave_status', 'corp_card'].includes(printingDoc.category) && (
+          {/* [추가] 인쇄: 기존 인쇄 흐름(#print-root 포털 내용만 인쇄). 목록의 9개 서류는 엑셀 다운·저장만 쓰므로 숨김 */}
+          {!PRINT_HIDDEN_CATEGORIES.includes(printingDoc.category) && (
             <button
               onClick={() => {
                 // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
