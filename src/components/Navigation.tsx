@@ -442,7 +442,7 @@ export const Navigation: React.FC<Props> = ({
       <div id="app-projects-top-bar" className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 뷰 모드 탭 섹션 */}
-          <div className="flex items-center gap-1 overflow-x-auto w-full py-2 scrollbar-none border-b border-slate-100">
+          <div className="flex items-center gap-1 overflow-x-auto w-full pt-2 pb-0 scrollbar-none border-b border-slate-100">
             {/* 새 프로젝트 등록 버튼 */}
             <button
               onClick={onOpenNewProject}
@@ -460,7 +460,7 @@ export const Navigation: React.FC<Props> = ({
               >
                 <ListChecks className="w-4 h-4 text-indigo-400" />
                 <span>리스트</span>
-                {projectsViewMode === 'cards' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+                {projectsViewMode === 'cards' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
               </button>
               <button
                 onClick={(e) => {
@@ -506,7 +506,7 @@ export const Navigation: React.FC<Props> = ({
             >
               <FileText className="w-4 h-4" />
               <span>출력</span>
-              {projectsViewMode === 'listOutput' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+              {projectsViewMode === 'listOutput' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
 
             {/* 원가계산서 (관리자만) */}
@@ -517,7 +517,7 @@ export const Navigation: React.FC<Props> = ({
               >
                 <Calculator className="w-4 h-4" />
                 <span>원가 계산</span>
-              {projectsViewMode === 'pnl' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+              {projectsViewMode === 'pnl' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
               </button>
             )}
 
@@ -528,7 +528,7 @@ export const Navigation: React.FC<Props> = ({
             >
               <TrendingUp className="w-4 h-4" />
               <span>파이프라인</span>
-              {projectsViewMode === 'pipeline' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+              {projectsViewMode === 'pipeline' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
           </div>
 
@@ -598,7 +598,7 @@ export const Navigation: React.FC<Props> = ({
       <div id="app-top-action-row" ref={topBarRef} onClickCapture={() => window.dispatchEvent(new Event('bizcard:close-floating'))} className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 액션 버튼 섹션 */}
-          <div className="flex items-center gap-1 w-full py-2 border-b border-slate-100 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-1 w-full pt-2 pb-0 border-b border-slate-100 overflow-x-auto scrollbar-none">
             {/* 명함 등록 */}
             <button
               onClick={() => { setPressedCardAction('scan'); onOpenScanModal(); }}
@@ -606,7 +606,7 @@ export const Navigation: React.FC<Props> = ({
             >
               <PlusCircle className="hidden sm:block w-4 h-4" />
               <span>등록</span>
-              {isCardActionOn('scan') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+              {isCardActionOn('scan') && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
 
             {/* 가져오기·내보내기 */}
@@ -616,8 +616,8 @@ export const Navigation: React.FC<Props> = ({
             >
               <Upload className="hidden sm:block w-4 h-4" />
               <span>가져오기·내보내기</span>
-              {isCardActionOn('io') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
-              {isCardActionOn('io') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+              {isCardActionOn('io') && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
+              {isCardActionOn('io') && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
 
             {/* 내 명함 공유 */}
@@ -627,7 +627,7 @@ export const Navigation: React.FC<Props> = ({
             >
               <Share2 className="hidden sm:block w-4 h-4 text-blue-600" />
               <span>내 명함 공유</span>
-              {isCardActionOn('share') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+              {isCardActionOn('share') && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
 
             {/* 주변 레이더 지도 */}
@@ -637,8 +637,8 @@ export const Navigation: React.FC<Props> = ({
             >
               <Radar className="hidden sm:block w-4 h-4" />
               <span>주변 사람</span>
-              {isCardActionOn('nearby') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
-              {isCardActionOn('nearby') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+              {isCardActionOn('nearby') && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
+              {isCardActionOn('nearby') && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
           </div>
 
