@@ -690,15 +690,16 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
         </div>
 
         {/* [수정] 회원가입/로그인 화면에서도 이용약관·개인정보처리방침을 확인할 수 있도록 링크 추가 */}
-        <div className="text-center pt-1">
-          <p className="text-xs md:text-[11px] text-slate-400">
-            계속 진행하면{' '}
-            <button type="button" onClick={() => setLegalTab('terms')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">이용약관</button>
-            {' '}및{' '}
-            <button type="button" onClick={() => setLegalTab('privacy')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">개인정보처리방침</button>
-            에 동의하는 것으로 간주됩니다.
-          </p>
-        </div>
+        {/* 회원가입 화면에서만 약관 링크를 보여준다 (로그인 화면에는 표시하지 않음) */}
+        {!isLogin && (
+          <div className="text-center pt-1">
+            <p className="text-xs md:text-[11px] text-slate-400">
+              <button type="button" onClick={() => setLegalTab('terms')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">이용약관</button>
+              {' '}및{' '}
+              <button type="button" onClick={() => setLegalTab('privacy')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">개인정보처리방침</button>
+            </p>
+          </div>
+        )}
       </div>
 
       {legalTab && <LegalModal initialTab={legalTab} onClose={() => setLegalTab(null)} />}
