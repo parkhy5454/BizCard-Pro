@@ -194,6 +194,8 @@ export const Navigation: React.FC<Props> = ({
       document.removeEventListener('visibilitychange', onShow);
     };
   }, []);
+  // 프로젝트 상단 '등록' 버튼을 누르면 밑줄을 옮기고, 다른 프로젝트 탭을 누르면 되돌린다
+  const [projectRegPressed, setProjectRegPressed] = useState(false);
   const isCardActionOn = (k: 'scan' | 'io' | 'share' | 'nearby') =>
     pressedCardAction !== null ? pressedCardAction === k : (k === 'scan' ? activeTab === 'cards' : k === 'io' ? activeTab === 'io' : k === 'nearby' ? activeTab === 'nearby' : false);
   const cardActionClass = (on: boolean) =>
@@ -445,20 +447,21 @@ export const Navigation: React.FC<Props> = ({
           <div className="flex items-center gap-1 overflow-x-auto w-full pt-2 pb-0 scrollbar-none border-b border-slate-100">
             {/* 새 프로젝트 등록 버튼 */}
             <button
-              onClick={onOpenNewProject}
-              className="relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 text-slate-500 hover:text-slate-700"
+              onClick={() => { setProjectRegPressed(true); onOpenNewProject(); }}
+              className="relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}"
             >
               <span>등록</span>
+              {projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
 
             {/* 프로젝트 리스트 탭 (드롭다운 포함) */}
             <div className="relative flex items-center shrink-0">
               <button
-                onClick={onShowProjectsCardView}
-                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                onClick={() => { setProjectRegPressed(false); onShowProjectsCardView(); }}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <span>리스트</span>
-                {projectsViewMode === 'cards' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
+                {projectsViewMode === 'cards' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
               </button>
               <button
                 onClick={(e) => {
@@ -499,31 +502,31 @@ export const Navigation: React.FC<Props> = ({
 
             {/* 리스트 출력 탭 */}
             <button
-              onClick={onShowProjectsListOutput}
-              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => { setProjectRegPressed(false); onShowProjectsListOutput(); }}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <span>출력</span>
-              {projectsViewMode === 'listOutput' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
+              {projectsViewMode === 'listOutput' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
 
             {/* 원가계산서 (관리자만) */}
             {currentUser?.role === 'admin' && (
               <button
-                onClick={onShowProjectsPnl}
-                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                onClick={() => { setProjectRegPressed(false); onShowProjectsPnl(); }}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <span>원가 계산</span>
-              {projectsViewMode === 'pnl' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
+              {projectsViewMode === 'pnl' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
               </button>
             )}
 
             {/* 파이프라인 탭 */}
             <button
-              onClick={onShowProjectsPipeline}
-              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => { setProjectRegPressed(false); onShowProjectsPipeline(); }}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-base md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <span>파이프라인</span>
-              {projectsViewMode === 'pipeline' && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
+              {projectsViewMode === 'pipeline' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
             </button>
           </div>
 
