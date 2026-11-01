@@ -3212,6 +3212,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   type CashFlowImportCandidate = { sourceKey: string; sourceLabel: string; date: string; amount: number; memo?: string };
   const [cashFlowImportTarget, setCashFlowImportTarget] = useState<CashFlowImportTarget | null>(null);
   const [cashFlowImportCandidates, setCashFlowImportCandidates] = useState<CashFlowImportCandidate[]>([]);
+  // [수정] 작성 창의 위·아래 경계(헤더 아래 ~ 하단 탭 위)를 창을 열 때와 화면 크기가 바뀔 때 다시 잰다.
+  // 예전엔 그리는 순간 한 번만 재서, 헤더 위치가 아직 정해지기 전이면 창이 헤더 위로 올라탔다.
+  const [modalInsets, setModalInsets] = useState<{ top: number; bottom: number } | undefined>(undefined);
+  useLayoutEffect(() => {
+    const measure = () => setModalInsets(docModalInsets());
+    measure();
+    const raf = requestAnimationFrame(measure);
+    const timer = window.setTimeout(measure, 400);
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+      window.removeEventListener('resize', measure);
+    };
+  }, [editingDoc, printingDoc, pendingBankImport, cashFlowImportTarget]);
   const [isLoadingCashFlowCandidates, setIsLoadingCashFlowCandidates] = useState(false);
   const [selectedCashFlowImportKeys, setSelectedCashFlowImportKeys] = useState<Set<string>>(new Set());
 
@@ -6728,7 +6743,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
       {/* 등록/수정 모달 */}
       {editingDoc && (
-        <div style={docModalInsets()} className="fixed inset-x-0 top-0 bottom-0 md:inset-0 z-[100] overflow-y-auto bg-white md:bg-transparent">
+        <div style={modalInsets} className="fixed inset-x-0 top-0 bottom-0 md:inset-0 z-[100] overflow-y-auto bg-white md:bg-transparent">
           <div onClick={() => setEditingDoc(null)} className="hidden md:block fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div className="flex min-h-full md:min-h-screen items-stretch md:items-center justify-center p-0 md:p-4">
             <div className="relative w-full md:max-w-lg bg-white md:border md:border-slate-200 rounded-none md:rounded-3xl p-5 md:p-6 shadow-none md:shadow-2xl space-y-4 z-10">
@@ -10581,7 +10596,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     않고, 어느 통장(은행+계좌번호)의 내역인지 먼저 고르게 한다. 이미 등록된 통장을 고르면
     거기에 이어붙이고(중복 자동 제외), 새 통장이면 은행명/계좌번호를 입력해 등록한다. */}
     {pendingBankImport && (
-      <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 flex items-center justify-center p-4">
+      <div style={modalInsets} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
           <div>
             <h3 className="text-base font-bold text-slate-800">
@@ -10660,7 +10675,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     OUTFLOWS 행/경비 항목은 통장 출금 내역에서 골라 그 행의 해당 월 칸에 채워 넣는다
     (관리비내역의 자동 불러오기와 같은 방식). */}
     {cashFlowImportTarget && (
-      <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 flex items-center justify-center p-4">
+      <div style={modalInsets} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -10737,7 +10752,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     {/* 인쇄 전 미리보기 + 인쇄 실행 바 (화면에는 보이지만 인쇄될 때는 안 보임) */}
     {printingDoc && (
-      <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 overflow-auto overscroll-contain py-3 md:py-8 print:hidden">
+      <div style={modalInsets} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 overflow-auto overscroll-contain py-3 md:py-8 print:hidden">
         <div className={`max-w-3xl mx-auto flex flex-wrap items-center gap-2 mb-3 px-4 md:justify-end ${printingDoc.category === 'cash_flow' ? '' : 'justify-center'}`}>
           {pendingSave && (
             <button
