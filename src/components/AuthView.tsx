@@ -367,19 +367,19 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
-        <div className="bg-white border border-slate-200 py-8 px-4 shadow-2xl rounded-3xl sm:px-10 relative overflow-hidden">
+        <div className="bg-white md:border md:border-slate-200 py-6 px-5 md:py-8 md:px-4 shadow-xl md:shadow-2xl rounded-2xl md:rounded-3xl sm:px-10 relative overflow-hidden">
           {/* 장식용 그래디언트 백 */}
           <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-80" />
 
           {/* 탭 전환 */}
-          <div className="flex border-b border-slate-200 pb-5 mb-6">
+          <div className="flex border-b border-slate-200 pb-4 mb-5 md:pb-5 md:mb-6">
             <button
               onClick={() => {
                 setIsLogin(true);
                 setError('');
                 setSuccessMsg('');
               }}
-              className={`flex-1 text-center pb-2.5 text-base md:text-sm font-bold transition-all relative ${isLogin ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 text-center pb-3 text-lg md:text-sm font-bold transition-all relative ${isLogin ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
             >
               로그인
               {isLogin && (
@@ -392,7 +392,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 setError('');
                 setSuccessMsg('');
               }}
-              className={`flex-1 text-center pb-2.5 text-base md:text-sm font-bold transition-all relative ${!isLogin ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 text-center pb-3 text-lg md:text-sm font-bold transition-all relative ${!isLogin ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
             >
               회원가입
               {!isLogin && (
@@ -434,7 +434,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
-                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                   />
                 </div>
               </motion.div>
@@ -458,7 +458,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     value={phone}
                     onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                     placeholder="010-0000-0000"
-                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium font-mono"
+                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium font-mono"
                   />
                 </div>
               </motion.div>
@@ -478,7 +478,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
             </div>
@@ -498,7 +498,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   minLength={isLogin ? undefined : 8}
-                  className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
               {/* [수정] 서버가 8자 미만 비밀번호를 거부하므로, 가입 화면에서 미리 안내해 제출 후 오류로 놀라지 않게 함 */}
@@ -656,7 +656,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     value={referralCode}
                     onChange={(e) => { setReferralCode(e.target.value.toUpperCase()); setReferralFromLink(false); }}
                     placeholder="예: AB12CD"
-                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-mono tracking-widest uppercase"
+                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-mono tracking-widest uppercase"
                   />
                 </div>
                 {referralFromLink && referralCode && (
@@ -672,7 +672,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-lg text-base md:text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full flex justify-center items-center gap-2 py-3.5 md:py-3 px-4 border border-transparent rounded-2xl shadow-lg text-base md:text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
