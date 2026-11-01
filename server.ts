@@ -8370,7 +8370,12 @@ app.put('/api/drafts/:key', async (req, res) => {
   const requester = draftRequester(req, res);
   if (!requester) return;
   const { category, data } = req.body || {};
-  if (JSON.stringify(data ?? null).length > 2_000_000) {
+  // 첨부파일(base64)은 저장소 파일로 올리고 URL만 드래프트에 남긴다 (드래프트 한 건이 커지지 않도록)
+  const safeKey = String(req.params.key).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+  const storedData = data && typeof data === 'object' && Array.isArray((data as { attachments?: unknown }).attachments)
+    ? { ...data, attachments: await persistAttachmentsInArray(req.scopeId, (data as { attachments: { id: string; name: string; dataUrl: string; size?: number }[] }).attachments, `draft-${requester.id}-${safeKey}`) }
+    : (data ?? null);
+  if (JSON.stringify(storedData).length > 2_000_000) {
     return res.status(413).json({ error: '임시 저장 내용이 너무 큽니다.' });
   }
   const draft: DraftRecord = {
@@ -8378,7 +8383,7 @@ app.put('/api/drafts/:key', async (req, res) => {
     userId: requester.id,
     key: req.params.key,
     category: String(category || ''),
-    data: data ?? null,
+    data: storedData,
     savedAt: new Date().toISOString()
   };
   const ok = await setScopedDoc(req.scopeId, DRAFT_COLLECTION, draft);
