@@ -375,9 +375,11 @@ export const drawTableEdgeLines = (
   const d = ctx.getImageData(0, firstInk, width, winH).data;
   // 연한 테두리(안티앨리어싱)가 일부 줄에서 빠져도 잡히도록, 90% 이상의 줄이 어두우면 세로선으로 본다
   const LINE_T = 210;
+  const EDGE_PAD = 8;
   const need = Math.ceil(winH * 0.9);
   const xs: number[] = [];
-  for (let x = 0; x < width; x++) {
+  // 캔버스 가장자리(종이 테두리 등)의 어두운 줄은 표의 세로선이 아니므로 제외한다
+  for (let x = EDGE_PAD; x < width - EDGE_PAD; x++) {
     let dark = 0;
     for (let r = 0; r < winH; r++) {
       if (d[(r * width + x) * 4] < LINE_T) dark++;
@@ -413,6 +415,7 @@ export const tableTopSpanMm = (canvas: HTMLCanvasElement, cutY: number, pxPerMm:
   const { width, height } = canvas;
   const DARK = 200;
   const LINE_T = 210;
+  const EDGE_PAD = 8;
   const WIN = 24;
   let firstInk = -1;
   for (let yy = Math.max(0, cutY); yy < Math.min(height, cutY + 400) && firstInk < 0; yy++) {
@@ -427,7 +430,8 @@ export const tableTopSpanMm = (canvas: HTMLCanvasElement, cutY: number, pxPerMm:
   const d = ctx.getImageData(0, firstInk, width, winH).data;
   const need = Math.ceil(winH * 0.9);
   const lines: number[] = [];
-  for (let x = 0; x < width; x++) {
+  // 캔버스 가장자리(종이 테두리 등)의 어두운 줄은 표의 세로선이 아니므로 제외한다
+  for (let x = EDGE_PAD; x < width - EDGE_PAD; x++) {
     let dark = 0;
     for (let r = 0; r < winH; r++) {
       if (d[(r * width + x) * 4] < LINE_T) dark++;
