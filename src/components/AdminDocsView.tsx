@@ -6229,7 +6229,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
               <div className="space-y-3 text-sm">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">제목 *</label>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">제목 *</label>
                   <input
                     type="text"
                     value={editingDoc.title || ''}
@@ -6246,7 +6246,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 이 경우엔 한 줄 전체 폭으로 넓힌다. */}
                 <div className={activeConfig.personLabel ? 'grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">날짜</label>
+                    <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">날짜</label>
                     <input
                       type="date"
                       value={editingDoc.date || ''}
@@ -6256,7 +6256,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   </div>
                   {activeConfig.personLabel && (
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1">{activeConfig.personLabel}</label>
+                      <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">{activeConfig.personLabel}</label>
                       {/* [수정] 차량 과태료 내역에서는 이 "차량"도 통합 차량관리 등록 차량에서
                       골라 쓸 수 있게 한다(다른 서류 종류는 기존 자유 입력 그대로 유지). */}
                       {activeCategory === 'vehicle_fine' ? (
@@ -6285,7 +6285,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">회사명</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">회사명</label>
                         <input
                           type="text"
                           value={editingDoc.payslip?.companyName || ''}
@@ -6294,7 +6294,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">지급월</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">지급월</label>
                         <input
                           type="month"
                           value={editingDoc.payslip?.payMonth || ''}
@@ -6303,7 +6303,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">지급일</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">지급일</label>
                         <input
                           type="date"
                           value={editingDoc.payslip?.paymentDate || ''}
@@ -6312,7 +6312,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">사원코드</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">사원코드</label>
                         <input
                           type="text"
                           value={editingDoc.payslip?.employeeCode || ''}
@@ -6321,7 +6321,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">입사일</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">입사일</label>
                         <input
                           type="date"
                           value={editingDoc.payslip?.hireDate || ''}
@@ -6330,7 +6330,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">부서</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">부서</label>
                         <input
                           type="text"
                           value={editingDoc.payslip?.department || ''}
@@ -6339,7 +6339,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">직위</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">직위</label>
                         <input
                           type="text"
                           value={editingDoc.payslip?.position || ''}
@@ -6348,7 +6348,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">호봉</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">호봉</label>
                         <input
                           type="text"
                           value={editingDoc.payslip?.salaryGrade || ''}
@@ -6361,8 +6361,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {/* 지급 내역 */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-[11px] font-bold text-slate-600">지급 내역</label>
-                        <button type="button" onClick={() => addPayslipItem('payItems')} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <label className="text-sm md:text-[11px] font-bold text-slate-600">지급 내역</label>
+                        <button type="button" onClick={() => addPayslipItem('payItems')} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 항목 추가
                         </button>
                       </div>
@@ -6413,7 +6413,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       <button
                         type="button"
                         onClick={() => setIsRateSettingsOpen((v) => !v)}
-                        className="w-full flex items-center justify-between px-2.5 py-2 bg-white text-[11px] font-bold text-slate-600"
+                        className="w-full flex items-center justify-between px-2.5 py-2 bg-white text-sm md:text-[11px] font-bold text-slate-600"
                       >
                         <span className="flex items-center gap-1"><Percent className="w-3 h-3" /> 공제율 설정 (매년 변경될 수 있음)</span>
                         <span className="text-slate-400">{isRateSettingsOpen ? '접기' : '펼치기'}</span>
@@ -6450,8 +6450,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {/* 공제 내역 */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-[11px] font-bold text-slate-600">공제 내역</label>
-                        <button type="button" onClick={() => addPayslipItem('deductionItems')} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <label className="text-sm md:text-[11px] font-bold text-slate-600">공제 내역</label>
+                        <button type="button" onClick={() => addPayslipItem('deductionItems')} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 항목 추가
                         </button>
                       </div>
@@ -6482,7 +6482,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       <p className="text-right text-[11px] text-slate-500 mt-1.5">공제액 계: <b className="text-slate-700">{formatCurrencyInput(sumItems(editingDoc.payslip?.deductionItems))}원</b></p>
                     </div>
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       차인지급액: {formatCurrencyInput(sumItems(editingDoc.payslip?.payItems) - sumItems(editingDoc.payslip?.deductionItems))}원
                     </p>
                   </div>
@@ -6494,7 +6494,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 시작일</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">집계 시작일</label>
                         <input
                           type="date"
                           value={editingDoc.cashflow?.periodStart || ''}
@@ -6503,7 +6503,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 종료일</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">집계 종료일</label>
                         <input
                           type="date"
                           value={editingDoc.cashflow?.periodEnd || ''}
@@ -6515,8 +6515,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-[11px] font-bold text-slate-600">통장 잔액</label>
-                        <button type="button" onClick={addCashflowAccount} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <label className="text-sm md:text-[11px] font-bold text-slate-600">통장 잔액</label>
+                        <button type="button" onClick={addCashflowAccount} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 계좌 추가
                         </button>
                       </div>
@@ -6602,7 +6602,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               <button
                                 type="button"
                                 onClick={() => updateCashflowAccount(a.id, { deposit: matched.deposit, withdrawal: matched.withdrawal })}
-                                className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-bold"
+                                className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm md:text-xs md:text-[10px] font-bold"
                               >
                                 <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3" /> 입금/출금 내역에서 불러오기</span>
                                 <span>입금 {formatCurrencyInput(matched.deposit)} · 출금 {formatCurrencyInput(matched.withdrawal)}</span>
@@ -6626,7 +6626,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       <p className="flex justify-between"><span>이월금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.broughtForward, 0))}원</b></p>
                       <p className="flex justify-between"><span>입금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.deposit, 0))}원</b></p>
                       <p className="flex justify-between"><span>출금 합계</span><b>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + a.withdrawal, 0))}원</b></p>
-                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>통장잔액 합계</span><span>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + accountBalance(a), 0))}원</span></p>
+                      <p className="flex justify-between text-emerald-600 font-bold text-sm md:text-xs"><span>통장잔액 합계</span><span>{formatCurrencyInput((editingDoc.cashflow?.accounts || []).reduce((s, a) => s + accountBalance(a), 0))}원</span></p>
                     </div>
                   </div>
                 )}
@@ -6637,8 +6637,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {(activeCategory === 'bank_withdrawal' || activeCategory === 'bank_deposit') && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-slate-600">{activeCategory === 'bank_withdrawal' ? '출금통장별 거래 내역' : '입금통장별 거래 내역'}</label>
-                      <button type="button" onClick={addBankAccount} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">{activeCategory === 'bank_withdrawal' ? '출금통장별 거래 내역' : '입금통장별 거래 내역'}</label>
+                      <button type="button" onClick={addBankAccount} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                         <Plus className="w-3 h-3" /> 통장 추가
                       </button>
                     </div>
@@ -6744,7 +6744,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         </div>
 
                         <div className="flex items-center justify-between pt-1">
-                          <button type="button" onClick={() => addBankEntry(acc.id)} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <button type="button" onClick={() => addBankEntry(acc.id)} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                             <Plus className="w-3 h-3" /> 거래 추가
                           </button>
                           <p className="text-[11px] text-slate-500">소계: <b className="text-slate-700">{formatCurrencyInput(bankAccountTotal(acc))}원</b></p>
@@ -6752,7 +6752,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     ))}
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       총 합계: {formatCurrencyInput((editingDoc.bankLedger?.accounts || []).reduce((s, a) => s + bankAccountTotal(a), 0))}원
                     </p>
                   </div>
@@ -6763,8 +6763,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'loan_repayment' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-slate-600">대출 목록</label>
-                      <button type="button" onClick={addLoan} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">대출 목록</label>
+                      <button type="button" onClick={addLoan} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                         <Plus className="w-3 h-3" /> 대출 추가
                       </button>
                     </div>
@@ -6955,7 +6955,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600 space-y-0.5">
                       <p className="flex justify-between"><span>대출 잔액 합계</span><b>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).filter((l) => !l.isRepaid).reduce((s, l) => s + l.balance, 0))}원</b></p>
-                      <p className="flex justify-between text-emerald-600 font-bold text-xs"><span>출금 총 합계</span><span>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).reduce((s, l) => s + loanPaymentTotal(l), 0))}원</span></p>
+                      <p className="flex justify-between text-emerald-600 font-bold text-sm md:text-xs"><span>출금 총 합계</span><span>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).reduce((s, l) => s + loanPaymentTotal(l), 0))}원</span></p>
                     </div>
                   </div>
                 )}
@@ -6966,16 +6966,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'card_usage' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-slate-600">카드별 사용 내역</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">카드별 사용 내역</label>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={handleOpenCardImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 자동 불러오기
                         </button>
-                        <button type="button" onClick={addCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addCard} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 카드 추가
                         </button>
                       </div>
@@ -6987,7 +6987,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isCardImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">차량·프로젝트·업무일지에서 법인카드 지출 불러오기</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">차량·프로젝트·업무일지에서 법인카드 지출 불러오기</span>
                           <button type="button" onClick={() => setIsCardImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -7017,7 +7017,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedImportKeys.has(c.sourceKey))}
@@ -7060,7 +7060,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportSelected}
                               disabled={selectedImportKeys.size === 0 || !importTargetCardId}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedImportKeys.size}건 가져오기
                             </button>
@@ -7081,7 +7081,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               const picked = knownCorpCards.find((k) => k.key === e.target.value);
                               if (picked) updateCardField(c.id, { cardName: picked.cardCompany, cardNumber: picked.cardNumber, holder: picked.user });
                             }}
-                            className="w-full bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1.5 text-[11px] font-bold text-indigo-700 outline-none focus:border-indigo-500"
+                            className="w-full bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1.5 text-sm md:text-[11px] font-bold text-indigo-700 outline-none focus:border-indigo-500"
                           >
                             <option value="">법인카드 관리에서 카드 불러오기...</option>
                             {knownCorpCards.map((k) => (
@@ -7095,7 +7095,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             value={c.cardName}
                             onChange={(e) => updateCardField(c.id, { cardName: e.target.value })}
                             placeholder="카드명 (예: 국민카드)"
-                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <input
                             type="text"
@@ -7190,7 +7190,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         </div>
 
                         <div className="flex items-center justify-between pt-1">
-                          <button type="button" onClick={() => addCardEntry(c.id)} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <button type="button" onClick={() => addCardEntry(c.id)} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                             <Plus className="w-3 h-3" /> 사용내역 추가
                           </button>
                           <p className="text-[11px] text-slate-500">소계: <b className="text-slate-700">{formatCurrencyInput(cardGroupTotal(c))}원</b></p>
@@ -7198,7 +7198,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     ))}
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       총계: {formatCurrencyInput((editingDoc.cardUsage?.cards || []).reduce((s, c) => s + cardGroupTotal(c), 0))}원
                     </p>
                   </div>
@@ -7210,7 +7210,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">대상 연월</label>
+                        <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">대상 연월</label>
                         <input
                           type="month"
                           value={editingDoc.corpCard?.yearMonth || ''}
@@ -7218,7 +7218,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
-                      <button type="button" onClick={addCorpCard} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                      <button type="button" onClick={addCorpCard} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                         <Plus className="w-3 h-3" /> 카드 추가
                       </button>
                     </div>
@@ -7236,7 +7236,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             value={c.cardCompany}
                             onChange={(e) => updateCorpCard(c.id, { cardCompany: e.target.value })}
                             placeholder="카드사 (예: 국민카드)"
-                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            className="min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <input
                             type="text"
@@ -7355,7 +7355,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     ))}
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       합계: {formatCurrencyInput((editingDoc.corpCard?.cards || []).reduce((s, c) => s + (Number(c.amount) || 0), 0))}원
                     </p>
                   </div>
@@ -7373,25 +7373,25 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     모르고 지나치지 않도록 몇 건 채웠는지 안내한다. 실제 저장은 여전히
                     "저장"을 눌러야 반영된다. */}
                     {advanceAutoImportedCount !== null && advanceAutoImportedCount > 0 && (
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
+                      <div className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
                         <RefreshCw className="w-3 h-3 shrink-0" />
                         전자결재 &gt; 가지급금 정산서(승인)에서 {advanceAutoImportedCount}건을 자동으로 불러와 채웠습니다. 확인 후 저장해주세요.
                       </div>
                     )}
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-600">인원별 월별 가지급 내역</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">인원별 월별 가지급 내역</label>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={handleOpenAdvanceImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 자동 불러오기
                         </button>
-                        <button type="button" onClick={addAdvancePerson} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addAdvancePerson} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 인원 추가
                         </button>
-                        <button type="button" onClick={addAdvanceMonth} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addAdvanceMonth} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 월 추가
                         </button>
                       </div>
@@ -7402,7 +7402,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isAdvanceImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">전자결재 가지급금 정산서(승인) 불러오기</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">전자결재 가지급금 정산서(승인) 불러오기</span>
                           <button type="button" onClick={() => setIsAdvanceImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -7420,7 +7420,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedAdvanceImportKeys.has(c.sourceKey))}
@@ -7463,7 +7463,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportAdvanceSelected}
                               disabled={selectedAdvanceImportKeys.size === 0}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedAdvanceImportKeys.size}건 가져오기
                             </button>
@@ -7477,7 +7477,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     따로 관리하고, 달마다 카드 하나로 나눠서 그 안에 인원별 금액 입력칸을
                     grid로 자연스럽게 줄바꿈되게 배치하면 화면 폭에 상관없이 안 겹친다. */}
                     <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                      <label className="block text-[10px] font-bold text-slate-500">인원 (이 표의 열)</label>
+                      <label className="block text-sm md:text-xs md:text-[10px] font-bold text-slate-500">인원 (이 표의 열)</label>
                       <div className="flex flex-wrap gap-1.5">
                         {(editingDoc.advancePayment?.people || []).map((p) => (
                           <div key={p.id} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-0.5 py-0.5">
@@ -7486,7 +7486,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               value={p.name}
                               onChange={(e) => updateAdvancePersonName(p.id, e.target.value)}
                               placeholder="이름"
-                              className="w-20 bg-transparent text-[11px] font-bold text-slate-700 outline-none"
+                              className="w-20 bg-transparent text-sm md:text-[11px] font-bold text-slate-700 outline-none"
                             />
                             {(editingDoc.advancePayment?.people.length || 0) > 1 && (
                               <button type="button" onClick={() => removeAdvancePerson(p.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
@@ -7507,7 +7507,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               value={m.label}
                               onChange={(e) => updateAdvanceMonthField(m.id, { label: e.target.value })}
                               placeholder="구분 (예: 01월)"
-                              className="w-24 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              className="w-24 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm md:text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
                             />
                             <input
                               type="text"
@@ -7558,7 +7558,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             })}
                           </div>
 
-                          <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                          <p className="text-right text-sm md:text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
                             카이저합계: {formatCurrencyInput(advanceMonthTotal(m, editingDoc.advancePayment?.people || []))}원
                           </p>
                         </div>
@@ -7571,7 +7571,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           <span key={p.id}>{p.name || '(이름 미입력)'}: <b className="text-slate-700">{formatCurrencyInput(advancePersonTotal(p.id, editingDoc.advancePayment?.months || []))}원</b></span>
                         ))}
                       </div>
-                      <p className="text-right text-xs font-bold text-emerald-600">
+                      <p className="text-right text-sm md:text-xs font-bold text-emerald-600">
                         전체 합계: {formatCurrencyInput(advanceGrandTotal(editingDoc.advancePayment))}원
                       </p>
                     </div>
@@ -7583,16 +7583,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'vehicle_fine' && (
                   <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-600">차량 과태료 내역</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">차량 과태료 내역</label>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={handleOpenVehicleFineImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 자동 불러오기
                         </button>
-                        <button type="button" onClick={addVehicleFineEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addVehicleFineEntry} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 항목 추가
                         </button>
                       </div>
@@ -7603,7 +7603,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isVehicleFineImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 과태료 불러오기</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">통장 출금 내역에서 과태료 불러오기</span>
                           <button type="button" onClick={() => setIsVehicleFineImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -7621,7 +7621,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedVehicleFineImportKeys.has(c.sourceKey))}
@@ -7661,7 +7661,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportVehicleFineSelected}
                               disabled={selectedVehicleFineImportKeys.size === 0}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedVehicleFineImportKeys.size}건 가져오기
                             </button>
@@ -7746,7 +7746,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       ))}
                     </div>
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       합계: {formatCurrencyInput((editingDoc.vehicleFine?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
                     </p>
                   </div>
@@ -7760,16 +7760,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'tax' && (
                   <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-600">각종 세금 내역</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">각종 세금 내역</label>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={handleOpenTaxImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 자동 불러오기
                         </button>
-                        <button type="button" onClick={addTaxEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addTaxEntry} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 항목 추가
                         </button>
                       </div>
@@ -7780,7 +7780,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isTaxImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 세금 불러오기</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">통장 출금 내역에서 세금 불러오기</span>
                           <button type="button" onClick={() => setIsTaxImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -7797,7 +7797,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedTaxImportKeys.has(c.sourceKey))}
@@ -7837,7 +7837,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportTaxSelected}
                               disabled={selectedTaxImportKeys.size === 0}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedTaxImportKeys.size}건 가져오기
                             </button>
@@ -7860,7 +7860,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               value={e.description}
                               onChange={(ev) => updateTaxEntry(e.id, { description: ev.target.value })}
                               placeholder="내역 (예: 부가가치세(26년1기분))"
-                              className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              className="flex-[2] min-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm md:text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
                             />
                             <input
                               type="text"
@@ -7892,7 +7892,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       ))}
                     </div>
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       합계: {formatCurrencyInput((editingDoc.taxPayment?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
                     </p>
                   </div>
@@ -7904,8 +7904,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'incentive' && (
                   <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-600">인센티브 및 명절 상여금 내역</label>
-                      <button type="button" onClick={addIncentiveEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">인센티브 및 명절 상여금 내역</label>
+                      <button type="button" onClick={addIncentiveEntry} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                         <Plus className="w-3 h-3" /> 항목 추가
                       </button>
                     </div>
@@ -7976,7 +7976,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             value={e.description}
                             onChange={(ev) => updateIncentiveEntry(e.id, { description: ev.target.value })}
                             placeholder="지급 대상자 (예: 박현용 구정 보너스)"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm md:text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <input
                             type="text"
@@ -7989,7 +7989,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       ))}
                     </div>
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       합계: {formatCurrencyInput((editingDoc.incentive?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
                     </p>
                   </div>
@@ -8001,19 +8001,19 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'overseas_trip' && (
                   <div className="space-y-2.5 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-600">해외 출장 경비 사용내역</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">해외 출장 경비 사용내역</label>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
                           onClick={handleOpenOverseasTripCardImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 카드 사용내역에서 가져오기
                         </button>
                         <button
                           type="button"
                           onClick={handleOpenOverseasTripBankImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 통장 출금내역에서 가져오기
                         </button>
@@ -8023,11 +8023,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         <button
                           type="button"
                           onClick={() => { setScanningOverseasTripEntryId(null); setIsOverseasTripReceiptModalOpen(true); }}
-                          className="text-[11px] text-indigo-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200"
+                          className="text-sm md:text-[11px] text-indigo-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200"
                         >
                           <Sparkles className="w-3 h-3 text-amber-600" /> 영수증 스캔으로 추가
                         </button>
-                        <button type="button" onClick={addOverseasTripEntry} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addOverseasTripEntry} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 항목 추가
                         </button>
                       </div>
@@ -8041,7 +8041,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isOverseasTripCardImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">카드사용내역·업무일지에서 법인카드 지출 불러오기</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">카드사용내역·업무일지에서 법인카드 지출 불러오기</span>
                           <button type="button" onClick={() => setIsOverseasTripCardImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -8057,7 +8057,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedOverseasTripCardImportKeys.has(c.sourceKey))}
@@ -8100,7 +8100,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportOverseasTripCardSelected}
                               disabled={selectedOverseasTripCardImportKeys.size === 0}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedOverseasTripCardImportKeys.size}건 가져오기 (사용구분·지급구분은 가져온 뒤 확인해서 골라주세요)
                             </button>
@@ -8116,7 +8116,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isOverseasTripBankImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 불러오기 (환전 비용·현금 지급용)</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">통장 출금 내역에서 불러오기 (환전 비용·현금 지급용)</span>
                           <button type="button" onClick={() => setIsOverseasTripBankImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -8132,7 +8132,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedOverseasTripBankImportKeys.has(c.sourceKey))}
@@ -8173,7 +8173,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportOverseasTripBankSelected}
                               disabled={selectedOverseasTripBankImportKeys.size === 0}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedOverseasTripBankImportKeys.size}건 가져오기 (기본: 환전 비용/현금)
                             </button>
@@ -8282,7 +8282,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             value={e.description}
                             onChange={(ev) => updateOverseasTripEntry(e.id, { description: ev.target.value })}
                             placeholder="사용내역 (예: 인천-도쿄 왕복 항공권)"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm md:text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
                           />
                           <div className="flex flex-wrap items-start gap-1">
                             <div className="flex-1 min-w-[100px]">
@@ -8342,7 +8342,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       ))}
                     </div>
 
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       합계: {formatCurrencyInput((editingDoc.overseasTrip?.entries || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))}원
                     </p>
                   </div>
@@ -8354,19 +8354,19 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'management_fee' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-600">호실별 월별 관리비내역</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">호실별 월별 관리비내역</label>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={handleOpenManagementImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 자동 불러오기
                         </button>
-                        <button type="button" onClick={addManagementUnit} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addManagementUnit} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 호실 추가
                         </button>
-                        <button type="button" onClick={addManagementMonth} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addManagementMonth} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 월 추가
                         </button>
                       </div>
@@ -8375,7 +8375,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isManagementImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">통장 출금 내역에서 관리비 불러오기</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">통장 출금 내역에서 관리비 불러오기</span>
                           <button type="button" onClick={() => setIsManagementImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -8405,7 +8405,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedManagementImportKeys.has(c.sourceKey))}
@@ -8445,7 +8445,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportManagementSelected}
                               disabled={selectedManagementImportKeys.size === 0 || !managementImportTargetUnitId}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedManagementImportKeys.size}건 가져오기
                             </button>
@@ -8455,7 +8455,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     )}
 
                     <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                      <label className="block text-[10px] font-bold text-slate-500">호실 (이 표의 열)</label>
+                      <label className="block text-sm md:text-xs md:text-[10px] font-bold text-slate-500">호실 (이 표의 열)</label>
                       <div className="flex flex-wrap gap-1.5">
                         {(editingDoc.managementFee?.units || []).map((u) => (
                           <div key={u.id} className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-0.5 py-0.5">
@@ -8464,7 +8464,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               value={u.name}
                               onChange={(e) => updateManagementUnitName(u.id, e.target.value)}
                               placeholder="예: 518호"
-                              className="w-20 bg-transparent text-[11px] font-bold text-slate-700 outline-none"
+                              className="w-20 bg-transparent text-sm md:text-[11px] font-bold text-slate-700 outline-none"
                             />
                             {(editingDoc.managementFee?.units.length || 0) > 1 && (
                               <button type="button" onClick={() => removeManagementUnit(u.id)} className="shrink-0 p-1 text-slate-400 hover:text-rose-500">
@@ -8485,7 +8485,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               value={m.label}
                               onChange={(e) => updateManagementMonthField(m.id, { label: e.target.value })}
                               placeholder="구분 (예: 01월)"
-                              className="w-24 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                              className="w-24 shrink-0 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm md:text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
                             />
                             <input
                               type="text"
@@ -8529,7 +8529,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             })}
                           </div>
 
-                          <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                          <p className="text-right text-sm md:text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
                             합계: {formatCurrencyInput(managementMonthTotal(m, editingDoc.managementFee?.units || []))}원
                           </p>
                         </div>
@@ -8542,7 +8542,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           <span key={u.id}>{u.name || '(호실명 미입력)'}: <b className="text-slate-700">{formatCurrencyInput(managementUnitTotal(u.id, editingDoc.managementFee?.months || []))}원</b></span>
                         ))}
                       </div>
-                      <p className="text-right text-xs font-bold text-emerald-600">
+                      <p className="text-right text-sm md:text-xs font-bold text-emerald-600">
                         전체 합계: {formatCurrencyInput(managementGrandTotal(editingDoc.managementFee))}원
                       </p>
                     </div>
@@ -8556,7 +8556,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'annual_leave_status' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <label className="text-[11px] font-bold text-slate-600">연차 현황 (연도별)</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">연차 현황 (연도별)</label>
                       <div className="flex items-center gap-2 flex-wrap">
                         <div>
                           <label className="block text-[10px] text-slate-400 mb-0.5">대상 연도</label>
@@ -8572,11 +8572,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         <button
                           type="button"
                           onClick={handleOpenAnnualLeaveImportPanel}
-                          className="text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200"
+                          className="text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
                           <RefreshCw className="w-3 h-3" /> 전자결재에서 불러오기
                         </button>
-                        <button type="button" onClick={addAnnualLeavePerson} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <button type="button" onClick={addAnnualLeavePerson} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 직원 추가
                         </button>
                       </div>
@@ -8587,7 +8587,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {isAnnualLeaveImportPanelOpen && (
                       <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-emerald-700">전자결재 휴가 신청서에서 불러오기 (승인된 연차만)</span>
+                          <span className="text-sm md:text-[11px] font-bold text-emerald-700">전자결재 휴가 신청서에서 불러오기 (승인된 연차만)</span>
                           <button type="button" onClick={() => setIsAnnualLeaveImportPanelOpen(false)} className="text-slate-400 hover:text-slate-600">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -8603,7 +8603,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               }
                               return (
                                 <div className="space-y-1">
-                                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={available.every((c) => selectedAnnualLeaveImportKeys.has(c.sourceKey))}
@@ -8645,7 +8645,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="button"
                               onClick={handleImportAnnualLeaveSelected}
                               disabled={selectedAnnualLeaveImportKeys.size === 0}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-[11px] font-bold disabled:opacity-40"
                             >
                               선택한 {selectedAnnualLeaveImportKeys.size}건 가져오기 (이름이 같은 직원이 없으면 새로 등록됩니다)
                             </button>
@@ -8670,7 +8670,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                   value={p.name}
                                   onChange={(e) => updateAnnualLeavePersonField(p.id, { name: e.target.value })}
                                   placeholder="이름"
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm md:text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500"
                                 />
                               </div>
                               <div className="flex-1 min-w-[120px]">
@@ -8712,7 +8712,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                   updateAnnualLeavePersonField(p.id, { totalAnnualDays: calculated });
                                 }}
                                 title="근로기준법 표준 계산: 1년 미만은 개근 월마다 1일(최대 11일), 1년 이상은 15일+매 2년마다 1일 가산(최대 25일). 회사 자체 기준과 다를 수 있어 채운 뒤 직접 수정 가능합니다."
-                                className="text-[10px] text-indigo-600 font-bold px-2 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 whitespace-nowrap"
+                                className="text-sm md:text-xs md:text-[10px] text-indigo-600 font-bold px-2 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 whitespace-nowrap"
                               >
                                 입사일 기준 자동계산{calculated !== null ? ` (${calculated}일)` : ''}
                               </button>
@@ -8728,8 +8728,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             {/* 연차 사용 내역 */}
                             <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-slate-500">연차 사용 내역</span>
-                                <button type="button" onClick={() => addAnnualLeaveEntry(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                <span className="text-sm md:text-xs md:text-[10px] font-bold text-slate-500">연차 사용 내역</span>
+                                <button type="button" onClick={() => addAnnualLeaveEntry(p.id)} className="text-sm md:text-xs md:text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
                                   <Plus className="w-3 h-3" /> 추가
                                 </button>
                               </div>
@@ -8781,8 +8781,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             {/* 휴일(초과) 근무 */}
                             <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-slate-500">휴일(초과) 근무</span>
-                                <button type="button" onClick={() => addAnnualLeaveOvertime(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                <span className="text-sm md:text-xs md:text-[10px] font-bold text-slate-500">휴일(초과) 근무</span>
+                                <button type="button" onClick={() => addAnnualLeaveOvertime(p.id)} className="text-sm md:text-xs md:text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
                                   <Plus className="w-3 h-3" /> 추가
                                 </button>
                               </div>
@@ -8827,8 +8827,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                             {/* 대체휴가 */}
                             <div className="border border-slate-100 rounded-lg p-2 space-y-1 bg-slate-50/50">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-slate-500">대체휴가</span>
-                                <button type="button" onClick={() => addAnnualLeaveSubstitute(p.id)} className="text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
+                                <span className="text-sm md:text-xs md:text-[10px] font-bold text-slate-500">대체휴가</span>
+                                <button type="button" onClick={() => addAnnualLeaveSubstitute(p.id)} className="text-sm md:text-xs md:text-[10px] text-indigo-600 font-bold flex items-center gap-0.5">
                                   <Plus className="w-3 h-3" /> 추가
                                 </button>
                               </div>
@@ -8870,7 +8870,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'cash_flow' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <label className="text-[11px] font-bold text-slate-600">현금 흐름 (연도별)</label>
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">현금 흐름 (연도별)</label>
                       <div className="flex items-center gap-2">
                         <div>
                           <label className="block text-[10px] text-slate-400 mb-0.5">대상 연도</label>
@@ -8908,7 +8908,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           key={t.key}
                           type="button"
                           onClick={() => setCashFlowEditTab(t.key)}
-                          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${cashFlowEditTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                          className={`px-2.5 py-1.5 rounded-lg text-sm md:text-[11px] font-bold transition-colors ${cashFlowEditTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
                         >
                           {t.label}
                         </button>
@@ -8918,7 +8918,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {cashFlowEditTab === 'inflows' && (
                       <div className="space-y-2">
                         <div className="flex justify-end">
-                          <button type="button" onClick={addCashFlowInflow} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <button type="button" onClick={addCashFlowInflow} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                             <Plus className="w-3 h-3" /> 프로젝트 행 추가
                           </button>
                         </div>
@@ -8933,7 +8933,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 value={r.name}
                                 onChange={(e) => updateCashFlowInflowField(r.id, { name: e.target.value })}
                                 placeholder="프로젝트명 (예: 양평 YP주택, 기타 매출 등)"
-                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
@@ -8945,7 +8945,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               <button
                                 type="button"
                                 onClick={() => handleOpenCashFlowImportPanel({ kind: 'inflow', rowId: r.id, rowLabel: r.name || '(프로젝트명 미입력)' })}
-                                className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                                className="shrink-0 text-sm md:text-xs md:text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
                               >
                                 <RefreshCw className="w-3 h-3" /> 자동 불러오기
                               </button>
@@ -9001,12 +9001,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 );
                               })}
                             </div>
-                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
+                            <p className="text-right text-sm md:text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
                               연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfCellTotal(r.months[m]), 0))}원
                             </p>
                           </div>
                         ))}
-                        <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                        <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                           INFLOWS 총 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfRowsMonthlyTotal(editingDoc.cashFlowAnnual?.inflows || [], m), 0))}원
                         </p>
                       </div>
@@ -9015,7 +9015,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     {cashFlowEditTab === 'outflows' && (
                       <div className="space-y-2">
                         <div className="flex justify-end">
-                          <button type="button" onClick={addCashFlowOutflow} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                          <button type="button" onClick={addCashFlowOutflow} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                             <Plus className="w-3 h-3" /> 매입처 행 추가
                           </button>
                         </div>
@@ -9030,7 +9030,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 value={r.name}
                                 onChange={(e) => updateCashFlowOutflowField(r.id, { name: e.target.value })}
                                 placeholder="프로젝트별 물품 매입처 (예: 양평 YP주택, 기타 매입 등)"
-                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-[2] min-w-[110px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <input
                                 type="text"
@@ -9042,7 +9042,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               <button
                                 type="button"
                                 onClick={() => handleOpenCashFlowImportPanel({ kind: 'outflow', rowId: r.id, rowLabel: r.name || '(매입처 미입력)' })}
-                                className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                                className="shrink-0 text-sm md:text-xs md:text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
                               >
                                 <RefreshCw className="w-3 h-3" /> 자동 불러오기
                               </button>
@@ -9097,12 +9097,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 );
                               })}
                             </div>
-                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
+                            <p className="text-right text-sm md:text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1">
                               연간 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfCellTotal(r.months[m]), 0))}원
                             </p>
                           </div>
                         ))}
-                        <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                        <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                           매입 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfRowsMonthlyTotal(editingDoc.cashFlowAnnual?.outflows || [], m), 0))}원
                         </p>
                       </div>
@@ -9117,9 +9117,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 type="text"
                                 value={g.name}
                                 onChange={(e) => updateCashFlow((cf) => ({ ...cf, expenseGroups: cf.expenseGroups.map((gg) => gg.id === g.id ? { ...gg, name: e.target.value } : gg) }))}
-                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
                               />
-                              <button type="button" onClick={() => addCashFlowExpenseItem(g.id)} className="shrink-0 text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                              <button type="button" onClick={() => addCashFlowExpenseItem(g.id)} className="shrink-0 text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                                 <Plus className="w-3 h-3" /> 항목 추가
                               </button>
                             </div>
@@ -9149,7 +9149,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                   <button
                                     type="button"
                                     onClick={() => handleOpenCashFlowImportPanel({ kind: 'expense', rowId: it.id, groupId: g.id, rowLabel: `${g.name} · ${it.label || '(항목명 미입력)'}` })}
-                                    className="shrink-0 text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
+                                    className="shrink-0 text-sm md:text-xs md:text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 whitespace-nowrap"
                                   >
                                     <RefreshCw className="w-3 h-3" /> 자동 불러오기
                                   </button>
@@ -9181,12 +9181,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 </div>
                               </div>
                             ))}
-                            <p className="text-right text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
+                            <p className="text-right text-sm md:text-[11px] font-bold text-slate-700 border-t border-slate-100 pt-1.5">
                               {g.name} 소계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfExpenseGroupMonthlyTotal(g, m), 0))}원
                             </p>
                           </div>
                         ))}
-                        <p className="text-right text-xs font-bold text-emerald-600">
+                        <p className="text-right text-sm md:text-xs font-bold text-emerald-600">
                           경비 총 합계: {formatCurrencyInput(CASH_FLOW_MONTHS.reduce((s, m) => s + cfExpenseAllMonthlyTotal(editingDoc.cashFlowAnnual?.expenseGroups || [], m), 0))}원
                         </p>
                       </div>
@@ -9311,14 +9311,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         />
 
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-600 mb-1">고용형태</label>
+                          <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">고용형태</label>
                           <div className="flex gap-1.5">
                             {([['regular', '정규직'], ['contract', '계약직'], ['intern', '인턴']] as const).map(([val, label]) => (
                               <button
                                 key={val}
                                 type="button"
                                 onClick={() => updateLaborContractField({ employmentType: val })}
-                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                className={`flex-1 py-1.5 rounded-lg text-sm md:text-xs font-bold border transition-colors ${
                                   editingDoc.laborContract?.employmentType === val
                                     ? 'bg-indigo-600 text-white border-indigo-600'
                                     : 'bg-white text-slate-500 border-slate-200'
@@ -9334,8 +9334,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-[11px] font-bold text-slate-600">급여 구성 (월)</label>
-                        <button type="button" onClick={addSalaryItem} className="text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <label className="text-sm md:text-[11px] font-bold text-slate-600">급여 구성 (월)</label>
+                        <button type="button" onClick={addSalaryItem} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
                           <Plus className="w-3 h-3" /> 항목 추가
                         </button>
                       </div>
@@ -9602,7 +9602,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                 {activeCategory === 'sales_contract' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <label className="block text-[11px] font-bold text-slate-600">갑 (영업 자문사) 정보</label>
+                    <label className="block text-sm md:text-[11px] font-bold text-slate-600">갑 (영업 자문사) 정보</label>
                     <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
@@ -9664,7 +9664,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     </div>
 
-                    <label className="block text-[11px] font-bold text-slate-600 pt-1">매출액 기준 누진 수수료율</label>
+                    <label className="block text-sm md:text-[11px] font-bold text-slate-600 pt-1">매출액 기준 누진 수수료율</label>
                     <div className="grid grid-cols-2 gap-1.5">
                       <div>
                         <label className="block text-[10px] text-slate-400 mb-0.5">1구간 매출 상한(원)</label>
@@ -9820,7 +9820,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                     />
 
-                    <label className="block text-[11px] font-bold text-slate-600 pt-1">정산금 내역</label>
+                    <label className="block text-sm md:text-[11px] font-bold text-slate-600 pt-1">정산금 내역</label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                       <div>
                         <label className="block text-[10px] text-slate-400 mb-0.5">① 회사 선지급 금액</label>
@@ -9861,7 +9861,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <p className="text-right text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
+                    <p className="text-right text-sm md:text-xs font-bold text-emerald-600 border-t border-indigo-100 pt-2">
                       ①+② 합계: {formatCurrencyInput((Number(editingDoc.severance?.companyAdvanceAmount) || 0) + (Number(editingDoc.severance?.bankAccrualAmount) || 0))}원
                       <br />
                       <span className="text-[11px] text-slate-400 font-normal">
@@ -9882,7 +9882,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                 {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && activeCategory !== 'advance_payment' && activeCategory !== 'vehicle_fine' && activeCategory !== 'tax' && activeCategory !== 'management_fee' && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">금액</label>
+                    <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -9895,7 +9895,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">메모</label>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">메모</label>
                   <textarea
                     value={editingDoc.memo || ''}
                     onChange={(e) => setEditingDoc({ ...editingDoc, memo: e.target.value })}
@@ -9906,7 +9906,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">첨부파일 (계약서, 명세서 등)</label>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">첨부파일 (계약서, 명세서 등)</label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {(editingDoc.attachments || []).map((a) => (
                       <span key={a.id} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-[11px] text-indigo-700">
@@ -9963,7 +9963,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-600">통장 선택</label>
+            <label className="text-sm md:text-xs font-bold text-slate-600">통장 선택</label>
             <select
               value={bankImportSelectedKey}
               onChange={(e) => setBankImportSelectedKey(e.target.value)}
@@ -10058,7 +10058,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 }
                 return (
                   <div className="space-y-1">
-                    <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
+                    <label className="flex items-center gap-1.5 text-sm md:text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={available.every((c) => selectedCashFlowImportKeys.has(c.sourceKey))}
@@ -10095,7 +10095,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 type="button"
                 onClick={handleImportCashFlowSelected}
                 disabled={selectedCashFlowImportKeys.size === 0}
-                className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40"
+                className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm md:text-xs font-bold disabled:opacity-40"
               >
                 선택한 {selectedCashFlowImportKeys.size}건 가져오기
               </button>
