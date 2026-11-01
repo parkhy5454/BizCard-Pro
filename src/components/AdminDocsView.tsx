@@ -887,11 +887,15 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const [activeCategory, setActiveCategory] = useState<AdminDocCategory>(categories[0].id);
   // [추가] 모바일: 서류 종류 탭과 검색 줄은 헤더 바로 아래에 붙어 있도록 sticky로 고정한다
   // (fixed + 높이 측정 방식은 스크롤 때 탭이 위아래로 흔들려서 바꿈)
+  // sticky의 기준은 스크롤 영역(<main>)이라, 헤더 아래 위치를 main 기준으로 환산해서 쓴다
   const [adminHeaderBottom, setAdminHeaderBottom] = useState(0);
   useLayoutEffect(() => {
     const measure = () => {
       const h = document.querySelector('header');
-      setAdminHeaderBottom(h ? Math.round(h.getBoundingClientRect().bottom) : 0);
+      const main = document.querySelector('main');
+      const headerBottom = h ? h.getBoundingClientRect().bottom : 0;
+      const mainTop = main ? main.getBoundingClientRect().top : headerBottom;
+      setAdminHeaderBottom(Math.max(0, Math.round(headerBottom - mainTop)));
     };
     measure();
     // 헤더가 화면에 완전히 그려진 뒤(또는 크기가 바뀐 뒤) 다시 재서 위치가 어긋나지 않게 한다
