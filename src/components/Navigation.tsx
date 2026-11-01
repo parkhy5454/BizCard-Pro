@@ -614,38 +614,42 @@ export const Navigation: React.FC<Props> = ({
             {/* 명함 등록 */}
             <button
               onClick={() => { setPressedCardAction('scan'); onOpenScanModal(); }}
-              className={`flex items-center gap-1 flex-[0.85] min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap text-center text-[11px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('scan'))}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('scan') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <PlusCircle className="hidden sm:block w-4 h-4" />
               <span>등록</span>
+              {isCardActionOn('scan') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
 
             {/* 가져오기·내보내기 */}
             <button
               onClick={() => { setPressedCardAction('io'); setActiveTab('io'); }}
-              className={`relative flex items-center gap-1 flex-[1.4] min-w-0 justify-center pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('io') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('io') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Upload className="hidden sm:block w-4 h-4" />
               <span>가져오기·내보내기</span>
+              {isCardActionOn('io') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
               {isCardActionOn('io') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
 
             {/* 내 명함 공유 */}
             <button
               onClick={() => { setPressedCardAction('share'); onOpenShareMyCardModal(); }}
-              className={`flex items-center gap-1 flex-[0.85] min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-bold whitespace-nowrap text-center text-[11px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('share'))}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('share') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Share2 className="hidden sm:block w-4 h-4 text-blue-600" />
               <span>내 명함 공유</span>
+              {isCardActionOn('share') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
 
             {/* 주변 레이더 지도 */}
             <button
               onClick={() => { setPressedCardAction('nearby'); setActiveTab('nearby'); }}
-              className={`relative flex items-center gap-1 flex-[0.85] min-w-0 justify-center pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('nearby') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('nearby') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Radar className="hidden sm:block w-4 h-4" />
               <span>주변 사람</span>
+              {isCardActionOn('nearby') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
               {isCardActionOn('nearby') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
           </div>
