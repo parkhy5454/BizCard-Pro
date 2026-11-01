@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { X, Mic, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
@@ -12,6 +12,7 @@ import { GroupMultiSelect } from './GroupMultiSelect.js';
 
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
 import { useBodyScrollLock } from '../useBodyScrollLock.js';
+import { useKeyboardAwareOverlay } from '../useBodyScrollLock.js';
 interface Props {
   groups: ContactGroup[];
   // [수정] 중복 명함 감지를 위해 기존 등록된 명함 목록을 받는다
@@ -88,6 +89,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const [bottomOffset, setBottomOffset] = useState<number>(() => getTabBarGap());
   // 창이 열려 있는 동안 페이지 스크롤을 잠가서 입력 시 탭이 밀리지 않게 한다.
   useBodyScrollLock(true);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareOverlay(overlayRef, topOffset, bottomOffset, true);
   // [수정] 입력칸을 누르면 iPhone이 페이지를 스크롤하면서 상단 탭 위치가 바뀌고, 그때마다 창이 따라 움직였다.
   // 그래서 위치는 창이 열릴 때 한 번만 재고 그 값을 유지한다(스크롤·키보드에 반응하지 않음).
   useEffect(() => { setTopOffset(getTopBarBottom()); setBottomOffset(getTabBarGap()); }, []);
@@ -566,7 +569,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex justify-center px-4 pb-4 pt-1">
+    <div ref={overlayRef} style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex justify-center px-4 pb-4 pt-1">
       <div className="relative w-full max-w-4xl mt-1 bg-white flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (

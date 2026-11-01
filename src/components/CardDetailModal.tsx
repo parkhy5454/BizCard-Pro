@@ -1,6 +1,6 @@
 import { APP_PUBLIC_URL } from '../appConfig.js';
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState, useLayoutEffect, useRef } from 'react';
 import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { X, Phone, Building2, Printer, Mail, MapPin, History, Edit3, Plus, ArrowDownLeft, ArrowUpRight, PhoneMissed, Calendar, Clock, MessageSquare, Sparkles, Navigation, Camera, RefreshCw, Share2, UserPlus, Lock, Unlock, Globe, Home, Smartphone } from 'lucide-react';
 import { BusinessCard, ContactGroup, CallRecord, User } from '../types.js';
@@ -13,6 +13,7 @@ import { getContactImageProxyUrl } from '../imageProxy.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
 import { generateContactVCardText, downloadContactVCard } from '../vcardUtils.js';
 import { useBodyScrollLock } from '../useBodyScrollLock.js';
+import { useKeyboardAwareOverlay } from '../useBodyScrollLock.js';
 
 interface Props {
   contact: BusinessCard | null;
@@ -45,6 +46,8 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   const [modalBottomInset, setModalBottomInset] = useState<number>(0);
   // 창이 열려 있는 동안 페이지 스크롤을 잠가서, 입력칸을 눌러도 상단·하단 탭이 같이 밀리지 않게 한다.
   useBodyScrollLock(!!contact);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareOverlay(overlayRef, modalTopInset, modalBottomInset, !!contact);
   // 이 컴포넌트는 닫혀 있을 때도 마운트되어 있으므로, 앱 시작 시점이 아니라 "창이 열릴 때" 위치를 잰다.
   useLayoutEffect(() => {
     if (!contact) return;
@@ -495,7 +498,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   };
 
   return (
-    <div style={{ top: modalTopInset, bottom: modalBottomInset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-0 md:p-4">
+    <div ref={overlayRef} style={{ top: modalTopInset, bottom: modalBottomInset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-0 md:p-4">
       <div ref={panelRef} className="relative w-full max-w-4xl bg-white border-0 md:border border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden h-full md:h-auto max-h-full md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
