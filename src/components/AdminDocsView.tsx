@@ -2495,6 +2495,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
   const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
+  // [추가] 서류 종류 탭을 바꾸면 열려 있던 인쇄 미리보기는 닫는다 (팝업이 다른 탭을 가리지 않게)
+  useEffect(() => { setPrintingDoc(null); }, [activeCategory]);
 
   // [추가] 법인카드 관리 - "전체 카드 한 페이지로 보기"에서 고를 대상 연월
   const [corpCardMergeMonth, setCorpCardMergeMonth] = useState('');
