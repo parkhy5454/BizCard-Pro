@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BusinessCard, ContactGroup, Project, User } from './types.js';
 import { getContactGroupIds, contactHasGroup } from './groupUtils.js';
-import { Navigation } from './components/Navigation.js';
+import { Navigation, isStandaloneApp } from './components/Navigation.js';
 import { MoreMenuView } from './components/MoreMenuView.js';
 import { CardGrid } from './components/CardGrid.js';
 import { CardDetailModal } from './components/CardDetailModal.js';
@@ -614,7 +614,7 @@ export default function App() {
       )}
 
       {/* 바디 메인 영역 */}
-      <main ref={mainScrollRef} key={activeTab} className={`min-h-0 flex-1 overflow-y-auto overscroll-contain w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${['io', 'nearby', 'management', 'accounting'].includes(activeTab) ? 'pt-1' : 'pt-4'} pb-4 animate-tab-in`}>
+      <main ref={mainScrollRef} key={activeTab} className={`min-h-0 flex-1 overflow-y-auto overscroll-contain w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${['io', 'nearby', 'management', 'accounting'].includes(activeTab) ? 'pt-1' : 'pt-4'} ${isStandaloneApp() ? 'pb-28' : 'pb-4'} animate-tab-in`}>
         
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center space-y-4">
