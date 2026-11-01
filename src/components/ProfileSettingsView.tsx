@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { User as UserType } from '../types.js';
 import { User, Briefcase, Phone, Mail, Building2, AlertCircle, Check } from 'lucide-react';
 
@@ -11,6 +13,14 @@ export const ProfileSettingsView: React.FC<Props> = ({ currentUser, onUserUpdate
   const [name, setName] = useState(currentUser?.name || '');
   const [position, setPosition] = useState(currentUser?.position || '');
   const [phone, setPhone] = useState(currentUser?.phone || '');
+  // [추가] 프로필 수정 중 임시 저장 (서버 보관 - 다른 기기에서도 이어서 수정)
+  const profileSnapshot = useMemo(() => ({ name, position, phone }), [name, position, phone]);
+  const profileDraft = useDraftAutosave<typeof profileSnapshot>({
+    value: profileSnapshot,
+    setValue: (u) => { const n = u(profileSnapshot); if (n) { setName(n.name); setPosition(n.position); setPhone(n.phone); } },
+    keyOf: () => 'profile-settings',
+    userId: currentUser?.id,
+  });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -39,6 +49,7 @@ export const ProfileSettingsView: React.FC<Props> = ({ currentUser, onUserUpdate
         throw new Error(data.error || '정보 업데이트에 실패했습니다.');
       }
 
+      profileDraft.discardOpen();
       setMessage({ type: 'success', text: '프로필이 성공적으로 업데이트되었습니다!' });
       if (currentUser) {
         onUserUpdate({
@@ -100,6 +111,8 @@ export const ProfileSettingsView: React.FC<Props> = ({ currentUser, onUserUpdate
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* [추가] 임시 저장된 수정 내용이 있으면 이어서 쓸지 묻는다 */}
+            <DraftPromptBanner prompt={profileDraft.prompt} onRestore={profileDraft.restore} onDismiss={profileDraft.dismiss} />
             {/* 이메일 (읽기 전용) */}
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">

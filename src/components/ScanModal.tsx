@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { X, Mic, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
@@ -19,6 +21,7 @@ interface Props {
   onUpdate?: (updated: BusinessCard) => void;
   // 명함 등록 화면에서 음성 입력 화면을 바로 여는 콜백
   onOpenVoice?: () => void;
+  currentUserId?: string | null; // 임시 저장(드래프트) 확인용 로그인 사용자 id
 }
 
 // [수정] 이름+회사가 같거나 핸드폰 번호가 같으면 "같은 사람"으로 간주해서 중복 후보로 판단한다.
@@ -78,7 +81,7 @@ const getTopBarBottom = (): number => {
   return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
 };
 
-export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate, onOpenVoice }) => {
+export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate, onOpenVoice, currentUserId }) => {
   // 페이지가 스크롤되면 상단 탭 줄 위치도 바뀌므로, 오버레이 시작 위치를 계속 다시 잰다.
   const [topOffset, setTopOffset] = useState<number>(() => getTopBarBottom());
   const [bottomOffset, setBottomOffset] = useState<number>(() => getTabBarGap());
@@ -113,6 +116,13 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
   // 입력 폼 (단일 스캔 모드)
   const [form, setForm] = useState<Partial<BusinessCard>>(emptyForm(defaultGroupId));
+  // [추가] 명함 입력 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 입력). 창이 열려 있는 동안 입력값을 넘긴다.
+  const scanDraft = useDraftAutosave<Partial<BusinessCard>>({
+    value: form,
+    setValue: (u) => { const n = u(form); if (n) setForm(n); },
+    keyOf: () => 'scan-card-new',
+    userId: currentUserId,
+  });
 
   // 크롭 조정 모달 상태: 어느 면(front/back)의 사진을 조정 중인지 + 원본 데이터
   const [cropTarget, setCropTarget] = useState<{ side: 'front' | 'back'; rawImage: string } | null>(null);
@@ -306,6 +316,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       return;
     }
 
+    scanDraft.discardOpen();
     onSave(candidate);
     onClose();
   };
@@ -329,6 +340,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       onSave(duplicateCheck.pending);
     }
     setDuplicateCheck(null);
+    scanDraft.discardOpen();
     onClose();
   };
 
@@ -550,6 +562,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
       }
     });
 
+    scanDraft.discardOpen();
     onClose();
   };
 
@@ -930,6 +943,8 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
 
             {/* 우측: OCR 추출 결과 및 정보 확인 폼 */}
             <form onSubmit={handleSubmit} className="w-full md:w-1/2 p-6 flex flex-col justify-between md:overflow-y-auto">
+              {/* [추가] 임시 저장된 입력 내용이 있으면 이어서 쓸지 묻는다 */}
+              <DraftPromptBanner prompt={scanDraft.prompt} onRestore={scanDraft.restore} onDismiss={scanDraft.dismiss} />
               <div>
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
                   <h3 className="font-bold text-lg text-slate-900">스캔 정보</h3>

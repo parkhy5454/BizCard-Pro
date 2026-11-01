@@ -879,6 +879,7 @@ export default function App() {
           onSave={handleSaveNewCard}
           onUpdate={handleUpdateCard}
           onOpenVoice={() => { setIsScanOpen(false); setIsVoiceQuickAddOpen(true); }}
+          currentUserId={currentUser?.id}
         />
       )}
 
