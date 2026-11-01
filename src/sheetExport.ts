@@ -1,7 +1,23 @@
 // 엑셀(.xlsx)·PDF 저장 공용 도구. 표(HTML)를 격자로 읽어 진짜 xlsx와 A4 PDF를 만들고,
 // 아이폰은 공유 창(파일에 저장/iCloud/PC 전송)으로, 그 외에는 다운로드로 저장한다.
 
+// 파일을 바로 저장하지 않고 붙잡아 두는 모드(captureSaveFile 안에서만 켜진다)
+let saveSink: ((blob: Blob, fileName: string) => void) | null = null;
+
+// 휴대폰은 공유 창을 사용자가 누른 직후에만 열 수 있어서, 파일을 먼저 만든 뒤 다시 누르게 할 때 쓴다.
+export const captureSaveFile = async (run: () => Promise<void>): Promise<{ blob: Blob; fileName: string } | null> => {
+  let captured: { blob: Blob; fileName: string } | null = null;
+  saveSink = (blob, fileName) => { captured = { blob, fileName }; };
+  try {
+    await run();
+  } finally {
+    saveSink = null;
+  }
+  return captured;
+};
+
 export const saveBlobFileShareOrDownload = async (blob: Blob, fileName: string): Promise<void> => {
+  if (saveSink) { saveSink(blob, fileName); return; }
   const file = new File([blob], fileName, { type: blob.type });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
