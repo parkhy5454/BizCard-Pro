@@ -6742,7 +6742,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       )}
 
       {/* 등록/수정 모달 */}
-      {editingDoc && (
+      {/* [수정] 작성 창을 화면(body) 바로 아래에 붙여서, 탭 영역(main)의 스크롤·겹침 영향을 받지 않게 한다 */}
+      {editingDoc && createPortal(
         <div style={modalInsets} className="fixed inset-x-0 top-0 bottom-0 md:inset-0 z-[100] overflow-y-auto bg-white md:bg-transparent">
           <div onClick={() => setEditingDoc(null)} className="hidden md:block fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div className="flex min-h-full md:min-h-screen items-stretch md:items-center justify-center p-0 md:p-4">
@@ -10589,7 +10590,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
 
     {/* [추가] 통장 출금/입금 내역 - 엑셀 가져오기 확인 화면. 파일을 바로 새 문서로 만들지
