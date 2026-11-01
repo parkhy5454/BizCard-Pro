@@ -6138,16 +6138,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           아직 등록된 {activeConfig.label}가 없습니다.
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-0 md:space-y-2.5">
           {filteredDocs.map((d) => (
-            <div key={d.id} className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
+            <div key={d.id} className="bg-white border-b border-slate-200 py-3.5 md:border md:border-slate-200 md:rounded-2xl md:p-4 md:py-4 hover:border-indigo-300 transition-colors">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-bold text-slate-800 truncate">{d.title}</h3>
-                    <span className="text-[11px] text-slate-400 font-mono shrink-0">{d.date}</span>
+                    <h3 className="text-base md:text-sm font-bold text-slate-800 truncate">{d.title}</h3>
+                    <span className="text-xs md:text-[11px] text-slate-400 font-mono shrink-0">{d.date}</span>
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                  <div className="flex items-center gap-3 mt-1 text-sm md:text-xs text-slate-500">
                     {d.personName && <span>{activeConfig.personLabel}: <b className="text-slate-700">{d.personName}</b></span>}
                     {activeConfig.showAmount && d.amount && (
                       <span className="text-emerald-600 font-mono font-bold">
