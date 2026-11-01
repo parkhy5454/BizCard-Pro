@@ -10310,6 +10310,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               if (window.innerWidth < 768) {
                 try {
                   await savePrintPreviewAsPdf();
+                  // 저장이 끝나면 미리보기 팝업을 닫아서 다른 탭을 바로 쓸 수 있게 한다
+                  setPrintingDoc(null);
                 } catch (err) {
                   alert(`PDF 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
                 }
