@@ -5878,22 +5878,27 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const labelStyle: React.CSSProperties = { fontWeight: 700, width: '110px', flexShrink: 0 };
 
     return (
-      <div className="print-document-margins" style={{ width: '210mm', margin: '0 auto', padding: '30mm 25mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7 }}>
-        <div style={{ border: '1.5px solid #000', padding: '15mm 20mm', breakInside: 'avoid' }}>
-          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '14px', marginBottom: '15mm' }}>위 임 장</h1>
+      // [추가] A4 한 장(위·아래 여백 25mm, 높이 272mm)을 꽉 채우도록 사각형 높이를 맞추고, 제목·내용·날짜/서명을 위·가운데·아래로 나눠 놓는다
+      <div className="print-document-margins" style={{ width: '210mm', height: '272mm', margin: '0 auto', padding: '25mm 25mm 0', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '13px', lineHeight: 1.7, overflow: 'hidden' }}>
+        <div style={{ border: '1.5px solid #000', height: '100%', boxSizing: 'border-box', padding: '22mm 20mm 20mm', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <h1 style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '14px', margin: 0 }}>위 임 장</h1>
 
-          <div style={rowStyle}><span style={labelStyle}>주 소</span><span>: {poa.employeeAddress}</span></div>
-          <div style={rowStyle}><span style={labelStyle}>성 명</span><span>: {poa.employeeName}</span></div>
-          <div style={rowStyle}><span style={labelStyle}>주민등록번호</span><span>: {poa.residentNumberMasked}</span></div>
-          <div style={rowStyle}><span style={labelStyle}>용 도</span><span>: {poa.purpose}</span></div>
-          <div style={rowStyle}><span style={labelStyle}>제 출 처</span><span>: {poa.submitTo}</span></div>
+          <div>
+            <div style={rowStyle}><span style={labelStyle}>주 소</span><span>: {poa.employeeAddress}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>성 명</span><span>: {poa.employeeName}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>주민등록번호</span><span>: {poa.residentNumberMasked}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>용 도</span><span>: {poa.purpose}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>제 출 처</span><span>: {poa.submitTo}</span></div>
 
-          <p style={{ margin: '30px 0' }}>
-            위 사람을 {poa.submitTo}에서 {companyName} 지점 {poa.taskDescription} 관련 업무 일체의 권한을 위임합니다.
-          </p>
+            <p style={{ margin: '40px 0' }}>
+              위 사람을 {poa.submitTo}에서 {companyName} 지점 {poa.taskDescription} 관련 업무 일체의 권한을 위임합니다.
+            </p>
+          </div>
 
-          <p style={{ textAlign: 'center', fontWeight: 700, margin: '30px 0 20px' }}>{fmtDateKo(poa.issueDate)}</p>
-          <p style={{ textAlign: 'center', fontSize: '17px', fontWeight: 700 }}>{companyName} 대표 (인)</p>
+          <div>
+            <p style={{ textAlign: 'center', fontWeight: 700, margin: '0 0 30px' }}>{fmtDateKo(poa.issueDate)}</p>
+            <p style={{ textAlign: 'center', fontSize: '17px', fontWeight: 700, margin: 0 }}>{companyName} 대표 (인)</p>
+          </div>
         </div>
       </div>
     );
