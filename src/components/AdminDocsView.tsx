@@ -9,7 +9,9 @@ import { ReceiptScanModal } from './ReceiptScanModal.js';
 import { saveBlobFileShareOrDownload } from '../sheetExport.js';
 
 import { getErrorMessage } from '../errorUtils.js';
+import * as ExcelJS from 'exceljs';
 import type { Worksheet, Fill } from 'exceljs';
+import html2canvas from 'html2canvas';
 interface Props {
   section: AdminDocSection;
   currentUser: User | null;
@@ -1191,8 +1193,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const [year, month] = (cc.yearMonth || '').split('-');
     const isMerged = printingDoc.id.startsWith('merged-corp-card-');
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('카드별_월_사용_내역', {
       pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
     });
@@ -1317,8 +1318,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.vehicleFine) return;
     const vf = printingDoc.vehicleFine;
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('차량_과태료_내역', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
     });
@@ -1431,8 +1431,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.incentive) return;
     const inc = printingDoc.incentive;
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('인센티브_및_명절_상여금', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
     });
@@ -1560,8 +1559,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.overseasTrip) return;
     const ot = printingDoc.overseasTrip;
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('해외_출장_경비_사용내역', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
     });
@@ -1702,8 +1700,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const handleExportOfficeSuppliesExcel = async () => {
     if (!printingDoc) return;
     const items = printingDoc.officeSupplies?.items || [];
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('비품관리');
     ws.columns = [
       { header: 'No', key: 'no', width: 6 },
@@ -1735,7 +1732,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const el = previewPaperRef.current;
     if (!printingDoc || !el) return;
     const baseName = (printingDoc.title || '서류').replace(/[\\/?*\[\]:]/g, ' ').trim() || '서류';
-    const { default: html2canvas } = await import('html2canvas');
     const holder = document.createElement('div');
     holder.style.position = 'fixed';
     holder.style.left = '-20000px';
@@ -1751,8 +1747,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     } finally {
       holder.remove();
     }
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(baseName.slice(0, 31));
     const imgId = wb.addImage({ base64: canvas.toDataURL('image/png').split(',')[1], extension: 'png' });
     ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: canvas.width / 2, height: canvas.height / 2 } });
@@ -1765,8 +1760,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.annualLeaveStatus) return;
     const al = printingDoc.annualLeaveStatus;
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('연차_현황', {
       pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.59, right: 0.59, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
     });
@@ -1922,8 +1916,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (!printingDoc || !printingDoc.cashFlowAnnual) return;
     const cf = printingDoc.cashFlowAnnual;
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const thinBorder = { style: 'thin' as const, color: { argb: 'FF000000' } };
     const fullBorder = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: thinBorder };
     const yellowFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFE600' } };
@@ -2225,8 +2218,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const firstYear = (ap.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
     const grandTotal = advanceGrandTotal(ap);
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('가지급내역', {
       pageSetup: { orientation: 'landscape', paperSize: 9 /* A4 */, margins: { left: 0.47, right: 0.47, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
     });
@@ -2345,8 +2337,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const firstYear = (mf.months.find((m) => m.monthKey)?.monthKey || '').slice(0, 4);
     const grandTotal = managementGrandTotal(mf);
 
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+        const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('관리비내역', {
       pageSetup: { orientation: 'portrait', paperSize: 9 /* A4 */, margins: { left: 0.79, right: 0.79, top: 0.79, bottom: 0.79, header: 0.3, footer: 0.3 } }
     });
@@ -5940,7 +5931,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const el = previewPaperRef.current;
     if (!el || !printingDoc) return;
     const isLandscape = ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category);
-    const { default: html2canvas } = await import('html2canvas');
     const { jsPDF } = await import('jspdf');
     // 화면의 미리보기를 건드리지 않도록 복제본을 화면 밖에 붙여서 칸 정렬을 맞춘 뒤 캡처한다
     const holder = document.createElement('div');
