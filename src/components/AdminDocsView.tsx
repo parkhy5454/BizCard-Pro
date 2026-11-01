@@ -6813,7 +6813,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 부서/직위/호봉 + 지급내역·공제내역 여러 줄)을 그대로 입력받는다. 다른 서류
                 종류에서는 이 블록 자체가 안 보인다. */}
                 {activeCategory === 'payslip' && (
-                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                  // [수정] 휴대폰에서 입력칸이 화면 밖으로 넘치던 문제: 안의 입력칸이 줄어들 수 있도록(min-w-0) 전부 적용
+                  <div className="min-w-0 max-w-full space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3 [&_input]:min-w-0 [&_input]:max-w-full [&_label]:min-w-0">
                     <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm md:text-[11px] font-bold text-slate-600 mb-1">회사명</label>
