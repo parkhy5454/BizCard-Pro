@@ -424,7 +424,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-1.5"
               >
-                <label className="block text-sm md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">이름</label>
+                <label className="block text-base md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">이름</label>
                 <div className="relative rounded-xl shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <User className="h-4 w-4 text-slate-400" />
@@ -434,7 +434,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
-                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                   />
                 </div>
               </motion.div>
@@ -447,7 +447,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-1.5"
               >
-                <label className="block text-sm md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">핸드폰 번호 <span className="text-slate-500 font-normal">(선택)</span></label>
+                <label className="block text-base md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">핸드폰 번호 <span className="text-slate-500 font-normal">(선택)</span></label>
                 <div className="relative rounded-xl shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Phone className="h-4 w-4 text-slate-400" />
@@ -458,7 +458,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     value={phone}
                     onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                     placeholder="010-0000-0000"
-                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium font-mono"
+                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium font-mono"
                   />
                 </div>
               </motion.div>
@@ -466,7 +466,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
 
             {/* 공통: 이메일 입력 */}
             <div className="space-y-1.5">
-              <label className="block text-sm md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">이메일 주소</label>
+              <label className="block text-base md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">이메일 주소</label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-4 w-4 text-slate-400" />
@@ -478,14 +478,14 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
             </div>
 
             {/* 공통: 비밀번호 입력 */}
             <div className="space-y-1.5">
-              <label className="block text-sm md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">비밀번호</label>
+              <label className="block text-base md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">비밀번호</label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-4 w-4 text-slate-400" />
@@ -498,7 +498,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   minLength={isLogin ? undefined : 8}
-                  className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                 />
               </div>
               {/* [수정] 서버가 8자 미만 비밀번호를 거부하므로, 가입 화면에서 미리 안내해 제출 후 오류로 놀라지 않게 함 */}
@@ -534,7 +534,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 animate={{ opacity: 1 }}
                 className="space-y-3 pt-2"
               >
-                <label className="block text-sm md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">계정 유형</label>
+                <label className="block text-base md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">계정 유형</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -580,7 +580,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                           value={businessNumber}
                           onChange={handleBusinessNumberChange}
                           placeholder="123-45-67890"
-                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                       {/* [추가] 이미 등록된 회사인지 조회 결과 안내 */}
@@ -607,7 +607,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                           onChange={(e) => setCompanyName(e.target.value)}
                           placeholder="예: (주)대한상사"
                           readOnly={companyLookupStatus === 'found'}
-                          className={`block w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${companyLookupStatus === 'found' ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
+                          className={`block w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${companyLookupStatus === 'found' ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
                         />
                       </div>
                       {companyLookupStatus === 'found' && (
@@ -626,7 +626,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                           value={position}
                           onChange={(e) => setPosition(e.target.value)}
                           placeholder="예: 대표이사"
-                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="block w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         <p className="mt-1 text-xs md:text-[10px] text-slate-400">전자결재 결재라인과 이름을 매칭해 결재 요청 메일을 보내는 데 쓰입니다.</p>
                       </div>
@@ -644,7 +644,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                 animate={{ opacity: 1 }}
                 className="space-y-1.5"
               >
-                <label className="block text-sm md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">
+                <label className="block text-base md:text-xs font-semibold md:font-bold text-slate-500 md:text-slate-700">
                   추천인 코드 <span className="text-slate-500 font-normal">(선택)</span>
                 </label>
                 <div className="relative rounded-xl shadow-sm">
@@ -656,7 +656,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                     value={referralCode}
                     onChange={(e) => { setReferralCode(e.target.value.toUpperCase()); setReferralFromLink(false); }}
                     placeholder="예: AB12CD"
-                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-base md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-mono tracking-widest uppercase"
+                    className="block w-full pl-10 pr-4 py-3 md:py-2.5 bg-slate-100 md:bg-slate-50 border-0 md:border md:border-slate-200 rounded-xl text-lg md:text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-mono tracking-widest uppercase"
                   />
                 </div>
                 {referralFromLink && referralCode && (
