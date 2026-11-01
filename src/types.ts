@@ -613,6 +613,21 @@ export interface AdminDoc {
     bankAccrualAmount?: number;    // ② 은행 적립금(퇴직연금 등) 금액
     receiveDate?: string;          // 수령일(서명 날짜)
   };
+  // [추가] 경영지원 > 사무실 비품 관리(category: 'office_supplies') 전용. 비품 목록을 표로 출력하고
+  // 금액 합계(수량 x 단가)를 문서 금액 칸에 반영한다.
+  officeSupplies?: {
+    managerName?: string;           // 담당자
+    asOfDate?: string;              // 기준일
+    items?: {
+      id: string;
+      name: string;                 // 비품명
+      spec?: string;                // 규격
+      quantity?: number;            // 수량
+      unitPrice?: number;           // 단가(원)
+      purchaseDate?: string;        // 구입일
+      note?: string;                // 비고
+    }[];
+  };
 }
 
 export interface MeetingExpenseItem {

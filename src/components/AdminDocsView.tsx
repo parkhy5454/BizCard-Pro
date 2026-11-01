@@ -321,6 +321,10 @@ function calcStatutoryAnnualLeaveDays(hireDate: string, targetYear: string): num
 // [추가] 경영지원 서류 목록 9개: 인쇄 버튼 없이 "엑셀 다운 · 저장"만 보인다.
 const PRINT_HIDDEN_CATEGORIES: string[] = ['labor_contract', 'salary_agreement', 'employment_cert', 'annual_leave_status', 'power_of_attorney', 'office_supplies', 'sales_contract', 'corp_card', 'cash_flow'];
 
+// [추가] 사무실 비품 목록의 금액 합계(수량 x 단가)
+const officeSuppliesTotal = (items?: { quantity?: number; unitPrice?: number }[]): number =>
+  (items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
   const header = document.querySelector('header');
@@ -645,6 +649,10 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
     companyAdvanceAmount: 0, companyAdvanceDate: getTodayLocalStr(), companyAdvanceBank: '',
     bankAccrualAmount: 0,
     receiveDate: getTodayLocalStr()
+  } : undefined,
+  // [추가] 사무실 비품 관리 기본값(빈 목록으로 시작)
+  officeSupplies: category === 'office_supplies' ? {
+    managerName: '', asOfDate: getTodayLocalStr(), items: []
   } : undefined
 });
 
@@ -1687,6 +1695,39 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 합계 행)에 걸쳐 세로로 병합하고, 연차 사용/휴일(초과)근무/대체휴가 세 목록은 각각
   // 독립적인 목록이라 행 번호가 같아도 서로 다른 내용일 수 있다(짧은 목록은 그만큼
   // 빈칸으로 둔다) - annualLeavePersonRowCount와 같은 규칙.
+  // [추가] 사무실 비품 관리 엑셀: 목록을 그대로 표(셀)로 만든다. 합계는 숫자 합으로 넣는다.
+  const handleExportOfficeSuppliesExcel = async () => {
+    const os = printingDoc?.officeSupplies;
+    if (!printingDoc || !os) return;
+    const items = os.items || [];
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('비품관리');
+    ws.columns = [
+      { header: 'No', key: 'no', width: 6 },
+      { header: '비품명', key: 'name', width: 26 },
+      { header: '규격', key: 'spec', width: 18 },
+      { header: '수량', key: 'qty', width: 8 },
+      { header: '단가(원)', key: 'price', width: 14 },
+      { header: '금액(원)', key: 'amount', width: 14 },
+      { header: '구입일', key: 'date', width: 12 },
+      { header: '비고', key: 'note', width: 22 }
+    ];
+    ws.getRow(1).font = { bold: true };
+    items.forEach((it, i) => {
+      const qty = Number(it.quantity) || 0;
+      const price = Number(it.unitPrice) || 0;
+      ws.addRow({ no: i + 1, name: it.name, spec: it.spec || '', qty, price, amount: qty * price, date: it.purchaseDate || '', note: it.note || '' });
+    });
+    const totalRow = ws.addRow({ no: '', name: '합계', spec: '', qty: '', price: '', amount: officeSuppliesTotal(items), date: '', note: '' });
+    totalRow.font = { bold: true };
+    ws.getColumn('price').numFmt = '#,##0';
+    ws.getColumn('amount').numFmt = '#,##0';
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '사무실 비품 관리'}.xlsx`);
+  };
+
   const handleExportAnnualLeaveStatusExcel = async () => {
     if (!printingDoc || !printingDoc.annualLeaveStatus) return;
     const al = printingDoc.annualLeaveStatus;
@@ -3850,6 +3891,31 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const updatePowerOfAttorneyField = (patch: Partial<NonNullable<AdminDoc['powerOfAttorney']>>) => {
     setEditingDoc((prev) => prev ? { ...prev, powerOfAttorney: { ...(prev.powerOfAttorney || {}), ...patch } } : prev);
   };
+  // [추가] 사무실 비품 관리: 문서 공통 항목 + 비품 행 추가/수정/삭제
+  const updateOfficeSuppliesField = (patch: Partial<NonNullable<AdminDoc['officeSupplies']>>) => {
+    setEditingDoc((prev) => prev ? { ...prev, officeSupplies: { ...(prev.officeSupplies || {}), ...patch } } : prev);
+  };
+  const addOfficeSupplyItem = () => {
+    setEditingDoc((prev) => prev ? {
+      ...prev,
+      officeSupplies: {
+        ...(prev.officeSupplies || {}),
+        items: [...(prev.officeSupplies?.items || []), { id: `os-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: '', spec: '', quantity: 1, unitPrice: 0, purchaseDate: '', note: '' }]
+      }
+    } : prev);
+  };
+  const updateOfficeSupplyItem = (id: string, patch: Partial<NonNullable<NonNullable<AdminDoc['officeSupplies']>['items']>[number]>) => {
+    setEditingDoc((prev) => prev ? {
+      ...prev,
+      officeSupplies: { ...(prev.officeSupplies || {}), items: (prev.officeSupplies?.items || []).map((it) => it.id === id ? { ...it, ...patch } : it) }
+    } : prev);
+  };
+  const removeOfficeSupplyItem = (id: string) => {
+    setEditingDoc((prev) => prev ? {
+      ...prev,
+      officeSupplies: { ...(prev.officeSupplies || {}), items: (prev.officeSupplies?.items || []).filter((it) => it.id !== id) }
+    } : prev);
+  };
   const updateSalesContractField = (patch: Partial<NonNullable<AdminDoc['salesContract']>>) => {
     setEditingDoc((prev) => prev ? { ...prev, salesContract: { ...(prev.salesContract || {}), ...patch } } : prev);
   };
@@ -4034,6 +4100,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         const total = (Number(payload.severance.companyAdvanceAmount) || 0) + (Number(payload.severance.bankAccrualAmount) || 0);
         payload.amount = String(total);
         if (payload.severance.employeeName) payload.personName = payload.severance.employeeName;
+      }
+      // [추가] 사무실 비품 관리는 목록 합계를 금액 칸에, 담당자 이름을 검색용 personName에 반영한다.
+      if (payload.category === 'office_supplies' && payload.officeSupplies) {
+        payload.amount = String(officeSuppliesTotal(payload.officeSupplies.items));
+        if (payload.officeSupplies.managerName) payload.personName = payload.officeSupplies.managerName;
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -5882,6 +5953,73 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     await saveBlobFileShareOrDownload(pdf.output('blob'), `${baseName}.pdf`);
   };
 
+  // [추가] 사무실 비품 관리 인쇄용 화면: 비품 목록 표 + 합계 + 담당자/기준일
+  const renderPrintableOfficeSupplies = () => {
+    if (!printingDoc || !printingDoc.officeSupplies) return null;
+    const os = printingDoc.officeSupplies;
+    const items = os.items || [];
+    const total = officeSuppliesTotal(items);
+    const companyName = currentUser?.companyName || '';
+    const fmt = (n: number) => n.toLocaleString('ko-KR');
+    const cell: React.CSSProperties = { border: '1px solid #000', padding: '6px 8px', fontSize: '12px', verticalAlign: 'middle' };
+    const head: React.CSSProperties = { ...cell, background: '#f1f5f9', fontWeight: 700, textAlign: 'center' };
+    return (
+      <div className="print-document-margins" style={{ width: '210mm', margin: '0 auto', padding: '20mm 15mm', fontFamily: 'sans-serif', color: '#111', boxSizing: 'border-box', fontSize: '12px', lineHeight: 1.5 }}>
+        <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, letterSpacing: '8px', marginBottom: '6mm' }}>사무실 비품 관리 대장</h1>
+        <p style={{ textAlign: 'right', margin: '0 0 2mm', fontWeight: 700 }}>{companyName}</p>
+        <p style={{ margin: '0 0 4mm' }}>기준일: {os.asOfDate || ''} &nbsp;·&nbsp; 담당자: {os.managerName || ''}</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '16%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '10%' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={head}>No</th>
+              <th style={head}>비품명</th>
+              <th style={head}>규격</th>
+              <th style={head}>수량</th>
+              <th style={head}>단가(원)</th>
+              <th style={head}>금액(원)</th>
+              <th style={head}>구입일</th>
+              <th style={head}>비고</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 && (
+              <tr><td colSpan={8} style={{ ...cell, textAlign: 'center' }}>등록된 비품이 없습니다.</td></tr>
+            )}
+            {items.map((it, i) => (
+              <tr key={it.id}>
+                <td style={{ ...cell, textAlign: 'center' }}>{i + 1}</td>
+                <td style={cell}>{it.name}</td>
+                <td style={cell}>{it.spec || ''}</td>
+                <td style={{ ...cell, textAlign: 'right' }}>{fmt(Number(it.quantity) || 0)}</td>
+                <td style={{ ...cell, textAlign: 'right' }}>{fmt(Number(it.unitPrice) || 0)}</td>
+                <td style={{ ...cell, textAlign: 'right' }}>{fmt((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0))}</td>
+                <td style={{ ...cell, textAlign: 'center' }}>{it.purchaseDate || ''}</td>
+                <td style={cell}>{it.note || ''}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={5} style={{ ...head, textAlign: 'right' }}>합계</td>
+              <td style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{fmt(total)}</td>
+              <td colSpan={2} style={cell}></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
+  };
+
   const renderActivePrintable = () => {
     if (!printingDoc) return null;
     if (printingDoc.category === 'payslip') return renderPrintablePayslip();
@@ -5902,6 +6040,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (printingDoc.category === 'power_of_attorney') return renderPrintablePowerOfAttorney();
     if (printingDoc.category === 'sales_contract') return renderPrintableSalesContract();
     if (printingDoc.category === 'severance') return renderPrintableSeverance();
+    if (printingDoc.category === 'office_supplies') return renderPrintableOfficeSupplies();
     return null;
   };
 
@@ -6206,7 +6345,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance) || (d.category === 'office_supplies' && d.officeSupplies)) && (
                     <button
                       onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
@@ -9908,7 +10047,105 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   </div>
                 )}
 
-                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && activeCategory !== 'advance_payment' && activeCategory !== 'vehicle_fine' && activeCategory !== 'tax' && activeCategory !== 'management_fee' && (
+                {activeCategory === 'office_supplies' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={editingDoc.officeSupplies?.managerName || ''}
+                        onChange={(e) => updateOfficeSuppliesField({ managerName: e.target.value })}
+                        placeholder="담당자"
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="date"
+                        value={editingDoc.officeSupplies?.asOfDate || ''}
+                        onChange={(e) => updateOfficeSuppliesField({ asOfDate: e.target.value })}
+                        className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">비품 목록</label>
+                      <button
+                        type="button"
+                        onClick={addOfficeSupplyItem}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-700 text-xs font-bold"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        비품 추가
+                      </button>
+                    </div>
+                    {(editingDoc.officeSupplies?.items || []).map((it, idx) => (
+                      <div key={it.id} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="shrink-0 w-5 text-[11px] text-slate-400 text-center">{idx + 1}</span>
+                          <input
+                            type="text"
+                            value={it.name}
+                            onChange={(e) => updateOfficeSupplyItem(it.id, { name: e.target.value })}
+                            placeholder="비품명"
+                            className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeOfficeSupplyItem(it.id)}
+                            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500"
+                            aria-label="비품 삭제"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          <input
+                            type="text"
+                            value={it.spec || ''}
+                            onChange={(e) => updateOfficeSupplyItem(it.id, { spec: e.target.value })}
+                            placeholder="규격"
+                            className="min-w-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            value={it.quantity ?? ''}
+                            onChange={(e) => updateOfficeSupplyItem(it.id, { quantity: Number(e.target.value) })}
+                            placeholder="수량"
+                            className="min-w-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            value={it.unitPrice ?? ''}
+                            onChange={(e) => updateOfficeSupplyItem(it.id, { unitPrice: Number(e.target.value) })}
+                            placeholder="단가(원)"
+                            className="min-w-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <input
+                            type="date"
+                            value={it.purchaseDate || ''}
+                            onChange={(e) => updateOfficeSupplyItem(it.id, { purchaseDate: e.target.value })}
+                            className="min-w-0 max-w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={it.note || ''}
+                            onChange={(e) => updateOfficeSupplyItem(it.id, { note: e.target.value })}
+                            placeholder="비고"
+                            className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          />
+                          <span className="shrink-0 text-[11px] text-slate-500 whitespace-nowrap">
+                            {((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0)).toLocaleString('ko-KR')}원
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-right text-xs font-bold text-slate-700">
+                      합계: {officeSuppliesTotal(editingDoc.officeSupplies?.items).toLocaleString('ko-KR')}원
+                    </p>
+                  </div>
+                )}
+                {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && activeCategory !== 'office_supplies' && activeCategory !== 'advance_payment' && activeCategory !== 'vehicle_fine' && activeCategory !== 'tax' && activeCategory !== 'management_fee' && (
                   <div>
                     <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">금액</label>
                     <input
@@ -10215,6 +10452,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'overseas_trip' && (
             <button
               onClick={handleExportOverseasTripExcel}
+              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 다운
+            </button>
+          )}
+          {printingDoc.category === 'office_supplies' && (
+            <button
+              onClick={() => {
+                handleExportOfficeSuppliesExcel().catch((err) => alert(`엑셀 저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`));
+              }}
               className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
