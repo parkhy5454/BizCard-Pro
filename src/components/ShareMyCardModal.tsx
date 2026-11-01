@@ -227,12 +227,29 @@ export const ShareMyCardModal: React.FC<Props> = ({ onClose }) => {
   // 업로드한 내 명함 사진(앞/뒤)을 AI로 인식해서 입력 폼에 자동 반영
   // [수정] overrideFront/overrideBack을 받을 수 있게 해서, 방금 찍거나 올린 사진을 state 갱신을
   // 기다리지 않고 바로 넘겨 스캔할 수 있도록 한다.
+  // [수정] 저장된 명함 사진은 저장소 URL(https://...)로 내려오는데, AI 인식 API는 base64(data:)만 받는다.
+  // 그래서 URL이면 먼저 이미지를 받아 data URL로 바꿔서 보낸다. (업로드 직후 사진은 이미 data URL이라 그대로 통과)
+  const ensureDataUrl = async (src: string): Promise<string> => {
+    if (!src || src.startsWith('data:')) return src;
+    const imgRes = await fetch(src);
+    if (!imgRes.ok) throw new Error('저장된 명함 사진을 불러오지 못했습니다.');
+    const blob = await imgRes.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('명함 사진 변환에 실패했습니다.'));
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const handleRunProfileScan = async (overrideFront?: string, overrideBack?: string) => {
-    const targetFront = overrideFront !== undefined ? overrideFront : scanImg;
-    const targetBack = overrideBack !== undefined ? overrideBack : scanImgBack;
-    if (!targetFront && !targetBack) return;
+    const rawFront = overrideFront !== undefined ? overrideFront : scanImg;
+    const rawBack = overrideBack !== undefined ? overrideBack : scanImgBack;
+    if (!rawFront && !rawBack) return;
     setIsScanning(true);
     try {
+      const targetFront = await ensureDataUrl(rawFront || '');
+      const targetBack = await ensureDataUrl(rawBack || '');
       const res = await fetch('/api/scan-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
