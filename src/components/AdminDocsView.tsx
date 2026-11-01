@@ -10943,7 +10943,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   )}
                   {/* 이 페이지 맨 아래 실선: 다음 페이지 표의 세로선 범위만큼 (저장 PDF와 같은 규칙) */}
                   {previewFit.bottoms?.[i]?.map((seg, k) => (
-                    <div key={`bottom-${k}`} className="absolute z-10 border-t border-slate-900" style={{ top: (sl.topMm + sl.usableMm) * MM_TO_PX, left: seg.leftMm * MM_TO_PX, width: (seg.rightMm - seg.leftMm) * MM_TO_PX }} />
+                    <div key={`bottom-${k}`} className="absolute z-10 bg-black" style={{ top: Math.round((sl.topMm + sl.usableMm) * MM_TO_PX), height: 1, left: seg.leftMm * MM_TO_PX, width: (seg.rightMm - seg.leftMm) * MM_TO_PX }} />
                   ))}
                   <div className="absolute left-0 overflow-hidden bg-white" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
                     <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx, transform: previewFit.contentScale < 1 ? `scale(${previewFit.contentScale})` : undefined, transformOrigin: 'top left' }}>

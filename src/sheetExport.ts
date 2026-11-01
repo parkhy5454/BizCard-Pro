@@ -426,19 +426,34 @@ export const bottomOpenSegmentsPx = (canvas: HTMLCanvasElement, boundaryPx: numb
   const rows = Math.min(6, yEnd);
   if (rows <= 0) return [];
   const d = ctx.getImageData(0, yEnd - rows, width, rows).data;
-  const segs: { x1: number; x2: number }[] = [];
-  let start = -1;
   const xs = Math.max(0, Math.round(xlPx));
   const xe = Math.min(width - 1, Math.round(xrPx));
+  // 열마다 어두운 줄이 있는지 본다
+  const dark: boolean[] = [];
   for (let x = xs; x <= xe; x++) {
-    let dark = false;
+    let hit = false;
     for (let r = 0; r < rows; r++) {
-      if (d[(r * width + x) * 4] < 200) { dark = true; break; }
+      if (d[(r * width + x) * 4] < 200) { hit = true; break; }
     }
-    if (!dark && start < 0) start = x;
-    if (dark && start >= 0) { segs.push({ x1: start, x2: x - 1 }); start = -1; }
+    dark.push(hit);
   }
-  if (start >= 0) segs.push({ x1: start, x2: xe });
+  // 세로선(폭 1~3px)은 무시하고, 넓게 이어진 어두운 구간(표의 가로 테두리)만 "이미 선이 있는 곳"으로 본다
+  const blocked: boolean[] = dark.map(() => false);
+  let i = 0;
+  while (i < dark.length) {
+    if (!dark[i]) { i++; continue; }
+    let j = i;
+    while (j < dark.length && dark[j]) j++;
+    if (j - i >= 4) for (let k = i; k < j; k++) blocked[k] = true;
+    i = j;
+  }
+  const segs: { x1: number; x2: number }[] = [];
+  let start = -1;
+  for (let k = 0; k <= blocked.length; k++) {
+    const open = k < blocked.length && !blocked[k];
+    if (open && start < 0) start = k;
+    if (!open && start >= 0) { segs.push({ x1: xs + start, x2: xs + k - 1 }); start = -1; }
+  }
   return segs.filter((g) => g.x2 - g.x1 >= 1);
 };
 
