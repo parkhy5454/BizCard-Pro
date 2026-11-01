@@ -6213,18 +6213,19 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <div onClick={() => setEditingDoc(null)} className="hidden md:block fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div className="flex min-h-full md:min-h-screen items-stretch md:items-center justify-center p-0 md:p-4">
             <div className="relative w-full md:max-w-lg bg-white md:border md:border-slate-200 rounded-none md:rounded-3xl p-5 md:p-6 shadow-none md:shadow-2xl space-y-4 z-10">
-              <button
-                onClick={() => setEditingDoc(null)}
-                className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-2 pr-8">
-                <FileText className="w-5 h-5 text-indigo-500" />
-                <h3 className="text-base font-bold text-slate-800">
-                  {editingDoc.id ? `${activeConfig.label} 수정` : `${activeConfig.label} 추가`}
-                </h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-5 h-5 text-indigo-500 shrink-0" />
+                  <h3 className="text-base font-bold text-slate-800 truncate">
+                    {editingDoc.id ? `${activeConfig.label} 수정` : `${activeConfig.label} 추가`}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setEditingDoc(null)}
+                  className="shrink-0 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               <div className="space-y-3 text-sm">
