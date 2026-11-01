@@ -311,7 +311,9 @@ export const pageCutCandidatesPx = (canvas: HTMLCanvasElement): number[] => {
       if (blank) {
         if (blankStart < 0) blankStart = y;
       } else if (blankStart >= 0) {
-        cands.push(Math.round((blankStart + y) / 2));
+        // 빈 줄 구간의 "시작 쪽"(글자 바로 아래)에서 자른다. 가운데에서 자르면 그 아래 글자(예: 표 아래 입금 계좌 줄)가
+        // 실제로 남는데도 다음 페이지로 밀려난다. 자르는 줄은 항상 빈 줄이라 글자가 잘리지 않는다.
+        cands.push(blankStart + Math.min(Math.round((y - blankStart) / 2), 12));
         blankStart = -1;
       }
       if (heavy) {
