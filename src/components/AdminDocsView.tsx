@@ -6,7 +6,7 @@ import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project,
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
-import { saveBlobFileShareOrDownload, buildSheetGrid, writeSheetGridXlsx } from '../sheetExport.js';
+import { saveBlobFileShareOrDownload } from '../sheetExport.js';
 
 import { getErrorMessage } from '../errorUtils.js';
 import type { Worksheet, Fill } from 'exceljs';
@@ -1692,11 +1692,34 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 인쇄 미리보기 화면을 그대로 엑셀(.xlsx)로 저장한다.
   // 전용 엑셀 함수가 없는 서류(근로계약서·연봉협약서·재직증명서·위임장·사무실 비품·영업 계약)에 쓴다.
   const handleExportPreviewExcel = async () => {
-    const html = previewPaperRef.current?.innerHTML;
-    if (!printingDoc || !html) return;
+    const el = previewPaperRef.current;
+    if (!printingDoc || !el) return;
     const baseName = (printingDoc.title || '서류').replace(/[\\/?*\[\]:]/g, ' ').trim() || '서류';
-    const grid = buildSheetGrid(html);
-    const blob = await writeSheetGridXlsx(grid, baseName.slice(0, 31));
+    // 미리보기 화면을 PDF 저장과 같은 방식으로 이미지로 캡처해서 엑셀 한 칸에 넣는다.
+    // (표·테두리·글자 위치가 화면/PDF와 똑같이 나오도록 셀 단위 변환은 쓰지 않는다)
+    const { default: html2canvas } = await import('html2canvas');
+    const holder = document.createElement('div');
+    holder.style.position = 'fixed';
+    holder.style.left = '-20000px';
+    holder.style.top = '0';
+    holder.style.background = '#ffffff';
+    const clone = el.cloneNode(true) as HTMLElement;
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
+    let canvas: HTMLCanvasElement;
+    try {
+      centerCellsInRoot(clone);
+      canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
+    } finally {
+      holder.remove();
+    }
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(baseName.slice(0, 31));
+    const imgId = wb.addImage({ base64: canvas.toDataURL('image/png').split(',')[1], extension: 'png' });
+    ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: canvas.width / 2, height: canvas.height / 2 } });
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     await saveBlobFileShareOrDownload(blob, `${baseName}.xlsx`);
   };
 
