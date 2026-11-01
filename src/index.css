@@ -419,6 +419,9 @@ html, body, #root { height: 100%; }
 /* 앱 전체 바탕: 흰색. 카드는 얇은 테두리와 그림자로 구분된다 */
 .app-shell { background-color: #FFFFFF; }
 
+/* 아이폰에서 화면 전체가 위아래로 튕기며 상단 탭까지 밀리는 것을 막는다 (본문 스크롤은 그대로) */
+html, body, .app-shell { overscroll-behavior: none; }
+
 /* 누름 반응: 버튼을 누르면 살짝 줄어들어 눌렸다는 것이 바로 보이게 한다 */
 button:not(:disabled), [role="button"] {
   transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
