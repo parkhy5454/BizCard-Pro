@@ -324,6 +324,9 @@ export const pageCutCandidatesPx = (canvas: HTMLCanvasElement): number[] => {
       }
     }
   }
+  // 맨 아래까지 이어지는 빈 공간(마지막 글자 아래)도 자를 수 있는 곳이다.
+  // 이게 빠지면 글자 사이의 빈 줄만 후보가 되어, 페이지에 남는 공간이 많은데도 다음 페이지로 밀려난다.
+  if (blankStart >= 0) cands.push(Math.min(height - 1, blankStart + 12));
   return cands.sort((a, b) => a - b);
 };
 
