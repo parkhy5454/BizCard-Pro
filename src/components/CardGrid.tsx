@@ -218,6 +218,11 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
     try { return localStorage.getItem('bizcard_relationship_intel_dismissed_date') || ''; } catch { return ''; }
   });
   const isIntelDismissed = intelDismissedDate === todayStr;
+  // [추가] 모바일에서는 로그인 직후 패널을 접힌 칩(탭 줄)으로 두고, 칩을 눌렀을 때만 펼친다.
+  // 이 상태는 저장하지 않고 화면 세션 동안만 유지한다. PC는 기존 동작 그대로.
+  const [intelExpandedOnMobile, setIntelExpandedOnMobile] = useState(false);
+  const isMobileView = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 767px)').matches;
+  const isIntelCollapsed = isIntelDismissed || (isMobileView && !intelExpandedOnMobile);
   const dismissIntelForToday = () => {
     try { localStorage.setItem('bizcard_relationship_intel_dismissed_date', todayStr); } catch {}
     setIntelDismissedDate(todayStr);
@@ -353,10 +358,10 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         if (topInsights.length === 0 && missingParticipants.length === 0) return null;
 
         // 오늘 이미 닫은 상태면, 완전히 숨기지 않고 작은 뱃지로 흔적을 남긴다
-        if (isIntelDismissed) {
+        if (isIntelCollapsed) {
           dismissedIntelChip = (
             <button
-              onClick={reopenIntel}
+              onClick={isIntelDismissed ? reopenIntel : () => setIntelExpandedOnMobile(true)}
               className="flex-1 min-w-0 h-10 flex items-center justify-center gap-1 px-2 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-600 text-xs font-semibold whitespace-nowrap text-center transition-all"
             >
               <Handshake className="w-3.5 h-3.5 shrink-0" />
@@ -369,9 +374,9 @@ export const CardGrid: React.FC<Props> = ({ contacts, groups, projects = [], cur
         return (
           <div className="relative bg-white px-4 pt-1 pb-3 -mt-2 animate-fadeIn max-w-3xl mx-auto">
             <button
-              onClick={dismissIntelForToday}
+              onClick={isMobileView ? () => setIntelExpandedOnMobile(false) : dismissIntelForToday}
               className="absolute top-3 right-3 p-1.5 rounded-lg text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 transition-colors"
-              title="오늘 하루 닫기"
+              title={isMobileView ? '접기' : '오늘 하루 닫기'}
             >
               <X className="w-4 h-4" />
             </button>
