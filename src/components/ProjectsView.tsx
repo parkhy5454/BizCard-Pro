@@ -4367,7 +4367,7 @@ export const ProjectsView: React.FC<Props> = ({
                         {followupDraft.prompt && followupDraft.prompt.data.projectId === proj.id && (
                           <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
                             <p className="text-sm font-bold text-amber-800">임시 저장된 미팅 기록이 있습니다</p>
-                            <p className="text-xs text-amber-700">{new Date(followupDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                            <p className="text-xs text-amber-700">({new Date(followupDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                             <div className="flex gap-2">
                               <button type="button" onClick={followupDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
                               <button type="button" onClick={followupDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
@@ -5007,8 +5007,8 @@ export const ProjectsView: React.FC<Props> = ({
               {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
               {newProjectDraft.prompt && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
-                  <p className="text-xs text-amber-700">{new Date(newProjectDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <p className="text-sm font-bold text-amber-800">임시 저장 내용 있음</p>
+                  <p className="text-xs text-amber-700">({new Date(newProjectDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                   <div className="flex gap-2">
                     <button type="button" onClick={newProjectDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
                     <button type="button" onClick={newProjectDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
@@ -5320,7 +5320,7 @@ export const ProjectsView: React.FC<Props> = ({
               {projectEditDraft.prompt && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
                   <p className="text-sm font-bold text-amber-800">임시 저장된 수정 내용이 있습니다</p>
-                  <p className="text-xs text-amber-700">{new Date(projectEditDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 수정한 내용도 보입니다)</p>
+                  <p className="text-xs text-amber-700">({new Date(projectEditDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                   <div className="flex gap-2">
                     <button type="button" onClick={projectEditDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 수정</button>
                     <button type="button" onClick={projectEditDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>

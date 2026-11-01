@@ -2710,8 +2710,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
               {advanceDraft.prompt && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
-                  <p className="text-xs text-amber-700">{new Date(advanceDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <p className="text-sm font-bold text-amber-800">임시 저장 내용 있음</p>
+                  <p className="text-xs text-amber-700">({new Date(advanceDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                   <div className="flex gap-2">
                     <button type="button" onClick={advanceDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
                     <button type="button" onClick={advanceDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
@@ -2994,8 +2994,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
               {leaveDraft.prompt && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
-                  <p className="text-xs text-amber-700">{new Date(leaveDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <p className="text-sm font-bold text-amber-800">임시 저장 내용 있음</p>
+                  <p className="text-xs text-amber-700">({new Date(leaveDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                   <div className="flex gap-2">
                     <button type="button" onClick={leaveDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
                     <button type="button" onClick={leaveDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
@@ -3234,8 +3234,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
               {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
               {officialDraft.prompt && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
-                  <p className="text-xs text-amber-700">{new Date(officialDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <p className="text-sm font-bold text-amber-800">임시 저장 내용 있음</p>
+                  <p className="text-xs text-amber-700">({new Date(officialDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                   <div className="flex gap-2">
                     <button type="button" onClick={officialDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
                     <button type="button" onClick={officialDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>

@@ -1041,7 +1041,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
               {cardDraft.prompt && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
                   <p className="text-sm font-bold text-amber-800">임시 저장된 수정 내용이 있습니다</p>
-                  <p className="text-xs text-amber-700">{new Date(cardDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 수정한 내용도 보입니다)</p>
+                  <p className="text-xs text-amber-700">({new Date(cardDraft.prompt.savedAt).toLocaleString('ko-KR')} 저장)</p>
                   <div className="flex gap-2">
                     <button type="button" onClick={cardDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 수정</button>
                     <button type="button" onClick={cardDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
