@@ -8344,6 +8344,55 @@ app.delete('/api/admin-docs/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// [추가] 경영지원 문서 작성 중 임시 저장(드래프트). 작성 화면에서 입력이 잠시 멈추면 서버에 자동
+// 저장하고, 다른 기기에서 같은 서류를 열어도 이어서 쓸 수 있게 한다. 드래프트는 작성한 관리자
+// 본인만 조회/삭제할 수 있고, 저장이 끝나면 클라이언트가 삭제한다. 첨부파일은 용량 때문에 넣지 않는다.
+// 드래프트는 로그인한 사용자 본인 것만 보이고 지울 수 있다(key 앞에 사용자 id를 붙여 구분).
+// 앱의 여러 작성 화면이 같은 API를 쓰도록 서류 종류와 무관한 범용 구조로 만들었다.
+const DRAFT_COLLECTION = 'drafts';
+type DraftRecord = { id: string; userId: string; key: string; category: string; data: unknown; savedAt: string };
+function draftRequester(req: express.Request, res: express.Response): RegisteredUser | null {
+  const userId = req.headers['x-user-id'] as string;
+  const requester = userId ? users.find(u => u.id === userId) : undefined;
+  if (!requester) { res.status(401).json({ error: '로그인이 필요합니다.' }); return null; }
+  return requester;
+}
+
+app.get('/api/drafts/:key', async (req, res) => {
+  const requester = draftRequester(req, res);
+  if (!requester) return;
+  const draftId = `${requester.id}|${req.params.key}`;
+  const drafts = await getScopedCollection<DraftRecord>(req.scopeId, DRAFT_COLLECTION);
+  res.json(drafts.find((d) => d.id === draftId) || null);
+});
+
+app.put('/api/drafts/:key', async (req, res) => {
+  const requester = draftRequester(req, res);
+  if (!requester) return;
+  const { category, data } = req.body || {};
+  if (JSON.stringify(data ?? null).length > 2_000_000) {
+    return res.status(413).json({ error: '임시 저장 내용이 너무 큽니다.' });
+  }
+  const draft: DraftRecord = {
+    id: `${requester.id}|${req.params.key}`,
+    userId: requester.id,
+    key: req.params.key,
+    category: String(category || ''),
+    data: data ?? null,
+    savedAt: new Date().toISOString()
+  };
+  const ok = await setScopedDoc(req.scopeId, DRAFT_COLLECTION, draft);
+  if (!ok) return res.status(500).json({ error: '임시 저장에 실패했습니다.' });
+  res.json(draft);
+});
+
+app.delete('/api/drafts/:key', async (req, res) => {
+  const requester = draftRequester(req, res);
+  if (!requester) return;
+  await deleteScopedDoc(req.scopeId, DRAFT_COLLECTION, `${requester.id}|${req.params.key}`);
+  res.json({ success: true });
+});
+
 // [추가] 경영지원 서류들(근로계약서/재직증명서 등)과 전자결재 공문서에서 반복해서 써야 하는
 // "회사 사업체 주소·사업종류·전화/팩스/이메일·공문서 시행번호 접두어"를 한 번만 입력하면 다음부터
 // 자동으로 불러와지도록, 회사 스코프에 하나만 저장해두는 간단한 설정값. 여러 문서를 만들 때마다

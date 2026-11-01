@@ -1006,6 +1006,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDoc, setEditingDoc] = useState<Partial<AdminDoc> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // [추가] 작성 중 임시 저장(서버 보관 - 다른 기기에서도 이어서 작성). 열린 문서의 키와 처음 열었을 때의
+  // 내용을 기억해서, 사용자가 바꾼 경우에만 자동 저장한다.
+  const draftOpenRef = useRef<{ key: string; snapshot: string } | null>(null);
+  const draftTimerRef = useRef<number | null>(null);
+  const [draftPrompt, setDraftPrompt] = useState<{ key: string; data: Partial<AdminDoc>; savedAt: string } | null>(null);
   // [추가] 근로계약서/연봉협약서/재직증명서에서 반복 입력해야 하는 "회사 사업체 주소·사업종류"를
   // 한 번만 입력하면 다음부터 자동으로 채워지도록, 회사 스코프에 저장된 값을 가져와둔다.
   const [companySettings, setCompanySettings] = useState<{ address: string; businessType: string }>({ address: '', businessType: '' });
@@ -2623,6 +2628,60 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 서류 종류 탭을 바꾸면 열려 있던 인쇄 미리보기와 작성/수정 화면은 닫는다.
   // (모바일에서는 상단 탭이 작성 화면 위에 그대로 보여서, 닫지 않으면 이전 탭의 작성 화면이 남는다)
   useEffect(() => { setPrintingDoc(null); setEditingDoc(null); }, [activeCategory]);
+
+  // [추가] 작성 중 임시 저장 - 서버에 드래프트를 보관하고, 열 때 이어 쓸지 묻는다.
+  const draftRequestHeaders = (): Record<string, string> => ({ 'Content-Type': 'application/json', 'x-user-id': currentUser?.id || '' });
+  const draftUrlFor = (key: string) => `/api/drafts/${encodeURIComponent(key)}`;
+  const discardDraft = (key: string) => {
+    if (draftTimerRef.current) { window.clearTimeout(draftTimerRef.current); draftTimerRef.current = null; }
+    fetch(draftUrlFor(key), { method: 'DELETE', headers: draftRequestHeaders() }).catch(() => {});
+  };
+  const saveDraftNow = (key: string, category: string, doc: Partial<AdminDoc>) => {
+    // 첨부파일은 용량이 커서 임시 저장에서 뺀다 (이어 쓸 때 원래 첨부는 그대로 유지됨)
+    const data = { ...doc, attachments: undefined };
+    fetch(draftUrlFor(key), { method: 'PUT', headers: draftRequestHeaders(), body: JSON.stringify({ category, data }) }).catch(() => {});
+  };
+  // 문서 작성 화면이 처음 열릴 때: 현재 내용을 기준으로 기억하고, 서버에 임시 저장본이 있으면 알려준다.
+  useEffect(() => {
+    if (!editingDoc) { draftOpenRef.current = null; setDraftPrompt(null); return; }
+    if (draftOpenRef.current) return;
+    const key = `admin-doc:${editingDoc.category || activeCategory}:${editingDoc.id || 'new'}`;
+    draftOpenRef.current = { key, snapshot: JSON.stringify(editingDoc) };
+    if (!currentUser) return;
+    fetch(draftUrlFor(key), { headers: draftRequestHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        // 열린 화면이 그대로일 때만 알린다 (그 사이 다른 문서로 바뀌었으면 무시)
+        if (d && d.data && draftOpenRef.current?.key === key) setDraftPrompt({ key, data: d.data, savedAt: d.savedAt });
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingDoc]);
+  // 내용이 바뀌면 1.2초 뒤 서버에 자동 저장한다. 바뀐 뒤에는 "이어서 작성" 안내를 거둔다.
+  useEffect(() => {
+    const open = draftOpenRef.current;
+    if (!editingDoc || !open) return;
+    if (JSON.stringify(editingDoc) === open.snapshot) return;
+    setDraftPrompt(null);
+    if (draftTimerRef.current) window.clearTimeout(draftTimerRef.current);
+    const category = editingDoc.category || activeCategory;
+    const latest = editingDoc;
+    draftTimerRef.current = window.setTimeout(() => {
+      draftTimerRef.current = null;
+      saveDraftNow(open.key, category, latest);
+    }, 1200);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingDoc]);
+  const restoreDraft = () => {
+    if (!draftPrompt) return;
+    const draft = draftPrompt.data;
+    setEditingDoc((prev) => prev ? { ...draft, id: prev.id, attachments: prev.attachments } : prev);
+    setDraftPrompt(null);
+  };
+  const dismissDraft = () => {
+    if (draftPrompt) discardDraft(draftPrompt.key);
+    setDraftPrompt(null);
+  };
 
   // [추가] 법인카드 관리 - "전체 카드 한 페이지로 보기"에서 고를 대상 연월
   const [corpCardMergeMonth, setCorpCardMergeMonth] = useState('');
@@ -4255,7 +4314,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       }
       const saved: AdminDoc = await res.json();
       setDocs((prev) => isNew ? [saved, ...prev] : prev.map((d) => d.id === saved.id ? saved : d));
+      // [추가] 저장이 끝났으니 임시 저장본은 지운다
+      const openedDraftKey = draftOpenRef.current?.key;
       setEditingDoc(null);
+      if (openedDraftKey) discardDraft(openedDraftKey);
     } catch (err: unknown) {
       alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
     } finally {
@@ -6641,6 +6703,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              {draftPrompt && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
+                  <p className="text-xs text-amber-700">{new Date(draftPrompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={restoreDraft} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                    <button type="button" onClick={dismissDraft} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3 text-sm">
                 <div>
