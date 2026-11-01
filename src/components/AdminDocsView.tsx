@@ -885,24 +885,17 @@ function calcDeductions(
 export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects }) => {
   const categories = CATEGORY_CONFIG[section];
   const [activeCategory, setActiveCategory] = useState<AdminDocCategory>(categories[0].id);
-  // [추가] 모바일: 서류 종류 탭과 검색 줄을 상단 헤더 아래에 고정 (전자결재와 같은 방식)
-  const adminTopRef = useRef<HTMLDivElement>(null);
-  const [adminTopHeight, setAdminTopHeight] = useState(0);
+  // [추가] 모바일: 서류 종류 탭과 검색 줄은 헤더 바로 아래에 붙어 있도록 sticky로 고정한다
+  // (fixed + 높이 측정 방식은 스크롤 때 탭이 위아래로 흔들려서 바꿈)
   const [adminHeaderBottom, setAdminHeaderBottom] = useState(0);
   useLayoutEffect(() => {
     const measure = () => {
       const h = document.querySelector('header');
       setAdminHeaderBottom(h ? Math.round(h.getBoundingClientRect().bottom) : 0);
-      if (adminTopRef.current) setAdminTopHeight(Math.round(adminTopRef.current.getBoundingClientRect().height));
     };
     measure();
     window.addEventListener('resize', measure);
-    const ro = typeof ResizeObserver !== 'undefined' && adminTopRef.current ? new ResizeObserver(measure) : null;
-    if (ro && adminTopRef.current) ro.observe(adminTopRef.current);
-    return () => {
-      window.removeEventListener('resize', measure);
-      ro?.disconnect();
-    };
+    return () => window.removeEventListener('resize', measure);
   }, []);
   const [docs, setDocs] = useState<AdminDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -5876,9 +5869,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-500/30 px-2.5 py-1 rounded-full font-semibold">관리자 전용</span>
       </div>
 
-      {/* 모바일: 서류 종류 탭과 검색 줄을 상단에 고정 (PC는 그대로) */}
-      <div className="md:hidden" style={{ height: adminTopHeight }} />
-      <div ref={adminTopRef} id="admin-fixed-top" style={{ top: adminHeaderBottom }} className="fixed inset-x-0 z-40 bg-white px-3 pt-1 pb-2 space-y-2 md:static md:bg-transparent md:p-0 md:space-y-5">
+      {/* 모바일: 서류 종류 탭과 검색 줄을 헤더 아래에 sticky로 고정 (PC는 그대로) */}
+      <div id="admin-fixed-top" style={{ top: adminHeaderBottom }} className="sticky z-40 -mx-4 bg-white px-4 pt-1 pb-2 space-y-2 md:static md:mx-0 md:bg-transparent md:p-0 md:space-y-5">
       {/* 서류 종류 서브 탭 */}
       <div className="flex items-end gap-6 overflow-x-auto scrollbar-none md:border-b md:border-slate-200">
         {categories.map((c) => (
@@ -5940,7 +5932,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <span>{activeConfig.label} 추가</span>
         </button>
       </div>
-      <div aria-hidden className="md:hidden h-px bg-slate-300 -mx-3" />
+      <div aria-hidden className="md:hidden h-px bg-slate-300 -mx-4" />
       </div>
 
       {/* [추가] 통장 출금/입금 내역만 엑셀 가져오기/내보내기 제공. 은행 사이트에서 받은
