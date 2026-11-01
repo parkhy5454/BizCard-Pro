@@ -330,6 +330,23 @@ const officeSuppliesTotal = (items?: { quantity?: number; unitPrice?: number }[]
 // [추가] 회계관리 표 중 전용 엑셀 함수가 없는 서류: 미리보기 화면을 그대로 엑셀로 저장한다
 const PREVIEW_EXCEL_CATEGORIES: string[] = ['payslip', 'severance', 'monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'tax'];
 
+// [추가] 미리보기·PDF 공통 페이지 나눔: 1페이지는 아래 여백 25mm, 2페이지부터는 위·아래 여백 25mm
+const PAGE_MARGIN_MM = 25;
+const MM_TO_PX = 96 / 25.4;
+type PageSlice = { offsetMm: number; usableMm: number; topMm: number };
+const splitPagesMm = (naturalMm: number, pageMm: number): PageSlice[] => {
+  const slices: PageSlice[] = [];
+  let consumed = 0;
+  for (;;) {
+    const topMm = slices.length === 0 ? 0 : PAGE_MARGIN_MM;
+    const usableMm = pageMm - topMm - PAGE_MARGIN_MM;
+    slices.push({ offsetMm: consumed, usableMm, topMm });
+    consumed += usableMm;
+    if (consumed >= naturalMm - 0.5) break;
+  }
+  return slices;
+};
+
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
   const header = document.querySelector('header');
@@ -1739,6 +1756,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     holder.style.background = '#ffffff';
     const clone = el.cloneNode(true) as HTMLElement;
     clone.style.transform = 'none'; // [추가] 휴대폰 미리보기 축소(scale)가 저장 파일에 들어가지 않게 원래 크기로 되돌린다
+    clone.style.position = 'relative'; // [추가] 미리보기에서는 절대 위치로 겹쳐 있으므로 저장용 복제본은 일반 배치로 바꾼다
+    clone.style.top = '0px';
+    clone.style.left = '0px';
     holder.appendChild(clone);
     document.body.appendChild(holder);
     let canvas: HTMLCanvasElement;
@@ -2515,20 +2535,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const preparedRef = useRef<{ pdf?: { blob: Blob; fileName: string }; excel?: { blob: Blob; fileName: string } }>({});
   const prepTokenRef = useRef(0);
   // [추가] 미리보기 맞춤: 휴대폰에서는 종이 폭을 화면 폭에 맞춰 줄이고, A4 한 장 높이마다 페이지 구분선을 넣는다
-  const [previewFit, setPreviewFit] = useState({ scale: 1, height: 0, pages: 1, pageH: 1123, paperW: 794 });
+  const [previewFit, setPreviewFit] = useState<{ scale: number; paperWpx: number; pageHpx: number; slices: PageSlice[] }>({ scale: 1, paperWpx: 794, pageHpx: 1123, slices: [{ offsetMm: 0, usableMm: 272, topMm: 0 }] });
   useLayoutEffect(() => {
     if (!printingDoc) return;
     const el = previewPaperRef.current;
     if (!el) return;
     const landscape = ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category);
-    const paperW = landscape ? 1123 : 794;
-    const pageH = landscape ? 794 : 1123;
+    const paperWmm = landscape ? 297 : 210;
+    const pageMm = landscape ? 210 : 297;
+    const paperWpx = paperWmm * MM_TO_PX;
+    const pageHpx = pageMm * MM_TO_PX;
     const update = () => {
-      const natural = el.offsetHeight;
+      const naturalMm = el.offsetHeight / MM_TO_PX;
       const vw = window.innerWidth;
-      const scale = vw < 768 ? Math.min(1, (vw - 32) / paperW) : 1;
-      const pages = Math.max(1, Math.ceil(natural / pageH));
-      setPreviewFit({ scale, height: natural, pages, pageH, paperW });
+      const scale = vw < 768 ? Math.min(1, (vw - 32) / paperWpx) : 1;
+      setPreviewFit({ scale, paperWpx, pageHpx, slices: splitPagesMm(naturalMm, pageMm) });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -6037,6 +6058,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     holder.style.background = '#ffffff';
     const clone = el.cloneNode(true) as HTMLElement;
     clone.style.transform = 'none'; // [추가] 휴대폰 미리보기 축소(scale)가 저장 파일에 들어가지 않게 원래 크기로 되돌린다
+    clone.style.position = 'relative'; // [추가] 미리보기에서는 절대 위치로 겹쳐 있으므로 저장용 복제본은 일반 배치로 바꾼다
+    clone.style.top = '0px';
+    clone.style.left = '0px';
     holder.appendChild(clone);
     document.body.appendChild(holder);
     let canvas: HTMLCanvasElement;
@@ -6047,29 +6071,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       holder.remove();
     }
     const pdf = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = isLandscape ? 297 : 210;
+    const paperWmm = isLandscape ? 297 : 210;
     const pageH = isLandscape ? 210 : 297;
-    const margin = 10;
-    const imgW = pageW - margin * 2;
-    const pxPerMm = canvas.width / imgW;
-    const sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
-    let y = 0;
-    let first = true;
-    while (y < canvas.height) {
-      const h = Math.min(sliceH, canvas.height - y);
+    const sideMarginMm = 10;
+    const imgW = paperWmm - sideMarginMm * 2;
+    const canvasPxPerMm = canvas.width / paperWmm;
+    const mmPerCanvasPx = imgW / canvas.width;
+    const slices = splitPagesMm(canvas.height / canvasPxPerMm, pageH);
+    slices.forEach((sl, i) => {
+      const srcY = Math.round(sl.offsetMm * canvasPxPerMm);
+      const srcH = Math.min(canvas.height - srcY, Math.round(sl.usableMm * canvasPxPerMm));
+      if (srcH <= 0) return;
       const part = document.createElement('canvas');
       part.width = canvas.width;
-      part.height = h;
+      part.height = srcH;
       const ctx = part.getContext('2d');
       if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, part.width, part.height);
-      ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
-      if (!first) pdf.addPage();
-      first = false;
-      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
-      y += h;
-    }
+      ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', sideMarginMm, sl.topMm, imgW, srcH * mmPerCanvasPx);
+    });
     const baseName = (printingDoc.title || '문서').replace(/[\\/:*?"<>|]/g, '_');
     await saveBlobFileShareOrDownload(pdf.output('blob'), `${baseName}.pdf`);
   };
@@ -10738,29 +10761,23 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         표가 흰 박스 폭을 넘어가 화면 밖으로 삐져나와 보였다. 실제 인쇄(#print-root)는 이
         바깥 박스와 무관하게 항상 올바르게 나왔던 것이라, 가로로 그리는 카테고리를 전부
         여기에도 반영해서 미리보기와 실제 인쇄가 항상 같은 폭으로 보이게 맞춘다. */}
-        <div
-          className="relative mx-auto"
-          style={{ width: previewFit.paperW * previewFit.scale, height: previewFit.height * previewFit.scale }}
-        >
-          <div
-            ref={previewPaperRef}
-            className="bg-white shadow-2xl relative"
-            style={{
-              width: `${previewFit.paperW}px`,
-              transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined,
-              transformOrigin: 'top left',
-            }}
-          >
-            {renderActivePrintable()}
-          </div>
-          {/* [추가] A4 한 장이 끝나는 곳마다 구분선을 넣어서 페이지가 넘어가는 것을 보여준다 */}
-          {Array.from({ length: previewFit.pages - 1 }, (_, k) => (
-            <div
-              key={`page-break-${k}`}
-              className="absolute left-0 right-0 flex items-center justify-center bg-slate-200 text-[11px] font-bold text-slate-500 pointer-events-none"
-              style={{ top: (k + 1) * previewFit.pageH * previewFit.scale - 8, height: 16 }}
-            >
-              {k + 2} / {previewFit.pages} 페이지
+        {/* [추가] 페이지마다 A4 한 장을 따로 보여준다. 1페이지는 아래 여백 25mm, 2페이지부터는 위·아래 여백 25mm */}
+        <div className="flex flex-col items-center gap-3 mx-auto" style={{ width: previewFit.paperWpx * previewFit.scale }}>
+          {previewFit.slices.map((sl, i) => (
+            <div key={`page-${i}`} className="w-full">
+              <div className="relative bg-white shadow-2xl overflow-hidden" style={{ width: previewFit.paperWpx * previewFit.scale, height: previewFit.pageHpx * previewFit.scale }}>
+                <div
+                  className="absolute left-0 top-0 overflow-hidden"
+                  style={{ width: previewFit.paperWpx, height: previewFit.pageHpx, transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined, transformOrigin: 'top left' }}
+                >
+                  <div className="absolute left-0 overflow-hidden" style={{ top: sl.topMm * MM_TO_PX, width: previewFit.paperWpx, height: sl.usableMm * MM_TO_PX }}>
+                    <div ref={i === 0 ? previewPaperRef : undefined} className="absolute left-0 bg-white" style={{ top: -sl.offsetMm * MM_TO_PX, width: previewFit.paperWpx }}>
+                      {renderActivePrintable()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center text-[11px] font-bold text-slate-400 py-1">{i + 1} / {previewFit.slices.length} 페이지</div>
             </div>
           ))}
         </div>
