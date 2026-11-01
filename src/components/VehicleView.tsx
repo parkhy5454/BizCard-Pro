@@ -1718,7 +1718,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 서브 탭 탐색 내비게이션 바 */}
       {topRowsContainer && createPortal(
       <div className="flex border-b border-slate-200 overflow-x-auto">
-        <div className="flex space-x-1 py-2 shrink-0">
+        <div className="flex items-end gap-6 pt-2 shrink-0">
           {[
             { id: 'driving', label: '운행기록', icon: MapPin },
             { id: 'expenses', label: '비용관리', icon: Receipt },
@@ -1728,20 +1728,17 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             { id: 'vehicles', label: '차량등록', icon: Car },
             { id: 'dashboard', label: '대시보드', icon: BarChart3 }
           ].map(tab => {
-            const Icon = tab.icon;
             const active = activeSubTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveSubTab(tab.id as typeof activeSubTab)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                  active 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                className={`relative shrink-0 pt-0 pb-2 text-base md:text-sm font-bold whitespace-nowrap transition-colors ${
+                  active ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${active ? 'text-white' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
+                {active && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
               </button>
             );
           })}
