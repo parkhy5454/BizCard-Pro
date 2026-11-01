@@ -6222,7 +6222,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 </div>
                 <button
                   onClick={() => setEditingDoc(null)}
-                  className="shrink-0 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700"
+                  className="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700"
                 >
                   <X className="w-4 h-4" />
                 </button>
