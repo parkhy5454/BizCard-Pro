@@ -672,7 +672,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center items-center gap-2 py-3.5 md:py-3 px-4 border border-transparent rounded-xl md:rounded-2xl shadow-lg text-base md:text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full flex justify-center items-center gap-2 py-3.5 md:py-3 px-4 border border-transparent rounded-xl md:rounded-2xl shadow-lg text-lg md:text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
