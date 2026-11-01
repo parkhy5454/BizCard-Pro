@@ -311,6 +311,11 @@ export const canvasToPdfShare = async (canvas: HTMLCanvasElement, fileName: stri
     if (!first) pdf.addPage();
     first = false;
     pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
+    // [추가] 페이지가 넘어가는 자리: 이전 페이지 하단과 다음 페이지 상단에 실선을 항상 긋는다
+    pdf.setDrawColor(0);
+    pdf.setLineWidth(0.3);
+    if (y + h < canvas.height) pdf.line(margin, pageH - margin, pageW - margin, pageH - margin);
+    if (y > 0) pdf.line(margin, margin, pageW - margin, margin);
     y += h;
   }
   await saveBlobFileShareOrDownload(pdf.output('blob'), fileName);
