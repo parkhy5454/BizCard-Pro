@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
+import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { Megaphone, Pin, Pencil, Trash2, Plus, X, Check, RefreshCw } from 'lucide-react';
 import { User as UserType } from '../types.js';
 
@@ -38,6 +40,21 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
   const [formPinned, setFormPinned] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // [추가] 공지 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성)
+  const announcementSnapshot = useMemo(() => (!isEditorOpen ? null : {
+    editingId, formTitle, formContent, formPinned
+  }), [isEditorOpen, editingId, formTitle, formContent, formPinned]);
+  const announcementDraft = useDraftAutosave<NonNullable<typeof announcementSnapshot>>({
+    value: announcementSnapshot,
+    setValue: (u) => {
+      const s = u(announcementSnapshot);
+      if (!s) return;
+      setEditingId(s.editingId); setFormTitle(s.formTitle); setFormContent(s.formContent); setFormPinned(s.formPinned);
+    },
+    keyOf: (s) => `announcement:${s.editingId || 'new'}`,
+    userId: currentUser.id,
+  });
 
   const isAdmin = currentUser.role === 'admin';
 
@@ -96,6 +113,7 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '저장하지 못했습니다.');
+      announcementDraft.discardOpen();
       setIsEditorOpen(false);
       loadItems();
     } catch (err: unknown) {
@@ -146,6 +164,8 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
 
       {isEditorOpen && (
         <div className="bg-white border border-indigo-200 rounded-2xl p-4 space-y-3">
+          {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
+          <DraftPromptBanner prompt={announcementDraft.prompt} onRestore={announcementDraft.restore} onDismiss={announcementDraft.dismiss} />
           <input
             type="text"
             value={formTitle}
