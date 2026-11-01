@@ -461,3 +461,9 @@ input[type="date"] {
 input[type="date"]::-webkit-date-and-time-value {
   text-align: left;
 }
+
+/* [추가] 휴대폰 미리보기는 종이를 화면 폭에 맞게 줄여서 보여주는데, 0.5px 선은 줄이면 사라진다.
+   미리보기에서만 이 선을 1px로 보이게 한다(저장 파일에는 영향 없음). */
+@media (max-width: 767px) {
+  .admin-preview-page [style*="0.5px solid"] { border-width: 1px !important; }
+}

@@ -10824,7 +10824,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         <div className="flex flex-col items-center gap-3 mx-auto" style={{ width: previewFit.paperWpx * previewFit.scale }}>
           {previewFit.slices.map((sl, i) => (
             <div key={`page-${i}`} className="w-full">
-              <div className="relative bg-white shadow-2xl overflow-hidden" style={{ width: previewFit.paperWpx * previewFit.scale, height: previewFit.pageHpx * previewFit.scale }}>
+              <div className="admin-preview-page relative bg-white shadow-2xl overflow-hidden" style={{ width: previewFit.paperWpx * previewFit.scale, height: previewFit.pageHpx * previewFit.scale }}>
                 <div
                   className="absolute left-0 top-0 overflow-hidden"
                   style={{ width: previewFit.paperWpx, height: previewFit.pageHpx, transform: previewFit.scale < 1 ? `scale(${previewFit.scale})` : undefined, transformOrigin: 'top left' }}
