@@ -1259,14 +1259,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `카드별_월_사용_내역_${cc.yearMonth || ''}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `카드별_월_사용_내역_${cc.yearMonth || ''}.xlsx`);
   };
 
   // [추가] 차량 과태료 내역 - "개별이 아니라 년도별로 보이게" 요청에 맞춰, 문서 여러 개(또는
@@ -1383,14 +1376,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${printingDoc.title || '차량_과태료_내역'}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '차량_과태료_내역'}.xlsx`);
   };
 
   // [추가] 인센티브 및 명절 상여금 - "개별이 아니라 년도별로 보이게" 요청에 맞춰, 문서
@@ -1503,14 +1489,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${printingDoc.title || '인센티브_및_명절_상여금'}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '인센티브_및_명절_상여금'}.xlsx`);
   };
 
   // [추가] 해외 출장 경비 - "년도별로도, 출장 개별 건별로도 확인하고 싶다"는 요청에 맞춰,
@@ -1697,14 +1676,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${printingDoc.title || '해외_출장_경비_사용내역'}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '해외_출장_경비_사용내역'}.xlsx`);
   };
 
   // [추가] 연차 현황 - 공유해주신 "OOOO년 연차 / 휴일근무 및 대체 휴가" 양식을 그대로
@@ -1863,14 +1835,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${printingDoc.title || al.year + '년_연차_현황'}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `${printingDoc.title || al.year + '년_연차_현황'}.xlsx`);
   };
 
   // [추가] 현금 흐름 - INFLOWS/OUTFLOWS/경비/현금흐름 최종 표를 엑셀로 받는다. 인쇄/PDF
@@ -2109,14 +2074,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${cf.year}년도_현금흐름_${cashFlowPrintTab === 'all' ? '전체' : cashFlowPrintTab}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `${cf.year}년도_현금흐름_${cashFlowPrintTab === 'all' ? '전체' : cashFlowPrintTab}.xlsx`);
   };
 
   // [추가] 관리비내역 - "518호, 519호 각각 문서로 등록해도 함께 전체로 보이게" 요청에 맞춰,
@@ -2296,14 +2254,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${printingDoc.title || '가지급내역'}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '가지급내역'}.xlsx`);
   };
 
   // [추가] 관리비내역 인쇄 화면(renderPrintableManagementFee)을 그대로 엑셀로도 받을 수
@@ -2407,14 +2358,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${printingDoc.title || '관리비내역'}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await saveBlobFileShareOrDownload(blob, `${printingDoc.title || '관리비내역'}.xlsx`);
   };
 
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2738,7 +2682,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 옮기거나 백업해두기 좋게, 그리고 아래 "엑셀 가져오기"로 다시 그대로 불러올 수 있게
   // 컬럼 순서를 맞춰뒀다.
   const [isImportingBankLedger, setIsImportingBankLedger] = useState(false);
-  const handleExportBankLedgerExcel = () => {
+  const handleExportBankLedgerExcel = async () => {
     const isWithdrawal = activeCategory === 'bank_withdrawal';
     const targetDocs = docs.filter((d) => d.section === section && d.category === activeCategory);
     const wsData: (string | number)[][] = [['문서 제목', '은행', '계좌번호', '구분', '일자', '프로젝트', '금액', '거래내용', '비고']];
@@ -2761,7 +2705,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       return { wch: maxLen + 2 };
     });
     XLSX.utils.book_append_sheet(wb, ws, isWithdrawal ? '통장 출금 내역' : '통장 입금 내역');
-    XLSX.writeFile(wb, `${isWithdrawal ? '통장출금내역' : '통장입금내역'}_${getTodayLocalStr()}.xlsx`);
+    const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    await saveBlobFileShareOrDownload(
+      new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `${isWithdrawal ? '통장출금내역' : '통장입금내역'}_${getTodayLocalStr()}.xlsx`
+    );
   };
 
   // [추가] 통장 출금/입금 내역 - 엑셀 가져오기. 위 "엑셀 내보내기"로 받은 파일이나, 은행에서
@@ -10306,25 +10254,31 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               엑셀 다운
             </button>
           )}
+          {/* [추가] 인쇄: 기존 인쇄 흐름(#print-root 포털 내용만 인쇄) */}
           <button
-            onClick={async () => {
-              // [추가] 모바일은 PDF 파일로 바로 저장 (window.print가 모바일에서 안 되는 경우가 있음)
-              if (window.innerWidth < 768) {
-                try {
-                  await savePrintPreviewAsPdf();
-                  // 저장이 끝나면 미리보기 팝업을 닫아서 다른 탭을 바로 쓸 수 있게 한다
-                  setPrintingDoc(null);
-                } catch (err) {
-                  alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
-                }
-                return;
-              }
+            onClick={() => {
               // [추가] 이 인쇄는 #print-root 포털 내용을 쓰므로, 인쇄할 때만 body에
               // print-portal-mode를 붙여서 #root(화면에 보이는 나머지 앱)를 감춘다.
               // 인쇄가 끝나면(취소해도) 바로 원래대로 되돌린다.
               document.body.classList.add('print-portal-mode');
               window.addEventListener('afterprint', () => document.body.classList.remove('print-portal-mode'), { once: true });
               window.print();
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-indigo-300 text-indigo-700 text-sm font-bold"
+          >
+            <Printer className="w-4 h-4" />
+            인쇄
+          </button>
+          {/* [추가] 저장: PDF 파일을 클라우드/PC로 저장 (아이폰은 공유 창의 파일 앱·iCloud 등) */}
+          <button
+            onClick={async () => {
+              try {
+                await savePrintPreviewAsPdf();
+                // 저장이 끝나면 미리보기 팝업을 닫아서 다른 탭을 바로 쓸 수 있게 한다
+                setPrintingDoc(null);
+              } catch (err) {
+                alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
+              }
             }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
           >
