@@ -478,6 +478,7 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'salary_agreement', label: '연봉협약서', personLabel: '직원명', showAmount: true },
     { id: 'employment_cert', label: '재직증명서', personLabel: '직원명', showAmount: false },
     { id: 'annual_leave_status', label: '연차 현황', personLabel: '', showAmount: false },
+    { id: 'power_of_attorney', label: '위임장', personLabel: '위임받는 사람', showAmount: false },
     { id: 'office_supplies', label: '사무실 비품 관리', personLabel: '담당자/비품명', showAmount: true },
     { id: 'sales_contract', label: '영업 계약', personLabel: '거래처명', showAmount: true },
     { id: 'corp_card', label: '법인카드 관리', personLabel: '카드 소지자', showAmount: true },
@@ -496,8 +497,7 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'tax', label: '각종 세금', personLabel: '내역', showAmount: true },
     { id: 'management_fee', label: '관리비내역', personLabel: '호실', showAmount: true },
     { id: 'incentive', label: '인센티브(상여금)', personLabel: '수령자', showAmount: true },
-    { id: 'overseas_trip', label: '해외 출장 경비', personLabel: '사용자', showAmount: true },
-    { id: 'power_of_attorney', label: '위임장', personLabel: '위임받는 사람', showAmount: false }
+    { id: 'overseas_trip', label: '해외 출장 경비', personLabel: '사용자', showAmount: true }
   ]
 };
 
