@@ -503,11 +503,11 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
               </div>
               {/* [수정] 서버가 8자 미만 비밀번호를 거부하므로, 가입 화면에서 미리 안내해 제출 후 오류로 놀라지 않게 함 */}
               {!isLogin && (
-                <p className="mt-1 text-xs md:text-[11px] text-slate-400">비밀번호는 8자 이상 입력해주세요.</p>
+                <p className="mt-1 text-sm md:text-[11px] text-slate-400">비밀번호는 8자 이상 입력해주세요.</p>
               )}
               {isLogin && (
                 <div className="flex items-center justify-between mt-1">
-                  <label className="flex items-center gap-1.5 text-xs md:text-[11px] text-slate-500 cursor-pointer select-none">
+                  <label className="flex items-center gap-1.5 text-sm md:text-[11px] text-slate-500 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={rememberMe}
@@ -519,7 +519,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
                   <button
                     type="button"
                     onClick={() => { setScreen('forgot'); setForgotEmail(email); setError(''); setSuccessMsg(''); }}
-                    className="text-xs md:text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                    className="text-sm md:text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
                   >
                     비밀번호를 잊으셨나요?
                   </button>
@@ -693,7 +693,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
         {/* 회원가입 화면에서만 약관 링크를 보여준다 (로그인 화면에는 표시하지 않음) */}
         {!isLogin && (
           <div className="text-center pt-1">
-            <p className="text-xs md:text-[11px] text-slate-400">
+            <p className="text-sm md:text-[11px] text-slate-400">
               <button type="button" onClick={() => setLegalTab('terms')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">이용약관</button>
               {' '}및{' '}
               <button type="button" onClick={() => setLegalTab('privacy')} className="underline underline-offset-2 hover:text-slate-600 transition-colors">개인정보처리방침</button>
