@@ -6235,14 +6235,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 빈 라벨의 관련자 칸을 만들지 않는다 — 그렇지 않으면 그 전용 블록 바로 위에
                 이름 없는 빈 칸이 하나 더 떠서 화면이 틀어져 보인다. 날짜 칸은 그대로 두되
                 이 경우엔 한 줄 전체 폭으로 넓힌다. */}
-                <div className={activeConfig.personLabel ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
+                <div className={activeConfig.personLabel ? 'grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1">날짜</label>
                     <input
                       type="date"
                       value={editingDoc.date || ''}
                       onChange={(e) => setEditingDoc({ ...editingDoc, date: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                      className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
                     />
                   </div>
                   {activeConfig.personLabel && (
@@ -6274,7 +6274,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 종류에서는 이 블록 자체가 안 보인다. */}
                 {activeCategory === 'payslip' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">회사명</label>
                         <input
@@ -6299,7 +6299,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.payslip?.paymentDate || ''}
                           onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), paymentDate: e.target.value } })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -6317,7 +6317,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.payslip?.hireDate || ''}
                           onChange={(e) => setEditingDoc({ ...editingDoc, payslip: { ...(editingDoc.payslip || { payItems: [], deductionItems: [] }), hireDate: e.target.value } })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -6410,7 +6410,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         <span className="text-slate-400">{isRateSettingsOpen ? '접기' : '펼치기'}</span>
                       </button>
                       {isRateSettingsOpen && (
-                        <div className="p-2.5 bg-white border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="p-2.5 bg-white border-t border-slate-200 grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-2">
                           {([
                             ['pensionRate', '국민연금 (%)'],
                             ['healthRate', '건강보험 (%)'],
@@ -6483,14 +6483,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 입력하면 통장잔액은 자동 계산되고, 맨 아래 합계도 자동으로 더해진다. */}
                 {activeCategory === 'monthly_cashflow' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">집계 시작일</label>
                         <input
                           type="date"
                           value={editingDoc.cashflow?.periodStart || ''}
                           onChange={(e) => setEditingDoc({ ...editingDoc, cashflow: { ...(editingDoc.cashflow || { accounts: [] }), periodStart: e.target.value } })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -6499,7 +6499,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.cashflow?.periodEnd || ''}
                           onChange={(e) => setEditingDoc({ ...editingDoc, cashflow: { ...(editingDoc.cashflow || { accounts: [] }), periodEnd: e.target.value } })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                     </div>
@@ -6681,7 +6681,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateBankEntry(acc.id, e.id, { date: ev.target.value })}
-                                className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="min-w-0 max-w-full flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <ProjectSearchInput
                                 projects={projects}
@@ -6762,7 +6762,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                     {(editingDoc.loanRepayment?.loans || []).map((l) => (
                       <div key={l.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                           <input
                             type="text"
                             value={l.loanName}
@@ -6838,7 +6838,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="date"
                               value={l.loanDate || ''}
                               onChange={(e) => updateLoan(l.id, { loanDate: e.target.value })}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                             />
                           </div>
                           <div>
@@ -6847,7 +6847,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                               type="date"
                               value={l.maturityDate || ''}
                               onChange={(e) => updateLoan(l.id, { maturityDate: e.target.value })}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                              className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                             />
                           </div>
                           <div>
@@ -6919,14 +6919,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           상환완료
                         </label>
                         {l.isRepaid && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                             <div>
                               <label className="block text-[10px] text-slate-400 mb-0.5">상환일</label>
                               <input
                                 type="date"
                                 value={l.repaidDate || ''}
                                 onChange={(e) => updateLoan(l.id, { repaidDate: e.target.value })}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                                className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                               />
                             </div>
                             <div>
@@ -7135,7 +7135,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateCardEntry(c.id, e.id, { date: ev.target.value })}
-                                className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="min-w-0 max-w-full flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                               <ProjectSearchInput
                                 projects={projects}
@@ -7319,7 +7319,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           );
                         })()}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                           <input
                             type="text"
                             value={c.withdrawBank || ''}
@@ -7676,7 +7676,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateVehicleFineEntry(e.id, { date: ev.target.value })}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                             </div>
                             <div className="flex-1 min-w-[100px]">
@@ -7707,7 +7707,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 type="date"
                                 value={e.processedDate || ''}
                                 onChange={(ev) => updateVehicleFineEntry(e.id, { processedDate: ev.target.value })}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                             </div>
                             <button type="button" onClick={() => removeVehicleFineEntry(e.id)} className="shrink-0 self-end p-1.5 text-slate-400 hover:text-rose-500">
@@ -7911,7 +7911,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateIncentiveEntry(e.id, { date: ev.target.value })}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                             </div>
                             <div className="flex-1 min-w-[90px]">
@@ -8188,7 +8188,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                 type="date"
                                 value={e.date}
                                 onChange={(ev) => updateOverseasTripEntry(e.id, { date: ev.target.value })}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                               />
                             </div>
                             <div className="flex-1 min-w-[80px]">
@@ -8736,7 +8736,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                       type="date"
                                       value={e.startDate}
                                       onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { startDate: ev.target.value })}
-                                      className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                      className="min-w-0 max-w-full flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                                     />
                                     <span className="text-[10px] text-slate-400">~</span>
                                     <input
@@ -8744,7 +8744,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                       value={e.endDate || ''}
                                       onChange={(ev) => updateAnnualLeaveEntry(p.id, e.id, { endDate: ev.target.value })}
                                       placeholder="(하루면 비워둠)"
-                                      className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                      className="min-w-0 max-w-full flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                                     />
                                     <input
                                       type="text"
@@ -8783,7 +8783,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                     type="date"
                                     value={e.date}
                                     onChange={(ev) => updateAnnualLeaveOvertime(p.id, e.id, { date: ev.target.value })}
-                                    className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    className="min-w-0 max-w-full flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                                   />
                                   <input
                                     type="text"
@@ -8829,7 +8829,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                                     type="date"
                                     value={e.date}
                                     onChange={(ev) => updateAnnualLeaveSubstitute(p.id, e.id, { date: ev.target.value })}
-                                    className="flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
+                                    className="min-w-0 max-w-full flex-1 min-w-[110px] bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
                                   />
                                   <input
                                     type="text"
@@ -9223,7 +9223,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     {activeCategory === 'labor_contract' && (
                       <div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                           <input
                             type="text"
                             value={editingDoc.laborContract?.companyBusinessType || ''}
@@ -9244,7 +9244,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.laborContract?.employeeName || ''}
@@ -9360,7 +9360,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <div>
                         <label className="block text-[10px] text-slate-400 mb-0.5">계약 시작일</label>
                         <input
@@ -9426,7 +9426,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.employmentCert?.employeeName || ''}
@@ -9451,14 +9451,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <div>
                         <label className="block text-[10px] text-slate-400 mb-0.5">입사일</label>
                         <input
                           type="date"
                           value={editingDoc.employmentCert?.hireDate || ''}
                           onChange={(e) => updateEmploymentCertField({ hireDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -9467,11 +9467,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.employmentCert?.applicationDate || ''}
                           onChange={(e) => updateEmploymentCertField({ applicationDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.employmentCert?.purpose || ''}
@@ -9487,7 +9487,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.employmentCert?.department || ''}
@@ -9503,7 +9503,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <div>
                         <label className="block text-[10px] text-slate-400 mb-0.5">문서번호 (예: 제 2026-0001호)</label>
                         <input
@@ -9519,7 +9519,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.employmentCert?.issueDate || ''}
                           onChange={(e) => updateEmploymentCertField({ issueDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                     </div>
@@ -9529,7 +9529,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {/* [추가] 위임장 전용 입력. */}
                 {activeCategory === 'power_of_attorney' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.powerOfAttorney?.employeeName || ''}
@@ -9554,7 +9554,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.powerOfAttorney?.purpose || ''}
@@ -9585,7 +9585,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         type="date"
                         value={editingDoc.powerOfAttorney?.issueDate || ''}
                         onChange={(e) => updatePowerOfAttorneyField({ issueDate: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
@@ -9594,7 +9594,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {activeCategory === 'sales_contract' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
                     <label className="block text-[11px] font-bold text-slate-600">갑 (영업 자문사) 정보</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.salesContract?.counterpartyName || ''}
@@ -9632,7 +9632,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.salesContract?.contractDate || ''}
                           onChange={(e) => updateSalesContractField({ contractDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -9641,7 +9641,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.salesContract?.contractStartDate || ''}
                           onChange={(e) => updateSalesContractField({ contractStartDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -9650,7 +9650,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.salesContract?.contractEndDate || ''}
                           onChange={(e) => updateSalesContractField({ contractEndDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                     </div>
@@ -9758,7 +9758,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 {/* [추가] 퇴직금 정산 전용 입력. */}
                 {activeCategory === 'severance' && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <input
                         type="text"
                         value={editingDoc.severance?.employeeName || ''}
@@ -9783,14 +9783,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-2 gap-1.5">
                       <div>
                         <label className="block text-[10px] text-slate-400 mb-0.5">중간정산 대상기간 시작</label>
                         <input
                           type="date"
                           value={editingDoc.severance?.periodStart || ''}
                           onChange={(e) => updateSeveranceField({ periodStart: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -9799,7 +9799,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.severance?.periodEnd || ''}
                           onChange={(e) => updateSeveranceField({ periodEnd: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                     </div>
@@ -9829,7 +9829,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           type="date"
                           value={editingDoc.severance?.companyAdvanceDate || ''}
                           onChange={(e) => updateSeveranceField({ companyAdvanceDate: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                          className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
@@ -9865,7 +9865,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         type="date"
                         value={editingDoc.severance?.receiveDate || ''}
                         onChange={(e) => updateSeveranceField({ receiveDate: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        className="min-w-0 max-w-full w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
