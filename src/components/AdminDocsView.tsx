@@ -1697,9 +1697,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 빈칸으로 둔다) - annualLeavePersonRowCount와 같은 규칙.
   // [추가] 사무실 비품 관리 엑셀: 목록을 그대로 표(셀)로 만든다. 합계는 숫자 합으로 넣는다.
   const handleExportOfficeSuppliesExcel = async () => {
-    const os = printingDoc?.officeSupplies;
-    if (!printingDoc || !os) return;
-    const items = os.items || [];
+    if (!printingDoc) return;
+    const items = printingDoc.officeSupplies?.items || [];
     const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('비품관리');
@@ -5955,8 +5954,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 사무실 비품 관리 인쇄용 화면: 비품 목록 표 + 합계 + 담당자/기준일
   const renderPrintableOfficeSupplies = () => {
-    if (!printingDoc || !printingDoc.officeSupplies) return null;
-    const os = printingDoc.officeSupplies;
+    if (!printingDoc) return null;
+    const os = printingDoc.officeSupplies || {};
     const items = os.items || [];
     const total = officeSuppliesTotal(items);
     const companyName = currentUser?.companyName || '';
@@ -6345,7 +6344,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance) || (d.category === 'office_supplies' && d.officeSupplies)) && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance) || d.category === 'office_supplies') && (
                     <button
                       onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
