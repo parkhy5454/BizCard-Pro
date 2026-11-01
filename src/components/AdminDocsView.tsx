@@ -355,6 +355,31 @@ const onePageFitScale = (category: string, naturalMm: number, pageMm: number): n
   return naturalMm > usable ? usable / naturalMm : 1;
 };
 
+// [추가] 저장용 복제본의 표 칸 글자를 칸 세로 가운데로 맞춘다.
+// html2canvas는 칸의 세로 정렬(vertical-align)을 무시해서 글자가 아래로 쏠려 저장되므로,
+// 칸 안의 내용을 세로 가운데로 정렬되는 상자에 넣어서 위치를 직접 정한다.
+const centerTableCellsInRoot = (root: HTMLElement): void => {
+  root.querySelectorAll('td, th').forEach((node) => {
+    const cell = node as HTMLElement;
+    if (cell.dataset.centered === '1') return;
+    const cs = getComputedStyle(cell);
+    const inner = cell.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    if (!(inner > 0)) return;
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.justifyContent = 'center';
+    wrap.style.height = `${inner}px`;
+    const body = document.createElement('div');
+    body.style.width = '100%';
+    while (cell.firstChild) body.appendChild(cell.firstChild);
+    wrap.appendChild(body);
+    cell.appendChild(wrap);
+    cell.style.verticalAlign = 'top';
+    cell.dataset.centered = '1';
+  });
+};
+
 const docModalInsets = (): { top: number; bottom: number } | undefined => {
   if (typeof window === 'undefined' || window.innerWidth >= 768) return undefined;
   const header = document.querySelector('header');
@@ -1771,7 +1796,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     document.body.appendChild(holder);
     let canvas: HTMLCanvasElement;
     try {
-      centerCellsInRoot(clone);
+      centerTableCellsInRoot(clone);
       canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
     } finally {
       holder.remove();
@@ -6079,7 +6104,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     document.body.appendChild(holder);
     let canvas: HTMLCanvasElement;
     try {
-      centerCellsInRoot(clone);
+      centerTableCellsInRoot(clone);
       canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
     } finally {
       holder.remove();
