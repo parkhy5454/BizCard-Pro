@@ -5872,7 +5872,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       {/* 모바일: 서류 종류 탭과 검색 줄을 헤더 아래에 sticky로 고정 (PC는 그대로) */}
       <div id="admin-fixed-top" style={{ top: adminHeaderBottom }} className="sticky z-40 -mx-4 bg-white px-4 pt-1 pb-2 space-y-2 md:static md:mx-0 md:bg-transparent md:p-0 md:space-y-5">
       {/* 서류 종류 서브 탭 */}
-      <div className="flex items-end gap-6 overflow-x-auto scrollbar-none md:border-b md:border-slate-200">
+      <div className="flex items-end gap-6 overflow-x-auto overflow-y-hidden touch-pan-x overscroll-x-contain scrollbar-none md:border-b md:border-slate-200">
         {categories.map((c) => (
           <button
             key={c.id}
