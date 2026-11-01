@@ -5874,7 +5874,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       return `${y}년 ${m}월 ${day}일`;
     };
     const companyName = currentUser?.companyName || '';
-    const rowStyle: React.CSSProperties = { display: 'flex', margin: '10px 0', fontSize: '13px' };
+    const rowStyle: React.CSSProperties = { display: 'flex', margin: '16px 0', fontSize: '14px', lineHeight: 1.9 };
     const labelStyle: React.CSSProperties = { fontWeight: 700, width: '110px', flexShrink: 0 };
 
     return (
@@ -5890,7 +5890,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             <div style={rowStyle}><span style={labelStyle}>용 도</span><span>: {poa.purpose}</span></div>
             <div style={rowStyle}><span style={labelStyle}>제 출 처</span><span>: {poa.submitTo}</span></div>
 
-            <p style={{ margin: '40px 0' }}>
+            <p style={{ margin: '48px 0 0', fontSize: '14px', lineHeight: 2 }}>
               위 사람을 {poa.submitTo}에서 {companyName} 지점 {poa.taskDescription} 관련 업무 일체의 권한을 위임합니다.
             </p>
           </div>
