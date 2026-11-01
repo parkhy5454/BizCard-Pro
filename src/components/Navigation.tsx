@@ -610,7 +610,7 @@ export const Navigation: React.FC<Props> = ({
       <div id="app-top-action-row" ref={topBarRef} onClickCapture={() => window.dispatchEvent(new Event('bizcard:close-floating'))} className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 액션 버튼 섹션 */}
-          <div className="flex items-center gap-1 w-full py-2 border-b border-slate-100">
+          <div className="flex items-center gap-1 w-full py-2 border-b border-slate-100 overflow-x-auto scrollbar-none">
             {/* 명함 등록 */}
             <button
               onClick={() => { setPressedCardAction('scan'); onOpenScanModal(); }}
@@ -623,10 +623,11 @@ export const Navigation: React.FC<Props> = ({
             {/* 가져오기·내보내기 */}
             <button
               onClick={() => { setPressedCardAction('io'); setActiveTab('io'); }}
-              className={`flex items-center gap-1 flex-[1.4] min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-bold whitespace-nowrap text-center text-[11px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('io'))}`}
+              className={`relative flex items-center gap-1 flex-[1.4] min-w-0 justify-center pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('io') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Upload className="hidden sm:block w-4 h-4" />
               <span>가져오기·내보내기</span>
+              {isCardActionOn('io') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
 
             {/* 내 명함 공유 */}
@@ -641,10 +642,11 @@ export const Navigation: React.FC<Props> = ({
             {/* 주변 레이더 지도 */}
             <button
               onClick={() => { setPressedCardAction('nearby'); setActiveTab('nearby'); }}
-              className={`flex items-center gap-1 flex-[0.85] min-w-0 justify-center px-1 sm:px-3 py-1.5 rounded-lg font-bold whitespace-nowrap text-center text-[11px] sm:text-xs transition-all active:scale-95 ${cardActionClass(isCardActionOn('nearby'))}`}
+              className={`relative flex items-center gap-1 flex-[0.85] min-w-0 justify-center pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('nearby') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Radar className="hidden sm:block w-4 h-4" />
               <span>주변 사람</span>
+              {isCardActionOn('nearby') && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
           </div>
 
