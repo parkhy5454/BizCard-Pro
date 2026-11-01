@@ -883,6 +883,26 @@ function calcDeductions(
   });
 }
 
+// [추가] PDF 캡처(html2canvas)는 vertical-align을 무시해서 글자가 칸 아래로 쏠린다.
+// 한 줄짜리 칸은 줄 높이를 칸 안쪽 높이에 맞춰 가운데로 오게 한다 (root 안의 칸만 건드림).
+const centerCellsInRoot = (root: HTMLElement): void => {
+  const win = root.ownerDocument.defaultView;
+  if (!win) return;
+  root.querySelectorAll('td, th').forEach((node) => {
+    const cell = node as HTMLElement;
+    const cs = win.getComputedStyle(cell);
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    const padBottom = parseFloat(cs.paddingBottom) || 0;
+    const fontPx = parseFloat(cs.fontSize) || 12;
+    const oneLine = fontPx * 1.6;
+    const contentH = cell.scrollHeight - padTop - padBottom;
+    const innerH = cell.getBoundingClientRect().height - padTop - padBottom;
+    if (contentH <= oneLine && innerH > 0) {
+      cell.style.lineHeight = `${innerH}px`;
+    }
+  });
+};
+
 export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects }) => {
   const categories = CATEGORY_CONFIG[section];
   const [activeCategory, setActiveCategory] = useState<AdminDocCategory>(categories[0].id);
@@ -5865,7 +5885,22 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const isLandscape = ['monthly_cashflow', 'bank_withdrawal', 'bank_deposit', 'loan_repayment', 'card_usage', 'corp_card', 'advance_payment', 'cash_flow', 'annual_leave_status'].includes(printingDoc.category);
     const { default: html2canvas } = await import('html2canvas');
     const { jsPDF } = await import('jspdf');
-    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+    // 화면의 미리보기를 건드리지 않도록 복제본을 화면 밖에 붙여서 칸 정렬을 맞춘 뒤 캡처한다
+    const holder = document.createElement('div');
+    holder.style.position = 'fixed';
+    holder.style.left = '-20000px';
+    holder.style.top = '0';
+    holder.style.background = '#ffffff';
+    const clone = el.cloneNode(true) as HTMLElement;
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
+    let canvas: HTMLCanvasElement;
+    try {
+      centerCellsInRoot(clone);
+      canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff' });
+    } finally {
+      holder.remove();
+    }
     const pdf = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
     const pageW = isLandscape ? 297 : 210;
     const pageH = isLandscape ? 210 : 297;
