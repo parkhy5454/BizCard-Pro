@@ -38,6 +38,10 @@ const getModalBottomInset = (): number => {
 };
 
 export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
+  // [수정] 입력칸을 누르면 페이지가 스크롤되며 상단 탭 위치가 바뀌는데, 렌더마다 다시 재면 창이 같이 밀린다.
+  // 그래서 위치는 창이 열릴 때 한 번만 재서 고정한다.
+  const [modalTopInset] = useState<number>(() => getModalTopInset());
+  const [modalBottomInset] = useState<number>(() => getModalBottomInset());
   // Hooks(useState/useRef/useEffect)는 반드시 조건 없이 매 렌더링마다 동일한 순서로 호출되어야 하므로,
   // "contact가 없으면 그리지 않는다" 처리보다 먼저 선언합니다 (React Hooks 규칙).
   const [activeTab, setActiveTab] = useState<'info' | 'history' | 'edit'>(initialTab);
@@ -482,7 +486,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   };
 
   return (
-    <div style={{ top: getModalTopInset(), bottom: getModalBottomInset() }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-0 md:p-4">
+    <div style={{ top: modalTopInset, bottom: modalBottomInset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-0 md:p-4">
       <div ref={panelRef} className="relative w-full max-w-4xl bg-white border-0 md:border border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden h-full md:h-auto max-h-full md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
