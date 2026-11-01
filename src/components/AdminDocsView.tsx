@@ -10372,7 +10372,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     {/* 인쇄 전 미리보기 + 인쇄 실행 바 (화면에는 보이지만 인쇄될 때는 안 보임) */}
     {printingDoc && (
       <div style={docModalInsets()} className="fixed inset-0 z-[100] bg-white md:bg-slate-900/70 overflow-auto overscroll-contain py-3 md:py-8 print:hidden">
-        <div className="max-w-3xl mx-auto flex items-center justify-center md:justify-end gap-2 mb-3 px-4">
+        <div className={`max-w-3xl mx-auto flex items-center gap-2 mb-3 px-4 md:justify-end ${printingDoc.category === 'cash_flow' ? 'flex-wrap' : 'justify-center'}`}>
           <button
             onClick={() => setPrintingDoc(null)}
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold"
@@ -10401,7 +10401,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           인쇄/PDF·엑셀로 볼지 여기서 고른다. "전체"를 고르면 네 표를 표마다 새 페이지로
           나눠서 한 번에 인쇄/PDF 저장한다. */}
           {printingDoc.category === 'cash_flow' && (
-            <div className="flex items-center gap-1 mr-auto bg-white border border-slate-200 rounded-xl p-1 flex-wrap">
+            <div className="flex items-center gap-1 order-first basis-full md:order-none md:basis-auto md:mr-auto bg-white md:border md:border-slate-200 md:rounded-xl p-1 overflow-x-auto md:overflow-visible flex-nowrap md:flex-wrap scrollbar-none">
               {([
                 { key: 'inflows', label: 'INFLOWS' },
                 { key: 'outflows', label: 'OUTFLOWS' },
@@ -10412,7 +10412,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <button
                   key={t.key}
                   onClick={() => setCashFlowPrintTab(t.key)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${cashFlowPrintTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                  className={`shrink-0 px-3 md:px-2.5 py-2 md:py-1.5 rounded-lg text-sm md:text-xs font-bold transition-colors ${cashFlowPrintTab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   {t.label}
                 </button>
@@ -10480,7 +10480,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {printingDoc.category === 'cash_flow' && (
             <button
               onClick={handleExportCashFlowExcel}
-              className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
+              className="flex flex-1 md:flex-none justify-center items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md"
             >
               <Download className="w-4 h-4" />
               엑셀 다운
@@ -10532,7 +10532,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 alert(`저장에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
               }
             }}
-            className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md"
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 md:py-2 rounded-xl whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-md ${printingDoc.category === 'cash_flow' ? 'flex-1 md:flex-none justify-center' : ''}`}
           >
             <Printer className="w-4 h-4" />
             저장
