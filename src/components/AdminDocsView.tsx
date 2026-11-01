@@ -10767,7 +10767,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           {/* [추가] "카드사용내역"은 자동으로 최근 날짜가 위로 오게 기본 정렬해서 보여주고,
           오름차순/내림차순을 직접 골라볼 수 있게 버튼을 추가한다. */}
           {printingDoc.category === 'card_usage' && (
-            <div className="flex items-center gap-1 mr-auto bg-white border border-slate-200 rounded-xl p-1">
+            <div className="order-first basis-full flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
               <button
                 onClick={() => setCardUsageSortDir('desc')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${cardUsageSortDir === 'desc' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
