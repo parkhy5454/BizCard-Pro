@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useDraftAutosave } from '../hooks/useDraftAutosave.js';
 import { createPortal } from 'react-dom';
 import {
   Wallet, Plane, Plus, Trash2, Edit2, X, Check, Clock, CheckCircle2, XCircle,
@@ -659,6 +660,68 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
   const [lvActingPerson, setLvActingPerson] = useState('');
   const [lvSubmittedDate, setLvSubmittedDate] = useState(todayStr());
   const [lvApprovalLine, setLvApprovalLine] = useState<ApprovalStep[]>(defaultLeaveApprovalLine());
+
+  // [추가] 작성 중 임시 저장 (서버 보관 - 같은 계정이면 다른 기기에서도 이어서 작성).
+  // 세 서류(선급금 정산서 / 휴가 신청서 / 공문서) 각각 작성 창이 열려 있을 때만 값 묶음을 넘긴다.
+  const advanceSnapshot = useMemo(() => (!isAdvanceModalOpen ? null : {
+    editingAdvanceId, apCompanyName, apPeriodStart, apPeriodEnd, apDepartment, apAuthor, apDraftDate, apItems, apApprovalLine
+  }), [isAdvanceModalOpen, editingAdvanceId, apCompanyName, apPeriodStart, apPeriodEnd, apDepartment, apAuthor, apDraftDate, apItems, apApprovalLine]);
+  const advanceDraft = useDraftAutosave<NonNullable<typeof advanceSnapshot>>({
+    value: advanceSnapshot,
+    setValue: (updater) => {
+      const next = updater(advanceSnapshot);
+      if (!next) return;
+      setEditingAdvanceId(next.editingAdvanceId); setApCompanyName(next.apCompanyName); setApPeriodStart(next.apPeriodStart);
+      setApPeriodEnd(next.apPeriodEnd); setApDepartment(next.apDepartment); setApAuthor(next.apAuthor);
+      setApDraftDate(next.apDraftDate); setApItems(next.apItems); setApApprovalLine(next.apApprovalLine);
+    },
+    keyOf: (s) => `approval-advance:${s.editingAdvanceId || 'new'}`,
+    userId: currentUser?.id,
+  });
+
+  const leaveSnapshot = useMemo(() => (!isLeaveModalOpen ? null : {
+    editingLeaveId, lvDraftNumber, lvDepartment, lvAuthor, lvCategory, lvCategoryCustom, lvSpecialType, lvSpecialTypeCustom,
+    lvAnnualType, lvReason, lvStartDate, lvEndDate, lvStartTime, lvEndTime, lvAnnualNote, lvTotalAnnualDays,
+    lvHomeContact, lvMobileContact, lvActingPerson, lvSubmittedDate, lvApprovalLine
+  }), [isLeaveModalOpen, editingLeaveId, lvDraftNumber, lvDepartment, lvAuthor, lvCategory, lvCategoryCustom, lvSpecialType,
+    lvSpecialTypeCustom, lvAnnualType, lvReason, lvStartDate, lvEndDate, lvStartTime, lvEndTime, lvAnnualNote,
+    lvTotalAnnualDays, lvHomeContact, lvMobileContact, lvActingPerson, lvSubmittedDate, lvApprovalLine]);
+  const leaveDraft = useDraftAutosave<NonNullable<typeof leaveSnapshot>>({
+    value: leaveSnapshot,
+    setValue: (updater) => {
+      const next = updater(leaveSnapshot);
+      if (!next) return;
+      setEditingLeaveId(next.editingLeaveId); setLvDraftNumber(next.lvDraftNumber); setLvDepartment(next.lvDepartment);
+      setLvAuthor(next.lvAuthor); setLvCategory(next.lvCategory); setLvCategoryCustom(next.lvCategoryCustom);
+      setLvSpecialType(next.lvSpecialType); setLvSpecialTypeCustom(next.lvSpecialTypeCustom); setLvAnnualType(next.lvAnnualType);
+      setLvReason(next.lvReason); setLvStartDate(next.lvStartDate); setLvEndDate(next.lvEndDate);
+      setLvStartTime(next.lvStartTime); setLvEndTime(next.lvEndTime); setLvAnnualNote(next.lvAnnualNote);
+      setLvTotalAnnualDays(next.lvTotalAnnualDays); setLvHomeContact(next.lvHomeContact); setLvMobileContact(next.lvMobileContact);
+      setLvActingPerson(next.lvActingPerson); setLvSubmittedDate(next.lvSubmittedDate); setLvApprovalLine(next.lvApprovalLine);
+    },
+    keyOf: (s) => `approval-leave:${s.editingLeaveId || 'new'}`,
+    userId: currentUser?.id,
+  });
+
+  const officialSnapshot = useMemo(() => (!isOfficialModalOpen ? null : {
+    editingOfficialId, ofAuthor, ofRecipient, ofReference, ofSubject, ofBodyText, ofIssueDate, ofExecutionNumber,
+    ofReceiptNumber, ofCompanyName, ofCompanyAddress, ofCompanyPhone, ofCompanyFax, ofCompanyEmail, ofApprovalLine
+  }), [isOfficialModalOpen, editingOfficialId, ofAuthor, ofRecipient, ofReference, ofSubject, ofBodyText, ofIssueDate,
+    ofExecutionNumber, ofReceiptNumber, ofCompanyName, ofCompanyAddress, ofCompanyPhone, ofCompanyFax, ofCompanyEmail, ofApprovalLine]);
+  const officialDraft = useDraftAutosave<NonNullable<typeof officialSnapshot>>({
+    value: officialSnapshot,
+    setValue: (updater) => {
+      const next = updater(officialSnapshot);
+      if (!next) return;
+      setEditingOfficialId(next.editingOfficialId); setOfAuthor(next.ofAuthor); setOfRecipient(next.ofRecipient);
+      setOfReference(next.ofReference); setOfSubject(next.ofSubject); setOfBodyText(next.ofBodyText);
+      setOfIssueDate(next.ofIssueDate); setOfExecutionNumber(next.ofExecutionNumber); setOfReceiptNumber(next.ofReceiptNumber);
+      setOfCompanyName(next.ofCompanyName); setOfCompanyAddress(next.ofCompanyAddress); setOfCompanyPhone(next.ofCompanyPhone);
+      setOfCompanyFax(next.ofCompanyFax); setOfCompanyEmail(next.ofCompanyEmail); setOfApprovalLine(next.ofApprovalLine);
+    },
+    keyOf: (s) => `approval-official:${s.editingOfficialId || 'new'}`,
+    userId: currentUser?.id,
+  });
 
   useEffect(() => {
     fetchAll();
@@ -1745,6 +1808,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const created = await res.json();
         setAdvanceList(prev => [created, ...prev]);
       }
+      advanceDraft.discardOpen();
       setIsAdvanceModalOpen(false);
       resetAdvanceForm();
     } catch (err) {
@@ -1784,6 +1848,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const created = await res.json();
         setLeaveList(prev => [created, ...prev]);
       }
+      leaveDraft.discardOpen();
       setIsLeaveModalOpen(false);
       resetLeaveForm();
     } catch (err) {
@@ -1818,6 +1883,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
         const created = await res.json();
         setOfficialList(prev => [created, ...prev]);
       }
+      officialDraft.discardOpen();
       setIsOfficialModalOpen(false);
       resetOfficialForm();
     } catch (err) {
@@ -2640,6 +2706,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             </div>
 
             <div className="p-6 space-y-4">
+              {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
+              {advanceDraft.prompt && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
+                  <p className="text-xs text-amber-700">{new Date(advanceDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={advanceDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                    <button type="button" onClick={advanceDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                  </div>
+                </div>
+              )}
               <ApprovalLineEditor line={apApprovalLine} setLine={setApApprovalLine} kind="advance" companyPositions={companyPositions} onSaveAsDefault={saveApprovalLineAsCompanyDefault} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2913,6 +2990,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             </div>
 
             <div className="p-6 space-y-4">
+              {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
+              {leaveDraft.prompt && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
+                  <p className="text-xs text-amber-700">{new Date(leaveDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={leaveDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                    <button type="button" onClick={leaveDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                  </div>
+                </div>
+              )}
               <ApprovalLineEditor line={lvApprovalLine} setLine={setLvApprovalLine} kind="leave" companyPositions={companyPositions} onSaveAsDefault={saveApprovalLineAsCompanyDefault} />
 
               <div className="space-y-1.5">
@@ -3142,6 +3230,17 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
             </div>
 
             <div className="p-6 space-y-4">
+              {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
+              {officialDraft.prompt && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">임시 저장된 작성 내용이 있습니다</p>
+                  <p className="text-xs text-amber-700">{new Date(officialDraft.prompt.savedAt).toLocaleString('ko-KR')}에 저장됨 (다른 기기에서 작성한 내용도 보입니다)</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={officialDraft.restore} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">이어서 작성</button>
+                    <button type="button" onClick={officialDraft.dismiss} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold">버리기</button>
+                  </div>
+                </div>
+              )}
               <ApprovalLineEditor line={ofApprovalLine} setLine={setOfApprovalLine} kind="official" companyPositions={companyPositions} onSaveAsDefault={saveApprovalLineAsCompanyDefault} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
