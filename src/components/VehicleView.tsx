@@ -3143,7 +3143,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {editingDriving && (
         <div
           ref={drivingEditRef}
-          className="w-full scroll-mt-32 pb-28 md:pb-4 bg-white flex items-start justify-center p-0 md:p-4"
+          className="w-full scroll-mt-0 pb-28 md:pb-4 bg-white flex items-start justify-center p-0 md:p-4"
           onFocus={(e) => {
             // 칸을 누르면 키보드 때문에 가려지지 않도록 그 칸을 화면 가운데로 보낸다 (아래 고정 탭 위)
             const t = e.target as HTMLElement;
