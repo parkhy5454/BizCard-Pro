@@ -3269,7 +3269,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         </div>
                       </div>
 
-                      <div className="pt-0.5 font-bold text-indigo-400 font-mono text-base">
+                      <div className="mt-1 pt-1.5 border-t border-slate-200 font-bold text-indigo-400 font-mono text-base">
                         {log.distance} km 주행
                       </div>
                     </div>
