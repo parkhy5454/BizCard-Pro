@@ -68,3 +68,11 @@ export function settleWithCredit(charge: number, credit: number): { payable: num
   const used = Math.min(credit, charge);
   return { payable: charge - used, credit: credit - used };
 }
+
+// 정기결제(월 자동결제) 금액 (부가세 포함, 원 단위)
+// 개인(1명): 월 3,300원 / 팀: 인원 구간 단가 × 전체 인원
+export const INDIVIDUAL_MONTHLY_PRICE = 3300;
+export function getMonthlyBillingAmount(seats: number): number {
+  if (seats <= 1) return INDIVIDUAL_MONTHLY_PRICE;
+  return getTeamMonthlyPerSeat(seats) * seats;
+}

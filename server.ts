@@ -335,7 +335,7 @@ import {
   getReferralsForUser,
   migrateScopedItemsToAppUsers
 } from './src/db/neonStore.js';
-import { INDIVIDUAL_PLANS, TEAM_MIN_SEATS, getTeamTotal, type Period } from './src/subscriptionPricing.js';
+import { INDIVIDUAL_PLANS, TEAM_MIN_SEATS, getTeamTotal, getMonthlyBillingAmount, type Period } from './src/subscriptionPricing.js';
 
 
 
@@ -3461,20 +3461,8 @@ app.post('/api/auth/withdraw', async (req, res) => {
 // 테스트할 수 있다.
 // ------------------------------------------------------------------
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
-const SUBSCRIPTION_PRICE_PER_SEAT_KRW = Number(process.env.SUBSCRIPTION_PRICE_PER_SEAT_KRW) || 9900;
 // [추가] 최초 구독 시 무료 체험 기간(일). 계정당 한 번만 적용된다(owner.trialUsed).
 const SUBSCRIPTION_TRIAL_DAYS = 14;
-// [추가] 기간 약정 할인(선결제): 1년 10%, 3년 20%. 월 구독은 할인 없음. 5년 약정은 제외.
-const SUBSCRIPTION_TERM_DISCOUNTS: Record<number, number> = { 1: 0.1, 3: 0.2 };
-const subscriptionTermAmount = (seats: number, years: number): number => {
-  const discount = SUBSCRIPTION_TERM_DISCOUNTS[years] ?? 0;
-  return Math.round(seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW * 12 * years * (1 - discount));
-};
-const addMonthsN = (date: Date, months: number): Date => {
-  let d = new Date(date);
-  for (let i = 0; i < months; i++) d = addOneMonth(d);
-  return d;
-};
 
 function seatCountForScope(scopeId: string): number {
   // 승인된(=실제로 서비스를 쓸 수 있는) 구성원 수만 과금 대상으로 센다. 개인 계정은 항상 1석.
@@ -3548,14 +3536,12 @@ app.post('/api/billing/subscribe', async (req, res) => {
   }
 
   // [추가] 기간 약정(termYears: 1 또는 3)을 선택하면 선결제 금액과 할인이 적용된다. 0/없음이면 월 구독.
-  const termYears = Number((req.body && req.body.termYears) || 0);
-  if (termYears && !(termYears in SUBSCRIPTION_TERM_DISCOUNTS)) {
-    return res.status(400).json({ error: '지원하지 않는 약정 기간입니다 (1년 또는 3년).' });
-  }
+  // 기간 약정(선결제)은 폐지했다. 정기결제(월 자동결제)만 받는다.
+  const termYears = 0;
 
   const scopeId = scopeIdForUser(owner);
   const seats = seatCountForScope(scopeId);
-  const amount = termYears ? subscriptionTermAmount(seats, termYears) : seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
+  const amount = getMonthlyBillingAmount(seats);
 
   // [추가] 계정당 최초 1회만 무료 체험(월 구독 전용): 체험 기간에는 즉시 결제하지 않고, 체험이 끝나는 날
   // 정기결제 작업이 자동으로 첫 결제를 한다. 기간 약정은 체험 없이 바로 결제한다.
@@ -3577,9 +3563,7 @@ app.post('/api/billing/subscribe', async (req, res) => {
     owner.trialUsed = true;
     // [추가] 이 사람이 추천인으로서 이미 받아뒀지만 아직 반영 못 한 무료 개월(구독을
     // 시작하기 전이라 반영할 결제일이 없었던 경우)이 있으면, 첫 결제일을 잡을 때 한꺼번에 더해준다.
-    let firstBillingDate = termYears
-      ? addMonthsN(new Date(), 12 * termYears)
-      : useTrial
+    let firstBillingDate = useTrial
         ? new Date(Date.now() + SUBSCRIPTION_TRIAL_DAYS * 24 * 60 * 60 * 1000)
         : addOneMonth(new Date());
     owner.billingTermYears = termYears || undefined;
@@ -3671,8 +3655,7 @@ app.get('/api/billing/status', (req, res) => {
     nextBillingAt: owner?.nextBillingAt || null,
     hasCardRegistered: Boolean(owner?.tossBillingKey),
     seats,
-    pricePerSeat: SUBSCRIPTION_PRICE_PER_SEAT_KRW,
-    estimatedMonthlyAmount: seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW,
+    estimatedMonthlyAmount: getMonthlyBillingAmount(seats),
     // 결제 관리(카드 등록/구독/해지)를 이 사람이 할 수 있는지
     canManageBilling: Boolean(billingOwnerForRequester(requester))
   });
@@ -3698,8 +3681,7 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
     if (owner.subscriptionStatus === 'active') {
       if (!owner.tossBillingKey || !owner.tossCustomerKey || !TOSS_SECRET_KEY) continue;
       const seats = seatCountForScope(scopeId);
-      const termYears = owner.billingTermYears || 0;
-      const amount = termYears ? subscriptionTermAmount(seats, termYears) : seats * SUBSCRIPTION_PRICE_PER_SEAT_KRW;
+      const amount = getMonthlyBillingAmount(seats);
       try {
         await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
           customerKey: owner.tossCustomerKey,
@@ -3709,9 +3691,9 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
           customerEmail: owner.email,
           customerName: owner.name
         });
-        owner.nextBillingAt = (termYears ? addMonthsN(now, 12 * termYears) : addOneMonth(now)).toISOString();
+        owner.nextBillingAt = addOneMonth(now).toISOString();
         await addUser(owner);
-        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount, termYears } });
+        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount } });
         charged++;
       } catch (err) {
         console.error(`정기결제 실패 (${owner.email}):`, err);
@@ -5875,7 +5857,11 @@ type TrialRecord = { id: string; startAt: string };
 async function getAccessStatus(scopeId: string) {
   const now = new Date();
   const sub = await getScopedDoc<SubscriptionRecord>(scopeId, 'subscription', 'current');
-  const subscriptionActive = !!sub && new Date(sub.endAt) > now;
+  const legacyActive = !!sub && new Date(sub.endAt) > now;
+  // 정기결제(월 자동결제): 결제 주체(개인 본인 또는 회사 관리자) 기준. 해지해도 이미 결제한 기간이 남아 있으면 이용 가능.
+  const billingOwner = users.find(u => scopeIdForUser(u) === scopeId && (u.type === 'individual' || u.role === 'admin') && (u.subscriptionStatus === 'active' || (u.subscriptionStatus === 'canceled' && !!u.nextBillingAt && new Date(u.nextBillingAt) > now)));
+  const billingActive = !!billingOwner;
+  const subscriptionActive = legacyActive || billingActive;
   let trial = await getScopedDoc<TrialRecord>(scopeId, 'subscription', 'trial');
   if (!trial) {
     trial = { id: 'trial', startAt: now.toISOString() };
@@ -5886,7 +5872,7 @@ async function getAccessStatus(scopeId: string) {
   return {
     active: subscriptionActive || trialActive,
     subscriptionActive,
-    subscriptionEndsAt: subscriptionActive && sub ? sub.endAt : null,
+    subscriptionEndsAt: billingOwner?.nextBillingAt ?? (legacyActive && sub ? sub.endAt : null),
     trialActive,
     trialEndsAt: trialEndsAt.toISOString(),
   };
