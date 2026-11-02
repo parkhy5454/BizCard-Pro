@@ -5815,8 +5815,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 11. 운행일지 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingDriving && (
-        <div style={getVehicleModalInsets()} className="fixed left-0 right-0 bg-white z-[100] flex items-start justify-center p-0 md:items-center md:p-4 overflow-y-auto">
-          <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-xl h-full md:h-auto max-h-full md:max-h-[90vh] flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
+        <div className="w-full bg-white flex items-start justify-center p-0 md:p-4">
+          <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-xl flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
                 <h2 className="text-base font-bold text-slate-800">운행 기록 수정 보완</h2>
