@@ -572,7 +572,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
 
                             {/* [추가] 관리자 전용(또는 회사 구분 없이 개발자 계정): 인증 메일을 못 받아
                             막혀 있는 동료를 수동으로 인증 완료 처리 */}
-                            {(isOperator || (canManageRoles && isMyGroup)) && !isMe && u.type === 'company' && u.emailVerified === false && (
+                            {(isOperator || (canManageRoles && isMyGroup)) && !isMe && (u.type === 'company' || isOperator) && u.emailVerified === false && (
                               <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-200">
                                 <span className="text-[11px] text-slate-400">이메일 인증:</span>
                                 <button
@@ -590,7 +590,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                             {/* [추가] 관리자 전용(또는 회사 구분 없이 개발자 계정): 비밀번호 재설정
                             메일도 스팸 등으로 못 받아 로그인 자체가 막힌 동료를 위해, 이메일과
                             무관하게 새 비밀번호를 직접 정해서 알려줄 수 있게 한다. */}
-                            {(isOperator || (canManageRoles && isMyGroup)) && !isMe && u.type === 'company' && (
+                            {(isOperator || (canManageRoles && isMyGroup)) && !isMe && (u.type === 'company' || isOperator) && (
                               <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-200">
                                 <span className="text-[11px] text-slate-400">로그인 문제:</span>
                                 <button
