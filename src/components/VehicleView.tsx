@@ -638,6 +638,19 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'driving-edit' | 'expense' | 'maint'; rawImage: string } | null>(null);
   const [receiptCameraTarget, setReceiptCameraTarget] = useState<'driving' | 'driving-edit' | 'expense' | 'maint' | null>(null);
   const receiptFallbackFileInputRef = React.useRef<HTMLInputElement>(null);
+  // 수정 칸은 화면 맨 아래에 그려지므로, 수정 버튼을 누르면 그 칸으로 스크롤한다.
+  const drivingEditRef = React.useRef<HTMLDivElement>(null);
+  const vehicleEditRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!editingDriving) return;
+    const t = window.setTimeout(() => drivingEditRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    return () => window.clearTimeout(t);
+  }, [editingDriving?.id, !!editingDriving]);
+  React.useEffect(() => {
+    if (!editingVehicle) return;
+    const t = window.setTimeout(() => vehicleEditRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    return () => window.clearTimeout(t);
+  }, [editingVehicle?.id, !!editingVehicle]);
   // [추가] 갤러리에서 고른 영수증이 어느 입력 화면(운행/비용/정비/수정)용인지 기억해 둔다
   const receiptGalleryContextRef = React.useRef<'driving' | 'driving-edit' | 'expense' | 'maint' | null>(null);
 
@@ -3142,7 +3155,25 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                           <span className="text-sm font-mono text-slate-500">{log.date}</span>
-                          <span className="text-base font-semibold text-slate-700">{log.driverName}</span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-base font-semibold text-slate-700">{log.driverName}</span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingDriving(log)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
+                              title="운행 기록 수정"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDriving(log.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
+                              title="운행 기록 삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </span>
                         </div>
 
                         <div className="space-y-1">
@@ -3242,23 +3273,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         <div className="font-bold text-indigo-400 font-mono text-base">
                           {log.distance} km 주행
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onClick={() => setEditingDriving(log)}
-                            className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
-                            title="운행 기록 수정"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteDriving(log.id)}
-                            className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
-                            title="운행 기록 삭제"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                                              </div>
                     </div>
                   ))}
 
@@ -5229,7 +5244,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 8. 기 등록 차량 정보 수정 오버레이 모달 (임차/보험/비콘 완벽 제어) */}
       {/* ========================================== */}
       {editingVehicle && (
-        <div className="w-full bg-white flex items-start justify-center p-0 md:p-4">
+        <div ref={vehicleEditRef} className="w-full scroll-mt-32 bg-white flex items-start justify-center p-0 md:p-4">
           <div className="bg-white border-0 md:border border-slate-200 w-full max-w-4xl rounded-none md:rounded-2xl p-6 shadow-none md:shadow-2xl space-y-6 my-0 md:my-8 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
@@ -5815,7 +5830,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 11. 운행일지 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingDriving && (
-        <div className="w-full bg-white flex items-start justify-center p-0 md:p-4">
+        <div ref={drivingEditRef} className="w-full scroll-mt-32 bg-white flex items-start justify-center p-0 md:p-4">
           <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-xl flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
