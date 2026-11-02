@@ -68,7 +68,15 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
   useEffect(() => {
     if (!order) return;
     let cancelled = false;
+    let done = false;
     setWidgetReady(false);
+    // 결제 수단 영역이 일정 시간 안에 안 열리면 원인을 안내한다 (키 값 전체는 보여주지 않음).
+    const timer = window.setTimeout(() => {
+      if (!cancelled && !done) {
+        const prefix = CLIENT_KEY ? CLIENT_KEY.slice(0, 8) : '(없음)';
+        setError(`결제 화면이 열리지 않습니다. 클라이언트 키 종류(결제위젯용 test_gck_ 키)와 배포 상태를 확인해 주세요. 현재 키 앞부분: ${prefix}`);
+      }
+    }, 12000);
     (async () => {
       try {
         if (!CLIENT_KEY) throw new Error('결제 설정(VITE_TOSS_CLIENT_KEY)이 없습니다. 관리자에게 문의해 주세요.');
@@ -81,13 +89,18 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
           widget.renderPaymentMethods('#toss-payment-method', { value: order.amount }),
           widget.renderAgreement('#toss-agreement'),
         ]);
-        if (!cancelled) setWidgetReady(true);
+        if (!cancelled) {
+          done = true;
+          setError('');
+          setWidgetReady(true);
+        }
       } catch (err: any) {
         if (!cancelled) setError(err?.message || '결제 화면을 준비하지 못했습니다.');
       }
     })();
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, [order]);
 
