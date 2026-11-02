@@ -3139,6 +3139,309 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
 
             return (
               <div className="space-y-2">
+                {/* 운행일지 수정 칸: 수정 버튼을 누른 자리(목록 위)에서 바로 열린다 */}
+      {editingDriving && (
+        <div
+          ref={drivingEditRef}
+          className="w-full scroll-mt-32 pb-28 md:pb-4 bg-white flex items-start justify-center p-0 md:p-4"
+          onFocus={(e) => {
+            // 칸을 누르면 키보드 때문에 가려지지 않도록 그 칸을 화면 가운데로 보낸다 (아래 고정 탭 위)
+            const t = e.target as HTMLElement;
+            if (t.matches('input, textarea, select')) {
+              window.setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
+            }
+          }}
+        >
+          <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-xl flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-start">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">운행 기록 수정 보완</h2>
+                <p className="text-xs text-slate-500 mt-0.5">운행 기록의 누락된 상세 정보나 주소를 갱신하세요.</p>
+              </div>
+              <button 
+                onClick={() => setEditingDriving(null)}
+                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateDriving} className="p-5 overflow-y-auto min-h-0 space-y-4 flex-1">
+                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
+                <DraftPromptBanner prompt={drivingEditDraft.prompt} onRestore={drivingEditDraft.restore} onDismiss={drivingEditDraft.dismiss} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">운전자명</label>
+                  {/* [수정] 신규 등록 화면에는 없는 필수 입력(required)이 수정 화면 6개 항목에만
+                      걸려 있어서, 이 항목들이 비어 있는 기존 기록을 수정하려 하면 저장 자체가
+                      막히는 문제가 있었다(정비 기록 수정에서 고친 것과 동일한 패턴). 실제 저장
+                      로직(handleUpdateDriving)도 이 항목들을 필수로 검사하지 않으므로, 신규 등록
+                      화면과 동일하게 필수 표시를 없애 부분 저장 후 나중에 수정도 가능하게 한다. */}
+                  <input
+                    type="text"
+                    value={editingDriving.driverName}
+                    onChange={e => setEditingDriving({ ...editingDriving, driverName: e.target.value })}
+                    onBlur={e => {
+                      const trimmed = e.target.value.trim();
+                      if (!trimmed) return;
+                      const matches = drivingLogs
+                        .filter((log) => log.driverName === trimmed && log.department && log.id !== editingDriving.id)
+                        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+                      const dept = matches[0]?.department;
+                      if (dept) setEditingDriving((prev) => prev ? { ...prev, department: dept } : prev);
+                    }}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">부서명</label>
+                  <input 
+                    type="text" 
+                    value={editingDriving.department || ''}
+                    onChange={e => setEditingDriving({ ...editingDriving, department: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">연동 프로젝트</label>
+                  <ProjectSearchSelect
+                    projects={projects}
+                    value={editingDriving.projectName || ''}
+                    onChange={(name) => setEditingDriving({ ...editingDriving, projectName: name })}
+                    noneLabel="연동 안함"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">운행 일자</label>
+                  <input
+                    type="date"
+                    value={editingDriving.date}
+                    onChange={e => setEditingDriving({ ...editingDriving, date: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">출발 전 계기판 (km)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={editingDriving.startMileage === 0 ? '' : editingDriving.startMileage}
+                    onChange={e => setEditingDriving({ ...editingDriving, startMileage: Number(e.target.value) })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">도착 후 계기판 (km)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={editingDriving.endMileage === 0 ? '' : editingDriving.endMileage}
+                    onChange={e => setEditingDriving({ ...editingDriving, endMileage: Number(e.target.value) })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">출발지 상호명</label>
+                  <input 
+                    type="text" 
+                    value={editingDriving.startPlace}
+                    onChange={e => setEditingDriving({ ...editingDriving, startPlace: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                  {editingDriving.startPlace.trim().length > 0 && (() => {
+                    const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.startPlace.trim().toLowerCase())).slice(0, 3);
+                    const options = matches.flatMap(c => [
+                      { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
+                      ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
+                    ]);
+                    return options.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {options.map(opt => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setEditingDriving({ ...editingDriving, startPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), startAddress: opt.address })}
+                            className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
+                            title={opt.address}
+                          >
+                            🏢 {opt.label} 주소로 채우기
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">출발지 주소</label>
+                  <input 
+                    type="text" 
+                    value={editingDriving.startAddress || ''}
+                    onChange={e => setEditingDriving({ ...editingDriving, startAddress: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">목적지 상호명</label>
+                  <input
+                    type="text"
+                    value={editingDriving.endPlace}
+                    onChange={e => setEditingDriving({ ...editingDriving, endPlace: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                  {editingDriving.endPlace.trim().length > 0 && (() => {
+                    const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.endPlace.trim().toLowerCase())).slice(0, 3);
+                    const options = matches.flatMap(c => [
+                      { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
+                      ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
+                    ]);
+                    return options.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {options.map(opt => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setEditingDriving({ ...editingDriving, endPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), endAddress: opt.address })}
+                            className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
+                            title={opt.address}
+                          >
+                            🏢 {opt.label} 주소로 채우기
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-500">목적지 주소</label>
+                  <input 
+                    type="text" 
+                    value={editingDriving.endAddress || ''}
+                    onChange={e => setEditingDriving({ ...editingDriving, endAddress: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs text-slate-500">운행 목적</label>
+                  <input
+                    type="text"
+                    value={editingDriving.purpose}
+                    onChange={e => setEditingDriving({ ...editingDriving, purpose: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs text-slate-500">메모란</label>
+                  <textarea 
+                    rows={2}
+                    value={editingDriving.memo || ''}
+                    onChange={e => setEditingDriving({ ...editingDriving, memo: e.target.value })}
+                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 resize-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자</label>
+                  <ContactSearchSelect
+                    contacts={contacts}
+                    value={editingDriving.contactId || ''}
+                    onChange={(id) => setEditingDriving({ ...editingDriving, contactId: id })}
+                  />
+                </div>
+
+                {/* [추가] 이 운행기록에 연결된 영수증(통행료/주차비/식대 등)을 여기서도 볼 수 있고,
+                새로 촬영해서 추가할 수 있다. 신규 작성 화면에서 못 찍었거나 나중에 생긴 영수증을
+                등록/수정 뒤에도 놓치지 않도록 하기 위함이다. */}
+                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-slate-200">
+                  <label className="text-xs text-slate-500 block font-semibold text-emerald-500">이 운행에 연결된 영수증</label>
+                  <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReceiptCameraTarget('driving-edit')}
+                    disabled={isScanningEditReceipt}
+                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-50"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>{isScanningEditReceipt ? '영수증 스캔 중...' : editReceiptDrafts.length > 0 ? `영수증 추가로 촬영 (지금 ${editReceiptDrafts.length}건 담김)` : '영수증 촬영 (여러 장 가능)'}</span>
+                  </button>
+                    <button
+                        type="button"
+                        onClick={() => { receiptGalleryContextRef.current = 'driving-edit'; receiptFallbackFileInputRef.current?.click(); }}
+                        className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
+                      >
+                        갤러리에서 선택
+                    </button>
+                  </div>
+
+                  {editReceiptDrafts.length > 0 && renderReceiptDraftCards(editReceiptDrafts, setEditReceiptDrafts)}
+
+                  {(() => {
+                    const linkedReceipts = expenses.filter((e) => e.drivingLogId === editingDriving.id);
+                    if (linkedReceipts.length === 0) {
+                      return editReceiptDrafts.length > 0 ? null : <p className="text-[11px] text-slate-400 text-center py-2">아직 연결된 영수증이 없습니다.</p>;
+                    }
+                    return (
+                      <div className="space-y-1.5">
+                        {linkedReceipts.map((exp) => (
+                          <div key={exp.id} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                            {exp.receiptImage && (
+                              <img
+                                src={exp.receiptImage}
+                                alt="영수증"
+                                onClick={() => setEnlargedReceiptUrl(exp.receiptImage!)}
+                                className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1 text-xs">
+                              <p className="font-semibold text-slate-700 truncate">{exp.merchantName || '상호명 미상'} · {formatCurrencyInput(exp.amount)}원</p>
+                              <p className="text-[10px] text-slate-400">{exp.category === 'toll' ? '통행료' : exp.category === 'parking' ? '주차비' : exp.category === 'meal' ? '식대' : exp.category === 'beverage' ? '음료' : exp.category === 'fuel' ? '주유비' : '기타'}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEditingReceipt(exp.id)}
+                              title="이 영수증 삭제"
+                              className="text-rose-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
+                <button 
+                  type="button"
+                  onClick={() => setEditingDriving(null)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
+                >
+                  수정 취소
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
+                >
+                  운행기록 보완 저장
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
                 <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
                   <span>총 {filteredLogs.length}건의 운행 기록</span>
                   <span className="flex items-center gap-1 text-indigo-400 font-medium">
@@ -5823,311 +6126,6 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           </div>
         );
       })()}
-
-      {/* ========================================== */}
-      {/* 11. 운행일지 수정 모달 오버레이 */}
-      {/* ========================================== */}
-      {editingDriving && (
-        <div
-          ref={drivingEditRef}
-          className="w-full scroll-mt-32 pb-28 md:pb-4 bg-white flex items-start justify-center p-0 md:p-4"
-          onFocus={(e) => {
-            // 칸을 누르면 키보드 때문에 가려지지 않도록 그 칸을 화면 가운데로 보낸다 (아래 고정 탭 위)
-            const t = e.target as HTMLElement;
-            if (t.matches('input, textarea, select')) {
-              window.setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
-            }
-          }}
-        >
-          <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-xl flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
-            <div className="p-5 border-b border-slate-200 flex justify-between items-start">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">운행 기록 수정 보완</h2>
-                <p className="text-xs text-slate-500 mt-0.5">운행 기록의 누락된 상세 정보나 주소를 갱신하세요.</p>
-              </div>
-              <button 
-                onClick={() => setEditingDriving(null)}
-                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleUpdateDriving} className="p-5 overflow-y-auto min-h-0 space-y-4 flex-1">
-                {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
-                <DraftPromptBanner prompt={drivingEditDraft.prompt} onRestore={drivingEditDraft.restore} onDismiss={drivingEditDraft.dismiss} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">운전자명</label>
-                  {/* [수정] 신규 등록 화면에는 없는 필수 입력(required)이 수정 화면 6개 항목에만
-                      걸려 있어서, 이 항목들이 비어 있는 기존 기록을 수정하려 하면 저장 자체가
-                      막히는 문제가 있었다(정비 기록 수정에서 고친 것과 동일한 패턴). 실제 저장
-                      로직(handleUpdateDriving)도 이 항목들을 필수로 검사하지 않으므로, 신규 등록
-                      화면과 동일하게 필수 표시를 없애 부분 저장 후 나중에 수정도 가능하게 한다. */}
-                  <input
-                    type="text"
-                    value={editingDriving.driverName}
-                    onChange={e => setEditingDriving({ ...editingDriving, driverName: e.target.value })}
-                    onBlur={e => {
-                      const trimmed = e.target.value.trim();
-                      if (!trimmed) return;
-                      const matches = drivingLogs
-                        .filter((log) => log.driverName === trimmed && log.department && log.id !== editingDriving.id)
-                        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-                      const dept = matches[0]?.department;
-                      if (dept) setEditingDriving((prev) => prev ? { ...prev, department: dept } : prev);
-                    }}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">부서명</label>
-                  <input 
-                    type="text" 
-                    value={editingDriving.department || ''}
-                    onChange={e => setEditingDriving({ ...editingDriving, department: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">연동 프로젝트</label>
-                  <ProjectSearchSelect
-                    projects={projects}
-                    value={editingDriving.projectName || ''}
-                    onChange={(name) => setEditingDriving({ ...editingDriving, projectName: name })}
-                    noneLabel="연동 안함"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">운행 일자</label>
-                  <input
-                    type="date"
-                    value={editingDriving.date}
-                    onChange={e => setEditingDriving({ ...editingDriving, date: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">출발 전 계기판 (km)</label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={editingDriving.startMileage === 0 ? '' : editingDriving.startMileage}
-                    onChange={e => setEditingDriving({ ...editingDriving, startMileage: Number(e.target.value) })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">도착 후 계기판 (km)</label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={editingDriving.endMileage === 0 ? '' : editingDriving.endMileage}
-                    onChange={e => setEditingDriving({ ...editingDriving, endMileage: Number(e.target.value) })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">출발지 상호명</label>
-                  <input 
-                    type="text" 
-                    value={editingDriving.startPlace}
-                    onChange={e => setEditingDriving({ ...editingDriving, startPlace: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                  />
-                  {editingDriving.startPlace.trim().length > 0 && (() => {
-                    const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.startPlace.trim().toLowerCase())).slice(0, 3);
-                    const options = matches.flatMap(c => [
-                      { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
-                      ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
-                    ]);
-                    return options.length > 0 ? (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {options.map(opt => (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => setEditingDriving({ ...editingDriving, startPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), startAddress: opt.address })}
-                            className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
-                            title={opt.address}
-                          >
-                            🏢 {opt.label} 주소로 채우기
-                          </button>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">출발지 주소</label>
-                  <input 
-                    type="text" 
-                    value={editingDriving.startAddress || ''}
-                    onChange={e => setEditingDriving({ ...editingDriving, startAddress: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">목적지 상호명</label>
-                  <input
-                    type="text"
-                    value={editingDriving.endPlace}
-                    onChange={e => setEditingDriving({ ...editingDriving, endPlace: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                  />
-                  {editingDriving.endPlace.trim().length > 0 && (() => {
-                    const matches = contacts.filter(c => c.company && c.address && c.company.toLowerCase().includes(editingDriving.endPlace.trim().toLowerCase())).slice(0, 3);
-                    const options = matches.flatMap(c => [
-                      { key: `${c.id}-1`, label: c.address2 ? `${c.company} (주소1)` : c.company, address: c.address! },
-                      ...(c.address2 ? [{ key: `${c.id}-2`, label: `${c.company} (주소2)`, address: c.address2 }] : [])
-                    ]);
-                    return options.length > 0 ? (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {options.map(opt => (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => setEditingDriving({ ...editingDriving, endPlace: opt.label.replace(/\s*\(주소[12]\)$/, ''), endAddress: opt.address })}
-                            className="bg-indigo-50 text-[10px] text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-500"
-                            title={opt.address}
-                          >
-                            🏢 {opt.label} 주소로 채우기
-                          </button>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-500">목적지 주소</label>
-                  <input 
-                    type="text" 
-                    value={editingDriving.endAddress || ''}
-                    onChange={e => setEditingDriving({ ...editingDriving, endAddress: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs text-slate-500">운행 목적</label>
-                  <input
-                    type="text"
-                    value={editingDriving.purpose}
-                    onChange={e => setEditingDriving({ ...editingDriving, purpose: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs text-slate-500">메모란</label>
-                  <textarea 
-                    rows={2}
-                    value={editingDriving.memo || ''}
-                    onChange={e => setEditingDriving({ ...editingDriving, memo: e.target.value })}
-                    className="w-full bg-slate-50 text-xs border border-slate-200 rounded-lg p-2 focus:border-indigo-500 focus:outline-none text-slate-600 resize-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs text-slate-500 block font-semibold text-indigo-400">연관 거래처 담당자</label>
-                  <ContactSearchSelect
-                    contacts={contacts}
-                    value={editingDriving.contactId || ''}
-                    onChange={(id) => setEditingDriving({ ...editingDriving, contactId: id })}
-                  />
-                </div>
-
-                {/* [추가] 이 운행기록에 연결된 영수증(통행료/주차비/식대 등)을 여기서도 볼 수 있고,
-                새로 촬영해서 추가할 수 있다. 신규 작성 화면에서 못 찍었거나 나중에 생긴 영수증을
-                등록/수정 뒤에도 놓치지 않도록 하기 위함이다. */}
-                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-slate-200">
-                  <label className="text-xs text-slate-500 block font-semibold text-emerald-500">이 운행에 연결된 영수증</label>
-                  <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setReceiptCameraTarget('driving-edit')}
-                    disabled={isScanningEditReceipt}
-                    className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold transition-colors disabled:opacity-50"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>{isScanningEditReceipt ? '영수증 스캔 중...' : editReceiptDrafts.length > 0 ? `영수증 추가로 촬영 (지금 ${editReceiptDrafts.length}건 담김)` : '영수증 촬영 (여러 장 가능)'}</span>
-                  </button>
-                    <button
-                        type="button"
-                        onClick={() => { receiptGalleryContextRef.current = 'driving-edit'; receiptFallbackFileInputRef.current?.click(); }}
-                        className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
-                      >
-                        갤러리에서 선택
-                    </button>
-                  </div>
-
-                  {editReceiptDrafts.length > 0 && renderReceiptDraftCards(editReceiptDrafts, setEditReceiptDrafts)}
-
-                  {(() => {
-                    const linkedReceipts = expenses.filter((e) => e.drivingLogId === editingDriving.id);
-                    if (linkedReceipts.length === 0) {
-                      return editReceiptDrafts.length > 0 ? null : <p className="text-[11px] text-slate-400 text-center py-2">아직 연결된 영수증이 없습니다.</p>;
-                    }
-                    return (
-                      <div className="space-y-1.5">
-                        {linkedReceipts.map((exp) => (
-                          <div key={exp.id} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2.5">
-                            {exp.receiptImage && (
-                              <img
-                                src={exp.receiptImage}
-                                alt="영수증"
-                                onClick={() => setEnlargedReceiptUrl(exp.receiptImage!)}
-                                className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80"
-                              />
-                            )}
-                            <div className="min-w-0 flex-1 text-xs">
-                              <p className="font-semibold text-slate-700 truncate">{exp.merchantName || '상호명 미상'} · {formatCurrencyInput(exp.amount)}원</p>
-                              <p className="text-[10px] text-slate-400">{exp.category === 'toll' ? '통행료' : exp.category === 'parking' ? '주차비' : exp.category === 'meal' ? '식대' : exp.category === 'beverage' ? '음료' : exp.category === 'fuel' ? '주유비' : '기타'}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteEditingReceipt(exp.id)}
-                              title="이 영수증 삭제"
-                              className="text-rose-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 shrink-0"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
-                <button 
-                  type="button"
-                  onClick={() => setEditingDriving(null)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs py-2 px-4 rounded-lg transition-all"
-                >
-                  수정 취소
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 px-5 rounded-lg transition-all"
-                >
-                  운행기록 보완 저장
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ========================================== */}
       {/* 12. 비용 지출 수정 모달 오버레이 */}
