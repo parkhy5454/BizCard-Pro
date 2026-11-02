@@ -105,6 +105,15 @@ export default function App() {
   // 모달 제어 상태
   const [isScanOpen, setIsScanOpen] = useState<boolean>(false);
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState<boolean>(false);
+  // [추가] 무료 체험 / 구독 이용 상태 (상단 안내 배너용). 구독 화면을 닫을 때마다 다시 불러온다.
+  const [accessStatus, setAccessStatus] = useState<{ active: boolean; subscriptionActive: boolean; trialActive: boolean; trialEndsAt: string } | null>(null);
+  useEffect(() => {
+    if (!currentUser?.id) { setAccessStatus(null); return; }
+    fetch('/api/subscription/status', { headers: { 'x-user-id': currentUser.id } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setAccessStatus(data))
+      .catch(() => setAccessStatus(null));
+  }, [currentUser?.id, isSubscriptionOpen]);
   const [isVoiceQuickAddOpen, setIsVoiceQuickAddOpen] = useState<boolean>(false);
   const [isTaxPackageOpen, setIsTaxPackageOpen] = useState<boolean>(false);
   const [triggerNewProject, setTriggerNewProject] = useState<number>(0);
@@ -677,7 +686,22 @@ export default function App() {
           />
         ) : (
           <>
-        
+        {accessStatus && !accessStatus.subscriptionActive && (
+          <div className={`mx-4 mt-3 flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm ${accessStatus.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
+            <span className="font-semibold">
+              {accessStatus.trialActive
+                ? `무료 체험 중 · ${new Date(accessStatus.trialEndsAt).toLocaleDateString('ko-KR')}까지`
+                : '무료 체험이 끝났습니다. 신규 명함 등록은 구독 후 가능합니다.'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsSubscriptionOpen(true)}
+              className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white"
+            >
+              구독하기
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center space-y-4">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />

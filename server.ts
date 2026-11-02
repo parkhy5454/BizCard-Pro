@@ -4516,7 +4516,7 @@ app.get('/api/contacts', (req, res) => {
   res.json(visible);
 });
 
-app.post('/api/contacts', async (req, res) => {
+app.post('/api/contacts', requireActiveAccess, async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = req.scopeId;
   const newCard: BusinessCard = req.body;
@@ -4822,7 +4822,7 @@ app.post('/api/detect-card-corners', async (req, res) => {
 });
 
 // Gemini Vision 명함 OCR API
-app.post('/api/scan-card', async (req, res) => {
+app.post('/api/scan-card', requireActiveAccess, async (req, res) => {
   try {
     const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
     const scanLimit = aiScanRateLimiter.check(scanUserId);
@@ -5694,7 +5694,7 @@ app.post('/api/ai-intelligence/relationship-analysis', async (req, res) => {
 });
 
 // 데이터 전체 입출력을 위한 벌크 업데이트 API
-app.post('/api/contacts/import', async (req, res) => {
+app.post('/api/contacts/import', requireActiveAccess, async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = req.scopeId;
   const { importedContacts } = req.body;
@@ -5868,6 +5868,47 @@ type SubscriptionRecord = {
   orderId: string;
 };
 
+// 무료 체험: 회사(scope)가 처음 사용한 시점부터 14일. 서버가 처음 기록하므로 클라이언트가 바꿀 수 없다.
+const TRIAL_DAYS = 14;
+type TrialRecord = { id: string; startAt: string };
+
+async function getAccessStatus(scopeId: string) {
+  const now = new Date();
+  const sub = await getScopedDoc<SubscriptionRecord>(scopeId, 'subscription', 'current');
+  const subscriptionActive = !!sub && new Date(sub.endAt) > now;
+  let trial = await getScopedDoc<TrialRecord>(scopeId, 'subscription', 'trial');
+  if (!trial) {
+    trial = { id: 'trial', startAt: now.toISOString() };
+    await setScopedDoc(scopeId, 'subscription', trial);
+  }
+  const trialEndsAt = new Date(new Date(trial.startAt).getTime() + TRIAL_DAYS * 86400000);
+  const trialActive = trialEndsAt > now;
+  return {
+    active: subscriptionActive || trialActive,
+    subscriptionActive,
+    subscriptionEndsAt: subscriptionActive && sub ? sub.endAt : null,
+    trialActive,
+    trialEndsAt: trialEndsAt.toISOString(),
+  };
+}
+
+// 체험 종료 + 구독 없음이면 신규 등록·가져오기·스캔을 막는다. 기존 명함 조회·수정은 막지 않는다.
+async function requireActiveAccess(req: any, res: any, next: any) {
+  try {
+    const status = await getAccessStatus(req.scopeId || 'default');
+    if (!status.active) {
+      return res.status(402).json({
+        error: '무료 체험이 끝났습니다. 구독 · 결제에서 구독하시면 명함을 계속 등록할 수 있습니다.',
+        code: 'SUBSCRIPTION_REQUIRED',
+      });
+    }
+    next();
+  } catch (err) {
+    console.error('[access] 이용 상태 확인 실패', err);
+    res.status(500).json({ error: '이용 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' });
+  }
+}
+
 function addMonthsTo(base: Date, months: number): Date {
   const d = new Date(base);
   d.setMonth(d.getMonth() + months);
@@ -5999,6 +6040,18 @@ app.post('/api/subscription/confirm', async (req, res) => {
 });
 
 // 3) 현재 구독 상태 조회
+app.get('/api/subscription/status', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  try {
+    res.json(await getAccessStatus(req.scopeId || 'default'));
+  } catch (err) {
+    console.error('[access] 이용 상태 조회 실패', err);
+    res.status(500).json({ error: '이용 상태를 불러오지 못했습니다.' });
+  }
+});
+
 app.get('/api/subscription', async (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);

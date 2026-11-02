@@ -42,6 +42,7 @@ interface SubscriptionViewProps {
 
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser, isAdmin, onClose }) => {
   const [current, setCurrent] = useState<Current>(null);
+  const [access, setAccess] = useState<{ active: boolean; subscriptionActive: boolean; trialActive: boolean; trialEndsAt: string } | null>(null);
   const [kind, setKind] = useState<'individual' | 'team'>('individual');
   const [period, setPeriod] = useState<Period>(3);
   const [seats, setSeats] = useState<number>(TEAM_MIN_SEATS);
@@ -61,6 +62,10 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
       .then((res) => res.json())
       .then((data) => setCurrent(data || null))
       .catch(() => setCurrent(null));
+    fetch('/api/subscription/status', { headers: { 'x-user-id': currentUser?.id || '' } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setAccess(data))
+      .catch(() => setAccess(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
@@ -177,6 +182,15 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
           <p className="flex items-center gap-2 text-emerald-700 font-semibold">
             <CheckCircle2 className="w-4 h-4" />
             이용 중 · {activeUntil.toLocaleDateString('ko-KR')}까지
+          </p>
+        ) : access?.trialActive ? (
+          <p className="flex items-center gap-2 text-indigo-700 font-semibold">
+            <CheckCircle2 className="w-4 h-4" />
+            무료 체험 중 · {new Date(access.trialEndsAt).toLocaleDateString('ko-KR')}까지 (명함 등록 가능)
+          </p>
+        ) : access ? (
+          <p className="font-semibold text-rose-600">
+            무료 체험이 끝났습니다. 구독하시면 명함 등록을 계속할 수 있습니다.
           </p>
         ) : (
           <p className="text-slate-500">현재 이용 중인 구독이 없습니다.</p>
