@@ -49,6 +49,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const widgetRef = useRef<any>(null);
+  const [widgetReady, setWidgetReady] = useState(false);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -67,6 +68,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
   useEffect(() => {
     if (!order) return;
     let cancelled = false;
+    setWidgetReady(false);
     (async () => {
       try {
         if (!CLIENT_KEY) throw new Error('결제 설정(VITE_TOSS_CLIENT_KEY)이 없습니다. 관리자에게 문의해 주세요.');
@@ -74,8 +76,12 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
         if (cancelled || !window.PaymentWidget) return;
         const widget = window.PaymentWidget(CLIENT_KEY, order.customerKey);
         widgetRef.current = widget;
-        widget.renderPaymentMethods('#toss-payment-method', { value: order.amount });
-        widget.renderAgreement('#toss-agreement');
+        // 결제 수단·약관 영역이 모두 그려진 뒤에만 결제 버튼을 활성화한다.
+        await Promise.all([
+          widget.renderPaymentMethods('#toss-payment-method', { value: order.amount }),
+          widget.renderAgreement('#toss-agreement'),
+        ]);
+        if (!cancelled) setWidgetReady(true);
       } catch (err: any) {
         if (!cancelled) setError(err?.message || '결제 화면을 준비하지 못했습니다.');
       }
@@ -112,7 +118,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
   };
 
   const pay = async () => {
-    if (!order || !widgetRef.current) return;
+    if (!order || !widgetRef.current || !widgetReady) return;
     setError('');
     try {
       await widgetRef.current.requestPayment({
@@ -188,9 +194,10 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
             <button
               type="button"
               onClick={pay}
-              className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-500"
+              disabled={!widgetReady}
+              className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
             >
-              {won(order.amount)} 결제하기
+              {widgetReady ? `${won(order.amount)} 결제하기` : '결제 화면 준비 중...'}
             </button>
           </div>
         </div>
