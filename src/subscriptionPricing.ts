@@ -39,7 +39,8 @@ export function getTeamTotal(seats: number, period: Period): number {
 }
 
 // 기간 중 인원 추가 금액 (일할 계산, 원 단위 내림)
-// 계약의 할인율을 그대로 적용하고, 만료일은 바뀌지 않는다.
+// 추가되는 인원에 "추가 후 인원 구간"의 단가 + 계약 기간 할인율을 적용한다. 만료일은 바뀌지 않는다.
+// 기존 인원의 단가 정산(구간이 내려갈 때의 차액)은 아직 정하지 않아 여기서는 다루지 않는다.
 export function getAddSeatCharge(params: {
   seatsAdded: number;
   currentSeats: number;
@@ -48,8 +49,8 @@ export function getAddSeatCharge(params: {
 }): number {
   const { seatsAdded, currentSeats, period, remainingDays } = params;
   if (seatsAdded <= 0 || remainingDays <= 0) return 0;
-  // 추가 전 현재 인원이 속한 구간의 단가를 쓴다 (추가 결제 때문에 구간이 바뀌지 않도록)
-  const monthly = getTeamMonthlyPerSeat(currentSeats);
+  // 추가 후 전체 인원 기준의 구간 단가를 적용한다 (예: 9명 → 10명이 되면 10~29명 단가)
+  const monthly = getTeamMonthlyPerSeat(currentSeats + seatsAdded);
   const effectiveMonthly = monthly * (1 - PERIOD_DISCOUNT[period]);
   return Math.floor((effectiveMonthly / 30) * remainingDays * seatsAdded);
 }
