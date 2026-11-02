@@ -649,7 +649,7 @@ export default function App() {
           />
         ) : (
           <>
-        {accessStatus && !accessStatus.subscriptionActive && (
+        {accessStatus && !accessStatus.subscriptionActive && (activeTab === 'cards' || activeTab === 'more') && (
           <div className={`mx-4 mt-3 flex items-center justify-between gap-3 whitespace-nowrap rounded-xl px-4 py-3 text-sm ${accessStatus.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
             <span className="min-w-0 truncate font-semibold">
               {accessStatus.trialActive
