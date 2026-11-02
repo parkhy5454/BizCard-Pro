@@ -335,6 +335,7 @@ import {
   getReferralsForUser,
   migrateScopedItemsToAppUsers
 } from './src/db/neonStore.js';
+import { INDIVIDUAL_PLANS, TEAM_MIN_SEATS, getTeamTotal, type Period } from './src/subscriptionPricing.js';
 
 
 
@@ -5834,6 +5835,176 @@ app.put('/api/my-profile', async (req, res) => {
     return res.status(500).json({ error: '내 명함 정보를 데이터베이스에 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
   }
   res.json(dbData.myProfile);
+});
+
+// ------------------------------------------------------------------
+// 💳 구독 결제 (토스페이먼츠 결제위젯 · 기간제 상품)
+// 금액은 서버가 src/subscriptionPricing.ts 기준으로 계산하고, 승인 전에 주문 금액과 다시 대조한다.
+// 개인 상품은 누구나, 팀 상품은 관리자만 결제할 수 있다.
+// ------------------------------------------------------------------
+const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
+
+type SubscriptionOrder = {
+  id: string;
+  orderId: string;
+  kind: 'individual' | 'team';
+  period: Period;
+  seats: number;
+  amount: number;
+  status: 'pending' | 'paid' | 'failed';
+  userId: string;
+  createdAt: string;
+  paymentKey?: string;
+};
+
+type SubscriptionRecord = {
+  id: string;
+  kind: 'individual' | 'team';
+  period: Period;
+  seats: number;
+  amount: number;
+  startAt: string;
+  endAt: string;
+  orderId: string;
+};
+
+function addMonthsTo(base: Date, months: number): Date {
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+// 결제위젯 customerKey: 영문·숫자·-_=.@ 만 허용, 2~50자
+function makeCustomerKey(userId: string): string {
+  return 'c-' + crypto.createHash('sha256').update(userId).digest('hex').slice(0, 40);
+}
+
+// 1) 주문 생성: 금액을 서버에서 계산하고 대기 주문으로 저장한다.
+app.post('/api/subscription/order', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { kind, period, seats } = req.body || {};
+  if (kind !== 'individual' && kind !== 'team') return res.status(400).json({ error: '상품 종류가 올바르지 않습니다.' });
+  const p = Number(period);
+  if (p !== 3 && p !== 6 && p !== 12) return res.status(400).json({ error: '이용 기간이 올바르지 않습니다.' });
+
+  let amount: number;
+  let orderName: string;
+  let seatCount = 1;
+  if (kind === 'individual') {
+    amount = INDIVIDUAL_PLANS[p as Period].price;
+    orderName = `BizCard Pro ${INDIVIDUAL_PLANS[p as Period].name} ${p}개월`;
+  } else {
+    if (requester.role !== 'admin') return res.status(403).json({ error: '팀 상품은 관리자만 결제할 수 있습니다.' });
+    seatCount = Number(seats);
+    if (!Number.isInteger(seatCount) || seatCount < TEAM_MIN_SEATS) {
+      return res.status(400).json({ error: `팀 상품은 최소 ${TEAM_MIN_SEATS}명부터 신청할 수 있습니다.` });
+    }
+    try {
+      amount = getTeamTotal(seatCount, p as Period);
+    } catch (err: any) {
+      return res.status(400).json({ error: err?.message || '팀 인원 수가 올바르지 않습니다.' });
+    }
+    orderName = `BizCard Pro 팀 ${seatCount}명 ${p}개월`;
+  }
+
+  const orderId = `sub-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+  const order: SubscriptionOrder = {
+    id: orderId,
+    orderId,
+    kind,
+    period: p as Period,
+    seats: seatCount,
+    amount,
+    status: 'pending',
+    userId: requester.id,
+    createdAt: new Date().toISOString(),
+  };
+  const saved = await setScopedDoc(req.scopeId, 'subscriptionOrders', order);
+  if (!saved) return res.status(500).json({ error: '주문을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+
+  res.json({
+    orderId,
+    amount,
+    orderName,
+    customerKey: makeCustomerKey(requester.id),
+    customerName: requester.name,
+  });
+});
+
+// 2) 결제 승인: 토스에 승인 요청을 보내고, 성공하면 이용 기간을 저장한다.
+app.post('/api/subscription/confirm', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { paymentKey, orderId, amount } = req.body || {};
+  if (!paymentKey || !orderId || !Number.isInteger(Number(amount))) {
+    return res.status(400).json({ error: '결제 정보가 올바르지 않습니다.' });
+  }
+
+  const secret = process.env.TOSS_SECRET_KEY;
+  if (!secret) return res.status(500).json({ error: '결제 설정(TOSS_SECRET_KEY)이 서버에 없습니다.' });
+
+  const order = await getScopedDoc<SubscriptionOrder>(req.scopeId, 'subscriptionOrders', String(orderId));
+  if (!order || order.userId !== requester.id) return res.status(404).json({ error: '주문을 찾을 수 없습니다.' });
+
+  const currentRecord = await getScopedDoc<SubscriptionRecord>(req.scopeId, 'subscription', 'current');
+  if (order.status === 'paid') return res.json(currentRecord); // 같은 결제를 두 번 승인 요청해도 한 번만 처리
+  if (order.status !== 'pending') return res.status(400).json({ error: '이미 처리된 주문입니다.' });
+  if (Number(amount) !== order.amount) {
+    return res.status(400).json({ error: '결제 금액이 주문 금액과 다릅니다.' });
+  }
+
+  let tossBody: any = {};
+  let tossOk = false;
+  try {
+    const tossRes = await fetch(`${TOSS_API_BASE}/payments/confirm`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${secret}:`).toString('base64'),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ paymentKey, orderId: order.orderId, amount: order.amount }),
+    });
+    tossOk = tossRes.ok;
+    tossBody = await tossRes.json().catch(() => ({}));
+  } catch (err) {
+    console.error('토스 결제 승인 요청 실패:', err);
+  }
+
+  if (!tossOk) {
+    await setScopedDoc(req.scopeId, 'subscriptionOrders', { ...order, status: 'failed' });
+    return res.status(400).json({ error: tossBody?.message || '결제 승인에 실패했습니다.' });
+  }
+
+  // 이용 중인 기간이 남아 있으면 만료일 뒤에 이어서 붙인다.
+  const now = new Date();
+  const base = currentRecord && new Date(currentRecord.endAt) > now ? new Date(currentRecord.endAt) : now;
+  const record: SubscriptionRecord = {
+    id: 'current',
+    kind: order.kind,
+    period: order.period,
+    seats: order.seats,
+    amount: order.amount,
+    startAt: base.toISOString(),
+    endAt: addMonthsTo(base, order.period).toISOString(),
+    orderId: order.orderId,
+  };
+  await setScopedDoc(req.scopeId, 'subscriptionOrders', { ...order, status: 'paid', paymentKey });
+  await setScopedDoc(req.scopeId, 'subscription', record);
+  res.json(record);
+});
+
+// 3) 현재 구독 상태 조회
+app.get('/api/subscription', async (req, res) => {
+  const requesterId = req.headers['x-user-id'] as string;
+  const requester = users.find(u => u.id === requesterId);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const record = await getScopedDoc<SubscriptionRecord>(req.scopeId, 'subscription', 'current');
+  res.json(record || null);
 });
 
 // ------------------------------------------------------------------
