@@ -650,11 +650,11 @@ export default function App() {
         ) : (
           <>
         {accessStatus && !accessStatus.subscriptionActive && (
-          <div className={`mx-4 mt-3 flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm ${accessStatus.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
-            <span className="font-semibold">
+          <div className={`mx-4 mt-3 flex items-center justify-between gap-3 whitespace-nowrap rounded-xl px-4 py-3 text-sm ${accessStatus.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
+            <span className="min-w-0 truncate font-semibold">
               {accessStatus.trialActive
-                ? `무료 체험 중 · ${new Date(accessStatus.trialEndsAt).toLocaleDateString('ko-KR')}까지`
-                : '무료 체험이 끝났습니다. 신규 명함 등록은 구독 후 가능합니다.'}
+                ? (() => { const d = new Date(accessStatus.trialEndsAt); return `무료 체험 중 · ${d.getMonth() + 1}.${d.getDate()}까지`; })()
+                : '체험이 끝났어요. 구독 후 명함 등록 가능'}
             </span>
             <button
               type="button"
