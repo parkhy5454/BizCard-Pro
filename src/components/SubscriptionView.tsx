@@ -226,6 +226,9 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ currentUser,
               {periodButton(6, '6개월 (10%)')}
               {periodButton(12, '12개월 (25%)')}
             </div>
+            {period === 12 && (
+              <p className="text-xs font-semibold text-indigo-600">1년 선결제 시 3개월 대비 25% 할인</p>
+            )}
           </div>
 
           {kind === 'team' && (
