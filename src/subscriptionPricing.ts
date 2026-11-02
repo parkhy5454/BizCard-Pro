@@ -13,9 +13,9 @@ export const INDIVIDUAL_PLANS: Record<Period, { name: string; price: number }> =
 // 팀 상품: 인원당 월 단가 (전체 인원에 구간 단가 적용)
 export const TEAM_MIN_SEATS = 2;
 export const TEAM_TIERS = [
-  { minSeats: 2, maxSeats: 9, monthlyPerSeat: 2500 },
-  { minSeats: 10, maxSeats: 29, monthlyPerSeat: 2200 },
-  { minSeats: 30, maxSeats: Infinity, monthlyPerSeat: 2000 },
+  { minSeats: 2, maxSeats: 9, monthlyPerSeat: 3100 },
+  { minSeats: 10, maxSeats: 29, monthlyPerSeat: 3000 },
+  { minSeats: 30, maxSeats: Infinity, monthlyPerSeat: 2800 },
 ] as const;
 
 // 기간별 할인율
