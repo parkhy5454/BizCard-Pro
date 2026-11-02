@@ -5828,7 +5828,17 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 11. 운행일지 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingDriving && (
-        <div ref={drivingEditRef} className="w-full scroll-mt-32 bg-white flex items-start justify-center p-0 md:p-4">
+        <div
+          ref={drivingEditRef}
+          className="w-full scroll-mt-32 pb-28 md:pb-4 bg-white flex items-start justify-center p-0 md:p-4"
+          onFocus={(e) => {
+            // 칸을 누르면 키보드 때문에 가려지지 않도록 그 칸을 화면 가운데로 보낸다 (아래 고정 탭 위)
+            const t = e.target as HTMLElement;
+            if (t.matches('input, textarea, select')) {
+              window.setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
+            }
+          }}
+        >
           <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-xl flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
