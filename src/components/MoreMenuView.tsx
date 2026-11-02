@@ -18,6 +18,7 @@ interface Props {
   unreadFeedbackCount: number;
   onNavigate: (tab: MoreTarget) => void;
   onOpenTaxPackage: () => void;
+  onOpenSubscription?: () => void;
   onOpenUserDirectory: () => void;
   onOpenSubscriptionModal: () => void;
   onOpenWithdrawModal: () => void;
@@ -66,6 +67,7 @@ export const MoreMenuView: React.FC<Props> = ({
   unreadFeedbackCount,
   onNavigate,
   onOpenTaxPackage,
+  onOpenSubscription,
   onOpenUserDirectory,
   onOpenSubscriptionModal,
   onOpenWithdrawModal,
@@ -111,6 +113,7 @@ export const MoreMenuView: React.FC<Props> = ({
         { key: 'accounting', label: '회계관리', icon: TrendingUp, tone: 'emerald', hidden: !isAdmin, onClick: () => onNavigate('accounting') },
         { key: 'audit_logs', label: '활동 로그', icon: History, tone: 'slate', hidden: !isAdmin, onClick: () => onNavigate('audit_logs') },
         { key: 'tax', label: '세무자료 발송', icon: FileSpreadsheet, tone: 'emerald', onClick: onOpenTaxPackage },
+        { key: 'subscription', label: '구독 · 결제', icon: CreditCard, tone: 'indigo', onClick: () => onOpenSubscription?.() },
         { key: 'users', label: '가입 회원 확인', icon: Users, tone: 'indigo', onClick: onOpenUserDirectory },
       ],
     },

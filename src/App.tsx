@@ -8,6 +8,7 @@ import { BusinessCard, ContactGroup, Project, User } from './types.js';
 import { getContactGroupIds, contactHasGroup } from './groupUtils.js';
 import { Navigation, isStandaloneApp } from './components/Navigation.js';
 import { MoreMenuView } from './components/MoreMenuView.js';
+import { SubscriptionView } from './components/SubscriptionView.js';
 import { CardGrid } from './components/CardGrid.js';
 import { CardDetailModal } from './components/CardDetailModal.js';
 import { ScanModal } from './components/ScanModal.js';
@@ -47,6 +48,41 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // 결제위젯에서 결제가 끝나고 돌아오면 주소에 붙은 결제 정보로 서버에 승인을 요청한다 (한 번만 처리)
+  const subscriptionReturnHandled = useRef(false);
+  useEffect(() => {
+    if (!currentUser || subscriptionReturnHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const flag = params.get('subscription');
+    if (!flag) return;
+    subscriptionReturnHandled.current = true;
+    window.history.replaceState({}, '', window.location.pathname);
+    if (flag !== 'success') {
+      alert('결제가 취소되었거나 실패했습니다.');
+      setIsSubscriptionOpen(true);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch('/api/subscription/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+          body: JSON.stringify({
+            paymentKey: params.get('paymentKey'),
+            orderId: params.get('orderId'),
+            amount: Number(params.get('amount')),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || '결제 승인에 실패했습니다.');
+        alert('구독이 시작되었습니다.');
+      } catch (err: any) {
+        alert(err?.message || '결제 승인에 실패했습니다.');
+      }
+      setIsSubscriptionOpen(true);
+    })();
+  }, [currentUser]);
+
   // 메인 내비게이션 탭 상태
   // [추가] 조직도/공지사항/사내 메신저 - 그룹웨어(다우오피스 등) 대비 부족했던 핵심 기능 보강
   // 차량 탭 상단 고정 줄(서브 탭/운행 일지 줄)이 그려질 자리 (명함 탭 상단 줄과 같은 위치, 스크롤 영역 밖)
@@ -69,6 +105,7 @@ export default function App() {
 
   // 모달 제어 상태
   const [isScanOpen, setIsScanOpen] = useState<boolean>(false);
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState<boolean>(false);
   const [isVoiceQuickAddOpen, setIsVoiceQuickAddOpen] = useState<boolean>(false);
   const [isTaxPackageOpen, setIsTaxPackageOpen] = useState<boolean>(false);
   const [triggerNewProject, setTriggerNewProject] = useState<number>(0);
@@ -111,7 +148,7 @@ export default function App() {
   const [projectsViewMode, setProjectsViewMode] = useState<'cards' | 'listOutput' | 'pipeline' | 'pnl'>('cards');
   const [isShareMyCardOpen, setIsShareMyCardOpen] = useState<boolean>(false);
   // [추가] 상단 탭(가져오기·내보내기, 주변 레이더 등)을 눌러 화면이 바뀌면 명함 공유/음성 등록 창을 함께 닫는다.
-  useEffect(() => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); setIsScanOpen(false); }, [activeTab]);
+  useEffect(() => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); setIsScanOpen(false); setIsSubscriptionOpen(false); }, [activeTab]);
   useEffect(() => {
     const close = () => { setIsShareMyCardOpen(false); setIsVoiceQuickAddOpen(false); setIsScanOpen(false); };
     window.addEventListener('bizcard:close-floating', close);
@@ -638,6 +675,12 @@ export default function App() {
             isAdmin={currentUser?.role === 'admin'}
             onOpenAddressCleanup={() => setIsAddressCleanupOpen(true)}
           />
+        ) : isSubscriptionOpen ? (
+          <SubscriptionView
+            currentUser={currentUser}
+            isAdmin={currentUser?.role === 'admin'}
+            onClose={() => setIsSubscriptionOpen(false)}
+          />
         ) : (
           <>
         
@@ -833,6 +876,7 @@ export default function App() {
               <MoreMenuView
                 currentUser={currentUser}
                 unreadFeedbackCount={unreadFeedbackCount}
+                onOpenSubscription={() => setIsSubscriptionOpen(true)}
                 onNavigate={(tab) => setActiveTab(tab)}
                 onOpenTaxPackage={() => setIsTaxPackageOpen(true)}
                 onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
