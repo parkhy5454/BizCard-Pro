@@ -656,13 +656,6 @@ export default function App() {
                 ? (() => { const d = new Date(accessStatus.trialEndsAt); return `무료 체험 중 · ${d.getMonth() + 1}.${d.getDate()}까지`; })()
                 : '체험이 끝났어요. 구독 후 명함 등록 가능'}
             </span>
-            <button
-              type="button"
-              onClick={() => setIsSubscriptionModalOpen(true)}
-              className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white"
-            >
-              구독하기
-            </button>
           </div>
         )}
         {loading ? (

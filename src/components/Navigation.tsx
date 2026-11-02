@@ -331,11 +331,12 @@ export const Navigation: React.FC<Props> = ({
           {currentUser && (
             <div className="flex items-center gap-2 shrink-0 ml-auto">
               <button
-                onClick={onOpenGlobalSearch}
-                title="전체 검색 (명함/프로젝트/차량/업무일지)"
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-blue-500 border border-slate-200 transition-colors"
+                type="button"
+                onClick={onOpenSubscriptionModal}
+                title="구독 · 결제"
+                className="h-9 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm whitespace-nowrap transition-colors"
               >
-                <Search className="w-4 h-4" />
+                구독하기
               </button>
 
               <RemindersBell currentUser={currentUser} onNavigate={(tab) => setActiveTab(tab)} />
