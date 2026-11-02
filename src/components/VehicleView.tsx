@@ -3150,7 +3150,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   {filteredLogs.slice(0, visibleDrivingCount).map(log => (
                     <div 
                       key={log.id}
-                      className="flex-none w-[340px] sm:w-[400px] md:w-auto snap-center p-2 space-y-3 flex flex-col justify-between"
+                      className="flex-none w-[340px] sm:w-[400px] md:w-auto snap-center p-2 space-y-2 flex flex-col"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -3269,11 +3269,9 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-2">
-                        <div className="font-bold text-indigo-400 font-mono text-base">
-                          {log.distance} km 주행
-                        </div>
-                                              </div>
+                      <div className="pt-0.5 font-bold text-indigo-400 font-mono text-base">
+                        {log.distance} km 주행
+                      </div>
                     </div>
                   ))}
 
