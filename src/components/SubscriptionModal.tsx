@@ -33,6 +33,14 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  // 무료 체험 / 이용 가능 상태 (명함 등록 가능 여부)
+  const [access, setAccess] = useState<{ active: boolean; subscriptionActive: boolean; trialActive: boolean; trialEndsAt: string } | null>(null);
+  useEffect(() => {
+    fetch('/api/subscription/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setAccess(data))
+      .catch(() => setAccess(null));
+  }, []);
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -153,6 +161,13 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         <div className="p-5 space-y-4">
+          {access && !access.subscriptionActive && (
+            <div className={`mb-3 rounded-xl px-3.5 py-3 text-xs font-semibold ${access.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
+              {access.trialActive
+                ? (() => { const d = new Date(access.trialEndsAt); return `무료 체험 중 · ${d.getMonth() + 1}.${d.getDate()}까지 (체험 후 월 요금이 자동 결제됩니다)`; })()
+                : '무료 체험이 끝났습니다. 구독하면 명함 등록을 계속할 수 있습니다.'}
+            </div>
+          )}
           {loading ? (
             <p className="text-xs text-slate-400 text-center py-6">불러오는 중...</p>
           ) : !status ? (

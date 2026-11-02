@@ -649,15 +649,6 @@ export default function App() {
           />
         ) : (
           <>
-        {accessStatus && !accessStatus.subscriptionActive && (activeTab === 'cards' || activeTab === 'more') && (
-          <div className={`mx-4 mt-3 flex items-center justify-between gap-3 whitespace-nowrap rounded-xl px-4 py-3 text-sm ${accessStatus.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
-            <span className="min-w-0 truncate font-semibold">
-              {accessStatus.trialActive
-                ? (() => { const d = new Date(accessStatus.trialEndsAt); return `무료 체험 중 · ${d.getMonth() + 1}.${d.getDate()}까지`; })()
-                : '체험이 끝났어요. 구독 후 명함 등록 가능'}
-            </span>
-          </div>
-        )}
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center space-y-4">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
