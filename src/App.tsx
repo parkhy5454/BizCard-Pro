@@ -615,6 +615,31 @@ export default function App() {
 
       {/* 바디 메인 영역 */}
       <main ref={mainScrollRef} key={activeTab} className={`min-h-0 flex-1 overflow-y-auto overscroll-contain w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${['io', 'nearby', 'management', 'accounting'].includes(activeTab) ? 'pt-1' : 'pt-4'} ${isStandaloneApp() ? 'pb-28' : 'pb-4'} animate-tab-in`}>
+        {/* 명함 등록/수정은 떠 있는 창이 아니라 본문 안에 펼쳐서 상단·하단 탭이 항상 보이게 한다 */}
+        {isScanOpen ? (
+          <ScanModal
+            groups={groups}
+            contacts={contacts}
+            onClose={() => setIsScanOpen(false)}
+            onSave={handleSaveNewCard}
+            onUpdate={handleUpdateCard}
+            onOpenVoice={() => { setIsScanOpen(false); setIsVoiceQuickAddOpen(true); }}
+            currentUserId={currentUser?.id}
+          />
+        ) : selectedContactDetail ? (
+          <CardDetailModal
+            contact={selectedContactDetail}
+            groups={groups}
+            initialTab={detailModalTab}
+            currentUser={currentUser}
+            onClose={() => setSelectedContactDetail(null)}
+            onUpdateContact={handleUpdateCard}
+            onAddCallHistory={handleAddCallHistory}
+            isAdmin={currentUser?.role === 'admin'}
+            onOpenAddressCleanup={() => setIsAddressCleanupOpen(true)}
+          />
+        ) : (
+          <>
         
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center space-y-4">
@@ -868,20 +893,10 @@ export default function App() {
           </>
         )}
 
+          </>
+        )}
       </main>
 
-      {/* 모달 1: 명함 스캔 등록 */}
-      {isScanOpen && (
-        <ScanModal
-          groups={groups}
-          contacts={contacts}
-          onClose={() => setIsScanOpen(false)}
-          onSave={handleSaveNewCard}
-          onUpdate={handleUpdateCard}
-          onOpenVoice={() => { setIsScanOpen(false); setIsVoiceQuickAddOpen(true); }}
-          currentUserId={currentUser?.id}
-        />
-      )}
 
       {/* 모달: 음성으로 빠르게 명함 등록 (전시회 등 손이 바쁠 때) */}
       {isVoiceQuickAddOpen && (
@@ -905,18 +920,6 @@ export default function App() {
         <ShareMyCardModal onClose={() => setIsShareMyCardOpen(false)} />
       )}
 
-      {/* 모달 3: 명함 상세정보 및 과거 통화 히스토리 뷰 */}
-      <CardDetailModal
-        contact={selectedContactDetail}
-        groups={groups}
-        initialTab={detailModalTab}
-        currentUser={currentUser}
-        onClose={() => setSelectedContactDetail(null)}
-        onUpdateContact={handleUpdateCard}
-        onAddCallHistory={handleAddCallHistory}
-        isAdmin={currentUser?.role === 'admin'}
-        onOpenAddressCleanup={() => setIsAddressCleanupOpen(true)}
-      />
 
       {/* 모달 4: 가입 회원 및 동료 디렉토리 */}
       {isUserDirectoryOpen && currentUser && (

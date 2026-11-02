@@ -11,8 +11,6 @@ import { generateStandardCardImage } from '../cardImageGenerator.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
 
 import { getErrorMessage, getErrorField } from '../errorUtils.js';
-import { useBodyScrollLock } from '../useBodyScrollLock.js';
-import { useKeyboardAwareOverlay } from '../useBodyScrollLock.js';
 interface Props {
   groups: ContactGroup[];
   // [수정] 중복 명함 감지를 위해 기존 등록된 명함 목록을 받는다
@@ -68,32 +66,7 @@ const emptyForm = (defaultGroupId: string): Partial<BusinessCard> => ({
   groupIds: defaultGroupId ? [defaultGroupId] : []
 });
 
-// 상단 탭 줄(app-top-action-row) 바로 아래부터 오버레이를 깔아, 탭이 가려지지 않게 한다.
-// 하단 고정 탭 줄 바로 위까지만 오버레이를 깔아, 하단 탭이 계속 보이게 한다.
-const getTabBarGap = (): number => {
-  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
-  if (!el) return 0;
-  const rect = el.getBoundingClientRect();
-  if (rect.height === 0) return 0;
-  return Math.max(0, window.innerHeight - rect.top);
-};
-
-const getTopBarBottom = (): number => {
-  const el = document.getElementById('app-top-action-row');
-  return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
-};
-
 export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, onUpdate, onOpenVoice, currentUserId }) => {
-  // 페이지가 스크롤되면 상단 탭 줄 위치도 바뀌므로, 오버레이 시작 위치를 계속 다시 잰다.
-  const [topOffset, setTopOffset] = useState<number>(() => getTopBarBottom());
-  const [bottomOffset, setBottomOffset] = useState<number>(() => getTabBarGap());
-  // 창이 열려 있는 동안 페이지 스크롤을 잠가서 입력 시 탭이 밀리지 않게 한다.
-  useBodyScrollLock(true);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  useKeyboardAwareOverlay(overlayRef, topOffset, bottomOffset, true);
-  // [수정] 입력칸을 누르면 iPhone이 페이지를 스크롤하면서 상단 탭 위치가 바뀌고, 그때마다 창이 따라 움직였다.
-  // 그래서 위치는 창이 열릴 때 한 번만 재고 그 값을 유지한다(스크롤·키보드에 반응하지 않음).
-  useEffect(() => { setTopOffset(getTopBarBottom()); setBottomOffset(getTabBarGap()); }, []);
 
   const [frontImg, setFrontImg] = useState<string>('');
   const [backImg, setBackImg] = useState<string>('');
@@ -569,7 +542,7 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
   const batchAllRecognized = batchQueue.length > 0 && batchQueue.every((it) => it.status === 'done' || it.status === 'error');
 
   return (
-    <div ref={overlayRef} style={{ top: topOffset, bottom: bottomOffset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex justify-center px-4 pb-4 pt-1">
+    <div className="w-full bg-white flex justify-center px-4 pb-4 pt-1">
       <div className="relative w-full max-w-4xl mt-1 bg-white flex flex-col overflow-y-auto max-h-[95vh] md:max-h-[92vh]">
 
         {batchMode ? (

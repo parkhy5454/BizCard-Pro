@@ -12,8 +12,6 @@ import { getContactGroupIds } from '../groupUtils.js';
 import { getContactImageProxyUrl } from '../imageProxy.js';
 import { GroupMultiSelect } from './GroupMultiSelect.js';
 import { generateContactVCardText, downloadContactVCard } from '../vcardUtils.js';
-import { useBodyScrollLock } from '../useBodyScrollLock.js';
-import { useKeyboardAwareOverlay } from '../useBodyScrollLock.js';
 
 interface Props {
   contact: BusinessCard | null;
@@ -27,33 +25,10 @@ interface Props {
 
 // [수정] 상세 모달을 열면 상단 탭 줄과 하단 고정 탭 줄이 가려지던 문제 수정.
 // 상단 탭 줄 아래부터 하단 탭 줄 위까지만 오버레이를 깔아, 두 탭이 항상 보이게 한다 (ShareMyCardModal과 같은 방식).
-const getModalTopInset = (): number => {
-  const el = document.getElementById('app-top-action-row');
-  return el ? Math.max(0, el.getBoundingClientRect().bottom) : 0;
-};
-const getModalBottomInset = (): number => {
-  const el = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
-  if (!el) return 0;
-  const rect = el.getBoundingClientRect();
-  if (rect.height === 0) return 0;
-  return Math.max(0, window.innerHeight - rect.top);
-};
 
 export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser, onClose, onUpdateContact, onAddCallHistory, initialTab = 'info' }) => {
   // [수정] 입력칸을 누르면 페이지가 스크롤되며 상단 탭 위치가 바뀌는데, 렌더마다 다시 재면 창이 같이 밀린다.
   // 그래서 위치는 창이 열릴 때 한 번만 재서 고정한다.
-  const [modalTopInset, setModalTopInset] = useState<number>(0);
-  const [modalBottomInset, setModalBottomInset] = useState<number>(0);
-  // 창이 열려 있는 동안 페이지 스크롤을 잠가서, 입력칸을 눌러도 상단·하단 탭이 같이 밀리지 않게 한다.
-  useBodyScrollLock(!!contact);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  useKeyboardAwareOverlay(overlayRef, modalTopInset, modalBottomInset, !!contact);
-  // 이 컴포넌트는 닫혀 있을 때도 마운트되어 있으므로, 앱 시작 시점이 아니라 "창이 열릴 때" 위치를 잰다.
-  useLayoutEffect(() => {
-    if (!contact) return;
-    setModalTopInset(getModalTopInset());
-    setModalBottomInset(getModalBottomInset());
-  }, [contact?.id]);
   // Hooks(useState/useRef/useEffect)는 반드시 조건 없이 매 렌더링마다 동일한 순서로 호출되어야 하므로,
   // "contact가 없으면 그리지 않는다" 처리보다 먼저 선언합니다 (React Hooks 규칙).
   const [activeTab, setActiveTab] = useState<'info' | 'history' | 'edit'>(initialTab);
@@ -498,7 +473,7 @@ export const CardDetailModal: React.FC<Props> = ({ contact, groups, currentUser,
   };
 
   return (
-    <div ref={overlayRef} style={{ top: modalTopInset, bottom: modalBottomInset }} className="fixed left-0 right-0 z-[100] overflow-y-auto bg-white flex items-center justify-center p-0 md:p-4">
+    <div className="w-full bg-white flex items-start justify-center p-0 md:p-4">
       <div ref={panelRef} className="relative w-full max-w-4xl bg-white border-0 md:border border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden h-full md:h-auto max-h-full md:max-h-[90vh]">
         
         {/* 좌측: 명함 앞/뒤 이미지 프리뷰 영역 */}
