@@ -20,7 +20,6 @@ interface Props {
   onOpenTaxPackage: () => void;
   onOpenSubscription?: () => void;
   onOpenUserDirectory: () => void;
-  onOpenSubscriptionModal: () => void;
   onOpenWithdrawModal: () => void;
   onOpenReferral: () => void;
   onOpenFeedback: () => void;
@@ -69,7 +68,6 @@ export const MoreMenuView: React.FC<Props> = ({
   onOpenTaxPackage,
   onOpenSubscription,
   onOpenUserDirectory,
-  onOpenSubscriptionModal,
   onOpenWithdrawModal,
   onOpenReferral,
   onOpenFeedback,
@@ -121,7 +119,6 @@ export const MoreMenuView: React.FC<Props> = ({
       title: '혜택 · 구독',
       items: [
         { key: 'referral', label: '친구 추천', icon: Gift, tone: 'amber', onClick: onOpenReferral },
-        { key: 'subscription', label: '구독 관리', icon: CreditCard, tone: 'blue', onClick: onOpenSubscriptionModal },
       ],
     },
     {

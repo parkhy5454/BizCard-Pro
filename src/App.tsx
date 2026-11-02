@@ -23,7 +23,6 @@ import { AuthView } from './components/AuthView.js';
 import { PendingApprovalView } from './components/PendingApprovalView.js';
 import { EmailVerificationRequiredView } from './components/EmailVerificationRequiredView.js';
 import { WithdrawAccountModal } from './components/WithdrawAccountModal.js';
-import { SubscriptionModal } from './components/SubscriptionModal.js';
 import { UserDirectoryModal } from './components/UserDirectoryModal.js';
 import { AddressBackslashCleanupModal } from './components/AddressBackslashCleanupModal.js';
 import { VehicleView } from './components/VehicleView.js';
@@ -162,11 +161,6 @@ export default function App() {
   // [수정] 이용약관/개인정보처리방침 모달 - 푸터에서 열림
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy' | null>(null);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  // [추가] 토스 카드 등록창에서 ?authKey=...를 달고 돌아온 경우, 구독 모달을 자동으로 열어서
-  // 이어서 처리할 수 있게 한다.
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(
-    () => new URLSearchParams(window.location.search).has('authKey')
-  );
   // [추가] 전역 검색(명함/프로젝트/차량/업무일지 통합 검색) 모달 상태.
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   // [추가] 전역 검색에서 프로젝트를 눌렀을 때 ProjectsView가 그 프로젝트를 펼쳐서 보여주도록
@@ -618,7 +612,7 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogout}
         onOpenWithdrawModal={() => setIsWithdrawModalOpen(true)}
-        onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)}
+        onOpenSubscriptionModal={() => setIsSubscriptionOpen(true)}
         isFeedbackOpen={isFeedbackOpen}
         setIsFeedbackOpen={setIsFeedbackOpen}
         isFeedbackInboxOpen={isFeedbackInboxOpen}
@@ -880,7 +874,6 @@ export default function App() {
                 onNavigate={(tab) => setActiveTab(tab)}
                 onOpenTaxPackage={() => setIsTaxPackageOpen(true)}
                 onOpenUserDirectory={() => setIsUserDirectoryOpen(true)}
-                onOpenSubscriptionModal={() => setIsSubscriptionModalOpen(true)}
                 onOpenWithdrawModal={() => setIsWithdrawModalOpen(true)}
                 onOpenReferral={() => setIsReferralOpen(true)}
                 onOpenFeedback={() => setIsFeedbackOpen(true)}
@@ -999,9 +992,6 @@ export default function App() {
             setIsWithdrawModalOpen(false);
           }}
         />
-      )}
-      {isSubscriptionModalOpen && currentUser && (
-        <SubscriptionModal onClose={() => setIsSubscriptionModalOpen(false)} />
       )}
 
       {/* [추가] 전역 검색: 명함/프로젝트/차량/업무일지 통합 검색 */}
