@@ -58,3 +58,13 @@ export function getAddSeatAdjustment(params: {
   const diffMonthly = Math.round((newMonthlyTotal - oldMonthlyTotal) * 100) / 100;
   return Math.floor((diffMonthly * remainingDays) / 30);
 }
+
+// 크레딧 정산 (정책: 음수 차액은 환불하지 않고 크레딧으로 적립, 다음 결제·인원 추가 때 차감)
+// charge: getAddSeatAdjustment 결과 또는 다음 결제 금액 / credit: 현재 보유 크레딧
+export function settleWithCredit(charge: number, credit: number): { payable: number; credit: number } {
+  if (charge < 0) {
+    return { payable: 0, credit: credit + -charge };
+  }
+  const used = Math.min(credit, charge);
+  return { payable: charge - used, credit: credit - used };
+}
