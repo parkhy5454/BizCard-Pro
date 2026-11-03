@@ -3202,7 +3202,7 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             />
 
             {/* 모달 윈도우 */}
-            <div className="flex min-h-full md:min-h-screen items-start md:items-center justify-center p-0 md:p-4">
+            <div className="flex min-h-full md:min-h-screen items-start md:items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
