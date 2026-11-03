@@ -339,30 +339,27 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
           </div>
         </div>
 
-        {/* [수정] 문의함 ↔ 운영 현황(대시보드) 탭 전환 */}
-        <div className="px-4 pt-3 flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setActiveTab('feedback')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-              activeTab === 'feedback' ? 'bg-indigo-600/20 text-indigo-600 border border-indigo-500/40' : 'bg-slate-100 text-slate-500 border border-slate-200'
-            }`}
-          >
-            <InboxIcon className="w-3.5 h-3.5" />
-            문의함
-          </button>
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-              activeTab === 'dashboard' ? 'bg-indigo-600/20 text-indigo-600 border border-indigo-500/40' : 'bg-slate-100 text-slate-500 border border-slate-200'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            운영 현황
-          </button>
+        {/* 문의함 ↔ 운영 현황 탭: 회계관리와 같은 밑줄(청색 바) 방식 */}
+        <div className="px-4 pt-1 flex items-center gap-5 border-b border-slate-200 shrink-0">
+          {([
+            ['feedback', '문의함'],
+            ['dashboard', '운영 현황']
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`relative shrink-0 pt-1 pb-2.5 text-base md:text-sm font-bold whitespace-nowrap transition-colors ${
+                activeTab === key ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {label}
+              {activeTab === key && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
+            </button>
+          ))}
         </div>
 
         {activeTab === 'feedback' && (
-        <div className="p-4 border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto shrink-0">
+        <div className="px-4 pt-1 flex items-center gap-5 border-b border-slate-200 overflow-x-auto shrink-0">
           {([
             ['all', '전체'],
             ['new', '신규'],
@@ -372,13 +369,12 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
             <button
               key={key}
               onClick={() => setStatusFilter(key)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
-                statusFilter === key
-                  ? 'bg-indigo-600/20 text-indigo-600 border border-indigo-500/40'
-                  : 'bg-slate-100 text-slate-500 border border-slate-200 hover:text-slate-700'
+              className={`relative shrink-0 pt-1 pb-2.5 text-base md:text-sm font-semibold whitespace-nowrap transition-colors ${
+                statusFilter === key ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               {label} ({counts[key]})
+              {statusFilter === key && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-indigo-600" />}
             </button>
           ))}
         </div>
@@ -415,7 +411,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                       </span>
                     </div>
 
-                    <p className="text-lg md:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed bg-slate-100 p-3 rounded-md border border-slate-200">
+                    <p className="text-lg md:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
                       {item.content}
                     </p>
 
