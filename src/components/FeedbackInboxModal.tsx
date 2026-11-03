@@ -328,9 +328,9 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
         <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-800">{activeTab === 'feedback' ? '문의함' : '운영 현황'}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {activeTab === 'feedback' ? '앱 전체에서 접수된 문의를 모아 확인합니다.' : '회사별 가입/사용 현황을 한눈에 확인합니다.'}
-            </p>
+            {activeTab === 'dashboard' && (
+              <p className="text-xs text-slate-400 mt-0.5">회사별 가입/사용 현황을 한눈에 확인합니다.</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {activeTab === 'dashboard' && (
@@ -346,12 +346,12 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
             )}
             <button
               onClick={activeTab === 'feedback' ? fetchFeedback : fetchStats}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              className="flex items-center justify-center p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
               title="새로고침"
             >
               <RefreshCw className={`w-4 h-4 ${(loading || statsLoading) ? 'animate-spin' : ''}`} />
             </button>
-            <button onClick={onClose} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
+            <button onClick={onClose} className="flex items-center justify-center p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
