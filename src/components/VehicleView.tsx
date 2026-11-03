@@ -6565,8 +6565,17 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 14. 소모품 점검 주기 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingInterval && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-in">
+        <div
+          style={getVehicleModalInsets()}
+          className="fixed left-0 right-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto"
+          onFocus={(e) => {
+            const t = e.target as HTMLElement;
+            if (t.matches('input, textarea, select')) {
+              [350, 650, 950].forEach((ms) => window.setTimeout(() => keepFieldInBand(t), ms));
+            }
+          }}
+        >
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md max-h-full flex flex-col overflow-hidden shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
                 <h2 className="text-base font-bold text-slate-800">소모품 교환 주기 및 알림 기준 수정</h2>
