@@ -333,7 +333,6 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800">가입 회원 & 협업 디렉토리</h2>
-              <p className="text-xs text-slate-500">시스템 내 가입자 현황 및 부서/회사별 데이터 연동 관계</p>
             </div>
           </div>
           <button 
@@ -342,17 +341,6 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
-
-        {/* 안내 배너 */}
-        <div className="px-5 py-3.5 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-900 flex items-start gap-2.5">
-          <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-semibold text-indigo-800">👥 회사 협업 스코프 작동 원리</p>
-            <p className="leading-relaxed text-slate-600">
-              회원가입 시 <span className="text-slate-800 font-medium">회사 회원</span>으로 선택하고 동일한 <span className="text-indigo-700 font-semibold">회사명</span>과 <span className="text-indigo-700 font-semibold">사업자번호</span>를 등록하면 같은 회사로 묶입니다. 다만 <span className="text-rose-700 font-medium">두 번째 이후 가입자는 관리자가 승인하기 전까지 "승인 대기" 상태</span>이며, 관리자가 아래에서 승인해야 <span className="text-indigo-700 underline font-medium">명함 데이터베이스와 프로젝트, 미팅 팔로우업 기록</span>을 함께 볼 수 있습니다. 이 화면에는 <span className="text-slate-800 font-medium">본인과 같은 회사 소속 동료만</span> 표시되며, 관리자는 승인 대기자를 승인/거절하고 동료를 관리자/일반 사용자로 지정할 수 있습니다.
-            </p>
-          </div>
         </div>
 
         {/* 검색 및 필터 바 */}
