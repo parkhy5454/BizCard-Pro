@@ -421,6 +421,36 @@ const getApprovalModalBottomInset = (): number => {
   if (rect.height === 0) return 0;
   return Math.max(0, window.innerHeight - rect.top);
 };
+// 입력 칸을 눌렀을 때 칸을 "상단 줄 아래 ~ 키보드(또는 하단 탭) 위" 띠의 가운데로만 옮긴다.
+// iOS가 밀어 올린 화면(앱 셸·문서)은 0으로 되돌리고, 팝업 안의 스크롤 영역만 움직인다.
+const keepApprovalFieldInBand = (t: HTMLElement) => {
+  document.querySelectorAll<HTMLElement>('.app-shell').forEach((el) => { el.scrollTop = 0; });
+  if (window.scrollY) window.scrollTo(0, 0);
+  const top = getApprovalModalTopInset();
+  const vv = window.visualViewport;
+  let bottomLimit = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const tabEl = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (tabEl) {
+    const tr = tabEl.getBoundingClientRect();
+    if (tr.height > 0) bottomLimit = Math.min(bottomLimit, tr.top);
+  }
+  const r = t.getBoundingClientRect();
+  const delta = r.top + r.height / 2 - (top + bottomLimit) / 2;
+  if (Math.abs(delta) < 8) return;
+  let sc: HTMLElement | null = t.parentElement;
+  while (sc && sc !== document.body) {
+    const oy = getComputedStyle(sc).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight) break;
+    sc = sc.parentElement;
+  }
+  if (sc && sc !== document.body) sc.scrollBy({ top: delta, behavior: 'smooth' });
+};
+const onApprovalFieldFocus = (e: React.FocusEvent<HTMLElement>) => {
+  const t = e.target as HTMLElement;
+  if (t.matches('input, textarea, select')) {
+    [350, 650, 950].forEach((ms) => window.setTimeout(() => keepApprovalFieldInBand(t), ms));
+  }
+};
 
 // [추가] 가지급금 파일 저장 공통 처리: 아이폰은 공유 창(파일에 저장/iCloud/PC 전송)으로, 그 외에는 다운로드
 const reportAdvanceExportFailure = (err: unknown) => {
@@ -2691,7 +2721,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {isAdvanceModalOpen && (
         <div
           data-approval-modal-overlay
-          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
+          onFocus={onApprovalFieldFocus}
           // 모바일: 상단 헤더·결재 탭·하단 탭은 그대로 보이게 그 사이 영역에만 흰 바탕으로 띄움 (PC는 기존 어두운 배경 유지)
           style={typeof window !== 'undefined' && window.innerWidth < 768
             ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() }
@@ -2977,7 +3008,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {isLeaveModalOpen && (
         <div
           data-approval-modal-overlay
-          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
+          onFocus={onApprovalFieldFocus}
           style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}
         >
           <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl w-full max-w-xl h-full md:h-auto max-h-full md:max-h-[90vh] overflow-y-auto overflow-x-hidden">
@@ -3216,7 +3248,8 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {isOfficialModalOpen && (
         <div
           data-approval-modal-overlay
-          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
+          onFocus={onApprovalFieldFocus}
           style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}
         >
           <div className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[90vh] overflow-y-auto overflow-x-hidden">
