@@ -454,6 +454,38 @@ const docModalInsets = (): { top: number; bottom: number } | undefined => {
   };
 };
 
+// 입력 칸을 눌렀을 때 칸을 "상단 줄 아래 ~ 키보드(또는 하단 탭) 위" 띠의 가운데로만 옮긴다.
+// iOS가 밀어 올린 화면(앱 셸·문서)은 0으로 되돌리고, 작성 창 안의 스크롤 영역만 움직인다.
+const keepDocFieldInBand = (t: HTMLElement) => {
+  const insets = docModalInsets();
+  if (!insets) return;
+  document.querySelectorAll<HTMLElement>('.app-shell').forEach((el) => { el.scrollTop = 0; });
+  if (window.scrollY) window.scrollTo(0, 0);
+  const vv = window.visualViewport;
+  let bottomLimit = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const tabEl = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (tabEl) {
+    const tr = tabEl.getBoundingClientRect();
+    if (tr.height > 0) bottomLimit = Math.min(bottomLimit, tr.top);
+  }
+  const r = t.getBoundingClientRect();
+  const delta = r.top + r.height / 2 - (insets.top + bottomLimit) / 2;
+  if (Math.abs(delta) < 8) return;
+  let sc: HTMLElement | null = t.parentElement;
+  while (sc && sc !== document.body) {
+    const oy = getComputedStyle(sc).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight) break;
+    sc = sc.parentElement;
+  }
+  if (sc && sc !== document.body) sc.scrollBy({ top: delta, behavior: 'smooth' });
+};
+const onDocFieldFocus = (e: React.FocusEvent<HTMLElement>) => {
+  const t = e.target as HTMLElement;
+  if (t.matches('input, textarea, select')) {
+    [350, 650, 950].forEach((ms) => window.setTimeout(() => keepDocFieldInBand(t), ms));
+  }
+};
+
 const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: string; personLabel: string; showAmount: boolean }[]> = {
   management: [
     { id: 'labor_contract', label: '근로계약서', personLabel: '직원명', showAmount: false },
@@ -6735,7 +6767,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       {/* 등록/수정 모달 */}
       {/* [수정] 작성 창을 화면(body) 바로 아래에 붙여서, 탭 영역(main)의 스크롤·겹침 영향을 받지 않게 한다 */}
       {editingDoc && createPortal(
-        <div style={modalInsets} className="fixed inset-x-0 top-0 bottom-0 md:inset-0 z-[100] overflow-y-auto bg-white md:bg-transparent">
+        <div
+          style={modalInsets}
+          onFocus={onDocFieldFocus}
+          className="fixed inset-x-0 top-0 bottom-0 md:inset-0 z-[100] overflow-y-auto bg-white md:bg-transparent pb-[50vh] md:pb-0"
+        >
           <div onClick={() => setEditingDoc(null)} className="hidden md:block fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
           <div className="flex min-h-full md:min-h-screen items-stretch md:items-center justify-center p-0 md:p-4">
             <div className="relative w-full md:max-w-lg bg-white md:border md:border-slate-200 rounded-none md:rounded-3xl p-5 md:p-6 shadow-none md:shadow-2xl space-y-4 z-10">
