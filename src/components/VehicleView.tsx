@@ -288,6 +288,9 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   // 입력 칸을 눌렀을 때 칸을 "상단 줄 아래 ~ 키보드(또는 하단 탭) 위" 띠의 가운데로만 옮긴다.
   // scrollIntoView(center)는 화면 전체(헤더·탭까지)를 밀어 올려서 쓰지 않는다.
   const keepFieldInBand = (t: HTMLElement) => {
+    // iOS는 키보드가 올라오면 화면 전체(앱 셸·문서)를 밀어 올린다. 셸은 항상 0에 두고 본문(main)만 움직인다.
+    document.querySelectorAll<HTMLElement>('.app-shell').forEach((el) => { el.scrollTop = 0; });
+    if (window.scrollY) window.scrollTo(0, 0);
     const insets = getVehicleModalInsets();
     const vv = window.visualViewport;
     let bottomLimit = vv ? vv.offsetTop + vv.height : window.innerHeight;
@@ -3173,7 +3176,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             // 칸을 누르면 키보드 때문에 가려지지 않도록 그 칸을 화면 가운데로 보낸다 (아래 고정 탭 위)
             const t = e.target as HTMLElement;
             if (t.matches('input, textarea, select')) {
-              window.setTimeout(() => keepFieldInBand(t), 350);
+              // 키보드 애니메이션이 끝난 뒤(여러 번) 다시 맞춘다
+              [350, 650, 950].forEach((ms) => window.setTimeout(() => keepFieldInBand(t), ms));
             }
           }}
         >
