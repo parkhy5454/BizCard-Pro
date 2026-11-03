@@ -2647,20 +2647,22 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </button>
 
               {/* 기간 필터 버튼 */}
-              <div className="flex flex-nowrap shrink-0 items-center gap-0.5 bg-white p-1 rounded-xl border border-slate-200">
+              <div className="flex flex-nowrap shrink-0 items-center gap-5 md:gap-0.5 md:bg-white md:p-1 md:rounded-xl md:border md:border-slate-200">
                 {(['all', 'today', 'week', 'month', 'year'] as const).map(p => {
                   const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '';
+                  const sel = drivingPeriod === p;
                   return (
                     <button
                       key={p}
                       onClick={() => setDrivingPeriod(p)}
-                      className={`px-2 py-1.5 rounded-lg text-[11px] whitespace-nowrap font-semibold transition-all ${
-                        drivingPeriod === p 
-                          ? 'bg-blue-400 text-white shadow-sm' 
-                          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                      className={`relative shrink-0 pt-1 pb-2 md:pt-0 md:pb-0 md:px-2 md:py-1.5 md:rounded-lg text-base md:text-[11px] whitespace-nowrap transition-all ${
+                        sel
+                          ? 'text-blue-700 font-bold md:bg-blue-400 md:text-white md:shadow-sm'
+                          : 'text-slate-500 font-semibold hover:text-slate-700 md:hover:bg-slate-100'
                       }`}
                     >
                       {label}
+                      {sel && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
                     </button>
                   );
                 })}
