@@ -422,7 +422,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                 return (
                   <div
                     key={g.key}
-                    className={`rounded-2xl border overflow-hidden ${
+                    className={`rounded-none md:rounded-2xl border-0 border-b md:border overflow-hidden ${
                       isMyGroup ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'
                     }`}
                   >
@@ -439,9 +439,9 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                           {g.isIndividualGroup ? <User className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
                         </div>
                         <div>
-                          <span className="text-sm font-bold text-slate-800">{g.label}</span>
+                          <span className="text-lg md:text-sm font-bold text-slate-800">{g.label}</span>
                           {!g.isIndividualGroup && g.businessNumber && (
-                            <span className="text-[10px] text-slate-400 font-mono ml-2">{g.businessNumber}</span>
+                            <span className="text-xs md:text-[10px] text-slate-400 font-mono ml-2">{g.businessNumber}</span>
                           )}
                           {isMyGroup && (
                             <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-500/20">
@@ -451,7 +451,7 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-400">{g.members.length}명</span>
+                        <span className="text-xs md:text-[11px] text-slate-400">{g.members.length}명</span>
                         <button
                           type="button"
                           onClick={() => exportGroupCsv(g)}
@@ -465,11 +465,11 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                     </div>
 
                     {/* 그룹 내 멤버 목록 */}
-                    <div className="p-2.5 space-y-2">
+                    <div className="p-0 md:p-2.5 space-y-0 md:space-y-2">
                       {g.members.map((u) => {
                         const isMe = u.id === currentUser.id;
                         return (
-                          <div key={u.id} className={`rounded-xl border p-3 ${
+                          <div key={u.id} className={`rounded-none md:rounded-xl border-0 border-b md:border p-3 ${
                             isMe ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
                           }`}>
                             <div className="flex items-start gap-3">
@@ -482,10 +482,10 @@ export const UserDirectoryModal: React.FC<Props> = ({ isOpen, onClose, currentUs
                               </div>
                               <div className="space-y-0.5 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-sm text-slate-800">{u.name}</span>
-                                  <span className="text-xs text-slate-400 font-mono">({u.email})</span>
+                                  <span className="font-semibold text-lg md:text-sm text-slate-800">{u.name}</span>
+                                  <span className="text-sm md:text-xs text-slate-400 font-mono">({u.email})</span>
                                   {u.phone && (
-                                    <span className="flex items-center gap-1 text-xs text-slate-500 font-mono">
+                                    <span className="flex items-center gap-1 text-sm md:text-xs text-slate-500 font-mono">
                                       <Phone className="w-3 h-3 text-slate-400" />
                                       {u.phone}
                                     </span>
