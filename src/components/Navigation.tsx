@@ -441,57 +441,62 @@ export const Navigation: React.FC<Props> = ({
           {/* 2. 프로젝트 상태 필터 칩 섹션 - 상태 필터는 "카드"와 "리스트 출력" 목록에만 적용되므로
               파이프라인/원가 계산에서는 칩을 숨긴다(눌러도 아무 변화가 없어 작동 안 하는 것처럼 보이던 문제 방지) */}
           {(projectsViewMode === 'cards' || projectsViewMode === 'listOutput') && (
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
+          <div className="flex items-center gap-5 md:gap-1.5 overflow-x-auto w-full pt-2 md:py-3 border-b border-slate-200 md:border-0 scrollbar-none">
             <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">상태필터:</span>
             <button
               onClick={() => setProjectFilterStatus('all')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              className={`relative shrink-0 pt-1 pb-2.5 text-base font-bold whitespace-nowrap transition-all md:pt-0 md:pb-0 md:px-3 md:py-1 md:rounded-full md:text-xs md:font-medium md:border ${
                 projectFilterStatus === 'all'
-                  ? 'bg-slate-100 text-slate-900 shadow font-bold'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+                  ? 'text-blue-700 md:bg-slate-100 md:text-slate-900 md:shadow md:font-bold'
+                  : 'text-slate-500 md:bg-slate-100 md:border-slate-200 md:hover:bg-slate-200'
               }`}
             >
               전체보기 ({projects.length})
+              {projectFilterStatus === 'all' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
             </button>
             <button
               onClick={() => setProjectFilterStatus('opportunity')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+              className={`relative shrink-0 pt-1 pb-2.5 text-base font-bold whitespace-nowrap transition-all md:pt-0 md:pb-0 md:px-3 md:py-1 md:rounded-full md:text-xs md:font-medium md:border ${
                 projectFilterStatus === 'opportunity'
-                  ? 'bg-blue-500 text-white border-blue-400 font-bold scale-105 ring-2 ring-white/30'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  ? 'text-blue-700 md:bg-blue-500 md:text-white md:border-blue-400 md:font-bold'
+                  : 'text-slate-500 md:bg-slate-100 md:border-slate-200 md:text-slate-600 md:hover:bg-slate-200'
               }`}
             >
               💡 기회 ({projects.filter(p => p.status === 'opportunity').length})
+              {projectFilterStatus === 'opportunity' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
             </button>
             <button
               onClick={() => setProjectFilterStatus('progress')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+              className={`relative shrink-0 pt-1 pb-2.5 text-base font-bold whitespace-nowrap transition-all md:pt-0 md:pb-0 md:px-3 md:py-1 md:rounded-full md:text-xs md:font-medium md:border ${
                 projectFilterStatus === 'progress'
-                  ? 'bg-amber-500 text-amber-950 border-amber-400 font-bold scale-105 ring-2 ring-white/30'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  ? 'text-blue-700 md:bg-amber-500 md:text-amber-950 md:border-amber-400 md:font-bold'
+                  : 'text-slate-500 md:bg-slate-100 md:border-slate-200 md:text-slate-600 md:hover:bg-slate-200'
               }`}
             >
               ⚡ 진행 ({projects.filter(p => p.status === 'progress').length})
+              {projectFilterStatus === 'progress' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
             </button>
             <button
               onClick={() => setProjectFilterStatus('completed')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+              className={`relative shrink-0 pt-1 pb-2.5 text-base font-bold whitespace-nowrap transition-all md:pt-0 md:pb-0 md:px-3 md:py-1 md:rounded-full md:text-xs md:font-medium md:border ${
                 projectFilterStatus === 'completed'
-                  ? 'bg-emerald-500 text-white border-emerald-400 font-bold scale-105 ring-2 ring-white/30'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  ? 'text-blue-700 md:bg-emerald-500 md:text-white md:border-emerald-400 md:font-bold'
+                  : 'text-slate-500 md:bg-slate-100 md:border-slate-200 md:text-slate-600 md:hover:bg-slate-200'
               }`}
             >
               ✅ 완료 ({projects.filter(p => p.status === 'completed').length})
+              {projectFilterStatus === 'completed' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
             </button>
             <button
               onClick={() => setProjectFilterStatus('failed')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+              className={`relative shrink-0 pt-1 pb-2.5 text-base font-bold whitespace-nowrap transition-all md:pt-0 md:pb-0 md:px-3 md:py-1 md:rounded-full md:text-xs md:font-medium md:border ${
                 projectFilterStatus === 'failed'
-                  ? 'bg-rose-500 text-white border-rose-400 font-bold scale-105 ring-2 ring-white/30'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  ? 'text-blue-700 md:bg-rose-500 md:text-white md:border-rose-400 md:font-bold'
+                  : 'text-slate-500 md:bg-slate-100 md:border-slate-200 md:text-slate-600 md:hover:bg-slate-200'
               }`}
             >
               ❌ 실패 ({projects.filter(p => p.status === 'failed').length})
+              {projectFilterStatus === 'failed' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
             </button>
           </div>
           )}
