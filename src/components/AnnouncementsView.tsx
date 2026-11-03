@@ -214,11 +214,11 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <div key={item.id} className="bg-white border border-slate-200 rounded-2xl p-4">
+            <div key={item.id} className="bg-white border-0 border-b border-slate-200 rounded-none px-0 py-4 md:border md:rounded-2xl md:px-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {item.pinned && <Pin className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                  <h3 className="text-sm font-bold text-slate-800 truncate">{item.title}</h3>
+                  <h3 className="text-lg md:text-sm font-bold text-slate-800 truncate">{item.title}</h3>
                 </div>
                 {isAdmin && (
                   <div className="flex items-center gap-1 shrink-0">
@@ -231,8 +231,8 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
                   </div>
                 )}
               </div>
-              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap mt-2">{item.content}</p>
-              <p className="text-[11px] text-slate-400 mt-3">{item.authorName} · {formatDateTime(item.createdAt)}</p>
+              <p className="text-base md:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap mt-2">{item.content}</p>
+              <p className="text-xs md:text-[11px] text-slate-400 mt-3">{item.authorName} · {formatDateTime(item.createdAt)}</p>
             </div>
           ))}
         </div>
