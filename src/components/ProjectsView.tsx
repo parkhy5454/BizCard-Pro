@@ -336,6 +336,31 @@ const getProjectModalBottomInset = (): number => {
   return Math.max(0, window.innerHeight - rect.top);
 };
 
+// 입력 칸을 눌렀을 때 칸을 "상단 줄 아래 ~ 키보드(또는 하단 탭) 위" 띠의 가운데로만 옮긴다.
+// iOS가 밀어 올린 화면(앱 셸·문서)은 0으로 되돌리고, 팝업 안의 스크롤 영역만 움직인다.
+const keepProjectFieldInBand = (t: HTMLElement) => {
+  document.querySelectorAll<HTMLElement>('.app-shell').forEach((el) => { el.scrollTop = 0; });
+  if (window.scrollY) window.scrollTo(0, 0);
+  const top = getProjectModalTopInset();
+  const vv = window.visualViewport;
+  let bottomLimit = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const tabEl = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  if (tabEl) {
+    const tr = tabEl.getBoundingClientRect();
+    if (tr.height > 0) bottomLimit = Math.min(bottomLimit, tr.top);
+  }
+  const r = t.getBoundingClientRect();
+  const delta = r.top + r.height / 2 - (top + bottomLimit) / 2;
+  if (Math.abs(delta) < 8) return;
+  let sc: HTMLElement | null = t.parentElement;
+  while (sc && sc !== document.body) {
+    const oy = getComputedStyle(sc).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight) break;
+    sc = sc.parentElement;
+  }
+  if (sc && sc !== document.body) sc.scrollBy({ top: delta, behavior: 'smooth' });
+};
+
 const escapeHtml = (value: unknown): string => {
   const str = value === null || value === undefined ? '' : String(value);
   return str
