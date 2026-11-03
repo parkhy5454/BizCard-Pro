@@ -4217,26 +4217,28 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </div>
             )}
           </div>
-            <div className="flex border-b border-slate-200 pb-px pt-2 gap-1">
+            <div className="flex border-b border-slate-200 pt-1 gap-5 md:gap-1">
               <button
                 onClick={() => setMaintSubMode('history')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3.5 text-xs font-semibold border-b-2 transition-all ${
+                className={`relative flex-1 md:flex-none flex items-center justify-center gap-1.5 py-2.5 md:px-4 md:py-3.5 text-base md:text-xs whitespace-nowrap transition-all ${
                   maintSubMode === 'history'
-                    ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                } rounded-t-xl`}
+                    ? 'text-blue-700 font-bold'
+                    : 'text-slate-500 font-semibold hover:text-slate-700'
+                }`}
               >
                 🛠️ 정비 내역 대장
+                {maintSubMode === 'history' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600" />}
               </button>
               <button
                 onClick={() => setMaintSubMode('intervals')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3.5 text-xs font-semibold border-b-2 transition-all ${
+                className={`relative flex-1 md:flex-none flex items-center justify-center gap-1.5 py-2.5 md:px-4 md:py-3.5 text-base md:text-xs whitespace-nowrap transition-all ${
                   maintSubMode === 'intervals'
-                    ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-950/10'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                } rounded-t-xl`}
+                    ? 'text-blue-700 font-bold'
+                    : 'text-slate-500 font-semibold hover:text-slate-700'
+                }`}
               >
                 🔄 소모품 점검 주기
+                {maintSubMode === 'intervals' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600" />}
               </button>
             </div>
             </>,
