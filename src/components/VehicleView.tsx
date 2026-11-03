@@ -4594,7 +4594,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         return (
                           <div 
                             key={m.id}
-                            className={`flex-none w-[340px] sm:w-[400px] md:w-auto snap-center p-2 space-y-3 flex flex-col justify-between ${
+                            className={`flex-none w-[340px] sm:w-[400px] md:w-auto snap-center p-2 space-y-2 flex flex-col self-start md:self-stretch ${
                               m.status === 'scheduled' 
                                 ? 'bg-amber-50 border-amber-200 shadow-sm' 
                                 : 'bg-white border-slate-200 shadow-sm'
