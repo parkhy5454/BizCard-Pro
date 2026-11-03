@@ -415,7 +415,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                       </span>
                     </div>
 
-                    <p className="text-base md:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed bg-slate-100 p-3 rounded-md border border-slate-200">
+                    <p className="text-lg md:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed bg-slate-100 p-3 rounded-md border border-slate-200">
                       {item.content}
                     </p>
 
