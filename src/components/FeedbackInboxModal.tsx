@@ -305,8 +305,8 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl max-h-[88vh] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-0 md:p-4">
+      <div className="w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[88vh] bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-800">{activeTab === 'feedback' ? '문의함' : '운영 현황'}</h2>
@@ -343,7 +343,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
         <div className="px-4 pt-3 flex items-center gap-2 shrink-0">
           <button
             onClick={() => setActiveTab('feedback')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
               activeTab === 'feedback' ? 'bg-indigo-600/20 text-indigo-600 border border-indigo-500/40' : 'bg-slate-100 text-slate-500 border border-slate-200'
             }`}
           >
@@ -352,7 +352,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
           </button>
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
               activeTab === 'dashboard' ? 'bg-indigo-600/20 text-indigo-600 border border-indigo-500/40' : 'bg-slate-100 text-slate-500 border border-slate-200'
             }`}
           >
@@ -372,7 +372,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
             <button
               key={key}
               onClick={() => setStatusFilter(key)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
                 statusFilter === key
                   ? 'bg-indigo-600/20 text-indigo-600 border border-indigo-500/40'
                   : 'bg-slate-100 text-slate-500 border border-slate-200 hover:text-slate-700'
@@ -398,14 +398,14 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                 const cat = CATEGORY_META[item.category] || CATEGORY_META.other;
                 const status = STATUS_META[item.status] || STATUS_META.new;
                 return (
-                  <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
+                  <div key={item.id} className="bg-white border-0 border-b border-slate-200 rounded-none p-4 space-y-2.5 md:bg-slate-50 md:border md:rounded-2xl">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cat.color}`}>
+                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold border ${cat.color}`}>
                           {cat.icon}
                           {cat.label}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${status.color}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${status.color}`}>
                           {status.label}
                         </span>
                       </div>
@@ -415,7 +415,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                       </span>
                     </div>
 
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-100 p-3 rounded-xl border border-slate-200">
+                    <p className="text-base md:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed bg-slate-100 p-3 rounded-md border border-slate-200">
                       {item.content}
                     </p>
 
@@ -425,7 +425,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                         {item.authorEmail && (
                           <a
                             href={`mailto:${item.authorEmail}`}
-                            className="text-[11px] bg-blue-50 border border-blue-500/25 text-blue-700 hover:text-blue-800 hover:bg-blue-500/20 px-2.5 py-1 rounded-full transition-colors"
+                            className="text-sm md:text-[11px] bg-blue-50 border border-blue-500/25 text-blue-700 hover:text-blue-800 hover:bg-blue-500/20 px-2.5 py-1 rounded-md transition-colors"
                           >
                             ✉️ {item.authorEmail}
                           </a>
@@ -433,7 +433,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                         {item.authorPhone && (
                           <a
                             href={`tel:${item.authorPhone}`}
-                            className="text-[11px] bg-emerald-50 border border-emerald-500/25 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-500/20 px-2.5 py-1 rounded-full transition-colors"
+                            className="text-sm md:text-[11px] bg-emerald-50 border border-emerald-500/25 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-500/20 px-2.5 py-1 rounded-md transition-colors"
                           >
                             📞 {item.authorPhone}
                           </a>
@@ -441,7 +441,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-400">
+                    <div className="flex items-center justify-between flex-wrap gap-2 text-xs md:text-[11px] text-slate-500">
                       <span>
                         {item.authorName || '알 수 없음'}
                         {item.companyName ? ` · ${item.companyName}` : ' · 개인 계정'}
@@ -454,7 +454,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
                             key={s}
                             disabled={updatingId === item.id || item.status === s}
                             onClick={() => updateStatus(item.id, s)}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-40 ${
+                            className={`px-2 py-1 rounded-md text-xs font-semibold border transition-colors disabled:opacity-40 ${
                               item.status === s
                                 ? STATUS_META[s].color
                                 : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
