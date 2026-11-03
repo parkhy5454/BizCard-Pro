@@ -64,6 +64,21 @@ const STATUS_META: Record<FeedbackItem['status'], { label: string; color: string
   resolved: { label: '완료', color: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30' }
 };
 
+
+// 모바일: 문의함 창이 앱 상단 헤더·상단 탭과 하단 탭을 가리지 않도록 그 사이 영역에만 펼친다
+const inboxMobileInsets = (): { top: number; bottom: number } => {
+  const header = document.querySelector('header') as HTMLElement | null;
+  const tabbar = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  let top = header ? header.getBoundingClientRect().bottom : 0;
+  ['app-top-action-row', 'app-projects-top-bar'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) top = Math.max(top, el.getBoundingClientRect().bottom);
+  });
+  let bottom = 0;
+  if (tabbar && tabbar.getBoundingClientRect().height > 0) bottom = Math.max(0, window.innerHeight - tabbar.getBoundingClientRect().top);
+  return { top: Math.max(0, Math.round(top)), bottom: Math.round(bottom) };
+};
+
 export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) => {
   const [activeTab, setActiveTab] = useState<'feedback' | 'dashboard'>('feedback');
   const [items, setItems] = useState<FeedbackItem[]>([]);
@@ -305,7 +320,10 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-0 pt-[env(safe-area-inset-top)] md:p-4">
+    <div
+      style={typeof window !== 'undefined' && window.innerWidth < 768 ? inboxMobileInsets() : undefined}
+      className="fixed inset-x-0 top-0 bottom-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-0 md:inset-0 md:p-4"
+    >
       <div className="w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[88vh] bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div>
