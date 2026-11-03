@@ -164,7 +164,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
           {access && !access.subscriptionActive && (
             <div className={`mb-3 rounded-xl px-3.5 py-3 text-base md:text-xs font-semibold ${access.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
               {access.trialActive
-                ? (() => { const d = new Date(access.trialEndsAt); return `무료 체험 중 · ${d.getMonth() + 1}.${d.getDate()}까지 (체험 후 월 요금이 자동 결제됩니다)`; })()
+                ? (() => { const d = new Date(access.trialEndsAt); return <>무료 체험 중 · {d.getMonth() + 1}.{d.getDate()}까지<br /><span className="font-normal">(체험 후 월 요금이 자동 결제됩니다)</span></>; })()
                 : '무료 체험이 끝났습니다. 구독하면 명함 등록을 계속할 수 있습니다.'}
             </div>
           )}
