@@ -1169,7 +1169,6 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           {isDetecting ? (
             <div className="py-16 flex flex-col items-center gap-2">
               <div className="w-8 h-8 border-2 border-slate-700 border-t-blue-400 rounded-full animate-spin" />
-              <span className="text-xs text-slate-400">가장자리 인식 중...</span>
             </div>
           ) : (
             <div className="relative" style={{ width: displaySize.width, height: displaySize.height }}>

@@ -648,7 +648,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                       {isBatchScanning ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                          <span>AI 인식 중... ({batchScanProgress.done}/{batchScanProgress.total})</span>
                         </>
                       ) : (
                         <>
@@ -670,7 +669,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                         {it.status === 'scanning' && (
                           <div className="flex-1 flex items-center gap-2 text-xs text-slate-500">
                             <div className="w-3.5 h-3.5 border-2 border-slate-600 border-t-blue-400 rounded-full animate-spin" />
-                            인식 중...
                           </div>
                         )}
 
@@ -894,7 +892,6 @@ export const ScanModal: React.FC<Props> = ({ groups, contacts, onClose, onSave, 
                   {isScanning ? (
                     <div className="flex items-center justify-center gap-2 py-2 text-xs text-slate-500">
                       <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                      <span>Gemini Vision이 명함을 분석하고 있어요...</span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-2 py-2 text-xs">

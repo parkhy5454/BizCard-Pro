@@ -318,7 +318,6 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
               {isScanning ? (
                 <>
                   <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                  <span>AI가 영수증 정보를 판독하고 있습니다...</span>
                 </>
               ) : scanDone ? (
                 <>
