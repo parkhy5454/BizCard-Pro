@@ -6159,7 +6159,16 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       {/* 12. 비용 지출 수정 모달 오버레이 */}
       {/* ========================================== */}
       {editingExpense && (
-        <div style={getVehicleModalInsets()} className="fixed left-0 right-0 bg-white z-[100] flex items-start justify-center p-0 md:items-center md:p-4 overflow-y-auto">
+        <div
+          style={getVehicleModalInsets()}
+          className="fixed left-0 right-0 bg-white z-[100] flex items-start justify-center p-0 md:items-center md:p-4 overflow-y-auto"
+          onFocus={(e) => {
+            const t = e.target as HTMLElement;
+            if (t.matches('input, textarea, select')) {
+              [350, 650, 950].forEach((ms) => window.setTimeout(() => keepFieldInBand(t), ms));
+            }
+          }}
+        >
           <div className="bg-white border-0 md:border border-slate-200 rounded-none md:rounded-2xl w-full max-w-md h-full md:h-auto max-h-full md:max-h-[90vh] flex flex-col overflow-hidden shadow-none md:shadow-2xl animate-scale-in">
             <div className="p-5 border-b border-slate-200 flex justify-between items-start">
               <div>
