@@ -163,7 +163,7 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
       </div>
 
       {isEditorOpen && (
-        <div className="bg-white border border-indigo-200 rounded-2xl p-4 space-y-3">
+        <div className="bg-white border-0 md:border md:border-indigo-200 rounded-none md:rounded-2xl px-0 py-2 md:p-4 space-y-3">
           {/* [추가] 임시 저장된 작성 내용이 있으면 이어서 쓸지 묻는다 */}
           <DraftPromptBanner prompt={announcementDraft.prompt} onRestore={announcementDraft.restore} onDismiss={announcementDraft.dismiss} />
           <input
