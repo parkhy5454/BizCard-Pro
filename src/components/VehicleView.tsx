@@ -4656,30 +4656,32 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                           <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                               {m.status === 'scheduled' && (
-                                <button 
+                                <button
                                   onClick={() => handleCompleteMaint(m.id)}
                                   className="px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-500/30 text-amber-700 rounded font-semibold transition-all"
                                 >
                                   정비 완료로 변경
                                 </button>
                               )}
+                            </div>
+                            <div className="flex items-center gap-1">
                               <button
                                 onClick={() => {
                                   setEditingMaint(m);
                                   setIsEditingMaintTitleCustom(!MAINTENANCE_OPTIONS.includes(m.title));
                                 }}
-                                className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-slate-100 rounded transition-all"
+                                className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-100 rounded-lg transition-all"
                                 title="정비 기록 수정"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
+                              <button
+                                onClick={() => handleDeleteMaint(m.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <button 
-                              onClick={() => handleDeleteMaint(m.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-100 rounded-lg transition-all"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         </div>
                       );
