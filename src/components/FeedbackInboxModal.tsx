@@ -305,7 +305,7 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-0 md:p-4">
+    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-0 pt-[env(safe-area-inset-top)] md:p-4">
       <div className="w-full max-w-2xl h-full md:h-auto max-h-full md:max-h-[88vh] bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl shadow-none md:shadow-2xl flex flex-col overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div>
