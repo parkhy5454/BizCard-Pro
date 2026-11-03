@@ -142,17 +142,17 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
           <h2 className="text-xl font-bold text-slate-900">활동 로그</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs bg-amber-50 text-amber-700 border border-amber-500/30 px-2.5 py-1 rounded-full font-semibold">관리자 전용</span>
+          <span className="text-xs bg-amber-50 text-amber-700 border border-amber-500/30 px-2.5 py-1 rounded-md font-semibold">관리자 전용</span>
           <button
             onClick={loadLogs}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" /> 새로고침
           </button>
         </div>
       </div>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-sm md:text-xs text-slate-400">
         권한 변경, 가입 승인/거절, 회원 탈퇴, 구독/결제, 데이터 백업 등 민감한 작업 기록만 확인
       </p>
 
@@ -197,17 +197,17 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
             const colorClass = ACTION_COLORS[log.action] || 'bg-slate-50 text-slate-600 border-slate-200';
             const detailText = formatDetail(log.action, log.detail);
             return (
-              <div key={log.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 flex items-start gap-3">
-                <span className={`shrink-0 text-[11px] font-bold px-2 py-1 rounded-lg border ${colorClass}`}>{label}</span>
+              <div key={log.id} className="bg-white border-0 border-b border-slate-200 rounded-none px-0 py-4 md:border md:rounded-2xl md:p-3.5 flex items-start gap-3">
+                <span className={`shrink-0 text-xs md:text-[11px] font-bold px-2 py-1 rounded-md border ${colorClass}`}>{label}</span>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="text-sm text-slate-700 break-all">
+                  <p className="text-lg md:text-sm text-slate-700 break-all">
                     <b className="text-slate-900">{log.actor_email || '알 수 없음'}</b>
                     {log.target_email && log.target_email !== log.actor_email && (
                       <> → <b className="text-slate-900">{log.target_email}</b></>
                     )}
                   </p>
-                  {detailText && <p className="text-xs text-slate-500 break-words">{detailText}</p>}
-                  <p className="text-[11px] text-slate-400 font-mono">{formatDateTime(log.created_at)}</p>
+                  {detailText && <p className="text-base md:text-xs text-slate-500 break-words">{detailText}</p>}
+                  <p className="text-sm md:text-[11px] text-slate-400 font-mono">{formatDateTime(log.created_at)}</p>
                 </div>
               </div>
             );
