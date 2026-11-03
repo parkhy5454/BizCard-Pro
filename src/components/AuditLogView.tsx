@@ -201,9 +201,12 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
             const colorClass = ACTION_COLORS[log.action] || 'bg-slate-50 text-slate-600 border-slate-200';
             const detailText = formatDetail(log.action, log.detail);
             return (
-              <div key={log.id} className="bg-white border-0 border-b border-slate-200 rounded-none px-0 py-4 md:border md:rounded-2xl md:p-3.5 flex items-start gap-3">
-                <span className={`shrink-0 text-xs md:text-[11px] font-bold px-2 py-1 rounded-md border ${colorClass}`}>{label}</span>
-                <div className="min-w-0 flex-1 space-y-0.5">
+              <div key={log.id} className="bg-white border-0 border-b border-slate-200 rounded-none px-0 py-4 md:border md:rounded-2xl md:p-3.5 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`shrink-0 text-xs md:text-[11px] font-bold px-2 py-1 rounded-md border ${colorClass}`}>{label}</span>
+                  <p className="text-sm md:text-[11px] text-slate-400 font-mono">{formatDateTime(log.created_at)}</p>
+                </div>
+                <div className="min-w-0 space-y-0.5">
                   <p className="text-lg md:text-sm text-slate-700 break-all">
                     <b className="text-slate-900">{log.actor_email || '알 수 없음'}</b>
                     {log.target_email && log.target_email !== log.actor_email && (
@@ -211,7 +214,6 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
                     )}
                   </p>
                   {detailText && <p className="text-base md:text-xs text-slate-500 break-words">{detailText}</p>}
-                  <p className="text-sm md:text-[11px] text-slate-400 font-mono">{formatDateTime(log.created_at)}</p>
                 </div>
               </div>
             );
