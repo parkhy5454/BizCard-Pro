@@ -5336,8 +5336,17 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* 모달: 프로젝트 정보 수정 (예산 등 등록 내용 수정) */}
       {editingProject && (
-        <div style={{ top: getProjectModalTopInset(), bottom: 0 }} className="fixed left-0 right-0 z-[45] flex items-start justify-center p-0 md:items-center md:p-4 bg-white overflow-x-hidden overflow-y-auto overscroll-contain animate-fadeIn">
-          <div style={{ paddingBottom: getProjectModalBottomInset() + 20 }} className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl max-w-lg w-full min-w-0 max-w-[100vw] p-5 md:p-8 shadow-none md:shadow-2xl space-y-6 max-h-full overflow-x-hidden overflow-y-auto">
+        <div
+          style={{ top: getProjectModalTopInset(), bottom: getProjectModalBottomInset() }}
+          className="fixed left-0 right-0 z-[45] flex items-start justify-center p-0 md:items-center md:p-4 bg-white overflow-x-hidden overflow-y-auto overscroll-contain animate-fadeIn"
+          onFocus={(e) => {
+            const t = e.target as HTMLElement;
+            if (t.matches('input, textarea, select')) {
+              [350, 650, 950].forEach((ms) => window.setTimeout(() => keepProjectFieldInBand(t), ms));
+            }
+          }}
+        >
+          <div style={{ paddingBottom: 20 }} className="bg-white border-0 md:border md:border-slate-200 rounded-none md:rounded-3xl max-w-lg w-full min-w-0 max-w-[100vw] p-5 md:p-8 shadow-none md:shadow-2xl space-y-6 max-h-full overflow-x-hidden overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <h3 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-400" /> 프로젝트 정보 수정
