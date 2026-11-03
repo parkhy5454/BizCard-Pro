@@ -2721,7 +2721,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {isAdvanceModalOpen && (
         <div
           data-approval-modal-overlay
-          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-start md:items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
           onFocus={onApprovalFieldFocus}
           // 모바일: 상단 헤더·결재 탭·하단 탭은 그대로 보이게 그 사이 영역에만 흰 바탕으로 띄움 (PC는 기존 어두운 배경 유지)
           style={typeof window !== 'undefined' && window.innerWidth < 768
@@ -3008,7 +3008,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {isLeaveModalOpen && (
         <div
           data-approval-modal-overlay
-          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-start md:items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
           onFocus={onApprovalFieldFocus}
           style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}
         >
@@ -3248,7 +3248,7 @@ export const ElectronicApprovalView: React.FC<Props> = ({ currentUser, onUpdateC
       {isOfficialModalOpen && (
         <div
           data-approval-modal-overlay
-          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
+          className="fixed inset-0 z-[100] bg-white md:bg-black/60 md:backdrop-blur-sm flex items-start md:items-center justify-center p-0 md:p-4 pb-[55vh] md:pb-4"
           onFocus={onApprovalFieldFocus}
           style={typeof window !== 'undefined' && window.innerWidth < 768 ? { top: getApprovalModalTopInset(), bottom: getApprovalModalBottomInset() } : undefined}
         >
