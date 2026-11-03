@@ -285,6 +285,31 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     }
     return { top, bottom };
   };
+  // 입력 칸을 눌렀을 때 칸을 "상단 줄 아래 ~ 키보드(또는 하단 탭) 위" 띠의 가운데로만 옮긴다.
+  // scrollIntoView(center)는 화면 전체(헤더·탭까지)를 밀어 올려서 쓰지 않는다.
+  const keepFieldInBand = (t: HTMLElement) => {
+    const insets = getVehicleModalInsets();
+    const vv = window.visualViewport;
+    let bottomLimit = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    const tabEl = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+    if (tabEl) {
+      const tr = tabEl.getBoundingClientRect();
+      if (tr.height > 0) bottomLimit = Math.min(bottomLimit, tr.top);
+    }
+    const bandCenter = (insets.top + bottomLimit) / 2;
+    const r = t.getBoundingClientRect();
+    const delta = r.top + r.height / 2 - bandCenter;
+    if (Math.abs(delta) < 8) return;
+    // 실제로 스크롤되는 본문 영역(main)을 찾아서 그 영역만 움직인다
+    let sc: HTMLElement | null = t.parentElement;
+    while (sc && sc !== document.body) {
+      const oy = getComputedStyle(sc).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight) break;
+      sc = sc.parentElement;
+    }
+    if (sc && sc !== document.body) sc.scrollBy({ top: delta, behavior: 'smooth' });
+    else window.scrollBy({ top: delta, behavior: 'smooth' });
+  };
   // 다른 운행기록을 열거나 닫으면 임시 목록을 비운다
   React.useEffect(() => { setEditReceiptDrafts([]); }, [editingDriving?.id]);
   const [isScanningDrivingReceipt, setIsScanningDrivingReceipt] = useState<boolean>(false);
@@ -3148,7 +3173,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             // 칸을 누르면 키보드 때문에 가려지지 않도록 그 칸을 화면 가운데로 보낸다 (아래 고정 탭 위)
             const t = e.target as HTMLElement;
             if (t.matches('input, textarea, select')) {
-              window.setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
+              window.setTimeout(() => keepFieldInBand(t), 350);
             }
           }}
         >
