@@ -509,11 +509,11 @@ export const Navigation: React.FC<Props> = ({
       <div id="app-top-action-row" ref={topBarRef} onClickCapture={() => window.dispatchEvent(new Event('bizcard:close-floating'))} className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 액션 버튼 섹션 */}
-          <div className="flex items-center gap-1 w-full pt-2 pb-0 border-b border-slate-100 overflow-x-auto scrollbar-none">
+          <div className="flex items-center justify-between md:justify-start gap-0 md:gap-1 w-full pt-2 pb-0 border-b border-slate-100 overflow-x-auto scrollbar-none">
             {/* 명함 등록 */}
             <button
               onClick={() => { setPressedCardAction('scan'); onOpenScanModal(); }}
-              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('scan') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-center text-lg font-bold transition-colors active:scale-95 ${isCardActionOn('scan') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <PlusCircle className="hidden sm:block w-4 h-4" />
               <span>등록</span>
@@ -523,7 +523,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 가져오기·내보내기 */}
             <button
               onClick={() => { setPressedCardAction('io'); setActiveTab('io'); }}
-              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('io') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-center text-lg font-bold transition-colors active:scale-95 ${isCardActionOn('io') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Upload className="hidden sm:block w-4 h-4" />
               <span>가져오기·내보내기</span>
@@ -534,7 +534,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 내 명함 공유 */}
             <button
               onClick={() => { setPressedCardAction('share'); onOpenShareMyCardModal(); }}
-              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('share') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-center text-lg font-bold transition-colors active:scale-95 ${isCardActionOn('share') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Share2 className="hidden sm:block w-4 h-4 text-blue-600" />
               <span>내 명함 공유</span>
@@ -544,7 +544,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 주변 레이더 지도 */}
             <button
               onClick={() => { setPressedCardAction('nearby'); setActiveTab('nearby'); }}
-              className={`relative flex items-center justify-center gap-1 shrink-0 px-2 pt-0 pb-2 whitespace-nowrap text-center text-base font-bold transition-colors active:scale-95 ${isCardActionOn('nearby') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative flex items-center justify-center gap-1 shrink-0 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-center text-lg font-bold transition-colors active:scale-95 ${isCardActionOn('nearby') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Radar className="hidden sm:block w-4 h-4" />
               <span>주변 사람</span>
