@@ -548,30 +548,32 @@ export const Navigation: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* 2. 그룹 필터 칩 섹션 */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full py-3 scrollbar-none">
+          {/* 2. 그룹 필터: 밑줄(파란 바) 방식의 탭 */}
+          <div className="flex items-end gap-5 overflow-x-auto w-full pt-2 scrollbar-none border-b border-slate-200 md:border-0 md:py-3 md:gap-1.5 md:items-center">
             <span className="text-xs text-slate-500 mr-1 hidden lg:inline font-medium">그룹:</span>
             <button
               onClick={() => setSelectedGroup('all')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              className={`relative shrink-0 pt-1 pb-2.5 md:py-1 md:px-3 md:rounded-full text-base md:text-xs whitespace-nowrap font-bold transition-all ${
                 selectedGroup === 'all'
-                  ? 'bg-blue-100 border border-blue-300 text-blue-700 font-bold'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  ? 'text-blue-700 md:bg-blue-100 md:border md:border-blue-300'
+                  : 'text-slate-500 md:bg-white md:border md:border-slate-200 md:font-medium hover:text-slate-700'
               }`}
             >
               전체보기
+              {selectedGroup === 'all' && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
             </button>
             {groups.map((g) => (
               <button
                 key={g.id}
                 onClick={() => setSelectedGroup(g.id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                className={`relative shrink-0 pt-1 pb-2.5 md:py-1 md:px-3 md:rounded-full text-base md:text-xs whitespace-nowrap font-bold transition-all md:border ${
                   selectedGroup === g.id
-                    ? 'bg-blue-100 border-blue-300 text-blue-700 font-bold'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'text-blue-700 md:bg-blue-100 md:border-blue-300'
+                    : 'text-slate-500 md:bg-white md:border-slate-200 md:font-medium hover:text-slate-700'
                 }`}
               >
                 {g.name}
+                {selectedGroup === g.id && <span className="absolute left-0 right-0 -bottom-px h-[3px] rounded-full bg-blue-600 md:hidden" />}
               </button>
             ))}
           </div>
