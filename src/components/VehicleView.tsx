@@ -3156,7 +3156,6 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             <div className="px-5 pt-1 pb-4 border-b border-slate-200 flex justify-between items-start">
               <div>
                 <h2 className="text-base font-bold text-slate-800">운행 기록 수정 보완</h2>
-                <p className="text-xs text-slate-500 mt-0.5">운행 기록의 누락된 상세 정보나 주소를 갱신하세요.</p>
               </div>
               <button 
                 onClick={() => setEditingDriving(null)}
