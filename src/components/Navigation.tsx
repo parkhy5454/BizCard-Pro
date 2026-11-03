@@ -352,11 +352,11 @@ export const Navigation: React.FC<Props> = ({
       <div id="app-projects-top-bar" className="shrink-0 relative z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* 1. 뷰 모드 탭 섹션 */}
-          <div className="flex items-center justify-between gap-1 overflow-x-auto w-full pt-2 pb-0 scrollbar-none border-b border-slate-100">
+          <div className="flex items-center justify-between gap-0 overflow-x-auto w-full pt-2 pb-0 scrollbar-none border-b border-slate-100">
             {/* 새 프로젝트 등록 버튼 */}
             <button
               onClick={() => { setProjectRegPressed(true); onOpenNewProject(); }}
-              className="relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}"
+              className="relative shrink-0 flex items-center justify-center gap-1 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}"
             >
               <span>등록</span>
               {projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
@@ -366,7 +366,7 @@ export const Navigation: React.FC<Props> = ({
             <div className="relative flex items-center shrink-0">
               <button
                 onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsCardView(); }}
-                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'cards' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <span>리스트</span>
                 {projectsViewMode === 'cards' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
@@ -411,7 +411,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 리스트 출력 탭 */}
             <button
               onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsListOutput(); }}
-              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'listOutput' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <span>출력</span>
               {projectsViewMode === 'listOutput' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
@@ -421,7 +421,7 @@ export const Navigation: React.FC<Props> = ({
             {currentUser?.role === 'admin' && (
               <button
                 onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsPnl(); }}
-                className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`relative shrink-0 flex items-center justify-center gap-1 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pnl' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <span>원가 계산</span>
               {projectsViewMode === 'pnl' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
@@ -431,7 +431,7 @@ export const Navigation: React.FC<Props> = ({
             {/* 파이프라인 탭 */}
             <button
               onClick={() => { setProjectRegPressed(false); window.dispatchEvent(new Event('bizcard:close-projects-new')); onShowProjectsPipeline(); }}
-              className={`relative shrink-0 flex items-center justify-center gap-1 px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`relative shrink-0 flex items-center justify-center gap-1 px-0.5 md:px-2 pt-0 pb-2 whitespace-nowrap text-lg md:text-sm font-bold transition-colors active:scale-95 ${projectsViewMode === 'pipeline' && !projectRegPressed ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <span>파이프라인</span>
               {projectsViewMode === 'pipeline' && !projectRegPressed && <span className="absolute left-0 right-0 -bottom-px h-1 rounded-full bg-indigo-600" />}
