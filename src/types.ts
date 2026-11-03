@@ -992,7 +992,8 @@ export interface VehicleMaintenance {
   // 법인카드/개인카드/현금 중 하나를 억지로 골라야 해서 등록이 어색했다. "해당없음"을
   // 추가해서 무료 정비도 자연스럽게 기록할 수 있게 한다.
   payMethod?: 'company_card' | 'personal_card' | 'cash' | 'none'; // 결제 수단 (none: 해당없음/무료)
-  receiptImage?: string; // 정비 영수증/청구서 이미지 (base64)
+  receiptImage?: string; // 정비 영수증/청구서 이미지 (첫 장, 예전 데이터 호환용)
+  receiptImages?: string[]; // 정비 영수증/청구서 이미지 목록 (여러 장)
   createdAt: string;
 }
 

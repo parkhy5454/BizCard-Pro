@@ -1690,6 +1690,18 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
 // Supabase Storage에 실제 파일로 올리고, DB에는 그 파일 주소(URL)만 저장한다.
 // 이미 URL이거나(재사용) 값이 없으면 그대로 둔다. 업로드가 실패해도 예전처럼
 // base64를 그대로 저장해서(안전장치) 최소한 사진 자체는 안 깨지게 한다.
+async function persistMaintReceipts(scopeId: string, m: { id: string; receiptImage?: string; receiptImages?: string[] }) {
+  if (Array.isArray(m.receiptImages)) {
+    const saved = await Promise.all(
+      m.receiptImages.map((img, i) => persistImageField(scopeId, img, `vehicle-maint-${m.id}-${i}`, 'receipts'))
+    );
+    m.receiptImages = saved.filter((x): x is string => !!x);
+    m.receiptImage = m.receiptImages[0] || '';
+  } else {
+    m.receiptImage = await persistImageField(scopeId, m.receiptImage, `vehicle-maint-${m.id}`, 'receipts');
+  }
+}
+
 async function persistImageField(
   scopeId: string,
   value: string | undefined,
@@ -6568,7 +6580,7 @@ app.post('/api/vehicles/maintenances', async (req, res) => {
   const maint: VehicleMaintenance = req.body;
   if (!maint.id) maint.id = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!maint.createdAt) maint.createdAt = new Date().toISOString();
-  maint.receiptImage = await persistImageField(scopeId, maint.receiptImage, `vehicle-maint-${maint.id}`, 'receipts');
+  await persistMaintReceipts(scopeId, maint);
 
   dbData.maintenances.unshift(maint);
   // [수정] 위 지출비용과 동일한 이유로, 영수증 스캔본이 포함된 저장 실패를 조용히 넘기지
@@ -6589,7 +6601,7 @@ app.put('/api/vehicles/maintenances/:id', async (req, res) => {
 
   const previousMaint = dbData.maintenances[idx];
   const updated = { ...dbData.maintenances[idx], ...req.body };
-  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-maint-${updated.id}`, 'receipts');
+  await persistMaintReceipts(scopeId, updated);
   dbData.maintenances[idx] = updated;
   const savedMaintUpdate = await setScopedDoc(scopeId, 'maintenances', dbData.maintenances[idx]);
   if (!savedMaintUpdate) {

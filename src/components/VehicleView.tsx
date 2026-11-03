@@ -74,6 +74,34 @@ const isMobileDevice = (): boolean => {
     || (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches);
 };
 
+// 정비 영수증은 여러 장일 수 있다. 예전 데이터(한 장: receiptImage)도 목록처럼 읽는다.
+const maintImagesOf = (m: any): string[] =>
+  Array.isArray(m?.receiptImages) && m.receiptImages.length > 0
+    ? m.receiptImages
+    : (m?.receiptImage ? [m.receiptImage] : []);
+// 영수증 한 장을 목록에 붙인다 (인식 전 임시 사진)
+const appendMaintReceiptDraft = (prev: any, dataUrl: string) => {
+  const images = [...maintImagesOf(prev), dataUrl];
+  return { ...prev, receiptImages: images, receiptImage: images[0] };
+};
+// 인식이 끝난 영수증: 임시 사진을 잘라낸 사진으로 바꾸고, 금액은 합계에 더한다.
+// 날짜·정비소·메모·결제수단은 첫 번째 영수증에서만 채운다.
+const finalizeMaintReceiptDraft = (prev: any, rawUrl: string, finalUrl: string, data: any) => {
+  const before = maintImagesOf(prev);
+  const isFirst = before[0] === rawUrl;
+  const images = before.map((img) => (img === rawUrl ? finalUrl : img));
+  return {
+    ...prev,
+    receiptImages: images,
+    receiptImage: images[0] || finalUrl,
+    cost: (Number(prev.cost) || 0) + (Number(data?.amount) || 0),
+    date: isFirst ? (data?.date || prev.date) : prev.date,
+    shopName: isFirst ? (data?.merchantName || prev.shopName) : prev.shopName,
+    memo: isFirst ? (data?.memo || prev.memo) : prev.memo,
+    payMethod: isFirst ? ((data?.payMethod as VehicleMaintenance['payMethod']) || prev.payMethod) : prev.payMethod
+  };
+};
+
 export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | null }> = ({ currentUser, contacts, setContacts, topRowsContainer }) => {
   // 메인 상태
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -411,7 +439,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     status: 'completed' as VehicleMaintenance['status'],
     memo: '',
     payMethod: 'company_card' as VehicleMaintenance['payMethod'],
-    receiptImage: ''
+    receiptImage: '',
+    receiptImages: []
   });
   // [추가] "정비 항목 직접 입력" 모드 여부를 별도 값으로 관리한다. 예전엔 newMaint.title이
   // '직접 입력'인지, MAINTENANCE_OPTIONS 목록에 있는지를 매 입력마다 다시 계산해서 커스텀
@@ -663,8 +692,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   // 운행일지 추가 액션
   // 운행 중 발생한 영수증(통행료/주차비 등) 스캔 - 운행기록 저장 시 비용관리에 연동 등록됨
   // 영수증 크롭 조정 모달 대상: 어느 화면(운행/비용/정비)에서 스캔 중인지 + 원본 이미지
-  const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'driving-edit' | 'expense' | 'maint'; rawImage: string } | null>(null);
-  const [receiptCameraTarget, setReceiptCameraTarget] = useState<'driving' | 'driving-edit' | 'expense' | 'maint' | null>(null);
+  const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit'; rawImage: string } | null>(null);
+  const [receiptCameraTarget, setReceiptCameraTarget] = useState<'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit' | null>(null);
   const receiptFallbackFileInputRef = React.useRef<HTMLInputElement>(null);
   // 수정 칸은 화면 맨 아래에 그려지므로, 수정 버튼을 누르면 그 칸으로 스크롤한다.
   const drivingEditRef = React.useRef<HTMLDivElement>(null);
@@ -680,7 +709,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     return () => window.clearTimeout(t);
   }, [editingVehicle?.id, !!editingVehicle]);
   // [추가] 갤러리에서 고른 영수증이 어느 입력 화면(운행/비용/정비/수정)용인지 기억해 둔다
-  const receiptGalleryContextRef = React.useRef<'driving' | 'driving-edit' | 'expense' | 'maint' | null>(null);
+  const receiptGalleryContextRef = React.useRef<'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit' | null>(null);
 
   // 영수증 크롭까지 끝난 사진을 "임시 목록"에 한 장 담고, AI로 분류/상호/금액을 채운다.
   // 실제 비용 등록은 운행기록 저장 버튼을 누를 때 한꺼번에 일어난다 (신규/수정 공통).
@@ -818,7 +847,19 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   };
 
   // 크롭이 확정된 영수증 이미지를 AI로 인식해서 해당 화면(운행/운행수정/비용/정비)에 반영
-  const runReceiptOcr = async (context: 'driving' | 'driving-edit' | 'expense' | 'maint', dataUrl: string) => {
+  // 정비 입력 화면(신규: newMaint / 수정: editingMaint)에 같은 방식으로 값을 넣는다
+  const updateMaintForm = (ctx: string, updater: (prev: any) => any) => {
+    if (ctx === 'maint-edit') setEditingMaint((prev) => (prev ? updater(prev) : prev));
+    else setNewMaint((prev) => updater(prev));
+  };
+  const removeMaintReceipt = (ctx: 'maint' | 'maint-edit', index: number) => {
+    updateMaintForm(ctx, (prev) => {
+      const images = maintImagesOf(prev).filter((_, i) => i !== index);
+      return { ...prev, receiptImages: images, receiptImage: images[0] || '' };
+    });
+  };
+
+  const runReceiptOcr = async (context: 'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit', dataUrl: string) => {
     if (context === 'driving' || context === 'driving-edit') {
       await addReceiptDraftAndScan(context, dataUrl);
       return;
@@ -828,7 +869,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
       setIsScanningExpenseReceipt(true);
     } else {
-      setNewMaint((prev) => ({ ...prev, receiptImage: dataUrl }));
+      updateMaintForm(context, (prev) => appendMaintReceiptDraft(prev, dataUrl));
       setIsScanningMaintReceipt(true);
     }
 
@@ -863,15 +904,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             receiptImage: finalReceiptImage
           }));
         } else {
-          setNewMaint((prev) => ({
-            ...prev,
-            cost: data.amount || prev.cost,
-            date: data.date || prev.date,
-            shopName: data.merchantName || prev.shopName,
-            memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as VehicleMaintenance['payMethod']) || prev.payMethod,
-            receiptImage: finalReceiptImage
-          }));
+          updateMaintForm(context, (prev) => finalizeMaintReceiptDraft(prev, dataUrl, finalReceiptImage, data));
         }
       }
     } catch (err) {
@@ -1305,7 +1338,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           status: 'completed',
           memo: '',
           payMethod: 'company_card',
-          receiptImage: ''
+          receiptImage: '',
+          receiptImages: []
         });
       } else {
         // [추가] 정비 영수증 스캔본이 포함된 저장이 DB에 실패했을 때 조용히 넘어가지 않고 알려준다.
@@ -4238,15 +4272,29 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       >
                         갤러리에서 선택
                       </button>
-                  {newMaint.receiptImage && (
-                    <img
-                      src={newMaint.receiptImage}
-                      alt="영수증"
-                      onClick={() => setEnlargedReceiptUrl(newMaint.receiptImage)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                    />
-                  )}
                 </div>
+                {maintImagesOf(newMaint).length > 0 && (
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex flex-wrap gap-2">
+                    {maintImagesOf(newMaint).map((img, idx) => (
+                      <div key={idx} className="relative">
+                        <img
+                          src={img}
+                          alt={`영수증 ${idx + 1}`}
+                          onClick={() => setEnlargedReceiptUrl(img)}
+                          className="w-14 h-14 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeMaintReceipt('maint', idx)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center"
+                          title="이 영수증 빼기"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">대상 차량 *</label>
                   <select 
@@ -6408,17 +6456,48 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 {/* [추가] 임시 저장된 내용이 있으면 이어서 쓸지 묻는다 */}
                 <DraftPromptBanner prompt={maintEditDraft.prompt} onRestore={maintEditDraft.restore} onDismiss={maintEditDraft.dismiss} />
               <div className="space-y-4">
-                {editingMaint.receiptImage && (
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    <img
-                      src={editingMaint.receiptImage}
-                      alt="영수증"
-                      onClick={() => setEnlargedReceiptUrl(editingMaint.receiptImage!)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                    />
-                    <span className="text-[11px] text-slate-500">등록된 영수증 (눌러서 크게 보기)</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReceiptCameraTarget('maint-edit')}
+                      disabled={isScanningMaintReceipt}
+                      className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold disabled:opacity-50"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>{isScanningMaintReceipt ? '영수증 스캔 중...' : '영수증 추가 촬영'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { receiptGalleryContextRef.current = 'maint-edit'; receiptFallbackFileInputRef.current?.click(); }}
+                      className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
+                    >
+                      갤러리에서 선택
+                    </button>
                   </div>
-                )}
+                  {maintImagesOf(editingMaint).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {maintImagesOf(editingMaint).map((img, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={img}
+                            alt={`영수증 ${idx + 1}`}
+                            onClick={() => setEnlargedReceiptUrl(img)}
+                            className="w-14 h-14 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeMaintReceipt('maint-edit', idx)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center"
+                            title="이 영수증 빼기"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">정비 일자</label>
