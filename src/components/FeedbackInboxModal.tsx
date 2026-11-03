@@ -346,12 +346,12 @@ export const FeedbackInboxModal: React.FC<Props> = ({ currentUser, onClose }) =>
             )}
             <button
               onClick={activeTab === 'feedback' ? fetchFeedback : fetchStats}
-              className="flex items-center justify-center p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
               title="새로고침"
             >
               <RefreshCw className={`w-4 h-4 ${(loading || statsLoading) ? 'animate-spin' : ''}`} />
             </button>
-            <button onClick={onClose} className="flex items-center justify-center p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
+            <button onClick={onClose} className="flex items-center justify-center w-9 h-9 p-0 shrink-0 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
