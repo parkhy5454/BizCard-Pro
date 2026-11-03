@@ -153,7 +153,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-indigo-400" />
-            <h2 className="text-sm font-bold text-slate-800">구독 관리</h2>
+            <h2 className="text-lg md:text-sm font-bold text-slate-800">구독 관리</h2>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400">
             <X className="w-4 h-4" />
@@ -162,58 +162,58 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
 
         <div className="p-5 space-y-4">
           {access && !access.subscriptionActive && (
-            <div className={`mb-3 rounded-xl px-3.5 py-3 text-xs font-semibold ${access.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
+            <div className={`mb-3 rounded-xl px-3.5 py-3 text-base md:text-xs font-semibold ${access.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
               {access.trialActive
                 ? (() => { const d = new Date(access.trialEndsAt); return `무료 체험 중 · ${d.getMonth() + 1}.${d.getDate()}까지 (체험 후 월 요금이 자동 결제됩니다)`; })()
                 : '무료 체험이 끝났습니다. 구독하면 명함 등록을 계속할 수 있습니다.'}
             </div>
           )}
           {loading ? (
-            <p className="text-xs text-slate-400 text-center py-6">불러오는 중...</p>
+            <p className="text-base md:text-xs text-slate-400 text-center py-6">불러오는 중...</p>
           ) : !status ? (
-            <p className="text-xs text-rose-400 text-center py-6">구독 정보를 불러오지 못했습니다.</p>
+            <p className="text-base md:text-xs text-rose-400 text-center py-6">구독 정보를 불러오지 못했습니다.</p>
           ) : !status.canManageBilling ? (
-            <p className="text-xs text-slate-500 text-center py-6">구독 관리는 회사 관리자만 할 수 있습니다.</p>
+            <p className="text-base md:text-xs text-slate-500 text-center py-6">구독 관리는 회사 관리자만 할 수 있습니다.</p>
           ) : (
             <>
               <div className="bg-slate-100 border border-slate-200 rounded-xl p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-base md:text-xs">
                   <span className="text-slate-500">현재 플랜</span>
                   <span className={`font-bold ${status.plan === 'pro' ? 'text-indigo-600' : 'text-slate-600'}`}>
                     {status.plan === 'pro' ? 'Pro' : 'Free'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-base md:text-xs">
                   <span className="text-slate-500 flex items-center gap-1"><Users className="w-3 h-3" />좌석 수</span>
                   <span className="text-slate-700">{status.seats}석</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-base md:text-xs">
                   <span className="text-slate-500">월 예상 금액</span>
                   <span className="text-slate-700 font-semibold">{status.estimatedMonthlyAmount.toLocaleString()}원</span>
                 </div>
                 {status.nextBillingAt && (
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-base md:text-xs">
                     <span className="text-slate-500">다음 결제일</span>
                     <span className="text-slate-700">{new Date(status.nextBillingAt).toLocaleDateString('ko-KR')}</span>
                   </div>
                 )}
                 {status.subscriptionStatus === 'past_due' && (
-                  <div className="flex items-center gap-1.5 text-[11px] text-rose-400 pt-1">
+                  <div className="flex items-center gap-1.5 text-lg md:text-sm md:text-[11px] text-rose-400 pt-1">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     최근 자동결제가 실패했습니다. 카드를 다시 등록해주세요.
                   </div>
                 )}
                 {status.subscriptionStatus === 'canceled' && (
-                  <div className="flex items-center gap-1.5 text-[11px] text-amber-400 pt-1">
+                  <div className="flex items-center gap-1.5 text-lg md:text-sm md:text-[11px] text-amber-400 pt-1">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     해지 처리됨 — 결제 주기가 끝나면 Free로 전환됩니다.
                   </div>
                 )}
               </div>
 
-              {error && <p className="text-[11px] text-rose-400">{error}</p>}
+              {error && <p className="text-lg md:text-sm md:text-[11px] text-rose-400">{error}</p>}
               {message && (
-                <p className="text-[11px] text-emerald-400 flex items-center gap-1">
+                <p className="text-lg md:text-sm md:text-[11px] text-emerald-400 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />{message}
                 </p>
               )}
@@ -223,20 +223,20 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                   <button
                     onClick={handleRegisterCard}
                     disabled={processing}
-                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-xs font-bold transition-colors"
+                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-base md:text-xs font-bold transition-colors"
                   >
                     카드 등록하기
                   </button>
                 )}
                 {status.hasCardRegistered && status.subscriptionStatus !== 'active' && (
                   <div className="space-y-2">
-                    <p className="text-[11px] leading-relaxed text-slate-500">
+                    <p className="text-lg md:text-sm md:text-[11px] leading-relaxed text-slate-500">
                       개인 월 3,300원 · 팀은 인원당 월 3,100원(2~9명) / 3,000원(10~29명) / 2,800원(30명 이상)
                     </p>
                     <button
                       onClick={() => handleSubscribe(0)}
                       disabled={processing}
-                      className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                      className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-base md:text-xs font-bold transition-colors"
                     >
                       {processing ? '처리 중...' : `월 구독 시작 (월 ${status.estimatedMonthlyAmount.toLocaleString()}원, 14일 무료 체험)`}
                     </button>
@@ -247,14 +247,14 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                     <button
                       onClick={handleRegisterCard}
                       disabled={processing}
-                      className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-600 text-xs font-bold transition-colors"
+                      className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-600 text-base md:text-xs font-bold transition-colors"
                     >
                       카드 변경하기
                     </button>
                     <button
                       onClick={handleCancel}
                       disabled={processing}
-                      className="w-full py-2.5 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-600/20 disabled:opacity-50 text-rose-400 text-xs font-bold transition-colors"
+                      className="w-full py-2.5 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-600/20 disabled:opacity-50 text-rose-400 text-base md:text-xs font-bold transition-colors"
                     >
                       구독 해지
                     </button>
