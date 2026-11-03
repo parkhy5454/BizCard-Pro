@@ -2647,7 +2647,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               </button>
 
               {/* 기간 필터 버튼 */}
-              <div className="flex flex-nowrap shrink-0 items-center gap-3 md:gap-0.5 md:bg-white md:p-1 md:rounded-xl md:border md:border-slate-200">
+              <div className="flex flex-nowrap flex-1 min-w-0 justify-between md:flex-none md:shrink-0 items-center gap-0 md:gap-0.5 md:bg-white md:p-1 md:rounded-xl md:border md:border-slate-200">
                 {(['all', 'today', 'week', 'month', 'year'] as const).map(p => {
                   const label = p === 'all' ? '전체' : p === 'today' ? '오늘' : p === 'week' ? '이번주' : p === 'month' ? '이번달' : p === 'year' ? '올해' : '';
                   const sel = drivingPeriod === p;
@@ -2655,7 +2655,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     <button
                       key={p}
                       onClick={() => setDrivingPeriod(p)}
-                      className={`relative shrink-0 pt-1 pb-2 md:pt-0 md:pb-0 md:px-2 md:py-1.5 md:rounded-lg text-xl md:text-[11px] whitespace-nowrap transition-all ${
+                      className={`relative shrink-0 pt-1 pb-2 md:pt-0 md:pb-0 md:px-2 md:py-1.5 md:rounded-lg text-lg md:text-[11px] whitespace-nowrap transition-all ${
                         sel
                           ? 'text-blue-700 font-bold md:bg-blue-400 md:text-white md:shadow-sm'
                           : 'text-slate-500 font-semibold hover:text-slate-700 md:hover:bg-slate-100'
