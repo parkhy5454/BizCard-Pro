@@ -135,7 +135,7 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
     });
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4 space-y-5">
+    <div className="max-w-4xl mx-auto pt-0 pb-6 md:py-6 px-4 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <History className="w-5 h-5 text-indigo-500" />
@@ -155,6 +155,8 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
       <p className="text-sm md:text-xs text-slate-400">
         권한 변경, 가입 승인/거절, 회원 탈퇴, 구독/결제, 데이터 백업 등 민감한 작업 기록만 확인
       </p>
+
+      <div aria-hidden className="md:hidden h-px bg-slate-200 -mt-2" />
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
@@ -178,6 +180,8 @@ export const AuditLogView: React.FC<Props> = ({ currentUser }) => {
           ))}
         </select>
       </div>
+
+      <div aria-hidden className="md:hidden h-px bg-slate-200" />
 
       {loading ? (
         <div className="text-center py-12 text-sm text-slate-400">불러오는 중...</div>
