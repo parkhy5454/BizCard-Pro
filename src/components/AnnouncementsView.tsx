@@ -185,7 +185,7 @@ export const AnnouncementsView: React.FC<Props> = ({ currentUser }) => {
             상단에 고정
           </label>
           {formError && <p className="text-xs text-rose-500">{formError}</p>}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <button
               onClick={handleSave}
               disabled={saving}
