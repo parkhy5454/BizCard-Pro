@@ -84,6 +84,18 @@ const isTypingField = (el: EventTarget | null): boolean => {
 document.addEventListener('focusin', (e) => {
   if (isTypingField(e.target)) document.body.classList.add('kb-open');
 });
+// 아이폰은 입력창을 누르면 키보드가 올라오면서 화면 전체(.app-shell)를 위로 밀어 올린다.
+// 그러면 상단 고정 탭이 같이 위아래로 움직인다. 입력창에 포커스가 갈 때마다 .app-shell과
+// 창 스크롤을 맨 위로 되돌려 상단 탭이 제자리에 있도록 한다. (본문 스크롤 main은 건드리지 않는다)
+const resetShellScroll = () => {
+  document.querySelectorAll<HTMLElement>('.app-shell').forEach((el) => { if (el.scrollTop !== 0) el.scrollTop = 0; });
+  if (window.scrollY !== 0) window.scrollTo(0, 0);
+};
+document.addEventListener('focusin', (e) => {
+  if (!isTypingField(e.target)) return;
+  resetShellScroll();
+  [60, 250, 500].forEach((ms) => window.setTimeout(resetShellScroll, ms));
+});
 // 입력창이 화면에서 사라질 때(탭 이동 등) 포커스 해제 신호가 안 오는 경우가 있어 탭 바가 계속 숨는 문제가 있었다.
 // 화면을 누를 때마다 실제로 입력 중인 칸이 없으면 kb-open을 확실히 지운다.
 document.addEventListener('pointerdown', () => {
