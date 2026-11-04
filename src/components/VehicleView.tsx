@@ -1792,8 +1792,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       
       {/* 서브 탭 탐색 내비게이션 바 */}
       {topRowsContainer && createPortal(
-      <div className="flex border-b border-slate-200">
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-1 pt-2 w-full md:w-auto md:flex-nowrap md:gap-6 md:shrink-0">
+      <div className="flex border-b border-slate-200 overflow-x-auto scrollbar-none">
+        <div className="flex items-end gap-4 md:gap-6 pt-2 shrink-0">
           {[
             { id: 'driving', label: '운행기록', icon: MapPin },
             { id: 'expenses', label: '비용관리', icon: Receipt },
@@ -2640,9 +2640,9 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                   }
                   setIsDrivingFormOpen(!isDrivingFormOpen);
                 }}
-                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-xs text-white transition-all font-semibold shrink-0 whitespace-nowrap"
+                className="flex items-center gap-1 px-3 py-2.5 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-lg md:text-xs text-white transition-all font-semibold shrink-0 whitespace-nowrap"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 <span>운행 일지 작성</span>
               </button>
 
