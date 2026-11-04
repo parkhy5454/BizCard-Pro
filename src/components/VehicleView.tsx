@@ -5117,7 +5117,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           const tableHtml = buildReportTableHtml(v);
           const doc = `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${v.modelName} 운행기록부 ${reportYearMonth}</title>
+<title>${escapeHtml(v.modelName)} 운행기록부 ${reportYearMonth}</title>
 <style>
   @page { size: A4 landscape; margin: 10mm; }
   body { font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 11px; color: #111; margin: 12px; }
