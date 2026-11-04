@@ -1704,15 +1704,15 @@ async function geocodeAddressWithDiagnostics(address: string): Promise<{ coords:
 // Supabase Storage에 실제 파일로 올리고, DB에는 그 파일 주소(URL)만 저장한다.
 // 이미 URL이거나(재사용) 값이 없으면 그대로 둔다. 업로드가 실패해도 예전처럼
 // base64를 그대로 저장해서(안전장치) 최소한 사진 자체는 안 깨지게 한다.
-async function persistMaintReceipts(scopeId: string, m: { id: string; receiptImage?: string; receiptImages?: string[] }) {
+async function persistMaintReceipts(scopeId: string, m: { id: string; receiptImage?: string; receiptImages?: string[] }, keyPrefix = 'vehicle-maint') {
   if (Array.isArray(m.receiptImages)) {
     const saved = await Promise.all(
-      m.receiptImages.map((img, i) => persistImageField(scopeId, img, `vehicle-maint-${m.id}-${i}`, 'receipts'))
+      m.receiptImages.map((img, i) => persistImageField(scopeId, img, `${keyPrefix}-${m.id}-${i}`, 'receipts'))
     );
     m.receiptImages = saved.filter((x): x is string => !!x);
     m.receiptImage = m.receiptImages[0] || '';
   } else {
-    m.receiptImage = await persistImageField(scopeId, m.receiptImage, `vehicle-maint-${m.id}`, 'receipts');
+    m.receiptImage = await persistImageField(scopeId, m.receiptImage, `${keyPrefix}-${m.id}`, 'receipts');
   }
 }
 
@@ -6562,7 +6562,7 @@ app.post('/api/vehicles/expenses', async (req, res) => {
   // 비용 등)에서 이미 쓰던 것과 같이 무작위 문자열을 붙여서 충돌 가능성을 없앤다.
   if (!exp.id) exp.id = `exp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!exp.createdAt) exp.createdAt = new Date().toISOString();
-  exp.receiptImage = await persistImageField(scopeId, exp.receiptImage, `vehicle-expense-${exp.id}`, 'receipts');
+  await persistMaintReceipts(scopeId, exp, 'vehicle-expense');
 
   dbData.expenses.unshift(exp);
   // [수정] 영수증 스캔본이 포함된 저장이 DB에 실제로 실패했는데도 조용히 "성공"으로
@@ -6690,7 +6690,7 @@ app.put('/api/vehicles/expenses/:id', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Expense not found' });
   const previousExpense = dbData.expenses[idx];
   const updated = { ...dbData.expenses[idx], ...req.body };
-  updated.receiptImage = await persistImageField(scopeId, updated.receiptImage, `vehicle-expense-${updated.id}`, 'receipts');
+  await persistMaintReceipts(scopeId, updated, 'vehicle-expense');
   dbData.expenses[idx] = updated;
   const savedExpenseUpdate = await setScopedDoc(scopeId, 'expenses', dbData.expenses[idx]);
   if (!savedExpenseUpdate) {

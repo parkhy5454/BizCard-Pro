@@ -413,7 +413,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     fuelVolume: 0,
     projectName: '',
     contactId: '',
-    receiptImage: ''
+    receiptImage: '',
+    receiptImages: [] as string[]
   });
   const [isScanningExpenseReceipt, setIsScanningExpenseReceipt] = useState<boolean>(false);
 
@@ -692,8 +693,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
   // 운행일지 추가 액션
   // 운행 중 발생한 영수증(통행료/주차비 등) 스캔 - 운행기록 저장 시 비용관리에 연동 등록됨
   // 영수증 크롭 조정 모달 대상: 어느 화면(운행/비용/정비)에서 스캔 중인지 + 원본 이미지
-  const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit'; rawImage: string } | null>(null);
-  const [receiptCameraTarget, setReceiptCameraTarget] = useState<'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit' | null>(null);
+  const [receiptCropTarget, setReceiptCropTarget] = useState<{ context: 'driving' | 'driving-edit' | 'expense' | 'expense-edit' | 'maint' | 'maint-edit'; rawImage: string } | null>(null);
+  const [receiptCameraTarget, setReceiptCameraTarget] = useState<'driving' | 'driving-edit' | 'expense' | 'expense-edit' | 'maint' | 'maint-edit' | null>(null);
   const receiptFallbackFileInputRef = React.useRef<HTMLInputElement>(null);
   // 수정 칸은 화면 맨 아래에 그려지므로, 수정 버튼을 누르면 그 칸으로 스크롤한다.
   const drivingEditRef = React.useRef<HTMLDivElement>(null);
@@ -709,7 +710,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     return () => window.clearTimeout(t);
   }, [editingVehicle?.id, !!editingVehicle]);
   // [추가] 갤러리에서 고른 영수증이 어느 입력 화면(운행/비용/정비/수정)용인지 기억해 둔다
-  const receiptGalleryContextRef = React.useRef<'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit' | null>(null);
+  const receiptGalleryContextRef = React.useRef<'driving' | 'driving-edit' | 'expense' | 'expense-edit' | 'maint' | 'maint-edit' | null>(null);
 
   // 영수증 크롭까지 끝난 사진을 "임시 목록"에 한 장 담고, AI로 분류/상호/금액을 채운다.
   // 실제 비용 등록은 운행기록 저장 버튼을 누를 때 한꺼번에 일어난다 (신규/수정 공통).
@@ -859,14 +860,33 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     });
   };
 
-  const runReceiptOcr = async (context: 'driving' | 'driving-edit' | 'expense' | 'maint' | 'maint-edit', dataUrl: string) => {
+  // 지출비용 영수증도 여러 장 (정비와 같은 방식: 장마다 금액을 합산, 날짜·상호·메모·결제수단은 첫 장에서만)
+  const expenseImagesOf = (e: any): string[] =>
+    Array.isArray(e?.receiptImages) && e.receiptImages.length > 0
+      ? e.receiptImages
+      : (e?.receiptImage ? [e.receiptImage] : []);
+  const updateExpenseForm = (ctx: string, updater: (prev: any) => any) => {
+    if (ctx === 'expense-edit') setEditingExpense((prev) => (prev ? updater(prev) : prev));
+    else setNewExpense((prev) => updater(prev));
+  };
+  const removeExpenseReceipt = (ctx: 'expense' | 'expense-edit', index: number) => {
+    updateExpenseForm(ctx, (prev) => {
+      const images = expenseImagesOf(prev).filter((_, i) => i !== index);
+      return { ...prev, receiptImages: images, receiptImage: images[0] || '' };
+    });
+  };
+
+  const runReceiptOcr = async (context: 'driving' | 'driving-edit' | 'expense' | 'expense-edit' | 'maint' | 'maint-edit', dataUrl: string) => {
     if (context === 'driving' || context === 'driving-edit') {
       await addReceiptDraftAndScan(context, dataUrl);
       return;
     }
 
-    if (context === 'expense') {
-      setNewExpense((prev) => ({ ...prev, receiptImage: dataUrl }));
+    if (context === 'expense' || context === 'expense-edit') {
+      updateExpenseForm(context, (prev) => {
+        const images = [...expenseImagesOf(prev), dataUrl];
+        return { ...prev, receiptImages: images, receiptImage: images[0] };
+      });
       setIsScanningExpenseReceipt(true);
     } else {
       updateMaintForm(context, (prev) => appendMaintReceiptDraft(prev, dataUrl));
@@ -892,17 +912,23 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           }
         }
 
-        if (context === 'expense') {
-          setNewExpense((prev) => ({
-            ...prev,
-            category: (data.category as VehicleExpense['category']) || prev.category,
-            amount: data.amount || prev.amount,
-            date: data.date || prev.date,
-            merchantName: data.merchantName || prev.merchantName,
-            memo: data.memo || prev.memo,
-            payMethod: (data.payMethod as VehicleExpense['payMethod']) || prev.payMethod,
-            receiptImage: finalReceiptImage
-          }));
+        if (context === 'expense' || context === 'expense-edit') {
+          updateExpenseForm(context, (prev) => {
+            const before = expenseImagesOf(prev);
+            const isFirst = before[0] === dataUrl;
+            const images = before.map((img) => (img === dataUrl ? finalReceiptImage : img));
+            return {
+              ...prev,
+              receiptImages: images,
+              receiptImage: images[0] || finalReceiptImage,
+              amount: (Number(prev.amount) || 0) + (Number(data.amount) || 0),
+              category: isFirst ? ((data.category as VehicleExpense['category']) || prev.category) : prev.category,
+              date: isFirst ? (data.date || prev.date) : prev.date,
+              merchantName: isFirst ? (data.merchantName || prev.merchantName) : prev.merchantName,
+              memo: isFirst ? (data.memo || prev.memo) : prev.memo,
+              payMethod: isFirst ? ((data.payMethod as VehicleExpense['payMethod']) || prev.payMethod) : prev.payMethod
+            };
+          });
         } else {
           updateMaintForm(context, (prev) => finalizeMaintReceiptDraft(prev, dataUrl, finalReceiptImage, data));
         }
@@ -910,7 +936,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     } catch (err) {
       console.error('영수증 스캔 실패:', err);
     } finally {
-      if (context === 'expense') setIsScanningExpenseReceipt(false);
+      if (context === 'expense' || context === 'expense-edit') setIsScanningExpenseReceipt(false);
       else setIsScanningMaintReceipt(false);
     }
   };
@@ -1185,7 +1211,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           fuelVolume: 0,
           projectName: '',
           contactId: '',
-          receiptImage: ''
+          receiptImage: '',
+          receiptImages: []
         });
 
         // Reset direct contact fields
@@ -3754,15 +3781,29 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       >
                         갤러리에서 선택
                       </button>
-                  {newExpense.receiptImage && (
-                    <img
-                      src={newExpense.receiptImage}
-                      alt="영수증"
-                      onClick={() => setEnlargedReceiptUrl(newExpense.receiptImage)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                    />
-                  )}
                 </div>
+                {expenseImagesOf(newExpense).length > 0 && (
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex flex-wrap gap-2">
+                    {expenseImagesOf(newExpense).map((img, idx) => (
+                      <div key={idx} className="relative">
+                        <img
+                          src={img}
+                          alt={`영수증 ${idx + 1}`}
+                          onClick={() => setEnlargedReceiptUrl(img)}
+                          className="w-14 h-14 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeExpenseReceipt('expense', idx)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center"
+                          title="이 영수증 빼기"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">대상 차량 *</label>
                   <select 
@@ -6255,17 +6296,48 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 <DraftPromptBanner prompt={expenseEditDraft.prompt} onRestore={expenseEditDraft.restore} onDismiss={expenseEditDraft.dismiss} />
               <div className="space-y-4">
                 {/* [수정] 등록할 때 스캔한 영수증 사진이 수정 화면에는 안 보이던 문제 - 여기에 썸네일로 표시 */}
-                {editingExpense.receiptImage && (
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    <img
-                      src={editingExpense.receiptImage}
-                      alt="영수증"
-                      onClick={() => setEnlargedReceiptUrl(editingExpense.receiptImage!)}
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                    />
-                    <span className="text-[11px] text-slate-500">등록된 영수증 (눌러서 크게 보기)</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReceiptCameraTarget('expense-edit')}
+                      disabled={isScanningExpenseReceipt}
+                      className="flex-1 flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-emerald-500 text-slate-400 hover:text-emerald-400 text-xs font-semibold disabled:opacity-50"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>{isScanningExpenseReceipt ? '영수증 스캔 중...' : '영수증 추가 촬영'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { receiptGalleryContextRef.current = 'expense-edit'; receiptFallbackFileInputRef.current?.click(); }}
+                      className="shrink-0 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 text-slate-500 hover:text-emerald-600 text-xs font-semibold whitespace-nowrap"
+                    >
+                      갤러리에서 선택
+                    </button>
                   </div>
-                )}
+                  {expenseImagesOf(editingExpense).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {expenseImagesOf(editingExpense).map((img, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={img}
+                            alt={`영수증 ${idx + 1}`}
+                            onClick={() => setEnlargedReceiptUrl(img)}
+                            className="w-14 h-14 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExpenseReceipt('expense-edit', idx)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center"
+                            title="이 영수증 빼기"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-500">지출 일자</label>
