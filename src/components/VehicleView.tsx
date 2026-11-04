@@ -4196,7 +4196,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-lg md:text-xs text-white transition-all font-semibold shrink-0"
               >
                 <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
-                <span>{maintSubMode === 'intervals' ? '점검 주기 등록' : '정비내역 등록'}</span>
+                <span>{maintSubMode === 'intervals' ? '점검 주기 등록' : '내역 등록'}</span>
               </button>
             </div>
           
