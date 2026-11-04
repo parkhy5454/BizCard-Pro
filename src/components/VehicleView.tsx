@@ -2643,7 +2643,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                 className="flex items-center gap-1 px-3 py-2.5 rounded-xl bg-blue-400 hover:bg-blue-300 active:bg-blue-300 text-lg md:text-xs text-white transition-all font-semibold shrink-0 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
-                <span>운행 일지 작성</span>
+                <span>일지 작성</span>
               </button>
 
               {/* 기간 필터 버튼 */}
