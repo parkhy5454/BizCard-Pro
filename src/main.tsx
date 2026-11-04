@@ -108,6 +108,16 @@ document.addEventListener('focusout', () => {
   }, 150);
 });
 
+// 설치된 앱(standalone)에서 앱 영역이 기기 화면보다 낮게 잡히는 경우(아이폰에서 아래 약 50px 비어 보임),
+// 그 차이만큼 하단 탭을 아래로 내려 화면 맨 아래에 붙인다. 차이가 없으면 0이라 아무 영향이 없다.
+const updateBottomGap = () => {
+  const gap = Math.max(0, window.screen.height - window.innerHeight);
+  document.documentElement.style.setProperty('--bottom-gap', `${gap}px`);
+};
+updateBottomGap();
+window.addEventListener('resize', updateBottomGap);
+window.addEventListener('orientationchange', updateBottomGap);
+
 // [임시 진단] 하단 탭 아래 띠 원인 확인용 수치 표시 (확인 후 제거 예정)
 const renderDiagBadge = () => {
   const tabbar = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
