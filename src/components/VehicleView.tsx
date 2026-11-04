@@ -1792,8 +1792,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       
       {/* 서브 탭 탐색 내비게이션 바 */}
       {topRowsContainer && createPortal(
-      <div className="flex border-b border-slate-200 overflow-x-auto">
-        <div className="flex items-end gap-6 pt-2 shrink-0">
+      <div className="flex border-b border-slate-200">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-1 pt-2 w-full md:w-auto md:flex-nowrap md:gap-6 md:shrink-0">
           {[
             { id: 'driving', label: '운행기록', icon: MapPin },
             { id: 'expenses', label: '비용관리', icon: Receipt },
@@ -1808,7 +1808,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
               <button
                 key={tab.id}
                 onClick={() => setActiveSubTab(tab.id as typeof activeSubTab)}
-                className={`relative shrink-0 pt-0 pb-2 text-base md:text-sm font-bold whitespace-nowrap transition-colors ${
+                className={`relative shrink-0 pt-0 pb-2 text-lg md:text-sm font-bold whitespace-nowrap transition-colors ${
                   active ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
