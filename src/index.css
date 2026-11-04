@@ -417,7 +417,7 @@ html, body, #root { height: 100%; }
 
 
 /* 앱 전체 바탕: 흰색. 카드는 얇은 테두리와 그림자로 구분된다 */
-.app-shell { background-color: #FFFFFF; }
+.app-shell { background-color: #FFFFFF; position: relative; }
 
 /* 아이폰에서 화면 전체가 위아래로 튕기며 상단 탭까지 밀리는 것을 막는다 (본문 스크롤은 그대로) */
 html, body, .app-shell { overscroll-behavior: none; }
