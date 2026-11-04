@@ -3204,7 +3204,7 @@ export const ProjectsView: React.FC<Props> = ({
             return null;
           }
           return (
-            <div className="relative bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col gap-3 animate-fadeIn">
+            <div className="relative bg-white border-0 border-b border-slate-200 rounded-none px-0 pt-4 pb-4 md:border md:rounded-2xl md:px-6 md:pt-6 md:pb-6 md:shadow-sm flex flex-col gap-3 animate-fadeIn">
               <button
                 onClick={dismissFollowupBannerForToday}
                 className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
@@ -3213,15 +3213,15 @@ export const ProjectsView: React.FC<Props> = ({
                 <X className="w-4 h-4" />
               </button>
               <div className="flex items-center gap-4 pr-8">
-                <div className="p-2.5 bg-gradient-to-br from-rose-500 to-orange-400 text-white rounded-xl shadow-md shrink-0">
+                <div className="p-2 md:p-2.5 bg-gradient-to-br from-rose-500 to-orange-400 text-white rounded-xl shadow-md shrink-0">
                   <AlertTriangle className="w-5 h-5 animate-bounce" />
                 </div>
-                <h4 className="text-sm font-extrabold text-rose-600">
+                <h4 className="text-lg md:text-sm font-extrabold text-rose-600">
                   <span>팔로우업 필요 프로젝트 {needyProjs.length}개</span>
                 </h4>
               </div>
-              <div className="min-w-0 -mx-2.5 md:-mx-3 pt-1">
-                <div className="flex flex-col gap-2 min-w-0 w-full">
+              <div className="min-w-0 md:-mx-3 pt-1">
+                <div className="flex flex-col gap-0 md:gap-2 min-w-0 w-full">
                   {needyProjs.map(p => {
                     const { days } = getDaysSinceLastActivity(p);
                     return (
@@ -3229,10 +3229,10 @@ export const ProjectsView: React.FC<Props> = ({
                         key={p.id}
                         onClick={() => handleJumpToProject(p.id)}
                         title="눌러서 이 프로젝트로 이동"
-                        className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold transition-all flex items-center justify-between gap-2 text-left ${expandedId === p.id ? 'bg-blue-600 text-white border border-blue-600 animate-pulse' : 'bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900'}`}
+                        className={`w-full px-0 py-3 md:px-3 md:py-2 md:rounded-xl border-0 border-b md:border text-lg md:text-xs font-semibold transition-all flex items-center justify-between gap-2 text-left ${expandedId === p.id ? 'bg-blue-600 text-white md:border-blue-600 animate-pulse' : 'bg-white hover:bg-blue-50 border-slate-200 md:border-blue-200 md:hover:border-blue-400 text-slate-900'}`}
                       >
-                        <span className="font-medium min-w-0 truncate">{p.name}</span>
-                        <span className="text-[10px] opacity-80 font-mono shrink-0 whitespace-nowrap">({days}일 경과)</span>
+                        <span className="font-medium min-w-0 break-words md:truncate">{p.name}</span>
+                        <span className="text-base md:text-xs opacity-80 font-mono shrink-0 whitespace-nowrap">({days}일 경과)</span>
                       </button>
                     );
                   })}
