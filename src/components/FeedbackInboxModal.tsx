@@ -74,7 +74,9 @@ const inboxMobileInsets = (): { top: number; bottom: number } => {
     const el = document.getElementById(id);
     if (el) top = Math.max(top, el.getBoundingClientRect().bottom);
   });
-  let bottom = 0;
+  // 하단 탭을 아직 못 찾았거나 숨겨진 상태(키보드가 올라온 동안 등)면 0이 되어 창이 화면 끝까지
+  // 덮어버린다. 그럴 때는 하단 탭 높이만큼(약 96px) 비워 둔다.
+  let bottom = 96;
   if (tabbar && tabbar.getBoundingClientRect().height > 0) bottom = Math.max(0, window.innerHeight - tabbar.getBoundingClientRect().top);
   return { top: Math.max(0, Math.round(top)), bottom: Math.round(bottom) };
 };

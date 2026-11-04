@@ -97,6 +97,9 @@ export default function App() {
   // 더보기 화면에서 여는 문의/추천 모달 상태. 모달 렌더링은 Navigation이 하고 여기서 상태만 관리한다.
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isFeedbackInboxOpen, setIsFeedbackInboxOpen] = useState(false);
+  // [추가] 문의함(전체 화면 창)은 다른 탭으로 옮기면 함께 닫는다. 닫지 않으면 창이 화면을 덮어
+  // 하단 탭과 더보기 메뉴를 눌러도 아무 반응이 없었다.
+  useEffect(() => { setIsFeedbackInboxOpen(false); }, [activeTab]);
   const [isReferralOpen, setIsReferralOpen] = useState(false);
   // 개발자 계정의 미읽음 문의 건수 (하단 더보기 점, 더보기 화면의 문의함 배지)
   const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
