@@ -107,3 +107,24 @@ document.addEventListener('focusout', () => {
     if (!isTypingField(document.activeElement)) document.body.classList.remove('kb-open');
   }, 150);
 });
+
+// [임시 진단] 하단 탭 아래 띠 원인 확인용 수치 표시 (확인 후 제거 예정)
+const renderDiagBadge = () => {
+  const tabbar = document.querySelector('[data-app-tabbar]') as HTMLElement | null;
+  const shell = document.querySelector('.app-shell') as HTMLElement | null;
+  const vv = window.visualViewport;
+  const tb = tabbar?.getBoundingClientRect();
+  const sh = shell?.getBoundingClientRect();
+  let el = document.getElementById('diag-badge');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'diag-badge';
+    el.style.cssText = 'position:fixed;top:4px;left:4px;z-index:9999;background:rgba(0,0,0,.75);color:#fff;font:10px/1.35 monospace;padding:3px 5px;border-radius:4px;pointer-events:none;white-space:pre';
+    document.body.appendChild(el);
+  }
+  el.textContent =
+    `inner ${window.innerHeight} vv ${vv ? Math.round(vv.height) : '-'}\n` +
+    `screen ${window.screen.height} dvh ${shell ? Math.round(shell.clientHeight) : '-'}\n` +
+    `shell bottom ${sh ? Math.round(sh.bottom) : '-'} tab top ${tb ? Math.round(tb.top) : '-'} tab bottom ${tb ? Math.round(tb.bottom) : '-'}`;
+};
+window.setInterval(renderDiagBadge, 1000);
