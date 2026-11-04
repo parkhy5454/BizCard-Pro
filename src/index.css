@@ -422,6 +422,16 @@ html, body, #root { height: 100%; }
 /* 아이폰에서 화면 전체가 위아래로 튕기며 상단 탭까지 밀리는 것을 막는다 (본문 스크롤은 그대로) */
 html, body, .app-shell { overscroll-behavior: none; }
 
+/* 목록을 위아래로 밀 때 상단 탭까지 같이 움직이는 것을 막는다.
+   페이지 자체(html/body)는 화면에 고정하고, 실제로 스크롤되는 곳은 본문(main)뿐이다.
+   그러면 아이폰에서 끝까지 밀었을 때 생기는 화면 전체의 튕김이 생기지 않는다. */
+html, body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
 /* 누름 반응: 버튼을 누르면 살짝 줄어들어 눌렸다는 것이 바로 보이게 한다 */
 button:not(:disabled), [role="button"] {
   transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
