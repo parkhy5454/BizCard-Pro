@@ -677,6 +677,20 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// [보안] 데이터를 바꾸는 요청(POST/PUT/PATCH/DELETE)은 로그인한 사용자만 허용한다.
+// 로그인하지 않은 요청은 세션이 없어서 공용 'default' 영역으로 연결되는데, 그곳의
+// 명함·프로젝트 등을 익명으로 수정·삭제할 수 있었다. 여기서 한 번에 막는다.
+// 인증(/api/auth/*)과 서버 예약 작업(CRON_SECRET으로 따로 검증)만 예외로 둔다.
+const PUBLIC_MUTATION_PREFIXES = ['/api/auth/', '/api/billing/run-scheduled'];
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  if (!req.path.startsWith('/api/')) return next();
+  if (PUBLIC_MUTATION_PREFIXES.some((prefix) => req.path.startsWith(prefix))) return next();
+  const uid = req.headers['x-user-id'] as string | undefined;
+  if (uid && users.some((u) => u.id === uid)) return next();
+  return res.status(401).json({ error: '로그인이 필요합니다.' });
+});
+
 // === 통합 차량 관리 초기 데이터 정의 ===
 const initialVehicles: Vehicle[] = [
   {
