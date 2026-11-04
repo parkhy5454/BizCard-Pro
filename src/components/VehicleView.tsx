@@ -2655,7 +2655,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                     <button
                       key={p}
                       onClick={() => setDrivingPeriod(p)}
-                      className={`relative shrink-0 pt-1 pb-2 md:pt-0 md:pb-0 md:px-2 md:py-1.5 md:rounded-lg text-lg md:text-[11px] whitespace-nowrap transition-all ${
+                      className={`relative shrink-0 pt-1 pb-2 md:pt-0 md:pb-0 md:px-2 md:py-1.5 md:rounded-lg text-lg md:text-xs whitespace-nowrap transition-all ${
                         sel
                           ? 'text-blue-700 font-bold md:bg-blue-400 md:text-white md:shadow-sm'
                           : 'text-slate-500 font-semibold hover:text-slate-700 md:hover:bg-slate-100'
