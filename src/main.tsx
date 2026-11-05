@@ -107,3 +107,28 @@ document.addEventListener('focusout', () => {
     if (!isTypingField(document.activeElement)) document.body.classList.remove('kb-open');
   }, 150);
 });
+
+// [아이폰 설치 앱] 입력창에서 키보드를 올렸다 내리면 화면 높이(innerHeight)가 줄어든 채로 남아서
+// 하단 고정 탭이 아래 빈 띠 위로 떠 보인다. 키보드가 내려간 뒤 높이가 원래보다 줄어 있으면,
+// 전체 화면 요소를 잠깐 숨겼다 다시 보여 주어 브라우저가 높이를 다시 계산하게 한다.
+let maxViewportHeight = window.innerHeight;
+const healViewportHeight = () => {
+  const h = window.innerHeight;
+  if (h > maxViewportHeight) maxViewportHeight = h;
+  if (maxViewportHeight - h <= 4) return;
+  const shell = document.querySelector('.app-shell') as HTMLElement | null;
+  const main = document.querySelector('main') as HTMLElement | null;
+  if (!shell) return;
+  const scrollTop = main?.scrollTop ?? 0;
+  shell.style.display = 'none';
+  void shell.offsetHeight; // 강제로 다시 계산
+  shell.style.display = '';
+  if (main) main.scrollTop = scrollTop;
+};
+document.addEventListener('focusout', (e) => {
+  if (!isTypingField(e.target)) return;
+  window.setTimeout(healViewportHeight, 200);
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') window.setTimeout(healViewportHeight, 300);
+});
