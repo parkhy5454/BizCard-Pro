@@ -672,9 +672,6 @@ export const Navigation: React.FC<Props> = ({
           똑같은 알약형 버튼 스타일이라 구분이 잘 안 된다는 지적이 있었다. 하위 줄이 있는
           탭에서만 얇은 구분선을 하나 그어서, 상위 탭과 하위 버튼 줄이 서로 다른 영역임을
           명확히 나눈다. */}
-          {['groups', 'io', 'nearby', 'projects'].includes(activeTab) && (
-            <div className="w-full border-t border-slate-200" />
-          )}
 
           {/* 그룹관리 / 가져오기·내보내기 / 내 명함 공유 / 주변 레이더 (명함은 상단으로 이동, 나머지 탭에서만 노출) */}
           {/* 서브 액션 줄은 상단 바로 이동 (하단에는 표시하지 않음) */}
