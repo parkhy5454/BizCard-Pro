@@ -119,7 +119,7 @@ const renderDiagBadge = () => {
   if (!el) {
     el = document.createElement('div');
     el.id = 'diag-badge';
-    el.style.cssText = 'position:fixed;top:330px;left:8px;z-index:9999;background:#000;color:#0f0;font:bold 15px/1.5 monospace;padding:8px 10px;border-radius:8px;pointer-events:none;white-space:pre;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+    el.style.cssText = 'position:fixed;top:4px;left:4px;z-index:9999;background:rgba(0,0,0,.75);color:#fff;font:10px/1.35 monospace;padding:3px 5px;border-radius:4px;pointer-events:none;white-space:pre';
     document.body.appendChild(el);
   }
   el.textContent =
