@@ -194,6 +194,8 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
   const [weeklyLogs, setWeeklyLogs] = useState<WeeklyWorkLog[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   // 월간 달력 (같은 회사 직원 전체 업무 한눈에 보기) 상태
+  // [추가] 일일/주간 탭 위에 보이는 주간 달력의 기준 날짜
+  const [weekCursor, setWeekCursor] = useState<Date>(() => new Date());
   const [monthCursor, setMonthCursor] = useState<Date>(() => {
     const d = new Date();
     d.setDate(1);
@@ -2805,6 +2807,55 @@ export const WorkLogsView: React.FC<Props> = ({ contacts, setContacts, projects,
             transition={{ duration: 0.2 }}
             className="w-full"
           >
+          {/* [추가] 일일/주간 탭 위의 주간 달력: 요일별로 그 날 업무 항목을 보여 준다. 날짜를 누르면 월간 달력으로 이동 */}
+          {(activeSubTab === 'daily' || activeSubTab === 'weekly') && (() => {
+            const base = new Date(weekCursor);
+            const start = new Date(base);
+            start.setDate(base.getDate() - base.getDay());
+            const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+            const toKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const todayKey = toKey(new Date());
+            const WD = ['일', '월', '화', '수', '목', '금', '토'];
+            const moveWeek = (n: number) => setWeekCursor((prev) => { const d = new Date(prev); d.setDate(d.getDate() + n * 7); return d; });
+            return (
+              <div className="bg-white border border-slate-200 rounded-2xl p-2 md:p-3 mb-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <button type="button" onClick={() => moveWeek(-1)} className="px-3 py-1 text-slate-500 hover:text-slate-800 text-lg font-bold">‹</button>
+                  <span className="text-sm md:text-xs font-bold text-slate-700">
+                    {days[0].getMonth() + 1}월 {days[0].getDate()}일 – {days[6].getMonth() + 1}월 {days[6].getDate()}일
+                  </span>
+                  <button type="button" onClick={() => moveWeek(1)} className="px-3 py-1 text-slate-500 hover:text-slate-800 text-lg font-bold">›</button>
+                </div>
+                <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+                  {days.map((d) => {
+                    const key = toKey(d);
+                    const entries = getEntriesForDate(key);
+                    const isToday = key === todayKey;
+                    const dow = d.getDay();
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => { setMonthCursor(new Date(d.getFullYear(), d.getMonth(), 1)); setActiveSubTab('monthly'); }}
+                        className="flex flex-col items-stretch min-w-0 rounded-lg p-0.5 md:p-1 hover:bg-slate-50"
+                      >
+                        <span className={`text-[11px] text-center ${dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-slate-500'}`}>{WD[dow]}</span>
+                        <span className={`mx-auto mt-0.5 w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold ${isToday ? 'bg-slate-900 text-white' : 'text-slate-800'}`}>{d.getDate()}</span>
+                        <div className="mt-1 space-y-0.5 min-w-0">
+                          {entries.slice(0, 2).map((en) => (
+                            <div key={en.id} className={`truncate text-[10px] px-1 py-0.5 rounded ${en.source === 'daily' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'}`}>{en.title}</div>
+                          ))}
+                          {entries.length > 2 && <div className="text-[10px] text-slate-400 text-center">+{entries.length - 2}</div>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+
             {(activeSubTab === 'daily' ? filteredDailyLogs : filteredWeeklyLogs).length === 0 ? (
               <div className="py-16 text-center bg-slate-100 border border-slate-200 rounded-3xl">
                 <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
