@@ -7650,7 +7650,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         ))}
       </div>
 
-      <div aria-hidden className="md:hidden mx-auto w-[90%] h-px bg-slate-300" />
+      {activeCategory !== 'inventory' && <div aria-hidden className="md:hidden mx-auto w-[90%] h-px bg-slate-300" />}
       {/* 검색 + 추가 버튼 */}
       {activeCategory !== 'inventory' && (
       <div className="flex items-center gap-2 py-1.5 md:py-0">
