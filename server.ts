@@ -3487,6 +3487,8 @@ app.post('/api/auth/withdraw', async (req, res) => {
 // 테스트할 수 있다.
 // ------------------------------------------------------------------
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
+// [추가] 정기결제 최대 기간(월). 이 횟수만큼 결제가 끝나면 자동으로 종료되고 무료 플랜으로 내려간다.
+const SUBSCRIPTION_MAX_PAID_MONTHS = 12;
 // [추가] 최초 구독 시 무료 체험 기간(일). 계정당 한 번만 적용된다(owner.trialUsed).
 const SUBSCRIPTION_TRIAL_DAYS = 14;
 
@@ -3587,6 +3589,8 @@ app.post('/api/billing/subscribe', async (req, res) => {
     owner.plan = 'pro';
     owner.subscriptionStatus = 'active';
     owner.trialUsed = true;
+    // [추가] 새로 구독을 시작할 때 이번 구독의 결제 횟수를 0부터 센다 (체험이면 0, 바로 결제했으면 1)
+    owner.paidMonths = useTrial ? 0 : 1;
     // [추가] 이 사람이 추천인으로서 이미 받아뒀지만 아직 반영 못 한 무료 개월(구독을
     // 시작하기 전이라 반영할 결제일이 없었던 경우)이 있으면, 첫 결제일을 잡을 때 한꺼번에 더해준다.
     let firstBillingDate = useTrial
@@ -3706,6 +3710,15 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
 
     if (owner.subscriptionStatus === 'active') {
       if (!owner.tossBillingKey || !owner.tossCustomerKey || !TOSS_SECRET_KEY) continue;
+      // [추가] 최대 12개월 정기결제: 12회 결제를 마쳤으면 다음 달에는 청구하지 않고 무료로 내린다.
+      if ((owner.paidMonths || 0) >= SUBSCRIPTION_MAX_PAID_MONTHS) {
+        owner.plan = 'free';
+        owner.subscriptionStatus = 'canceled';
+        owner.nextBillingAt = undefined;
+        await addUser(owner);
+        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_term_completed', detail: { paidMonths: owner.paidMonths } });
+        continue;
+      }
       const seats = seatCountForScope(scopeId);
       const amount = getMonthlyBillingAmount(seats);
       try {
@@ -3718,8 +3731,9 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
           customerName: owner.name
         });
         owner.nextBillingAt = addOneMonth(now).toISOString();
+        owner.paidMonths = (owner.paidMonths || 0) + 1;
         await addUser(owner);
-        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount } });
+        await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount, paidMonths: owner.paidMonths } });
         charged++;
       } catch (err) {
         console.error(`정기결제 실패 (${owner.email}):`, err);

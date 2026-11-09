@@ -879,6 +879,7 @@ export interface User {
   subscriptionStatus?: 'none' | 'active' | 'past_due' | 'canceled';
   nextBillingAt?: string; // ISO 날짜문자열 — 다음 자동결제 예정일
   trialUsed?: boolean;    // [추가] 무료 체험(최초 구독 14일)을 이미 사용했는지
+  paidMonths?: number;    // [추가] 이번 구독에서 성공한 월 정기결제 횟수. 12회가 되면 자동 종료(최대 12개월)
   billingTermYears?: number; // [추가] 기간 약정(1 또는 3년, 선결제 할인). 없으면 월 구독
   // [추가] 가입 일시. "가입 회원 & 협업 디렉토리"/운영현황에서 회사를 최근 가입순으로
   // 정렬하는 데 사용한다.
