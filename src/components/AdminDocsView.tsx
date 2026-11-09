@@ -3056,7 +3056,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const handleExportGyeongjosaExcel = async () => {
     const entries = docs
       .filter((d) => d.section === section && d.category === 'gyeongjosa')
-      .map((d) => ({ date: d.date || '', title: d.title || '', personName: d.personName || '', amount: Number(d.amount) || 0, kind: '', attended: '', memo: d.memo || '' }))
+      .map((d) => ({ date: d.date || '', title: d.title || '', personName: d.personName || '', amount: Number(d.amount) || 0, kind: d.gyeongjosaKind || '', attended: d.gyeongjosaAttended || '', memo: d.memo || '' }))
       .sort((a, b) => a.date.localeCompare(b.date));
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('경조사 비용');
@@ -10734,6 +10734,45 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                   </div>
                 )}
 
+                {activeCategory === 'gyeongjosa' && (
+                <div>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">종류</label>
+                  <GyeongjosaChoiceInput
+                    value={editingDoc.gyeongjosaKind || ''}
+                    onChange={(v) => setEditingDoc({ ...editingDoc, gyeongjosaKind: v })}
+                    options={GYEONGJOSA_KIND_OPTIONS}
+                  />
+                </div>
+                )}
+
+                {activeCategory === 'gyeongjosa' && (
+                <div>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">참석 유무</label>
+                  <select
+                    value={editingDoc.gyeongjosaAttended || ''}
+                    onChange={(e) => setEditingDoc({ ...editingDoc, gyeongjosaAttended: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                  >
+                    <option value="">선택 안 함</option>
+                    <option value="유">유</option>
+                    <option value="무">무</option>
+                  </select>
+                </div>
+                )}
+
+                {activeCategory === 'gyeongjosa' && (
+                <div>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">비고</label>
+                  <input
+                    type="text"
+                    value={editingDoc.memo || ''}
+                    onChange={(e) => setEditingDoc({ ...editingDoc, memo: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
+                  />
+                </div>
+                )}
+
+                {activeCategory !== 'gyeongjosa' && (
                 <div>
                   <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">메모</label>
                   <textarea
@@ -10744,6 +10783,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500 resize-none"
                   />
                 </div>
+                )}
 
                 <div>
                   <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">첨부파일 (계약서, 명세서 등)</label>

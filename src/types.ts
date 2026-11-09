@@ -143,6 +143,10 @@ export interface AdminDoc {
   amount?: string;         // 금액 (있는 경우) - 문자열로 저장, 표시할 때 콤마 포맷팅
   memo?: string;
   attachments?: ProjectFollowUpAttachment[]; // 계약서/명세서 등 첨부파일(PDF, 이미지 등)
+  // [추가] 경조사 현황 종류 (현금/화환/화분/직접 입력 내용)
+  gyeongjosaKind?: string;
+  // [추가] 경조사 현황 참석 유무 (유/무)
+  gyeongjosaAttended?: string;
   createdByUserId?: string;
   createdByUserName?: string;
   createdAt: string;
