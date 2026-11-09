@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
-import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye, ChevronDown } from 'lucide-react';
+import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye, ChevronDown, Camera } from 'lucide-react';
 import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
@@ -10821,7 +10821,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 )}
 
                 <div>
-                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">첨부파일 (계약서, 명세서 등)</label>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">{activeCategory === 'gyeongjosa' ? '첨부파일 (청첩장, 부고장 등)' : '첨부파일 (계약서, 명세서 등)'}</label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {(editingDoc.attachments || []).map((a) => (
                       <span key={a.id} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-[11px] text-indigo-700">
@@ -10833,11 +10833,26 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </span>
                     ))}
                   </div>
+                  {activeCategory === 'gyeongjosa' ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-50 border border-dashed border-slate-300 text-sm text-slate-600 hover:bg-slate-100 cursor-pointer">
+                        <Paperclip className="w-4 h-4" />
+                        파일 선택
+                        <input type="file" multiple accept="image/*,application/pdf" onChange={handleFileAttach} className="hidden" />
+                      </label>
+                      <label className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-50 border border-dashed border-slate-300 text-sm text-slate-600 hover:bg-slate-100 cursor-pointer">
+                        <Camera className="w-4 h-4" />
+                        사진 찍기
+                        <input type="file" accept="image/*" capture="environment" onChange={handleFileAttach} className="hidden" />
+                      </label>
+                    </div>
+                  ) : (
                   <label className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-dashed border-slate-300 text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">
                     <Paperclip className="w-3.5 h-3.5" />
                     파일 선택 (PDF, 이미지 등 여러 개 가능)
                     <input type="file" multiple onChange={handleFileAttach} className="hidden" />
                   </label>
+                  )}
                 </div>
               </div>
 
