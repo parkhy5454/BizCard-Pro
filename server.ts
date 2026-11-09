@@ -691,6 +691,18 @@ app.use((req, res, next) => {
   return res.status(401).json({ error: '로그인이 필요합니다.' });
 });
 
+// [보안] 로그인하지 않은 사용자는 데이터 읽기(GET)도 막는다. 예전에는 쓰기만 막혀 있어서,
+// 로그인 없이도 기본(default) 영역의 데이터를 읽을 수 있었다. 로그인 전에 꼭 필요한 공개 API만 허용한다.
+const PUBLIC_READ_PREFIXES = ['/api/auth/', '/api/announcements', '/api/company-branding', '/api/worklogs/calendar.ics', '/api/health'];
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (!req.path.startsWith('/api/')) return next();
+  if (PUBLIC_READ_PREFIXES.some((prefix) => req.path.startsWith(prefix))) return next();
+  const uid = req.headers['x-user-id'] as string | undefined;
+  if (uid && users.some((u) => u.id === uid)) return next();
+  return res.status(401).json({ error: '로그인이 필요합니다.' });
+});
+
 // === 통합 차량 관리 초기 데이터 정의 ===
 const initialVehicles: Vehicle[] = [
   {
