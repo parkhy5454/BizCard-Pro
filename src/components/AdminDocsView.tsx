@@ -491,7 +491,7 @@ const onDocFieldFocus = (e: React.FocusEvent<HTMLElement>) => {
 // 재고 현황은 저장된 단가표·입고·출고 기록에서 제품 코드별로 자동 집계한다.
 type InventoryTabId = 'price' | 'in' | 'out' | 'stock';
 const INVENTORY_TABS: { id: InventoryTabId; label: string }[] = [
-  { id: 'price', label: '품명 단가표' },
+  { id: 'price', label: '단가표' },
   { id: 'in', label: '입고 현황' },
   { id: 'out', label: '출고 현황' },
   { id: 'stock', label: '품목별 재고 현황' }
@@ -547,7 +547,7 @@ const readInventoryAttachment = (file: File): Promise<ProjectFollowUpAttachment>
 
 const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; userId: string; onSaved: (saved: AdminDoc, isNew: boolean) => void; onPrint: (doc: AdminDoc) => void }) => {
   const [tab, setTab] = useState<InventoryTabId>('in');
-  const [rows, setRows] = useState<{ id: string; date: string; code: string; name: string; qty: number; price: number; attachments?: ProjectFollowUpAttachment[] }[]>([]);
+  const [rows, setRows] = useState<{ id: string; date: string; code: string; name: string; qty: number; price: number; spec?: string; maker?: string; attachments?: ProjectFollowUpAttachment[] }[]>([]);
   const [saving, setSaving] = useState(false);
   const current = tab === 'stock' ? undefined : docs.find((d) => d.category === INVENTORY_CATEGORY[tab]);
   const currentId = current?.id;
@@ -584,7 +584,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   const removeAttachment = (rowId: string, attId: string) =>
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, attachments: (r.attachments || []).filter((a) => a.id !== attId) } : r)));
 
-  const updateRow = (id: string, patch: Partial<{ date: string; code: string; name: string; qty: number; price: number; attachments: ProjectFollowUpAttachment[] }>) =>
+  const updateRow = (id: string, patch: Partial<{ date: string; code: string; name: string; qty: number; price: number; spec: string; maker: string; attachments: ProjectFollowUpAttachment[] }>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const removeRow = (id: string) => setRows((prev) => prev.filter((r) => r.id !== id));
   const addRow = () => setRows((prev) => [...prev, newInventoryRow()]);
@@ -649,9 +649,9 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
       widths = [16, 30, 13, 13, 13];
       body = stockRows.map((r) => [r.code, r.name, r.inQty, r.outQty, r.inQty - r.outQty]);
     } else if (tab === 'price') {
-      headers = ['코드', '품 명', '단 가'];
-      widths = [16, 36, 16];
-      body = rows.map((r) => [r.code, r.name, Number(r.price) || 0]);
+      headers = ['코드', '품 명', '규격', '제조사', '단 가'];
+      widths = [14, 30, 16, 18, 14];
+      body = rows.map((r) => [r.code, r.name, r.spec || '', r.maker || '', Number(r.price) || 0]);
     } else {
       const p = tab === 'in' ? '입고' : '출고';
       headers = [`${p} 날짜`, '제품 코드', '품 명', `${p} 수량`, '단 가', `${p} 금액`];
@@ -707,7 +707,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   const td = (node: React.ReactNode, cls = '') => <td className={`border border-slate-300 p-0.5 ${cls}`}>{node}</td>;
   const inputCls = 'w-full min-w-0 bg-white border-0 px-1.5 py-1.5 text-xs text-slate-700 outline-none focus:bg-indigo-50';
   const headers = tab === 'stock' ? ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량']
-    : tab === 'price' ? ['코드', '품 명', '단 가', '']
+    : tab === 'price' ? ['코드', '품 명', '규격', '제조사', '단 가', '']
     : [tab === 'in' ? '입고 날짜' : '출고 날짜', '제품 코드', '품 명', tab === 'in' ? '입고 수량' : '출고 수량', '단 가', tab === 'in' ? '입고 금액' : '출고 금액', '증빙', ''];
 
   return (
@@ -770,6 +770,8 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
               <tr key={r.id}>
                 {td(<input type="text" value={r.code} onChange={(e) => updateRow(r.id, { code: e.target.value })} className={inputCls} />)}
                 {td(<input type="text" value={r.name} onChange={(e) => updateRow(r.id, { name: e.target.value })} className={inputCls} />)}
+                {td(<input type="text" value={r.spec || ''} onChange={(e) => updateRow(r.id, { spec: e.target.value })} className={inputCls} />)}
+                {td(<input type="text" value={r.maker || ''} onChange={(e) => updateRow(r.id, { maker: e.target.value })} className={inputCls} />)}
                 {td(<input type="text" inputMode="numeric" value={r.price ? r.price.toLocaleString('ko-KR') : ''} onChange={(e) => updateRow(r.id, { price: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="0" className={`${inputCls} text-right`} />)}
                 {td(<button type="button" onClick={() => removeRow(r.id)} className="p-1 text-slate-400 hover:text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>, 'text-center')}
               </tr>
@@ -5238,7 +5240,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     type CellV = { v: string; align: 'left' | 'center' | 'right' };
     const c = (v: string, align: 'left' | 'center' | 'right'): CellV => ({ v, align });
     const fmt = (n: number) => (n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n));
-    const title = cat === 'inventory' ? '품목별 재고 현황' : cat === 'inventory_price' ? '품명 단가표' : cat === 'inventory_in' ? '입고 현황' : '출고 현황';
+    const title = cat === 'inventory' ? '품목별 재고 현황' : cat === 'inventory_price' ? '단가표' : cat === 'inventory_in' ? '입고 현황' : '출고 현황';
     const cell: React.CSSProperties = { border: '1px solid #000', padding: '5px' };
     let headers: string[] = [];
     let bodyRows: CellV[][] = [];
@@ -5246,8 +5248,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량'];
       bodyRows = computeInventoryStock(docs).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(fmt(r.inQty), 'right'), c(fmt(r.outQty), 'right'), c(fmt(r.inQty - r.outQty), 'right')]);
     } else if (cat === 'inventory_price') {
-      headers = ['코드', '품 명', '단 가'];
-      bodyRows = (printingDoc.inventory?.rows || []).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(fmt(Number(r.price) || 0), 'right')]);
+      headers = ['코드', '품 명', '규격', '제조사', '단 가'];
+      bodyRows = (printingDoc.inventory?.rows || []).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(r.spec || '', 'left'), c(r.maker || '', 'left'), c(fmt(Number(r.price) || 0), 'right')]);
     } else {
       const p = cat === 'inventory_in' ? '입고' : '출고';
       headers = [`${p} 날짜`, '제품 코드', '품 명', `${p} 수량`, '단 가', `${p} 금액`];
