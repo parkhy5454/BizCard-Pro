@@ -596,7 +596,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(label);
     // 인쇄 시 페이지 번호 표시 (예: 1 / 2)
-    ws.headerFooter = { oddFooter: '&C&P / &N' };
+    ws.headerFooter = { differentFirst: false, differentOddEven: false, oddHeader: '', oddFooter: '&C&P / &N', evenHeader: '', evenFooter: '', firstHeader: '', firstFooter: '' };
     // A4 세로, 위/아래/좌/우 여백 15mm
     ws.pageSetup = { paperSize: 9, orientation: 'portrait', margins: { left: 15 / 25.4, right: 15 / 25.4, top: 15 / 25.4, bottom: 15 / 25.4, header: 0, footer: 0 } };
     const border: Partial<ExcelJS.Borders> = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -3334,7 +3334,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('경조사 비용');
     // 인쇄 시 페이지 번호 표시 (예: 1 / 2)
-    ws.headerFooter = { oddFooter: '&C&P / &N' };
+    ws.headerFooter = { differentFirst: false, differentOddEven: false, oddHeader: '', oddFooter: '&C&P / &N', evenHeader: '', evenFooter: '', firstHeader: '', firstFooter: '' };
     // A4 세로, 위/아래/좌/우 여백 15mm
     ws.pageSetup = { paperSize: 9, orientation: 'portrait', margins: { left: 15 / 25.4, right: 15 / 25.4, top: 15 / 25.4, bottom: 15 / 25.4, header: 0, footer: 0 } };
     ws.columns = [{ width: 13 }, { width: 26 }, { width: 12 }, { width: 14 }, { width: 12 }, { width: 11 }, { width: 24 }];
