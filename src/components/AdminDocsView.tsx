@@ -1132,13 +1132,14 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
-      <div className="grid grid-cols-4 gap-1.5 md:flex md:flex-wrap md:gap-2">
+      {/* 물품관리 안의 탭: 위쪽 경영지원 탭과 같은 밑줄 방식, 아래 실선으로 구분 */}
+      <div className="grid grid-cols-4 md:flex border-b border-slate-300">
         {INVENTORY_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => requestTab(t.id)}
-            className={`px-1 py-2 md:px-3 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            className={`-mb-px px-1 md:px-4 py-2.5 border-b-[3px] text-sm md:text-base font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             {t.label}
           </button>
