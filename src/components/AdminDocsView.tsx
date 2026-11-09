@@ -490,36 +490,45 @@ const onDocFieldFocus = (e: React.FocusEvent<HTMLElement>) => {
 const GYEONGJOSA_TITLE_OPTIONS = ['부의금', '결혼축의금', '개업', '승진', '돌잔치 축하금'];
 const GYEONGJOSA_KIND_OPTIONS = ['현금', '화환', '화분'];
 
-// [추가] 경조사 현황 입력칸: 칸을 누르면 앱 안에 선택 목록이 떠오르고(현재 값에 체크 표시), 맨 아래 "직접 입력"을 고르면 글자를 직접 쓸 수 있다.
+// [추가] 경조사 현황 입력칸: 이름 칸과 같은 한 줄 칸이다. 칸을 누르면 앱 안에 선택 목록이 뜨고,
+// "직접 입력"을 고르면 같은 칸이 글자 입력칸으로 바뀌어 바로 타이핑할 수 있다.
 const GyeongjosaChoiceInput = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) => {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState<boolean>(() => !!value && !options.includes(value));
+  const inputRef = useRef<HTMLInputElement>(null);
   const pick = (v: string | null) => {
     setOpen(false);
-    if (v === null) { setCustom(true); onChange(''); return; }
+    if (v === null) { setCustom(true); onChange(''); setTimeout(() => inputRef.current?.focus(), 0); return; }
     setCustom(false);
     onChange(v);
   };
-  const shownLabel = custom ? '직접 입력' : (value || '선택하세요');
   const itemClass = (selected: boolean) => `w-full flex items-center justify-between px-5 py-3 text-left text-base ${selected ? 'text-blue-600 font-bold' : 'text-slate-800'} hover:bg-slate-50`;
+  const boxClass = 'w-full min-w-0 flex items-center bg-slate-50 border border-slate-200 rounded-xl text-base md:text-sm text-slate-700 outline-none focus-within:border-indigo-500';
   return (
-    <div className="space-y-2 min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-left text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
-      >
-        <span className={value || custom ? 'text-slate-700' : 'text-slate-400'}>{shownLabel}</span>
-        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-      </button>
-      {custom && (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="직접 입력"
-          className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
-        />
+    <div className="min-w-0">
+      {custom ? (
+        <div className={boxClass}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="직접 입력"
+            className="flex-1 min-w-0 bg-transparent px-3 py-2.5 outline-none text-slate-700"
+          />
+          <button type="button" onClick={() => setOpen(true)} className="px-3 py-2.5 text-slate-400 shrink-0" aria-label="목록 열기">
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={`${boxClass} justify-between px-3 py-2.5 text-left`}
+        >
+          <span className={value ? 'text-slate-700' : 'text-slate-400'}>{value || '선택하세요'}</span>
+          <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+        </button>
       )}
       {open && createPortal(
         <div className="fixed inset-0 z-[80] bg-black/30 flex items-center justify-center p-6" onClick={() => setOpen(false)}>
