@@ -1390,6 +1390,9 @@ const centerCellsInRoot = (root: HTMLElement): void => {
 export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects }) => {
   const categories = CATEGORY_CONFIG[section];
   const [activeCategory, setActiveCategory] = useState<AdminDocCategory>(categories[0].id);
+  // [추가] 경조사 현황: 출력·엑셀 저장 대상 연도, 연도별 인쇄 목록(미리보기 닫으면 비움)
+  const [gyeongjosaYear, setGyeongjosaYear] = useState<string>(String(new Date().getFullYear()));
+  const [gyeongjosaPrintList, setGyeongjosaPrintList] = useState<AdminDoc[] | null>(null);
   // [추가] 모바일: 서류 종류 탭과 검색 줄은 헤더 바로 아래에 붙어 있도록 sticky로 고정한다
   // (fixed + 높이 측정 방식은 스크롤 때 탭이 위아래로 흔들려서 바꿈)
   // sticky의 기준은 스크롤 영역(<main>)이라, 헤더 아래 위치를 main 기준으로 환산해서 쓴다
@@ -2986,6 +2989,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 인쇄할 급여명세서 (null이면 인쇄 화면 없음)
   const [printingDoc, setPrintingDoc] = useState<AdminDoc | null>(null);
+  useEffect(() => { if (!printingDoc) setGyeongjosaPrintList(null); }, [printingDoc]);
   // [추가] 휴대폰 저장: 파일을 먼저 만든 뒤 "저장·공유 열기"를 눌러야 공유 창이 열린다
   const [pendingSave, setPendingSave] = useState<{ blob: Blob; fileName: string; closeAfter: boolean } | null>(null);
   useEffect(() => { if (!printingDoc) setPendingSave(null); }, [printingDoc]);
@@ -3313,7 +3317,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 테두리 칸. 입력한 건이 적으면 빈 줄을 30줄까지 채운다.
   const handleExportGyeongjosaExcel = async () => {
     const entries = docs
-      .filter((d) => d.section === section && d.category === 'gyeongjosa')
+      .filter((d) => d.section === section && d.category === 'gyeongjosa' && (d.date || '').startsWith(gyeongjosaYear))
       .map((d) => ({ date: d.date || '', title: d.title || '', personName: d.personName || '', amount: Number(d.amount) || 0, kind: d.gyeongjosaKind || '', attended: d.gyeongjosaAttended || '', memo: d.memo || '' }))
       .sort((a, b) => a.date.localeCompare(b.date));
     const wb = new ExcelJS.Workbook();
@@ -5105,11 +5109,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 대출이자 및 원금 상환 내역 인쇄용 화면. 공유해주신 양식대로 진행 중인 대출과
   // 상환완료된 대출을 구역을 나눠서 보여준다.
-  // [추가] 경조사 현황 인쇄 화면: 엑셀 "경조사 비용" 양식과 같은 칸 순서
+  // [추가] 경조사 현황 인쇄 화면: 엑셀 "경조사 비용" 양식과 같은 칸 순서. 연도별 인쇄면 그 해 기록 전체를 한 표로 보여준다.
   const renderPrintableGyeongjosa = () => {
     if (!printingDoc) return null;
-    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const list = gyeongjosaPrintList || [printingDoc];
+    const fmt = (n: number) => (n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n));
     const cell = { border: '1px solid #000', padding: '6px', textAlign: 'center' as const };
+    const total = list.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    const padCount = Math.max(0, 30 - list.length);
     return (
       <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#000', boxSizing: 'border-box' }}>
         <h2 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, textDecoration: 'underline', marginBottom: '16px' }}>경조사 비용</h2>
@@ -5122,15 +5129,27 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td style={cell}>{printingDoc.date}</td>
-              <td style={cell}>{printingDoc.title}</td>
-              <td style={cell}>{printingDoc.personName || ''}</td>
-              <td style={{ ...cell, textAlign: 'right' }}>{fmt(Number(printingDoc.amount) || 0)}</td>
-              <td style={cell}>{printingDoc.gyeongjosaKind || ''}</td>
-              <td style={cell}>{printingDoc.gyeongjosaAttended || ''}</td>
-              <td style={cell}>{printingDoc.memo || ''}</td>
-            </tr>
+            {list.map((d) => (
+              <tr key={d.id || d.title}>
+                <td style={cell}>{d.date || ''}</td>
+                <td style={cell}>{d.title || ''}</td>
+                <td style={cell}>{d.personName || ''}</td>
+                <td style={{ ...cell, textAlign: 'right' }}>{fmt(Number(d.amount) || 0)}</td>
+                <td style={cell}>{d.gyeongjosaKind || ''}</td>
+                <td style={cell}>{d.gyeongjosaAttended || ''}</td>
+                <td style={cell}>{d.memo || ''}</td>
+              </tr>
+            ))}
+            {Array.from({ length: padCount }).map((_, i) => (
+              <tr key={`pad-${i}`}>{Array.from({ length: 7 }).map((__, j) => <td key={j} style={cell}>&nbsp;</td>)}</tr>
+            ))}
+            {gyeongjosaPrintList && (
+              <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+                <td style={cell} colSpan={3}>합 계</td>
+                <td style={{ ...cell, textAlign: 'right' }}>{fmt(total)}</td>
+                <td style={cell} colSpan={3}></td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -6999,18 +7018,43 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       </div>
 
       {/* [추가] 경조사 현황 - 엑셀 다운로드 (경조사 비용 양식) */}
-      {activeCategory === 'gyeongjosa' && (
-        <div className="flex items-center gap-2 -mt-1">
-          <button
-            type="button"
-            onClick={handleExportGyeongjosaExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            엑셀 다운로드
-          </button>
-        </div>
-      )}
+      {activeCategory === 'gyeongjosa' && (() => {
+        const years = Array.from(new Set([String(new Date().getFullYear()), ...docs.filter((d) => d.category === 'gyeongjosa' && d.date).map((d) => d.date.slice(0, 4))])).sort().reverse();
+        const yearDocs = docs
+          .filter((d) => d.section === section && d.category === 'gyeongjosa' && (d.date || '').startsWith(gyeongjosaYear))
+          .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        return (
+          <div className="flex flex-wrap items-center gap-2 -mt-1">
+            <select
+              value={gyeongjosaYear}
+              onChange={(e) => setGyeongjosaYear(e.target.value)}
+              className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 outline-none"
+            >
+              {years.map((y) => <option key={y} value={y}>{y}년</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={handleExportGyeongjosaExcel}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              엑셀 다운로드
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (yearDocs.length === 0) { alert(`${gyeongjosaYear}년 경조사 기록이 없습니다.`); return; }
+                setGyeongjosaPrintList(yearDocs);
+                setPrintingDoc({ id: '', section, category: 'gyeongjosa', title: `${gyeongjosaYear}년 경조사 비용`, date: getTodayLocalStr(), createdAt: '' } as AdminDoc);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              {gyeongjosaYear}년 인쇄
+            </button>
+          </div>
+        );
+      })()}
 
       {/* [추가] 통장 출금/입금 내역만 엑셀 가져오기/내보내기 제공. 은행 사이트에서 받은
       거래내역 엑셀을 그대로 올리거나, 여기서 내보낸 엑셀로 백업/편집 후 다시 올릴 수 있다. */}
