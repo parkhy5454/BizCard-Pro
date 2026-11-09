@@ -149,7 +149,7 @@ export interface AdminDoc {
   memo?: string;
   attachments?: ProjectFollowUpAttachment[]; // 계약서/명세서 등 첨부파일(PDF, 이미지 등)
   // [추가] 물품관리(inventory_price/in/out) 전용 표 데이터. 줄마다 코드·품명·수량·단가(입고/출고는 날짜 포함).
-  inventory?: { rows: { id: string; date: string; code: string; name: string; qty: number; price: number }[] };
+  inventory?: { rows: { id: string; date: string; code: string; name: string; qty: number; price: number; attachments?: ProjectFollowUpAttachment[] }[] };
   // [추가] 경조사 현황 종류 (현금/화환/화분/직접 입력 내용)
   gyeongjosaKind?: string;
   // [추가] 경조사 현황 참석 유무 (유/무)

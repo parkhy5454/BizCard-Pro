@@ -517,9 +517,37 @@ const computeInventoryStock = (docs: AdminDoc[]) => {
     return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
 };
 
+// [추가] 물품관리 증빙 첨부: 사진은 1280px 이하 JPEG로 줄여서 저장(용량 절약), 그 밖의 파일(PDF 등)은 그대로 읽는다.
+const readInventoryAttachment = (file: File): Promise<ProjectFollowUpAttachment> => new Promise((resolve, reject) => {
+  const id = `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  if (!file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ id, name: file.name, dataUrl: String(reader.result), size: file.size });
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { URL.revokeObjectURL(url); reject(new Error('이미지를 처리할 수 없습니다.')); return; }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    URL.revokeObjectURL(url);
+    resolve({ id, name: `${file.name.replace(/\.[^.]+$/, '')}.jpg`, dataUrl, size: Math.round(dataUrl.length * 0.75) });
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없습니다.')); };
+  img.src = url;
+});
+
 const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; userId: string; onSaved: (saved: AdminDoc, isNew: boolean) => void; onPrint: (doc: AdminDoc) => void }) => {
   const [tab, setTab] = useState<InventoryTabId>('in');
-  const [rows, setRows] = useState<{ id: string; date: string; code: string; name: string; qty: number; price: number }[]>([]);
+  const [rows, setRows] = useState<{ id: string; date: string; code: string; name: string; qty: number; price: number; attachments?: ProjectFollowUpAttachment[] }[]>([]);
   const [saving, setSaving] = useState(false);
   const current = tab === 'stock' ? undefined : docs.find((d) => d.category === INVENTORY_CATEGORY[tab]);
   const currentId = current?.id;
@@ -543,7 +571,20 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     setTab(next);
   };
 
-  const updateRow = (id: string, patch: Partial<{ date: string; code: string; name: string; qty: number; price: number }>) =>
+  // 입고/출고 줄의 증빙(입고증·출고증) 추가·삭제
+  const attachTo = async (id: string, files: File[]) => {
+    if (files.length === 0) return;
+    try {
+      const added = await Promise.all(files.map(readInventoryAttachment));
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, attachments: [...(r.attachments || []), ...added] } : r)));
+    } catch (err: unknown) {
+      alert(`첨부에 실패했습니다.\n${getErrorMessage(err) || '다시 시도해주세요.'}`);
+    }
+  };
+  const removeAttachment = (rowId: string, attId: string) =>
+    setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, attachments: (r.attachments || []).filter((a) => a.id !== attId) } : r)));
+
+  const updateRow = (id: string, patch: Partial<{ date: string; code: string; name: string; qty: number; price: number; attachments: ProjectFollowUpAttachment[] }>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const removeRow = (id: string) => setRows((prev) => prev.filter((r) => r.id !== id));
   const addRow = () => setRows((prev) => [...prev, newInventoryRow()]);
@@ -667,7 +708,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   const inputCls = 'w-full min-w-0 bg-white border-0 px-1.5 py-1.5 text-xs text-slate-700 outline-none focus:bg-indigo-50';
   const headers = tab === 'stock' ? ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량']
     : tab === 'price' ? ['코드', '품 명', '단 가', '']
-    : [tab === 'in' ? '입고 날짜' : '출고 날짜', '제품 코드', '품 명', tab === 'in' ? '입고 수량' : '출고 수량', '단 가', tab === 'in' ? '입고 금액' : '출고 금액', ''];
+    : [tab === 'in' ? '입고 날짜' : '출고 날짜', '제품 코드', '품 명', tab === 'in' ? '입고 수량' : '출고 수량', '단 가', tab === 'in' ? '입고 금액' : '출고 금액', '증빙', ''];
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
@@ -741,6 +782,27 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
                 {td(<input type="text" inputMode="numeric" value={r.qty ? r.qty.toLocaleString('ko-KR') : ''} onChange={(e) => updateRow(r.id, { qty: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="0" className={`${inputCls} text-right`} />)}
                 {td(<input type="text" inputMode="numeric" value={r.price ? r.price.toLocaleString('ko-KR') : ''} onChange={(e) => updateRow(r.id, { price: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="0" className={`${inputCls} text-right`} />)}
                 {td(((r.qty || 0) * (r.price || 0)).toLocaleString('ko-KR'), 'text-right px-1.5 font-bold')}
+                {td(
+                  <div className="flex flex-col items-center gap-1 min-w-[96px]">
+                    <div className="flex items-center gap-1">
+                      <label title="파일 선택" className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-500 cursor-pointer">
+                        <Paperclip className="w-3.5 h-3.5" />
+                        <input type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={(e) => { const list: File[] = e.target.files ? Array.from(e.target.files) : []; e.target.value = ''; attachTo(r.id, list); }} />
+                      </label>
+                      <label title="사진 찍기" className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-500 cursor-pointer">
+                        <Camera className="w-3.5 h-3.5" />
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const list: File[] = e.target.files ? Array.from(e.target.files) : []; e.target.value = ''; attachTo(r.id, list); }} />
+                      </label>
+                    </div>
+                    {(r.attachments || []).map((a) => (
+                      <span key={a.id} className="flex items-center gap-0.5 max-w-full text-[10px] text-indigo-700 bg-indigo-50 rounded px-1 py-0.5">
+                        <span className="truncate max-w-[70px]">{a.name}</span>
+                        <button type="button" onClick={() => removeAttachment(r.id, a.id)} className="text-indigo-400 hover:text-rose-500"><X className="w-2.5 h-2.5" /></button>
+                      </span>
+                    ))}
+                  </div>,
+                  'text-center'
+                )}
                 {td(<button type="button" onClick={() => removeRow(r.id)} className="p-1 text-slate-400 hover:text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>, 'text-center')}
               </tr>
             ))}
