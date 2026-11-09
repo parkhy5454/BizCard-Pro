@@ -121,7 +121,12 @@ export type AdminDocCategory =
   | 'management_fee'      // 관리비내역
   | 'incentive'           // 인센티브 및 명절 상여금
   | 'overseas_trip'       // 해외 출장 경비
-  | 'gyeongjosa';         // 경조사 현황
+  | 'gyeongjosa'         // 경조사 현황
+  // 경영지원 > 물품관리 (관리 탭 묶음 + 저장 문서 3종)
+  | 'inventory'           // 물품관리 탭 (화면 묶음)
+  | 'inventory_price'     // 품명 단가표
+  | 'inventory_in'        // 입고 현황
+  | 'inventory_out';      // 출고 현황
 
 export interface AdminDocLineItem {
   id: string;
@@ -143,6 +148,8 @@ export interface AdminDoc {
   amount?: string;         // 금액 (있는 경우) - 문자열로 저장, 표시할 때 콤마 포맷팅
   memo?: string;
   attachments?: ProjectFollowUpAttachment[]; // 계약서/명세서 등 첨부파일(PDF, 이미지 등)
+  // [추가] 물품관리(inventory_price/in/out) 전용 표 데이터. 줄마다 코드·품명·수량·단가(입고/출고는 날짜 포함).
+  inventory?: { rows: { id: string; date: string; code: string; name: string; qty: number; price: number }[] };
   // [추가] 경조사 현황 종류 (현금/화환/화분/직접 입력 내용)
   gyeongjosaKind?: string;
   // [추가] 경조사 현황 참석 유무 (유/무)
