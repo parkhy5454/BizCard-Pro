@@ -526,17 +526,19 @@ const priceRowsByCode = (docs: AdminDoc[]) => {
 
 // 재고 = 입고 - 출고 (제품 코드별). asOf(YYYY-MM-DD)를 주면 그 날짜까지의 입출고만 센다.
 const computeInventoryStock = (docs: AdminDoc[], asOf?: string) => {
-    const map = new Map<string, { code: string; name: string; inQty: number; outQty: number; minQty: number }>();
-    const touch = (code: string, name: string) => {
-      if (!map.has(code)) map.set(code, { code, name: '', inQty: 0, outQty: 0, minQty: 0 });
+    const map = new Map<string, { code: string; name: string; spec: string; maker: string; inQty: number; outQty: number; minQty: number }>();
+    const touch = (code: string, name: string, spec?: string, maker?: string) => {
+      if (!map.has(code)) map.set(code, { code, name: '', spec: '', maker: '', inQty: 0, outQty: 0, minQty: 0 });
       const m = map.get(code)!;
       if (!m.name && name) m.name = name;
+      if (!m.spec && spec) m.spec = spec;
+      if (!m.maker && maker) m.maker = maker;
       return m;
     };
     const within = (r: InvRow) => !asOf || !r.date || r.date <= asOf;
-    docs.filter((d) => d.category === 'inventory_price').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code) { const m = touch(r.code, r.name); m.minQty = Number(r.minQty) || 0; } }));
-    docs.filter((d) => d.category === 'inventory_in').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code && within(r)) touch(r.code, r.name).inQty += Number(r.qty) || 0; }));
-    docs.filter((d) => d.category === 'inventory_out').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code && within(r)) touch(r.code, r.name).outQty += Number(r.qty) || 0; }));
+    docs.filter((d) => d.category === 'inventory_price').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code) { const m = touch(r.code, r.name, r.spec, r.maker); m.minQty = Number(r.minQty) || 0; } }));
+    docs.filter((d) => d.category === 'inventory_in').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code && within(r)) touch(r.code, r.name, r.spec, r.maker).inQty += Number(r.qty) || 0; }));
+    docs.filter((d) => d.category === 'inventory_out').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code && within(r)) touch(r.code, r.name, r.spec, r.maker).outQty += Number(r.qty) || 0; }));
     return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
 };
 
@@ -882,9 +884,9 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     let widths: number[];
     let body: (string | number | null)[][];
     if (tab === 'stock') {
-      headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량', '최소 재고'];
-      widths = [16, 30, 13, 13, 13, 13];
-      body = visibleStock.map((r) => [r.code, r.name, r.inQty, r.outQty, r.inQty - r.outQty, r.minQty]);
+      headers = ['제품 코드', '제품명', '규격', '제조사', '입고 수량', '출고 수량', '재고 수량', '최소 재고'];
+      widths = [16, 28, 14, 16, 13, 13, 13, 13];
+      body = visibleStock.map((r) => [r.code, r.name, r.spec, r.maker, r.inQty, r.outQty, r.inQty - r.outQty, r.minQty]);
     } else if (tab === 'price') {
       headers = ['코드', '품 명', '규격', '제조사', '단 가'];
       widths = [14, 30, 16, 18, 14];
@@ -955,7 +957,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     tab === 'in' ? '입고 수량' : '출고 수량', '단 가', tab === 'in' ? '입고 금액' : '출고 금액', tab === 'in' ? '입고증' : '출고증',
     ...(tab === 'out' ? ['출고 목적·담당'] : []), ''
   ];
-  const headers: string[] = tab === 'stock' ? ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량']
+  const headers: string[] = tab === 'stock' ? ['제품 코드', '제품명', '규격', '제조사', '입고 수량', '출고 수량', '재고 수량']
     : tab === 'price' ? ['코드', '품 명', '규격', '제조사', '단 가', '최소 재고', '']
     : lineHeaders;
 
@@ -1174,6 +1176,8 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
               return (
                 <tr key={r.code} className={low ? 'bg-rose-50' : ''}>
                   {td(r.code, 'text-center')}
+                  {td(r.spec || '', 'px-1.5')}
+                  {td(r.maker || '', 'px-1.5')}
                   {td(
                     <span className="flex flex-wrap items-center gap-1 px-1.5">
                       <span>{r.name}</span>
@@ -5712,11 +5716,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     let headers: string[] = [];
     let bodyRows: CellV[][] = [];
     if (cat === 'inventory') {
-      headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량', '최소 재고'];
+      headers = ['제품 코드', '제품명', '규격', '제조사', '입고 수량', '출고 수량', '재고 수량', '최소 재고'];
       const kw = (printingDoc.memo || '').toLowerCase();
       bodyRows = computeInventoryStock(docs, printingDoc.date)
         .filter((r) => !kw || r.code.toLowerCase().includes(kw) || r.name.toLowerCase().includes(kw))
-        .map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(fmt(r.inQty), 'right'), c(fmt(r.outQty), 'right'), c(fmt(r.inQty - r.outQty), 'right'), c(fmt(r.minQty), 'right')]);
+        .map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(r.spec, 'left'), c(r.maker, 'left'), c(fmt(r.inQty), 'right'), c(fmt(r.outQty), 'right'), c(fmt(r.inQty - r.outQty), 'right'), c(fmt(r.minQty), 'right')]);
     } else if (cat === 'inventory_price') {
       headers = ['코드', '품 명', '규격', '제조사', '단 가'];
       bodyRows = (printingDoc.inventory?.rows || []).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(r.spec || '', 'left'), c(r.maker || '', 'left'), c(fmt(Number(r.price) || 0), 'right')]);
