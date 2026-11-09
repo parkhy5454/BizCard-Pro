@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { Plus, X, Trash2, Edit2, Paperclip, Download, FileText, Search, ShieldAlert, Printer, Percent, Calculator, RefreshCw, Upload, Car, Check, Sparkles, Eye, ChevronDown, Camera } from 'lucide-react';
-import { AdminDoc, AdminDocCategory, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
+import { AdminDoc, AdminDocCategory, InventoryRowData, AdminDocLineItem, AdminDocSection, Project, ProjectCostCategory, ProjectFollowUpAttachment, PROJECT_COST_CATEGORY_LABELS, PROJECT_COST_CATEGORY_ORDER, User, Vehicle } from '../types.js';
 import { formatCurrencyInput, parseCurrencyInput } from '../currencyFormat.js';
 import { getTodayLocalStr, dateToLocalStr } from '../dateUtils.js';
 import { ReceiptScanModal } from './ReceiptScanModal.js';
@@ -500,7 +500,7 @@ const INVENTORY_CATEGORY: Record<Exclude<InventoryTabId, 'stock'>, AdminDocCateg
   price: 'inventory_price', in: 'inventory_in', out: 'inventory_out'
 };
 const INVENTORY_HEADER_FILL = 'FFCCCCFF';
-type InvRow = NonNullable<AdminDoc['inventory']>['rows'][number];
+type InvRow = InventoryRowData;
 const newInventoryRow = (): InvRow => ({ id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: '', code: '', name: '', qty: 0, price: 0 });
 const padNum = (n: number | string) => String(n).padStart(2, '0');
 const dottedDate = (iso?: string) => { const [y, m, d] = (iso || getTodayLocalStr()).split('-'); return `${y}. ${m}. ${d}`; };
@@ -553,20 +553,22 @@ const readInventoryAttachment = (file: File): Promise<ProjectFollowUpAttachment>
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
-    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+    const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(img.width * scale);
     canvas.height = Math.round(img.height * scale);
     const ctx = canvas.getContext('2d');
     if (!ctx) { URL.revokeObjectURL(url); reject(new Error('이미지를 처리할 수 없습니다.')); return; }
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
     URL.revokeObjectURL(url);
     resolve({ id, name: `${file.name.replace(/\.[^.]+$/, '')}.jpg`, dataUrl, size: Math.round(dataUrl.length * 0.75) });
   };
   img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없습니다.')); };
   img.src = url;
 });
+
+const shortTime = (iso: string) => new Date(iso).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 const InvField = ({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) => (
   <div className={`flex flex-col gap-0.5 min-w-0 ${wide ? 'col-span-2' : ''}`}>
@@ -575,9 +577,15 @@ const InvField = ({ label, children, wide }: { label: string; children: React.Re
   </div>
 );
 
+// 저장 비교용: 수정 기록과 변동 이력은 내용 비교에서 뺀다
+const rowCore = (r: InvRow) => JSON.stringify({ ...r, updatedAt: undefined, updatedBy: undefined, priceHistory: undefined });
+
 const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; userId: string; onSaved: (saved: AdminDoc, isNew: boolean) => void; onPrint: (doc: AdminDoc) => void }) => {
   const [tab, setTab] = useState<InventoryTabId>('in');
   const [rows, setRows] = useState<InvRow[]>([]);
+  const [deletedRows, setDeletedRows] = useState<{ row: InvRow; deletedAt: string }[]>([]);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [loadedAt, setLoadedAt] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
@@ -593,13 +601,15 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     if (tab === 'stock') return;
     const doc = docs.find((d) => d.category === INVENTORY_CATEGORY[tab]);
     setRows(doc?.inventory?.rows || []);
+    setDeletedRows(doc?.inventory?.deleted || []);
+    setLoadedAt(doc?.inventory?.savedAt || '');
     setHistoryId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, currentId]);
 
   const savedRows: InvRow[] = current?.inventory?.rows || [];
   // 저장하지 않은 입력이 있으면 탭을 옮기기 전에 확인한다 (탭을 옮기면 입력 줄이 지워진다)
-  const isDirty = tab !== 'stock' && JSON.stringify(rows) !== JSON.stringify(savedRows);
+  const isDirty = tab !== 'stock' && (JSON.stringify(rows) !== JSON.stringify(savedRows) || JSON.stringify(deletedRows) !== JSON.stringify(current?.inventory?.deleted || []));
   const requestTab = (next: InventoryTabId) => {
     if (next === tab) return;
     if (isDirty && !confirm('저장하지 않은 내용이 있습니다. 탭을 옮기면 입력한 내용이 지워집니다. 이동할까요?')) return;
@@ -616,25 +626,44 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   const visibleRows = tab === 'stock' ? [] : rows.filter((r) => matchQ(r.code || '', r.name || '') && inRange(r));
   const visibleStock = stockRows.filter((s) => matchQ(s.code, s.name));
 
-  // 출고 수량이 입고 누계보다 많은 품목 (이 경우 저장을 막는다)
-  const totalIn = new Map<string, number>();
-  docs.filter((d) => d.category === 'inventory_in').forEach((d) => (d.inventory?.rows || []).forEach((r) => {
-    const k = (r.code || '').trim();
-    if (k) totalIn.set(k, (totalIn.get(k) || 0) + (Number(r.qty) || 0));
-  }));
-  const outTotal = new Map<string, { qty: number; name: string }>();
-  if (tab === 'out') rows.forEach((r) => {
-    const k = (r.code || '').trim();
-    if (!k) return;
-    const prev = outTotal.get(k);
-    outTotal.set(k, { qty: (prev?.qty || 0) + (Number(r.qty) || 0), name: prev?.name || r.name || '' });
-  });
-  const shortages = Array.from(outTotal.entries())
-    .filter(([k, v]) => v.qty > (totalIn.get(k) || 0))
-    .map(([k, v]) => ({ code: k, name: v.name, need: v.qty, stock: totalIn.get(k) || 0 }));
+  // 재고 초과 검사용 누계 (저장된 입고 · 저장된 출고 · 지금 화면의 줄)
+  const savedTotals = (cat: AdminDocCategory) => {
+    const m = new Map<string, number>();
+    docs.filter((d) => d.category === cat).forEach((d) => (d.inventory?.rows || []).forEach((r) => {
+      const k = (r.code || '').trim();
+      if (k) m.set(k, (m.get(k) || 0) + (Number(r.qty) || 0));
+    }));
+    return m;
+  };
+  const screenTotals = (list: InvRow[]) => {
+    const m = new Map<string, { qty: number; name: string }>();
+    list.forEach((r) => {
+      const k = (r.code || '').trim();
+      if (!k) return;
+      const prev = m.get(k);
+      m.set(k, { qty: (prev?.qty || 0) + (Number(r.qty) || 0), name: prev?.name || r.name || '' });
+    });
+    return m;
+  };
+  // 출고 탭: 출고 합계 > 입고 합계 / 입고 탭: 입고를 줄여서 이미 나간 출고보다 적어지는 경우
+  const shortages: { code: string; name: string; need: number; stock: number }[] = [];
+  if (tab === 'out') {
+    const inTotal = savedTotals('inventory_in');
+    screenTotals(rows).forEach((v, k) => {
+      if (v.qty > (inTotal.get(k) || 0)) shortages.push({ code: k, name: v.name, need: v.qty, stock: inTotal.get(k) || 0 });
+    });
+  } else if (tab === 'in') {
+    const outTotal = savedTotals('inventory_out');
+    const inNow = screenTotals(rows);
+    outTotal.forEach((need, k) => {
+      const stock = inNow.get(k)?.qty || 0;
+      if (need > stock) shortages.push({ code: k, name: inNow.get(k)?.name || priceMap.get(k)?.name || '', need, stock });
+    });
+  }
   const shortCodes = new Set(shortages.map((s) => s.code));
   const lowStockCodes = new Set(stockRows.filter((s) => s.minQty > 0 && s.inQty - s.outQty < s.minQty).map((s) => s.code));
   const missingAtt = isLineTab ? rows.filter((r) => (r.attachments || []).length === 0).length : 0;
+  const attBytes = rows.reduce((s, r) => s + (r.attachments || []).reduce((t, a) => t + (a.size || 0), 0), 0);
   const sumAmount = visibleRows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
   const savedAtText = current?.inventory?.savedAt ? new Date(current.inventory.savedAt).toLocaleString('ko-KR') : '';
 
@@ -652,7 +681,20 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, attachments: (r.attachments || []).filter((a) => a.id !== attId) } : r)));
 
   const updateRow = (id: string, patch: Partial<InvRow>) => setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const removeRow = (id: string) => setRows((prev) => prev.filter((r) => r.id !== id));
+  // 저장된 줄을 지우면 삭제 기록에 남겨서 되돌릴 수 있게 한다
+  const removeRow = (id: string) => {
+    const target = rows.find((r) => r.id === id);
+    if (target && savedRows.some((r) => r.id === id)) {
+      setDeletedRows((prev) => [{ row: target, deletedAt: new Date().toISOString() }, ...prev]);
+    }
+    setRows((prev) => prev.filter((r) => r.id !== id));
+  };
+  const restoreRow = (index: number) => {
+    const item = deletedRows[index];
+    if (!item) return;
+    setRows((prev) => [...prev, item.row]);
+    setDeletedRows((prev) => prev.filter((_, i) => i !== index));
+  };
   const addRow = () => setRows((prev) => [...prev, newInventoryRow()]);
 
   // 제품 코드를 넣으면 단가표에서 품명·규격·제조사·단가를 자동으로 채운다
@@ -664,7 +706,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
       return { ...r, code, name: hit.name || r.name, spec: hit.spec || r.spec, maker: hit.maker || r.maker, price: Number(hit.price) || r.price };
     }));
 
-  // 엑셀 가져오기: 첫 시트에서 머리글(제품 코드 열이 있는 줄)을 찾아 열 이름으로 매핑한다
+  // 엑셀 가져오기: 첫 시트에서 머리글(제품 코드 열이 있는 줄)을 찾아 열 이름으로 매핑한다. 같은 줄은 건너뛴다.
   const importExcel = async (file: File) => {
     try {
       const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
@@ -685,9 +727,8 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
         const name = String(at(row, cName) ?? '').trim();
         if (!code && !name) return;
         const hit = priceMap.get(code);
-        const base = newInventoryRow();
         imported.push({
-          ...base,
+          ...newInventoryRow(),
           date: isLineTab ? toIsoDate(at(row, cDate)) : '',
           code,
           name: name || hit?.name || '',
@@ -700,8 +741,13 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
         });
       });
       if (imported.length === 0) throw new Error('불러올 줄이 없습니다.');
-      setRows((prev) => [...prev, ...imported]);
-      alert(`${imported.length}줄을 불러왔습니다.\n내용을 확인한 뒤 저장을 눌러 주세요.`);
+      // 이미 있는 줄(단가표는 코드, 입고·출고는 코드+날짜+수량 기준)은 건너뛴다
+      const keyOf = (r: InvRow) => (tab === 'price' ? `c:${(r.code || '').trim()}` : `${(r.code || '').trim()}|${r.date || ''}|${Number(r.qty) || 0}`);
+      const keys = new Set(rows.map(keyOf));
+      const fresh = imported.filter((r) => { const k = keyOf(r); if (keys.has(k)) return false; keys.add(k); return true; });
+      const skipped = imported.length - fresh.length;
+      if (fresh.length > 0) setRows((prev) => [...prev, ...fresh]);
+      alert(`${fresh.length}줄을 불러왔습니다.${skipped ? `\n이미 있는 ${skipped}줄은 건너뛰었습니다.` : ''}\n내용을 확인한 뒤 저장을 눌러 주세요.`);
     } catch (err: unknown) {
       alert(`엑셀을 불러오지 못했습니다.\n${getErrorMessage(err) || '양식을 확인해 주세요.'}`);
     }
@@ -709,32 +755,89 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
 
   const handleSave = async () => {
     if (tab === 'stock') return;
-    if (shortages.length > 0) {
-      alert(`재고가 부족한 품목이 있어 저장할 수 없습니다.\n${shortages.map((s) => `- ${s.code}${s.name ? ` (${s.name})` : ''}: 출고 ${invFmt(s.need)} / 재고 ${invFmt(s.stock)}`).join('\n')}`);
+    const today = getTodayLocalStr();
+    // 아무것도 입력하지 않은 빈 줄은 저장하지 않는다
+    const filled = rows.filter((r) => (r.code || '').trim() || (r.name || '').trim() || Number(r.qty) || Number(r.price) || r.date || (r.attachments || []).length);
+
+    // 입력값 검사
+    const problems: string[] = [];
+    filled.forEach((r, i) => {
+      const no = i + 1;
+      if (tab === 'price') {
+        if (!(r.code || '').trim()) problems.push(`${no}번째 줄: 제품 코드를 입력하세요.`);
+        if (!(r.name || '').trim()) problems.push(`${no}번째 줄: 품명을 입력하세요.`);
+        return;
+      }
+      if (!r.date) problems.push(`${no}번째 줄: 날짜를 입력하세요.`);
+      if (!(r.code || '').trim()) problems.push(`${no}번째 줄: 제품 코드를 입력하세요.`);
+      if (!(Number(r.qty) > 0)) problems.push(`${no}번째 줄: 수량을 1 이상으로 입력하세요.`);
+    });
+    // 출고일이 그 품목의 최초 입고일보다 빠르면 막는다
+    if (tab === 'out') {
+      const firstIn = new Map<string, string>();
+      docs.filter((d) => d.category === 'inventory_in').forEach((d) => (d.inventory?.rows || []).forEach((r) => {
+        const k = (r.code || '').trim();
+        if (!k || !r.date) return;
+        if (!firstIn.has(k) || r.date < (firstIn.get(k) || '')) firstIn.set(k, r.date);
+      }));
+      filled.forEach((r, i) => {
+        const e = firstIn.get((r.code || '').trim());
+        if (e && r.date && r.date < e) problems.push(`${i + 1}번째 줄: 출고일(${r.date})이 최초 입고일(${e})보다 빠릅니다.`);
+      });
+    }
+    if (problems.length > 0) {
+      alert(`저장할 수 없습니다.\n${problems.slice(0, 6).join('\n')}${problems.length > 6 ? `\n외 ${problems.length - 6}건` : ''}`);
       return;
     }
+    if (shortages.length > 0) {
+      alert(`재고가 부족해서 저장할 수 없습니다.\n${shortages.map((s) => `- ${s.code}${s.name ? ` (${s.name})` : ''}: ${tab === 'out' ? `출고 ${invFmt(s.need)} / 재고 ${invFmt(s.stock)}` : `출고 누계 ${invFmt(s.need)} / 입고 ${invFmt(s.stock)}`}`).join('\n')}`);
+      return;
+    }
+
     setSaving(true);
     try {
-      const today = getTodayLocalStr();
+      // 다른 사람이 먼저 저장했는지 확인 (저장 시각이 바뀌었으면 충돌)
+      const listRes = await fetch('/api/admin-docs', { headers: { 'x-user-id': userId } });
+      if (!listRes.ok) throw new Error(`저장 상태를 확인하지 못했습니다 (상태: ${listRes.status}).`);
+      const serverDocs: AdminDoc[] = await listRes.json();
+      const serverDoc = serverDocs.find((d) => d.category === INVENTORY_CATEGORY[tab] && d.section === 'management');
+      const isNew = !current;
+      const conflict = isNew ? !!serverDoc : !serverDoc || (serverDoc.inventory?.savedAt || '') !== loadedAt;
+      if (conflict) {
+        if (serverDoc && confirm('다른 사람이 먼저 저장했습니다.\n최신 내용을 불러올까요?\n(확인: 최신 내용으로 바꿉니다. 지금 입력한 내용은 사라집니다 / 취소: 그대로 둡니다)')) {
+          setRows(serverDoc.inventory?.rows || []);
+          setDeletedRows(serverDoc.inventory?.deleted || []);
+          setLoadedAt(serverDoc.inventory?.savedAt || '');
+          onSaved(serverDoc, false);
+        } else if (!serverDoc) {
+          alert('이 문서가 다른 곳에서 삭제되었습니다. 화면을 새로고침한 뒤 다시 확인해 주세요.');
+        } else {
+          alert('저장하지 않았습니다.');
+        }
+        return;
+      }
+
+      // 저장 시점에 수정 기록(시각·사용자)과 단가 변동 이력을 남긴다
       const savedMap = new Map(savedRows.map((r) => [r.id, r]));
-      // 단가표: 저장된 단가와 달라진 줄은 변동 이력에 날짜와 함께 남긴다
-      const stamped: InvRow[] = tab === 'price'
-        ? rows.map((r) => {
-          const old = savedMap.get(r.id);
-          if (!old || Number(old.price) === Number(r.price)) return r;
-          return { ...r, priceHistory: [...(old.priceHistory || []), { date: today, price: Number(r.price) || 0 }] };
-        })
-        : rows;
-      const total = tab === 'price' ? 0 : rows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
+      const now = new Date().toISOString();
+      const finalRows: InvRow[] = filled.map((r) => {
+        const old = savedMap.get(r.id);
+        let next: InvRow = r;
+        if (!old || rowCore(old) !== rowCore(r)) next = { ...next, updatedAt: now, updatedBy: userId };
+        if (tab === 'price' && old && Number(old.price) !== Number(r.price)) {
+          next = { ...next, priceHistory: [...(old.priceHistory || []), { date: today, price: Number(r.price) || 0 }] };
+        }
+        return next;
+      });
+      const total = tab === 'price' ? 0 : finalRows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
       const payload: Partial<AdminDoc> = {
         section: 'management',
         category: INVENTORY_CATEGORY[tab],
         title: INVENTORY_TABS.find((t) => t.id === tab)!.label,
         date: today,
         amount: tab === 'price' ? '' : String(total),
-        inventory: { rows: stamped, savedAt: new Date().toISOString() }
+        inventory: { rows: finalRows, savedAt: now, deleted: deletedRows }
       };
-      const isNew = !current;
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${current!.id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
@@ -745,6 +848,8 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
         throw new Error(err.error || `저장에 실패했습니다 (상태: ${res.status}).`);
       }
       const saved: AdminDoc = await res.json();
+      setRows(finalRows);
+      setLoadedAt(saved.inventory?.savedAt || now);
       onSaved(saved, isNew);
       alert('저장했습니다.');
     } catch (err: unknown) {
@@ -754,11 +859,11 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     }
   };
 
-  // 인쇄 미리보기: 화면에서 거른 줄(저장 전 내용 포함)을 보낸다. 재고 현황은 기준일 기준으로 계산한다.
+  // 인쇄 미리보기: 화면에서 거른 줄(저장 전 내용 포함)을 보낸다. 재고 현황은 기준일과 검색어를 함께 보낸다.
   const handlePrint = () => {
     const label = INVENTORY_TABS.find((t) => t.id === tab)!.label;
     if (tab === 'stock') {
-      onPrint({ id: '', section: 'management', category: 'inventory', title: label, date: asOf, createdAt: '' } as AdminDoc);
+      onPrint({ id: '', section: 'management', category: 'inventory', title: label, date: asOf, createdAt: '', memo: search.trim() } as AdminDoc);
       return;
     }
     onPrint({ id: current?.id || '', section: 'management', category: INVENTORY_CATEGORY[tab], title: label, date: getTodayLocalStr(), createdAt: current?.createdAt || '', inventory: { rows: visibleRows } } as AdminDoc);
@@ -777,9 +882,9 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     let widths: number[];
     let body: (string | number | null)[][];
     if (tab === 'stock') {
-      headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량'];
-      widths = [16, 30, 13, 13, 13];
-      body = stockRows.map((r) => [r.code, r.name, r.inQty, r.outQty, r.inQty - r.outQty]);
+      headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량', '최소 재고'];
+      widths = [16, 30, 13, 13, 13, 13];
+      body = visibleStock.map((r) => [r.code, r.name, r.inQty, r.outQty, r.inQty - r.outQty, r.minQty]);
     } else if (tab === 'price') {
       headers = ['코드', '품 명', '규격', '제조사', '단 가'];
       widths = [14, 30, 16, 18, 14];
@@ -809,7 +914,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
       ws.getCell('A2').value = '기 준 일';
       ws.getCell('B2').value = dottedDate(asOf);
       ws.getCell('A3').value = '자재 건수';
-      ws.getCell('B3').value = stockRows.length;
+      ws.getCell('B3').value = visibleStock.length;
       headerNo = 5;
     }
     const headerRow = ws.getRow(headerNo);
@@ -887,6 +992,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
           <button type="button" onClick={() => removeAttachment(r.id, a.id)} className="text-indigo-400 hover:text-rose-500"><X className="w-2.5 h-2.5" /></button>
         </span>
       ))}
+      {r.updatedAt && <span className="text-[10px] text-slate-400">수정 {shortTime(r.updatedAt)}</span>}
     </div>
   );
 
@@ -900,9 +1006,10 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     </div>
   );
 
-  const shortageBanner = tab === 'out' && shortages.length > 0 && (
+  const shortageBanner = isLineTab && shortages.length > 0 && (
     <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 font-bold">
-      재고 부족: {shortages.map((s) => `${s.code}${s.name ? ` ${s.name}` : ''} (출고 ${invFmt(s.need)} / 재고 ${invFmt(s.stock)})`).join(', ')} — 재고를 넘는 출고는 저장할 수 없습니다.
+      재고 부족: {shortages.map((s) => `${s.code}${s.name ? ` ${s.name}` : ''} (${tab === 'out' ? `출고 ${invFmt(s.need)} / 재고 ${invFmt(s.stock)}` : `출고 누계 ${invFmt(s.need)} / 입고 ${invFmt(s.stock)}`})`).join(', ')}
+      {' — '}{tab === 'out' ? '재고를 넘는 출고는 저장할 수 없습니다.' : '입고를 줄이면 이미 나간 출고보다 재고가 적어져 저장할 수 없습니다.'}
     </div>
   );
 
@@ -910,7 +1017,27 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     ? `기준일 ${dottedDate(asOf)} · 자재 ${stockRows.length}건 · 재고 부족 ${lowStockCodes.size}건`
     : tab === 'price'
       ? `품목 ${rows.length}건${savedAtText ? ` · 마지막 저장 ${savedAtText}` : ''}`
-      : `${visibleRows.length}건 · 금액 합계 ${invFmt(sumAmount)}원${missingAtt ? ` · 증빙 없음 ${missingAtt}건` : ''}${savedAtText ? ` · 마지막 저장 ${savedAtText}` : ''}`;
+      : `${visibleRows.length}건 · 금액 합계 ${invFmt(sumAmount)}원${missingAtt ? ` · 증빙 없음 ${missingAtt}건` : ''} · 증빙 용량 ${(attBytes / 1024 / 1024).toFixed(1)}MB${savedAtText ? ` · 마지막 저장 ${savedAtText}` : ''}`;
+
+  const deletedList = tab !== 'stock' && deletedRows.length > 0 && (
+    <div className="space-y-1">
+      <button type="button" onClick={() => setShowDeleted((v) => !v)} className="text-xs font-bold text-slate-500 underline">
+        삭제된 줄 {deletedRows.length}건 {showDeleted ? '접기' : '보기'}
+      </button>
+      {showDeleted && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 divide-y divide-slate-200">
+          {deletedRows.map((d, i) => (
+            <div key={`${d.row.id}-${i}`} className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-slate-600">
+              <span className="min-w-0 truncate">
+                {d.row.date ? `${d.row.date} · ` : ''}{d.row.code} {d.row.name} · {invFmt(Number(d.row.qty) || 0)} · 삭제 {shortTime(d.deletedAt)}
+              </span>
+              <button type="button" onClick={() => restoreRow(i)} className="shrink-0 px-2 py-1 rounded-lg bg-white border border-slate-200 font-bold text-indigo-600">되돌리기</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
@@ -990,7 +1117,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
         <div className="md:hidden space-y-2">
           {visibleRows.map((r) => {
             const f = fields(r);
-            const short = tab === 'out' && shortCodes.has((r.code || '').trim());
+            const short = shortCodes.has((r.code || '').trim());
             return (
               <div key={r.id} className={`rounded-xl border p-3 space-y-2 ${short ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
                 {tab === 'price' ? (
@@ -1089,7 +1216,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
             })}
             {isLineTab && visibleRows.map((r) => {
               const f = fields(r);
-              const short = tab === 'out' && shortCodes.has((r.code || '').trim());
+              const short = shortCodes.has((r.code || '').trim());
               return (
                 <tr key={r.id} className={short ? 'bg-rose-50' : ''}>
                   {td(f.date)}
@@ -1118,6 +1245,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
           </tbody>
         </table>
       </div>
+      {deletedList}
     </div>
   );
 };
@@ -1772,6 +1900,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // [추가] 경조사 현황: 출력·엑셀 저장 대상 연도, 연도별 인쇄 목록(미리보기 닫으면 비움)
   const [gyeongjosaYear, setGyeongjosaYear] = useState<string>(String(new Date().getFullYear()));
   const [gyeongjosaPrintList, setGyeongjosaPrintList] = useState<AdminDoc[] | null>(null);
+  // [추가] 경조사 현황: 월(전체/1~12월)과 이름·내용 검색으로 출력·엑셀 대상을 좁힌다
+  const [gyeongjosaMonth, setGyeongjosaMonth] = useState<string>('');
+  const [gyeongjosaQuery, setGyeongjosaQuery] = useState<string>('');
+  const gyeongjosaInPeriod = (d: AdminDoc) => {
+    const date = d.date || '';
+    if (!date.startsWith(gyeongjosaYear)) return false;
+    if (gyeongjosaMonth && date.slice(5, 7) !== gyeongjosaMonth) return false;
+    const kw = gyeongjosaQuery.trim().toLowerCase();
+    return !kw || [d.title, d.personName, d.memo, d.gyeongjosaKind].some((v) => (v || '').toLowerCase().includes(kw));
+  };
   // [추가] 모바일: 서류 종류 탭과 검색 줄은 헤더 바로 아래에 붙어 있도록 sticky로 고정한다
   // (fixed + 높이 측정 방식은 스크롤 때 탭이 위아래로 흔들려서 바꿈)
   // sticky의 기준은 스크롤 영역(<main>)이라, 헤더 아래 위치를 main 기준으로 환산해서 쓴다
@@ -3696,8 +3834,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 테두리 칸. 입력한 건이 적으면 빈 줄을 30줄까지 채운다.
   const handleExportGyeongjosaExcel = async () => {
     const entries = docs
-      .filter((d) => d.section === section && d.category === 'gyeongjosa' && (d.date || '').startsWith(gyeongjosaYear))
-      .map((d) => ({ date: d.date || '', title: d.title || '', personName: d.personName || '', amount: Number(d.amount) || 0, kind: d.gyeongjosaKind || '', attended: d.gyeongjosaAttended || '', memo: d.memo || '' }))
+      .filter((d) => d.section === section && d.category === 'gyeongjosa' && gyeongjosaInPeriod(d))
+      .map((d) => ({ date: d.date || '', title: d.title || '', personName: d.personName || '', amount: Number(d.amount) || 0, kind: d.gyeongjosaKind || '', attended: d.gyeongjosaAttended || '', memo: d.memo || '', files: (d.attachments || []).map((a) => a.name).join(', ') }))
       .sort((a, b) => a.date.localeCompare(b.date));
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('경조사 비용');
@@ -3739,6 +3877,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         c.font = { name: '맑은 고딕', size: 10 };
         c.alignment = { vertical: 'middle', horizontal: j === 1 || j === 6 ? 'left' : 'center' };
         if (j === 3) c.numFmt = '#,##0';
+      });
+    }
+    // 첨부 파일 목록 (표 아래)
+    const withFiles = entries.filter((e) => e.files);
+    if (withFiles.length > 0) {
+      const start = 3 + rowCount + 1;
+      const label = ws.getRow(start);
+      label.getCell(1).value = '첨부 파일';
+      label.getCell(1).font = { name: '맑은 고딕', size: 10, bold: true };
+      withFiles.forEach((e, i) => {
+        const rr = ws.getRow(start + 1 + i);
+        rr.getCell(1).value = `${e.date} ${e.title}`;
+        rr.getCell(1).font = { name: '맑은 고딕', size: 10 };
+        rr.getCell(2).value = e.files;
+        rr.getCell(2).font = { name: '맑은 고딕', size: 10 };
       });
     }
     const buffer = await wb.xlsx.writeBuffer();
@@ -5533,6 +5686,16 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
             )}
           </tbody>
         </table>
+        {(() => {
+          const files = list.flatMap((d) => (d.attachments || []).map((a) => `${d.date || ''} ${d.title || ''} : ${a.name}`));
+          if (files.length === 0) return null;
+          return (
+            <div style={{ marginTop: '14px', fontSize: '12px' }}>
+              <p style={{ fontWeight: 700, marginBottom: '4px' }}>첨부 파일</p>
+              {files.map((f, i) => <p key={i} style={{ margin: '2px 0' }}>{f}</p>)}
+            </div>
+          );
+        })()}
       </div>
     );
   };
@@ -5549,8 +5712,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     let headers: string[] = [];
     let bodyRows: CellV[][] = [];
     if (cat === 'inventory') {
-      headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량'];
-      bodyRows = computeInventoryStock(docs, printingDoc.date).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(fmt(r.inQty), 'right'), c(fmt(r.outQty), 'right'), c(fmt(r.inQty - r.outQty), 'right')]);
+      headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량', '최소 재고'];
+      const kw = (printingDoc.memo || '').toLowerCase();
+      bodyRows = computeInventoryStock(docs, printingDoc.date)
+        .filter((r) => !kw || r.code.toLowerCase().includes(kw) || r.name.toLowerCase().includes(kw))
+        .map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(fmt(r.inQty), 'right'), c(fmt(r.outQty), 'right'), c(fmt(r.inQty - r.outQty), 'right'), c(fmt(r.minQty), 'right')]);
     } else if (cat === 'inventory_price') {
       headers = ['코드', '품 명', '규격', '제조사', '단 가'];
       bodyRows = (printingDoc.inventory?.rows || []).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(r.spec || '', 'left'), c(r.maker || '', 'left'), c(fmt(Number(r.price) || 0), 'right')]);
@@ -5567,6 +5733,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         return line;
       });
     }
+    const itemCount = bodyRows.length;
     while (bodyRows.length < 30) bodyRows.push(headers.map(() => c('', 'center')));
     return (
       <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', fontFamily: 'sans-serif', color: '#000', boxSizing: 'border-box' }}>
@@ -5575,7 +5742,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <table style={{ borderCollapse: 'collapse', fontSize: '12px', marginBottom: '8px' }}>
             <tbody>
               <tr><td style={{ ...cell, background: '#ccccff', fontWeight: 700, width: '90px', textAlign: 'center' }}>기 준 일</td><td style={{ ...cell, width: '140px', textAlign: 'center' }}>{dottedDate(printingDoc.date)}</td></tr>
-              <tr><td style={{ ...cell, background: '#ccccff', fontWeight: 700, textAlign: 'center' }}>자재 건수</td><td style={{ ...cell, textAlign: 'center' }}>{computeInventoryStock(docs, printingDoc.date).length}</td></tr>
+              <tr><td style={{ ...cell, background: '#ccccff', fontWeight: 700, textAlign: 'center' }}>자재 건수</td><td style={{ ...cell, textAlign: 'center' }}>{itemCount}</td></tr>
             </tbody>
           </table>
         )}
@@ -7406,10 +7573,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       {activeCategory === 'gyeongjosa' && (() => {
         const years = Array.from(new Set([String(new Date().getFullYear()), ...docs.filter((d) => d.category === 'gyeongjosa' && d.date).map((d) => d.date.slice(0, 4))])).sort().reverse();
         const yearDocs = docs
-          .filter((d) => d.section === section && d.category === 'gyeongjosa' && (d.date || '').startsWith(gyeongjosaYear))
+          .filter((d) => d.section === section && d.category === 'gyeongjosa' && gyeongjosaInPeriod(d))
           .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         return (
-          <div className="flex items-center gap-1.5 -mt-1 whitespace-nowrap">
+          <div className="flex flex-col gap-1.5 -mt-1 min-w-0">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
             <select
               value={gyeongjosaYear}
               onChange={(e) => setGyeongjosaYear(e.target.value)}
@@ -7437,6 +7605,37 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               <Printer className="w-3.5 h-3.5" />
               저장
             </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <select
+              value={gyeongjosaMonth}
+              onChange={(e) => setGyeongjosaMonth(e.target.value)}
+              className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 outline-none"
+            >
+              <option value="">전체 월</option>
+              {Array.from({ length: 12 }, (_, i) => padNum(i + 1)).map((m) => <option key={m} value={m}>{Number(m)}월</option>)}
+            </select>
+            <input
+              type="search"
+              value={gyeongjosaQuery}
+              onChange={(e) => setGyeongjosaQuery(e.target.value)}
+              placeholder="이름 또는 내용 검색"
+              className="flex-1 min-w-[140px] px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs outline-none focus:border-indigo-400"
+            />
+          </div>
+          {(() => {
+            const won = (n: number) => `${new Intl.NumberFormat('ko-KR').format(n)}원`;
+            const sumOf = (list: AdminDoc[]) => list.reduce((t, d) => t + (Number(d.amount) || 0), 0);
+            const cash = yearDocs.filter((d) => d.gyeongjosaKind === '현금');
+            const flower = yearDocs.filter((d) => d.gyeongjosaKind === '화환');
+            const pot = yearDocs.filter((d) => d.gyeongjosaKind === '화분');
+            const etc = yearDocs.length - cash.length - flower.length - pot.length;
+            return (
+              <p className="text-xs text-slate-500">
+                {yearDocs.length}건 · 현금 {cash.length}건 {won(sumOf(cash))} · 화환 {flower.length}건 · 화분 {pot.length}건{etc > 0 ? ` · 기타 ${etc}건` : ''} · 금액 합계 {won(sumOf(yearDocs))}
+              </p>
+            );
+          })()}
           </div>
         );
       })()}
