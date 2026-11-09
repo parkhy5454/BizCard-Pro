@@ -619,8 +619,6 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   amount: '',
   memo: '',
   attachments: [],
-  // [추가] 경조사 현황: 제목 기본값과 빈 목록
-  ...(category === 'gyeongjosa' ? { title: `${new Date().getFullYear()}년 경조사 현황`, gyeongjosa: { entries: [{ id: `gj-${Date.now()}`, date: getTodayLocalStr(), title: '', personName: '', amount: 0, kind: '', attended: '', memo: '' }] } } : {}),
   // [추가] 급여명세서용 기본값. 다른 서류에서는 그냥 안 쓰이고 무시된다.
   // 지급/공제 내역은 회사에서 거의 항상 쓰는 항목들을 미리 깔아두고, 필요하면 "항목 추가"로
   // 더 늘리거나 X로 지워서 쓸 수 있게 한다 — 매번 기본급부터 손으로 다 치는 걸 줄여준다.
@@ -3058,8 +3056,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const handleExportGyeongjosaExcel = async () => {
     const entries = docs
       .filter((d) => d.section === section && d.category === 'gyeongjosa')
-      .flatMap((d) => d.gyeongjosa?.entries || [])
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      .map((d) => ({ date: d.date || '', title: d.title || '', personName: d.personName || '', amount: Number(d.amount) || 0, kind: '', attended: '', memo: d.memo || '' }))
+      .sort((a, b) => a.date.localeCompare(b.date));
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('경조사 비용');
     ws.columns = [{ width: 13 }, { width: 26 }, { width: 12 }, { width: 14 }, { width: 12 }, { width: 11 }, { width: 24 }];
@@ -4521,10 +4519,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (payload.category === 'office_supplies' && payload.officeSupplies) {
         payload.amount = String(officeSuppliesTotal(payload.officeSupplies.items));
         if (payload.officeSupplies.managerName) payload.personName = payload.officeSupplies.managerName;
-      }
-      // [추가] 경조사 현황은 전체 금액 합계를 amount 칸에 표시한다.
-      if (payload.category === 'gyeongjosa' && payload.gyeongjosa) {
-        payload.amount = String(payload.gyeongjosa.entries.reduce((s, g) => s + (Number(g.amount) || 0), 0));
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -6962,6 +6956,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               )}
 
               <div className="space-y-3 text-sm">
+                {activeCategory !== 'gyeongjosa' && (
                 <div>
                   <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">제목 *</label>
                   <input
@@ -6972,6 +6967,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
                   />
                 </div>
+                )}
 
                 {/* [수정] "연차 현황", "현금 흐름"처럼 관련자 항목 자체가 없는(personLabel: '')
                 서류 종류는, 아래에 각자 전용 입력 블록(대상 연도 등)이 따로 있으므로 여기서
@@ -10713,6 +10709,17 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     </p>
                   </div>
                 )}
+                {activeCategory === 'gyeongjosa' && (
+                <div>
+                  <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">애경사 내용</label>
+                  <GyeongjosaChoiceInput
+                    value={editingDoc.title || ''}
+                    onChange={(v) => setEditingDoc({ ...editingDoc, title: v })}
+                    options={GYEONGJOSA_TITLE_OPTIONS}
+                  />
+                </div>
+                )}
+
                 {activeConfig.showAmount && activeCategory !== 'payslip' && activeCategory !== 'monthly_cashflow' && activeCategory !== 'bank_withdrawal' && activeCategory !== 'bank_deposit' && activeCategory !== 'loan_repayment' && activeCategory !== 'card_usage' && activeCategory !== 'corp_card' && activeCategory !== 'labor_contract' && activeCategory !== 'salary_agreement' && activeCategory !== 'sales_contract' && activeCategory !== 'severance' && activeCategory !== 'office_supplies' && activeCategory !== 'advance_payment' && activeCategory !== 'vehicle_fine' && activeCategory !== 'tax' && activeCategory !== 'management_fee' && (
                   <div>
                     <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">금액</label>
