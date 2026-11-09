@@ -1131,7 +1131,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   );
 
   return (
-    <div className="space-y-3 min-w-0 max-w-full">
+    <div className="space-y-3 min-w-0 max-w-full -mt-3">
       {/* 물품관리 안의 탭: 위쪽 경영지원 탭과 같은 밑줄 방식, 아래 실선으로 구분 */}
       <div className="grid grid-cols-4 md:flex border-b border-slate-300">
         {INVENTORY_TABS.map((t) => (
