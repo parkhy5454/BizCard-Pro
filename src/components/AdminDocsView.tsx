@@ -1302,8 +1302,6 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
               return (
                 <tr key={r.code} className={low ? 'bg-rose-50' : ''}>
                   {td(r.code, 'text-center')}
-                  {td(r.spec || '', 'px-1.5')}
-                  {td(r.maker || '', 'px-1.5')}
                   {td(
                     <span className="flex flex-wrap items-center gap-1 px-1.5">
                       <span>{r.name}</span>
@@ -1311,6 +1309,8 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
                       {low && <span className="px-1 rounded bg-rose-600 text-white text-[10px] font-bold">부족</span>}
                     </span>
                   )}
+                  {td(r.spec || '', 'px-1.5')}
+                  {td(r.maker || '', 'px-1.5')}
                   {td(r.inQty.toLocaleString('ko-KR'), 'text-right px-1.5')}
                   {td(r.outQty.toLocaleString('ko-KR'), 'text-right px-1.5')}
                   {td((r.inQty - r.outQty).toLocaleString('ko-KR'), `text-right px-1.5 font-bold ${low ? 'text-rose-600' : ''}`)}
