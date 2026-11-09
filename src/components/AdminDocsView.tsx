@@ -488,55 +488,37 @@ const onDocFieldFocus = (e: React.FocusEvent<HTMLElement>) => {
 
 // [추가] 경조사 현황: 자주 쓰는 애경사 내용/종류 목록. 목록에 없으면 직접 입력한다.
 const GYEONGJOSA_TITLE_OPTIONS = ['조의금', '결혼축의금', '개업', '승진', '돌잔치 축하금'];
-const GYEONGJOSA_KIND_OPTIONS = ['현금', '화환', '조화', '화분', '직접 입력'];
+const GYEONGJOSA_KIND_OPTIONS = ['현금', '화환', '조화', '화분'];
 
-// [추가] 경조사 현황 입력칸: 직접 타이핑도 되고, 오른쪽 화살표를 누르면 자주 쓰는 항목을 골라 넣을 수 있다.
-// "직접 입력"을 고르면 칸을 비우고 바로 타이핑할 수 있게 포커스를 준다.
-const GyeongjosaChoiceInput = ({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) => {
-  const [open, setOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const pick = (opt: string) => {
-    setOpen(false);
-    if (opt === '직접 입력') {
-      onChange('');
-      inputRef.current?.focus();
-      return;
-    }
-    onChange(opt);
-  };
+// [추가] 경조사 현황 입력칸: 칸을 누르면 휴대폰 기본 선택 목록이 열리고, 맨 아래 "직접 입력"을 고르면 글자를 직접 쓸 수 있다.
+const GyeongjosaChoiceInput = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) => {
+  const CUSTOM = '__custom__';
+  const [custom, setCustom] = useState<boolean>(() => !!value && !options.includes(value));
+  const selectValue = custom ? CUSTOM : (options.includes(value) ? value : '');
   return (
-    <div className="relative min-w-0">
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        placeholder={placeholder}
-        className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 pr-9 text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
-      />
-      <button
-        type="button"
-        tabIndex={-1}
-        onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400"
+    <div className="space-y-2 min-w-0">
+      <select
+        value={selectValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === CUSTOM) { setCustom(true); onChange(''); return; }
+          setCustom(false);
+          onChange(v);
+        }}
+        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
       >
-        <ChevronDown className="w-4 h-4" />
-      </button>
-      {open && (
-        <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-60 overflow-y-auto">
-          {options.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); pick(opt); }}
-              className="block w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-indigo-50"
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
+        <option value="">선택하세요...</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        <option value={CUSTOM}>직접 입력</option>
+      </select>
+      {custom && (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="직접 입력"
+          className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
+        />
       )}
     </div>
   );
@@ -7716,22 +7698,22 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                         </div>
 
                         <div>
-                          <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">이름</label>
-                          <input
-                            type="text"
-                            value={g.personName || ''}
-                            onChange={(e) => updateGyeongjosa(g.id, { personName: e.target.value })}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div>
                           <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">애경사 내용</label>
                           <GyeongjosaChoiceInput
                             value={g.title || ''}
                             onChange={(v) => updateGyeongjosa(g.id, { title: v })}
                             options={GYEONGJOSA_TITLE_OPTIONS}
                             placeholder="선택 또는 직접 입력"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm md:text-xs font-bold text-slate-600 mb-1">이름</label>
+                          <input
+                            type="text"
+                            value={g.personName || ''}
+                            onChange={(e) => updateGyeongjosa(g.id, { personName: e.target.value })}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-indigo-500"
                           />
                         </div>
 
@@ -7782,13 +7764,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       </div>
                     ))}
 
-                    {(editingDoc.gyeongjosa?.entries || []).length === 0 && (
-                      <p className="text-center text-sm text-slate-400 py-3">경조사 추가를 눌러 입력하세요</p>
-                    )}
-
+                    {(editingDoc.gyeongjosa?.entries || []).length > 0 && (
                     <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600">
                       <p className="flex justify-between text-emerald-600 font-bold text-sm md:text-xs"><span>금액 합계</span><span>{formatCurrencyInput((editingDoc.gyeongjosa?.entries || []).reduce((s, g) => s + (Number(g.amount) || 0), 0))}원</span></p>
                     </div>
+                    )}
                   </div>
                 )}
 
