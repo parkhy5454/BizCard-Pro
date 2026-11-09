@@ -1139,7 +1139,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
             key={t.id}
             type="button"
             onClick={() => requestTab(t.id)}
-            className={`-mb-px px-1 md:px-4 py-2.5 border-b-[3px] text-sm md:text-base font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`-mb-px px-1 md:px-4 py-2.5 border-b-[3px] text-base md:text-lg font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             {t.label}
           </button>
@@ -7640,7 +7640,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <button
             key={c.id}
             onClick={() => setActiveCategory(c.id)}
-            className={`relative shrink-0 pt-0 pb-1.5 md:pt-1 md:pb-3 text-base md:text-sm font-bold whitespace-nowrap transition-colors ${
+            className={`relative shrink-0 pt-0 pb-1.5 md:pt-1 md:pb-3 ${activeCategory === 'inventory' ? 'text-lg md:text-base' : 'text-base md:text-sm'} font-bold whitespace-nowrap transition-colors ${
               activeCategory === c.id ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
