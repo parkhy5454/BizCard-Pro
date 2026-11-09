@@ -8612,7 +8612,12 @@ app.get('/api/admin-docs', (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
   const dbData = getScopedData(req);
-  res.json(dbData.adminDocs || []);
+  // [추가] 경조사 명칭 변경: 예전에 "부의금"으로 저장된 기록도 화면·인쇄·엑셀에서 "조의금(부조금)"으로 보여준다.
+  // 저장 데이터는 그대로 두고 응답에서만 바꾼다(다음에 저장하면 새 명칭으로 기록된다).
+  const docs = (dbData.adminDocs || []).map((d) =>
+    d.category === 'gyeongjosa' && d.title === '부의금' ? { ...d, title: '조의금(부조금)' } : d
+  );
+  res.json(docs);
 });
 
 app.post('/api/admin-docs', async (req, res) => {
