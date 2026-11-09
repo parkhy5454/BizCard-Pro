@@ -534,6 +534,15 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
 
   const stockRows = computeInventoryStock(docs);
 
+  // 저장하지 않은 입력이 있으면 탭을 옮기기 전에 확인한다 (탭을 옮기면 입력 줄이 지워진다)
+  const savedRows = current?.inventory?.rows || [];
+  const isDirty = tab !== 'stock' && JSON.stringify(rows) !== JSON.stringify(savedRows);
+  const requestTab = (next: InventoryTabId) => {
+    if (next === tab) return;
+    if (isDirty && !confirm('저장하지 않은 내용이 있습니다. 탭을 옮기면 입력한 내용이 지워집니다. 이동할까요?')) return;
+    setTab(next);
+  };
+
   const updateRow = (id: string, patch: Partial<{ date: string; code: string; name: string; qty: number; price: number }>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const removeRow = (id: string) => setRows((prev) => prev.filter((r) => r.id !== id));
@@ -665,7 +674,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => requestTab(t.id)}
             className={`px-3 py-2 rounded-xl text-sm font-bold transition-colors ${tab === t.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
           >
             {t.label}
