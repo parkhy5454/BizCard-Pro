@@ -5148,6 +5148,74 @@ app.post('/api/parse-voice-contact', async (req, res) => {
 });
 
 // Gemini Vision 영수증 OCR API
+// [추가] 물품관리: 입고증·출고증·단가표 사진(또는 PDF)을 읽어서 입력 줄 목록을 돌려준다.
+// 저장은 하지 않는다. 클라이언트가 미리보기에서 확인한 뒤 입력 줄에 넣고, 저장은 사용자가 직접 한다.
+app.post('/api/inventory/extract-document', async (req, res) => {
+  try {
+    const readerId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
+    const limit = aiScanRateLimiter.check(readerId);
+    if (!limit.allowed) {
+      return res.status(429).json({ error: '문서 읽기 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' });
+    }
+    aiScanRateLimiter.registerAttempt(readerId);
+
+    const { file, kind } = req.body as { file?: unknown; kind?: unknown };
+    if (typeof file !== 'string' || !file) {
+      return res.status(400).json({ error: '문서 파일이 전송되지 않았습니다.' });
+    }
+    if (kind !== 'in' && kind !== 'out' && kind !== 'price') {
+      return res.status(400).json({ error: '문서 종류가 올바르지 않습니다.' });
+    }
+    const sizeCheck = validateImageSize(file, 10);
+    if (!sizeCheck.valid) {
+      return res.status(400).json({ error: sizeCheck.error });
+    }
+    const mimeMatch = file.match(/^data:([\w/.+-]+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    if (!(mimeType.startsWith('image/') || mimeType === 'application/pdf')) {
+      return res.status(400).json({ error: '이미지 또는 PDF 파일만 읽을 수 있습니다.' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
+    const ai = new GoogleGenAI({ apiKey });
+
+    const what = kind === 'price'
+      ? '품명 단가표(제품 코드, 품명, 규격, 제조사, 단가가 적힌 표)'
+      : kind === 'in' ? '입고증(입고 명세서)' : '출고증(출고 명세서)';
+    const prompt =
+      `이 문서는 ${what}이야. 품목 줄을 모두 읽어서 JSON 배열로만 답해줘. 다른 설명은 쓰지 마.\n` +
+      '각 항목 형식: {"date": "YYYY-MM-DD 또는 빈 문자열", "code": "제품 코드", "name": "품명", "spec": "규격", "maker": "제조사", "qty": 수량 숫자, "price": 단가 숫자(쉼표 제외)}\n' +
+      (kind === 'price' ? '단가표이므로 date는 빈 문자열, qty는 0으로 둬.\n' : '') +
+      '문서에 없는 칸은 빈 문자열이나 0으로 두고, 숫자를 추측해서 만들지 마. 합계 줄은 제외해.';
+
+    const response = await generateContentWithRetry(ai, {
+      model: PRIMARY_GEMINI_MODEL,
+      contents: [{ inlineData: { mimeType, data: file.replace(/^data:[^;]+;base64,/, '') } }, prompt],
+      config: { responseMimeType: 'application/json' }
+    });
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse((response.text || '').replace(/```json\s*|```/g, '').trim());
+    } catch {
+      return res.status(422).json({ error: '문서에서 품목을 읽지 못했습니다. 사진을 더 선명하게 찍어 다시 시도해주세요.' });
+    }
+    const list: unknown[] = Array.isArray(parsed) ? parsed : [];
+    const str = (v: unknown) => String(v ?? '').trim();
+    const num = (v: unknown) => Number(String(v ?? '').replace(/[^0-9.-]/g, '')) || 0;
+    const rows = list
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+      .slice(0, 300)
+      .map((r) => ({ date: str(r.date), code: str(r.code), name: str(r.name), spec: str(r.spec), maker: str(r.maker), qty: num(r.qty), price: num(r.price) }))
+      .filter((r) => r.code || r.name);
+    res.json({ rows });
+  } catch (err: unknown) {
+    console.error('문서 읽기 실패:', err);
+    res.status(500).json({ error: getErrorMessage(err) || '문서를 읽지 못했습니다.' });
+  }
+});
+
 app.post('/api/scan-receipt', async (req, res) => {
   try {
     const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';

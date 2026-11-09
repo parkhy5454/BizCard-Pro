@@ -542,6 +542,33 @@ const computeInventoryStock = (docs: AdminDoc[], asOf?: string) => {
     return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
 };
 
+// [추가] 문서 읽기(AI)용 이미지: 글자가 잘 보이도록 1800px까지 줄이고, PDF는 그대로 읽는다.
+const readForOcr = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  if (!file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1800 / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { URL.revokeObjectURL(url); reject(new Error('이미지를 처리할 수 없습니다.')); return; }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    URL.revokeObjectURL(url);
+    resolve(dataUrl);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없습니다.')); };
+  img.src = url;
+});
+
 // [추가] 물품관리 증빙 첨부: 사진은 1280px 이하 JPEG로 줄여서 저장(용량 절약), 그 밖의 파일(PDF 등)은 그대로 읽는다.
 const readInventoryAttachment = (file: File): Promise<ProjectFollowUpAttachment> => new Promise((resolve, reject) => {
   const id = `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -594,6 +621,9 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   const [toDate, setToDate] = useState('');
   const [asOf, setAsOf] = useState<string>(() => getTodayLocalStr());
   const [historyId, setHistoryId] = useState<string | null>(null);
+  // [추가] 문서 읽기: 읽은 줄 미리보기와 원본 파일
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocr, setOcr] = useState<{ rows: InvRow[]; file: File } | null>(null);
   const current = tab === 'stock' ? undefined : docs.find((d) => d.category === INVENTORY_CATEGORY[tab]);
   const currentId = current?.id;
   const isLineTab = tab === 'in' || tab === 'out';
@@ -606,6 +636,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     setDeletedRows(doc?.inventory?.deleted || []);
     setLoadedAt(doc?.inventory?.savedAt || '');
     setHistoryId(null);
+    setOcr(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, currentId]);
 
@@ -752,6 +783,64 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
       alert(`${fresh.length}줄을 불러왔습니다.${skipped ? `\n이미 있는 ${skipped}줄은 건너뛰었습니다.` : ''}\n내용을 확인한 뒤 저장을 눌러 주세요.`);
     } catch (err: unknown) {
       alert(`엑셀을 불러오지 못했습니다.\n${getErrorMessage(err) || '양식을 확인해 주세요.'}`);
+    }
+  };
+
+  // [추가] 입고증·출고증·단가표를 AI로 읽어서 미리보기 줄을 만든다 (저장은 하지 않는다)
+  const runOcr = async (file: File) => {
+    if (tab === 'stock') return;
+    setOcrBusy(true);
+    try {
+      const dataUrl = await readForOcr(file);
+      const res = await fetch('/api/inventory/extract-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ file: dataUrl, kind: tab })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `읽기에 실패했습니다 (상태: ${res.status}).`);
+      const found: { date: string; code: string; name: string; spec: string; maker: string; qty: number; price: number }[] = Array.isArray(data.rows) ? data.rows : [];
+      if (found.length === 0) throw new Error('읽은 품목이 없습니다. 사진을 더 선명하게 찍어 다시 시도해 주세요.');
+      const newRows: InvRow[] = found.map((r) => {
+        const hit = tab === 'price' ? undefined : priceMap.get(r.code.trim());
+        return {
+          ...newInventoryRow(),
+          date: isLineTab ? r.date : '',
+          code: r.code,
+          name: r.name || hit?.name || '',
+          spec: r.spec || hit?.spec || '',
+          maker: r.maker || hit?.maker || '',
+          qty: r.qty,
+          price: r.price || Number(hit?.price) || 0,
+          ...(tab === 'price' ? { minQty: 0 } : {})
+        };
+      });
+      setOcr({ rows: newRows, file });
+    } catch (err: unknown) {
+      alert(`문서를 읽지 못했습니다.\n${getErrorMessage(err) || '다시 시도해 주세요.'}`);
+    } finally {
+      setOcrBusy(false);
+    }
+  };
+  const updateOcrRow = (id: string, patch: Partial<InvRow>) =>
+    setOcr((prev) => (prev ? { ...prev, rows: prev.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)) } : prev));
+  const removeOcrRow = (id: string) =>
+    setOcr((prev) => (prev ? { ...prev, rows: prev.rows.filter((r) => r.id !== id) } : prev));
+  // 미리보기 줄을 입력 줄에 넣는다. 입고·출고는 원본 문서를 증빙으로 같이 붙이고, 같은 줄은 건너뛴다.
+  const applyOcr = async () => {
+    if (!ocr) return;
+    try {
+      const att = isLineTab ? await readInventoryAttachment(ocr.file) : null;
+      const list = ocr.rows.map((r) => ({ ...r, attachments: att ? [att] : r.attachments }));
+      const keyOf = (r: InvRow) => (tab === 'price' ? `c:${(r.code || '').trim()}` : `${(r.code || '').trim()}|${r.date || ''}|${Number(r.qty) || 0}`);
+      const keys = new Set(rows.map(keyOf));
+      const fresh = list.filter((r) => { const k = keyOf(r); if (keys.has(k)) return false; keys.add(k); return true; });
+      if (fresh.length > 0) setRows((prev) => [...prev, ...fresh]);
+      const skipped = list.length - fresh.length;
+      alert(`${fresh.length}줄을 입력 줄에 넣었습니다.${skipped ? `\n이미 있는 ${skipped}줄은 건너뛰었습니다.` : ''}\n내용을 확인한 뒤 저장을 눌러 주세요.`);
+      setOcr(null);
+    } catch (err: unknown) {
+      alert(`증빙을 첨부하지 못했습니다.\n${getErrorMessage(err) || '다시 시도해 주세요.'}`);
     }
   };
 
@@ -1072,6 +1161,12 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
             </label>
           )}
           {tab !== 'stock' && (
+            <label className={`flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-indigo-600 hover:bg-slate-50 cursor-pointer ${ocrBusy ? 'opacity-50 pointer-events-none' : ''}`}>
+              <Sparkles className="w-3.5 h-3.5" /> {ocrBusy ? '읽는 중...' : '증빙 읽기'}
+              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) runOcr(file); }} />
+            </label>
+          )}
+          {tab !== 'stock' && (
             <button type="button" onClick={addRow} className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-indigo-600 hover:bg-slate-50">
               <Plus className="w-3.5 h-3.5" /> 줄 추가
             </button>
@@ -1113,6 +1208,37 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
 
       <p className="text-xs text-slate-500">{infoLine}</p>
       {shortageBanner}
+
+      {/* [추가] 문서 읽기 미리보기: 틀린 칸을 고쳐서 입력 줄에 넣는다 */}
+      {ocr && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold text-indigo-700">읽은 내용 {ocr.rows.length}줄 · 틀린 칸은 고쳐 주세요</p>
+            <div className="flex gap-1.5">
+              <button type="button" onClick={() => setOcr(null)} className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-600">취소</button>
+              <button type="button" onClick={applyOcr} className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold">입력 줄에 넣기</button>
+            </div>
+          </div>
+          <div className="space-y-1.5 max-h-[50vh] overflow-y-auto">
+            {ocr.rows.map((r) => {
+              const cell = 'w-full min-w-0 border border-slate-200 rounded px-1.5 py-1 text-xs bg-white outline-none focus:border-indigo-400';
+              return (
+                <div key={r.id} className="grid grid-cols-2 md:grid-cols-8 gap-1.5 bg-white rounded-lg p-2 border border-slate-200">
+                  {isLineTab && <input type="date" value={r.date || ''} onChange={(e) => updateOcrRow(r.id, { date: e.target.value })} className={cell} />}
+                  <input type="text" value={r.code || ''} placeholder="제품 코드" onChange={(e) => updateOcrRow(r.id, { code: e.target.value })} className={cell} />
+                  <input type="text" value={r.name || ''} placeholder="품명" onChange={(e) => updateOcrRow(r.id, { name: e.target.value })} className={cell} />
+                  <input type="text" value={r.spec || ''} placeholder="규격" onChange={(e) => updateOcrRow(r.id, { spec: e.target.value })} className={cell} />
+                  <input type="text" value={r.maker || ''} placeholder="제조사" onChange={(e) => updateOcrRow(r.id, { maker: e.target.value })} className={cell} />
+                  {tab !== 'price' && <input type="text" inputMode="numeric" value={r.qty ? invFmt(r.qty) : ''} placeholder="수량" onChange={(e) => updateOcrRow(r.id, { qty: invNum(e.target.value) })} className={`${cell} text-right`} />}
+                  <input type="text" inputMode="numeric" value={r.price ? invFmt(r.price) : ''} placeholder="단가" onChange={(e) => updateOcrRow(r.id, { price: invNum(e.target.value) })} className={`${cell} text-right`} />
+                  <button type="button" onClick={() => removeOcrRow(r.id)} className="text-xs font-bold text-rose-500">삭제</button>
+                </div>
+              );
+            })}
+          </div>
+          {isLineTab && <p className="text-[11px] text-slate-500">원본 문서는 각 줄의 {tab === 'in' ? '입고증' : '출고증'}으로 함께 첨부됩니다.</p>}
+        </div>
+      )}
 
       {/* 휴대폰 카드 입력 (화면이 좁을 때) */}
       {tab !== 'stock' && (
