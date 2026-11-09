@@ -120,7 +120,8 @@ export type AdminDocCategory =
   | 'tax'                 // 각종 세금
   | 'management_fee'      // 관리비내역
   | 'incentive'           // 인센티브 및 명절 상여금
-  | 'overseas_trip';      // 해외 출장 경비
+  | 'overseas_trip'       // 해외 출장 경비
+  | 'gyeongjosa';         // 경조사 현황
 
 export interface AdminDocLineItem {
   id: string;
@@ -249,6 +250,20 @@ export interface AdminDoc {
       repaidDate?: string;     // 상환일 (상환완료인 경우)
       repaidFee?: string;      // 상환수수료 등 메모 (선택)
       note?: string;
+    }[];
+  };
+  // [추가] 경조사 현황(category: 'gyeongjosa') 전용 구조화 필드. 경조사 건별로 일시/애경사 내용/
+  // 이름/금액/종류/참석 유무/비고를 입력하고, 엑셀 다운로드 시 "경조사 비용" 양식으로 나간다.
+  gyeongjosa?: {
+    entries: {
+      id: string;
+      date: string;          // 일시 (YYYY-MM-DD)
+      title: string;         // 애경사 내용 (예: 결혼식 축의금)
+      personName: string;    // 이름
+      amount: number;        // 금액(원)
+      kind: string;          // 종류 (예: 결혼, 장례, 돌잔치)
+      attended: '유' | '무' | ''; // 참석 유무
+      memo: string;          // 비고
     }[];
   };
   // [추가] 법인카드 사용내역(category: 'card_usage') 전용 구조화 필드. 카드(소지자)별로

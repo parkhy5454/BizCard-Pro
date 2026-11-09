@@ -511,7 +511,8 @@ const CATEGORY_CONFIG: Record<AdminDocSection, { id: AdminDocCategory; label: st
     { id: 'tax', label: '각종 세금', personLabel: '내역', showAmount: true },
     { id: 'management_fee', label: '관리비내역', personLabel: '호실', showAmount: true },
     { id: 'incentive', label: '인센티브(상여금)', personLabel: '수령자', showAmount: true },
-    { id: 'overseas_trip', label: '해외 출장 경비', personLabel: '사용자', showAmount: true }
+    { id: 'overseas_trip', label: '해외 출장 경비', personLabel: '사용자', showAmount: true },
+    { id: 'gyeongjosa', label: '경조사 현황', personLabel: '이름', showAmount: true }
   ]
 };
 
@@ -552,6 +553,8 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   amount: '',
   memo: '',
   attachments: [],
+  // [추가] 경조사 현황: 제목 기본값과 빈 목록
+  ...(category === 'gyeongjosa' ? { title: `${new Date().getFullYear()}년 경조사 현황`, gyeongjosa: { entries: [] } } : {}),
   // [추가] 급여명세서용 기본값. 다른 서류에서는 그냥 안 쓰이고 무시된다.
   // 지급/공제 내역은 회사에서 거의 항상 쓰는 항목들을 미리 깔아두고, 필요하면 "항목 추가"로
   // 더 늘리거나 X로 지워서 쓸 수 있게 한다 — 매번 기본급부터 손으로 다 치는 걸 줄여준다.
@@ -2984,6 +2987,58 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   // 옮기거나 백업해두기 좋게, 그리고 아래 "엑셀 가져오기"로 다시 그대로 불러올 수 있게
   // 컬럼 순서를 맞춰뒀다.
   const [isImportingBankLedger, setIsImportingBankLedger] = useState(false);
+  // [추가] 경조사 현황 - 엑셀 다운로드. "경조사 비용" 양식: 제목(밑줄·가운데), 노란 머리글,
+  // 테두리 칸. 입력한 건이 적으면 빈 줄을 30줄까지 채운다.
+  const handleExportGyeongjosaExcel = async () => {
+    const entries = docs
+      .filter((d) => d.section === section && d.category === 'gyeongjosa')
+      .flatMap((d) => d.gyeongjosa?.entries || [])
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('경조사 비용');
+    ws.columns = [{ width: 13 }, { width: 26 }, { width: 12 }, { width: 14 }, { width: 12 }, { width: 11 }, { width: 24 }];
+    ws.mergeCells('A1:G1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = '경조사 비용';
+    titleCell.font = { name: '맑은 고딕', size: 16, bold: true, underline: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 30;
+    const border: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
+    };
+    const headers = ['일시', '애경사 내용', '이름', '금액', '종류', '참석 유무', '비고'];
+    const headerRow = ws.getRow(2);
+    headers.forEach((h, i) => {
+      const c = headerRow.getCell(i + 1);
+      c.value = h;
+      c.font = { name: '맑은 고딕', size: 11, bold: true };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = border;
+    });
+    const rowCount = Math.max(30, entries.length);
+    for (let i = 0; i < rowCount; i++) {
+      const row = ws.getRow(3 + i);
+      const e = entries[i];
+      const values: (string | number | null)[] = e
+        ? [e.date || null, e.title || null, e.personName || null, Number(e.amount) || null, e.kind || null, e.attended || null, e.memo || null]
+        : [null, null, null, null, null, null, null];
+      values.forEach((v, j) => {
+        const c = row.getCell(j + 1);
+        c.value = v;
+        c.border = border;
+        c.font = { name: '맑은 고딕', size: 10 };
+        c.alignment = { vertical: 'middle', horizontal: j === 1 || j === 6 ? 'left' : 'center' };
+        if (j === 3) c.numFmt = '#,##0';
+      });
+    }
+    const buffer = await wb.xlsx.writeBuffer();
+    await saveBlobFileShareOrDownload(
+      new Blob([buffer as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `경조사비용_${getTodayLocalStr()}.xlsx`
+    );
+  };
+
   const handleExportBankLedgerExcel = async () => {
     const isWithdrawal = activeCategory === 'bank_withdrawal';
     const targetDocs = docs.filter((d) => d.section === section && d.category === activeCategory);
@@ -3352,6 +3407,28 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     updateLoans((loans) => loans.map((l) => l.id === id ? { ...l, ...patch } : l));
   };
   const loanPaymentTotal = (l: LoanEntry) => (Number(l.principalPaid) || 0) + (Number(l.interestPaid) || 0);
+
+  // [추가] 경조사 현황 - 건 추가·삭제·수정 (대출 현황과 같은 패턴)
+  type GyeongjosaEntry = NonNullable<AdminDoc['gyeongjosa']>['entries'][number];
+  const updateGyeongjosaEntries = (updater: (entries: GyeongjosaEntry[]) => GyeongjosaEntry[]) => {
+    setEditingDoc((prev) => {
+      if (!prev) return prev;
+      const gyeongjosa = prev.gyeongjosa || { entries: [] };
+      return { ...prev, gyeongjosa: { ...gyeongjosa, entries: updater(gyeongjosa.entries || []) } };
+    });
+  };
+  const addGyeongjosa = () => {
+    updateGyeongjosaEntries((entries) => [...entries, {
+      id: `gj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      date: getTodayLocalStr(), title: '', personName: '', amount: 0, kind: '', attended: '', memo: ''
+    }]);
+  };
+  const removeGyeongjosa = (id: string) => {
+    updateGyeongjosaEntries((entries) => entries.filter((g) => g.id !== id));
+  };
+  const updateGyeongjosa = (id: string, patch: Partial<GyeongjosaEntry>) => {
+    updateGyeongjosaEntries((entries) => entries.map((g) => g.id === id ? { ...g, ...patch } : g));
+  };
 
   // [추가] 법인카드 사용내역 - 카드·사용내역 줄 추가·삭제·수정 (통장 출금/입금 내역과 같은 패턴)
   type CardGroup = NonNullable<AdminDoc['cardUsage']>['cards'][number];
@@ -4378,6 +4455,10 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       if (payload.category === 'office_supplies' && payload.officeSupplies) {
         payload.amount = String(officeSuppliesTotal(payload.officeSupplies.items));
         if (payload.officeSupplies.managerName) payload.personName = payload.officeSupplies.managerName;
+      }
+      // [추가] 경조사 현황은 전체 금액 합계를 amount 칸에 표시한다.
+      if (payload.category === 'gyeongjosa' && payload.gyeongjosa) {
+        payload.amount = String(payload.gyeongjosa.entries.reduce((s, g) => s + (Number(g.amount) || 0), 0));
       }
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${editingDoc.id}`, {
         method: isNew ? 'POST' : 'PUT',
@@ -6509,6 +6590,20 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       <div aria-hidden className="md:hidden h-px bg-slate-300 -mx-4" />
       </div>
 
+      {/* [추가] 경조사 현황 - 엑셀 다운로드 (경조사 비용 양식) */}
+      {activeCategory === 'gyeongjosa' && (
+        <div className="flex items-center gap-2 -mt-1">
+          <button
+            type="button"
+            onClick={handleExportGyeongjosaExcel}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            엑셀 다운로드
+          </button>
+        </div>
+      )}
+
       {/* [추가] 통장 출금/입금 내역만 엑셀 가져오기/내보내기 제공. 은행 사이트에서 받은
       거래내역 엑셀을 그대로 올리거나, 여기서 내보낸 엑셀로 백업/편집 후 다시 올릴 수 있다. */}
       {(activeCategory === 'bank_withdrawal' || activeCategory === 'bank_deposit') && (
@@ -7530,6 +7625,114 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                     <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600 space-y-0.5">
                       <p className="flex justify-between"><span>대출 잔액 합계</span><b>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).filter((l) => !l.isRepaid).reduce((s, l) => s + l.balance, 0))}원</b></p>
                       <p className="flex justify-between text-emerald-600 font-bold text-sm md:text-xs"><span>출금 총 합계</span><span>{formatCurrencyInput((editingDoc.loanRepayment?.loans || []).reduce((s, l) => s + loanPaymentTotal(l), 0))}원</span></p>
+                    </div>
+                  </div>
+                )}
+
+                {/* [추가] 경조사 현황 전용 입력: 건별로 일시/애경사 내용/이름/금액/종류/참석 유무/비고 */}
+                {activeCategory === 'gyeongjosa' && (
+                  <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm md:text-[11px] font-bold text-slate-600">경조사 목록</label>
+                      <button type="button" onClick={addGyeongjosa} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
+                        <Plus className="w-3 h-3" /> 경조사 추가
+                      </button>
+                    </div>
+
+                    {(editingDoc.gyeongjosa?.entries || []).map((g) => (
+                      <div key={g.id} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">일시</label>
+                            <input
+                              type="date"
+                              value={g.date || ''}
+                              onChange={(e) => updateGyeongjosa(g.id, { date: e.target.value })}
+                              className="min-w-0 max-w-full w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">이름</label>
+                            <input
+                              type="text"
+                              value={g.personName || ''}
+                              onChange={(e) => updateGyeongjosa(g.id, { personName: e.target.value })}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">금액</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={g.amount ? formatCurrencyInput(g.amount) : ''}
+                              onChange={(e) => updateGyeongjosa(g.id, { amount: parseCurrencyInput(e.target.value) })}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">종류</label>
+                            <input
+                              type="text"
+                              list="gyeongjosa-kind-options"
+                              value={g.kind || ''}
+                              onChange={(e) => updateGyeongjosa(g.id, { kind: e.target.value })}
+                              placeholder="예: 결혼"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5 items-end">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">애경사 내용</label>
+                            <input
+                              type="text"
+                              value={g.title || ''}
+                              onChange={(e) => updateGyeongjosa(g.id, { title: e.target.value })}
+                              placeholder="예: 직원 결혼 축의금"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">참석</label>
+                            <select
+                              value={g.attended || ''}
+                              onChange={(e) => updateGyeongjosa(g.id, { attended: e.target.value as '유' | '무' | '' })}
+                              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                            >
+                              <option value="">-</option>
+                              <option value="유">유</option>
+                              <option value="무">무</option>
+                            </select>
+                          </div>
+                          <button type="button" onClick={() => removeGyeongjosa(g.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          value={g.memo || ''}
+                          onChange={(e) => updateGyeongjosa(g.id, { memo: e.target.value })}
+                          placeholder="비고"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    ))}
+
+                    <datalist id="gyeongjosa-kind-options">
+                      <option value="결혼" />
+                      <option value="장례" />
+                      <option value="돌잔치" />
+                      <option value="회갑·칠순" />
+                      <option value="병문안" />
+                      <option value="기타" />
+                    </datalist>
+
+                    <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-600">
+                      <p className="flex justify-between text-emerald-600 font-bold text-sm md:text-xs"><span>금액 합계</span><span>{formatCurrencyInput((editingDoc.gyeongjosa?.entries || []).reduce((s, g) => s + (Number(g.amount) || 0), 0))}원</span></p>
                     </div>
                   </div>
                 )}
