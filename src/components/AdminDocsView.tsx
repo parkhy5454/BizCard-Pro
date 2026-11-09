@@ -487,30 +487,31 @@ const onDocFieldFocus = (e: React.FocusEvent<HTMLElement>) => {
 };
 
 // [추가] 경조사 현황: 자주 쓰는 애경사 내용/종류 목록. 목록에 없으면 직접 입력한다.
-const GYEONGJOSA_TITLE_OPTIONS = ['조의금', '결혼축의금', '개업', '승진', '돌잔치 축하금'];
+const GYEONGJOSA_TITLE_OPTIONS = ['부의금', '결혼축의금', '개업', '승진', '돌잔치 축하금'];
 const GYEONGJOSA_KIND_OPTIONS = ['현금', '화환', '조화', '화분'];
 
-// [추가] 경조사 현황 입력칸: 칸을 누르면 휴대폰 기본 선택 목록이 열리고, 맨 아래 "직접 입력"을 고르면 글자를 직접 쓸 수 있다.
+// [추가] 경조사 현황 입력칸: 칸을 누르면 앱 안에 선택 목록이 떠오르고(현재 값에 체크 표시), 맨 아래 "직접 입력"을 고르면 글자를 직접 쓸 수 있다.
 const GyeongjosaChoiceInput = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) => {
-  const CUSTOM = '__custom__';
+  const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState<boolean>(() => !!value && !options.includes(value));
-  const selectValue = custom ? CUSTOM : (options.includes(value) ? value : '');
+  const pick = (v: string | null) => {
+    setOpen(false);
+    if (v === null) { setCustom(true); onChange(''); return; }
+    setCustom(false);
+    onChange(v);
+  };
+  const shownLabel = custom ? '직접 입력' : (value || '선택하세요');
+  const itemClass = (selected: boolean) => `w-full flex items-center justify-between px-5 py-3 text-left text-base ${selected ? 'text-blue-600 font-bold' : 'text-slate-800'} hover:bg-slate-50`;
   return (
     <div className="space-y-2 min-w-0">
-      <select
-        value={selectValue}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v === CUSTOM) { setCustom(true); onChange(''); return; }
-          setCustom(false);
-          onChange(v);
-        }}
-        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-left text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
       >
-        <option value="">선택하세요...</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-        <option value={CUSTOM}>직접 입력</option>
-      </select>
+        <span className={value || custom ? 'text-slate-700' : 'text-slate-400'}>{shownLabel}</span>
+        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+      </button>
       {custom && (
         <input
           type="text"
@@ -519,6 +520,24 @@ const GyeongjosaChoiceInput = ({ value, onChange, options }: { value: string; on
           placeholder="직접 입력"
           className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base md:text-sm text-slate-700 outline-none focus:border-indigo-500"
         />
+      )}
+      {open && createPortal(
+        <div className="fixed inset-0 z-[80] bg-black/30 flex items-center justify-center p-6" onClick={() => setOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xs bg-white rounded-2xl shadow-2xl py-2 max-h-[70vh] overflow-y-auto">
+            {options.map((o) => (
+              <button key={o} type="button" onClick={() => pick(o)} className={itemClass(!custom && value === o)}>
+                <span>{o}</span>
+                {!custom && value === o && <Check className="w-5 h-5" />}
+              </button>
+            ))}
+            <div className="border-t border-slate-100 my-1" />
+            <button type="button" onClick={() => pick(null)} className={itemClass(custom)}>
+              <span>직접 입력</span>
+              {custom && <Check className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
