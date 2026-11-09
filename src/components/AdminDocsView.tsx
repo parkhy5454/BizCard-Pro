@@ -7753,19 +7753,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex-1 min-w-[140px] px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs outline-none focus:border-indigo-400"
             />
           </div>
-          {(() => {
-            const won = (n: number) => `${new Intl.NumberFormat('ko-KR').format(n)}원`;
-            const sumOf = (list: AdminDoc[]) => list.reduce((t, d) => t + (Number(d.amount) || 0), 0);
-            const cash = yearDocs.filter((d) => d.gyeongjosaKind === '현금');
-            const flower = yearDocs.filter((d) => d.gyeongjosaKind === '화환');
-            const pot = yearDocs.filter((d) => d.gyeongjosaKind === '화분');
-            const etc = yearDocs.length - cash.length - flower.length - pot.length;
-            return (
-              <p className="text-xs text-slate-500">
-                {yearDocs.length}건 · 현금 {cash.length}건 {won(sumOf(cash))} · 화환 {flower.length}건 · 화분 {pot.length}건{etc > 0 ? ` · 기타 ${etc}건` : ''} · 금액 합계 {won(sumOf(yearDocs))}
-              </p>
-            );
-          })()}
           </div>
         );
       })()}
