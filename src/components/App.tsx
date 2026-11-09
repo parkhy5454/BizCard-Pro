@@ -830,10 +830,10 @@ export default function App() {
           <button onClick={() => setLegalTab('privacy')} className="hover:text-slate-600 underline underline-offset-2 transition-colors">개인정보처리방침</button>
         </div>
         <p className="text-[11px] text-slate-400">
-          상호명: (주)카이저솔루션 · 사업자등록번호: 217-81-35654 · 통신판매업신고: [제0000-지역-0000호]
+          상호명: 주식회사 카이저솔루션 · 대표자: 박현용 · 사업자등록번호: 217-81-35654 · 통신판매업신고: [제0000-지역-0000호]
         </p>
         <p className="text-[11px] text-slate-400">
-          주소: 경기도 남양주시 순화궁로 272, 519호(동광비즈타워) · 전화: 02-971-0954
+          주소: 경기도 남양주시 순화궁로 272, 518호, 519호 (별내동, 동광 비즈타워 별내) · 전화: 02-971-0954 · 이메일: w_ks@daum.net
         </p>
         <p>© 2026 BizCard. All rights reserved.</p>
       </footer>
