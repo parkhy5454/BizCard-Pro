@@ -7640,7 +7640,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           <button
             key={c.id}
             onClick={() => setActiveCategory(c.id)}
-            className={`relative shrink-0 pt-0 pb-1.5 md:pt-1 md:pb-3 ${activeCategory === 'inventory' ? 'text-lg md:text-base' : 'text-base md:text-sm'} font-bold whitespace-nowrap transition-colors ${
+            className={`relative shrink-0 pt-0 pb-1.5 md:pt-1 md:pb-3 text-lg md:text-base font-bold whitespace-nowrap transition-colors ${
               activeCategory === c.id ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
