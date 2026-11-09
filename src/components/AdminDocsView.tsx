@@ -7024,11 +7024,11 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           .filter((d) => d.section === section && d.category === 'gyeongjosa' && (d.date || '').startsWith(gyeongjosaYear))
           .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         return (
-          <div className="flex flex-wrap items-center gap-2 -mt-1">
+          <div className="flex items-center gap-1.5 -mt-1 whitespace-nowrap">
             <select
               value={gyeongjosaYear}
               onChange={(e) => setGyeongjosaYear(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 outline-none"
+              className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 outline-none"
             >
               {years.map((y) => <option key={y} value={y}>{y}년</option>)}
             </select>
@@ -7050,7 +7050,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
             >
               <Printer className="w-3.5 h-3.5" />
-              {gyeongjosaYear}년 인쇄
+              저장
             </button>
           </div>
         );
