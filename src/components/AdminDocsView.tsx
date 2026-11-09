@@ -4845,6 +4845,38 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
   // [추가] 대출이자 및 원금 상환 내역 인쇄용 화면. 공유해주신 양식대로 진행 중인 대출과
   // 상환완료된 대출을 구역을 나눠서 보여준다.
+  // [추가] 경조사 현황 인쇄 화면: 엑셀 "경조사 비용" 양식과 같은 칸 순서
+  const renderPrintableGyeongjosa = () => {
+    if (!printingDoc) return null;
+    const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
+    const cell = { border: '1px solid #000', padding: '6px', textAlign: 'center' as const };
+    return (
+      <div style={{ fontFamily: 'sans-serif', color: '#000' }}>
+        <h2 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, textDecoration: 'underline', marginBottom: '16px' }}>경조사 비용</h2>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ background: '#ffe600', fontWeight: 700 }}>
+              {['일시', '애경사 내용', '이름', '금액', '종류', '참석 유무', '비고'].map((h) => (
+                <td key={h} style={cell}>{h}</td>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={cell}>{printingDoc.date}</td>
+              <td style={cell}>{printingDoc.title}</td>
+              <td style={cell}>{printingDoc.personName || ''}</td>
+              <td style={{ ...cell, textAlign: 'right' }}>{fmt(Number(printingDoc.amount) || 0)}</td>
+              <td style={cell}>{printingDoc.gyeongjosaKind || ''}</td>
+              <td style={cell}>{printingDoc.gyeongjosaAttended || ''}</td>
+              <td style={cell}>{printingDoc.memo || ''}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const renderPrintableLoanRepayment = () => {
     if (!printingDoc || !printingDoc.loanRepayment) return null;
     const loans = printingDoc.loanRepayment.loans;
@@ -6554,6 +6586,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     if (printingDoc.category === 'monthly_cashflow') return renderPrintableCashflow();
     if (printingDoc.category === 'bank_withdrawal' || printingDoc.category === 'bank_deposit') return renderPrintableBankLedger();
     if (printingDoc.category === 'loan_repayment') return renderPrintableLoanRepayment();
+    if (printingDoc.category === 'gyeongjosa') return renderPrintableGyeongjosa();
     if (printingDoc.category === 'card_usage') return renderPrintableCardUsage();
     if (printingDoc.category === 'corp_card') return renderPrintableCorpCard();
     if (printingDoc.category === 'management_fee') return renderPrintableManagementFee();
@@ -6891,7 +6924,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                 <div className="flex items-center gap-1 shrink-0">
                   {/* [추가] 급여명세서/월별 자금 현황만 인쇄 버튼 제공 - 각각 회사에서 흔히
                   쓰는 표 형태 양식으로 별도 인쇄용 화면(#print-root)에 그려서 인쇄한다. */}
-                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance) || d.category === 'office_supplies' || d.category === 'tax') && (
+                  {((d.category === 'payslip' && d.payslip) || (d.category === 'monthly_cashflow' && d.cashflow) || ((d.category === 'bank_withdrawal' || d.category === 'bank_deposit') && d.bankLedger) || (d.category === 'loan_repayment' && d.loanRepayment) || (d.category === 'card_usage' && d.cardUsage) || (d.category === 'corp_card' && d.corpCard) || (d.category === 'management_fee' && d.managementFee) || (d.category === 'advance_payment' && d.advancePayment) || (d.category === 'vehicle_fine' && d.vehicleFine) || (d.category === 'incentive' && d.incentive) || (d.category === 'overseas_trip' && d.overseasTrip) || (d.category === 'annual_leave_status' && d.annualLeaveStatus) || (d.category === 'cash_flow' && d.cashFlowAnnual) || ((d.category === 'labor_contract' || d.category === 'salary_agreement') && d.laborContract) || (d.category === 'employment_cert' && d.employmentCert) || (d.category === 'power_of_attorney' && d.powerOfAttorney) || (d.category === 'sales_contract' && d.salesContract) || (d.category === 'severance' && d.severance) || d.category === 'office_supplies' || d.category === 'tax' || d.category === 'gyeongjosa') && (
                     <button
                       onClick={() => { if (d.category === 'cash_flow') setCashFlowPrintTab('all'); setPrintingDoc(d); }}
                       className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-600 text-slate-500 hover:text-white transition-colors"
