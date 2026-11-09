@@ -1123,7 +1123,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
 };
 
 // [추가] 경조사 현황: 자주 쓰는 애경사 내용/종류 목록. 목록에 없으면 직접 입력한다.
-const GYEONGJOSA_TITLE_OPTIONS = ['부의금', '결혼축의금', '개업', '승진', '돌잔치 축하금'];
+const GYEONGJOSA_TITLE_OPTIONS = ['조의금(부조금)', '결혼축의금', '개업', '승진', '돌잔치 축하금'];
 const GYEONGJOSA_KIND_OPTIONS = ['현금', '화환', '화분'];
 
 // [추가] 경조사 현황 입력칸: 이름 칸과 같은 한 줄 칸이다. 칸을 누르면 앱 안에 선택 목록이 뜨고,
