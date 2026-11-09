@@ -3060,6 +3060,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       .sort((a, b) => a.date.localeCompare(b.date));
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('경조사 비용');
+    // A4 세로, 위/아래/좌/우 여백 25mm
+    ws.pageSetup = { paperSize: 9, orientation: 'portrait', margins: { left: 25 / 25.4, right: 25 / 25.4, top: 25 / 25.4, bottom: 25 / 25.4, header: 0, footer: 0 } };
     ws.columns = [{ width: 13 }, { width: 26 }, { width: 12 }, { width: 14 }, { width: 12 }, { width: 11 }, { width: 24 }];
     ws.mergeCells('A1:G1');
     const titleCell = ws.getCell('A1');
@@ -4851,7 +4853,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const fmt = (n: number) => n === 0 ? '' : new Intl.NumberFormat('ko-KR').format(n);
     const cell = { border: '1px solid #000', padding: '6px', textAlign: 'center' as const };
     return (
-      <div style={{ fontFamily: 'sans-serif', color: '#000' }}>
+      <div style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '25mm', fontFamily: 'sans-serif', color: '#000', boxSizing: 'border-box' }}>
         <h2 style={{ textAlign: 'center', fontSize: '20px', fontWeight: 700, textDecoration: 'underline', marginBottom: '16px' }}>경조사 비용</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
           <thead>
