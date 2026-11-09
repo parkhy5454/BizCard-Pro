@@ -488,7 +488,7 @@ const onDocFieldFocus = (e: React.FocusEvent<HTMLElement>) => {
 
 // [추가] 경조사 현황: 자주 쓰는 애경사 내용/종류 목록. 목록에 없으면 직접 입력한다.
 const GYEONGJOSA_TITLE_OPTIONS = ['부의금', '결혼축의금', '개업', '승진', '돌잔치 축하금'];
-const GYEONGJOSA_KIND_OPTIONS = ['현금', '화환', '조화', '화분'];
+const GYEONGJOSA_KIND_OPTIONS = ['현금', '화환', '화분'];
 
 // [추가] 경조사 현황 입력칸: 칸을 누르면 앱 안에 선택 목록이 떠오르고(현재 값에 체크 표시), 맨 아래 "직접 입력"을 고르면 글자를 직접 쓸 수 있다.
 const GyeongjosaChoiceInput = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) => {
