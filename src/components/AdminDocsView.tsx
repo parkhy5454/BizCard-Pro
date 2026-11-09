@@ -531,7 +531,7 @@ const GyeongjosaChoiceInput = ({ value, onChange, options }: { value: string; on
         </button>
       )}
       {open && createPortal(
-        <div className="fixed inset-0 z-[80] bg-black/30 flex items-center justify-center p-6" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[200] bg-black/30 flex items-center justify-center p-6" onClick={() => setOpen(false)}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xs bg-white rounded-2xl shadow-2xl py-2 max-h-[70vh] overflow-y-auto">
             {options.map((o) => (
               <button key={o} type="button" onClick={() => pick(o)} className={itemClass(!custom && value === o)}>
