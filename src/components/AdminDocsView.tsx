@@ -500,20 +500,43 @@ const INVENTORY_CATEGORY: Record<Exclude<InventoryTabId, 'stock'>, AdminDocCateg
   price: 'inventory_price', in: 'inventory_in', out: 'inventory_out'
 };
 const INVENTORY_HEADER_FILL = 'FFCCCCFF';
-const newInventoryRow = () => ({ id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: '', code: '', name: '', qty: 0, price: 0 });
-const todayDotted = () => { const [y, m, d] = getTodayLocalStr().split('-'); return `${y}. ${m}. ${d}`; };
+type InvRow = NonNullable<AdminDoc['inventory']>['rows'][number];
+const newInventoryRow = (): InvRow => ({ id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: '', code: '', name: '', qty: 0, price: 0 });
+const padNum = (n: number | string) => String(n).padStart(2, '0');
+const dottedDate = (iso?: string) => { const [y, m, d] = (iso || getTodayLocalStr()).split('-'); return `${y}. ${m}. ${d}`; };
+const invFmt = (n: number) => n.toLocaleString('ko-KR');
+const invNum = (s: string) => Number(s.replace(/[^0-9]/g, '')) || 0;
+const invToNumber = (v: unknown) => (typeof v === 'number' ? v : invNum(String(v ?? '')));
+// 엑셀의 날짜(숫자 또는 문자열)를 YYYY-MM-DD로 바꾼다
+const toIsoDate = (v: unknown): string => {
+  if (typeof v === 'number') {
+    const d = XLSX.SSF.parse_date_code(v) as { y: number; m: number; d: number } | null;
+    if (d) return `${d.y}-${padNum(d.m)}-${padNum(d.d)}`;
+  }
+  const m = String(v ?? '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  return m ? `${m[1]}-${padNum(m[2])}-${padNum(m[3])}` : '';
+};
 
-const computeInventoryStock = (docs: AdminDoc[]) => {
-    const map = new Map<string, { code: string; name: string; inQty: number; outQty: number }>();
+// 저장된 단가표를 제품 코드별로 모은다 (자동 채움·최소 재고 판단에 쓴다)
+const priceRowsByCode = (docs: AdminDoc[]) => {
+  const m = new Map<string, InvRow>();
+  docs.filter((d) => d.category === 'inventory_price').forEach((d) => (d.inventory?.rows || []).forEach((r) => { const k = (r.code || '').trim(); if (k) m.set(k, r); }));
+  return m;
+};
+
+// 재고 = 입고 - 출고 (제품 코드별). asOf(YYYY-MM-DD)를 주면 그 날짜까지의 입출고만 센다.
+const computeInventoryStock = (docs: AdminDoc[], asOf?: string) => {
+    const map = new Map<string, { code: string; name: string; inQty: number; outQty: number; minQty: number }>();
     const touch = (code: string, name: string) => {
-      if (!map.has(code)) map.set(code, { code, name: '', inQty: 0, outQty: 0 });
+      if (!map.has(code)) map.set(code, { code, name: '', inQty: 0, outQty: 0, minQty: 0 });
       const m = map.get(code)!;
       if (!m.name && name) m.name = name;
       return m;
     };
-    docs.filter((d) => d.category === 'inventory_price').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code) touch(r.code, r.name); }));
-    docs.filter((d) => d.category === 'inventory_in').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code) touch(r.code, r.name).inQty += Number(r.qty) || 0; }));
-    docs.filter((d) => d.category === 'inventory_out').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code) touch(r.code, r.name).outQty += Number(r.qty) || 0; }));
+    const within = (r: InvRow) => !asOf || !r.date || r.date <= asOf;
+    docs.filter((d) => d.category === 'inventory_price').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code) { const m = touch(r.code, r.name); m.minQty = Number(r.minQty) || 0; } }));
+    docs.filter((d) => d.category === 'inventory_in').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code && within(r)) touch(r.code, r.name).inQty += Number(r.qty) || 0; }));
+    docs.filter((d) => d.category === 'inventory_out').forEach((d) => (d.inventory?.rows || []).forEach((r) => { if (r.code && within(r)) touch(r.code, r.name).outQty += Number(r.qty) || 0; }));
     return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
 };
 
@@ -545,31 +568,75 @@ const readInventoryAttachment = (file: File): Promise<ProjectFollowUpAttachment>
   img.src = url;
 });
 
+const InvField = ({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) => (
+  <div className={`flex flex-col gap-0.5 min-w-0 ${wide ? 'col-span-2' : ''}`}>
+    <span className="text-xs font-bold text-slate-500">{label}</span>
+    <div className="rounded-lg border border-slate-300 overflow-hidden">{children}</div>
+  </div>
+);
+
 const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; userId: string; onSaved: (saved: AdminDoc, isNew: boolean) => void; onPrint: (doc: AdminDoc) => void }) => {
   const [tab, setTab] = useState<InventoryTabId>('in');
-  const [rows, setRows] = useState<{ id: string; date: string; code: string; name: string; qty: number; price: number; spec?: string; maker?: string; attachments?: ProjectFollowUpAttachment[] }[]>([]);
+  const [rows, setRows] = useState<InvRow[]>([]);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [asOf, setAsOf] = useState<string>(() => getTodayLocalStr());
+  const [historyId, setHistoryId] = useState<string | null>(null);
   const current = tab === 'stock' ? undefined : docs.find((d) => d.category === INVENTORY_CATEGORY[tab]);
   const currentId = current?.id;
+  const isLineTab = tab === 'in' || tab === 'out';
 
   // 탭을 바꾸거나 저장된 문서가 바뀌면, 그 문서의 줄을 불러온다
   useEffect(() => {
     if (tab === 'stock') return;
     const doc = docs.find((d) => d.category === INVENTORY_CATEGORY[tab]);
     setRows(doc?.inventory?.rows || []);
+    setHistoryId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, currentId]);
 
-  const stockRows = computeInventoryStock(docs);
-
+  const savedRows: InvRow[] = current?.inventory?.rows || [];
   // 저장하지 않은 입력이 있으면 탭을 옮기기 전에 확인한다 (탭을 옮기면 입력 줄이 지워진다)
-  const savedRows = current?.inventory?.rows || [];
   const isDirty = tab !== 'stock' && JSON.stringify(rows) !== JSON.stringify(savedRows);
   const requestTab = (next: InventoryTabId) => {
     if (next === tab) return;
     if (isDirty && !confirm('저장하지 않은 내용이 있습니다. 탭을 옮기면 입력한 내용이 지워집니다. 이동할까요?')) return;
     setTab(next);
   };
+
+  const priceMap = priceRowsByCode(docs);
+  const stockRows = computeInventoryStock(docs, asOf);
+
+  // 검색(코드·품명)과 기간(입고/출고 날짜) 필터. 저장은 항상 전체 줄을 보낸다.
+  const q = search.trim().toLowerCase();
+  const matchQ = (code: string, name: string) => !q || code.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+  const inRange = (r: InvRow) => !isLineTab || ((!fromDate || (r.date || '') >= fromDate) && (!toDate || (r.date || '') <= toDate));
+  const visibleRows = tab === 'stock' ? [] : rows.filter((r) => matchQ(r.code || '', r.name || '') && inRange(r));
+  const visibleStock = stockRows.filter((s) => matchQ(s.code, s.name));
+
+  // 출고 수량이 입고 누계보다 많은 품목 (이 경우 저장을 막는다)
+  const totalIn = new Map<string, number>();
+  docs.filter((d) => d.category === 'inventory_in').forEach((d) => (d.inventory?.rows || []).forEach((r) => {
+    const k = (r.code || '').trim();
+    if (k) totalIn.set(k, (totalIn.get(k) || 0) + (Number(r.qty) || 0));
+  }));
+  const outTotal = new Map<string, { qty: number; name: string }>();
+  if (tab === 'out') rows.forEach((r) => {
+    const k = (r.code || '').trim();
+    if (!k) return;
+    const prev = outTotal.get(k);
+    outTotal.set(k, { qty: (prev?.qty || 0) + (Number(r.qty) || 0), name: prev?.name || r.name || '' });
+  });
+  const shortages = Array.from(outTotal.entries())
+    .filter(([k, v]) => v.qty > (totalIn.get(k) || 0))
+    .map(([k, v]) => ({ code: k, name: v.name, need: v.qty, stock: totalIn.get(k) || 0 }));
+  const shortCodes = new Set(shortages.map((s) => s.code));
+  const lowStockCodes = new Set(stockRows.filter((s) => s.minQty > 0 && s.inQty - s.outQty < s.minQty).map((s) => s.code));
+  const missingAtt = isLineTab ? rows.filter((r) => (r.attachments || []).length === 0).length : 0;
+  const sumAmount = visibleRows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
+  const savedAtText = current?.inventory?.savedAt ? new Date(current.inventory.savedAt).toLocaleString('ko-KR') : '';
 
   // 입고/출고 줄의 증빙(입고증·출고증) 추가·삭제
   const attachTo = async (id: string, files: File[]) => {
@@ -584,23 +651,88 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   const removeAttachment = (rowId: string, attId: string) =>
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, attachments: (r.attachments || []).filter((a) => a.id !== attId) } : r)));
 
-  const updateRow = (id: string, patch: Partial<{ date: string; code: string; name: string; qty: number; price: number; spec: string; maker: string; attachments: ProjectFollowUpAttachment[] }>) =>
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const updateRow = (id: string, patch: Partial<InvRow>) => setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const removeRow = (id: string) => setRows((prev) => prev.filter((r) => r.id !== id));
   const addRow = () => setRows((prev) => [...prev, newInventoryRow()]);
 
+  // 제품 코드를 넣으면 단가표에서 품명·규격·제조사·단가를 자동으로 채운다
+  const setCode = (id: string, code: string) =>
+    setRows((prev) => prev.map((r) => {
+      if (r.id !== id) return r;
+      const hit = tab === 'price' ? undefined : priceMap.get(code.trim());
+      if (!hit) return { ...r, code };
+      return { ...r, code, name: hit.name || r.name, spec: hit.spec || r.spec, maker: hit.maker || r.maker, price: Number(hit.price) || r.price };
+    }));
+
+  // 엑셀 가져오기: 첫 시트에서 머리글(제품 코드 열이 있는 줄)을 찾아 열 이름으로 매핑한다
+  const importExcel = async (file: File) => {
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      if (!sheet) throw new Error('시트를 찾을 수 없습니다.');
+      const data = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', raw: true });
+      const norm = (v: unknown) => String(v ?? '').replace(/\s+/g, '');
+      const hi = data.findIndex((row) => row.some((c) => norm(c) === '제품코드' || norm(c) === '코드'));
+      if (hi < 0) throw new Error('"제품 코드" 열을 찾을 수 없습니다.');
+      const head = data[hi].map(norm);
+      const find = (...names: string[]) => head.findIndex((h) => names.some((n) => h.includes(n)));
+      const cDate = find('날짜'), cCode = find('코드'), cName = find('품명'), cSpec = find('규격'), cMaker = find('제조사');
+      const cQty = find('수량'), cPrice = find('단가'), cPurpose = find('목적'), cMin = find('최소');
+      const at = (row: unknown[], i: number) => (i >= 0 ? row[i] : '');
+      const imported: InvRow[] = [];
+      data.slice(hi + 1).forEach((row) => {
+        const code = String(at(row, cCode) ?? '').trim();
+        const name = String(at(row, cName) ?? '').trim();
+        if (!code && !name) return;
+        const hit = priceMap.get(code);
+        const base = newInventoryRow();
+        imported.push({
+          ...base,
+          date: isLineTab ? toIsoDate(at(row, cDate)) : '',
+          code,
+          name: name || hit?.name || '',
+          spec: String(at(row, cSpec) ?? '').trim() || hit?.spec || '',
+          maker: String(at(row, cMaker) ?? '').trim() || hit?.maker || '',
+          qty: invToNumber(at(row, cQty)),
+          price: invToNumber(at(row, cPrice)) || Number(hit?.price) || 0,
+          ...(tab === 'out' ? { purpose: String(at(row, cPurpose) ?? '').trim() } : {}),
+          ...(tab === 'price' ? { minQty: invToNumber(at(row, cMin)) } : {})
+        });
+      });
+      if (imported.length === 0) throw new Error('불러올 줄이 없습니다.');
+      setRows((prev) => [...prev, ...imported]);
+      alert(`${imported.length}줄을 불러왔습니다.\n내용을 확인한 뒤 저장을 눌러 주세요.`);
+    } catch (err: unknown) {
+      alert(`엑셀을 불러오지 못했습니다.\n${getErrorMessage(err) || '양식을 확인해 주세요.'}`);
+    }
+  };
+
   const handleSave = async () => {
     if (tab === 'stock') return;
+    if (shortages.length > 0) {
+      alert(`재고가 부족한 품목이 있어 저장할 수 없습니다.\n${shortages.map((s) => `- ${s.code}${s.name ? ` (${s.name})` : ''}: 출고 ${invFmt(s.need)} / 재고 ${invFmt(s.stock)}`).join('\n')}`);
+      return;
+    }
     setSaving(true);
     try {
+      const today = getTodayLocalStr();
+      const savedMap = new Map(savedRows.map((r) => [r.id, r]));
+      // 단가표: 저장된 단가와 달라진 줄은 변동 이력에 날짜와 함께 남긴다
+      const stamped: InvRow[] = tab === 'price'
+        ? rows.map((r) => {
+          const old = savedMap.get(r.id);
+          if (!old || Number(old.price) === Number(r.price)) return r;
+          return { ...r, priceHistory: [...(old.priceHistory || []), { date: today, price: Number(r.price) || 0 }] };
+        })
+        : rows;
       const total = tab === 'price' ? 0 : rows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
       const payload: Partial<AdminDoc> = {
         section: 'management',
         category: INVENTORY_CATEGORY[tab],
         title: INVENTORY_TABS.find((t) => t.id === tab)!.label,
-        date: getTodayLocalStr(),
+        date: today,
         amount: tab === 'price' ? '' : String(total),
-        inventory: { rows }
+        inventory: { rows: stamped, savedAt: new Date().toISOString() }
       };
       const isNew = !current;
       const res = await fetch(isNew ? '/api/admin-docs' : `/api/admin-docs/${current!.id}`, {
@@ -622,14 +754,14 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     }
   };
 
-  // 인쇄 미리보기: 지금 화면의 줄(저장 전 내용 포함)을 그대로 보낸다. 재고 현황은 저장 기록에서 계산한다.
+  // 인쇄 미리보기: 화면에서 거른 줄(저장 전 내용 포함)을 보낸다. 재고 현황은 기준일 기준으로 계산한다.
   const handlePrint = () => {
     const label = INVENTORY_TABS.find((t) => t.id === tab)!.label;
     if (tab === 'stock') {
-      onPrint({ id: '', section: 'management', category: 'inventory', title: label, date: getTodayLocalStr(), createdAt: '' } as AdminDoc);
+      onPrint({ id: '', section: 'management', category: 'inventory', title: label, date: asOf, createdAt: '' } as AdminDoc);
       return;
     }
-    onPrint({ id: current?.id || '', section: 'management', category: INVENTORY_CATEGORY[tab], title: label, date: getTodayLocalStr(), createdAt: current?.createdAt || '', inventory: { rows } } as AdminDoc);
+    onPrint({ id: current?.id || '', section: 'management', category: INVENTORY_CATEGORY[tab], title: label, date: getTodayLocalStr(), createdAt: current?.createdAt || '', inventory: { rows: visibleRows } } as AdminDoc);
   };
 
   const handleExcel = async () => {
@@ -651,18 +783,19 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     } else if (tab === 'price') {
       headers = ['코드', '품 명', '규격', '제조사', '단 가'];
       widths = [14, 30, 16, 18, 14];
-      body = rows.map((r) => [r.code, r.name, r.spec || '', r.maker || '', Number(r.price) || 0]);
+      body = visibleRows.map((r) => [r.code, r.name, r.spec || '', r.maker || '', Number(r.price) || 0]);
     } else {
       const p = tab === 'in' ? '입고' : '출고';
-      if (tab === 'in' || tab === 'out') {
-        headers = [`${p} 날짜`, '제품 코드', '품 명', '규격', '제조사', `${p} 수량`, '단 가', `${p} 금액`, `${p}증`];
-        widths = [14, 14, 28, 14, 16, 12, 13, 15, 24];
-        body = rows.map((r) => [r.date, r.code, r.name, r.spec || '', r.maker || '', Number(r.qty) || 0, Number(r.price) || 0, (Number(r.qty) || 0) * (Number(r.price) || 0), (r.attachments || []).map((a) => a.name).join(', ')]);
-      } else {
-        headers = [`${p} 날짜`, '제품 코드', '품 명', `${p} 수량`, '단 가', `${p} 금액`];
-        widths = [14, 14, 30, 13, 14, 16];
-        body = rows.map((r) => [r.date, r.code, r.name, Number(r.qty) || 0, Number(r.price) || 0, (Number(r.qty) || 0) * (Number(r.price) || 0)]);
-      }
+      headers = [`${p} 날짜`, '제품 코드', '품 명', '규격', '제조사', `${p} 수량`, '단 가', `${p} 금액`, `${p}증`];
+      widths = [14, 14, 28, 14, 16, 12, 13, 15, 24];
+      if (tab === 'out') { headers.push('출고 목적·담당'); widths.push(20); }
+      body = visibleRows.map((r) => {
+        const qty = Number(r.qty) || 0;
+        const pr = Number(r.price) || 0;
+        const line: (string | number | null)[] = [r.date, r.code, r.name, r.spec || '', r.maker || '', qty, pr, qty * pr, (r.attachments || []).map((a) => a.name).join(', ')];
+        if (tab === 'out') line.push(r.purpose || '');
+        return line;
+      });
     }
     ws.columns = widths.map((w) => ({ width: w }));
     ws.mergeCells(`A1:${String.fromCharCode(64 + headers.length)}1`);
@@ -674,7 +807,7 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
     let headerNo = 2;
     if (tab === 'stock') {
       ws.getCell('A2').value = '기 준 일';
-      ws.getCell('B2').value = todayDotted();
+      ws.getCell('B2').value = dottedDate(asOf);
       ws.getCell('A3').value = '자재 건수';
       ws.getCell('B3').value = stockRows.length;
       headerNo = 5;
@@ -712,9 +845,72 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
   const th = (text: string) => <th key={text} className="border border-slate-300 px-1.5 py-1.5 font-bold text-center whitespace-nowrap" style={{ background: '#ccccff' }}>{text}</th>;
   const td = (node: React.ReactNode, cls = '') => <td className={`border border-slate-300 p-0.5 ${cls}`}>{node}</td>;
   const inputCls = 'w-full min-w-0 bg-white border-0 px-1.5 py-1.5 text-xs text-slate-700 outline-none focus:bg-indigo-50';
-  const headers = tab === 'stock' ? ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량']
-    : tab === 'price' ? ['코드', '품 명', '규격', '제조사', '단 가', '']
-    : [tab === 'in' ? '입고 날짜' : '출고 날짜', '제품 코드', '품 명', '규격', '제조사', tab === 'in' ? '입고 수량' : '출고 수량', '단 가', tab === 'in' ? '입고 금액' : '출고 금액', tab === 'in' ? '입고증' : '출고증', ''];
+  const lineHeaders = [
+    tab === 'in' ? '입고 날짜' : '출고 날짜', '제품 코드', '품 명', '규격', '제조사',
+    tab === 'in' ? '입고 수량' : '출고 수량', '단 가', tab === 'in' ? '입고 금액' : '출고 금액', tab === 'in' ? '입고증' : '출고증',
+    ...(tab === 'out' ? ['출고 목적·담당'] : []), ''
+  ];
+  const headers: string[] = tab === 'stock' ? ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량']
+    : tab === 'price' ? ['코드', '품 명', '규격', '제조사', '단 가', '최소 재고', '']
+    : lineHeaders;
+
+  // 한 줄의 입력칸들 (표와 휴대폰 카드가 같이 쓴다)
+  const fields = (r: InvRow) => ({
+    date: <input type="date" value={r.date || ''} onChange={(e) => updateRow(r.id, { date: e.target.value })} className={inputCls} />,
+    code: <input type="text" value={r.code || ''} onChange={(e) => setCode(r.id, e.target.value)} className={inputCls} />,
+    name: <input type="text" value={r.name || ''} onChange={(e) => updateRow(r.id, { name: e.target.value })} className={inputCls} />,
+    spec: <input type="text" value={r.spec || ''} onChange={(e) => updateRow(r.id, { spec: e.target.value })} className={inputCls} />,
+    maker: <input type="text" value={r.maker || ''} onChange={(e) => updateRow(r.id, { maker: e.target.value })} className={inputCls} />,
+    purpose: <input type="text" value={r.purpose || ''} onChange={(e) => updateRow(r.id, { purpose: e.target.value })} placeholder="부서·용도" className={inputCls} />,
+    qty: <input type="text" inputMode="numeric" value={r.qty ? invFmt(r.qty) : ''} onChange={(e) => updateRow(r.id, { qty: invNum(e.target.value) })} placeholder="0" className={`${inputCls} text-right`} />,
+    price: <input type="text" inputMode="numeric" value={r.price ? invFmt(r.price) : ''} onChange={(e) => updateRow(r.id, { price: invNum(e.target.value) })} placeholder="0" className={`${inputCls} text-right`} />,
+    minQty: <input type="text" inputMode="numeric" value={r.minQty ? invFmt(r.minQty) : ''} onChange={(e) => updateRow(r.id, { minQty: invNum(e.target.value) })} placeholder="0" className={`${inputCls} text-right`} />
+  });
+
+  // 증빙 칸: 파일 선택 / 사진 찍기, 첨부 목록, 첨부가 없으면 표시
+  const attachNode = (r: InvRow) => (
+    <div className="flex flex-col items-center gap-1 min-w-[96px]">
+      <div className="flex items-center gap-1">
+        <label title="파일 선택" className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-500 cursor-pointer">
+          <Paperclip className="w-3.5 h-3.5" />
+          <input type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={(e) => { const list: File[] = e.target.files ? Array.from(e.target.files) : []; e.target.value = ''; attachTo(r.id, list); }} />
+        </label>
+        <label title="사진 찍기" className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-500 cursor-pointer">
+          <Camera className="w-3.5 h-3.5" />
+          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const list: File[] = e.target.files ? Array.from(e.target.files) : []; e.target.value = ''; attachTo(r.id, list); }} />
+        </label>
+      </div>
+      {(r.attachments || []).length === 0 && <span className="text-[10px] font-bold text-amber-600">증빙 없음</span>}
+      {(r.attachments || []).map((a) => (
+        <span key={a.id} className="flex items-center gap-0.5 max-w-full text-[10px] text-indigo-700 bg-indigo-50 rounded px-1 py-0.5">
+          <span className="truncate max-w-[70px]">{a.name}</span>
+          <button type="button" onClick={() => removeAttachment(r.id, a.id)} className="text-indigo-400 hover:text-rose-500"><X className="w-2.5 h-2.5" /></button>
+        </span>
+      ))}
+    </div>
+  );
+
+  // 단가 변동 이력 (단가표 줄을 펼쳤을 때)
+  const historyBody = (r: InvRow) => (
+    <div className="space-y-0.5 text-xs text-slate-600">
+      <p className="font-bold text-slate-700">단가 변동 이력</p>
+      {(r.priceHistory || []).length === 0
+        ? <p className="text-slate-400">아직 변동 이력이 없습니다. 단가를 바꾸고 저장하면 날짜와 함께 기록됩니다.</p>
+        : (r.priceHistory || []).map((h, i) => <p key={`${h.date}-${i}`}>{h.date} · {invFmt(h.price)}원</p>)}
+    </div>
+  );
+
+  const shortageBanner = tab === 'out' && shortages.length > 0 && (
+    <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 font-bold">
+      재고 부족: {shortages.map((s) => `${s.code}${s.name ? ` ${s.name}` : ''} (출고 ${invFmt(s.need)} / 재고 ${invFmt(s.stock)})`).join(', ')} — 재고를 넘는 출고는 저장할 수 없습니다.
+    </div>
+  );
+
+  const infoLine = tab === 'stock'
+    ? `기준일 ${dottedDate(asOf)} · 자재 ${stockRows.length}건 · 재고 부족 ${lowStockCodes.size}건`
+    : tab === 'price'
+      ? `품목 ${rows.length}건${savedAtText ? ` · 마지막 저장 ${savedAtText}` : ''}`
+      : `${visibleRows.length}건 · 금액 합계 ${invFmt(sumAmount)}원${missingAtt ? ` · 증빙 없음 ${missingAtt}건` : ''}${savedAtText ? ` · 마지막 저장 ${savedAtText}` : ''}`;
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
@@ -733,13 +929,19 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-bold text-slate-700">{INVENTORY_TABS.find((t) => t.id === tab)!.label}</span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button type="button" onClick={handlePrint} className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">
             <Printer className="w-3.5 h-3.5" /> 인쇄
           </button>
           <button type="button" onClick={handleExcel} className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">
             <Download className="w-3.5 h-3.5" /> 엑셀 다운
           </button>
+          {tab !== 'stock' && (
+            <label className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
+              <Upload className="w-3.5 h-3.5" /> 엑셀 가져오기
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) importExcel(file); }} />
+            </label>
+          )}
           {tab !== 'stock' && (
             <button type="button" onClick={addRow} className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-indigo-600 hover:bg-slate-50">
               <Plus className="w-3.5 h-3.5" /> 줄 추가
@@ -753,71 +955,165 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
         </div>
       </div>
 
-      {tab === 'stock' && (
-        <p className="text-xs text-slate-500">기준일 {todayDotted()} · 자재 건수 {stockRows.length}건 (품명 단가표·입고·출고 기록에서 자동 계산)</p>
+      {/* 검색 · 기간 · 기준일 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="제품 코드 또는 품명 검색"
+          className="flex-1 min-w-[160px] border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-400"
+        />
+        {isLineTab && (
+          <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs" />
+            <span>~</span>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs" />
+            {(fromDate || toDate) && (
+              <button type="button" onClick={() => { setFromDate(''); setToDate(''); }} className="px-2 py-1.5 rounded-lg bg-slate-100 font-bold text-slate-600">전체</button>
+            )}
+          </div>
+        )}
+        {tab === 'stock' && (
+          <label className="flex items-center gap-1 text-xs text-slate-500">
+            기준일
+            <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value || getTodayLocalStr())} className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs" />
+          </label>
+        )}
+      </div>
+
+      <p className="text-xs text-slate-500">{infoLine}</p>
+      {shortageBanner}
+
+      {/* 휴대폰 카드 입력 (화면이 좁을 때) */}
+      {tab !== 'stock' && (
+        <div className="md:hidden space-y-2">
+          {visibleRows.map((r) => {
+            const f = fields(r);
+            const short = tab === 'out' && shortCodes.has((r.code || '').trim());
+            return (
+              <div key={r.id} className={`rounded-xl border p-3 space-y-2 ${short ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
+                {tab === 'price' ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <InvField label="제품 코드">{f.code}</InvField>
+                    <InvField label="최소 재고">{f.minQty}</InvField>
+                    <InvField label="품 명" wide>{f.name}</InvField>
+                    <InvField label="규격">{f.spec}</InvField>
+                    <InvField label="제조사">{f.maker}</InvField>
+                    <InvField label="단 가" wide>{f.price}</InvField>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <InvField label={tab === 'in' ? '입고 날짜' : '출고 날짜'}>{f.date}</InvField>
+                    <InvField label="제품 코드">{f.code}</InvField>
+                    <InvField label="품 명" wide>{f.name}</InvField>
+                    <InvField label="규격">{f.spec}</InvField>
+                    <InvField label="제조사">{f.maker}</InvField>
+                    <InvField label={tab === 'in' ? '입고 수량' : '출고 수량'}>{f.qty}</InvField>
+                    <InvField label="단 가">{f.price}</InvField>
+                    <InvField label={tab === 'in' ? '입고 금액' : '출고 금액'} wide>
+                      <div className="px-1.5 py-1.5 text-xs font-bold text-right bg-slate-50">{invFmt((Number(r.qty) || 0) * (Number(r.price) || 0))}</div>
+                    </InvField>
+                    {tab === 'out' && <InvField label="출고 목적·담당" wide>{f.purpose}</InvField>}
+                  </div>
+                )}
+                {isLineTab && <div className="flex justify-center">{attachNode(r)}</div>}
+                <div className="flex justify-end gap-2">
+                  {tab === 'price' && (
+                    <button type="button" onClick={() => setHistoryId(historyId === r.id ? null : r.id)} className="px-2 py-1 rounded-lg bg-slate-100 text-xs font-bold text-slate-600">
+                      변동 이력 {(r.priceHistory || []).length}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => removeRow(r.id)} className="px-2 py-1 rounded-lg bg-slate-100 text-xs font-bold text-rose-500">삭제</button>
+                </div>
+                {tab === 'price' && historyId === r.id && <div className="rounded-lg bg-slate-50 p-2">{historyBody(r)}</div>}
+              </div>
+            );
+          })}
+          {rows.length === 0 && <p className="border border-dashed border-slate-300 rounded-xl py-4 text-center text-xs text-slate-400">줄 추가를 눌러 입력하세요</p>}
+          {rows.length > 0 && visibleRows.length === 0 && <p className="py-4 text-center text-xs text-slate-400">검색·기간 조건에 맞는 줄이 없습니다.</p>}
+        </div>
       )}
 
-      <div className="overflow-x-auto border border-slate-300 rounded-lg">
+      {/* 표 (넓은 화면) */}
+      <div className={`${tab === 'stock' ? '' : 'hidden md:block '}overflow-x-auto border border-slate-300 rounded-lg`}>
         <table className="w-full min-w-[640px] border-collapse text-xs bg-white">
           <thead>
             <tr>{headers.map((h, i) => (h === '' ? <th key={`e${i}`} className="border border-slate-300 w-8" style={{ background: '#ccccff' }} /> : th(h)))}</tr>
           </thead>
           <tbody>
-            {tab === 'stock' && stockRows.map((r) => (
-              <tr key={r.code}>
-                {td(r.code, 'text-center')}
-                {td(r.name)}
-                {td(r.inQty.toLocaleString('ko-KR'), 'text-right px-1.5')}
-                {td(r.outQty.toLocaleString('ko-KR'), 'text-right px-1.5')}
-                {td((r.inQty - r.outQty).toLocaleString('ko-KR'), 'text-right px-1.5 font-bold')}
-              </tr>
-            ))}
-            {tab === 'price' && rows.map((r) => (
-              <tr key={r.id}>
-                {td(<input type="text" value={r.code} onChange={(e) => updateRow(r.id, { code: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" value={r.name} onChange={(e) => updateRow(r.id, { name: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" value={r.spec || ''} onChange={(e) => updateRow(r.id, { spec: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" value={r.maker || ''} onChange={(e) => updateRow(r.id, { maker: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" inputMode="numeric" value={r.price ? r.price.toLocaleString('ko-KR') : ''} onChange={(e) => updateRow(r.id, { price: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="0" className={`${inputCls} text-right`} />)}
-                {td(<button type="button" onClick={() => removeRow(r.id)} className="p-1 text-slate-400 hover:text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>, 'text-center')}
-              </tr>
-            ))}
-            {(tab === 'in' || tab === 'out') && rows.map((r) => (
-              <tr key={r.id}>
-                {td(<input type="date" value={r.date} onChange={(e) => updateRow(r.id, { date: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" value={r.code} onChange={(e) => updateRow(r.id, { code: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" value={r.name} onChange={(e) => updateRow(r.id, { name: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" value={r.spec || ''} onChange={(e) => updateRow(r.id, { spec: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" value={r.maker || ''} onChange={(e) => updateRow(r.id, { maker: e.target.value })} className={inputCls} />)}
-                {td(<input type="text" inputMode="numeric" value={r.qty ? r.qty.toLocaleString('ko-KR') : ''} onChange={(e) => updateRow(r.id, { qty: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="0" className={`${inputCls} text-right`} />)}
-                {td(<input type="text" inputMode="numeric" value={r.price ? r.price.toLocaleString('ko-KR') : ''} onChange={(e) => updateRow(r.id, { price: Number(e.target.value.replace(/[^0-9]/g, '')) || 0 })} placeholder="0" className={`${inputCls} text-right`} />)}
-                {td(((r.qty || 0) * (r.price || 0)).toLocaleString('ko-KR'), 'text-right px-1.5 font-bold')}
-                {td(
-                  <div className="flex flex-col items-center gap-1 min-w-[96px]">
-                    <div className="flex items-center gap-1">
-                      <label title="파일 선택" className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-500 cursor-pointer">
-                        <Paperclip className="w-3.5 h-3.5" />
-                        <input type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={(e) => { const list: File[] = e.target.files ? Array.from(e.target.files) : []; e.target.value = ''; attachTo(r.id, list); }} />
-                      </label>
-                      <label title="사진 찍기" className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-500 cursor-pointer">
-                        <Camera className="w-3.5 h-3.5" />
-                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const list: File[] = e.target.files ? Array.from(e.target.files) : []; e.target.value = ''; attachTo(r.id, list); }} />
-                      </label>
-                    </div>
-                    {(r.attachments || []).map((a) => (
-                      <span key={a.id} className="flex items-center gap-0.5 max-w-full text-[10px] text-indigo-700 bg-indigo-50 rounded px-1 py-0.5">
-                        <span className="truncate max-w-[70px]">{a.name}</span>
-                        <button type="button" onClick={() => removeAttachment(r.id, a.id)} className="text-indigo-400 hover:text-rose-500"><X className="w-2.5 h-2.5" /></button>
-                      </span>
-                    ))}
-                  </div>,
-                  'text-center'
-                )}
-                {td(<button type="button" onClick={() => removeRow(r.id)} className="p-1 text-slate-400 hover:text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>, 'text-center')}
-              </tr>
-            ))}
+            {tab === 'stock' && visibleStock.map((r) => {
+              const low = lowStockCodes.has(r.code);
+              return (
+                <tr key={r.code} className={low ? 'bg-rose-50' : ''}>
+                  {td(r.code, 'text-center')}
+                  {td(
+                    <span className="flex flex-wrap items-center gap-1 px-1.5">
+                      <span>{r.name}</span>
+                      {r.minQty > 0 && <span className="text-[10px] text-slate-400">최소 {invFmt(r.minQty)}</span>}
+                      {low && <span className="px-1 rounded bg-rose-600 text-white text-[10px] font-bold">부족</span>}
+                    </span>
+                  )}
+                  {td(r.inQty.toLocaleString('ko-KR'), 'text-right px-1.5')}
+                  {td(r.outQty.toLocaleString('ko-KR'), 'text-right px-1.5')}
+                  {td((r.inQty - r.outQty).toLocaleString('ko-KR'), `text-right px-1.5 font-bold ${low ? 'text-rose-600' : ''}`)}
+                </tr>
+              );
+            })}
+            {tab === 'price' && visibleRows.map((r) => {
+              const f = fields(r);
+              return (
+                <React.Fragment key={r.id}>
+                  <tr>
+                    {td(f.code)}
+                    {td(f.name)}
+                    {td(f.spec)}
+                    {td(f.maker)}
+                    {td(f.price)}
+                    {td(f.minQty)}
+                    {td(
+                      <div className="flex items-center justify-center gap-1">
+                        <button type="button" title="변동 이력" onClick={() => setHistoryId(historyId === r.id ? null : r.id)} className="px-1.5 py-1 rounded bg-slate-100 text-[10px] font-bold text-slate-600">이력 {(r.priceHistory || []).length}</button>
+                        <button type="button" onClick={() => removeRow(r.id)} className="p-1 text-slate-400 hover:text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>,
+                      'text-center'
+                    )}
+                  </tr>
+                  {historyId === r.id && (
+                    <tr>
+                      <td colSpan={headers.length} className="border border-slate-300 bg-slate-50 px-3 py-2">{historyBody(r)}</td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            {isLineTab && visibleRows.map((r) => {
+              const f = fields(r);
+              const short = tab === 'out' && shortCodes.has((r.code || '').trim());
+              return (
+                <tr key={r.id} className={short ? 'bg-rose-50' : ''}>
+                  {td(f.date)}
+                  {td(f.code)}
+                  {td(f.name)}
+                  {td(f.spec)}
+                  {td(f.maker)}
+                  {td(f.qty)}
+                  {td(f.price)}
+                  {td(((Number(r.qty) || 0) * (Number(r.price) || 0)).toLocaleString('ko-KR'), 'text-right px-1.5 font-bold')}
+                  {td(attachNode(r), 'text-center')}
+                  {tab === 'out' && td(f.purpose)}
+                  {td(<button type="button" onClick={() => removeRow(r.id)} className="p-1 text-slate-400 hover:text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>, 'text-center')}
+                </tr>
+              );
+            })}
             {tab !== 'stock' && rows.length === 0 && (
               <tr><td colSpan={headers.length} className="border border-slate-300 py-4 text-center text-slate-400">줄 추가를 눌러 입력하세요</td></tr>
+            )}
+            {tab !== 'stock' && rows.length > 0 && visibleRows.length === 0 && (
+              <tr><td colSpan={headers.length} className="border border-slate-300 py-4 text-center text-slate-400">검색·기간 조건에 맞는 줄이 없습니다.</td></tr>
+            )}
+            {tab === 'stock' && visibleStock.length === 0 && (
+              <tr><td colSpan={headers.length} className="border border-slate-300 py-4 text-center text-slate-400">표시할 품목이 없습니다. 단가표를 입력하거나 입고를 저장해 주세요.</td></tr>
             )}
           </tbody>
         </table>
@@ -5254,18 +5550,21 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     let bodyRows: CellV[][] = [];
     if (cat === 'inventory') {
       headers = ['제품 코드', '제품명', '입고 수량', '출고 수량', '재고 수량'];
-      bodyRows = computeInventoryStock(docs).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(fmt(r.inQty), 'right'), c(fmt(r.outQty), 'right'), c(fmt(r.inQty - r.outQty), 'right')]);
+      bodyRows = computeInventoryStock(docs, printingDoc.date).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(fmt(r.inQty), 'right'), c(fmt(r.outQty), 'right'), c(fmt(r.inQty - r.outQty), 'right')]);
     } else if (cat === 'inventory_price') {
       headers = ['코드', '품 명', '규격', '제조사', '단 가'];
       bodyRows = (printingDoc.inventory?.rows || []).map((r) => [c(r.code, 'center'), c(r.name, 'left'), c(r.spec || '', 'left'), c(r.maker || '', 'left'), c(fmt(Number(r.price) || 0), 'right')]);
     } else {
       const p = cat === 'inventory_in' ? '입고' : '출고';
       headers = [`${p} 날짜`, '제품 코드', '품 명', '규격', '제조사', `${p} 수량`, '단 가', `${p} 금액`, `${p}증`];
+      if (cat === 'inventory_out') headers.push('출고 목적·담당');
       bodyRows = (printingDoc.inventory?.rows || []).map((r) => {
         const q = Number(r.qty) || 0;
         const pr = Number(r.price) || 0;
         const files = (r.attachments || []).map((a) => a.name).join(', ');
-        return [c(r.date || '', 'center'), c(r.code, 'center'), c(r.name, 'left'), c(r.spec || '', 'left'), c(r.maker || '', 'left'), c(fmt(q), 'right'), c(fmt(pr), 'right'), c(fmt(q * pr), 'right'), c(files, 'left')];
+        const line = [c(r.date || '', 'center'), c(r.code, 'center'), c(r.name, 'left'), c(r.spec || '', 'left'), c(r.maker || '', 'left'), c(fmt(q), 'right'), c(fmt(pr), 'right'), c(fmt(q * pr), 'right'), c(files, 'left')];
+        if (cat === 'inventory_out') line.push(c(r.purpose || '', 'left'));
+        return line;
       });
     }
     while (bodyRows.length < 30) bodyRows.push(headers.map(() => c('', 'center')));
@@ -5275,8 +5574,8 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
         {cat === 'inventory' && (
           <table style={{ borderCollapse: 'collapse', fontSize: '12px', marginBottom: '8px' }}>
             <tbody>
-              <tr><td style={{ ...cell, background: '#ccccff', fontWeight: 700, width: '90px', textAlign: 'center' }}>기 준 일</td><td style={{ ...cell, width: '140px', textAlign: 'center' }}>{todayDotted()}</td></tr>
-              <tr><td style={{ ...cell, background: '#ccccff', fontWeight: 700, textAlign: 'center' }}>자재 건수</td><td style={{ ...cell, textAlign: 'center' }}>{computeInventoryStock(docs).length}</td></tr>
+              <tr><td style={{ ...cell, background: '#ccccff', fontWeight: 700, width: '90px', textAlign: 'center' }}>기 준 일</td><td style={{ ...cell, width: '140px', textAlign: 'center' }}>{dottedDate(printingDoc.date)}</td></tr>
+              <tr><td style={{ ...cell, background: '#ccccff', fontWeight: 700, textAlign: 'center' }}>자재 건수</td><td style={{ ...cell, textAlign: 'center' }}>{computeInventoryStock(docs, printingDoc.date).length}</td></tr>
             </tbody>
           </table>
         )}
