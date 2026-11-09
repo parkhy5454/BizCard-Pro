@@ -1041,13 +1041,13 @@ const InventoryPanel = ({ docs, userId, onSaved, onPrint }: { docs: AdminDoc[]; 
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-4 gap-1.5 md:flex md:flex-wrap md:gap-2">
         {INVENTORY_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => requestTab(t.id)}
-            className={`px-3 py-2 rounded-xl text-sm font-bold transition-colors ${tab === t.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            className={`px-1 py-2 md:px-3 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
           >
             {t.label}
           </button>
