@@ -611,7 +611,7 @@ const emptyForm = (category: AdminDocCategory): Partial<AdminDoc> => ({
   memo: '',
   attachments: [],
   // [추가] 경조사 현황: 제목 기본값과 빈 목록
-  ...(category === 'gyeongjosa' ? { title: `${new Date().getFullYear()}년 경조사 현황`, gyeongjosa: { entries: [] } } : {}),
+  ...(category === 'gyeongjosa' ? { title: `${new Date().getFullYear()}년 경조사 현황`, gyeongjosa: { entries: [{ id: `gj-${Date.now()}`, date: getTodayLocalStr(), title: '', personName: '', amount: 0, kind: '', attended: '', memo: '' }] } } : {}),
   // [추가] 급여명세서용 기본값. 다른 서류에서는 그냥 안 쓰이고 무시된다.
   // 지급/공제 내역은 회사에서 거의 항상 쓰는 항목들을 미리 깔아두고, 필요하면 "항목 추가"로
   // 더 늘리거나 X로 지워서 쓸 수 있게 한다 — 매번 기본급부터 손으로 다 치는 걸 줄여준다.
@@ -7688,11 +7688,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
 
                 {/* [추가] 경조사 현황 전용 입력: 건마다 항목을 한 줄씩 세로로 입력한다.
                 순서: 일시 → 이름 → 애경사 내용 → 금액 → 종류 → 참석 유무 → 비고 */}
-                {activeCategory === 'gyeongjosa' && ((editingDoc.gyeongjosa?.entries || []).length === 0 ? (
-                  <button type="button" onClick={addGyeongjosa} className="w-full flex items-center justify-center gap-1 py-3 rounded-xl border border-dashed border-indigo-300 text-indigo-600 text-sm font-bold">
-                    <Plus className="w-4 h-4" /> 경조사 추가
-                  </button>
-                ) : (
+                {activeCategory === 'gyeongjosa' && (editingDoc.gyeongjosa?.entries || []).length > 0 && (
                   <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3 min-w-0 max-w-full">
                     <div className="flex items-center justify-between">
                       <label className="text-sm md:text-[11px] font-bold text-slate-600">경조사 목록</label>
@@ -7791,7 +7787,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                       <p className="flex justify-between text-emerald-600 font-bold text-sm md:text-xs"><span>금액 합계</span><span>{formatCurrencyInput((editingDoc.gyeongjosa?.entries || []).reduce((s, g) => s + (Number(g.amount) || 0), 0))}원</span></p>
                     </div>
                   </div>
-                ))}
+                )}
 
                 {/* [추가] 법인카드 사용내역 전용 구조화 입력. 카드(소지자)별로 묶어서 여러
                 사용 내역(금액/일자/프로젝트명/사용자/비고)을 입력하고, 카드마다 소계, 맨
