@@ -5414,6 +5414,18 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       }
       // [추가] 해외 출장 경비는 전체 사용 합계를 amount 칸에 표시한다.
       if (payload.category === 'overseas_trip' && payload.overseasTrip) {
+        // [추가] 저장할 때 사용내역을 일자순으로 정렬한다. 중간에 빠진 영수증을 나중에 추가해도
+        // 저장 후에는 날짜 자리에 맞춰 올라가고, 인쇄/엑셀도 같은 순서로 나온다. 날짜가 같거나
+        // 비어 있는 항목은 기존 입력 순서를 유지한다(Array.sort는 안정 정렬). 날짜가 없는 항목은 맨 뒤.
+        payload.overseasTrip = {
+          ...payload.overseasTrip,
+          entries: [...payload.overseasTrip.entries].sort((a, b) => {
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return a.date.localeCompare(b.date);
+          }),
+        };
         const total = payload.overseasTrip.entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
         payload.amount = String(total);
       }
