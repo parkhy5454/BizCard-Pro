@@ -8620,6 +8620,15 @@ app.get('/api/admin-docs', (req, res) => {
   res.json(docs);
 });
 
+// [추가] 해외 출장 경비 항목에 붙인 영수증 사진(base64)을 Storage에 올리고 URL로 바꿔 저장한다.
+// 다른 모듈(업무일지/미팅 지출)과 같은 방식이다. 이걸 빼면 사진이 문서 JSON 안에 통째로 들어가
+// 문서가 커지고, 사진을 추가할수록 저장이 실패하기 쉬워진다.
+async function persistOverseasTripReceipts(scopeId: string, doc: AdminDoc) {
+  const entries = doc.overseasTrip?.entries;
+  if (!doc.overseasTrip || !Array.isArray(entries) || !entries.length) return;
+  doc.overseasTrip.entries = (await persistReceiptImagesInArray(scopeId, entries, `overseas-${doc.id}`)) || entries;
+}
+
 app.post('/api/admin-docs', async (req, res) => {
   const requester = requireAdmin(req, res);
   if (!requester) return;
@@ -8631,6 +8640,7 @@ app.post('/api/admin-docs', async (req, res) => {
   doc.createdByUserId = requester.id;
   doc.createdByUserName = requester.name;
   doc.attachments = await persistAttachmentsInArray(scopeId, doc.attachments, `admindoc-${doc.id}`);
+  await persistOverseasTripReceipts(scopeId, doc);
 
   dbData.adminDocs = dbData.adminDocs || [];
   dbData.adminDocs.unshift(doc);
@@ -8658,6 +8668,7 @@ app.put('/api/admin-docs/:id', async (req, res) => {
   if (updated.attachments) {
     updated.attachments = await persistAttachmentsInArray(scopeId, updated.attachments, `admindoc-${updated.id}`);
   }
+  await persistOverseasTripReceipts(scopeId, updated);
   dbData.adminDocs[idx] = updated;
   // [수정] 위 등록(POST)과 동일한 이유로, 저장 실패를 조용히 넘기지 않고 되돌린 뒤 알린다.
   const savedAdminDocUpdate = await setScopedDoc(scopeId, 'adminDocs', updated);
