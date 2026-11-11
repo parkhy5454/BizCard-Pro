@@ -61,7 +61,9 @@ const VehicleSearchInput: React.FC<VehicleSearchInputProps> = ({ vehicles, value
         className={inputClassName || 'w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500'}
       />
       {open && vehicles.length > 0 && (
-        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+        // [수정] 모바일에서는 목록을 입력칸 아래에 문서 흐름대로 펼쳐서 작성 창 밖으로 떠 오르지 않게 한다.
+        // PC(md 이상)는 예전처럼 입력칸 위에 겹쳐 보인다.
+        <div className="static mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden md:absolute md:z-30 md:min-w-[200px]">
           <div className="max-h-40 overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="text-[10px] text-slate-400 text-center py-3">일치하는 등록 차량이 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
@@ -130,7 +132,9 @@ const ProjectSearchInput: React.FC<ProjectSearchInputProps> = ({ projects, value
         className={inputClassName || 'w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500'}
       />
       {open && projects.length > 0 && (
-        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+        // [수정] 모바일에서는 목록을 입력칸 아래에 문서 흐름대로 펼쳐서 작성 창 밖으로 떠 오르지 않게 한다.
+        // PC(md 이상)는 예전처럼 입력칸 위에 겹쳐 보인다.
+        <div className="static mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden md:absolute md:z-30 md:min-w-[200px]">
           <div className="max-h-40 overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="text-[10px] text-slate-400 text-center py-3">일치하는 프로젝트가 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
@@ -223,7 +227,9 @@ const SuggestTextInput: React.FC<SuggestTextInputProps> = ({ options, value, onC
         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-indigo-500"
       />
       {open && options.length > 0 && (
-        <div className="absolute z-30 mt-1 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden">
+        // [수정] 모바일에서는 목록을 입력칸 아래에 문서 흐름대로 펼쳐서 작성 창 밖으로 떠 오르지 않게 한다.
+        // PC(md 이상)는 예전처럼 입력칸 위에 겹쳐 보인다.
+        <div className="static mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden md:absolute md:z-30 md:min-w-[200px]">
           <div className="max-h-40 overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="text-[10px] text-slate-400 text-center py-3">일치하는 항목이 없습니다 (직접 입력한 값이 그대로 저장됩니다)</p>
