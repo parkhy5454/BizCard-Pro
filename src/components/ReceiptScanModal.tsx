@@ -35,6 +35,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   // [수정] 영수증 미리보기를 눌렀을 때 전체화면으로 크게 볼 수 있는 팝업(라이트박스)용 상태
   const [isReceiptEnlarged, setIsReceiptEnlarged] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [amountNegInput, setAmountNegInput] = useState<boolean>(false);
   const [scanDone, setScanDone] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -355,8 +356,15 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                     inputMode="numeric"
                     required 
                     placeholder="0" 
-                    value={form.amount ? formatCurrencyInput(form.amount) : ''} 
-                    onChange={(e) => setForm({ ...form, amount: parseCurrencyInput(e.target.value) })} 
+                    value={form.amount < 0 ? '-' + formatCurrencyInput(-form.amount) : (form.amount ? formatCurrencyInput(form.amount) : (amountNegInput ? '-' : ''))} 
+                    onChange={(e) => {
+                      // 취소/환불(부분취소) 영수증은 음수 금액이므로 앞의 '-'를 살려서 저장한다.
+                      // '-'만 먼저 입력한 상태도 유지해야 뒤에 숫자를 이어서 칠 수 있다.
+                      const n = parseCurrencyInput(e.target.value);
+                      const negative = e.target.value.trim().startsWith('-');
+                      setAmountNegInput(negative);
+                      setForm({ ...form, amount: negative && n ? -n : n });
+                    }} 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-2.5 text-slate-700 font-bold text-base focus:outline-none focus:border-indigo-500" 
                   />
                 </div>
