@@ -215,8 +215,18 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
   };
 
   return (
-    <div className="fixed inset-0 z-[200] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[92vh]">
+    <div
+      className="fixed inset-0 z-[200] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+      // 모바일에서 입력칸을 누르면 키보드가 올라와 아래쪽 입력칸이 가려진다. 입력칸을 화면 가운데로
+      // 옮겨서, 키보드가 있어도 수정 중인 칸이 항상 보이게 한다(편집 화면과 같은 방식).
+      onFocus={(e) => {
+        const t = e.target as HTMLElement;
+        if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') {
+          setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+        }
+      }}
+    >
+      <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-y-auto md:overflow-hidden max-h-[95vh] md:max-h-[92vh] pb-[45vh] md:pb-0">
         
         {/* 좌측: 영수증 업로드 및 스캔 버튼 */}
         <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 md:overflow-y-auto">
