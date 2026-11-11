@@ -4291,10 +4291,19 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     const raf = requestAnimationFrame(measure);
     const timer = window.setTimeout(measure, 400);
     window.addEventListener('resize', measure);
+    // iOS는 키보드가 올라오고 내려갈 때 window 크기가 아니라 visualViewport만 바뀐다. 그래서
+    // 키보드가 떠 있을 때 잰 하단 경계가 그대로 남아서, 키보드를 내린 뒤에도 작성 창이 화면 중간에서
+    // 잘려 보였다. 키보드를 올리고 내릴 때(칸에서 포커스가 빠질 때)마다 다시 잰다.
+    const vv = window.visualViewport;
+    const remeasureAfterKeyboard = () => window.setTimeout(measure, 350);
+    vv?.addEventListener('resize', measure);
+    document.addEventListener('focusout', remeasureAfterKeyboard);
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(timer);
       window.removeEventListener('resize', measure);
+      vv?.removeEventListener('resize', measure);
+      document.removeEventListener('focusout', remeasureAfterKeyboard);
     };
   }, [editingDoc, printingDoc, pendingBankImport, cashFlowImportTarget]);
   const [isLoadingCashFlowCandidates, setIsLoadingCashFlowCandidates] = useState(false);
