@@ -167,7 +167,8 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       }
 
       setForm({
-        amount: Number(data.amount) || 0,
+        // 음수(취소 영수증)와 '-791,500' 같은 문자열 응답도 그대로 살린다
+        amount: Number(String(data.amount ?? '').replace(/[^\d-]/g, '')) || 0,
         date: data.date || getTodayLocalStr(),
         merchantName: data.merchantName || '',
         memo: data.memo || '',
