@@ -224,7 +224,6 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
                 <ScanLine className="w-5 h-5 text-indigo-400 animate-pulse" />
                 <h3 className="font-bold text-base text-slate-900">영수증 이미지 스캔</h3>
               </div>
-              <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-500/30 px-2 py-0.5 rounded font-sans">Gemini Vision OCR</span>
             </div>
 
             {/* 드래그 앤 드롭 영역 */}
