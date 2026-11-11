@@ -4778,9 +4778,6 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       return { ...prev, overseasTrip: { ...overseasTrip, entries: updater(overseasTrip.entries || []) } };
     });
   };
-  const addOverseasTripEntry = () => {
-    updateOverseasTripEntries((entries) => [...entries, { id: `ot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, date: getTodayLocalStr(), amount: 0, category: '항공료', description: '', user: '', payMethod: '신용카드', payDetail: '', note: '' }]);
-  };
   const removeOverseasTripEntry = (id: string) => {
     updateOverseasTripEntries((entries) => entries.filter((e) => e.id !== id));
   };
@@ -9852,14 +9849,14 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           onClick={handleOpenOverseasTripCardImportPanel}
                           className="whitespace-nowrap text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
-                          <RefreshCw className="w-3 h-3" /> 카드 내역 가져오기
+                          <RefreshCw className="w-3 h-3" /> 카드내역 추가
                         </button>
                         <button
                           type="button"
                           onClick={handleOpenOverseasTripBankImportPanel}
                           className="whitespace-nowrap text-sm md:text-[11px] text-emerald-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
                         >
-                          <RefreshCw className="w-3 h-3" /> 통장 내역 가져오기
+                          <RefreshCw className="w-3 h-3" /> 통장내역 추가
                         </button>
                         {/* [추가] 해외출장 중 영수증을 바로 스캔해서 항목을 추가할 수 있게.
                         스캔 완료 시 결과로 새 항목이 만들어지도록 scanningOverseasTripEntryId를
@@ -9869,10 +9866,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
                           onClick={() => { setScanningOverseasTripEntryId(null); setIsOverseasTripReceiptModalOpen(true); }}
                           className="text-sm md:text-[11px] text-indigo-700 font-bold flex items-center gap-0.5 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200"
                         >
-                          <Sparkles className="w-3 h-3 text-amber-600" /> 영수증 스캔으로 추가
-                        </button>
-                        <button type="button" onClick={addOverseasTripEntry} className="text-sm md:text-[11px] text-indigo-600 font-bold flex items-center gap-0.5">
-                          <Plus className="w-3 h-3" /> 항목 추가
+                          <Sparkles className="w-3 h-3 text-amber-600" /> 영수증 추가
                         </button>
                       </div>
                     </div>
