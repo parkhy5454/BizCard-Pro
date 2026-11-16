@@ -49,6 +49,59 @@ const CARD_TARGET_ASPECT = 1.586;
 // 확실히 걸러내면서도, 일반적인 촬영 각도의 원근 왜곡(가로세로 비율이 어느 정도 눌리는 것)은 계속 허용한다.
 const MAX_ACCEPTABLE_ASPECT_DIFF = 0.3;
 
+// [추가] 명함이 사진 가장자리에서 잘린 경우(한 변만 화면 끝에 닿은 경우) 명함 비율로 사각형을 늘려
+// 잘린 쪽 모서리를 화면 밖까지 보정한다. 반대쪽 변은 그대로 두고, 잘린 변만 밖으로 민다.
+// 화면 밖 모서리는 warpPerspective가 검은 영역으로 채우므로 명함 전체 크기의 결과가 나온다.
+// 두 변 이상이 닿았거나(모서리가 잘린 경우) 이미 명함 크기보다 크면 건드리지 않는다.
+const extendQuadForOffFrameCard = (pts: Point[], imgW: number, imgH: number): Point[] => {
+  if (pts.length !== 4 || !imgW || !imgH) return pts;
+  const [tl, tr, br, bl] = orderQuadPoints(pts);
+  const eps = Math.max(imgW, imgH) * 0.01;
+  const onTop = tl.y <= eps && tr.y <= eps;
+  const onBottom = bl.y >= imgH - eps && br.y >= imgH - eps;
+  const onLeft = tl.x <= eps && bl.x <= eps;
+  const onRight = tr.x >= imgW - eps && br.x >= imgW - eps;
+  if ([onTop, onBottom, onLeft, onRight].filter(Boolean).length !== 1) return pts;
+
+  const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+  const mid = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const wQ = (dist(tl, tr) + dist(bl, br)) / 2;
+  const hQ = (dist(tl, bl) + dist(tr, br)) / 2;
+  if (wQ <= 0 || hQ <= 0) return pts;
+  const landscape = wQ >= hQ;
+  const r = CARD_TARGET_ASPECT;
+  const vertical = onTop || onBottom;
+
+  let fixedMid: Point, cutA: Point, cutB: Point, current: number, target: number;
+  if (vertical) {
+    // 위/아래가 잘림: 가로(wQ)를 믿고 세로를 명함 비율에 맞춘다
+    target = landscape ? wQ / r : wQ * r;
+    current = hQ;
+    fixedMid = onTop ? mid(bl, br) : mid(tl, tr);
+    cutA = onTop ? tl : bl;
+    cutB = onTop ? tr : br;
+  } else {
+    // 왼쪽/오른쪽이 잘림: 세로(hQ)를 믿고 가로를 명함 비율에 맞춘다
+    target = landscape ? hQ * r : hQ / r;
+    current = wQ;
+    fixedMid = onLeft ? mid(tr, br) : mid(tl, bl);
+    cutA = onLeft ? tl : tr;
+    cutB = onLeft ? bl : br;
+  }
+  const extra = Math.min(target - current, current);
+  if (!(extra > 0)) return pts;
+
+  const cutMid = mid(cutA, cutB);
+  const len = Math.hypot(cutMid.x - fixedMid.x, cutMid.y - fixedMid.y);
+  if (len <= 0) return pts;
+  const ux = (cutMid.x - fixedMid.x) / len;
+  const uy = (cutMid.y - fixedMid.y) / len;
+  const push = (p: Point): Point => ({ x: p.x + ux * extra, y: p.y + uy * extra });
+  const next: Point[] = [tl, tr, br, bl];
+  const cutSet = new Set([cutA, cutB]);
+  return next.map((p) => (cutSet.has(p) ? push(p) : p));
+};
+
 // 순서 없는 4개 점을 [좌상, 우상, 우하, 좌하] 순서로 정렬 (점수 계산 중간 단계와
 // 최종 반환 시 양쪽에서 같은 규칙으로 재사용한다)
 function orderQuadPoints(pts: Point[]): [Point, Point, Point, Point] {
@@ -837,7 +890,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           if (cvOnRotated && quadsRoughlyAgree(mlOrientation.canvasPts, cvOnRotated.points)) {
             // 서로 다른 두 방법이 (기울기 보정 후) 같은 위치를 가리켰으니 안심하고 확정,
             // 뒤 단계(Gemini AI)는 건너뛴다.
-            detectedCornersByImg.set(img, mlOrientation.originalPts);
+            detectedCornersByImg.set(img, extendQuadForOffFrameCard(mlOrientation.originalPts, img.naturalWidth, img.naturalHeight));
             setIsDetecting(false);
             setAutoDetected(true);
             setMlConfirmed(true);
@@ -847,7 +900,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           // 회전 보정된 프레임에서도 교차검증이 안 됐다면, 마지막으로 원본(기울어진) 프레임의
           // OpenCV 결과와도 비교해본다 (기존 로직과 동일한 안전망).
           if (cvOnOriginal && quadsRoughlyAgree(mlPts!, cvOnOriginal.points)) {
-            detectedCornersByImg.set(img, mlPts);
+            detectedCornersByImg.set(img, extendQuadForOffFrameCard(mlPts!, img.naturalWidth, img.naturalHeight));
             setIsDetecting(false);
             setAutoDetected(true);
             setMlConfirmed(true);
@@ -862,7 +915,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         setIsDetecting(false);
         setAutoDetected(!!initialPts);
         if (initialPts) {
-          detectedCornersByImg.set(img, initialPts);
+          detectedCornersByImg.set(img, extendQuadForOffFrameCard(initialPts, img.naturalWidth, img.naturalHeight));
         }
 
         // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤(속도), OpenCV 스스로 확신이 높고(confident)
@@ -887,14 +940,15 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           { x: aiCorners.bottomRight.x * img.naturalWidth, y: aiCorners.bottomRight.y * img.naturalHeight },
           { x: aiCorners.bottomLeft.x * img.naturalWidth, y: aiCorners.bottomLeft.y * img.naturalHeight }
         ];
-        detectedCornersByImg.set(img, aiNaturalPts);
+        const extendedAi = extendQuadForOffFrameCard(aiNaturalPts, img.naturalWidth, img.naturalHeight);
+        detectedCornersByImg.set(img, extendedAi);
         setAutoDetected(true);
         setAiConfirmed(true);
         const { width: dw, height: dh } = displaySizeRef.current;
         if (dw > 0 && dh > 0) {
           const scaleX = dw / img.naturalWidth;
           const scaleY = dh / img.naturalHeight;
-          setCorners(aiNaturalPts.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
+          setCorners(extendedAi.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })));
         }
       };
       img.onerror = () => { if (!cancelled) setIsDetecting(false); };
