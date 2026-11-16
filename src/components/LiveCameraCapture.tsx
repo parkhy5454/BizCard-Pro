@@ -306,6 +306,62 @@ export const LiveCameraCapture: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 감지된 사각형(화면에 보이는 테두리)을 기준으로 원본 해상도에서 perspective 보정 후 잘라낸다.
+  // 감지값이 없거나 실패하면 중앙 고정 가이드(fallbackCenterCrop)로 안전하게 대체한다.
+  const captureFromDetectedQuad = useCallback((video: HTMLVideoElement): string | null => {
+    const cv = cvRef.current;
+    const last = lastRawQuadRef.current;
+    if (!cv || !last) return null;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh || !last.detectW || !last.detectH) return null;
+
+    // 감지 캔버스 좌표 → 원본 비디오 좌표
+    const sx = vw / last.detectW;
+    const sy = vh / last.detectH;
+    let quad = scaleQuad(last.quad, sx, sy);
+    // 엣지 감지 여백을 살짝 안쪽으로 줄여 그림자/배경이 덜 들어오게 함
+    quad = shrinkQuadInward(quad, 0.016);
+
+    // 프레임 밖으로 나간 꼭짓점은 클램프 (warp 깨짐 방지)
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    quad = quad.map(([x, y]) => [clamp(x, 0, vw - 1), clamp(y, 0, vh - 1)]) as typeof quad;
+
+    // 출력 크기: 긴 변 기준, rotated면 가로/세로 스왑
+    const aspect = guideAspectRatio > 0 ? guideAspectRatio : 1.586;
+    let outW: number;
+    let outH: number;
+    if (last.rotated) {
+      outH = OUTPUT_LONG_SIDE;
+      outW = Math.max(1, Math.round(outH / aspect));
+    } else {
+      outW = OUTPUT_LONG_SIDE;
+      outH = Math.max(1, Math.round(outW / aspect));
+    }
+
+    const fullCanvas = document.createElement('canvas');
+    fullCanvas.width = vw;
+    fullCanvas.height = vh;
+    const fctx = fullCanvas.getContext('2d');
+    if (!fctx) return null;
+    fctx.drawImage(video, 0, 0, vw, vh);
+
+    let srcMat: CvMat | undefined;
+    let warped: CvMat | undefined;
+    let enhanced: CvMat | undefined;
+    try {
+      srcMat = cv.imread(fullCanvas);
+      warped = warpToRect(cv, srcMat, quad, outW, outH);
+      enhanced = enhanceMat(cv, warped);
+      return matToDataUrl(cv, enhanced, 0.88);
+    } finally {
+      srcMat?.delete();
+      warped?.delete();
+      enhanced?.delete();
+    }
+  }, [guideAspectRatio]);
+
   // 실제 촬영 + 보정 처리 (자동/수동 공통)
   const handleCapture = useCallback(async () => {
     const video = videoRef.current;
@@ -314,14 +370,27 @@ export const LiveCameraCapture: React.FC<Props> = ({
     setIsProcessing(true);
 
     try {
-      // 화면에 보이는 가이드 박스 영역을 그대로 잘라서 저장한다.
-      // (자동 감지 결과로 자르면 프레임 밖으로 잘린 명함이 어긋나게 잡히는 문제가 있어 사용하지 않음)
-      const outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
-      const autoDetected = false;
+      let outDataUrl: string | null = null;
+      let autoDetected = false;
+
+      // 1) 화면에 보이는 감지 테두리가 있으면 그 영역 기준으로 자르기
+      try {
+        outDataUrl = captureFromDetectedQuad(video);
+        if (outDataUrl) autoDetected = true;
+      } catch (detectErr) {
+        console.warn('감지 영역 크롭 실패, 중앙 가이드로 대체:', detectErr);
+        outDataUrl = null;
+      }
+
+      // 2) 감지 실패 시 중앙 고정 가이드 영역으로 크롭
+      if (!outDataUrl) {
+        outDataUrl = fallbackCenterCrop(video, containerRef.current, guideAspectRatio);
+        autoDetected = false;
+      }
 
       stopStream();
       setCaptureFlash(true);
-      window.setTimeout(() => onCapture(outDataUrl, autoDetected), 120);
+      window.setTimeout(() => onCapture(outDataUrl!, autoDetected), 120);
     } catch (err) {
       console.error('촬영/보정 처리 실패:', err);
       try {
@@ -334,7 +403,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
         setIsProcessing(false);
       }
     }
-  }, [isReady, guideAspectRatio, stopStream, onCapture]);
+  }, [isReady, guideAspectRatio, stopStream, onCapture, captureFromDetectedQuad]);
 
   // 실시간 감지 루프: 카메라 프레임에서 문서 사각형을 찾아 위치/기울기에 맞는 테두리를 표시하고,
   // 크기·초점·밝기·반사광 품질과 안정성(흔들림 없음)을 체크해 자동 촬영을 트리거한다.
