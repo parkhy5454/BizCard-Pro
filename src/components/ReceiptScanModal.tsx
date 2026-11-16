@@ -27,7 +27,7 @@ interface Props {
     category: string;
     payMethod: string;
     receiptImage: string;
-  }) => void;
+  }) => void | boolean; // false를 돌려주면 추가를 막은 것이므로 창을 닫지 않고 입력 내용을 유지한다
 }
 
 export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScanComplete, currentUserId }) => {
@@ -201,7 +201,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       return;
     }
 
-    onScanComplete({
+    const accepted = onScanComplete({
       amount: form.amount,
       date: form.date,
       merchantName: form.merchantName,
@@ -210,6 +210,7 @@ export const ReceiptScanModal: React.FC<Props> = ({ expenseType, onClose, onScan
       payMethod: form.payMethod,
       receiptImage: receiptImg
     });
+    if (accepted === false) return;
     receiptDraft.discardOpen();
     onClose();
   };

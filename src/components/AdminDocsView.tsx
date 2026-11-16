@@ -4807,6 +4807,33 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
   const [isOverseasTripReceiptModalOpen, setIsOverseasTripReceiptModalOpen] = useState(false);
   const [scanningOverseasTripEntryId, setScanningOverseasTripEntryId] = useState<string | null>(null);
   const [viewingOverseasTripReceiptImage, setViewingOverseasTripReceiptImage] = useState<string | null>(null);
+  // [추가] 영수증 중복 검사: 날짜·금액이 같고 상호명이 같은(상호명을 모르면 날짜·금액만 같은) 항목을
+  // 찾는다. 현재 편집 중인 문서(아직 저장 안 된 내용 포함)와, 저장된 모든 해외 출장 경비 문서를 대상으로 한다.
+  // 지금 고치고 있는 항목 자신은 제외한다.
+  const findDuplicateOverseasReceipt = (scanned: { amount: number; date: string; merchantName: string }) => {
+    const digits = (d: string) => (d || '').replace(/\D/g, '');
+    const normName = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+    const shopOf = (desc: string) => normName((desc || '').split(' - ')[0]);
+    const targetDate = digits(scanned.date);
+    const targetAmount = Number(scanned.amount) || 0;
+    const targetShop = normName(scanned.merchantName);
+    if (!targetDate || !targetAmount) return null;
+    const sameShop = (a: string, b: string) => !a || !b || a === b || a.includes(b) || b.includes(a);
+    const candidates: { docTitle: string; entry: OverseasTripRow }[] = [];
+    (editingDoc?.overseasTrip?.entries || []).forEach((entry) => {
+      if (entry.id !== scanningOverseasTripEntryId) candidates.push({ docTitle: editingDoc?.title || '현재 작성 중인 문서', entry });
+    });
+    docs.forEach((d) => {
+      if (d.category !== 'overseas_trip' || d.id === editingDoc?.id) return;
+      (d.overseasTrip?.entries || []).forEach((entry) => candidates.push({ docTitle: d.title || '해외 출장 경비', entry }));
+    });
+    return candidates.find(({ entry }) =>
+      digits(entry.date) === targetDate &&
+      (Number(entry.amount) || 0) === targetAmount &&
+      sameShop(shopOf(entry.description), targetShop)
+    ) || null;
+  };
+
   const handleOverseasTripReceiptScanComplete = (scanned: {
     amount: number;
     date: string;
@@ -4815,7 +4842,12 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
     category: string;
     payMethod: string;
     receiptImage: string;
-  }) => {
+  }): boolean => {
+    const dup = findDuplicateOverseasReceipt(scanned);
+    if (dup) {
+      alert(`이미 등록된 영수증입니다. 추가하지 않았습니다.\n\n문서: ${dup.docTitle}\n날짜: ${dup.entry.date}\n금액: ${formatCurrencyInput(Number(dup.entry.amount) || 0)}원\n사용내역: ${dup.entry.description || '-'}`);
+      return false;
+    }
     // 사용내역 칸에는 "상호명 - 메모" 형태로 합쳐서 채운다(예: "신라호텔 도쿄 - 2박 숙박").
     const description = [scanned.merchantName, scanned.memo].filter(Boolean).join(' - ');
     if (scanningOverseasTripEntryId) {
@@ -4846,6 +4878,7 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
       }]);
     }
     setScanningOverseasTripEntryId(null);
+    return true;
   };
 
   // [추가] 연차 현황 - 직원 추가/삭제/필드 수정 + 직원별 연차 사용/휴일(초과)근무/대체휴가
@@ -12355,8 +12388,9 @@ export const AdminDocsView: React.FC<Props> = ({ section, currentUser, projects 
           setScanningOverseasTripEntryId(null);
         }}
         onScanComplete={(scanned) => {
-          handleOverseasTripReceiptScanComplete(scanned);
-          setIsOverseasTripReceiptModalOpen(false);
+          const accepted = handleOverseasTripReceiptScanComplete(scanned);
+          if (accepted) setIsOverseasTripReceiptModalOpen(false);
+          return accepted;
         }}
       />
     )}
