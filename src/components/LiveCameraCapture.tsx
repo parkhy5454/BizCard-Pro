@@ -99,6 +99,29 @@ function getGuideBoundsInVideoSpace(video: HTMLVideoElement, container: HTMLDivE
   return { x: offsetX + x * scale, y: offsetY + y * scale, w: w * scale, h: h * scale };
 }
 
+// 화면에 보이는 가이드 사각형(표시 좌표계)을 계산한다.
+function getGuideRectDisplay(cw: number, ch: number, aspect: number) {
+  const m = 0.04;
+  let w = cw * (1 - m * 2);
+  let h = w / aspect;
+  if (h > ch * (1 - m * 2)) {
+    h = ch * (1 - m * 2);
+    w = h * aspect;
+  }
+  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+}
+
+// 감지된 사각형의 네 꼭짓점이 모두 가이드 사각형 안(약간의 여유 포함)에 있는지 확인
+function isQuadInsideGuide(quad: Quad, guide: { x: number; y: number; w: number; h: number }) {
+  const tol = 0.05;
+  const tx = guide.w * tol;
+  const ty = guide.h * tol;
+  return quad.every(
+    ([x, y]) =>
+      x >= guide.x - tx && x <= guide.x + guide.w + tx && y >= guide.y - ty && y <= guide.y + guide.h + ty,
+  );
+}
+
 // (구) 고정 가이드 사각형 기준 크롭 — OpenCV 미지원/미감지 시 안전한 대체 동작
 function fallbackCenterCrop(video: HTMLVideoElement, container: HTMLDivElement | null, aspect: number): string {
   const { x: sx, y: sy, w: sw, h: sh } = getGuideBoundsInVideoSpace(video, container, aspect);
@@ -410,7 +433,9 @@ export const LiveCameraCapture: React.FC<Props> = ({
 
       const dispW = container.clientWidth;
       const dispH = container.clientHeight;
-      setQuadDisplay(mapToDisplay(found.points, detectW, detectH, dispW, dispH));
+      const dispQuad = mapToDisplay(found.points, detectW, detectH, dispW, dispH);
+      const insideGuide = isQuadInsideGuide(dispQuad, getGuideRectDisplay(dispW, dispH, guideAspectRatio));
+      setQuadDisplay(dispQuad);
       setQuality({ sizeOk, focusOk, brightOk, glareOk });
       setIsStable(stable && allQualityOk);
 
@@ -421,7 +446,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
       else if (!stable) setStatusMessage('위치를 고정해주세요...');
       else setStatusMessage('고정됨! 자동 촬영합니다');
 
-      if (allQualityOk && stable && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
+      if (allQualityOk && stable && insideGuide && stableDuration >= STABLE_DURATION_MS && !autoCapturedRef.current) {
         autoCapturedRef.current = true;
         handleCapture();
       }
@@ -438,7 +463,7 @@ export const LiveCameraCapture: React.FC<Props> = ({
   }, [cvStatus, isReady, error, runDetection]);
 
   const allQualityOk = quality ? Object.values(quality).every(Boolean) : false;
-  const outlineColor = quadDisplay ? (isStable && allQualityOk ? '#22c55e' : allQualityOk ? '#facc15' : '#f87171') : '#f87171';
+  const outlineColor = '#818cf8'; // 감지 사각형은 파란색으로만 표시
 
   return (
     <div className="fixed inset-0 z-[200] bg-black flex flex-col">
