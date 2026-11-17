@@ -1015,10 +1015,11 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       if (res.ok) {
         const added = await res.json();
         setDrivingLogs([added, ...drivingLogs]);
+        if (added.warning) alert(added.warning);
 
         // 차량의 주행거리 업데이트 로컬 반영
         setVehicles(vehicles.map(v => {
-          if (v.id === newDriving.vehicleId) {
+          if (v.id === newDriving.vehicleId && !added.warning) {
             return { ...v, currentMileage: Math.max(v.currentMileage, endNum) };
           }
           return v;
@@ -1451,6 +1452,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
       });
       if (res.ok) {
         const updated = await res.json();
+        if (updated.warning) alert(updated.warning);
         // [추가] 서버가 "다음 기록의 출발 계기판도 같이 맞췄다"는 결과(cascadedLog)를
         // 함께 내려주면, 화면 상태에도 그 두 번째 기록까지 같이 반영한다.
         setDrivingLogs(drivingLogs.map(log => {
@@ -1460,7 +1462,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
         }));
         // 차량의 주행거리 업데이트 로컬 반영
         setVehicles(vehicles.map(v => {
-          if (v.id === editingDriving.vehicleId) {
+          if (v.id === editingDriving.vehicleId && !updated.warning) {
             return { ...v, currentMileage: Math.max(v.currentMileage, endNum) };
           }
           return v;

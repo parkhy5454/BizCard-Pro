@@ -1419,23 +1419,6 @@ async function bootstrapUsers() {
   }
 }
 
-// 로그인 중 캐시가 비어 있거나 오래된 경우 DB에서 재적재한다.
-// 동시 로그인 요청은 하나의 조회를 공유하여 DB 커넥션 부담을 줄인다.
-let loginUserRefresh: Promise<RegisteredUser[]> | null = null;
-async function refreshUsersForLogin(): Promise<RegisteredUser[]> {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is not configured');
-  }
-  if (!loginUserRefresh) {
-    loginUserRefresh = getUsers().then((freshUsers) => {
-      // 빈 결과도 유효할 수 있으나, 기존 캐시를 빈 값으로 덮어쓰지 않는다.
-      if (freshUsers.length > 0) users = freshUsers;
-      return freshUsers;
-    }).finally(() => { loginUserRefresh = null; });
-  }
-  return loginUserRefresh;
-}
-
 // HTTP 헤더(x-user-id)를 기반으로 스코프 ID를 동기적으로 계산 (DB 호출 없음, users는 메모리 캐시 사용)
 function resolveScopeId(req: express.Request): string {
   const userId = req.headers['x-user-id'] as string;
@@ -2597,23 +2580,8 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 
-  const normalizedEmail = String(email).trim().toLowerCase();
-  let user = users.find(u => u.email?.trim().toLowerCase() === normalizedEmail);
-  let passwordMatches = !!user && verifyPassword(password, user.password);
-
-  // 배포 직후 bootstrapUsers()가 아직 끝나지 않았거나 캐시가 오래된 경우
-  // DB를 재조회한다. 비밀번호 불일치도 기존 캐시의 오래된 해시 때문일 수 있다.
-  if (!passwordMatches && process.env.DATABASE_URL) {
-    try {
-      const freshUsers = await refreshUsersForLogin();
-      user = freshUsers.find(u => u.email?.trim().toLowerCase() === normalizedEmail);
-      passwordMatches = !!user && verifyPassword(password, user.password);
-    } catch (err) {
-      console.error('[auth/login] 사용자 DB 재조회 실패:', err);
-      return res.status(503).json({ error: '로그인 정보를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.' });
-    }
-  }
-  if (!user || !passwordMatches) {
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user || !verifyPassword(password, user.password)) {
     loginRateLimiter.registerAttempt(limitKey);
     return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
   }
@@ -6642,26 +6610,34 @@ app.get('/api/vehicles/driving', (req, res) => {
 app.post('/api/vehicles/driving', async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = req.scopeId;
-  const log: DrivingLog = req.body;
+  const log: DrivingLog = { ...req.body };
   if (!log.id) log.id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!log.createdAt) log.createdAt = new Date().toISOString();
-  
+
+  // 운행기록을 먼저 영구 저장한다. 실패하면 메모리에도 추가하지 않는다.
+  // 기존 구현은 DB 실패를 무시하고 201을 반환해 새로고침 시 기록이 사라졌다.
+  const savedLog = await setScopedDoc(scopeId, 'drivingLogs', log);
+  if (!savedLog) {
+    return res.status(500).json({ error: '운행일지를 데이터베이스에 저장하지 못했습니다. 다시 시도해주세요.' });
+  }
   dbData.drivingLogs.unshift(log);
 
-  // 주행 로그 등록 시 해당 차량의 현재 주행거리 갱신
+  // 차량 주행거리 저장 실패가 운행일지 자체의 성공을 뒤집지 않도록 분리한다.
   const vIdx = dbData.vehicles.findIndex(v => v.id === log.vehicleId);
-  let updatedVehicle: Vehicle | null = null;
+  let mileageSyncFailed = false;
   if (vIdx !== -1) {
-    const v = dbData.vehicles[vIdx];
-    if (log.endMileage > v.currentMileage) {
-      dbData.vehicles[vIdx].currentMileage = log.endMileage;
-      updatedVehicle = dbData.vehicles[vIdx];
+    const vehicle = dbData.vehicles[vIdx];
+    if (log.endMileage > vehicle.currentMileage) {
+      const updatedVehicle = { ...vehicle, currentMileage: log.endMileage };
+      const savedVehicle = await setScopedDoc(scopeId, 'vehicles', updatedVehicle);
+      if (savedVehicle) dbData.vehicles[vIdx] = updatedVehicle;
+      else {
+        mileageSyncFailed = true;
+        console.error('[driving] 운행일지는 저장되었으나 차량 누적 주행거리 저장 실패:', log.id);
+      }
     }
   }
-
-  await setScopedDoc(scopeId, 'drivingLogs', log);
-  if (updatedVehicle) await setScopedDoc(scopeId, 'vehicles', updatedVehicle);
-  res.status(201).json(log);
+  res.status(201).json({ ...log, ...(mileageSyncFailed ? { warning: '운행일지는 저장되었으나 차량 누적 주행거리 갱신에 실패했습니다.' } : {}) });
 });
 
 app.delete('/api/vehicles/driving/:id', async (req, res) => {
@@ -6765,47 +6741,47 @@ app.put('/api/vehicles/driving/:id', async (req, res) => {
   const idx = dbData.drivingLogs.findIndex(log => log.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Driving log not found' });
 
-  // [추가] 이 기록의 "도착 계기판"을 실제 계기판 값으로 수정하는 경우, 원래 이 기록의
-  // 도착값을 그대로 이어받아 "출발 계기판"으로 썼던 다음 기록이 있다면 그 값도 같이
-  // 맞춰줘야 한다 — 안 그러면 두 기록 사이에 몇 km가 붕 뜨거나 겹쳐버린다.
-  const oldEndMileage = dbData.drivingLogs[idx].endMileage;
+  const previousLog = dbData.drivingLogs[idx];
+  const oldEndMileage = previousLog.endMileage;
+  const log: DrivingLog = { ...previousLog, ...req.body, id: previousLog.id };
+  const savedLog = await setScopedDoc(scopeId, 'drivingLogs', log);
+  if (!savedLog) {
+    return res.status(500).json({ error: '운행일지 수정 내용을 데이터베이스에 저장하지 못했습니다. 다시 시도해주세요.' });
+  }
+  dbData.drivingLogs[idx] = log;
 
-  dbData.drivingLogs[idx] = { ...dbData.drivingLogs[idx], ...req.body };
-  
-  const log = dbData.drivingLogs[idx];
+  let mileageSyncFailed = false;
   const vIdx = dbData.vehicles.findIndex(v => v.id === log.vehicleId);
-  let updatedVehicle: Vehicle | null = null;
   if (vIdx !== -1) {
-    const v = dbData.vehicles[vIdx];
-    if (log.endMileage > v.currentMileage) {
-      dbData.vehicles[vIdx].currentMileage = log.endMileage;
-      updatedVehicle = dbData.vehicles[vIdx];
+    const vehicle = dbData.vehicles[vIdx];
+    if (log.endMileage > vehicle.currentMileage) {
+      const updatedVehicle = { ...vehicle, currentMileage: log.endMileage };
+      if (await setScopedDoc(scopeId, 'vehicles', updatedVehicle)) dbData.vehicles[vIdx] = updatedVehicle;
+      else mileageSyncFailed = true;
     }
   }
-  await setScopedDoc(scopeId, 'drivingLogs', log);
-  if (updatedVehicle) await setScopedDoc(scopeId, 'vehicles', updatedVehicle);
 
-  // 도착 계기판이 바뀌었으면, 이어지는 다음 기록(출발 계기판 = 이 기록의 원래 도착 계기판)을
-  // 찾아서 그 출발 계기판과 주행거리도 같이 맞춰준다.
   let cascadedLog: DrivingLog | null = null;
   if (log.endMileage !== oldEndMileage) {
     const nextIdx = dbData.drivingLogs.findIndex(
-      (l) => l.id !== log.id && l.vehicleId === log.vehicleId && l.startMileage === oldEndMileage
+      l => l.id !== log.id && l.vehicleId === log.vehicleId && l.startMileage === oldEndMileage
     );
     if (nextIdx !== -1) {
       const nextLog = dbData.drivingLogs[nextIdx];
       const newDistance = nextLog.endMileage - log.endMileage;
-      // 다음 기록의 도착 계기판보다 새 출발 계기판이 더 커지면(주행거리가 음수가 되면)
-      // 자동으로 맞추지 않고 그대로 둔다 — 사용자가 직접 확인하고 고치는 게 안전하다.
       if (newDistance >= 0) {
-        dbData.drivingLogs[nextIdx] = { ...nextLog, startMileage: log.endMileage, distance: newDistance };
-        cascadedLog = dbData.drivingLogs[nextIdx];
-        await setScopedDoc(scopeId, 'drivingLogs', cascadedLog);
+        const nextUpdated = { ...nextLog, startMileage: log.endMileage, distance: newDistance };
+        if (await setScopedDoc(scopeId, 'drivingLogs', nextUpdated)) {
+          dbData.drivingLogs[nextIdx] = nextUpdated;
+          cascadedLog = nextUpdated;
+        } else {
+          console.error('[driving] 다음 운행기록 연쇄 갱신 실패:', nextLog.id);
+          mileageSyncFailed = true;
+        }
       }
     }
   }
-
-  res.json({ ...dbData.drivingLogs[idx], cascadedLog });
+  res.json({ ...log, cascadedLog, ...(mileageSyncFailed ? { warning: '운행일지는 저장되었으나 연관된 주행거리 정보 일부를 갱신하지 못했습니다.' } : {}) });
 });
 
 // === 지출비용 수정 API ===
