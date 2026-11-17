@@ -1419,6 +1419,23 @@ async function bootstrapUsers() {
   }
 }
 
+// 로그인 중 캐시가 비어 있거나 오래된 경우 DB에서 재적재한다.
+// 동시 로그인 요청은 하나의 조회를 공유하여 DB 커넥션 부담을 줄인다.
+let loginUserRefresh: Promise<RegisteredUser[]> | null = null;
+async function refreshUsersForLogin(): Promise<RegisteredUser[]> {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not configured');
+  }
+  if (!loginUserRefresh) {
+    loginUserRefresh = getUsers().then((freshUsers) => {
+      // 빈 결과도 유효할 수 있으나, 기존 캐시를 빈 값으로 덮어쓰지 않는다.
+      if (freshUsers.length > 0) users = freshUsers;
+      return freshUsers;
+    }).finally(() => { loginUserRefresh = null; });
+  }
+  return loginUserRefresh;
+}
+
 // HTTP 헤더(x-user-id)를 기반으로 스코프 ID를 동기적으로 계산 (DB 호출 없음, users는 메모리 캐시 사용)
 function resolveScopeId(req: express.Request): string {
   const userId = req.headers['x-user-id'] as string;
@@ -2580,8 +2597,23 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (!user || !verifyPassword(password, user.password)) {
+  const normalizedEmail = String(email).trim().toLowerCase();
+  let user = users.find(u => u.email?.trim().toLowerCase() === normalizedEmail);
+  let passwordMatches = !!user && verifyPassword(password, user.password);
+
+  // 배포 직후 bootstrapUsers()가 아직 끝나지 않았거나 캐시가 오래된 경우
+  // DB를 재조회한다. 비밀번호 불일치도 기존 캐시의 오래된 해시 때문일 수 있다.
+  if (!passwordMatches && process.env.DATABASE_URL) {
+    try {
+      const freshUsers = await refreshUsersForLogin();
+      user = freshUsers.find(u => u.email?.trim().toLowerCase() === normalizedEmail);
+      passwordMatches = !!user && verifyPassword(password, user.password);
+    } catch (err) {
+      console.error('[auth/login] 사용자 DB 재조회 실패:', err);
+      return res.status(503).json({ error: '로그인 정보를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.' });
+    }
+  }
+  if (!user || !passwordMatches) {
     loginRateLimiter.registerAttempt(limitKey);
     return res.status(401).json({ error: '이메일 혹은 비밀번호가 일치하지 않습니다.' });
   }
