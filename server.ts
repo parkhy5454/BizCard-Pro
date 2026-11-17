@@ -4325,6 +4325,13 @@ app.post('/api/auth/pending-members/:targetId/approve', async (req, res) => {
     return res.status(403).json({ error: '같은 회사 소속 신청자만 승인할 수 있습니다.' });
   }
 
+  // 팀 구독이 활성화되기 전에는 구성원을 승인하지 않는다 (운영사 무료 계정은 예외).
+  if (target.type === 'company' && target.approvalStatus !== 'approved') {
+    const teamAccess = await getAccessStatus(scopeIdForUser(target));
+    if (!teamAccess.subscriptionActive) {
+      return res.status(402).json({ code: 'SUBSCRIPTION_REQUIRED', error: '팀 구독을 먼저 시작해야 구성원을 승인할 수 있습니다.' });
+    }
+  }
   // 1팀 최대 인원(TEAM_MAX_SEATS) 초과 승인 차단: 승인된 구성원 수가 상한에 도달하면 더 이상 승인하지 않는다.
   if (target.approvalStatus !== 'approved') {
     const approvedNow = seatCountForScope(scopeIdForUser(target));
