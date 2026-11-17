@@ -3218,9 +3218,12 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
             })
               // [수정] 예전엔 서버가 등록해준 순서 그대로 보여줬는데, 그러면 "등록한 순서"와
               // "실제 운행한 순서"가 다를 때(예: 며칠 지나서 지난 운행을 입력) 헷갈렸다.
-              // 이제는 "도착 거리(누적 km)"가 큰 것부터 보여준다 — 누적 계기판 거리가 클수록
-              // 실제로 더 나중에 운행한 기록이라, 이게 곧 진짜 최신순이다.
-              .sort((a, b) => (b.endMileage || 0) - (a.endMileage || 0));
+              // 운행일 기준 최신순으로 표시하고 같은 날짜는 등록 시각 기준으로 정렬한다.
+              .sort((a, b) => {
+                const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+                if (dateDiff !== 0) return dateDiff;
+                return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+              });
 
             if (filteredLogs.length === 0) {
               return (
