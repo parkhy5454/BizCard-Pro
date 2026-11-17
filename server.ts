@@ -4266,6 +4266,13 @@ app.post('/api/auth/pending-members/:targetId/approve', async (req, res) => {
     return res.status(403).json({ error: '같은 회사 소속 신청자만 승인할 수 있습니다.' });
   }
 
+  // 1팀 최대 인원(TEAM_MAX_SEATS) 초과 승인 차단: 승인된 구성원 수가 상한에 도달하면 더 이상 승인하지 않는다.
+  if (target.approvalStatus !== 'approved') {
+    const approvedNow = seatCountForScope(scopeIdForUser(target));
+    if (approvedNow >= TEAM_MAX_SEATS) {
+      return res.status(400).json({ error: `1팀 최대 ${TEAM_MAX_SEATS}명까지 승인할 수 있습니다. 인원을 정리한 뒤 다시 시도해주세요.` });
+    }
+  }
   target.approvalStatus = 'approved';
   await addUser(target);
   await logAudit({
@@ -4972,7 +4979,8 @@ async function requireAiQuota(kind: 'card' | 'receipt', req: any, res: any, next
   const access = await getAccessStatus(scopeId);
   const owner = requester.type === 'individual' ? requester : users.find(u => scopeIdForUser(u) === scopeId && u.role === 'admin');
   const paid = access.subscriptionActive || access.trialActive;
-  const limit = paid ? (requester.type === 'company' ? (kind === 'card' ? 300 : 300) : 100) : kind === 'card' ? 10 : 0;
+  // 요금제별 월 한도: 유료(개인 Pro · 팀 1인) 명함·영수증 각 100회, 무료 명함 10회·영수증 0회
+  const limit = paid ? 100 : kind === 'card' ? 10 : 0;
   const month = new Date().toISOString().slice(0, 7);
   const id = `${requester.id}:${month}`;
   const lockKey = `${id}:${kind}`;
