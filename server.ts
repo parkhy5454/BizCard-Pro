@@ -3755,6 +3755,7 @@ app.get('/api/billing/status', (req, res) => {
     estimatedAnnualAmount: getAnnualBillingAmount(seats),
     billingPeriod: owner?.billingPeriod || 'monthly',
     minimumTeamSeats: TEAM_MIN_SEATS,
+    freeAccess: (process.env.FREE_ACCESS_SCOPE_IDS || '').split(',').map(v => v.trim()).filter(Boolean).includes(scopeId),
     availablePlans: { free: 0, personal: 9900, teamPerSeat: 9900, teamMinSeats: 2, teamMaxSeats: 900 },
     // 결제 관리(카드 등록/구독/해지)를 이 사람이 할 수 있는지
     canManageBilling: Boolean(billingOwnerForRequester(requester))
@@ -6120,7 +6121,10 @@ async function getAccessStatus(scopeId: string) {
   // 정기결제(월 자동결제): 결제 주체(개인 본인 또는 회사 관리자) 기준. 해지해도 이미 결제한 기간이 남아 있으면 이용 가능.
   const billingOwner = users.find(u => scopeIdForUser(u) === scopeId && (u.type === 'individual' || u.role === 'admin') && (u.subscriptionStatus === 'active' || (u.subscriptionStatus === 'canceled' && !!u.nextBillingAt && new Date(u.nextBillingAt) > now)));
   const billingActive = !!billingOwner;
-  const subscriptionActive = legacyActive || billingActive;
+  // 무료 이용 대상(우리 회사 등 운영사 계정): 환경 변수 FREE_ACCESS_SCOPE_IDS(쉼표 구분)에 등록된 회사만 구독 없이 이용.
+  // 이메일·IP 등으로 판단하지 않고, 회사 ID로만 명시적으로 지정한다.
+  const freeAccess = (process.env.FREE_ACCESS_SCOPE_IDS || '').split(',').map(v => v.trim()).filter(Boolean).includes(scopeId);
+  const subscriptionActive = legacyActive || billingActive || freeAccess;
   let trial = await getScopedDoc<TrialRecord>(scopeId, 'subscription', 'trial');
   if (!trial) {
     trial = { id: 'trial', startAt: now.toISOString() };
@@ -6131,6 +6135,7 @@ async function getAccessStatus(scopeId: string) {
   return {
     active: true, // 체험 종료 후에도 Free 요금제의 기본 기능을 이용할 수 있음
     subscriptionActive,
+    freeAccess,
     subscriptionEndsAt: billingOwner?.nextBillingAt ?? (legacyActive && sub ? sub.endAt : null),
     trialActive,
     trialEndsAt: trialEndsAt.toISOString(),

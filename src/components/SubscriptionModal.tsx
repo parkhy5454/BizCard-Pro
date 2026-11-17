@@ -199,6 +199,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                     {status.plan === 'pro' ? (status.seats >= 2 ? 'Team Business' : 'Personal Pro') : 'Free'}
                   </span>
                 </div>
+                {(status as any).freeAccess && <div className="text-xs text-emerald-600 font-semibold">무료 이용 (운영사 계정) · 결제 없음</div>}
                 <div className="flex items-center justify-between text-base md:text-xs">
                   <span className="text-slate-500 flex items-center gap-1"><Users className="w-3 h-3" />좌석 수</span>
                   <span className="text-slate-700">{status.seats}석</span>
