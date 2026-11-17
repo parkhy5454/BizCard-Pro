@@ -241,7 +241,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 {status.hasCardRegistered && status.subscriptionStatus !== 'active' && (
                   <div className="space-y-2">
                     <p className="text-lg md:text-sm md:text-[11px] leading-relaxed text-slate-500">
-                      Free 0원 · 개인 Pro 월 3,300원/연 33,000원 · 팀 Business 2인 이상, 1인당 월 6,900원/연 69,000원
+                      Free 0원 · 개인 Pro 월 9,900원/연 99,000원(10개월분) · 팀 Business 2~900명, 1인당 월 9,900원/연 99,000원 (부가세 별도, 결제액은 부가세 포함 금액)
                     </p>
                     <div className="flex gap-2 text-xs">
                       <button type="button" onClick={() => setPeriod('monthly')} className={`flex-1 rounded-lg border p-2 ${period === 'monthly' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200'}`}>월간</button>

@@ -335,7 +335,7 @@ import {
   getReferralsForUser,
   migrateScopedItemsToAppUsers
 } from './src/db/neonStore.js';
-import { INDIVIDUAL_PLANS, TEAM_MIN_SEATS, getTeamTotal, getMonthlyBillingAmount, type Period } from './src/subscriptionPricing.js';
+import { TEAM_MIN_SEATS, TEAM_MAX_SEATS, getMonthlyBillingAmount, getAnnualBillingAmount } from './src/subscriptionPricing.js';
 
 
 
@@ -3541,7 +3541,6 @@ const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
 const SUBSCRIPTION_MAX_PAID_MONTHS = Number.POSITIVE_INFINITY; // 월 정기결제는 해지할 때까지 유지
 // [추가] 최초 구독 시 무료 체험 기간(일). 계정당 한 번만 적용된다(owner.trialUsed).
 const SUBSCRIPTION_TRIAL_DAYS = 14;
-const annualAmount = (seats: number) => seats <= 1 ? 33000 : 69000 * seats;
 const nextAnnualDate = (date: Date) => { const next = new Date(date); next.setFullYear(next.getFullYear() + 1); return next; };
 
 
@@ -3625,10 +3624,13 @@ app.post('/api/billing/subscribe', async (req, res) => {
 
   const scopeId = scopeIdForUser(owner);
   const seats = seatCountForScope(scopeId);
-  const amount = period === 'annual' ? annualAmount(seats) : getMonthlyBillingAmount(seats);
   if (owner.type === 'company' && seats < TEAM_MIN_SEATS) {
     return res.status(400).json({ error: '팀 구독은 승인된 구성원 2명 이상부터 신청할 수 있습니다.' });
   }
+  if (owner.type === 'company' && seats > TEAM_MAX_SEATS) {
+    return res.status(400).json({ error: `1팀 최대 ${TEAM_MAX_SEATS}명까지 구독할 수 있습니다.` });
+  }
+  const amount = period === 'annual' ? getAnnualBillingAmount(seats) : getMonthlyBillingAmount(seats);
 
   // [추가] 계정당 최초 1회만 무료 체험(월 구독 전용): 체험 기간에는 즉시 결제하지 않고, 체험이 끝나는 날
   // 정기결제 작업이 자동으로 첫 결제를 한다. 기간 약정은 체험 없이 바로 결제한다.
@@ -3746,10 +3748,10 @@ app.get('/api/billing/status', (req, res) => {
     hasCardRegistered: Boolean(owner?.tossBillingKey),
     seats,
     estimatedMonthlyAmount: getMonthlyBillingAmount(seats),
-    estimatedAnnualAmount: annualAmount(seats),
+    estimatedAnnualAmount: getAnnualBillingAmount(seats),
     billingPeriod: owner?.billingPeriod || 'monthly',
     minimumTeamSeats: TEAM_MIN_SEATS,
-    availablePlans: { free: 0, personal: 3300, teamPerSeat: 6900, teamMinSeats: 2 },
+    availablePlans: { free: 0, personal: 9900, teamPerSeat: 9900, teamMinSeats: 2, teamMaxSeats: 900 },
     // 결제 관리(카드 등록/구독/해지)를 이 사람이 할 수 있는지
     canManageBilling: Boolean(billingOwnerForRequester(requester))
   });
@@ -3785,7 +3787,7 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
       }
       const seats = seatCountForScope(scopeId);
       const period = owner.billingPeriod === 'annual' ? 'annual' : 'monthly';
-      const amount = period === 'annual' ? annualAmount(seats) : getMonthlyBillingAmount(seats);
+      const amount = period === 'annual' ? getAnnualBillingAmount(seats) : getMonthlyBillingAmount(seats);
       if (owner.type === 'company' && seats < TEAM_MIN_SEATS) {
         console.warn('팀 정기결제 보류: 승인된 구성원 2명 미만', owner.id);
         continue;
@@ -4997,7 +4999,7 @@ app.get('/api/billing/ai-usage', async (req, res) => {
   const month = new Date().toISOString().slice(0, 7);
   const usage = await getScopedDoc<AiUsage>(scopeId, 'aiUsage', `${requester.id}:${month}`);
   res.json({ month, card: usage?.card || 0, receipt: usage?.receipt || 0,
-    limits: (access.subscriptionActive || access.trialActive) ? { card: requester.type === 'company' ? 300 : 100, receipt: requester.type === 'company' ? 300 : 100 } : { card: 10, receipt: 0 } });
+    limits: (access.subscriptionActive || access.trialActive) ? { card: 100, receipt: 100 } : { card: 10, receipt: 0 } });
 });
 
 // Gemini Vision 명함 OCR API
@@ -6091,23 +6093,11 @@ app.put('/api/my-profile', async (req, res) => {
 // ------------------------------------------------------------------
 const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
 
-type SubscriptionOrder = {
-  id: string;
-  orderId: string;
-  kind: 'individual' | 'team';
-  period: Period;
-  seats: number;
-  amount: number;
-  status: 'pending' | 'paid' | 'failed';
-  userId: string;
-  createdAt: string;
-  paymentKey?: string;
-};
 
 type SubscriptionRecord = {
   id: string;
   kind: 'individual' | 'team';
-  period: Period;
+  period: number;
   seats: number;
   amount: number;
   startAt: string;
@@ -6184,123 +6174,7 @@ function makeCustomerKey(userId: string): string {
 }
 
 // 1) 주문 생성: 금액을 서버에서 계산하고 대기 주문으로 저장한다.
-app.post('/api/subscription/order', async (req, res) => {
-  const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-
-  const { kind, period, seats } = req.body || {};
-  if (kind !== 'individual' && kind !== 'team') return res.status(400).json({ error: '상품 종류가 올바르지 않습니다.' });
-  const p = Number(period);
-  if (p !== 3 && p !== 6 && p !== 12) return res.status(400).json({ error: '이용 기간이 올바르지 않습니다.' });
-
-  let amount: number;
-  let orderName: string;
-  let seatCount = 1;
-  if (kind === 'individual') {
-    amount = INDIVIDUAL_PLANS[p as Period].price;
-    orderName = `BizCard Pro ${INDIVIDUAL_PLANS[p as Period].name} ${p}개월`;
-  } else {
-    if (requester.role !== 'admin') return res.status(403).json({ error: '팀 상품은 관리자만 결제할 수 있습니다.' });
-    seatCount = Number(seats);
-    if (!Number.isInteger(seatCount) || seatCount < TEAM_MIN_SEATS) {
-      return res.status(400).json({ error: `팀 상품은 최소 ${TEAM_MIN_SEATS}명부터 신청할 수 있습니다.` });
-    }
-    try {
-      amount = getTeamTotal(seatCount, p as Period);
-    } catch (err: any) {
-      return res.status(400).json({ error: err?.message || '팀 인원 수가 올바르지 않습니다.' });
-    }
-    orderName = `BizCard Pro 팀 ${seatCount}명 ${p}개월`;
-  }
-
-  const orderId = `sub-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
-  const order: SubscriptionOrder = {
-    id: orderId,
-    orderId,
-    kind,
-    period: p as Period,
-    seats: seatCount,
-    amount,
-    status: 'pending',
-    userId: requester.id,
-    createdAt: new Date().toISOString(),
-  };
-  const saved = await setScopedDoc(req.scopeId, 'subscriptionOrders', order);
-  if (!saved) return res.status(500).json({ error: '주문을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.' });
-
-  res.json({
-    orderId,
-    amount,
-    orderName,
-    customerKey: makeCustomerKey(requester.id),
-    customerName: requester.name,
-  });
-});
-
-// 2) 결제 승인: 토스에 승인 요청을 보내고, 성공하면 이용 기간을 저장한다.
-app.post('/api/subscription/confirm', async (req, res) => {
-  const requesterId = req.headers['x-user-id'] as string;
-  const requester = users.find(u => u.id === requesterId);
-  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-
-  const { paymentKey, orderId, amount } = req.body || {};
-  if (!paymentKey || !orderId || !Number.isInteger(Number(amount))) {
-    return res.status(400).json({ error: '결제 정보가 올바르지 않습니다.' });
-  }
-
-  const secret = process.env.TOSS_SECRET_KEY;
-  if (!secret) return res.status(500).json({ error: '결제 설정(TOSS_SECRET_KEY)이 서버에 없습니다.' });
-
-  const order = await getScopedDoc<SubscriptionOrder>(req.scopeId, 'subscriptionOrders', String(orderId));
-  if (!order || order.userId !== requester.id) return res.status(404).json({ error: '주문을 찾을 수 없습니다.' });
-
-  const currentRecord = await getScopedDoc<SubscriptionRecord>(req.scopeId, 'subscription', 'current');
-  if (order.status === 'paid') return res.json(currentRecord); // 같은 결제를 두 번 승인 요청해도 한 번만 처리
-  if (order.status !== 'pending') return res.status(400).json({ error: '이미 처리된 주문입니다.' });
-  if (Number(amount) !== order.amount) {
-    return res.status(400).json({ error: '결제 금액이 주문 금액과 다릅니다.' });
-  }
-
-  let tossBody: any = {};
-  let tossOk = false;
-  try {
-    const tossRes = await fetch(`${TOSS_API_BASE}/payments/confirm`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Basic ' + Buffer.from(`${secret}:`).toString('base64'),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ paymentKey, orderId: order.orderId, amount: order.amount }),
-    });
-    tossOk = tossRes.ok;
-    tossBody = await tossRes.json().catch(() => ({}));
-  } catch (err) {
-    console.error('토스 결제 승인 요청 실패:', err);
-  }
-
-  if (!tossOk) {
-    await setScopedDoc(req.scopeId, 'subscriptionOrders', { ...order, status: 'failed' });
-    return res.status(400).json({ error: tossBody?.message || '결제 승인에 실패했습니다.' });
-  }
-
-  // 이용 중인 기간이 남아 있으면 만료일 뒤에 이어서 붙인다.
-  const now = new Date();
-  const base = currentRecord && new Date(currentRecord.endAt) > now ? new Date(currentRecord.endAt) : now;
-  const record: SubscriptionRecord = {
-    id: 'current',
-    kind: order.kind,
-    period: order.period,
-    seats: order.seats,
-    amount: order.amount,
-    startAt: base.toISOString(),
-    endAt: addMonthsTo(base, order.period).toISOString(),
-    orderId: order.orderId,
-  };
-  await setScopedDoc(req.scopeId, 'subscriptionOrders', { ...order, status: 'paid', paymentKey });
-  await setScopedDoc(req.scopeId, 'subscription', record);
-  res.json(record);
-});
+// 옛 선결제(3·6·12개월) 주문 API는 판매 중단되어 제거했다. 구독은 /api/billing/subscribe(월/연간)만 사용한다.
 
 // 3) 현재 구독 상태 조회
 app.get('/api/subscription/status', async (req, res) => {
