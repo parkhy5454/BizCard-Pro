@@ -226,7 +226,7 @@ export async function getScopedDoc<T>(scopeId: string, collectionName: string, d
 }
 
 export async function setScopedDoc<T extends { id: string }>(scopeId: string, collectionName: string, item: T): Promise<boolean> {
-  if (!isNeonConfigured) return true;
+  if (!isNeonConfigured) return false;
   try {
     // scoped_items에 저장 (기존 호환성)
     await pool.query(
@@ -276,7 +276,7 @@ export async function setScopedDoc<T extends { id: string }>(scopeId: string, co
 }
 
 export async function setScopedDocs<T extends { id: string }>(scopeId: string, collectionName: string, items: T[]): Promise<boolean> {
-  if (!isNeonConfigured) return true;
+  if (!isNeonConfigured) return false;
   if (!items.length) return true;
   try {
     // scoped_items에 모두 저장
@@ -315,7 +315,7 @@ export async function setScopedDocs<T extends { id: string }>(scopeId: string, c
 }
 
 export async function setScopedProfile(scopeId: string, profile: MyProfile): Promise<boolean> {
-  if (!isNeonConfigured) return true;
+  if (!isNeonConfigured) return false;
   return setScopedDoc(scopeId, 'myProfile', { ...profile, id: 'profile' });
 }
 
@@ -330,8 +330,8 @@ export async function updateScopedDoc<T>(scopeId: string, collectionName: string
   }
 }
 
-export async function deleteScopedDoc(scopeId: string, collectionName: string, docId: string): Promise<void> {
-  if (!isNeonConfigured) return;
+export async function deleteScopedDoc(scopeId: string, collectionName: string, docId: string): Promise<boolean> {
+  if (!isNeonConfigured) return false;
   try {
     // scoped_items에서 삭제
     await pool.query(
@@ -360,8 +360,10 @@ export async function deleteScopedDoc(scopeId: string, collectionName: string, d
     } catch (syncError) {
       console.warn(`app_users.data 동기화 실패 (${scopeId}, ${collectionName}):`, syncError);
     }
+    return true;
   } catch (error) {
     console.error(`deleteScopedDoc(${scopeId}, ${collectionName}, ${docId}) 실패:`, error);
+    return false;
   }
 }
 
@@ -483,7 +485,7 @@ export async function getUsers(): Promise<RegisteredUser[]> {
 }
 
 export async function addUser(user: RegisteredUser): Promise<boolean> {
-  if (!isNeonConfigured) return true;
+  if (!isNeonConfigured) return false;
   try {
     await pool.query(
       'INSERT INTO app_users (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2',
@@ -497,7 +499,7 @@ export async function addUser(user: RegisteredUser): Promise<boolean> {
 }
 
 export async function updateUserData(userId: string, user: RegisteredUser): Promise<boolean> {
-  if (!isNeonConfigured) return true;
+  if (!isNeonConfigured) return false;
   try {
     await pool.query(
       'UPDATE app_users SET data = $1 WHERE id = $2',

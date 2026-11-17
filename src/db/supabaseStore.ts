@@ -427,15 +427,19 @@ export async function updateScopedDoc<T>(scopeId: string, collectionName: string
   if (error) console.error(`updateScopedDoc(${scopeId}, ${collectionName}, ${docId}) error:`, error);
 }
 
-export async function deleteScopedDoc(scopeId: string, collectionName: string, docId: string): Promise<void> {
-  if (!isSupabaseConfigured) return;
+export async function deleteScopedDoc(scopeId: string, collectionName: string, docId: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
   const { error } = await supabase
     .from('scoped_items')
     .delete()
     .eq('scope_id', scopeId)
     .eq('collection', collectionName)
     .eq('doc_id', docId);
-  if (error) console.error(`deleteScopedDoc(${scopeId}, ${collectionName}, ${docId}) error:`, error);
+  if (error) {
+    console.error(`deleteScopedDoc(${scopeId}, ${collectionName}, ${docId}) error:`, error);
+    return false;
+  }
+  return true;
 }
 
 // 컬렉션 전체를 통째로 교체 (필터/일괄재계산 후 한 번에 반영할 때 사용: 예) 업무일지-차량비용 동기화)
