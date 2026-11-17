@@ -53,7 +53,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
       .catch(() => setAccess(null));
   }, []);
 
-  const currentPlanKey = status?.plan !== 'pro' ? 'free' : (status.seats >= 2 ? 'team' : 'personal');
+  const currentPlanKey = (status as any)?.freeAccess ? 'none' : status?.plan !== 'pro' ? 'free' : (status.seats >= 2 ? 'team' : 'personal');
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -196,7 +196,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 <div className="flex items-center justify-between text-base md:text-xs">
                   <span className="text-slate-500">현재 플랜</span>
                   <span className={`font-bold ${status.plan === 'pro' ? 'text-indigo-600' : 'text-slate-600'}`}>
-                    {status.plan === 'pro' ? (status.seats >= 2 ? 'Team Business' : 'Personal Pro') : 'Free'}
+                    {(status as any).freeAccess ? '무료 이용 (운영사)' : (status.plan === 'pro' ? (status.seats >= 2 ? 'Team Business' : 'Personal Pro') : 'Free')}
                   </span>
                 </div>
                 {(status as any).freeAccess && <div className="text-xs text-emerald-600 font-semibold">무료 이용 (운영사 계정) · 결제 없음</div>}
@@ -206,7 +206,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 </div>
                 <div className="flex items-center justify-between text-base md:text-xs">
                   <span className="text-slate-500">월 예상 금액</span>
-                  <span className="text-slate-700 font-semibold">{status.estimatedMonthlyAmount.toLocaleString()}원</span>
+                  <span className="text-slate-700 font-semibold">{(status as any).freeAccess ? 0 : status.estimatedMonthlyAmount.toLocaleString()}원</span>
                 </div>
                 {status.subscriptionStatus === 'active' && <div className="text-xs text-slate-600">결제 주기: {status.billingPeriod === 'annual' ? '연간' : '월간'}</div>}
                 {status.nextBillingAt && (
@@ -229,7 +229,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 )}
               </div>
 
-              {aiUsage && <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">이번 달 AI 사용량 · 명함 {aiUsage.card}/{aiUsage.limits.card}회 · 영수증 {aiUsage.receipt}/{aiUsage.limits.receipt}회</div>}
+              {aiUsage && <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">이번 달 AI 사용량 (명함 {aiUsage.card}/{aiUsage.limits.card}회 · 영수증 {aiUsage.receipt}/{aiUsage.limits.receipt}회)</div>}
               {error && <p className="text-lg md:text-sm md:text-[11px] text-rose-400">{error}</p>}
               {message && (
                 <p className="text-lg md:text-sm md:text-[11px] text-emerald-400 flex items-center gap-1">
@@ -237,18 +237,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 </p>
               )}
 
-              <div className="space-y-2">
-                {!status.hasCardRegistered && (
-                  <button
-                    onClick={handleRegisterCard}
-                    disabled={processing}
-                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-base md:text-xs font-bold transition-colors"
-                  >
-                    카드 등록하기
-                  </button>
-                )}
-                {status.hasCardRegistered && status.subscriptionStatus !== 'active' && (
-                  <div className="space-y-2">
+              {/* 요금제 카드: 카드 등록 여부와 상관없이 항상 표시 */}
                     <div className="space-y-2">
                       {PLAN_CARDS.map((plan) => {
                         const current = currentPlanKey === plan.key;
@@ -264,6 +253,19 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                         );
                       })}
                     </div>
+
+              <div className="space-y-2">
+                {!(status as any).freeAccess && !status.hasCardRegistered && (
+                  <button
+                    onClick={handleRegisterCard}
+                    disabled={processing}
+                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-base md:text-xs font-bold transition-colors"
+                  >
+                    카드 등록하기
+                  </button>
+                )}
+                {status.hasCardRegistered && status.subscriptionStatus !== 'active' && !(status as any).freeAccess && (
+                  <div className="space-y-2">
                     <div className="flex gap-2 text-xs">
                       <button type="button" onClick={() => setPeriod('monthly')} className={`flex-1 rounded-lg border p-2 ${period === 'monthly' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200'}`}>월간</button>
                       <button type="button" onClick={() => setPeriod('annual')} className={`flex-1 rounded-lg border p-2 ${period === 'annual' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200'}`}>연간 (2개월 할인)</button>
