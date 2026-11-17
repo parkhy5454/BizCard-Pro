@@ -467,8 +467,8 @@ app.use(helmet({
       // base64(data:)·캔버스 캡처(blob:) 이미지
       imgSrc: ["'self'", 'data:', 'blob:', 'https://api.qrserver.com', 'https://*.supabase.co', 'https://*.kakaocdn.net', 'https://*.daumcdn.net'],
       // 카카오 지도/공유 SDK와 Supabase, 토스페이먼츠가 내부적으로 호출하는 API
-      connectSrc: ["'self'", 'https://dapi.kakao.com', 'https://*.kakaocdn.net', 'https://*.daumcdn.net', 'https://*.supabase.co', 'https://api.tosspayments.com'],
-      frameSrc: ["'self'", 'https://js.tosspayments.com'],
+      connectSrc: ["'self'", 'https://dapi.kakao.com', 'https://*.kakaocdn.net', 'https://*.daumcdn.net', 'https://*.supabase.co', 'https://api.tosspayments.com', 'https://apigw-sandbox.tosspayments.com', 'https://apigw.tosspayments.com', 'https://log.tosspayments.com'],
+      frameSrc: ["'self'", 'https://js.tosspayments.com', 'https://*.tosspayments.com'],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"]
