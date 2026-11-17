@@ -3620,6 +3620,10 @@ app.post('/api/billing/subscribe', async (req, res) => {
   if (owner.subscriptionStatus === 'active' && owner.nextBillingAt && new Date(owner.nextBillingAt) > new Date()) {
     return res.status(409).json({ error: '이미 이용 중인 구독이 있습니다. 중복 결제할 수 없습니다.' });
   }
+  // 팀 연간 결제는 환불 규정 확정 후 2차에 제공. 1차는 팀 월 정기결제만 판매한다.
+  if (owner.type === 'company' && period === 'annual') {
+    return res.status(400).json({ error: '팀 연간 결제는 2차에 제공됩니다. 월간 결제를 선택해주세요.' });
+  }
   const termYears = period === 'annual' ? 1 : 0;
 
   const scopeId = scopeIdForUser(owner);
@@ -3786,13 +3790,10 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
         await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_term_completed', detail: { paidMonths: owner.paidMonths } });
         continue;
       }
-      const seats = seatCountForScope(scopeId);
+      // 팀은 최소 2석으로 청구한다 (1명으로 줄어도 무료로 이용하지 못하게 함). 결제 건너뛰기 없음.
+      const seats = owner.type === 'company' ? Math.max(seatCountForScope(scopeId), TEAM_MIN_SEATS) : seatCountForScope(scopeId);
       const period = owner.billingPeriod === 'annual' ? 'annual' : 'monthly';
       const amount = period === 'annual' ? getAnnualBillingAmount(seats) : getMonthlyBillingAmount(seats);
-      if (owner.type === 'company' && seats < TEAM_MIN_SEATS) {
-        console.warn('팀 정기결제 보류: 승인된 구성원 2명 미만', owner.id);
-        continue;
-      }
       try {
         await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
           customerKey: owner.tossCustomerKey,
