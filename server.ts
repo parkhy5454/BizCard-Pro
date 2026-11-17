@@ -3830,9 +3830,21 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
   return { charged, failed, downgraded };
 }
 
+// 정기결제 실행은 동시에 한 번만 돌아야 한다. 내부 타이머와 외부 크론 호출이 겹치면
+// 같은 사용자에게 두 번 청구될 수 있으므로, 이미 실행 중이면 그 실행의 결과를 함께 기다린다.
+let scheduledBillingRun: Promise<{ charged: number; failed: number; downgraded: number }> | null = null;
+function runScheduledBillingOnce() {
+  if (!scheduledBillingRun) {
+    scheduledBillingRun = runScheduledBilling().finally(() => {
+      scheduledBillingRun = null;
+    });
+  }
+  return scheduledBillingRun;
+}
+
 // 서버가 켜져 있는 동안, 1시간마다 결제일이 된 구독을 확인한다 (최소한의 자체 스케줄러).
 setInterval(() => {
-  runScheduledBilling().catch((err) => console.error('runScheduledBilling 실패:', err));
+  runScheduledBillingOnce().catch((err) => console.error('runScheduledBilling 실패:', err));
 }, 60 * 60 * 1000);
 
 // [추가] 외부 크론 서비스가 매일 호출할 수 있는 엔드포인트. 서버가 잠들었다 깨어나는 배포
@@ -3848,7 +3860,7 @@ app.post('/api/billing/run-scheduled', async (req, res) => {
     return res.status(401).json({ error: 'unauthorized' });
   }
   try {
-    const result = await runScheduledBilling();
+    const result = await runScheduledBillingOnce();
     res.json({ success: true, ...result });
   } catch (err: unknown) {
     res.status(500).json({ error: getErrorMessage(err) || '스케줄 처리 중 오류가 발생했습니다.' });
