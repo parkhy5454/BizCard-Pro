@@ -814,6 +814,8 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   // [추가] 사용자가 이미 직접 테두리를 드래그해서 조정했으면, 나중에 AI 감지 결과가 도착해도
   // 그 조정을 덮어쓰지 않는다.
   const userAdjustedRef = useRef(false);
+  // 사용자가 확인을 누른 이후에는 비동기 AI 감지가 선택 영역을 바꾸지 못한다.
+  const confirmingRef = useRef(false);
   const displaySizeRef = useRef(displaySize);
   useEffect(() => { displaySizeRef.current = displaySize; }, [displaySize]);
 
@@ -890,7 +892,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           if (cvOnRotated && quadsRoughlyAgree(mlOrientation.canvasPts, cvOnRotated.points)) {
             // 서로 다른 두 방법이 (기울기 보정 후) 같은 위치를 가리켰으니 안심하고 확정,
             // 뒤 단계(Gemini AI)는 건너뛴다.
-            detectedCornersByImg.set(img, extendQuadForOffFrameCard(mlOrientation.originalPts, img.naturalWidth, img.naturalHeight));
+            detectedCornersByImg.set(img, mlOrientation.originalPts);
             setIsDetecting(false);
             setAutoDetected(true);
             setMlConfirmed(true);
@@ -900,7 +902,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           // 회전 보정된 프레임에서도 교차검증이 안 됐다면, 마지막으로 원본(기울어진) 프레임의
           // OpenCV 결과와도 비교해본다 (기존 로직과 동일한 안전망).
           if (cvOnOriginal && quadsRoughlyAgree(mlPts!, cvOnOriginal.points)) {
-            detectedCornersByImg.set(img, extendQuadForOffFrameCard(mlPts!, img.naturalWidth, img.naturalHeight));
+            detectedCornersByImg.set(img, mlPts!);
             setIsDetecting(false);
             setAutoDetected(true);
             setMlConfirmed(true);
@@ -915,7 +917,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         setIsDetecting(false);
         setAutoDetected(!!initialPts);
         if (initialPts) {
-          detectedCornersByImg.set(img, extendQuadForOffFrameCard(initialPts, img.naturalWidth, img.naturalHeight));
+          detectedCornersByImg.set(img, initialPts);
         }
 
         // [추가] OpenCV 결과를 먼저 화면에 보여준 뒤(속도), OpenCV 스스로 확신이 높고(confident)
@@ -932,7 +934,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         setAiRefining(true);
         const aiCorners = await fetchAiCornersNormalized(fixedUrl);
         if (!cancelled) setAiRefining(false);
-        if (cancelled || !aiCorners || userAdjustedRef.current) return;
+        if (cancelled || !aiCorners || userAdjustedRef.current || confirmingRef.current) return;
 
         const aiNaturalPts: Point[] = [
           { x: aiCorners.topLeft.x * img.naturalWidth, y: aiCorners.topLeft.y * img.naturalHeight },
@@ -940,7 +942,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           { x: aiCorners.bottomRight.x * img.naturalWidth, y: aiCorners.bottomRight.y * img.naturalHeight },
           { x: aiCorners.bottomLeft.x * img.naturalWidth, y: aiCorners.bottomLeft.y * img.naturalHeight }
         ];
-        const extendedAi = extendQuadForOffFrameCard(aiNaturalPts, img.naturalWidth, img.naturalHeight);
+        const extendedAi = aiNaturalPts;
         detectedCornersByImg.set(img, extendedAi);
         setAutoDetected(true);
         setAiConfirmed(true);
@@ -1135,6 +1137,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
   };
 
   const handleConfirm = async () => {
+    confirmingRef.current = true;
     if (!imgEl || !corners) {
       onConfirm(await resizeDataUrl(normalizedUrl || imageDataUrl));
       return;
@@ -1142,8 +1145,9 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
     setIsProcessing(true);
     setWarpError(null);
     try {
-      const scaleX = imgNaturalRef.current.width / displaySize.width;
-      const scaleY = imgNaturalRef.current.height / displaySize.height;
+      if (displaySize.width <= 0 || displaySize.height <= 0) throw new Error("이미지 표시 크기가 준비되지 않았습니다.");
+      const scaleX = imgEl.naturalWidth / displaySize.width;
+      const scaleY = imgEl.naturalHeight / displaySize.height;
       const naturalCorners = corners.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
       const cropped = await warpToCorners(imgEl, naturalCorners, expectedAspectRatio);
       onConfirm(cropped);
@@ -1153,6 +1157,7 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
       const message = getErrorMessage(err) || String(err);
       console.error('크롭(테두리 보정) 처리 실패:', err);
       setWarpError(message);
+      confirmingRef.current = false;
       setIsProcessing(false);
       return; // 원본으로 자동 진행하지 않고, 사용자가 에러를 보고 재시도하거나 "원본 그대로 사용"을 직접 선택하게 한다
     } finally {
