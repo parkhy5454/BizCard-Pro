@@ -4999,9 +4999,10 @@ async function requireAiQuota(kind: 'card' | 'receipt', req: any, res: any, next
   const scopeId = scopeIdForUser(requester);
   const access = await getAccessStatus(scopeId);
   const owner = requester.type === 'individual' ? requester : users.find(u => scopeIdForUser(u) === scopeId && u.role === 'admin');
-  const paid = access.subscriptionActive; // 체험 기간은 무료 한도 적용 (구독 결제 후에만 100회)
-  // 요금제별 월 한도: 유료(개인 Pro · 팀 1인) 명함·영수증 각 100회, 무료 명함 10회·영수증 0회
-  const limit = paid ? 100 : kind === 'card' ? 10 : 0;
+  const paid = access.subscriptionActive; // 구독 결제 후에만 100회
+  const inTrial = !paid && access.trialActive; // 체험 기간: 명함 10회 · 영수증 2회 (비용 통제)
+  // 요금제별 월 한도: 유료(개인 Pro · 팀 1인) 명함·영수증 각 100회, 체험 명함 10회·영수증 2회, 무료 명함 10회·영수증 0회
+  const limit = paid ? 100 : kind === 'card' ? 10 : inTrial ? 2 : 0;
   const month = new Date().toISOString().slice(0, 7);
   const id = `${requester.id}:${month}`;
   const lockKey = `${id}:${kind}`;
@@ -5045,7 +5046,7 @@ app.get('/api/billing/ai-usage', async (req, res) => {
   const month = new Date().toISOString().slice(0, 7);
   const usage = await getScopedDoc<AiUsage>(scopeId, 'aiUsage', `${requester.id}:${month}`);
   res.json({ month, card: usage?.card || 0, receipt: usage?.receipt || 0,
-    limits: access.subscriptionActive ? { card: 100, receipt: 100 } : { card: 10, receipt: 0 } });
+    limits: access.subscriptionActive ? { card: 100, receipt: 100 } : { card: 10, receipt: !access.subscriptionActive && access.trialActive ? 2 : 0 } });
 });
 
 // Gemini Vision 명함 OCR API
