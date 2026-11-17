@@ -3541,6 +3541,9 @@ const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
 const SUBSCRIPTION_MAX_PAID_MONTHS = Number.POSITIVE_INFINITY; // 월 정기결제는 해지할 때까지 유지
 // [추가] 최초 구독 시 무료 체험 기간(일). 계정당 한 번만 적용된다(owner.trialUsed).
 const SUBSCRIPTION_TRIAL_DAYS = 14;
+const annualAmount = (seats: number) => seats <= 1 ? 33000 : 69000 * seats;
+const nextAnnualDate = (date: Date) => { const next = new Date(date); next.setFullYear(next.getFullYear() + 1); return next; };
+
 
 function seatCountForScope(scopeId: string): number {
   // 승인된(=실제로 서비스를 쓸 수 있는) 구성원 수만 과금 대상으로 센다. 개인 계정은 항상 1석.
@@ -3613,24 +3616,30 @@ app.post('/api/billing/subscribe', async (req, res) => {
     return res.status(400).json({ error: '먼저 카드를 등록해주세요.' });
   }
 
-  // [추가] 기간 약정(termYears: 1 또는 3)을 선택하면 선결제 금액과 할인이 적용된다. 0/없음이면 월 구독.
-  // 기간 약정(선결제)은 폐지했다. 정기결제(월 자동결제)만 받는다.
-  const termYears = 0;
+  const period = req.body?.period === 'annual' ? 'annual' : req.body?.period === 'monthly' ? 'monthly' : null;
+  if (!period) return res.status(400).json({ error: '월간 또는 연간 결제 방식을 선택해주세요.' });
+  if (owner.subscriptionStatus === 'active' && owner.nextBillingAt && new Date(owner.nextBillingAt) > new Date()) {
+    return res.status(409).json({ error: '이미 이용 중인 구독이 있습니다. 중복 결제할 수 없습니다.' });
+  }
+  const termYears = period === 'annual' ? 1 : 0;
 
   const scopeId = scopeIdForUser(owner);
   const seats = seatCountForScope(scopeId);
-  const amount = getMonthlyBillingAmount(seats);
+  const amount = period === 'annual' ? annualAmount(seats) : getMonthlyBillingAmount(seats);
+  if (owner.type === 'company' && seats < TEAM_MIN_SEATS) {
+    return res.status(400).json({ error: '팀 구독은 승인된 구성원 2명 이상부터 신청할 수 있습니다.' });
+  }
 
   // [추가] 계정당 최초 1회만 무료 체험(월 구독 전용): 체험 기간에는 즉시 결제하지 않고, 체험이 끝나는 날
   // 정기결제 작업이 자동으로 첫 결제를 한다. 기간 약정은 체험 없이 바로 결제한다.
-  const useTrial = !termYears && !owner.trialUsed;
+  const useTrial = period === 'monthly' && !owner.trialUsed;
   try {
     if (!useTrial) {
       await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
         customerKey: owner.tossCustomerKey,
         amount,
         orderId: generateOrderId(),
-        orderName: `BizCard 구독 (좌석 ${seats}개)`,
+        orderName: `BizCard ${period === 'annual' ? '연간' : '월간'} 구독 (좌석 ${seats}개)`,
         customerEmail: owner.email,
         customerName: owner.name
       });
@@ -3645,12 +3654,13 @@ app.post('/api/billing/subscribe', async (req, res) => {
     // 시작하기 전이라 반영할 결제일이 없었던 경우)이 있으면, 첫 결제일을 잡을 때 한꺼번에 더해준다.
     let firstBillingDate = useTrial
         ? new Date(Date.now() + SUBSCRIPTION_TRIAL_DAYS * 24 * 60 * 60 * 1000)
-        : addOneMonth(new Date());
-    owner.billingTermYears = termYears || undefined;
-    const pendingCredit = owner.referralCreditMonths || 0;
+        : period === 'annual' ? nextAnnualDate(new Date()) : addOneMonth(new Date());
+    owner.billingTermYears = termYears;
+    owner.billingPeriod = period;
+    const pendingCredit = period === 'monthly' ? (owner.referralCreditMonths || 0) : 0;
     for (let i = 0; i < pendingCredit; i++) firstBillingDate = addOneMonth(firstBillingDate);
     owner.nextBillingAt = firstBillingDate.toISOString();
-    owner.referralCreditMonths = 0;
+    if (period === 'monthly') owner.referralCreditMonths = 0;
     await addUser(owner);
     await logAudit({
       scopeId,
@@ -3663,7 +3673,7 @@ app.post('/api/billing/subscribe', async (req, res) => {
     // [추가] 친구 추천으로 가입한 사람이 지금 "처음으로" 구독 결제를 완료한 순간이면,
     // 본인(피추천인)과 추천인 양쪽에 무료 1개월씩 지급한다. referralRewardGranted로
     // 한 번만 지급되도록 막는다(나중에 해지 후 재구독해도 중복 지급되지 않는다).
-    if (owner.referredByUserId && !owner.referralRewardGranted) {
+    if (period === 'monthly' && owner.referredByUserId && !owner.referralRewardGranted) {
       owner.referralRewardGranted = true;
       // 방금 잡은 다음 결제일을 한 달 더 미뤄서, 피추천인의 2번째 달을 무료로 만든다.
       owner.nextBillingAt = addOneMonth(new Date(owner.nextBillingAt)).toISOString();
@@ -3685,7 +3695,7 @@ app.post('/api/billing/subscribe', async (req, res) => {
       await markReferralRewarded(owner.id);
     }
 
-    res.json({ success: true, plan: owner.plan, nextBillingAt: owner.nextBillingAt, amount: useTrial ? 0 : amount, trial: useTrial });
+    res.json({ success: true, plan: owner.plan, billingPeriod: period, nextBillingAt: owner.nextBillingAt, amount: useTrial ? 0 : amount, trial: useTrial });
   } catch (err: unknown) {
     console.error('구독 결제 실패:', err);
     res.status(400).json({ error: getErrorMessage(err) || '결제에 실패했습니다.' });
@@ -3736,6 +3746,9 @@ app.get('/api/billing/status', (req, res) => {
     hasCardRegistered: Boolean(owner?.tossBillingKey),
     seats,
     estimatedMonthlyAmount: getMonthlyBillingAmount(seats),
+    estimatedAnnualAmount: annualAmount(seats),
+    billingPeriod: owner?.billingPeriod || 'monthly',
+    minimumTeamSeats: TEAM_MIN_SEATS,
     availablePlans: { free: 0, personal: 3300, teamPerSeat: 6900, teamMinSeats: 2 },
     // 결제 관리(카드 등록/구독/해지)를 이 사람이 할 수 있는지
     canManageBilling: Boolean(billingOwnerForRequester(requester))
@@ -3771,17 +3784,22 @@ async function runScheduledBilling(): Promise<{ charged: number; failed: number;
         continue;
       }
       const seats = seatCountForScope(scopeId);
-      const amount = getMonthlyBillingAmount(seats);
+      const period = owner.billingPeriod === 'annual' ? 'annual' : 'monthly';
+      const amount = period === 'annual' ? annualAmount(seats) : getMonthlyBillingAmount(seats);
+      if (owner.type === 'company' && seats < TEAM_MIN_SEATS) {
+        console.warn('팀 정기결제 보류: 승인된 구성원 2명 미만', owner.id);
+        continue;
+      }
       try {
         await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
           customerKey: owner.tossCustomerKey,
           amount,
           orderId: generateOrderId(),
-          orderName: `BizCard 구독 갱신 (좌석 ${seats}개)`,
+          orderName: `BizCard ${period === 'annual' ? '연간' : '월간'} 구독 갱신 (좌석 ${seats}개)`,
           customerEmail: owner.email,
           customerName: owner.name
         });
-        owner.nextBillingAt = addOneMonth(now).toISOString();
+        owner.nextBillingAt = (period === 'annual' ? nextAnnualDate(now) : addOneMonth(now)).toISOString();
         owner.paidMonths = (owner.paidMonths || 0) + 1;
         await addUser(owner);
         await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats, amount, paidMonths: owner.paidMonths } });
@@ -4370,6 +4388,16 @@ app.get('/api/company-members', (req, res) => {
   res.json(members.map(u => ({ id: u.id, name: u.name, position: u.position || '', email: u.email })));
 });
 
+// 구독용 팀 구성원 현황 (기존 회사 가입/승인 로직을 재사용)
+app.get('/api/billing/team-seats', (req, res) => {
+  const requester = users.find(u => u.id === req.headers['x-user-id']);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.type !== 'company') return res.json({ eligible: false, seats: 1, minimum: TEAM_MIN_SEATS, members: [] });
+  const members = users.filter(u => scopeIdForUser(u) === scopeIdForUser(requester) && u.approvalStatus !== 'pending');
+  res.json({ eligible: members.length >= TEAM_MIN_SEATS, seats: members.length, minimum: TEAM_MIN_SEATS,
+    members: members.map(u => ({ id: u.id, name: u.name, role: u.role })) });
+});
+
 // 📁 Scoped CRUD APIs
 // [추가] 예전 가짜 좌표 배정 방식으로 이미 저장된 기존 명함들을 실제 좌표로 다시 계산한다.
 // 주소가 있는 명함만 대상으로, 몇 개씩 동시에 처리해서 너무 느려지지 않게 한다.
@@ -4914,8 +4942,66 @@ app.post('/api/detect-card-corners', async (req, res) => {
   }
 });
 
+
+// AI 스캔 월별 사용량: 개인 단위, 저장소에 영속화. 성공한 인식만 차감한다.
+const aiScanInFlight = new Set<string>();
+type AiUsage = { id: string; card: number; receipt: number };
+async function requireAiQuota(kind: 'card' | 'receipt', req: any, res: any, next: any) {
+  const requester = users.find(u => u.id === req.headers['x-user-id']);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const scopeId = scopeIdForUser(requester);
+  const access = await getAccessStatus(scopeId);
+  const owner = requester.type === 'individual' ? requester : users.find(u => scopeIdForUser(u) === scopeId && u.role === 'admin');
+  const paid = access.subscriptionActive || access.trialActive;
+  const limit = paid ? (requester.type === 'company' ? (kind === 'card' ? 300 : 300) : 100) : kind === 'card' ? 10 : 0;
+  const month = new Date().toISOString().slice(0, 7);
+  const id = `${requester.id}:${month}`;
+  const lockKey = `${id}:${kind}`;
+  if (aiScanInFlight.has(lockKey)) return res.status(429).json({ error: '이전 스캔이 처리 중입니다. 완료 후 다시 시도해주세요.' });
+  try {
+    const record = await getScopedDoc<AiUsage>(scopeId, 'aiUsage', id);
+    const used = record?.[kind] || 0;
+    if (used >= limit) return res.status(403).json({ code: 'AI_QUOTA_EXCEEDED', error: `${kind === 'card' ? '명함' : '영수증'} AI 스캔 월 이용 한도(${limit}회)를 초과했습니다.` });
+    aiScanInFlight.add(lockKey);
+    const originalJson = res.json.bind(res);
+    res.json = (payload: any) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        // 성공 응답 전에 영속 저장을 완료하도록 응답을 보류한다.
+        (async () => {
+          try {
+            const current = await getScopedDoc<AiUsage>(scopeId, 'aiUsage', id);
+            const nextUsage: AiUsage = { id, card: current?.card || 0, receipt: current?.receipt || 0 };
+            nextUsage[kind]++;
+            if (!await setScopedDoc(scopeId, 'aiUsage', nextUsage)) {
+              res.status(503); originalJson({ error: 'AI 사용량 저장에 실패했습니다. 다시 시도해주세요.' });
+            } else originalJson(payload);
+          } catch (error) {
+            console.error('AI 사용량 기록 실패', error);
+            res.status(503); originalJson({ error: 'AI 사용량 기록에 실패했습니다.' });
+          } finally { aiScanInFlight.delete(lockKey); }
+        })();
+        return res;
+      }
+      aiScanInFlight.delete(lockKey);
+      return originalJson(payload);
+    };
+    res.on('close', () => aiScanInFlight.delete(lockKey));
+    next();
+  } catch (error) { aiScanInFlight.delete(lockKey); next(error); }
+}
+app.get('/api/billing/ai-usage', async (req, res) => {
+  const requester = users.find(u => u.id === req.headers['x-user-id']);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  const scopeId = scopeIdForUser(requester);
+  const access = await getAccessStatus(scopeId);
+  const month = new Date().toISOString().slice(0, 7);
+  const usage = await getScopedDoc<AiUsage>(scopeId, 'aiUsage', `${requester.id}:${month}`);
+  res.json({ month, card: usage?.card || 0, receipt: usage?.receipt || 0,
+    limits: (access.subscriptionActive || access.trialActive) ? { card: requester.type === 'company' ? 300 : 100, receipt: requester.type === 'company' ? 300 : 100 } : { card: 10, receipt: 0 } });
+});
+
 // Gemini Vision 명함 OCR API
-app.post('/api/scan-card', requirePaidOrTrialAccess, async (req, res) => {
+app.post('/api/scan-card', (req, res, next) => { requireAiQuota('card', req, res, next).catch(next); }, async (req, res) => {
   try {
     const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
     const scanLimit = aiScanRateLimiter.check(scanUserId);
@@ -5287,7 +5373,7 @@ app.post('/api/inventory/extract-document', async (req, res) => {
   }
 });
 
-app.post('/api/scan-receipt', async (req, res) => {
+app.post('/api/scan-receipt', (req, res, next) => { requireAiQuota('receipt', req, res, next).catch(next); }, async (req, res) => {
   try {
     const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
     const scanLimit = aiScanRateLimiter.check(scanUserId);

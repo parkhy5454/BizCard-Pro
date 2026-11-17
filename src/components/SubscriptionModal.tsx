@@ -15,6 +15,9 @@ interface BillingStatus {
   hasCardRegistered: boolean;
   seats: number;
   estimatedMonthlyAmount: number;
+  estimatedAnnualAmount: number;
+  billingPeriod: 'monthly' | 'annual';
+  minimumTeamSeats: number;
   canManageBilling: boolean;
 }
 
@@ -33,6 +36,8 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [aiUsage, setAiUsage] = useState<{ card: number; receipt: number; limits: { card: number; receipt: number } } | null>(null);
+  const [period, setPeriod] = useState<'monthly' | 'annual'>('monthly');
   // 무료 체험 / 이용 가능 상태 (명함 등록 가능 여부)
   const [access, setAccess] = useState<{ active: boolean; subscriptionActive: boolean; trialActive: boolean; trialEndsAt: string } | null>(null);
   useEffect(() => {
@@ -57,6 +62,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
 
   useEffect(() => {
     fetchStatus();
+    fetch('/api/billing/ai-usage').then(r => r.ok ? r.json() : null).then(setAiUsage).catch(() => {});
 
     // 토스 카드 등록창에서 돌아온 직후라면(?authKey=...) 자동으로 빌링키 발급을 마무리한다.
     const params = new URLSearchParams(window.location.search);
@@ -112,14 +118,14 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
   };
 
   // [추가] termYears: 0 = 월 구독(첫 14일 무료 체험 적용), 1 = 1년 약정(10% 할인), 3 = 3년 약정(20% 할인)
-  const handleSubscribe = async (termYears = 0) => {
+  const handleSubscribe = async () => {
     setError('');
     setProcessing(true);
     try {
       const res = await fetch('/api/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ termYears })
+        body: JSON.stringify({ period })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '구독 시작에 실패했습니다.');
@@ -193,6 +199,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                   <span className="text-slate-500">월 예상 금액</span>
                   <span className="text-slate-700 font-semibold">{status.estimatedMonthlyAmount.toLocaleString()}원</span>
                 </div>
+                {status.subscriptionStatus === 'active' && <div className="text-xs text-slate-600">결제 주기: {status.billingPeriod === 'annual' ? '연간' : '월간'}</div>}
                 {status.nextBillingAt && (
                   <div className="flex items-center justify-between text-base md:text-xs">
                     <span className="text-slate-500">다음 결제일</span>
@@ -213,6 +220,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 )}
               </div>
 
+              {aiUsage && <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">이번 달 AI 사용량 · 명함 {aiUsage.card}/{aiUsage.limits.card}회 · 영수증 {aiUsage.receipt}/{aiUsage.limits.receipt}회</div>}
               {error && <p className="text-lg md:text-sm md:text-[11px] text-rose-400">{error}</p>}
               {message && (
                 <p className="text-lg md:text-sm md:text-[11px] text-emerald-400 flex items-center gap-1">
@@ -233,14 +241,18 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 {status.hasCardRegistered && status.subscriptionStatus !== 'active' && (
                   <div className="space-y-2">
                     <p className="text-lg md:text-sm md:text-[11px] leading-relaxed text-slate-500">
-                      Free 0원 · 개인 Pro 월 3,300원 · 팀 Business 2인 이상, 1인당 월 6,900원
+                      Free 0원 · 개인 Pro 월 3,300원/연 33,000원 · 팀 Business 2인 이상, 1인당 월 6,900원/연 69,000원
                     </p>
+                    <div className="flex gap-2 text-xs">
+                      <button type="button" onClick={() => setPeriod('monthly')} className={`flex-1 rounded-lg border p-2 ${period === 'monthly' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200'}`}>월간</button>
+                      <button type="button" onClick={() => setPeriod('annual')} className={`flex-1 rounded-lg border p-2 ${period === 'annual' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-200'}`}>연간 (2개월 할인)</button>
+                    </div>
                     <button
-                      onClick={() => handleSubscribe(0)}
+                      onClick={handleSubscribe}
                       disabled={processing}
                       className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-base md:text-xs font-bold transition-colors"
                     >
-                      {processing ? '처리 중...' : `월 구독 시작 (월 ${status.estimatedMonthlyAmount.toLocaleString()}원, 14일 무료 체험)`}
+                      {processing ? '처리 중...' : period === 'annual' ? `연간 구독 시작 (${status.estimatedAnnualAmount.toLocaleString()}원 즉시 결제)` : `월 구독 시작 (월 ${status.estimatedMonthlyAmount.toLocaleString()}원${status.subscriptionStatus === 'none' ? ', 첫 가입 14일 무료체험 가능' : ''})`}
                     </button>
                   </div>
                 )}
