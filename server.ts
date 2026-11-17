@@ -335,7 +335,7 @@ import {
   getReferralsForUser,
   migrateScopedItemsToAppUsers
 } from './src/db/neonStore.js';
-import { TEAM_MIN_SEATS, TEAM_MAX_SEATS, getMonthlyBillingAmount, getAnnualBillingAmount } from './src/subscriptionPricing.js';
+import { TEAM_MIN_SEATS, TEAM_MAX_SEATS, getMonthlyBillingAmount, getAnnualBillingAmount, getTeamMonthlyPerSeat } from './src/subscriptionPricing.js';
 
 
 
@@ -3638,7 +3638,7 @@ app.post('/api/billing/subscribe', async (req, res) => {
 
   // [추가] 계정당 최초 1회만 무료 체험(월 구독 전용): 체험 기간에는 즉시 결제하지 않고, 체험이 끝나는 날
   // 정기결제 작업이 자동으로 첫 결제를 한다. 기간 약정은 체험 없이 바로 결제한다.
-  const useTrial = period === 'monthly' && !owner.trialUsed;
+  const useTrial = owner.type !== 'company' && period === 'monthly' && !owner.trialUsed;
   try {
     if (!useTrial) {
       await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey, {
@@ -3666,6 +3666,13 @@ app.post('/api/billing/subscribe', async (req, res) => {
     const pendingCredit = period === 'monthly' ? (owner.referralCreditMonths || 0) : 0;
     for (let i = 0; i < pendingCredit; i++) firstBillingDate = addOneMonth(firstBillingDate);
     owner.nextBillingAt = firstBillingDate.toISOString();
+    if (owner.type === 'company') {
+      // 팀: 지금 승인된 구성원 전원은 이 날짜를 기준으로 매달 정기결제한다.
+      for (const m of users.filter(u => scopeIdForUser(u) === scopeId && u.approvalStatus !== 'pending')) {
+        m.seatNextBillingAt = owner.nextBillingAt;
+        await addUser(m);
+      }
+    }
     if (period === 'monthly') owner.referralCreditMonths = 0;
     await addUser(owner);
     await logAudit({
@@ -3768,12 +3775,67 @@ app.get('/api/billing/status', (req, res) => {
 // 요금제처럼 서버가 잠들 수 있는 환경에서는 그 시간 동안 청구가 밀릴 수 있다. 더 안정적으로
 // 하려면 외부 크론(예: cron-job.org, GitHub Actions 스케줄)이 아래 /api/billing/run-scheduled
 // 엔드포인트를 매일 한 번씩 호출하도록 설정하는 걸 권장한다 (해당 라우트 주석 참고).
+// 팀 정기결제: 구성원마다 승인된 날짜를 기준으로 1개월씩 따로 청구한다. 같은 날짜의 구성원은 한 번에 묶어서 결제.
+// 활성 인원이 2명 미만이면 부족분(최소 2석)을 가장 먼저 도래하는 묶음에 더해 청구한다.
+async function runTeamSeatBilling(owner: RegisteredUser, now: Date): Promise<{ charged: number; failed: number }> {
+  const scopeId = scopeIdForUser(owner);
+  const approved = users.filter(u => scopeIdForUser(u) === scopeId && u.approvalStatus !== 'pending');
+  const unit = getTeamMonthlyPerSeat(TEAM_MIN_SEATS);
+  let minTopUp = Math.max(0, TEAM_MIN_SEATS - approved.length);
+  // 좌석 결제일이 없는 기존 구성원은 현재 구독의 결제일을 따라간다 (구버전 데이터 보정)
+  for (const u of approved) if (!u.seatNextBillingAt && owner.nextBillingAt) { u.seatNextBillingAt = owner.nextBillingAt; await addUser(u); }
+  const groups = new Map<string, RegisteredUser[]>();
+  for (const u of approved) {
+    if (!u.seatNextBillingAt || new Date(u.seatNextBillingAt) > now) continue;
+    groups.set(u.seatNextBillingAt, [...(groups.get(u.seatNextBillingAt) || []), u]);
+  }
+  let charged = 0, failed = 0;
+  for (const [dueAt, members] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const count = members.length + minTopUp;
+    minTopUp = 0;
+    try {
+      await chargeBilling(TOSS_SECRET_KEY, owner.tossBillingKey!, {
+        customerKey: owner.tossCustomerKey!,
+        amount: count * unit,
+        orderId: generateOrderId(),
+        orderName: `BizCard 팀 정기결제 (${count}명)`,
+        customerEmail: owner.email,
+        customerName: owner.name
+      });
+      const nextIso = addOneMonth(new Date(dueAt)).toISOString();
+      for (const m of members) {
+        m.seatNextBillingAt = nextIso;
+        await addUser(m);
+      }
+      owner.paidMonths = (owner.paidMonths || 0) + 1;
+      await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_renewed', detail: { seats: count, amount: count * unit } });
+      charged++;
+    } catch (err) {
+      console.error(`팀 정기결제 실패 (${owner.email}):`, err);
+      owner.subscriptionStatus = 'past_due';
+      await logAudit({ scopeId, actorUserId: owner.id, actorEmail: owner.email, action: 'subscription_payment_failed' });
+      failed++;
+      break;
+    }
+  }
+  const nexts = approved.map(u => u.seatNextBillingAt).filter((v): v is string => !!v).sort();
+  owner.nextBillingAt = nexts[0];
+  await addUser(owner);
+  return { charged, failed };
+}
+
 async function runScheduledBilling(): Promise<{ charged: number; failed: number; downgraded: number }> {
   const now = new Date();
   let charged = 0, failed = 0, downgraded = 0;
 
   for (const owner of [...users]) {
     if (owner.type === 'company' && owner.role !== 'admin') continue; // 관리자 계정만 결제 주체
+    if (owner.type === 'company' && owner.subscriptionStatus === 'active') {
+      const r = await runTeamSeatBilling(owner, now);
+      charged += r.charged;
+      failed += r.failed;
+      continue;
+    }
     if (!owner.nextBillingAt) continue;
     if (new Date(owner.nextBillingAt) > now) continue;
 
@@ -4270,6 +4332,27 @@ app.post('/api/auth/pending-members/:targetId/approve', async (req, res) => {
       return res.status(400).json({ error: `1팀 최대 ${TEAM_MAX_SEATS}명까지 승인할 수 있습니다. 인원을 정리한 뒤 다시 시도해주세요.` });
     }
   }
+  // 구독 중인 팀에 새로 승인되는 인원은 승인 즉시 1석(1개월)을 결제하고, 그날을 기준으로 매달 따로 정기결제한다.
+  const teamOwner = users.find(u => scopeIdForUser(u) === scopeIdForUser(target) && u.role === 'admin');
+  if (target.type === 'company' && target.approvalStatus !== 'approved' && teamOwner?.subscriptionStatus === 'active') {
+    if (!teamOwner.tossBillingKey || !teamOwner.tossCustomerKey || !TOSS_SECRET_KEY) {
+      return res.status(400).json({ error: '결제 수단이 없어 승인할 수 없습니다. 관리자가 카드를 다시 등록해주세요.' });
+    }
+    try {
+      await chargeBilling(TOSS_SECRET_KEY, teamOwner.tossBillingKey, {
+        customerKey: teamOwner.tossCustomerKey,
+        amount: getTeamMonthlyPerSeat(TEAM_MIN_SEATS),
+        orderId: generateOrderId(),
+        orderName: 'BizCard 팀 좌석 추가 (1명, 1개월)',
+        customerEmail: teamOwner.email,
+        customerName: teamOwner.name
+      });
+    } catch (err) {
+      console.error('팀 좌석 추가 결제 실패:', err);
+      return res.status(402).json({ error: '좌석 결제에 실패해 승인하지 못했습니다. 관리자의 결제 수단을 확인해주세요.' });
+    }
+    target.seatNextBillingAt = addOneMonth(new Date()).toISOString();
+  }
   target.approvalStatus = 'approved';
   await addUser(target);
   await logAudit({
@@ -4451,7 +4534,8 @@ app.get('/api/company/team-overview', async (req, res) => {
       role: u.role,
       approvalStatus: u.approvalStatus || 'approved',
       aiCardUsed: usage?.card || 0,
-      aiReceiptUsed: usage?.receipt || 0
+      aiReceiptUsed: usage?.receipt || 0,
+      nextBillingAt: u.seatNextBillingAt || null
     };
   }));
   const owner = members.find(u => u.role === 'admin') || requester;

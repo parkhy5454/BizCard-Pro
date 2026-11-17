@@ -932,6 +932,8 @@ export interface RegisteredUser extends User {
   // 스코프)을 식별한다. 최초로 "Apple 캘린더 연동" 기능을 켤 때 한 번 생성되고, 이후
   // 계속 재사용된다.
   calendarFeedToken?: string;
+  // [추가] 팀 좌석별 다음 정기결제일. 구성원이 승인된 날짜(또는 구독 시작일)를 기준으로 1개월씩 따로 청구한다.
+  seatNextBillingAt?: string;
 }
 
 // === 통합 차량 관리 (Vehicle Management) ===
