@@ -23,6 +23,8 @@ interface BillingStatus {
 
 interface Props {
   onClose: () => void;
+  // 유료 기능을 눌렀는데 구독이 없어서 열린 경우 안내 문구
+  notice?: string;
 }
 
 const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
@@ -36,7 +38,7 @@ const PLAN_CARDS = [
   { key: 'team', name: '팀 Business (2~900명)', price: '1인 월 10,890원 (부가세 포함, 공급가 9,900원) · 연간은 추후 제공', desc: '개인 Pro 기능 전체 · 1인당 AI 명함 스캔 월 100회 · 영수증 OCR 월 100회 · 팀 명함 공유·권한 관리' },
 ];
 
-export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
+export const SubscriptionModal: React.FC<Props> = ({ onClose, notice }) => {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -177,6 +179,9 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
         </div>
 
         <div className="p-5 space-y-4">
+          {notice && (
+            <div className="rounded-xl px-3.5 py-3 text-base md:text-xs font-semibold bg-amber-50 text-amber-800">{notice}</div>
+          )}
           {access && !access.subscriptionActive && (
             <div className={`mb-3 rounded-xl px-3.5 py-3 text-base md:text-xs font-semibold ${access.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
               {access.trialActive

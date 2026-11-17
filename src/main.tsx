@@ -23,6 +23,24 @@ if (SENTRY_DSN) {
   console.log('[Sentry] VITE_SENTRY_DSN 환경변수가 없어 화면 에러 모니터링이 비활성화되어 있습니다.');
 }
 
+// 유료 기능 차단(402 PAID_FEATURE) 감시: 어느 화면에서 요청하든 응답이 402이면
+// 구독 안내 화면을 띄우도록 이벤트를 보낸다. 원래 응답은 그대로 돌려준다.
+{
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (...args: Parameters<typeof fetch>) => {
+    const res = await originalFetch(...args);
+    if (res.status === 402) {
+      try {
+        const body = await res.clone().json();
+        if (body?.code === 'PAID_FEATURE') {
+          window.dispatchEvent(new CustomEvent('bizcard:paid-feature-required', { detail: { message: body.error } }));
+        }
+      } catch { /* JSON이 아니면 무시 */ }
+    }
+    return res;
+  };
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {/* [수정] React 컴포넌트에서 처리되지 않은 에러가 나면, 앱 전체가 하얗게 변하는 대신

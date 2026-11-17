@@ -74,6 +74,17 @@ export default function App() {
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState<boolean>(
     () => new URLSearchParams(window.location.search).has('authKey')
   );
+  // 서버가 유료 기능을 402(PAID_FEATURE)로 막았을 때(main.tsx의 fetch 감시) 구독 화면을 안내와 함께 연다.
+  const [paidFeatureNotice, setPaidFeatureNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const onPaidRequired = (e: Event) => {
+      const msg = (e as CustomEvent<{ message?: string }>).detail?.message;
+      setPaidFeatureNotice(msg || '이 기능은 구독 결제 후 사용할 수 있습니다.');
+      setIsSubscriptionModalOpen(true);
+    };
+    window.addEventListener('bizcard:paid-feature-required', onPaidRequired);
+    return () => window.removeEventListener('bizcard:paid-feature-required', onPaidRequired);
+  }, []);
   // [추가] 무료 체험 / 구독 이용 상태 (상단 안내 배너용). 구독 화면을 닫을 때마다 다시 불러온다.
   const [accessStatus, setAccessStatus] = useState<{ active: boolean; subscriptionActive: boolean; trialActive: boolean; trialEndsAt: string } | null>(null);
   useEffect(() => {
@@ -951,7 +962,10 @@ export default function App() {
       )}
 
       {isSubscriptionModalOpen && currentUser && (
-        <SubscriptionModal onClose={() => setIsSubscriptionModalOpen(false)} />
+        <SubscriptionModal
+          notice={paidFeatureNotice ?? undefined}
+          onClose={() => { setIsSubscriptionModalOpen(false); setPaidFeatureNotice(null); }}
+        />
       )}
       {legalTab && <LegalModal initialTab={legalTab} onClose={() => setLegalTab(null)} />}
       {isWithdrawModalOpen && currentUser && (
