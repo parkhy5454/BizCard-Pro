@@ -3763,7 +3763,7 @@ app.get('/api/billing/status', (req, res) => {
     billingPeriod: owner?.billingPeriod || 'monthly',
     minimumTeamSeats: TEAM_MIN_SEATS,
     freeAccess: (process.env.FREE_ACCESS_SCOPE_IDS || '').split(',').map(v => v.trim()).filter(Boolean).includes(scopeId),
-    availablePlans: { free: 0, personal: 9900, teamPerSeat: 9900, teamMinSeats: 2, teamMaxSeats: 900 },
+    availablePlans: { free: 0, personal: 9900, teamPerSeat: 12000, teamMinSeats: 2, teamMaxSeats: 900 },
     // 결제 관리(카드 등록/구독/해지)를 이 사람이 할 수 있는지
     canManageBilling: Boolean(billingOwnerForRequester(requester))
   });

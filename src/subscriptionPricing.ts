@@ -1,6 +1,6 @@
 // 구독 상품 가격 (원 단위). 최종 운영안 기준.
 //  - 개인 Pro: 월 9,900원 / 연간 99,000원(10개월분) — 부가세 포함 판매가
-//  - 팀 Business: 1인 월 공급가 9,900원 / 연간 99,000원 — 부가세 별도 (결제액 = 공급가 × 1.1)
+//  - 팀 Business: 1인 월 공급가 12,000원 / 연간 120,000원(10개월분) — 부가세 별도 (결제액 = 공급가 × 1.1)
 //  - 팀은 2~900명, 1팀 최대 900명 (월 결제 1,000만 원 이하 보장)
 
 export const TEAM_MIN_SEATS = 2;
@@ -9,8 +9,8 @@ export const VAT_RATE = 0.1;
 
 export const INDIVIDUAL_MONTHLY_PRICE = 9900;
 export const INDIVIDUAL_ANNUAL_PRICE = 99000;
-export const TEAM_MONTHLY_SUPPLY_PER_SEAT = 9900;
-export const TEAM_ANNUAL_SUPPLY_PER_SEAT = 99000;
+export const TEAM_MONTHLY_SUPPLY_PER_SEAT = 12000;
+export const TEAM_ANNUAL_SUPPLY_PER_SEAT = 120000;
 
 // 팀 1인 결제액(부가세 포함)
 export function getTeamMonthlyPerSeat(seats: number): number {
