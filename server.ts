@@ -4400,6 +4400,27 @@ app.post('/api/auth/users/:targetId/set-password', async (req, res) => {
 
 // [추가] 업무일지 캘린더에서 "동료 초대" 대상을 고를 때 쓰는, 같은 회사 소속 동료 목록.
 // 가입 승인이 아직 안 끝난(pending) 사람은 제외하고, 요청한 본인도 목록에서 뺀다.
+// 유료 기능 게이트: 프로젝트·차량 운행일지·업무일지·기업 인텔리전스는 구독 결제 후에만
+// 새로 만들기·수정·삭제할 수 있다. 무료 사용자는 기존 데이터를 조회만 할 수 있다(데이터 보존 정책).
+const PAID_FEATURE_PREFIXES = ['/api/projects', '/api/vehicles', '/api/worklogs', '/api/company/intelligence', '/api/company/search-summary'];
+app.use(async (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  if (!PAID_FEATURE_PREFIXES.some(prefix => req.path === prefix || req.path.startsWith(prefix + '/'))) return next();
+  try {
+    const requester = users.find(u => u.id === req.headers['x-user-id']);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const access = await getAccessStatus(scopeIdForUser(requester));
+    if (access.subscriptionActive) return next(); // 구독 결제 완료 후에만 유료 기능 사용 (체험 기간 제외)
+    return res.status(402).json({
+      code: 'PAID_FEATURE',
+      error: '이 기능은 유료 요금제에서 사용할 수 있습니다. 구독 화면에서 요금제를 선택해 주세요.',
+    });
+  } catch (err) {
+    console.error('[paid-feature] 이용 상태 확인 실패', err);
+    return res.status(500).json({ error: '이용 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' });
+  }
+});
+
 app.get('/api/company-members', (req, res) => {
   const requesterId = req.headers['x-user-id'] as string;
   const requester = users.find(u => u.id === requesterId);
