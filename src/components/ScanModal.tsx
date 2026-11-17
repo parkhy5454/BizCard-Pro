@@ -4,7 +4,7 @@ import { DraftPromptBanner } from './DraftPromptBanner.js';
 import { X, Mic, CheckCircle2, Sparkles, Building2, Camera, AlertTriangle, Trash2, Layers, ArrowLeft, Check } from 'lucide-react';
 import { BusinessCard, ContactGroup } from '../types.js';
 import { formatPhoneNumber } from '../phoneFormat.js';
-import { CropAdjustModal, resizeDataUrl, rotateDataUrlByDegrees, NormalizedCorners } from './CropAdjustModal.js';
+import { CropAdjustModal, resizeDataUrl, rotateDataUrlByDegrees, NormalizedCorners, isValidNormalizedCorners, warpDataUrlWithNormalizedCorners } from './CropAdjustModal.js';
 import { LiveCameraCapture } from './LiveCameraCapture.js';
 import { loadOpenCv } from '../cardVision.js';
 import { generateStandardCardImage } from '../cardImageGenerator.js';
