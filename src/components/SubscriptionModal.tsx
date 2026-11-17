@@ -35,7 +35,7 @@ const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefin
 const PLAN_CARDS = [
   { key: 'free', name: 'Free', price: '0원', desc: '명함 50장 · AI 명함 스캔 월 10회 · 기본 검색·연락처 관리' },
   { key: 'personal', name: '개인 Pro', price: '월 9,900원 · 연 99,000원 (10개월분, 부가세 포함)', desc: '명함 무제한 · AI 명함 스캔 월 100회 · 영수증 OCR 월 100회 · 차량 운행일지·CRM·업무일지' },
-  { key: 'team', name: '팀 Business (2~900명)', price: '1인 월 10,890원 (부가세 포함, 공급가 9,900원) · 연간은 추후 제공', desc: '개인 Pro 기능 전체 · 1인당 AI 명함 스캔 월 100회 · 영수증 OCR 월 100회 · 팀 명함 공유·권한 관리' },
+  { key: 'team', name: '팀 Business (2~900명)', price: '1인 월 10,890원 · 1인 연 108,900원 (부가세 포함, 연간은 10개월분 공급가 99,000원)', desc: '개인 Pro 기능 전체 · 1인당 AI 명함 스캔 월 100회 · 영수증 OCR 월 100회 · 팀 명함 공유·권한 관리' },
 ];
 
 export const SubscriptionModal: React.FC<Props> = ({ onClose, notice }) => {

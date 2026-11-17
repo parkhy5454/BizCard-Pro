@@ -3620,10 +3620,6 @@ app.post('/api/billing/subscribe', async (req, res) => {
   if (owner.subscriptionStatus === 'active' && owner.nextBillingAt && new Date(owner.nextBillingAt) > new Date()) {
     return res.status(409).json({ error: '이미 이용 중인 구독이 있습니다. 중복 결제할 수 없습니다.' });
   }
-  // 팀 연간 선결제는 환불 규정 확정 후 2차 이후 제공. 1차는 팀 월 정기결제만 판매한다.
-  if (owner.type === 'company' && period === 'annual') {
-    return res.status(400).json({ error: '팀 연간 결제는 아직 준비 중입니다. 월간 결제를 선택해주세요.' });
-  }
   const termYears = period === 'annual' ? 1 : 0;
 
   const scopeId = scopeIdForUser(owner);
@@ -4433,6 +4429,49 @@ app.get('/api/company-members', (req, res) => {
     u.approvalStatus !== 'pending'
   );
   res.json(members.map(u => ({ id: u.id, name: u.name, position: u.position || '', email: u.email })));
+});
+
+// 팀 관리자 전용 팀 현황: 구성원별 이번 달 AI 사용량과 구독(좌석·요금·다음 결제일) 요약
+app.get('/api/company/team-overview', async (req, res) => {
+  const requester = users.find(u => u.id === req.headers['x-user-id']);
+  if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+  if (requester.type !== 'company' || requester.role !== 'admin') return res.status(403).json({ error: '팀 관리자만 조회할 수 있습니다.' });
+
+  const scopeId = scopeIdForUser(requester);
+  const month = new Date().toISOString().slice(0, 7);
+  const members = users.filter(u => scopeIdForUser(u) === scopeId);
+  const rows = await Promise.all(members.map(async (u) => {
+    const usage = await getScopedDoc<AiUsage>(scopeId, 'aiUsage', `${u.id}:${month}`);
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      position: u.position || '',
+      role: u.role,
+      approvalStatus: u.approvalStatus || 'approved',
+      aiCardUsed: usage?.card || 0,
+      aiReceiptUsed: usage?.receipt || 0
+    };
+  }));
+  const owner = members.find(u => u.role === 'admin') || requester;
+  const access = await getAccessStatus(scopeId);
+  const seats = seatCountForScope(scopeId);
+  res.json({
+    month,
+    members: rows,
+    seats,
+    seatLimits: { min: TEAM_MIN_SEATS, max: TEAM_MAX_SEATS },
+    subscription: {
+      active: access.subscriptionActive,
+      status: owner.subscriptionStatus || 'none',
+      billingPeriod: owner.billingPeriod || null,
+      nextBillingAt: owner.nextBillingAt || null,
+      estimatedMonthlyAmount: getMonthlyBillingAmount(seats),
+      estimatedAnnualAmount: getAnnualBillingAmount(seats),
+      freeAccess: access.freeAccess
+    },
+    aiLimitPerUser: access.subscriptionActive ? { card: 100, receipt: 100 } : { card: 10, receipt: 0 }
+  });
 });
 
 // 구독용 팀 구성원 현황 (기존 회사 가입/승인 로직을 재사용)

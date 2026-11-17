@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Users, Briefcase, Car, ClipboardList, ShieldCheck, TrendingUp, ArrowRight, FileCheck } from 'lucide-react';
 import { BusinessCard, Project, User as UserType, Vehicle } from '../types.js';
+import { TeamOverviewCard } from './TeamOverviewCard.js';
 
 // [추가] "지금 확인한거 다 순차적으로 해줘"의 마지막 두 항목(홈 대시보드/차트)을 하나의
 // 화면으로 합쳤다 - 실제로 대시보드는 보통 차트를 포함하는 게 자연스럽고, 별도 화면으로
@@ -146,6 +147,11 @@ export const DashboardView: React.FC<Props> = ({
           전체 검색 열기
         </button>
       </div>
+
+      {/* 팀 관리자 전용 팀 현황 (좌석·구독·구성원별 AI 사용량) */}
+      {currentUser.role === 'admin' && currentUser.type === 'company' && (
+        <TeamOverviewCard currentUserId={currentUser.id} />
+      )}
 
       {/* 핵심 지표 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
