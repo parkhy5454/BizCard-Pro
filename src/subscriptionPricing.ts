@@ -12,19 +12,22 @@ export const INDIVIDUAL_PLANS: Record<Period, { name: string; price: number }> =
 
 // 팀 상품: 인원당 월 단가 (전체 인원에 구간 단가 적용)
 export const TEAM_MIN_SEATS = 2;
-export const TEAM_TIERS = [
-  { minSeats: 2, maxSeats: 9, monthlyPerSeat: 3100 },
-  { minSeats: 10, maxSeats: 29, monthlyPerSeat: 3000 },
-  { minSeats: 30, maxSeats: Infinity, monthlyPerSeat: 2800 },
-] as const;
+// 팀 1인당 월 공급가 9,900원 (구간 단가 없음), 부가세 10% 별도 → 결제액은 10,890원
+export const TEAM_MAX_SEATS = 900; // 1팀 최대 인원 (월 결제 약 980만 원 이하 보장)
+export const TEAM_MONTHLY_SUPPLY_PER_SEAT = 9900;
+export const VAT_RATE = 0.1;
 
 // 기간별 할인율
 export const PERIOD_DISCOUNT: Record<Period, number> = { 3: 0, 6: 0.1, 12: 0.25 };
 
 export function getTeamMonthlyPerSeat(seats: number): number {
-  const tier = TEAM_TIERS.find((t) => seats >= t.minSeats && seats <= t.maxSeats);
-  if (!tier) throw new Error(`팀 상품은 최소 ${TEAM_MIN_SEATS}명 이상이어야 합니다.`);
-  return tier.monthlyPerSeat;
+  if (!Number.isInteger(seats) || seats < TEAM_MIN_SEATS) {
+    throw new Error(`팀 상품은 최소 ${TEAM_MIN_SEATS}명 이상이어야 합니다.`);
+  }
+  if (seats > TEAM_MAX_SEATS) {
+    throw new Error(`팀 상품은 1팀 최대 ${TEAM_MAX_SEATS}명까지 신청할 수 있습니다.`);
+  }
+  return Math.round(TEAM_MONTHLY_SUPPLY_PER_SEAT * (1 + VAT_RATE));
 }
 
 // 인원당 할인 적용 후 금액 (기간 전체)
