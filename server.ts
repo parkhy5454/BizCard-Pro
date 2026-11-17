@@ -3620,6 +3620,10 @@ app.post('/api/billing/subscribe', async (req, res) => {
   if (owner.subscriptionStatus === 'active' && owner.nextBillingAt && new Date(owner.nextBillingAt) > new Date()) {
     return res.status(409).json({ error: '이미 이용 중인 구독이 있습니다. 중복 결제할 수 없습니다.' });
   }
+  // 팀 연간 선결제는 환불 규정 확정 후 2차 이후 제공. 1차는 팀 월 정기결제만 판매한다.
+  if (owner.type === 'company' && period === 'annual') {
+    return res.status(400).json({ error: '팀 연간 결제는 아직 준비 중입니다. 월간 결제를 선택해주세요.' });
+  }
   const termYears = period === 'annual' ? 1 : 0;
 
   const scopeId = scopeIdForUser(owner);
