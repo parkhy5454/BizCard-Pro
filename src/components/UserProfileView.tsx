@@ -77,6 +77,9 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
   };
 
   const handleRequestEmailChange = async () => {
+    // 자동완성 등으로 다른 주소가 들어간 채 전송되는 것을 막기 위해, 보낼 주소를 한 번 더 확인받는다.
+    const target = newEmail.trim();
+    if (!window.confirm(`${target} 주소로 인증 메일을 보냅니다.\n이 주소가 맞습니까?`)) return;
     setIsRequestingEmail(true);
     setEmailMessage(null);
     try {
