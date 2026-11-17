@@ -103,8 +103,11 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
       });
       // 성공하면 브라우저가 successUrl(=여기)로 리다이렉트되면서 페이지가 새로 열린다.
     } catch (err: unknown) {
-      if (getErrorField(err, 'code') !== 'USER_CANCEL') {
-        setError(getErrorMessage(err) || '카드 등록 중 오류가 발생했습니다.');
+      const code = getErrorField(err, 'code');
+      console.error('[카드 등록 실패]', err);
+      if (code !== 'USER_CANCEL') {
+        const msg = getErrorMessage(err) || '카드 등록 중 오류가 발생했습니다.';
+        setError(`${msg}${code ? ` (오류 코드: ${code})` : ''}`);
       }
     }
   };
