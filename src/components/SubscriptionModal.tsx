@@ -93,7 +93,9 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
     }
     try {
       const res = await fetch('/api/billing/customer-key');
-      const { customerKey } = await res.json();
+      const data = await res.json();
+      if (!res.ok || !data.customerKey) throw new Error(data.error || '고객키를 발급받지 못했습니다.');
+      const { customerKey } = data;
       const tossPayments = window.TossPayments(TOSS_CLIENT_KEY);
       const origin = window.location.origin + window.location.pathname;
       await tossPayments.requestBillingAuth('카드', {
@@ -103,11 +105,8 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
       });
       // 성공하면 브라우저가 successUrl(=여기)로 리다이렉트되면서 페이지가 새로 열린다.
     } catch (err: unknown) {
-      const code = getErrorField(err, 'code');
-      console.error('[카드 등록 실패]', err);
-      if (code !== 'USER_CANCEL') {
-        const msg = getErrorMessage(err) || '카드 등록 중 오류가 발생했습니다.';
-        setError(`${msg}${code ? ` (오류 코드: ${code})` : ''}`);
+      if (getErrorField(err, 'code') !== 'USER_CANCEL') {
+        setError(getErrorMessage(err) || '카드 등록 중 오류가 발생했습니다.');
       }
     }
   };
@@ -168,7 +167,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
             <div className={`mb-3 rounded-xl px-3.5 py-3 text-base md:text-xs font-semibold ${access.trialActive ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700'}`}>
               {access.trialActive
                 ? (() => { const d = new Date(access.trialEndsAt); return <>무료 체험 중 · {d.getMonth() + 1}.{d.getDate()}까지<br /><span className="font-normal">(체험 후 월 요금이 자동 결제됩니다)</span></>; })()
-                : '무료 체험이 끝났습니다. 구독하면 명함 등록을 계속할 수 있습니다.'}
+                : '무료 체험이 끝났습니다. Free 요금제로 계속 이용할 수 있습니다 (명함 50장까지).'}
             </div>
           )}
           {loading ? (
@@ -183,7 +182,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 <div className="flex items-center justify-between text-base md:text-xs">
                   <span className="text-slate-500">현재 플랜</span>
                   <span className={`font-bold ${status.plan === 'pro' ? 'text-indigo-600' : 'text-slate-600'}`}>
-                    {status.plan === 'pro' ? 'Pro' : 'Free'}
+                    {status.plan === 'pro' ? (status.seats >= 2 ? 'Team Business' : 'Personal Pro') : 'Free'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-base md:text-xs">
@@ -234,7 +233,7 @@ export const SubscriptionModal: React.FC<Props> = ({ onClose }) => {
                 {status.hasCardRegistered && status.subscriptionStatus !== 'active' && (
                   <div className="space-y-2">
                     <p className="text-lg md:text-sm md:text-[11px] leading-relaxed text-slate-500">
-                      개인 월 3,300원 · 팀은 인원당 월 3,100원(2~9명) / 3,000원(10~29명) / 2,800원(30명 이상)
+                      Free 0원 · 개인 Pro 월 3,300원 · 팀 Business 2인 이상, 1인당 월 6,900원
                     </p>
                     <button
                       onClick={() => handleSubscribe(0)}

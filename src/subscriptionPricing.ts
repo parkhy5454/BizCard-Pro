@@ -5,21 +5,19 @@ export type Period = 3 | 6 | 12;
 
 // 개인 상품 (1인)
 export const INDIVIDUAL_PLANS: Record<Period, { name: string; price: number }> = {
-  3: { name: '베이직', price: 9900 },
-  6: { name: '스탠다드', price: 17800 },
-  12: { name: '프리미엄', price: 29700 },
+  3: { name: 'Personal Pro', price: 9900 },
+  6: { name: 'Personal Pro', price: 19800 },
+  12: { name: 'Personal Pro 연간', price: 33000 },
 };
 
 // 팀 상품: 인원당 월 단가 (전체 인원에 구간 단가 적용)
 export const TEAM_MIN_SEATS = 2;
 export const TEAM_TIERS = [
-  { minSeats: 2, maxSeats: 9, monthlyPerSeat: 3100 },
-  { minSeats: 10, maxSeats: 29, monthlyPerSeat: 3000 },
-  { minSeats: 30, maxSeats: Infinity, monthlyPerSeat: 2800 },
+  { minSeats: 2, maxSeats: Infinity, monthlyPerSeat: 6900 },
 ] as const;
 
-// 기간별 할인율
-export const PERIOD_DISCOUNT: Record<Period, number> = { 3: 0, 6: 0.1, 12: 0.25 };
+// 12개월 선결제 시 2개월 할인, 그 외 할인 없음
+export const PERIOD_DISCOUNT: Record<Period, number> = { 3: 0, 6: 0, 12: 1 / 6 };
 
 export function getTeamMonthlyPerSeat(seats: number): number {
   const tier = TEAM_TIERS.find((t) => seats >= t.minSeats && seats <= t.maxSeats);
@@ -70,7 +68,7 @@ export function settleWithCredit(charge: number, credit: number): { payable: num
 }
 
 // 정기결제(월 자동결제) 금액 (부가세 포함, 원 단위)
-// 개인(1명): 월 3,300원 / 팀: 인원 구간 단가 × 전체 인원
+// 개인(1명): 월 3,300원 / 팀: 1인당 월 6,900원 × 전체 인원
 export const INDIVIDUAL_MONTHLY_PRICE = 3300;
 export function getMonthlyBillingAmount(seats: number): number {
   if (seats <= 1) return INDIVIDUAL_MONTHLY_PRICE;

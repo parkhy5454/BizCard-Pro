@@ -3538,7 +3538,7 @@ app.post('/api/auth/withdraw', async (req, res) => {
 // ------------------------------------------------------------------
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
 // [추가] 정기결제 최대 기간(월). 이 횟수만큼 결제가 끝나면 자동으로 종료되고 무료 플랜으로 내려간다.
-const SUBSCRIPTION_MAX_PAID_MONTHS = 12;
+const SUBSCRIPTION_MAX_PAID_MONTHS = Number.POSITIVE_INFINITY; // 월 정기결제는 해지할 때까지 유지
 // [추가] 최초 구독 시 무료 체험 기간(일). 계정당 한 번만 적용된다(owner.trialUsed).
 const SUBSCRIPTION_TRIAL_DAYS = 14;
 
@@ -3736,6 +3736,7 @@ app.get('/api/billing/status', (req, res) => {
     hasCardRegistered: Boolean(owner?.tossBillingKey),
     seats,
     estimatedMonthlyAmount: getMonthlyBillingAmount(seats),
+    availablePlans: { free: 0, personal: 3300, teamPerSeat: 6900, teamMinSeats: 2 },
     // 결제 관리(카드 등록/구독/해지)를 이 사람이 할 수 있는지
     canManageBilling: Boolean(billingOwnerForRequester(requester))
   });
@@ -4592,6 +4593,10 @@ app.post('/api/contacts', requireActiveAccess, async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = req.scopeId;
   const newCard: BusinessCard = req.body;
+  const access = await getAccessStatus(scopeId);
+  if (!access.subscriptionActive && !access.trialActive && dbData.contacts.length >= 50) {
+    return res.status(403).json({ code: 'FREE_CARD_LIMIT', error: '무료 요금제는 명함 50장까지 등록할 수 있습니다. 기존 명함은 그대로 유지됩니다.' });
+  }
   if (!newCard.id) newCard.id = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (!newCard.createdAt) newCard.createdAt = new Date().toISOString();
   if (!newCard.callHistory) newCard.callHistory = [];
@@ -4910,7 +4915,7 @@ app.post('/api/detect-card-corners', async (req, res) => {
 });
 
 // Gemini Vision 명함 OCR API
-app.post('/api/scan-card', requireActiveAccess, async (req, res) => {
+app.post('/api/scan-card', requirePaidOrTrialAccess, async (req, res) => {
   try {
     const scanUserId = (req.headers['x-user-id'] as string) || req.ip || 'unknown';
     const scanLimit = aiScanRateLimiter.check(scanUserId);
@@ -5850,7 +5855,7 @@ app.post('/api/ai-intelligence/relationship-analysis', async (req, res) => {
 });
 
 // 데이터 전체 입출력을 위한 벌크 업데이트 API
-app.post('/api/contacts/import', requireActiveAccess, async (req, res) => {
+app.post('/api/contacts/import', requirePaidOrTrialAccess, async (req, res) => {
   const dbData = getScopedData(req);
   const scopeId = req.scopeId;
   const { importedContacts } = req.body;
@@ -6044,7 +6049,7 @@ async function getAccessStatus(scopeId: string) {
   const trialEndsAt = new Date(new Date(trial.startAt).getTime() + TRIAL_DAYS * 86400000);
   const trialActive = trialEndsAt > now;
   return {
-    active: subscriptionActive || trialActive,
+    active: true, // 체험 종료 후에도 Free 요금제의 기본 기능을 이용할 수 있음
     subscriptionActive,
     subscriptionEndsAt: billingOwner?.nextBillingAt ?? (legacyActive && sub ? sub.endAt : null),
     trialActive,
@@ -6066,6 +6071,18 @@ async function requireActiveAccess(req: any, res: any, next: any) {
   } catch (err) {
     console.error('[access] 이용 상태 확인 실패', err);
     res.status(500).json({ error: '이용 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' });
+  }
+}
+
+async function requirePaidOrTrialAccess(req: any, res: any, next: any) {
+  try {
+    const status = await getAccessStatus(req.scopeId || 'default');
+    if (!status.subscriptionActive && !status.trialActive) {
+      return res.status(403).json({ code: 'IMPORT_PRO_REQUIRED', error: '대량 가져오기는 Pro 요금제에서 이용할 수 있습니다.' });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ error: '구독 상태 확인에 실패했습니다.' });
   }
 }
 
