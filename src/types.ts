@@ -246,6 +246,8 @@ export interface AdminDoc {
       id: string;
       loanName: string;        // 대출 명 (예: "우리은행_중진직대출")
       loanAccount?: string;    // 대출 계좌
+      lender?: string;         // 대출처 (예: 중진공, 신보, 기보 등 정책기관)
+      monthlyPayments?: number[]; // 1~12월 상환액(원금+이자), 인덱스 0 = 1월
       initialAmount: number;   // 대출 금액(원) - 최초 대출 원금
       initialRate: number;     // 최초 이자율(%)
       currentRate: number;     // 현재 이자율(%)
