@@ -353,7 +353,7 @@ export const AuthView: React.FC<Props> = ({ onLoginSuccess }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] md:bg-slate-50 flex flex-col justify-center py-8 md:py-12 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen lg:h-screen lg:overflow-y-auto bg-[#F2F2F7] md:bg-slate-50 flex flex-col justify-center lg:justify-start py-8 md:py-12 lg:py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-4">
         {/* 로고 */}
         <div className="flex justify-center">
