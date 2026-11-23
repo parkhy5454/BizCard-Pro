@@ -47,10 +47,11 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
   const [saveMessage, setSaveMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   // 이메일 변경 영역
-  const [newEmail, setNewEmail] = useState('');
-  const [emailPassword, setEmailPassword] = useState('');
-  const [isRequestingEmail, setIsRequestingEmail] = useState(false);
-  const [emailMessage, setEmailMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [newPwdConfirm, setNewPwdConfirm] = useState('');
+  const [isChangingPwd, setIsChangingPwd] = useState(false);
+  const [pwdMessage, setPwdMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const hasChanges =
     formData.name.trim() !== (currentUser.name || '') ||
@@ -76,35 +77,33 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
     }
   };
 
-  const handleRequestEmailChange = async () => {
-    // 자동완성 등으로 다른 주소가 들어간 채 전송되는 것을 막기 위해, 보낼 주소를 한 번 더 확인받는다.
-    const target = newEmail.trim();
-    if (!window.confirm(`${target} 주소로 인증 메일을 보냅니다.\n이 주소가 맞습니까?`)) return;
-    setIsRequestingEmail(true);
-    setEmailMessage(null);
+  const handleChangePassword = async () => {
+    if (newPwd !== newPwdConfirm) {
+      setPwdMessage({ type: 'err', text: '새 비밀번호 확인이 일치하지 않습니다.' });
+      return;
+    }
+    setIsChangingPwd(true);
+    setPwdMessage(null);
     try {
-      const res = await fetch('/api/auth/email/change-request', {
+      const res = await fetch('/api/auth/password/change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
-        body: JSON.stringify({ newEmail: newEmail.trim(), password: emailPassword }),
+        body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || '이메일 변경 요청에 실패했습니다.');
-      onLocalUserPatch({ pendingEmail: data.pendingEmail });
-      setEmailMessage({
-        type: 'ok',
-        text: `${data.pendingEmail} 주소로 인증 메일을 보냈습니다. 메일의 링크를 눌러야 이메일이 변경됩니다.`,
-      });
-      setNewEmail('');
-      setEmailPassword('');
+      if (!res.ok) throw new Error(data.error || '비밀번호 변경에 실패했습니다.');
+      setPwdMessage({ type: 'ok', text: '비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.' });
+      setCurrentPwd('');
+      setNewPwd('');
+      setNewPwdConfirm('');
     } catch (error: unknown) {
-      setEmailMessage({ type: 'err', text: getErrorMessage(error) || '이메일 변경 요청에 실패했습니다.' });
+      setPwdMessage({ type: 'err', text: getErrorMessage(error) || '비밀번호 변경에 실패했습니다.' });
     } finally {
-      setIsRequestingEmail(false);
+      setIsChangingPwd(false);
     }
   };
 
-  const canRequestEmail = newEmail.trim().length > 0 && emailPassword.length > 0 && !isRequestingEmail;
+  const canChangePwd = currentPwd.length > 0 && newPwd.length > 0 && newPwdConfirm.length > 0 && !isChangingPwd;
 
   return (
     <div className="max-w-2xl mx-auto py-8">
@@ -211,60 +210,62 @@ export const UserProfileView: React.FC<Props> = ({ currentUser, onUpdate, onLoca
             </div>
           )}
 
-          {/* 이메일 변경: 새 주소로 보낸 인증 링크를 눌러야 실제로 바뀐다 */}
+          {/* 이메일(로그인 아이디)은 표시만 하고, 비밀번호는 본인이 직접 바꾼다 */}
           <div className="space-y-3 pt-4 border-t border-slate-200">
             <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
               <Mail className="w-4 h-4" />
               이메일 (로그인 아이디)
             </h2>
             <input type="email" value={currentUser.email || ''} disabled className={readOnlyClass} aria-label="현재 이메일" />
+          </div>
 
-            {currentUser.pendingEmail && (
-              <div className="p-3 rounded-lg text-sm bg-amber-50 text-amber-800 border border-amber-200">
-                변경 대기 중: <span className="font-semibold">{currentUser.pendingEmail}</span>
-                <br />
-                새 주소로 받은 인증 링크를 누르면 변경됩니다. 링크를 누르기 전에는 기존 이메일로 로그인하세요.
-              </div>
-            )}
-
+          <div className="space-y-3 pt-4 border-t border-slate-200">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
+              <Lock className="w-4 h-4" />
+              비밀번호 변경
+            </h2>
             <div className="space-y-2">
               <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="새 이메일 주소"
+                type="password"
+                value={currentPwd}
+                onChange={(e) => setCurrentPwd(e.target.value)}
+                placeholder="현재 비밀번호"
                 className={inputClass}
               />
-              <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-slate-500 shrink-0" />
-                <input
-                  type="password"
-                  value={emailPassword}
-                  onChange={(e) => setEmailPassword(e.target.value)}
-                  placeholder="현재 비밀번호 (본인 확인)"
-                  className={inputClass}
-                />
-              </div>
+              <input
+                type="password"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                placeholder="새 비밀번호 (8자 이상)"
+                className={inputClass}
+              />
+              <input
+                type="password"
+                value={newPwdConfirm}
+                onChange={(e) => setNewPwdConfirm(e.target.value)}
+                placeholder="새 비밀번호 확인"
+                className={inputClass}
+              />
             </div>
 
-            {emailMessage && (
+            {pwdMessage && (
               <div className={`p-3 rounded-lg text-sm font-medium border ${
-                emailMessage.type === 'ok'
+                pwdMessage.type === 'ok'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : 'bg-rose-50 text-rose-700 border-rose-200'
               }`}>
-                {emailMessage.text}
+                {pwdMessage.text}
               </div>
             )}
 
             <div className="flex justify-end">
               <button
                 type="button"
-                disabled={!canRequestEmail}
-                onClick={handleRequestEmailChange}
+                disabled={!canChangePwd}
+                onClick={handleChangePassword}
                 className="px-5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors active:scale-95"
               >
-                {isRequestingEmail ? '보내는 중...' : '새 이메일로 인증 메일 보내기'}
+                {isChangingPwd ? '변경 중...' : '비밀번호 변경'}
               </button>
             </div>
           </div>

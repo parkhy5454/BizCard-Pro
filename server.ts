@@ -2786,6 +2786,42 @@ app.put('/api/auth/profile', async (req, res) => {
 });
 
 // 1단계: 새 이메일 + 현재 비밀번호를 받아, 새 주소로 인증 링크를 보낸다. 이 단계에서는 이메일을 바꾸지 않는다.
+// [추가] 로그인한 본인이 현재 비밀번호를 확인한 뒤 새 비밀번호로 바꾼다 (이메일 인증 불필요).
+app.post('/api/auth/password/change', async (req, res) => {
+  if (!checkModifyRateLimit(req, res)) return;
+
+  const requesterId = req.headers['x-user-id'] as string;
+  const user = users.find(u => u.id === requesterId);
+  if (!user) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.' });
+  }
+  if (!verifyPassword(String(currentPassword), user.password)) {
+    return res.status(400).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+  }
+  const passwordValidation = validatePasswordComplexity(String(newPassword));
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error });
+  }
+  if (verifyPassword(String(newPassword), user.password)) {
+    return res.status(400).json({ error: '현재 비밀번호와 다른 비밀번호를 입력해주세요.' });
+  }
+
+  user.password = bcrypt.hashSync(String(newPassword), 10);
+  await addUser(user);
+  await logAudit({
+    scopeId: scopeIdForUser(user),
+    actorUserId: user.id,
+    actorEmail: user.email,
+    action: 'self_password_change',
+    targetUserId: user.id,
+    targetEmail: user.email
+  });
+  res.json({ success: true });
+});
+
 app.post('/api/auth/email/change-request', async (req, res) => {
   if (!checkModifyRateLimit(req, res)) return;
 
