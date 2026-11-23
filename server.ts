@@ -7225,7 +7225,7 @@ app.get('/api/worklogs/calendar.ics', (req, res) => {
         : (wl.achievementsByDay?.[key]?.trim() ? [{ id: 'legacy', content: wl.achievementsByDay![key]! }] : []);
 
       for (const t of entries) {
-        if (!t.content || !t.content.trim()) return;
+        if (!t.content || !t.content.trim()) continue;
         const s = icsDateTime(dateStr, t.startTime);
         const e = icsDateTime(dateStr, t.endTime || t.startTime);
         events.push([
