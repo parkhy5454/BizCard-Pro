@@ -145,7 +145,7 @@ export const MoreMenuView: React.FC<Props> = ({
     : '개인 회원';
 
   return (
-    <div className="max-w-2xl mx-auto pb-6">
+    <div className="max-w-2xl lg:max-w-5xl mx-auto pb-6">
       {/* 내 정보 카드: 프로필 설정으로 가는 입구 */}
       <div className="rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-500 text-white p-5 shadow-md flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-white/20 ring-2 ring-white/40 flex items-center justify-center text-xl font-bold shrink-0">

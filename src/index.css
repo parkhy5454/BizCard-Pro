@@ -481,3 +481,10 @@ input[type="date"]::-webkit-date-and-time-value {
 @media (max-width: 767px) {
   .admin-preview-page [style*="0.5px solid"] { border-width: 1px !important; }
 }
+
+/* [PC 전용] 넓은 화면(1024px 이상)에서만 본문 폭을 넓히고 글자를 키운다.
+   휴대폰(1024px 미만) 화면에는 아무 영향이 없다. */
+@media (min-width: 1024px) {
+  html { font-size: 17px; }
+  main { max-width: 1600px !important; }
+}
