@@ -675,19 +675,21 @@ export const NearbyRadarMap: React.FC<Props> = ({ contacts, groups, onSelectCont
                       한 글자만 남고 "..."로 잘려 보이던 문제를 고쳤다. 이름(min-w-0 + flex-1)이
                       남는 공간을 우선 차지하고, 직책 배지는 shrink-0 + 최대 너비 + 한 줄
                       말줄임으로 제한해 더 이상 이름 자리를 침범하지 않는다. */}
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate min-w-0 flex-1">{c.name}</span>
+                      {/* [수정] 이름이 직책 배지와 같은 줄에 있으면 모바일에서 이름이 "문..."처럼 잘려 보여서,
+                      이름은 한 줄 전체를 쓰고 직책 배지는 회사명 줄로 내렸다. */}
+                      <span className="block font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate">{c.name}</span>
+                      <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                         <span
                           title={c.title || '직책없음'}
-                          className="shrink-0 max-w-[88px] truncate whitespace-nowrap text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium"
+                          className="shrink-0 max-w-[96px] truncate whitespace-nowrap text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium"
                         >
                           {c.title || '직책없음'}
                         </span>
+                        <p className="text-xs text-slate-500 truncate min-w-0 flex items-center gap-1">
+                          <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">{c.company}</span>
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-500 truncate mt-0.5 flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="truncate">{c.company}</span>
-                      </p>
                     </div>
 
                     <div className="text-right shrink-0">
