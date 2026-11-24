@@ -8,7 +8,7 @@ import {
   AlertTriangle, DollarSign, Printer, Download, Clock, Landmark, Info, Pencil, Eye, FileSpreadsheet,
   Upload, X, Paperclip, RefreshCw, Camera, Sparkles, Navigation
 } from 'lucide-react';
-import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, User, MaintenanceInterval, Project } from '../types.js';
+import { Vehicle, DrivingLog, VehicleExpense, VehicleMaintenance, VehicleMaintDocument, User, MaintenanceInterval, Project } from '../types.js';
 import { ContactSearchSelect } from './ContactPicker.js';
 import { ProjectSearchSelect } from './ProjectPicker.js';
 import { CropAdjustModal, warpDataUrlWithNormalizedCorners, isValidNormalizedCorners } from './CropAdjustModal.js';
@@ -75,6 +75,62 @@ const isMobileDevice = (): boolean => {
 };
 
 // 정비 영수증은 여러 장일 수 있다. 예전 데이터(한 장: receiptImage)도 목록처럼 읽는다.
+// 정비 견적서·수리 내역 첨부 입력 (PDF/이미지, 파일당 5MB 이하)
+const MAINT_DOC_MAX_BYTES = 5 * 1024 * 1024;
+const readFileAsMaintDoc = (file: File) =>
+  new Promise<VehicleMaintDocument>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => resolve({ name: file.name, type: file.type || 'application/octet-stream', dataUrl: ev.target?.result as string });
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const MaintDocumentsField: React.FC<{ docs: VehicleMaintDocument[]; onChange: (docs: VehicleMaintDocument[]) => void }> = ({ docs, onChange }) => {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const handleFiles = async (files: FileList | null) => {
+    const list = Array.from(files || []).filter((f) => {
+      if (f.size > MAINT_DOC_MAX_BYTES) {
+        alert(`${f.name} 파일은 5MB를 넘어 첨부할 수 없습니다.`);
+        return false;
+      }
+      return true;
+    });
+    if (inputRef.current) inputRef.current.value = '';
+    if (list.length === 0) return;
+    try {
+      const added = await Promise.all(list.map(readFileAsMaintDoc));
+      onChange([...docs, ...added]);
+    } catch {
+      alert('파일을 읽지 못했습니다. 다시 선택해주세요.');
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <input ref={inputRef} type="file" accept="application/pdf,image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="w-full flex items-center justify-center gap-1.5 border border-dashed border-slate-200 rounded-xl py-2.5 hover:border-indigo-500 text-slate-400 hover:text-indigo-500 text-xs font-semibold"
+      >
+        <Paperclip className="w-4 h-4" />
+        <span>견적서·수리 내역 첨부 (PDF/이미지, 파일당 5MB 이하)</span>
+      </button>
+      {docs.length > 0 && (
+        <ul className="space-y-1.5">
+          {docs.map((d, i) => (
+            <li key={`${d.name}-${i}`} className="flex items-center justify-between gap-2 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+              <a href={d.dataUrl} download={d.name} className="truncate text-indigo-600 hover:underline">{d.name}</a>
+              <button type="button" onClick={() => onChange(docs.filter((_, j) => j !== i))} className="shrink-0 text-slate-400 hover:text-rose-500" title="이 문서 빼기">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
 const maintImagesOf = (m: any): string[] =>
   Array.isArray(m?.receiptImages) && m.receiptImages.length > 0
     ? m.receiptImages
@@ -441,7 +497,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
     memo: '',
     payMethod: 'company_card' as VehicleMaintenance['payMethod'],
     receiptImage: '',
-    receiptImages: []
+    receiptImages: [],
+    documents: [] as VehicleMaintDocument[]
   });
   // [추가] "정비 항목 직접 입력" 모드 여부를 별도 값으로 관리한다. 예전엔 newMaint.title이
   // '직접 입력'인지, MAINTENANCE_OPTIONS 목록에 있는지를 매 입력마다 다시 계산해서 커스텀
@@ -1367,7 +1424,8 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
           memo: '',
           payMethod: 'company_card',
           receiptImage: '',
-          receiptImages: []
+          receiptImages: [],
+          documents: []
         });
       } else {
         // [추가] 정비 영수증 스캔본이 포함된 저장이 DB에 실패했을 때 조용히 넘어가지 않고 알려준다.
@@ -4327,6 +4385,9 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                         갤러리에서 선택
                       </button>
                 </div>
+                <div className="col-span-1 sm:col-span-2 lg:col-span-4">
+                  <MaintDocumentsField docs={newMaint.documents || []} onChange={(documents) => setNewMaint({ ...newMaint, documents })} />
+                </div>
                 {maintImagesOf(newMaint).length > 0 && (
                   <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex flex-wrap gap-2">
                     {maintImagesOf(newMaint).map((img, idx) => (
@@ -4748,6 +4809,15 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                               </div>
                             </div>
 
+                            {Array.isArray(m.documents) && m.documents.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {m.documents.map((d, i) => (
+                                  <a key={`${d.name}-${i}`} href={d.dataUrl} download={d.name} className="text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 truncate max-w-[180px]">
+                                    첨부: {d.name}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                             {m.memo && (
                               <p className="text-sm text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
                                 메모: {m.memo}
@@ -6560,6 +6630,7 @@ export const VehicleView: React.FC<Props & { topRowsContainer?: HTMLElement | nu
                       갤러리에서 선택
                     </button>
                   </div>
+                  <MaintDocumentsField docs={editingMaint.documents || []} onChange={(documents) => setEditingMaint({ ...editingMaint, documents })} />
                   {maintImagesOf(editingMaint).length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {maintImagesOf(editingMaint).map((img, idx) => (

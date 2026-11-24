@@ -1010,6 +1010,13 @@ export interface VehicleExpense {
   linkedMaintenanceId?: string;
 }
 
+// 정비 첨부 문서 (견적서·수리 내역 등). 영수증 사진과 달리 PDF도 받는다.
+export interface VehicleMaintDocument {
+  name: string;     // 원래 파일명
+  type: string;     // MIME 타입 (예: application/pdf)
+  dataUrl: string;  // 파일 내용 (data URL)
+}
+
 export interface VehicleMaintenance {
   id: string;
   vehicleId: string;
@@ -1027,6 +1034,7 @@ export interface VehicleMaintenance {
   payMethod?: 'company_card' | 'personal_card' | 'cash' | 'none'; // 결제 수단 (none: 해당없음/무료)
   receiptImage?: string; // 정비 영수증/청구서 이미지 (첫 장, 예전 데이터 호환용)
   receiptImages?: string[]; // 정비 영수증/청구서 이미지 목록 (여러 장)
+  documents?: VehicleMaintDocument[]; // 견적서·수리 내역 등 첨부 문서 (PDF/이미지)
   createdAt: string;
 }
 
